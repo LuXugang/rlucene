@@ -1,22 +1,35 @@
-use std::cmp::max;
+use std::iter::repeat_with;
 use std::mem;
-use std::ptr::null;
 
-struct PriorityQueue<T> {
-    size: i32,
-    max_size: i32,
-    // maybe we should ues Vec
-    heap: Box<[T]>,
+pub struct PriorityQueue<T, C>
+where
+    C: Compare<T>,
+{
+    size: usize,
+    max_size: usize,
+    heap: Vec<T>,
+    compare: C,
 }
 
-impl<T> PriorityQueue<T> {
-    fn with_sentinel_object<F>(
+impl<T, C> PriorityQueue<T, C>
+where
+    C: Compare<T>,
+    T: Default + PartialEq,
+{
+    pub fn heap(&self) -> &Vec<T> {
+        &self.heap
+    }
+    pub fn get_compare(&self) -> &C {
+        &self.compare
+    }
+    pub fn with_sentinel_object<F>(
         max_size: i32,
         sentinel_object_supplier: F,
-    ) -> Result<PriorityQueue<T>, String>
+        compare: C,
+    ) -> Result<PriorityQueue<T, C>, String>
     where
         F: Fn() -> Option<T>,
-        T: Default + Clone + PartialOrd,
+        C: Compare<T>,
     {
         let heap_size = if 0 == max_size {
             // We allocate 1 extra to avoid if statement in top()
@@ -31,49 +44,213 @@ impl<T> PriorityQueue<T> {
             }
             // NOTE: we add +1 because all access to heap is
             // 1-based not 0-based.  heap[0] is unused.
-            max_size + 1
+            (max_size + 1) as usize
         };
-        let mut heap: Box<[T]> = vec![T::default(); heap_size as usize].into_boxed_slice();
+        let mut heap: Vec<T> = Vec::with_capacity(heap_size);
+        heap.resize_with(heap_size, Default::default);
         if let Some(sentinel) = sentinel_object_supplier() {
             heap[1] = sentinel;
-            for i in 2..heap.len() {
-                heap[i] = sentinel_object_supplier().unwrap();
+            for (i, value) in repeat_with(|| sentinel_object_supplier().unwrap())
+                .take(heap_size)
+                .enumerate()
+                .skip(2)
+            {
+                heap[i] = value;
             }
             return Ok(PriorityQueue {
-                max_size: heap_size,
+                max_size: max_size as usize,
                 size: heap_size,
                 heap,
+                compare,
             });
         }
         Ok(PriorityQueue {
-            max_size: heap_size,
+            max_size: max_size as usize,
             size: 0,
             heap,
+            compare,
         })
     }
 
     // construct
-    fn new(max_size: i32) -> Result<PriorityQueue<T>, String>
-    where
-        T: Default + Clone + PartialOrd,
-    {
-        Self::with_sentinel_object(max_size, || None)
+    pub fn new(max_size: i32, compare: C) -> Result<PriorityQueue<T, C>, String> {
+        Self::with_sentinel_object(max_size, || None, compare)
     }
 
-    fn add_all<I>(&self, elements: I) -> Result<(), String>
-    where
-        I: AsRef<[T]>,
-    {
-        if (self.size + elements.as_ref().len() as i32) > self.max_size {
+    pub fn add_all(&mut self, elements: Vec<T>) -> Result<(), String> {
+        if (self.size + elements.len()) > self.max_size {
             return Err(format!(
                 "Cannot add {} elements to a queue with remaining capacity: {}",
-                elements.as_ref().len(),
+                elements.len(),
                 self.max_size - self.size
             ));
         }
         // Heap with size S always takes first S elements of the array,
         // and thus it's safe to fill array further - no actual non-sentinel value will be overwritten.
+        for element in elements.into_iter() {
+            self.heap[self.size + 1] = element;
+            self.size += 1;
+        }
 
-        todo!()
+        // The loop goes down to 1 as heap is 1-based not 0-based.
+        for i in (1..=(self.size >> 1)).rev() {
+            self.down_heap(i);
+        }
+        Ok(())
     }
+
+    /** Removes and returns the least element of the PriorityQueue in log(size) time. */
+    pub fn pop(&mut self) -> Option<T> {
+        if self.size > 0 {
+            self.heap.swap(1, self.size);
+            let result = self.heap.remove(self.size);
+            // With size as a sentinel value, we add an invalid value to prevent the length of the Vec from changing
+            self.heap.push(T::default());
+            self.size -= 1;
+            self.down_heap(1);
+            Some(result)
+        } else {
+            None
+        }
+    }
+
+    pub fn add(&mut self, element: T) -> &T {
+        let index = self.size + 1;
+        self.heap[index] = element;
+        self.size = index;
+        self.up_heap(index);
+        &self.heap[1]
+    }
+
+    pub fn insert_with_overflow(&mut self, element: T) -> Option<T> {
+        if self.size < self.max_size {
+            self.add(element);
+            None
+        } else if self.size > 0 && self.compare.less_than(&self.heap[1], &element) {
+            let ret = mem::replace(&mut self.heap[1], element);
+            self.update_top();
+            Some(ret)
+        } else {
+            Some(element)
+        }
+    }
+
+    pub fn top(&self) -> &T {
+        // We don't need to check size here: if maxSize is 0,
+        // then heap is length 2 array with both entries null.
+        // If size is 0 then heap[1] is already null.
+        &self.heap[1]
+    }
+
+    pub fn update_top(&mut self) -> &T {
+        self.down_heap(1);
+        &self.heap[1]
+    }
+
+    pub fn update_top_with_new_top(&mut self, new_top: T) -> &T {
+        self.heap[1] = new_top;
+        self.update_top()
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
+    pub fn clear(&mut self) {
+        self.heap.clear();
+        self.size = 0;
+    }
+
+    // This method is not commonly used, so let’s not implement it for now
+    pub fn remove(&mut self, element: &T) -> bool {
+        for i in 1..=self.size {
+            if self.heap[i] == *element {
+                self.heap.swap(i, self.size);
+            }
+            self.size -= 1;
+            if i <= self.size {
+                if !self.up_heap(i) {
+                    self.down_heap(i);
+                }
+            }
+            return true;
+        }
+        false
+    }
+
+    pub fn up_heap(&mut self, orig_pos: usize) -> bool {
+        let mut i = orig_pos;
+        let mut j = i >> 1;
+        while j > 0 && self.compare.less_than(&self.heap[i], &self.heap[j]) {
+            self.heap.swap(i, j);
+            i = j;
+            j = i >> 1;
+        }
+        i != orig_pos
+    }
+
+    pub fn down_heap(&mut self, mut i: usize) {
+        let size = self.size;
+        while i * 2 <= size {
+            let mut j = i * 2;
+            let k = j + 1;
+
+            if k <= size && self.compare.less_than(&self.heap[k], &self.heap[j]) {
+                j = k;
+            }
+
+            if !self.compare.less_than(&self.heap[j], &self.heap[i]) {
+                break;
+            }
+
+            self.heap.swap(i, j);
+            i = j;
+        }
+    }
+
+    pub fn get_heap_array(&self) -> &Vec<T> {
+        &self.heap
+    }
+
+    pub fn iterator(&self) -> PriorityQueueIterator<T, C> {
+        PriorityQueueIterator::new(self)
+    }
+}
+
+pub struct PriorityQueueIterator<'a, T, C>
+where
+    C: Compare<T>,
+    T: PartialEq,
+{
+    pq: &'a PriorityQueue<T, C>,
+    index: usize,
+}
+impl<'a, T, C> PriorityQueueIterator<'a, T, C>
+where
+    C: Compare<T>,
+    T: PartialEq,
+{
+    fn new(pq: &'a PriorityQueue<T, C>) -> Self {
+        Self { pq, index: 0 }
+    }
+}
+impl<'a, T, C> Iterator for PriorityQueueIterator<'a, T, C>
+where
+    C: Compare<T>,
+    T: PartialEq,
+{
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.pq.size {
+            let result = &self.pq.heap[self.index + 1];
+            self.index += 1;
+            return Some(result);
+        }
+        None
+    }
+}
+
+pub trait Compare<T> {
+    fn less_than(&self, a: &T, b: &T) -> bool;
 }
