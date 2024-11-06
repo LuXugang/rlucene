@@ -1,6 +1,37 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 use std::iter::repeat_with;
 use std::mem;
 
+/**
+ * Create a priority queue that is pre-filled with sentinel objects, so that the code which uses
+ * that queue can always assume it's full and only change the top without attempting to insert any
+ * new object.
+ *
+ * <p>Those sentinel values should always compare worse than any non-sentinel value `lessThan`
+ * should always favor the non-sentinel values.
+ *
+ * <p>By default, the supplier returns null, which means the queue will not be filled with
+ * sentinel values. Otherwise, the value returned will be used to pre-populate the queue.
+ *
+ * <b>NOTE:</b> the given supplier will be called `max_size`, Therefore, you should ensure any call to
+ * this method creates a new instance and behaves consistently, e.g., it cannot return null if it
+ * previously returned non-null and all returned instances must `lessThan` compare equal.
+ */
 pub struct PriorityQueue<T, C>
 where
     C: Compare<T>,
@@ -35,7 +66,7 @@ where
             // We allocate 1 extra to avoid if statement in top()
             2
         } else {
-            if max_size < 0 || max_size >= i32::MAX {
+            if !(0..i32::MAX).contains(&max_size) {
                 return Err(format!(
                     "maxSize must be >= 0 and < {}; got: {}",
                     i32::MAX,
@@ -77,6 +108,13 @@ where
         Self::with_sentinel_object(max_size, || None, compare)
     }
 
+    /**
+     * Adds all elements of the collection into the queue. This method should be preferred over
+     * calling `add(&mut self, element: T)` in loop if all elements are known in advance as it builds queue
+     * faster.
+     *
+     * <p>If one tries to add more objects than the maxSize passed in the constructor will return error.
+     */
     pub fn add_all(&mut self, elements: Vec<T>) -> Result<(), String> {
         if (self.size + elements.len()) > self.max_size {
             return Err(format!(
@@ -99,6 +137,48 @@ where
         Ok(())
     }
 
+    /**
+     * Adds an Object to a PriorityQueue in log(size) time. If one tries to add more objects than
+     * maxSize from initialize will return error
+     *
+     * return the new 'top' element in the queue.
+     */
+    pub fn add(&mut self, element: T) -> &T {
+        let index = self.size + 1;
+        self.heap[index] = element;
+        self.size = index;
+        self.up_heap(index);
+        &self.heap[1]
+    }
+
+    /**
+     * Adds an Object to a PriorityQueue in log(size) time. It returns the object (if any) that was
+     * dropped off the heap because it was full. This can be the given parameter (in case it is
+     * smaller than the full heap's minimum, and couldn't be added), or another object that was
+     * previously the smallest value in the heap and now has been replaced by a larger one, or null if
+     * the queue wasn't yet full with maxSize elements.
+     */
+    pub fn insert_with_overflow(&mut self, element: T) -> Option<T> {
+        if self.size < self.max_size {
+            self.add(element);
+            None
+        } else if self.size > 0 && self.compare.less_than(&self.heap[1], &element) {
+            let ret = mem::replace(&mut self.heap[1], element);
+            self.update_top();
+            Some(ret)
+        } else {
+            Some(element)
+        }
+    }
+
+    /** Returns the least element of the PriorityQueue in constant time. */
+    pub fn top(&self) -> &T {
+        // We don't need to check size here: if maxSize is 0,
+        // then heap is length 2 array with both entries null.
+        // If size is 0 then heap[1] is already null.
+        &self.heap[1]
+    }
+
     /** Removes and returns the least element of the PriorityQueue in log(size) time. */
     pub fn pop(&mut self) -> Option<T> {
         if self.size > 0 {
@@ -114,64 +194,48 @@ where
         }
     }
 
-    pub fn add(&mut self, element: T) -> &T {
-        let index = self.size + 1;
-        self.heap[index] = element;
-        self.size = index;
-        self.up_heap(index);
-        &self.heap[1]
-    }
+    /**
+    * Should be called when the Object at top changes values. Still log(n) worst case, but it's at
+    * least twice as fast to
 
-    pub fn insert_with_overflow(&mut self, element: T) -> Option<T> {
-        if self.size < self.max_size {
-            self.add(element);
-            None
-        } else if self.size > 0 && self.compare.less_than(&self.heap[1], &element) {
-            let ret = mem::replace(&mut self.heap[1], element);
-            self.update_top();
-            Some(ret)
-        } else {
-            Some(element)
-        }
-    }
-
-    pub fn top(&self) -> &T {
-        // We don't need to check size here: if maxSize is 0,
-        // then heap is length 2 array with both entries null.
-        // If size is 0 then heap[1] is already null.
-        &self.heap[1]
-    }
+    * the new 'top' element.
+    */
 
     pub fn update_top(&mut self) -> &T {
         self.down_heap(1);
         &self.heap[1]
     }
 
+    /** Replace the top of the pq with `newTop` and run `updateTop()`. */
     pub fn update_top_with_new_top(&mut self, new_top: T) -> &T {
         self.heap[1] = new_top;
         self.update_top()
     }
 
+    /** Returns the number of elements currently stored in the PriorityQueue. */
     pub fn size(&self) -> usize {
         self.size
     }
 
+    /** Removes all entries from the PriorityQueue. */
     pub fn clear(&mut self) {
         self.heap.clear();
         self.size = 0;
     }
 
-    // This method is not commonly used, so let’s not implement it for now
+    /**
+     * Removes an existing element currently stored in the PriorityQueue. Cost is linear with the size
+     * of the queue. (A specialization of PriorityQueue which tracks element positions would provide a
+     * constant remove time but the trade-off would be extra cost to all additions/insertions)
+     */
     pub fn remove(&mut self, element: &T) -> bool {
         for i in 1..=self.size {
             if self.heap[i] == *element {
                 self.heap.swap(i, self.size);
             }
             self.size -= 1;
-            if i <= self.size {
-                if !self.up_heap(i) {
-                    self.down_heap(i);
-                }
+            if i <= self.size && !self.up_heap(i) {
+                self.down_heap(i);
             }
             return true;
         }
@@ -208,7 +272,11 @@ where
         }
     }
 
-    pub fn get_heap_array(&self) -> &Vec<T> {
+    /**
+     * This method returns the internal heap array as Object[].
+     *
+     */
+    fn get_heap_array(&self) -> &Vec<T> {
         &self.heap
     }
 
@@ -217,6 +285,10 @@ where
     }
 }
 
+/**
+ * Each call can start iterating over the elements in the priority queue from the beginning.
+ * The access order is not sorted; if a sorted order is required, you can directly use `PriorityQueue#pop()`.
+*/
 pub struct PriorityQueueIterator<'a, T, C>
 where
     C: Compare<T>,
@@ -252,5 +324,11 @@ where
 }
 
 pub trait Compare<T> {
+    /**
+     * Determines the ordering of objects in this priority queue. Subclasses must define this one
+     * method.
+     *
+     * return `true` if parameter `a` is less than parameter `b`.
+     */
     fn less_than(&self, a: &T, b: &T) -> bool;
 }

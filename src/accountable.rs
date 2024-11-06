@@ -15,41 +15,27 @@
  * limitations under the License.
  */
 
-pub mod accountable;
+pub trait Accountable {
+    /** Return the memory usage of this object in bytes. Negative values are illegal. */
+    fn ram_bytes_used(&self) -> i64;
 
-pub mod bit_doc_id_set;
-pub use crate::bit_doc_id_set::*;
+    /**
+     * Returns nested resources of this class. The result should be a point-in-time snapshot (to avoid
+     * race conditions).
+     */
+    fn get_child_resources(&self) -> Vec<EmptyAccountable> {
+        vec![]
+    }
+}
 
-pub mod bit_sets;
+struct EmptyAccountable;
+impl EmptyAccountable {}
+impl Accountable for EmptyAccountable {
+    fn ram_bytes_used(&self) -> i64 {
+        0
+    }
 
-pub mod bit_set_iterator;
-pub use crate::bit_set_iterator::*;
-
-pub mod bits;
-pub use crate::bits::*;
-
-pub mod doc_base_bit_set_iterator;
-pub use crate::doc_base_bit_set_iterator::*;
-
-pub mod doc_id_set;
-pub use crate::doc_id_set::*;
-
-pub mod doc_id_set_builder;
-
-pub mod doc_id_set_iterator;
-pub use crate::doc_id_set_iterator::*;
-
-pub mod docs_with_field_set;
-pub use crate::docs_with_field_set::*;
-
-pub mod int_array_doc_Id_set;
-pub use crate::int_array_doc_Id_set::*;
-
-pub mod not_doc_id_set;
-pub use crate::not_doc_id_set::*;
-
-pub mod priority_queue;
-pub use crate::priority_queue::*;
-
-pub mod roaring_doc_id_set;
-pub use crate::roaring_doc_id_set::*;
+    fn get_child_resources(&self) -> Vec<EmptyAccountable> {
+        vec![]
+    }
+}

@@ -1,7 +1,27 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#[path = "common.rs"]
+mod common;
+use crate::common::my_random;
 use rand::Rng;
+use rlucene::priority_queue::PriorityQueue;
+use rlucene::Compare;
 use std::fmt::Debug;
-use RLucene::Compare;
-use RLucene::PriorityQueue::PriorityQueue;
 
 struct I32Compare;
 
@@ -68,23 +88,23 @@ fn test_no_extra_work_on_equal_elements() {
 
 #[test]
 fn test_pq() {
-    let mut gen = rand::thread_rng();
+    let mut random = my_random("test_pq".to_string());
     let count: i32;
-    if gen.gen_bool(0.5) {
-        if gen.gen_bool(0.5) {
+    if random.gen_bool(0.5) {
+        if random.gen_bool(0.5) {
             count = 0;
         } else {
             count = i32::MAX;
         }
     } else {
-        count = gen.gen_range(10_000..1000000);
+        count = random.gen_range(10_000..1000000);
     }
     let pq = PriorityQueue::new(count, I32Compare);
     if let Ok(mut heap) = pq {
         let mut sum: i32 = 0;
         let mut sum2: i32 = 0;
         for _i in 0..count {
-            let next: i32 = gen.gen();
+            let next: i32 = random.gen();
             sum = sum.wrapping_add(next);
             heap.add(next);
         }
@@ -150,18 +170,18 @@ fn test_insert_with_overflow() {
 
 #[test]
 fn test_add_all_to_empty_queue() {
-    let mut gen = rand::thread_rng();
+    let mut random = my_random("test_add_all_to_empty_queue".to_string());
     let size = 10;
     let mut list: Vec<i32> = Vec::new();
     let mut list2: Vec<i32> = Vec::new();
     let mut value: i32;
     for _i in 0..size {
-        value = gen.gen();
+        value = random.gen();
         list.push(value);
         list2.push(value);
     }
     let mut pq = PriorityQueue::new(size, I32Compare).unwrap();
-    pq.add_all(list);
+    let _ = pq.add_all(list);
     check_validity(&pq);
     assert_ordered_when_drained(&mut pq, list2);
 }
@@ -172,17 +192,18 @@ fn test_add_all_to_partially_filled_queue() {
     let mut one_by_one: Vec<i32> = Vec::new();
     let mut bulk_added: Vec<i32> = Vec::new();
     let mut bulk_added2: Vec<i32> = Vec::new();
-    let mut gen = rand::thread_rng();
+    let mut random = my_random("test_add_all_to_partially_filled_queue".to_string());
+
     for _i in 0..10 {
-        let value: i32 = gen.gen();
+        let value: i32 = random.gen();
         bulk_added.push(value);
         bulk_added2.push(value);
-        let x: i32 = gen.gen();
+        let x: i32 = random.gen();
         pq.add(x);
         one_by_one.push(x);
     }
 
-    pq.add_all(bulk_added);
+    let _ = pq.add_all(bulk_added);
     check_validity(&pq);
 
     one_by_one.append(&mut bulk_added2);
@@ -193,7 +214,7 @@ fn test_add_all_to_partially_filled_queue() {
 fn test_add_all_does_not_fit_into_queue() {
     let mut pq = PriorityQueue::new(20, I32Compare).unwrap();
     let mut list: Vec<i32> = Vec::new();
-    let mut random = rand::thread_rng();
+    let mut random = my_random("test_add_all_does_not_fit_into_queue".to_string());
     for _i in 0..11 {
         list.push(random.gen());
         pq.add(random.gen());
@@ -207,7 +228,7 @@ fn test_add_all_does_not_fit_into_queue() {
 
 #[test]
 fn test_removals_and_insertions() {
-    let mut random = rand::thread_rng();
+    let mut random = my_random("test_removals_and_insertions".to_string());
     let num_docs_in_pq = random.gen_range(1..=100);
     let mut pq = PriorityQueue::new(num_docs_in_pq, I32Compare).unwrap();
     let mut last_least: Option<i32> = None;
@@ -263,7 +284,7 @@ fn test_removals_and_insertions() {
 
 #[test]
 fn test_iterator_empty() {
-    let mut pq = PriorityQueue::new(3, I32Compare).unwrap();
+    let pq = PriorityQueue::new(3, I32Compare).unwrap();
     let mut it = pq.iterator();
     assert_eq!(*&it.next(), None);
 }
@@ -288,12 +309,12 @@ fn test_iterator_two() {
 
 #[test]
 fn test_iterator_random() {
-    let mut random = rand::thread_rng();
+    let mut random = my_random("test_iterator_random".to_string());
     let max_size: usize = random.gen_range(1..20);
     let mut queue = PriorityQueue::new(max_size as i32, I32Compare).unwrap();
     let iters: usize = random.gen_range(100..500);
     let mut expected: Vec<i32> = Vec::new();
-    for i in 0..iters {
+    for _i in 0..iters {
         if queue.size() == 0 || (queue.size() < max_size) {
             // if queue.size() == 0 || (queue.size() < max_size && random.gen::<bool>()) {
             let value: i32 = random.gen_range(0..=10);

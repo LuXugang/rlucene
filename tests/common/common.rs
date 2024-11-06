@@ -14,42 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use rand::prelude::StdRng;
+use rand::{random, SeedableRng};
 
-pub mod accountable;
+pub fn get_seed_from_env() -> u64 {
+    std::env::var("TEST_SEED")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_else(random) // 默认种子
+}
 
-pub mod bit_doc_id_set;
-pub use crate::bit_doc_id_set::*;
+pub fn my_random(test_name: String) -> StdRng {
+    let seed: u64 = get_seed_from_env();
+    println!("Generated Seed in {}: {}", test_name, seed);
+    StdRng::seed_from_u64(seed)
+}
 
-pub mod bit_sets;
-
-pub mod bit_set_iterator;
-pub use crate::bit_set_iterator::*;
-
-pub mod bits;
-pub use crate::bits::*;
-
-pub mod doc_base_bit_set_iterator;
-pub use crate::doc_base_bit_set_iterator::*;
-
-pub mod doc_id_set;
-pub use crate::doc_id_set::*;
-
-pub mod doc_id_set_builder;
-
-pub mod doc_id_set_iterator;
-pub use crate::doc_id_set_iterator::*;
-
-pub mod docs_with_field_set;
-pub use crate::docs_with_field_set::*;
-
-pub mod int_array_doc_Id_set;
-pub use crate::int_array_doc_Id_set::*;
-
-pub mod not_doc_id_set;
-pub use crate::not_doc_id_set::*;
-
-pub mod priority_queue;
-pub use crate::priority_queue::*;
-
-pub mod roaring_doc_id_set;
-pub use crate::roaring_doc_id_set::*;
+pub fn is_night_mode() -> bool {
+    std::env::var("NIGHT_MODE").map_or(false, |v| v == "true")
+}

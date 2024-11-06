@@ -14,42 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+// todo: should with mask
+pub fn flip_bit_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
+    for i in start..end {
+        flip_bit(bitset, i);
+    }
+}
 
-pub mod accountable;
-
-pub mod bit_doc_id_set;
-pub use crate::bit_doc_id_set::*;
-
-pub mod bit_sets;
-
-pub mod bit_set_iterator;
-pub use crate::bit_set_iterator::*;
-
-pub mod bits;
-pub use crate::bits::*;
-
-pub mod doc_base_bit_set_iterator;
-pub use crate::doc_base_bit_set_iterator::*;
-
-pub mod doc_id_set;
-pub use crate::doc_id_set::*;
-
-pub mod doc_id_set_builder;
-
-pub mod doc_id_set_iterator;
-pub use crate::doc_id_set_iterator::*;
-
-pub mod docs_with_field_set;
-pub use crate::docs_with_field_set::*;
-
-pub mod int_array_doc_Id_set;
-pub use crate::int_array_doc_Id_set::*;
-
-pub mod not_doc_id_set;
-pub use crate::not_doc_id_set::*;
-
-pub mod priority_queue;
-pub use crate::priority_queue::*;
-
-pub mod roaring_doc_id_set;
-pub use crate::roaring_doc_id_set::*;
+// todo: should with mask
+pub fn clear_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
+    for i in start..end {
+        bitset.remove(i);
+    }
+}
+// todo: should with mask
+pub fn set_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
+    for i in start..end {
+        bitset.insert(i);
+    }
+}
+pub fn flip_bit(bitset: &mut bit_set::BitSet, index: usize) {
+    if bitset.contains(index) {
+        bitset.remove(index);
+    } else {
+        bitset.insert(index);
+    }
+}
