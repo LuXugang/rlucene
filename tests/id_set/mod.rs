@@ -17,6 +17,7 @@
 pub mod base_bit_set_test_case;
 pub mod base_doc_id_set_test_case;
 pub mod id_set_common;
+pub mod test_doc_id_set_builder;
 pub mod test_doc_id_set_iterator;
 pub mod test_docs_with_field_set;
 pub mod test_fixed_bit_doc_id_set;

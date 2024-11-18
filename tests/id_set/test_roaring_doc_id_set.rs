@@ -19,7 +19,7 @@ use crate::id_set::base_doc_id_set_test_case::{
     BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
 use rand::prelude::StdRng;
-use rlucene::{Builder, DocIdSet};
+use rlucene::{DocIdSet, RoaringDocIdSetBuilder};
 
 struct TestRoaringDocIdSet;
 #[test]
@@ -34,7 +34,7 @@ fn test_roaring_doc_id_set() {
 }
 impl BaseDocIdSetTestCase for TestRoaringDocIdSet {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {
-        let mut builder = Builder::new(length);
+        let mut builder = RoaringDocIdSetBuilder::new(length);
         let iter = bs.iter();
         for doc in iter {
             let _ = builder.add(doc as i32);

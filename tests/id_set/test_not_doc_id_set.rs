@@ -24,6 +24,9 @@ use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
 use rlucene::doc_id_set::DocIdSet;
 use rlucene::{BitDocIdSet, EmptyDocIdSet};
 use rlucene::{Bits, NotDocIdSet};
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
+use std::sync::Arc;
 
 struct TestNotDocIdSet;
 impl BaseDocIdSetTestCase for TestNotDocIdSet {
@@ -34,7 +37,7 @@ impl BaseDocIdSetTestCase for TestNotDocIdSet {
                 set.set(i);
             }
         }
-        let bit_doc_id_set = BitDocIdSet::new(set).unwrap();
+        let bit_doc_id_set = BitDocIdSet::new(Some(set)).unwrap();
         NotDocIdSet::new(length, bit_doc_id_set)
     }
 
@@ -72,8 +75,51 @@ impl BaseDocIdSetTestCaseSupperImpl for TestNotDocIdSet {}
 fn test_bits() {
     assert!(NotDocIdSet::new(3, EmptyDocIdSet).bits().is_none());
     assert!(
-        NotDocIdSet::new(3, BitDocIdSet::new(FixedBitSet::new(3)).unwrap())
+        NotDocIdSet::new(3, BitDocIdSet::new(Some(FixedBitSet::new(3))).unwrap())
             .bits()
             .is_some()
     );
+}
+struct Buffer {
+    array: Vec<i32>,
+}
+#[test]
+fn main() {
+    // 假设有一个 Vec<Buffer>
+    let mut buffers = vec![
+        Buffer {
+            array: vec![3, 1, 4],
+        },
+        Buffer {
+            array: vec![5, 9, 2],
+        },
+        Buffer {
+            array: vec![6, 8, 7],
+        },
+    ];
+    let mut heap = BinaryHeap::new();
+    let mut iterators: Vec<_> = buffers
+        .into_iter()
+        .map(|buffer| buffer.array.into_iter())
+        .collect();
+
+    // 初始化最小堆
+    for (i, it) in iterators.iter_mut().enumerate() {
+        if let Some(value) = it.next() {
+            heap.push(Reverse((value, i))); // 用 Reverse 实现小顶堆
+        }
+    }
+
+    let mut merged_array = Vec::new();
+
+    // 多路归并
+    while let Some(Reverse((value, i))) = heap.pop() {
+        merged_array.push(value);
+        if let Some(next_value) = iterators[i].next() {
+            heap.push(Reverse((next_value, i)));
+        }
+    }
+
+    // 输出排序结果
+    println!("{:?}", merged_array);
 }

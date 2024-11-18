@@ -122,7 +122,7 @@ impl BitSet for BitSetType {
         }
     }
 
-    fn or(&mut self, iter: impl DocIdSetIterator) -> Result<(), String> {
+    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), String> {
         match self {
             Self::Sparse(s) => s.or(iter),
             Self::Fixed(fixed) => BitSet::or(fixed, iter),

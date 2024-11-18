@@ -30,7 +30,7 @@ impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
         for doc in iter {
             set.set(doc as i32);
         }
-        let result = BitDocIdSet::new(set);
+        let result = BitDocIdSet::new(Some(set));
         assert!(result.is_ok());
         result.unwrap()
     }

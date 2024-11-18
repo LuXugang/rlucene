@@ -88,8 +88,11 @@ impl EmptyDISI {
 }
 impl DocIdSetIterator for EmptyDISI {
     fn doc_id(&self) -> i32 {
-        
-        if self.exhausted { NO_MORE_DOCS } else { -1 }
+        if self.exhausted {
+            NO_MORE_DOCS
+        } else {
+            -1
+        }
     }
 
     fn next_doc(&mut self) -> i32 {

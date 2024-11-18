@@ -620,7 +620,7 @@ fn test_and_not() {
     let count1 = random.gen_range(0..=num_bits1 - 1);
     let count2 = random.gen_range(0..=num_bits2 - 1);
 
-    let min = random.gen_range(0..=(num_bits1 + 1));
+    let min = random.gen_range(0..=(num_bits1 - 1));
     let off_set_word1 = min >> 6;
     let offset1 = off_set_word1 >> 6;
     let bits1 = make_int_array(&mut random, count1, min, num_bits1 - 1);

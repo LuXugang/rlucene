@@ -24,6 +24,7 @@ use rlucene::bit_sets::bit_set::BitSet;
 use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
 use rlucene::bits::Bits;
 use rlucene::doc_id_set_iterator::NO_MORE_DOCS;
+use rlucene::{DocIdSet, DocIdSetIterator};
 use std::collections::HashSet;
 
 pub fn random_set(random: &mut StdRng, num_bits: i32, percent_set: f32) -> bit_set::BitSet {
@@ -194,8 +195,18 @@ pub trait BaseBitSetTestCase {
         let random_float: f32 = random.gen();
         self.test_or_impl(random, random_float)
     }
-    // todo
-    fn test_or_impl(&self, random: &mut StdRng, load: f32) {}
+    fn test_or_impl(&self, random: &mut StdRng, load: f32) {
+        // let num_bits = 1 + random.gen_range(0..100000);
+        // let set1 = RustUtilBitSet::new(random_set(random, num_bits, 0f32), num_bits);
+        // let (mut set2, sfbs) = self.copy_of(&set1, num_bits);
+        //
+        // let iteration = random.gen_range(10..1000);
+        // for iter in 0..iteration {
+        //     let bitset = RustUtilBitSet::new(random_set(random, num_bits, 0f32), num_bits);
+        //     // let other_set = random_copy(random,bitset,num_bits);
+        //     todo!()
+        // }
+    }
 }
 
 pub trait BaseBitSetTestCaseSupperImpl {
@@ -213,7 +224,9 @@ pub trait BaseBitSetTestCaseSupperImpl {
 }
 
 //todo
-fn random_copy(random: &mut StdRng, set: impl BitSet, num_bits: i32) {}
+fn random_copy(random: &mut StdRng, set: impl BitSet, num_bits: i32) {
+    todo!()
+}
 
 trait DefaultMethod {
     fn assert_equals(set1: &RustUtilBitSet, set2: &impl BitSet, max_doc: i32) {
@@ -227,6 +240,21 @@ pub struct RustUtilBitSet {
     bitset: bit_set::BitSet,
     num_bits: i32,
     index_hash_set: HashSet<i32>,
+}
+
+impl RustUtilBitSet {
+    pub(crate) fn new(bitset: bit_set::BitSet, num_bits: i32) -> Self {
+        let iter = bitset.iter();
+        let mut index_hash_set = HashSet::new();
+        for index in iter {
+            index_hash_set.insert(index as i32);
+        }
+        RustUtilBitSet {
+            bitset,
+            num_bits,
+            index_hash_set,
+        }
+    }
 }
 
 impl Clone for RustUtilBitSet {
@@ -248,21 +276,6 @@ impl PartialEq for RustUtilBitSet {
             return true;
         }
         false
-    }
-}
-
-impl RustUtilBitSet {
-    pub(crate) fn new(bitset: bit_set::BitSet, num_bits: i32) -> Self {
-        let iter = bitset.iter();
-        let mut index_hash_set = HashSet::new();
-        for index in iter {
-            index_hash_set.insert(index as i32);
-        }
-        RustUtilBitSet {
-            bitset,
-            num_bits,
-            index_hash_set,
-        }
     }
 }
 
@@ -334,6 +347,10 @@ impl BitSet for RustUtilBitSet {
             }
         }
         NO_MORE_DOCS
+    }
+
+    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), String> {
+        todo!()
     }
 }
 #[test]

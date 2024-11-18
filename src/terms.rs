@@ -14,7 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod common;
-
-pub use common::*;
-pub mod test_priority_queue;
+pub(crate) trait Terms {
+    /**
+     * Returns the number of documents that have at least one term for this field. Note that, just
+     * like other term measures, this measure does not take deleted documents into account.
+     */
+    fn get_doc_count();
+    /**
+     * Returns the sum of TermsEnum#doc_freq() for all terms in this field. Note that, just
+     * like other term measures, this measure does not take deleted documents into account.
+     */
+    fn get_sum_doc_freq();
+}

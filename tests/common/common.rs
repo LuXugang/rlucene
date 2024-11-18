@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use rand::prelude::StdRng;
-use rand::{random, SeedableRng};
+use rand::{random, Rng, SeedableRng};
 
 pub fn get_seed_from_env() -> u64 {
     std::env::var("TEST_SEED")
@@ -32,4 +32,27 @@ pub fn my_random(test_name: String) -> StdRng {
 
 pub fn is_night_mode() -> bool {
     std::env::var("NIGHT_MODE").map_or(false, |v| v == "true")
+}
+
+pub fn rarely(random_value: i32) -> bool {
+    let mut p = if is_night_mode() { 5 } else { 1 }; // Probability factor for nightly testing
+    p += (p as f64 * (get_random_multiplier() as f64).ln()).round() as i32; // Adjust by random multiplier
+    let min = 100 - p.min(20); // Never more than 20% chance
+    random_value >= min
+}
+
+fn get_random_multiplier() -> i32 {
+    let multiplier = std::env::var("TESTS_MULTIPLIER").ok();
+
+    multiplier
+        .and_then(|v| v.parse::<i32>().ok())
+        .unwrap_or(default_random_multiplier())
+}
+
+fn default_random_multiplier() -> i32 {
+    if is_night_mode() {
+        2
+    } else {
+        1
+    }
 }

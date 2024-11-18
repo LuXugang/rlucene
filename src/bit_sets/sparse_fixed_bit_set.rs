@@ -33,6 +33,7 @@ fn block_count(length: i32) -> i32 {
     block_count
 }
 
+#[derive(Default)]
 pub struct SparseFixedBitSet {
     indices: Vec<i64>,
     bits: Vec<Option<Vec<u64>>>,
@@ -348,11 +349,11 @@ fn mask(from: i32, to: i32) -> i64 {
 }
 
 fn oversize(s: i32) -> i32 {
-    let mut newSize = s + (s >> 1);
-    if newSize > 50 {
-        newSize = 64
+    let mut new_size = s + (s >> 1);
+    if new_size > 50 {
+        new_size = 64
     }
-    newSize
+    new_size
 }
 fn long_bits(index: i64, bits: &[u64], i64: i32) -> i64 {
     if ((index as u64) & (1_u64 << (i64 % 64))) == 0 {
@@ -553,7 +554,14 @@ impl BitSet for SparseFixedBitSet {
         }
     }
 
-    fn or(&mut self, iter: impl DocIdSetIterator) -> Result<(), String> {
-        todo!()
+    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), String> {
+        //todo: this is a naive implementation, we can optimize it from Java Lucene
+        Self::check_unpositioned(&iter)?;
+        let mut doc = iter.next_doc();
+        while doc != NO_MORE_DOCS {
+            self.set(doc);
+            doc = iter.next_doc();
+        }
+        Ok(())
     }
 }

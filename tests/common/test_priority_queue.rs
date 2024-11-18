@@ -119,7 +119,7 @@ fn test_pq() {
 
         assert_eq!(sum, sum2);
     } else {
-        assert!(count <= 0 || count >= i32::MAX);
+        assert!(count == 0 || count == i32::MAX);
     }
 }
 

@@ -53,3 +53,5 @@ pub use crate::priority_queue::*;
 
 pub mod roaring_doc_id_set;
 pub use crate::roaring_doc_id_set::*;
+pub mod terms;
+pub use crate::terms::*;

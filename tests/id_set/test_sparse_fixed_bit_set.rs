@@ -20,8 +20,12 @@ use crate::id_set::base_bit_set_test_case::{
 };
 use rand::Rng;
 use rlucene::bit_sets::bit_set::BitSet;
+use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
 use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
-use rlucene::{Bits, NO_MORE_DOCS};
+use rlucene::{
+    AllDocIdSetIterator, BitSetIterator, Bits, DocIdSet, DocIdSetIterator, EmptyDISI, NO_MORE_DOCS,
+};
+use std::any::TypeId;
 
 pub struct TestSparseFixedBitSet;
 
@@ -62,14 +66,8 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
             if n != 0 {
                 non_zero_long_count += n;
                 let mut j = n;
-                while j < sparse_fixed_bit_set.get_bits()[i]
-                    .as_ref()
-                    .unwrap()
-                    .len() as u32
-                {
-                    let array = sparse_fixed_bit_set.get_bits()[i]
-                        .as_ref()
-                        .unwrap();
+                while j < sparse_fixed_bit_set.get_bits()[i].as_ref().unwrap().len() as u32 {
+                    let array = sparse_fixed_bit_set.get_bits()[i].as_ref().unwrap();
                     assert!(array[j as usize] == 0);
                     j += 1;
                 }

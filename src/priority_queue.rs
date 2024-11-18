@@ -229,7 +229,7 @@ where
      * constant remove time but the trade-off would be extra cost to all additions/insertions)
      */
     pub fn remove(&mut self, element: &T) -> bool {
-        for i in 1..=self.size {
+        if let Some(i) = (1..=self.size).next() {
             if self.heap[i] == *element {
                 self.heap.swap(i, self.size);
             }

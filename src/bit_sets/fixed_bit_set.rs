@@ -25,7 +25,6 @@ impl Hash for FixedBitSet {
     }
 }
 
-
 impl PartialEq for FixedBitSet {
     fn eq(&self, other: &Self) -> bool {
         if self.num_bits == other.num_bits
@@ -554,7 +553,7 @@ impl BitSet for FixedBitSet {
         for i in 0..self.num_words {
             tot += self.bits[i as usize].count_ones() as i64;
         }
-        
+
         tot as i32
     }
 
@@ -579,7 +578,7 @@ impl BitSet for FixedBitSet {
             max_word += interval;
         }
         pop_count *= ((interval / range_length) * self.num_words / max_word) as i64;
-        
+
         pop_count as i32
     }
 
@@ -628,7 +627,14 @@ impl BitSet for FixedBitSet {
         }
     }
 
-    fn or(&mut self, iter: impl DocIdSetIterator) -> Result<(), String> {
-        todo!()
+    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), String> {
+        //todo: this is a naive implementation, we can optimize it from Java Lucene
+        Self::check_unpositioned(&iter)?;
+        let mut doc = iter.next_doc();
+        while doc != NO_MORE_DOCS {
+            self.set(doc);
+            doc = iter.next_doc();
+        }
+        Ok(())
     }
 }

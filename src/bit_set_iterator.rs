@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 use crate::bit_sets::bit_set::BitSet;
-use crate::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::bit_sets::fixed_bit_set::FixedBitSet;
+use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
+use crate::{DocIdSetIterator, EmptyDISI, NO_MORE_DOCS};
+use std::any::TypeId;
 
 pub struct BitSetIterator<'a, T: BitSet> {
     bits: &'a T,
@@ -38,7 +41,7 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
         })
     }
 
-    fn get_bit_set(&self) -> &T {
+    pub fn get_bit_set(&self) -> &T {
         self.bits
     }
 
@@ -46,18 +49,35 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     fn set_doc_id(&mut self, doc_id: i32) {
         self.doc = doc_id;
     }
-    pub fn try_get_bit_set(iterator: &dyn DocIdSetIterator) {
+    fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
+        it1: &T1,
+        it2: &T2,
+    ) -> bool {
+        TypeId::of::<T1>() == TypeId::of::<T2>()
+    }
+    fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(it1: &T1, it2: &T2) -> bool {
+        TypeId::of::<T1>() == TypeId::of::<T2>()
+    }
+    //todo
+    pub fn try_get_bit_set<B: BitSet + 'static>(
+        iterator: impl DocIdSetIterator + 'static,
+        bit_set: B,
+    ) -> Option<B> {
         todo!()
     }
 
     // todo
-    pub fn get_fixed_bit_set_or_null(iterator: &dyn DocIdSetIterator) {
-        Self::try_get_bit_set(iterator);
+    pub fn get_fixed_bit_set_or_null<B: BitSet>(
+        iterator: impl DocIdSetIterator + 'static,
+    ) -> Option<FixedBitSet> {
+        Self::try_get_bit_set(iterator, FixedBitSet::default())
     }
 
     // todo
-    pub fn get_sparse_fixed_bit_set_or_null(iterator: &dyn DocIdSetIterator) {
-        Self::try_get_bit_set(iterator);
+    pub fn get_sparse_fixed_bit_set_or_null<B: BitSet>(
+        iterator: impl DocIdSetIterator + 'static,
+    ) -> Option<SparseFixedBitSet> {
+        Self::try_get_bit_set(iterator, SparseFixedBitSet::default())
     }
 }
 

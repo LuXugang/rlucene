@@ -114,6 +114,6 @@ impl<'a> DocIdSetIterator for IntArrayDocIdSetIterator<'a> {
     }
 
     fn cost(&self) -> i64 {
-        todo!()
+        self.length as i64
     }
 }

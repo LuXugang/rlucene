@@ -56,7 +56,10 @@ impl DocIdSet for RoaringDocIdSet {
     type DISIType<'a> = Iterator<'a>;
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
-        Some(Iterator::new(self.doc_id_sets.as_ref()))
+        Some(Iterator::new(
+            self.doc_id_sets.as_ref(),
+            self.cardinality as i64,
+        ))
     }
 
     type BitType = MatchNoBits;
@@ -72,7 +75,7 @@ impl Accountable for RoaringDocIdSet {
     }
 }
 
-pub struct Builder {
+pub struct RoaringDocIdSetBuilder {
     max_doc: i32,
     sets: Option<Vec<Option<DocIdSetEnum>>>,
     cardinality: i32,
@@ -85,8 +88,8 @@ pub struct Builder {
     dense_buffer: FixedBitSet,
 }
 
-impl Builder {
-    pub fn new(max_doc: i32) -> Builder {
+impl RoaringDocIdSetBuilder {
+    pub fn new(max_doc: i32) -> RoaringDocIdSetBuilder {
         let buffer: Vec<i16> = Vec::with_capacity(MAX_ARRAY_LENGTH as usize);
         let sets_length = (max_doc + (1 << 16) - 1) >> 16;
         let mut sets = Vec::with_capacity(sets_length as usize);
@@ -94,7 +97,7 @@ impl Builder {
         for _i in 0..sets_length {
             sets.push(None);
         }
-        Builder {
+        RoaringDocIdSetBuilder {
             max_doc,
             sets: Some(sets),
             cardinality: 0,
@@ -114,7 +117,7 @@ impl Builder {
         }
         let block = doc_id >> 16;
         if block != self.current_block {
-            self.flush();
+            let _ = self.flush();
             self.current_block = block;
         }
 
@@ -144,10 +147,10 @@ impl Builder {
         }
     }
     pub fn build(&mut self) -> RoaringDocIdSet {
-        self.flush();
+        let _ = self.flush();
         RoaringDocIdSet::new(self.sets.take(), self.cardinality)
     }
-    fn flush(&mut self) {
+    fn flush(&mut self) -> Result<(), String> {
         assert!(self.current_block_cardinality <= BLOCK_SIZE);
         if self.current_block_cardinality <= MAX_ARRAY_LENGTH {
             // use sparse encoding
@@ -189,13 +192,12 @@ impl Builder {
                 self.buffer.clear();
                 self.sets.as_mut().unwrap()[self.current_block as usize] = dense;
             } else {
-                let medium: Option<DocIdSetEnum> = Some(DocIdSetEnum::Medium(
-                    BitDocIdSet::new_with_cost(
-                        self.dense_buffer.clone(),
-                        self.current_block_cardinality as i64,
-                    )
-                    .unwrap(),
-                ));
+                let result = BitDocIdSet::new_with_cost(
+                    Some(self.dense_buffer.clone()),
+                    self.current_block_cardinality as i64,
+                )?;
+
+                let medium: Option<DocIdSetEnum> = Some(DocIdSetEnum::Medium(result));
                 self.buffer.clear();
                 self.sets.as_mut().unwrap()[self.current_block as usize] = medium;
             }
@@ -204,6 +206,7 @@ impl Builder {
         self.cardinality += self.current_block_cardinality;
         self.dense_buffer = FixedBitSet::new(0);
         self.current_block_cardinality = 0;
+        Ok(())
     }
 }
 
@@ -304,9 +307,10 @@ pub struct Iterator<'a> {
     set_length: usize,
     sub: Option<DocIdSetIteratorEnum<'a>>,
     doc_id_sets: Option<&'a Vec<Option<DocIdSetEnum>>>,
+    cardinality: i64,
 }
 impl<'a> Iterator<'a> {
-    fn new(doc_id_sets: Option<&'a Vec<Option<DocIdSetEnum>>>) -> Self {
+    fn new(doc_id_sets: Option<&'a Vec<Option<DocIdSetEnum>>>, cardinality: i64) -> Self {
         let set_length = doc_id_sets.as_ref().unwrap().len();
         Iterator {
             block: -1,
@@ -314,6 +318,7 @@ impl<'a> Iterator<'a> {
             set_length,
             sub: Some(DocIdSetIteratorEnum::Empty(EmptyDISI::new())),
             doc_id_sets,
+            cardinality,
         }
     }
     fn first_doc_from_next_block(&mut self) -> i32 {
@@ -374,7 +379,7 @@ impl<'a> DocIdSetIterator for Iterator<'_> {
     }
 
     fn cost(&self) -> i64 {
-        todo!()
+        self.cardinality
     }
 }
 
