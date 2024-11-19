@@ -48,7 +48,7 @@ impl Clone for FixedBitSet {
  * If the given `FixedBitSet` is large enough to hold `numBits+1`, returns the given
  * bits, otherwise returns a new `FixedBitSet` which can hold the requested number of bits.
  *
- * <p><b>NOTE:</b> the returned bitset reuses the underlying `Vec<u64>` of the given `bits`
+ * NOTE: the returned bitset reuses the underlying `Vec<u64>` of the given `bits`
  * if possible. Also, calling `length()` on the returned bits may return a value
  * greater than `numBits`.
  */

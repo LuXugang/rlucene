@@ -17,7 +17,7 @@
 use crate::bit_sets::bit_set::BitSet;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::{DocIdSetIterator, EmptyDISI, NO_MORE_DOCS};
+use crate::{DocIdSetIterator, NO_MORE_DOCS};
 use std::any::TypeId;
 
 pub struct BitSetIterator<'a, T: BitSet> {
@@ -50,18 +50,18 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
         self.doc = doc_id;
     }
     fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
-        it1: &T1,
-        it2: &T2,
+        _it1: &T1,
+        _it2: &T2,
     ) -> bool {
         TypeId::of::<T1>() == TypeId::of::<T2>()
     }
-    fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(it1: &T1, it2: &T2) -> bool {
+    fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(_it1: &T1, _it2: &T2) -> bool {
         TypeId::of::<T1>() == TypeId::of::<T2>()
     }
     //todo
     pub fn try_get_bit_set<B: BitSet + 'static>(
-        iterator: impl DocIdSetIterator + 'static,
-        bit_set: B,
+        _iterator: impl DocIdSetIterator + 'static,
+        _bit_set: B,
     ) -> Option<B> {
         todo!()
     }

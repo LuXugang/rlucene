@@ -26,7 +26,6 @@ use rlucene::{BitDocIdSet, EmptyDocIdSet};
 use rlucene::{Bits, NotDocIdSet};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
-use std::sync::Arc;
 
 struct TestNotDocIdSet;
 impl BaseDocIdSetTestCase for TestNotDocIdSet {
@@ -49,7 +48,7 @@ impl BaseDocIdSetTestCase for TestNotDocIdSet {
         ds2: T,
     ) {
         let bits2_wrap = ds2.bits();
-        assert!(!bits2_wrap.is_none());
+        assert!(bits2_wrap.is_some());
         let bits = bits2_wrap.unwrap();
         assert_eq!(num_bits, bits.length());
         for i in 0..num_bits {
@@ -60,13 +59,33 @@ impl BaseDocIdSetTestCase for TestNotDocIdSet {
 }
 
 #[test]
-fn test_not_doc_id_set() {
+fn test_bit_0() {
     let test_case = TestNotDocIdSet;
     let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_bit_0(&mut random);
+}
+#[test]
+fn test_bit_1() {
+    let test_case = TestNotDocIdSet;
+    let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_bit_1(&mut random);
+}
+#[test]
+fn test_bit_2() {
+    let test_case = TestNotDocIdSet;
+    let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_bit_2(&mut random);
+}
+#[test]
+fn test_against_bit_set() {
+    let test_case = TestNotDocIdSet;
+    let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_against_bit_set(&mut random);
+}
+#[test]
+fn test_ram_bytes_used() {
+    let test_case = TestNotDocIdSet;
+    let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_ram_bytes_used(&mut random);
 }
 
@@ -86,7 +105,7 @@ struct Buffer {
 #[test]
 fn main() {
     // 假设有一个 Vec<Buffer>
-    let mut buffers = vec![
+    let buffers = vec![
         Buffer {
             array: vec![3, 1, 4],
         },

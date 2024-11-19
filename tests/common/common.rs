@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use rand::prelude::StdRng;
-use rand::{random, Rng, SeedableRng};
+use rand::{random, SeedableRng};
 
 pub fn get_seed_from_env() -> u64 {
     std::env::var("TEST_SEED")

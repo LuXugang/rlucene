@@ -168,7 +168,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         let bitss = ds2.bits();
         let mut doc = -1;
         let mut previes_doc = -1;
-        if !bitss.is_none() {
+        if bitss.is_some() {
             let bits = bitss.unwrap();
             let mut disi = ds2.iterator().unwrap();
             while doc != NO_MORE_DOCS {

@@ -21,11 +21,10 @@ use crate::BitSetIterator;
 use std::rc::Rc;
 
 //todo
-const BASE_RAM_BYTES_USED: i64 = 0;
+const _BASE_RAM_BYTES_USED: i64 = 0;
 
 /**
  * Implementation of the DocIdSet interface on top of a {@link BitSet}.
- *
  */
 pub struct BitDocIdSet<T: BitSet> {
     set: Option<Rc<T>>,

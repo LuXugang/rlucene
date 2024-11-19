@@ -23,19 +23,20 @@ pub trait Accountable {
      * Returns nested resources of this class. The result should be a point-in-time snapshot (to avoid
      * race conditions).
      */
-    fn get_child_resources(&self) -> Vec<EmptyAccountable> {
+    fn get_child_resources<T:Accountable>(&self) -> Vec<T> {
         vec![]
     }
 }
 
 struct EmptyAccountable;
-impl EmptyAccountable {}
+impl EmptyAccountable {
+    pub fn new() -> Self {
+        EmptyAccountable
+    }
+}
 impl Accountable for EmptyAccountable {
     fn ram_bytes_used(&self) -> i64 {
         0
     }
-
-    fn get_child_resources(&self) -> Vec<EmptyAccountable> {
-        vec![]
-    }
+   
 }

@@ -20,8 +20,7 @@ use rlucene::bit_sets::bit_set::BitSet;
 use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
 use rlucene::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderEnum, DocIdSetBuilderIterator};
 use rlucene::{
-    BitDocIdSet, BitSetIterator, Bits, DocIdSet, DocIdSetIterator, IntArrayDocIdSet,
-    IntArrayDocIdSetIterator, Range, RoaringDocIdSet, RoaringDocIdSetBuilder, NO_MORE_DOCS,
+    BitDocIdSet, BitSetIterator, Bits, DocIdSet, DocIdSetIterator, IntArrayDocIdSet, Range, RoaringDocIdSetBuilder, NO_MORE_DOCS,
 };
 
 #[test]
@@ -217,7 +216,7 @@ fn test_leverage_stats() {
     let mut value_count = 42;
     let mut builder = DocIdSetBuilder::new_with_count(100, doc_count, value_count);
     assert_eq!((1f64 - builder.get_num_values_per_doc()), 0f64);
-    assert_eq!(builder.get_multi_valued(), false);
+    assert!(!builder.get_multi_valued());
     builder.grow(2);
     builder.add_doc(5);
     builder.add_doc(7);
@@ -236,7 +235,7 @@ fn test_leverage_stats() {
     value_count = 63;
     builder = DocIdSetBuilder::new_with_count(100, doc_count, value_count);
     assert_eq!(builder.get_num_values_per_doc() - 1.5, 0.0);
-    assert_eq!(builder.get_multi_valued(), true);
+    assert!(builder.get_multi_valued());
     builder.grow(2);
     builder.add_doc(5);
     builder.add_doc(7);
@@ -253,13 +252,13 @@ fn test_leverage_stats() {
     value_count = -1;
     builder = DocIdSetBuilder::new_with_count(100, doc_count, value_count);
     assert_eq!(builder.get_num_values_per_doc() - 1.0, 0.0);
-    assert_eq!(builder.get_multi_valued(), true);
+    assert!(builder.get_multi_valued());
 
     doc_count = -1;
     value_count = 82;
     builder = DocIdSetBuilder::new_with_count(100, doc_count, value_count);
     assert_eq!(builder.get_num_values_per_doc() - 1.0, 0.0);
-    assert_eq!(builder.get_multi_valued(), true);
+    assert!(builder.get_multi_valued());
 }
 
 #[test]

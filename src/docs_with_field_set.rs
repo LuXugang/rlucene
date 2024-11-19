@@ -22,7 +22,10 @@ use std::rc::Rc;
 
 //todo
 const BASE_RAM_BYTES_USED: i64 = 0;
-
+/**
+ * Accumulator for documents that have a value for a field. This is optimized for the case that all
+ * documents have a value.
+ */
 pub struct DocsWithFieldSet<FixedBitSet> {
     set: FixedBitSet,
     cardinality: i32,

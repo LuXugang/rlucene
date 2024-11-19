@@ -20,8 +20,8 @@ use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
 use std::cmp::min;
 
 // todo
-const SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
-const SINGLE_ELEMENT_ARRAY_BYTES_USED: i64 = 0;
+const _SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
+const _SINGLE_ELEMENT_ARRAY_BYTES_USED: i64 = 0;
 const MASK_4096: i32 = (1 << 12) - 1;
 
 fn block_count(length: i32) -> i32 {
@@ -148,7 +148,7 @@ impl SparseFixedBitSet {
     }
     fn first_doc(&self, mut i4096: i32, i4096_upper: i32) -> i32 {
         assert!(i4096_upper <= self.indices.len() as i32);
-        let mut index = 0;
+        let mut index;
         while i4096 < i4096_upper {
             index = self.indices[i4096 as usize];
             if index != 0 {
@@ -162,7 +162,7 @@ impl SparseFixedBitSet {
         NO_MORE_DOCS
     }
     fn last_doc(&self, mut i4096: i32) -> i32 {
-        let mut index = 0;
+        let mut index;
         while i4096 >= 0 {
             index = self.indices[i4096 as usize];
             if index != 0 {
@@ -217,7 +217,7 @@ impl SparseFixedBitSet {
         i64 << 6 | bits.trailing_zeros() as i32
     }
 
-    fn or_other(&mut self, other: SparseFixedBitSet) {
+    fn _or_other(&mut self, other: SparseFixedBitSet) {
         for i in 0..other.indices.len() {
             let index = other.indices[i];
             if index != 0 {

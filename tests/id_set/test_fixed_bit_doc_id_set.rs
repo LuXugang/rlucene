@@ -49,13 +49,34 @@ impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
 pub struct TestFixedBitDocIdSet;
 
 #[test]
-fn test_fixed_bit_doc_id_set() {
+fn test_bit_0() {
     let test_case = TestFixedBitDocIdSet;
     let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
     test_case.test_bit_0(&mut random);
+}
+#[test]
+fn test_bit_1() {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
     test_case.test_bit_1(&mut random);
+}
+#[test]
+fn test_bit_2() {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
     test_case.test_bit_2(&mut random);
+}
+#[test]
+fn test_against_bit_set() {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
     test_case.test_against_bit_set(&mut random);
+}
+#[test]
+fn test_ram_bytes_used() {
+    let test_case = TestFixedBitDocIdSet;
+    let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
     test_case.test_ram_bytes_used(&mut random);
 }
+
 impl BaseDocIdSetTestCaseSupperImpl for TestFixedBitDocIdSet {}

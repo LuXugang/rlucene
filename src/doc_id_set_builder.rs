@@ -28,7 +28,7 @@ use std::rc::Rc;
  * A builder of link DocIdSet. At first it uses a sparse structure to gather documents, and then
  * upgrades to a non-sparse bit set once enough hits match.
  *
- * <p>To add documents, you first need to call grow in order to reserve space, and then
+ * To add documents, you first need to call grow in order to reserve space, and then
  * call BulkAdder#add(int) on the returned BulkAdder.
  *
  * @lucene.internal
@@ -58,7 +58,7 @@ impl DocIdSetBuilder {
             1f64
         } else {
             // otherwise compute from index stats
-            (value_count as f64 / doc_count as f64)
+            value_count as f64 / doc_count as f64
         };
         assert!(
             num_values_per_doc >= 1f64,

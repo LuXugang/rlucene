@@ -47,13 +47,35 @@ impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
     }
 }
 #[test]
-fn test_int_array_doc_id_set() {
+fn test_bit_0() {
     let test_case = TestIntArrayDocIdSet;
     let mut random = my_random("test_int_array_doc_id_set".to_string());
     test_case.test_bit_0(&mut random);
+}
+
+#[test]
+fn test_bit_1() {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = my_random("test_int_array_doc_id_set".to_string());
     test_case.test_bit_1(&mut random);
+}
+#[test]
+fn test_bit_2() {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = my_random("test_int_array_doc_id_set".to_string());
     test_case.test_bit_2(&mut random);
+}
+#[test]
+fn test_against_bit_set() {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = my_random("test_int_array_doc_id_set".to_string());
     test_case.test_against_bit_set(&mut random);
+}
+#[test]
+fn test_ram_bytes_used() {
+    let test_case = TestIntArrayDocIdSet;
+    let mut random = my_random("test_int_array_doc_id_set".to_string());
     test_case.test_ram_bytes_used(&mut random);
 }
+
 impl BaseDocIdSetTestCaseSupperImpl for TestIntArrayDocIdSet {}

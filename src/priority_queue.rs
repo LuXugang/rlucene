@@ -22,13 +22,13 @@ use std::mem;
  * that queue can always assume it's full and only change the top without attempting to insert any
  * new object.
  *
- * <p>Those sentinel values should always compare worse than any non-sentinel value `lessThan`
+ * Those sentinel values should always compare worse than any non-sentinel value `lessThan`
  * should always favor the non-sentinel values.
  *
- * <p>By default, the supplier returns null, which means the queue will not be filled with
+ * By default, the supplier returns null, which means the queue will not be filled with
  * sentinel values. Otherwise, the value returned will be used to pre-populate the queue.
  *
- * <b>NOTE:</b> the given supplier will be called `max_size`, Therefore, you should ensure any call to
+ * NOTE: the given supplier will be called `max_size`, Therefore, you should ensure any call to
  * this method creates a new instance and behaves consistently, e.g., it cannot return null if it
  * previously returned non-null and all returned instances must `lessThan` compare equal.
  */
@@ -113,7 +113,7 @@ where
      * calling `add(&mut self, element: T)` in loop if all elements are known in advance as it builds queue
      * faster.
      *
-     * <p>If one tries to add more objects than the maxSize passed in the constructor will return error.
+     * If one tries to add more objects than the maxSize passed in the constructor will return error.
      */
     pub fn add_all(&mut self, elements: Vec<T>) -> Result<(), String> {
         if (self.size + elements.len()) > self.max_size {

@@ -25,7 +25,7 @@ use rlucene::bit_sets::bit_set::BitSet;
 use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
 use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
 use rlucene::{
-    BitSetIterator, Bits, DocBaseBitSetIterator, DocIdSet, DocIdSetIterator,
+    BitSetIterator, Bits, DocBaseBitSetIterator, DocIdSetIterator,
     IntArrayDocIdSetIterator, NO_MORE_DOCS,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -103,7 +103,7 @@ fn test_set() {
 #[test]
 fn test_get_and_set() {
     let mut random = my_random("test_fixed_bit_set_get_and_set".to_string());
-    let mut fbs = TestFixedBitSet;
+    let fbs = TestFixedBitSet;
     fbs.test_get_and_set(&mut random);
 }
 #[test]
@@ -115,13 +115,13 @@ fn test_clear() {
 #[test]
 fn test_clear_range() {
     let mut random = my_random("test_fixed_bit_set_clear_range".to_string());
-    let mut fbs = TestFixedBitSet;
+    let fbs = TestFixedBitSet;
     fbs.test_clear_range(&mut random);
 }
 #[test]
 fn test_clear_all() {
     let mut random = my_random("test_fixed_bit_set_clear_all".to_string());
-    let mut fbs = TestFixedBitSet;
+    let fbs = TestFixedBitSet;
     fbs.test_clear_all(&mut random);
 }
 #[test]
@@ -179,13 +179,13 @@ fn do_next_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
         bb = b.next_set_bit(bb);
 
         if bb == NO_MORE_DOCS {
-            assert_eq!(a.contains(bb as usize), false);
+            assert!(!a.contains(bb as usize));
             break;
         }
-        assert_eq!(a.contains(bb as usize), true);
+        assert!(a.contains(bb as usize));
         bb += 1;
         if bb > b.length() - 1 {
-            assert_eq!(a.contains(bb as usize), false);
+            assert!(!a.contains(bb as usize));
             break;
         }
     }
@@ -225,7 +225,7 @@ fn do_prev_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
             break;
         }
         count += 1;
-        assert_eq!(a.contains(bb as usize), true);
+        assert!(a.contains(bb as usize));
         if bb == 0 {
             break;
         }
@@ -305,7 +305,7 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
             assert!(val2 == val);
             assert!(b.get(idx));
 
-            if val == false {
+            if !val {
                 b.clear_with_index(idx);
             }
             assert!(b.get(idx) == val);
@@ -328,7 +328,7 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
 
         from_index = random.gen_range(0..(sz / 2));
         to_index = from_index + random.gen_range(0..(sz - from_index));
-        aa = a.clone();
+        aa.clone_from(&a);
         clear_range(&mut aa, from_index as usize, to_index as usize);
         bb = b.clone();
         bb.clear_range(from_index, to_index);
@@ -339,7 +339,7 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
 
         from_index = random.gen_range(0..(sz / 2));
         to_index = from_index + random.gen_range(0..(sz - from_index));
-        aa = a.clone();
+        aa.clone_from(&a);
         set_range(&mut aa, from_index as usize, to_index as usize);
         bb = b.clone();
         bb.set_range(from_index, to_index);
@@ -416,13 +416,13 @@ fn test_equals() {
     assert!(b2.eq(&b1));
     for _i in 0..random.gen_range(1000..5000) {
         let idx = random.gen_range(0..num_bits);
-        if b1.get(idx) == false {
+        if !b1.get(idx) {
             b1.set(idx);
-            assert_eq!(b1.eq(&b2), false);
-            assert_eq!(b2.eq(&b1), false);
+            assert!(!b1.eq(&b2));
+            assert!(!b2.eq(&b1));
             b2.set(idx);
-            assert_eq!(b1.eq(&b2), true);
-            assert_eq!(b2.eq(&b1), true);
+            assert!(b1.eq(&b2));
+            assert!(b2.eq(&b1));
         }
     }
 }
@@ -436,12 +436,12 @@ fn test_hash_code_equals() {
     let mut b2 = FixedBitSet::new(num_bits);
     for _i in 0..random.gen_range(1000..5000) {
         let idx = random.gen_range(0..num_bits);
-        if b1.get(idx) == false {
+        if !b1.get(idx) {
             b1.set(idx);
-            assert_eq!(b1.eq(&b2), false);
+            assert!(!b1.eq(&b2));
             assert_ne!(calculate_hash(&b1), calculate_hash(&b2));
             b2.set(idx);
-            assert_eq!(b1.eq(&b2), true);
+            assert!(b1.eq(&b2));
             assert_eq!(calculate_hash(&b1), calculate_hash(&b2));
         }
     }
@@ -459,7 +459,7 @@ fn test_small_bitsets() {
     for num_bits in 0..10 {
         let mut b1 = FixedBitSet::new(num_bits);
         let b2 = FixedBitSet::new(num_bits);
-        assert_eq!(b1.eq(&b2), true);
+        assert!(b1.eq(&b2));
         assert_eq!(calculate_hash(&b1), calculate_hash(&b2));
         assert_eq!(0, b1.cardinality());
         if num_bits > 0 {
@@ -532,7 +532,7 @@ fn test_ensure_capacity() {
     assert!(bits.get(4));
     bits.clear_with_index(1);
     assert!(bits_clone.get(1));
-    assert_eq!(bits.get(1), false);
+    assert!(!bits.get(1));
 
     bits.set(1);
     let length = bits.length();
@@ -550,7 +550,7 @@ fn test_ensure_capacity() {
     bits_clone.clear_with_index(1);
     // we grew the long[], so it's not shared
     assert!(bits_clone_2.get(1));
-    assert_eq!(bits_clone.get(1), false);
+    assert!(!bits_clone.get(1));
 }
 
 #[test]

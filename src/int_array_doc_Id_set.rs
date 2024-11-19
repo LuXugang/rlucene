@@ -23,11 +23,21 @@ use std::rc::Rc;
 // TODO
 const BASE_RAM_BYTES_USED: i64 = 0;
 
+/**
+ * A doc id set based on sorted int array.
+ */
 pub struct IntArrayDocIdSet {
     docs: Vec<i32>,
     length: i32,
 }
-
+/**
+ * Build an IntArrayDocIdSet by an int array and len.
+ *
+ * param docs A docs array whose length need to be greater than the param len. It needs to be
+ *     sorted from 0(inclusive) to the len(exclusive), and the len-th doc in docs need to be
+ *     DocIdSetIterator#NO_MORE_DOCS.
+ * param len The valid docs length in array.
+ */
 impl IntArrayDocIdSet {
     pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet, String> {
         if docs[length as usize] != NO_MORE_DOCS {

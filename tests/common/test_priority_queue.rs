@@ -40,16 +40,12 @@ fn test_zero_sized_queue() {
     assert_eq!(1, *pq.top())
 }
 
+#[derive(Default)]
 struct ObjectCompare {
     index: i32,
     value: i32,
 }
 
-impl Default for ObjectCompare {
-    fn default() -> Self {
-        ObjectCompare { index: 0, value: 0 }
-    }
-}
 
 impl PartialEq for ObjectCompare {
     fn eq(&self, other: &Self) -> bool {
@@ -249,7 +245,7 @@ fn test_removals_and_insertions() {
             }
         }
         let new_least = pq.top();
-        if last_least != None && *new_least != new_entry && *new_least != last_least.unwrap() {
+        if last_least.is_some() && *new_least != new_entry && *new_least != last_least.unwrap() {
             // If there has been a change of least entry and it wasn't our new
             // addition we expect the scores to increase
             assert!(*new_least <= new_entry);
@@ -270,7 +266,7 @@ fn test_removals_and_insertions() {
         assert_eq!(pq.insert_with_overflow(new_entry), None);
         check_validity(&pq);
         let new_least = pq.top();
-        if object_to_remove != last_least.unwrap() && last_least != None && *new_least != new_entry
+        if object_to_remove != last_least.unwrap() && last_least.is_some() && *new_least != new_entry
         {
             // If there has been a change of least entry and it wasn't our new
             // addition or the loss of our randomly removed entry we expect the
@@ -286,7 +282,7 @@ fn test_removals_and_insertions() {
 fn test_iterator_empty() {
     let pq = PriorityQueue::new(3, I32Compare).unwrap();
     let mut it = pq.iterator();
-    assert_eq!(*&it.next(), None);
+    assert_eq!(it.next(), None);
 }
 
 #[test]
@@ -294,7 +290,7 @@ fn test_iterator_one() {
     let mut pq = PriorityQueue::new(3, I32Compare).unwrap();
     pq.add(1);
     let mut it = pq.iterator();
-    assert_eq!(*&it.next(), Some(&1));
+    assert_eq!(it.next(), Some(&1));
 }
 
 #[test]
@@ -303,8 +299,8 @@ fn test_iterator_two() {
     pq.add(1);
     pq.add(2);
     let mut it = pq.iterator();
-    assert_eq!(*&it.next(), Some(&1));
-    assert_eq!(*&it.next(), Some(&2));
+    assert_eq!(it.next(), Some(&1));
+    assert_eq!(it.next(), Some(&2));
 }
 
 #[test]
@@ -367,10 +363,8 @@ where
     let heap = pq.heap();
     for i in 1..=size {
         let parent = i >> 1;
-        if parent > 1 {
-            if pq.get_compare().less_than(&heap[parent], &heap[i]) == false {
-                assert_eq!(&heap[parent], &heap[i]);
-            }
+        if parent > 1 && !pq.get_compare().less_than(&heap[parent], &heap[i]) {
+            assert_eq!(&heap[parent], &heap[i]);
         }
     }
 }

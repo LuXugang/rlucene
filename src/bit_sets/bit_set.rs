@@ -18,7 +18,7 @@ use crate::accountable::Accountable;
 use crate::bit_sets::bit_set_type::BitSetType;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
+use crate::{Bits, DocIdSetIterator};
 
 /**
  * Base implementation for a bit set.
@@ -45,7 +45,7 @@ pub trait BitSet: Bits + Accountable {
     /**
      * Clear all the bits of the set.
      *
-     * <p>Depending on the implementation, this may be significantly faster than clear(0, length).
+     * Depending on the implementation, this may be significantly faster than clear(0, length).
      */
     fn clear(&mut self) {
         self.clear_range(0, self.length())

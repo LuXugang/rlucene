@@ -20,12 +20,10 @@ use crate::id_set::base_bit_set_test_case::{
 };
 use rand::Rng;
 use rlucene::bit_sets::bit_set::BitSet;
-use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
 use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
 use rlucene::{
-    AllDocIdSetIterator, BitSetIterator, Bits, DocIdSet, DocIdSetIterator, EmptyDISI, NO_MORE_DOCS,
+    Bits, NO_MORE_DOCS,
 };
-use std::any::TypeId;
 
 pub struct TestSparseFixedBitSet;
 
