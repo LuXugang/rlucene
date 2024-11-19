@@ -21,9 +21,7 @@ use crate::id_set::base_bit_set_test_case::{
 use rand::Rng;
 use rlucene::bit_sets::bit_set::BitSet;
 use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
-use rlucene::{
-    Bits, NO_MORE_DOCS,
-};
+use rlucene::{Bits, NO_MORE_DOCS};
 
 pub struct TestSparseFixedBitSet;
 

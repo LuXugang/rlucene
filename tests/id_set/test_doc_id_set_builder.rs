@@ -20,7 +20,8 @@ use rlucene::bit_sets::bit_set::BitSet;
 use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
 use rlucene::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderEnum, DocIdSetBuilderIterator};
 use rlucene::{
-    BitDocIdSet, BitSetIterator, Bits, DocIdSet, DocIdSetIterator, IntArrayDocIdSet, Range, RoaringDocIdSetBuilder, NO_MORE_DOCS,
+    BitDocIdSet, BitSetIterator, Bits, DocIdSet, DocIdSetIterator, IntArrayDocIdSet, Range,
+    RoaringDocIdSetBuilder, NO_MORE_DOCS,
 };
 
 #[test]

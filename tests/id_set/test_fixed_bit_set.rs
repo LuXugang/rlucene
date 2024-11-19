@@ -25,8 +25,8 @@ use rlucene::bit_sets::bit_set::BitSet;
 use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
 use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
 use rlucene::{
-    BitSetIterator, Bits, DocBaseBitSetIterator, DocIdSetIterator,
-    IntArrayDocIdSetIterator, NO_MORE_DOCS,
+    BitSetIterator, Bits, DocBaseBitSetIterator, DocIdSetIterator, IntArrayDocIdSetIterator,
+    NO_MORE_DOCS,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
 

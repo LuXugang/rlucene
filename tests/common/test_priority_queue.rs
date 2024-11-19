@@ -46,7 +46,6 @@ struct ObjectCompare {
     value: i32,
 }
 
-
 impl PartialEq for ObjectCompare {
     fn eq(&self, other: &Self) -> bool {
         if self.index == other.index && self.value == other.value {
@@ -266,7 +265,9 @@ fn test_removals_and_insertions() {
         assert_eq!(pq.insert_with_overflow(new_entry), None);
         check_validity(&pq);
         let new_least = pq.top();
-        if object_to_remove != last_least.unwrap() && last_least.is_some() && *new_least != new_entry
+        if object_to_remove != last_least.unwrap()
+            && last_least.is_some()
+            && *new_least != new_entry
         {
             // If there has been a change of least entry and it wasn't our new
             // addition or the loss of our randomly removed entry we expect the

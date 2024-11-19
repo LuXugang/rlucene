@@ -55,7 +55,10 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     ) -> bool {
         TypeId::of::<T1>() == TypeId::of::<T2>()
     }
-    fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(_it1: &T1, _it2: &T2) -> bool {
+    fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(
+        _it1: &T1,
+        _it2: &T2,
+    ) -> bool {
         TypeId::of::<T1>() == TypeId::of::<T2>()
     }
     //todo

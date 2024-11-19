@@ -24,7 +24,7 @@ use rlucene::bit_sets::bit_set::BitSet;
 use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
 use rlucene::bits::Bits;
 use rlucene::doc_id_set_iterator::NO_MORE_DOCS;
-use rlucene::{DocIdSetIterator};
+use rlucene::DocIdSetIterator;
 use std::collections::HashSet;
 
 pub fn random_set(random: &mut StdRng, num_bits: i32, percent_set: f32) -> bit_set::BitSet {
