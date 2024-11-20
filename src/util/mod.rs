@@ -15,4 +15,6 @@
  * limitations under the License.
  */
 pub mod byte_block_pool;
+mod counter;
+
 pub use byte_block_pool::*;
