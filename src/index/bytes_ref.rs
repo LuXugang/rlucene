@@ -25,10 +25,16 @@ use std::hash::Hash;
  * codepoint order.
 */
 pub struct BytesRef {
-    pub(crate) bytes: Vec<u8>,
-    pub(crate) offset: i32,
-    pub(crate) length: i32,
+    pub bytes: Vec<u8>,
+    pub offset: i32,
+    pub length: i32,
 }
+impl Default for BytesRef {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BytesRef {
     pub fn new() -> BytesRef {
         BytesRef {
@@ -41,6 +47,14 @@ impl BytesRef {
         BytesRef {
             bytes,
             offset,
+            length,
+        }
+    }
+    pub fn new_from_bytes(bytes: Vec<u8>) -> BytesRef {
+        let length = bytes.len() as i32;
+        BytesRef {
+            bytes,
+            offset: 0,
             length,
         }
     }
@@ -73,10 +87,11 @@ impl BytesRef {
     }
 
     pub fn utf8_to_string(&self) -> Result<String, std::str::Utf8Error> {
-        std::str::from_utf8(&self.bytes).map(|s| s.to_string())
+        std::str::from_utf8(&self.bytes[self.offset as usize..(self.offset + self.length) as usize])
+            .map(|s| s.to_owned())
     }
     pub fn deep_copy_of(other: &BytesRef) -> BytesRef {
-        other.clone()
+        Self::new_from_vec(other.bytes.clone(), 0, other.length)
     }
     pub fn is_valid(&self) -> Result<bool, String> {
         if self.length < 0 {
@@ -148,9 +163,6 @@ impl Hash for BytesRef {
 }
 impl PartialEq for BytesRef {
     fn eq(&self, other: &Self) -> bool {
-        if other == self {
-            return true;
-        }
         self.bytes_equals(other)
     }
 }
