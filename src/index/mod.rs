@@ -18,5 +18,6 @@
 mod buffered_updates;
 pub mod bytes_ref;
 pub use bytes_ref::*;
-mod bytes_ref_builder;
+pub mod bytes_ref_builder;
+pub use bytes_ref_builder::*;
 mod documents_writer_delete_queue;

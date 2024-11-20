@@ -43,6 +43,12 @@ pub fn new_counter(thread_safe: bool) -> CounterEnum {
 pub struct AtomicCounter {
     count: AtomicI64,
 }
+impl Default for AtomicCounter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AtomicCounter {
     pub fn new() -> AtomicCounter {
         AtomicCounter {
@@ -63,6 +69,12 @@ impl Counter for AtomicCounter {
 pub struct SerialCounter {
     count: i64,
 }
+impl Default for SerialCounter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SerialCounter {
     pub fn new() -> SerialCounter {
         SerialCounter { count: 0 }
@@ -78,7 +90,7 @@ impl Counter for SerialCounter {
     }
 }
 
-enum CounterEnum {
+pub enum CounterEnum {
     A(AtomicCounter),
     S(SerialCounter),
 }
