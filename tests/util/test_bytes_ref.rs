@@ -20,6 +20,9 @@ use rand::Rng;
 use rlucene::index::BytesRef;
 use std::ptr;
 
+#[allow(dead_code)]
+struct TestBytesRef {}
+
 #[test]
 fn test_empty() {
     let b = BytesRef::new();

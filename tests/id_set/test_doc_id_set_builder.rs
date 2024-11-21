@@ -24,6 +24,8 @@ use rlucene::{
     RoaringDocIdSetBuilder, NO_MORE_DOCS,
 };
 
+#[allow(dead_code)]
+struct TestDocIdSetBuilder {}
 #[test]
 fn test_empty() {
     let mut random = my_random("test_empty".to_string());

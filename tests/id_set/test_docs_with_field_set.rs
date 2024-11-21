@@ -17,7 +17,8 @@
 use crate::common::my_random;
 use rand::Rng;
 use rlucene::{DocIdSet, DocIdSetIterator, DocsWithFieldSet, NO_MORE_DOCS};
-
+#[allow(dead_code)]
+struct TestDocsWithFieldSet {}
 #[test]
 fn test_dense() {
     let random = my_random("test_dense".to_string());

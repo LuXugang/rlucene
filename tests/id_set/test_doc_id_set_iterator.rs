@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use rlucene::doc_id_set_iterator::*;
-
+#[allow(dead_code)]
+struct TestDocIdSetIterator {}
 #[test]
 fn test_range_basic() {
     let result = Range::new(5, 8);

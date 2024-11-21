@@ -23,6 +23,8 @@ use rlucene::util::{
     DirectTrackingAllocator, BYTE_BLOCK_SIZE,
 };
 
+#[allow(dead_code)]
+struct TestByteBlockPool {}
 #[test]
 fn test_append_from_other_pool() {
     let mut random = my_random("test_append_from_other_pool".to_string());

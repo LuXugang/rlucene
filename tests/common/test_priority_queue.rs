@@ -23,6 +23,9 @@ use rlucene::priority_queue::PriorityQueue;
 use rlucene::Compare;
 use std::fmt::Debug;
 
+#[allow(dead_code)]
+struct TestPriorityQueue {}
+
 struct I32Compare;
 
 impl Compare<i32> for I32Compare {
