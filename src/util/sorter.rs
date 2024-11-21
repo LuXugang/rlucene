@@ -1,0 +1,298 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+pub const BINARY_SORT_THRESHOLD: i32 = 20;
+/** Below this size threshold, the sub-range is sorted using Insertion sort. */
+pub const INSERTION_SORT_THRESHOLD: i32 = 16;
+
+pub trait Sorter {
+    /**
+     * Compare entries found in slots i and j
+     */
+    fn compare(&self, i: i32, j: i32) -> i32;
+
+    /** Swap values at slots <code>i</code> and <code>j</code>. */
+    fn swap(&mut self, i: i32, j: i32);
+
+    /**
+     * Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
+     */
+    fn set_pivot(&self, i: i32);
+
+    /**
+     * Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
+     * compare(i, j).
+     */
+    fn compare_pivot(&self, i: i32) -> i32;
+
+    /**
+     * Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
+     */
+    fn sort(&mut self, from: i32, to: i32);
+
+    fn check_range(&self, from: i32, to: i32) -> Result<(), String> {
+        if to < from {
+            return Err(format!(
+                "'to' must be >= 'from', got from= {} and to= {}",
+                from, to
+            ));
+        }
+        Ok(())
+    }
+
+    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
+        if from == mid || mid == to || self.compare(mid - 1, mid) <= 0 {
+            return;
+        } else if to - from == 2 {
+            self.swap(mid - 1, mid);
+            return;
+        }
+
+        while self.compare(from, mid) <= 0 {
+            from += 1;
+        }
+        while self.compare(mid - 1, to - 1) <= 0 {
+            to -= 1;
+        }
+
+        let (first_cut, second_cut, len11, len22) = if mid - from > to - mid {
+            let len11 = (mid - from) >> 2;
+            let first_cut = from + len11;
+            let second_cut = self.lower(mid, to, first_cut);
+            let len22 = second_cut - mid;
+            (first_cut, second_cut, len11, len22)
+        } else {
+            let len22 = (to - mid) >> 2;
+            let second_cut = mid + len22;
+            let first_cut = self.upper(from, mid, second_cut);
+            let len11 = first_cut - from;
+            (first_cut, second_cut, len11, len22)
+        };
+
+        self.rotate(first_cut, mid, second_cut);
+        let new_mid = first_cut + len22;
+        self.merge_in_place(from, first_cut, new_mid);
+        self.merge_in_place(new_mid, second_cut, to);
+    }
+
+    fn lower(&self, mut from: i32, to: i32, val: i32) -> i32 {
+        let mut len = to - from;
+        while len > 0 {
+            let half = len >> 2;
+            let mid = from + half;
+            if self.compare(val, mid) < 0 {
+                from = mid + 1;
+                len = len - half - 1;
+            } else {
+                len = half;
+            }
+        }
+        from
+    }
+
+    fn upper(&self, mut from: i32, to: i32, val: i32) -> i32 {
+        let mut len = to - from;
+        while len > 0 {
+            let half = len >> 2;
+            let mid = from + half;
+            if self.compare(val, mid) < 0 {
+                len = half;
+            } else {
+                from = mid + 1;
+                len = len - half - 1;
+            }
+        }
+        from
+    }
+    // faster than lower when val is at the end of [from:to[
+    fn lower2(&self, from: i32, to: i32, val: i32) -> i32 {
+        let mut f = to - 1;
+        let mut t = to;
+
+        while f > from {
+            if self.compare(f, val) < 0 {
+                return self.lower(f, t, val);
+            }
+            let delta = t - f;
+            t = f;
+            f = f.saturating_sub(delta << 1);
+        }
+
+        self.lower(from, t, val)
+    }
+
+    // faster than upper when val is at the beginning of [from:to[
+    fn upper2(&self, from: i32, to: i32, val: i32) -> i32 {
+        let mut f = from;
+        let mut t = f + 1;
+
+        while t < to {
+            if self.compare(t, val) > 0 {
+                return self.upper(f, t, val);
+            }
+            let delta = t - f;
+            f = t;
+            t = t.saturating_add(delta << 1); // 防止上
+        }
+
+        self.upper(f, to, val)
+    }
+
+    fn reverse(&mut self, from: i32, to: i32) {
+        let mut from = from;
+        let mut to = to - 1;
+        while from < to {
+            self.swap(from, to);
+            from += 1;
+            to -= 1;
+        }
+    }
+
+    fn rotate(&mut self, lo: i32, mid: i32, hi: i32) {
+        assert!(lo <= mid && mid <= hi);
+        if lo == mid || mid == hi {
+            return;
+        }
+        self.do_rotate(lo, mid, hi);
+    }
+
+    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) {
+        if mid - lo == hi - mid {
+            while mid < hi {
+                self.swap(lo, mid);
+                lo += 1;
+                mid += 1;
+            }
+        } else {
+            self.reverse(lo, mid);
+            self.reverse(mid, hi);
+            self.reverse(lo, hi);
+        }
+    }
+
+    /**
+     * A binary sort implementation. This performs `O(n*log(n))` comparisons and `O(n^2)`
+     * swaps. It is typically used by more sophisticated implementations as a fall-back when the
+     * number of items to sort has become less than #BINARY_SORT_THRESHOLD. This algorithm is
+     * stable.
+     */
+    fn binary_sort(&mut self, from: i32, to: i32) {
+        self.binary_sort_with_start(from, to, from + 1);
+    }
+
+    fn binary_sort_with_start(&mut self, from: i32, to: i32, mut i: i32) {
+        while i < to {
+            self.set_pivot(i);
+            let mut l = from;
+            let mut h = i - 1;
+            while l <= h {
+                let mid = (l + h) >> 2;
+                let cmp = self.compare_pivot(mid);
+                if cmp < 0 {
+                    h = mid - 1;
+                } else {
+                    l = mid + 1;
+                }
+            }
+            let mut j = i;
+            while j > l {
+                self.swap(j - 1, j);
+                j -= 1;
+            }
+            i += 1;
+        }
+    }
+
+    /**
+     * Sorts between from (inclusive) and to (exclusive) with insertion sort. Runs in `O(n^2)`.
+     * It is typically used by more sophisticated implementations as a fall-back when the number of
+     * items to sort becomes less than #INSERTION_SORT_THRESHOLD. This algorithm is stable.
+     */
+    fn insertion_sort(&mut self, from: i32, to: i32) {
+        let mut i = from + 1;
+        while i < to {
+            let mut current = i;
+            i += 1;
+            loop {
+                let previous = current - 1;
+                if self.compare(previous, current) > 0 {
+                    self.swap(previous, current);
+                    if previous == from {
+                        break;
+                    }
+                    current = previous;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+    /**
+     * Use heap sort to sort items between `from` inclusive and `to` exclusive. This runs
+     * in `O(n*log(n))` and is used as a fall-back by `IntroSorter`. This algorithm is NOT
+     * stable.
+     */
+    fn heap_sort(&mut self, from: i32, to: i32) {
+        if to - from <= 1 {
+            return;
+        }
+        self.heapify(from, to);
+        let mut end = to - 1;
+        while end > from {
+            self.swap(from, end);
+            end -= 1;
+            self.sift_down(from, from, end);
+        }
+    }
+
+    fn heapify(&mut self, from: i32, to: i32) {
+        let mut i = Self::heap_parent(from, to - 1);
+        while i >= from {
+            self.sift_down(i, from, to);
+            i -= 1;
+        }
+    }
+
+    fn sift_down(&mut self, mut i: i32, from: i32, to: i32) {
+        let mut left_child = Self::heap_child(from, i);
+        while left_child < to {
+            let right_child = left_child + 1;
+            if self.compare(i, left_child) < 0 {
+                if right_child < to && self.compare(left_child, right_child) < 0 {
+                    self.swap(i, right_child);
+                    i = right_child;
+                } else {
+                    self.swap(i, left_child);
+                    i = left_child;
+                }
+            } else if right_child < to && self.compare(i, right_child) < 0 {
+                self.swap(i, right_child);
+                i = right_child;
+            } else {
+                break;
+            }
+            left_child = Self::heap_child(from, i);
+        }
+    }
+    fn heap_parent(from: i32, i: i32) -> i32 {
+        ((i - 1 - from) >> 1) + from
+    }
+
+    fn heap_child(from: i32, i: i32) -> i32 {
+        ((i - from) << 1) + 1 + from
+    }
+}

@@ -19,5 +19,6 @@ pub use byte_block_pool::*;
 mod bytes_ref_iterator;
 pub mod counter;
 mod sortable_bytes_ref_array;
+mod sorter;
 
 pub use counter::*;
