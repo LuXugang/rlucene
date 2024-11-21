@@ -13,11 +13,31 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
-pub mod byte_block_pool;
-pub use byte_block_pool::*;
-mod bytes_ref_iterator;
-pub mod counter;
-mod sortable_bytes_ref_array;
+use crate::index::BytesRef;
 
-pub use counter::*;
+pub trait BytesRefIterator {
+    /**
+     * Increments the iteration to the next `BytesRef` in the iterator. Returns the resulting
+     * `Option<BytesRef>` or None if the end of the iterator is reached. The returned
+     * BytesRef may be re-used across calls to next. After this method returns null, do not call it
+     * again: the results are undefined.
+     *
+     * @return the next `BytesRef` in the iterator or `None` if the end of the
+     *     iterator is reached.
+     */
+    fn next(&self) -> Option<BytesRef>;
+}
+
+pub struct EmptyBytesRefIterator;
+
+impl BytesRefIterator for EmptyBytesRefIterator {
+    fn next(&self) -> Option<BytesRef> {
+        None
+    }
+}
+
+impl EmptyBytesRefIterator {
+    pub const EMPTY: Self = EmptyBytesRefIterator;
+}

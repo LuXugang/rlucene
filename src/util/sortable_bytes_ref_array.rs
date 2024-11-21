@@ -14,10 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod byte_block_pool;
-pub use byte_block_pool::*;
-mod bytes_ref_iterator;
-pub mod counter;
-mod sortable_bytes_ref_array;
+use crate::index::BytesRef;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
 
-pub use counter::*;
+pub trait SortableBytesRefArray {
+    /** Append a new value */
+    fn append(&self, bytes: BytesRef);
+    /** Clear all previously stored values */
+    fn clear(&self);
+    /** Returns the number of values appended so far */
+    fn size();
+    /** Sort all values by the provided comparator and return an iterator over the sorted values */
+    fn iterator() -> impl BytesRefIterator;
+}

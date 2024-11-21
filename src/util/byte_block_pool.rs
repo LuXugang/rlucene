@@ -130,7 +130,9 @@ impl<'a> ByteBlockPool<'a> {
         let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
         if pos + length <= BYTE_BLOCK_SIZE {
             // Common case: The slice lives in a single block.
-            result.bytes.clone_from(&self.buffers[buffer_index as usize]);
+            result
+                .bytes
+                .clone_from(&self.buffers[buffer_index as usize]);
             result.offset = pos;
         } else {
             // builder.grow_no_copy(length);
