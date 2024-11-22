@@ -16,7 +16,8 @@
  */
 pub mod byte_block_pool;
 pub use byte_block_pool::*;
-mod array_intro_sorter;
+pub mod array_intro_sorter;
+pub use array_intro_sorter::*;
 mod bytes_ref_comparator;
 mod bytes_ref_iterator;
 pub mod comparator;

@@ -244,8 +244,8 @@ pub trait Sorter {
         let mut end = to - 1;
         while end > from {
             self.swap(from, end);
-            end -= 1;
             self.sift_down(from, from, end);
+            end -= 1;
         }
     }
 

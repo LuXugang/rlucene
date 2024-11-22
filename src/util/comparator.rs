@@ -19,11 +19,20 @@ pub trait Comparator<T> {
     fn compare(&self, a: &T, b: &T) -> i32;
 }
 
-struct NaturalOrder<T>
+pub struct NaturalOrder<T>
 where
     T: Ord,
 {
     _t: std::marker::PhantomData<T>,
+}
+
+impl<T> Default for NaturalOrder<T>
+where
+    T: Ord,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T> NaturalOrder<T>

@@ -32,7 +32,6 @@ pub trait IntroSorter: Sorter {
      * algorithm (Engineering a Sort Function, Bentley-McIlroy).
      */
     fn sort_in_intro(&mut self, mut from: i32, mut to: i32, mut max_depth: i32) {
-        // Sort small ranges with insertion sort.
         while to - from > INSERTION_SORT_THRESHOLD {
             if max_depth <= 0 {
                 // Max recursion depth exceeded: fallback to heap sort.
@@ -43,7 +42,7 @@ pub trait IntroSorter: Sorter {
 
             let size = to - from;
             let last = to - 1;
-            let mid = (from + last) >> 2;
+            let mid = (from + last) >> 1;
 
             let pivot = if size <= SINGLE_MEDIAN_THRESHOLD {
                 // Select the pivot with a single median around the middle element.
@@ -60,54 +59,71 @@ pub trait IntroSorter: Sorter {
                 let median_last = self.median(last - double_range, last - range, last);
                 self.median(median_first, median_middle, median_last)
             };
-            // Bentley-McIlroy 3-way partitioning.
+
             self.set_pivot(pivot);
             self.swap(from, pivot);
 
             let mut i = from;
-            let mut j = to - 1;
+            let mut j = to;
             let mut p = from + 1;
             let mut q = last;
 
             loop {
-                while self.compare_pivot(i + 1) > 0 {
+                let mut left_cmp;
+
+                while {
                     i += 1;
-                }
-                while self.compare_pivot(j - 1) < 0 {
+                    left_cmp = self.compare_pivot(i);
+                    left_cmp > 0
+                } {}
+
+                let mut right_cmp;
+
+                while {
                     j -= 1;
-                }
+                    right_cmp = self.compare_pivot(j);
+                    right_cmp < 0
+                } {}
+
                 if i >= j {
-                    if i == j && self.compare_pivot(j) == 0 {
+                    if i == j && right_cmp == 0 {
                         self.swap(i, p);
                     }
                     break;
                 }
+
                 self.swap(i, j);
-                if self.compare_pivot(i) == 0 {
+                if right_cmp == 0 {
                     self.swap(i, p);
                     p += 1;
                 }
-                if self.compare_pivot(j) == 0 {
+                if left_cmp == 0 {
                     self.swap(j, q);
                     q -= 1;
                 }
             }
 
             i = j + 1;
-            for k in from..p {
+
+            let mut k = from;
+            while k < p {
                 self.swap(k, j);
+                k += 1;
                 j -= 1;
             }
-            for k in (q + 1..=last).rev() {
+
+            k = last;
+            while k > q {
                 self.swap(k, i);
+                k -= 1;
                 i += 1;
             }
             // Recursion on the smallest partition. Replace the tail recursion by a loop.
             if j - from < last - i {
-                self.sort(from, j + 1);
+                self.sort_in_intro(from, j + 1, max_depth);
                 from = i;
             } else {
-                self.sort(i, to);
+                self.sort_in_intro(i, to, max_depth);
                 to = j + 1;
             }
         }
@@ -133,7 +149,7 @@ pub trait IntroSorter: Sorter {
     }
     // Don't rely on the slow default impl of setPivot/comparePivot since
     // quicksort relies on these methods to be fast for good performance
-    fn compare_in_intro(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> i32 {
         self.set_pivot(i);
         self.compare_pivot(j)
     }
