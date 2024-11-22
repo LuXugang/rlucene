@@ -18,3 +18,34 @@
 pub trait Comparator<T> {
     fn compare(&self, a: &T, b: &T) -> i32;
 }
+
+struct NaturalOrder<T>
+where
+    T: Ord,
+{
+    _t: std::marker::PhantomData<T>,
+}
+
+impl<T> NaturalOrder<T>
+where
+    T: Ord,
+{
+    pub fn new() -> NaturalOrder<T> {
+        NaturalOrder {
+            _t: std::marker::PhantomData,
+        }
+    }
+}
+impl<T> Comparator<T> for NaturalOrder<T>
+where
+    T: Ord,
+{
+    fn compare(&self, a: &T, b: &T) -> i32 {
+        let result = a.cmp(b);
+        match result {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        }
+    }
+}
