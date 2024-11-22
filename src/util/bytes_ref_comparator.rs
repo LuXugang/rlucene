@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
+use crate::util::comparator::Comparator;
 
 /**
  * Specialized BytesRef comparator that StringSorter has optimizations for.
  *
  */
-pub trait BytesRefComparator {
+pub trait BytesRefComparator: Comparator<BytesRef> {
     /**
      * Return the unsigned byte to use for comparison at index i, or -1 if all bytes
      * that are useful for comparisons are exhausted. This may only be called with a value of i between
      * 0 included and `compared_bytes_count` excluded.
      */
     fn byte_at(&self, bytes_ref: &BytesRef, i: i32) -> i32;
-    fn compare(&self, o1: &BytesRef, o2: &BytesRef, k: i32) -> i32 {
+    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: i32) -> i32 {
         for i in k..self.compared_bytes_count() {
             let b1 = self.byte_at(o1, i);
             let b2 = self.byte_at(o2, i);
@@ -52,6 +53,13 @@ impl Default for Natural {
         }
     }
 }
+
+impl Comparator<BytesRef> for Natural {
+    fn compare(&self, a: &BytesRef, b: &BytesRef) -> i32 {
+        self.compare_with_offset(a, b, 0)
+    }
+}
+
 impl BytesRefComparator for Natural {
     fn byte_at(&self, bytes_ref: &BytesRef, i: i32) -> i32 {
         if i < bytes_ref.length {
@@ -61,7 +69,7 @@ impl BytesRefComparator for Natural {
         }
     }
 
-    fn compare(&self, o1: &BytesRef, o2: &BytesRef, k: i32) -> i32 {
+    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: i32) -> i32 {
         let start1 = (o1.offset + k) as usize;
         let start2 = (o2.offset + k) as usize;
 
