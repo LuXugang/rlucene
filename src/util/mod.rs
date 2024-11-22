@@ -19,11 +19,13 @@ pub use byte_block_pool::*;
 mod array_intro_sorter;
 mod bytes_ref_comparator;
 mod bytes_ref_iterator;
-mod comparator;
+pub mod comparator;
+pub use comparator::*;
 pub mod counter;
 mod intro_sorter;
 mod most_significant_bit_radix_sort;
 mod sortable_bytes_ref_array;
-mod sorter;
+pub mod sorter;
+pub use sorter::*;
 
 pub use counter::*;

@@ -330,15 +330,15 @@ impl SparseFixedBitSet {
         self.or_impl(i4096, index as i64, &longs, num_longs as i32);
         Ok(())
     }
-    // test-only
+    #[cfg(test)]
     pub fn get_indices(&self) -> &Vec<i64> {
         &self.indices
     }
-    // test-only
+    #[cfg(test)]
     pub fn get_bits(&self) -> &Vec<Option<Vec<u64>>> {
         &self.bits
     }
-    // test-only
+    #[cfg(test)]
     pub fn get_non_zero_long_count(&self) -> i32 {
         self.non_zero_long_count
     }
