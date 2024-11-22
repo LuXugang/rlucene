@@ -44,16 +44,6 @@ pub trait Sorter {
      */
     fn sort(&mut self, from: i32, to: i32);
 
-    fn check_range(&self, from: i32, to: i32) -> Result<(), String> {
-        if to < from {
-            return Err(format!(
-                "'to' must be >= 'from', got from= {} and to= {}",
-                from, to
-            ));
-        }
-        Ok(())
-    }
-
     fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
         if from == mid || mid == to || self.compare(mid - 1, mid) <= 0 {
             return;
@@ -295,4 +285,13 @@ pub trait Sorter {
     fn heap_child(from: i32, i: i32) -> i32 {
         ((i - from) << 1) + 1 + from
     }
+}
+pub fn check_range(from: i32, to: i32) -> Result<(), String> {
+    if to < from {
+        return Err(format!(
+            "'to' must be >= 'from', got from= {} and to= {}",
+            from, to
+        ));
+    }
+    Ok(())
 }
