@@ -31,7 +31,7 @@ pub trait Sorter {
     /**
      * Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
      */
-    fn set_pivot(&self, i: i32);
+    fn set_pivot(&mut self, i: i32);
 
     /**
      * Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
@@ -42,7 +42,7 @@ pub trait Sorter {
     /**
      * Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
      */
-    fn sort(&mut self, from: i32, to: i32);
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), String>;
 
     fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
         if from == mid || mid == to || self.compare(mid - 1, mid) <= 0 {

@@ -133,7 +133,7 @@ pub trait IntroSorter: Sorter {
     }
     // Don't rely on the slow default impl of setPivot/comparePivot since
     // quicksort relies on these methods to be fast for good performance
-    fn compare_in_intro(&self, i: i32, j: i32) -> i32 {
+    fn compare_in_intro(&mut self, i: i32, j: i32) -> i32 {
         self.set_pivot(i);
         self.compare_pivot(j)
     }
