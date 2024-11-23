@@ -44,6 +44,5 @@ pub fn check_licenses_in_dir(dir: &Path, license_text: &str) -> bool {
             all_valid = false;
         }
     }
-
     all_valid
 }

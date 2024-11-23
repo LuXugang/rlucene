@@ -14,22 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod byte_block_pool;
-pub use byte_block_pool::*;
-pub mod array_intro_sorter;
-pub use array_intro_sorter::*;
-mod bytes_ref_comparator;
-mod bytes_ref_iterator;
-pub mod comparator;
-pub use comparator::*;
-pub mod counter;
-mod intro_sorter;
-mod most_significant_bit_radix_sort;
-mod sortable_bytes_ref_array;
-pub mod sorter;
-mod tim_sorter;
-mod tim_sorter_base;
 
-pub use sorter::*;
+pub trait TimSorterBase {
+    /** Copy data from slot `src` to slot `dest`. */
+    fn copy(&self, src: usize, dest: usize);
 
-pub use counter::*;
+    /**
+     * Save all elements between slots i and `i+len` into the temporary
+     * storage.
+     */
+    fn save(&self, i: usize, len: usize);
+    /** Restore element `j` from the temporary storage into slot `i`. */
+    fn restore(&self, i: usize, j: usize);
+    /**
+     * Compare element `i` from the temporary storage with element `j` from the
+     * slice to sort, similarly to #compare(usize, usize).
+     */
+
+    fn compare_saved(&self, i: usize, j: usize) -> i32;
+}
