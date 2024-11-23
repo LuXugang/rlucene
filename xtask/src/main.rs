@@ -86,16 +86,7 @@ fn main() {
                     process::exit(1);
                 }
             }
-            "format" => {
-                let status = process::Command::new("cargo")
-                    .args(&["fmt", "--all"])
-                    .status()
-                    .expect("Failed to run cargo fmt");
-                if !status.success() {
-                    eprintln!("cargo fmt failed");
-                    process::exit(1);
-                }
-            }
+
             _ => {
                 eprintln!("\x1b[31mUnknown task: {}\x1b[31m", task);
             }
