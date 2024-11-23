@@ -17,15 +17,15 @@
 
 pub trait TimSorterBase {
     /** Copy data from slot `src` to slot `dest`. */
-    fn copy(&self, src: usize, dest: usize);
+    fn copy(&mut self, src: usize, dest: usize);
 
     /**
      * Save all elements between slots i and `i+len` into the temporary
      * storage.
      */
-    fn save(&self, i: usize, len: usize);
+    fn save(&mut self, i: usize, len: usize);
     /** Restore element `j` from the temporary storage into slot `i`. */
-    fn restore(&self, i: usize, j: usize);
+    fn restore(&mut self, i: usize, j: usize);
     /**
      * Compare element `i` from the temporary storage with element `j` from the
      * slice to sort, similarly to #compare(usize, usize).

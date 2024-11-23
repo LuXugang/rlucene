@@ -22,6 +22,7 @@ mod bytes_ref_comparator;
 mod bytes_ref_iterator;
 pub mod comparator;
 pub use comparator::*;
+mod array_tim_sorter;
 pub mod counter;
 mod intro_sorter;
 mod most_significant_bit_radix_sort;
