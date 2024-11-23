@@ -18,6 +18,7 @@ use crate::accountable::Accountable;
 use std::sync::atomic::AtomicI32;
 
 //todo
+#[allow(dead_code)]
 const BYTES_PER_DEL_QUERY: i64 = 0;
 /**
  * Holds buffered deletes and updates, by docID, term or query for a single segment. This is used to
@@ -28,12 +29,14 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 // NOTE: instances of this class are accessed either via a private
 // instance on DocumentWriterPerThread, or via sync'd code by
 // DocumentsWriterDeleteQueue
+#[allow(dead_code)]
 struct BufferedUpdates {
     segment_name: String,
     num_field_updates: AtomicI32,
 }
 impl BufferedUpdates {
-    pub fn new(segment_name: &str) -> BufferedUpdates {
+    #[allow(dead_code)]
+    pub fn new(_segment_name: &str) -> BufferedUpdates {
         todo!()
     }
 }
@@ -43,5 +46,5 @@ impl Accountable for BufferedUpdates {
         todo!()
     }
 }
-
+#[allow(dead_code)]
 struct DeletedTerms {}

@@ -92,7 +92,7 @@ pub trait BaseDocIdSetTestCase {
     }
     //todo
     /** Test ram usage estimation. */
-    fn test_ram_bytes_used(&self, random: &mut StdRng) {}
+    fn test_ram_bytes_used(&self, _random: &mut StdRng) {}
     fn assert_equals<T: DocIdSet>(
         &self,
         random: &mut StdRng,
@@ -102,7 +102,8 @@ pub trait BaseDocIdSetTestCase {
     );
 }
 // todo
-fn ram_bytes_used(set: impl DocIdSet, length: i32) -> i64 {
+#[allow(dead_code)]
+fn ram_bytes_used(_set: impl DocIdSet, _length: i32) -> i64 {
     0
 }
 pub trait BaseDocIdSetTestCaseSupperImpl {
@@ -139,7 +140,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let mut docs = vec![];
             iter.for_each(|doc| docs.push(doc));
             let mut index = 0;
-            let mut doc = 0;
+            let mut _doc = 0;
             while index < docs.len() {
                 if random.gen_bool(0.5) {
                     assert_eq!(docs[index], disi.next_doc() as usize);
@@ -154,13 +155,13 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                     let target = docs[index] + 1 + random.gen_range(0..=skip_length) as usize;
                     if let Some(i) = docs.iter().position(|&doc| doc == target) {
                         index = i + 1;
-                        doc = target
+                        _doc = target
                     } else {
-                        doc = NO_MORE_DOCS as usize;
+                        _doc = NO_MORE_DOCS as usize;
                         break;
                     }
-                    assert_eq!(doc as i32, disi.advance(target as i32));
-                    assert_eq!(doc as i32, disi.doc_id());
+                    assert_eq!(_doc as i32, disi.advance(target as i32));
+                    assert_eq!(_doc as i32, disi.doc_id());
                 }
             }
         }
@@ -172,17 +173,17 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let bits = bitss.unwrap();
             let mut disi = ds2.iterator().unwrap();
             while doc != NO_MORE_DOCS {
-                let mut i = 0;
+                let mut _i = 0;
                 doc = disi.next_doc();
                 let max = if doc == NO_MORE_DOCS {
                     bits.length()
                 } else {
                     doc
                 };
-                i = previes_doc + 1;
-                while i < max {
-                    assert!(!bits.get(i));
-                    i += 1;
+                _i = previes_doc + 1;
+                while _i < max {
+                    assert!(!bits.get(_i));
+                    _i += 1;
                 }
                 if doc == NO_MORE_DOCS {
                     break;

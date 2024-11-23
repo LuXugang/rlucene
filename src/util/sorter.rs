@@ -59,7 +59,7 @@ pub trait Sorter {
             to -= 1;
         }
 
-        let (first_cut, second_cut, len11, len22) = if mid - from > to - mid {
+        let (first_cut, second_cut, _len11, len22) = if mid - from > to - mid {
             let len11 = (mid - from) >> 2;
             let first_cut = from + len11;
             let second_cut = self.lower(mid, to, first_cut);

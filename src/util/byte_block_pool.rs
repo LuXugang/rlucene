@@ -19,6 +19,7 @@ use crate::util::{Counter, CounterEnum};
 use std::cmp::min;
 
 //todo
+#[allow(dead_code)]
 const BASE_RAM_BYTES: i64 = 0;
 /**
  * Use this to find the index of the buffer containing a byte, given an offset to that byte.
@@ -337,7 +338,7 @@ impl<'a> DirectTrackingAllocator<'a> {
     }
 }
 impl Allocator for DirectTrackingAllocator<'_> {
-    fn recycle_byte_blocks(&mut self, blocks: &Vec<Vec<u8>>, start: i32, end: i32) {
+    fn recycle_byte_blocks(&mut self, _blocks: &Vec<Vec<u8>>, start: i32, end: i32) {
         self.byte_used
             .add_and_get(-(end - start) as i64 * self.block_size as i64);
     }
@@ -359,7 +360,7 @@ pub enum AllocatorEnum<'a> {
 impl<'a> AllocatorEnum<'a> {
     fn get_used(&self) -> i64 {
         match self {
-            AllocatorEnum::DA(da) => 0,
+            AllocatorEnum::DA(_da) => 0,
             AllocatorEnum::DTA(dta) => dta.byte_used.get(),
         }
     }

@@ -168,10 +168,6 @@ fn do_get(a: &bit_set::BitSet, b: &FixedBitSet) {
     }
 }
 
-fn next_set_bit(bitset: &bit_set::BitSet, from_index: usize) -> Option<usize> {
-    bitset.iter().find(|&i| i >= from_index)
-}
-
 fn do_next_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
     assert_eq!(a.len(), b.cardinality() as usize);
     let mut bb = 0;
@@ -572,7 +568,7 @@ fn test_bits2words() {
 
 fn make_int_array(random: &mut StdRng, count: i32, min: i32, max: i32) -> Vec<i32> {
     let mut rv = vec![0; count as usize];
-    for i in 0..count {
+    for _i in 0..count {
         rv.push(random.gen_range(min..=max));
     }
     rv

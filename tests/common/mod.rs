@@ -17,4 +17,3 @@
 pub mod common;
 
 pub use common::*;
-pub mod test_priority_queue;

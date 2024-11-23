@@ -21,7 +21,7 @@ use rlucene::{DocIdSet, DocIdSetIterator, DocsWithFieldSet, NO_MORE_DOCS};
 struct TestDocsWithFieldSet {}
 #[test]
 fn test_dense() {
-    let random = my_random("test_dense".to_string());
+    let _random = my_random("test_dense".to_string());
     let mut set = DocsWithFieldSet::new();
     let mut it = set.iterator().unwrap();
     assert_eq!(it.next_doc(), NO_MORE_DOCS);
@@ -34,7 +34,7 @@ fn test_dense() {
     //todo
     // let ram_bytes_used = set.ram_bytes_used();
     for i in 0..1000 {
-        set.add(i);
+        let _ = set.add(i);
     }
     //todo:
     // assert_eq!(ram_bytes_used, set.ram_bytes_used());
@@ -55,7 +55,7 @@ fn test_sparse() {
     assert_eq!(doc, it.next_doc());
     assert_eq!(it.next_doc(), NO_MORE_DOCS);
     let doc2 = doc + random.gen_range(1..100);
-    set.add(doc2);
+    let _ = set.add(doc2);
     it = set.iterator().unwrap();
     assert_eq!(doc, it.next_doc());
     assert_eq!(doc2, it.next_doc());

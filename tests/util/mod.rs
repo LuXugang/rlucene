@@ -18,3 +18,4 @@ mod base_sort_test_case;
 mod test_byte_block_pool;
 pub mod test_bytes_ref;
 mod test_intro_sorter;
+mod test_priority_queue;

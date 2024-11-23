@@ -28,8 +28,10 @@ pub trait Accountable {
     }
 }
 
+#[allow(dead_code)]
 struct EmptyAccountable;
 impl EmptyAccountable {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         EmptyAccountable
     }

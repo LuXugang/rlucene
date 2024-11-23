@@ -5,6 +5,7 @@ use std::cmp::min;
 use std::hash::{Hash, Hasher};
 
 // todo
+#[allow(dead_code)]
 const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 #[derive(Default)]
@@ -183,10 +184,12 @@ impl FixedBitSet {
         (fixed_bit_set.bits[(fixed_bit_set.num_words as usize) - 1] & mask) == 0
     }
 
+    #[allow(dead_code)]
     fn get_bits(&self) -> &Vec<u64> {
         &self.bits
     }
 
+    #[allow(dead_code)]
     fn get_and_clear(&mut self, index: i32) -> bool {
         assert!(
             index >= 0 && index < self.num_bits,
@@ -206,6 +209,7 @@ impl FixedBitSet {
         self.or_impl(0, &other.bits, other.num_words);
     }
 
+    #[allow(dead_code)]
     fn or_offset(&mut self, other_offset_words: i32, other: &FixedBitSet) {
         self.or_impl(other_offset_words, &other.bits, other.num_words);
     }
@@ -227,7 +231,8 @@ impl FixedBitSet {
     pub fn xor(&mut self, other: &FixedBitSet) {
         self.xor_impl(&other.bits, other.num_words);
     }
-    pub fn xor_disi(&self, iter: impl DocIdSetIterator) {
+    #[allow(dead_code)]
+    pub fn xor_disi(&self, _iter: impl DocIdSetIterator) {
         // not used in Java Lucene, so we did not impl it
         todo!()
     }
@@ -286,6 +291,7 @@ impl FixedBitSet {
         self.and_not_impl(0, &other.bits, other.num_words)
     }
 
+    #[allow(dead_code)]
     fn and_not_offset(&mut self, other_offset_words: i32, other: &FixedBitSet) {
         self.and_not_impl(other_offset_words, &other.bits, other.num_words);
     }

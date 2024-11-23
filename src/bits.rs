@@ -53,11 +53,6 @@ impl Bits for MatchAllBits {
 pub struct MatchNoBits {
     len: i32,
 }
-impl MatchNoBits {
-    pub(crate) fn new() -> MatchNoBits {
-        MatchNoBits { len: 0 }
-    }
-}
 impl Bits for MatchNoBits {
     fn get(&self, _index: i32) -> bool {
         false

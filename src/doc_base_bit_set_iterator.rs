@@ -57,7 +57,7 @@ impl DocBaseBitSetIterator {
      *
      * @return the offset docId bitset
      */
-    fn get_bit_set(&self) -> &FixedBitSet {
+    fn _get_bit_set(&self) -> &FixedBitSet {
         &self.bits
     }
 
@@ -66,7 +66,7 @@ impl DocBaseBitSetIterator {
      *
      * @return the docBase
      */
-    fn get_doc_base(&self) -> i32 {
+    fn _get_doc_base(&self) -> i32 {
         self.doc_base
     }
 }

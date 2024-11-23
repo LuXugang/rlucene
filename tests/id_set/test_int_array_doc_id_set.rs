@@ -23,7 +23,7 @@ use rlucene::{DocIdSet, IntArrayDocIdSet, NO_MORE_DOCS};
 
 struct TestIntArrayDocIdSet;
 impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
-    fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {
+    fn copy_of(&self, bs: &bit_set::BitSet, _length: i32) -> impl DocIdSet {
         let mut docs: Vec<i32> = vec![];
         let iter = bs.iter();
         for doc in iter {

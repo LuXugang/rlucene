@@ -19,8 +19,8 @@ use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::{
-    new_counter, Allocator, AllocatorEnum, ByteBlockPool, Counter, DirectAllocator,
-    DirectTrackingAllocator, BYTE_BLOCK_SIZE,
+    new_counter, AllocatorEnum, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
+    BYTE_BLOCK_SIZE,
 };
 
 #[allow(dead_code)]
@@ -146,7 +146,7 @@ fn test_large_random_block() {
     let iter = 100;
     let mut iterms: Vec<Vec<u8>> = vec![vec![]; iter];
 
-    for i in 0..iter {
+    for _i in 0..iter {
         let size: i32;
         if random.gen_bool(0.5) {
             size = random.gen_range(100..1000);
@@ -171,23 +171,6 @@ fn test_large_random_block() {
         pool.read_bytes(position, &mut actual, 0, actual_len as i32);
         assert_eq!(expected, actual);
         position += expected.len() as i64;
-    }
-}
-
-struct NewAllocator {
-    buffer: Vec<u8>,
-}
-impl Allocator for NewAllocator {
-    fn recycle_byte_blocks(&mut self, blocks: &Vec<Vec<u8>>, start: i32, end: i32) {
-        todo!()
-    }
-
-    fn get_byte_block(&mut self) -> Vec<u8> {
-        todo!()
-    }
-
-    fn get_block_size(&self) -> i32 {
-        todo!()
     }
 }
 

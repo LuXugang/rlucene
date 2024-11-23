@@ -69,7 +69,7 @@ fn test_sparse() {
     let mut builder = DocIdSetBuilder::new(max_doc);
     let num_iterators = 1 + random.gen_range(0..10);
     let mut fixed_set_bit = FixedBitSet::new(max_doc);
-    for i in 0..num_iterators {
+    for _i in 0..num_iterators {
         let base_inc = 200000 + random.gen_range(0..10000);
         let mut b = RoaringDocIdSetBuilder::new(max_doc);
         let mut doc = random.gen_range(0..100);
@@ -100,7 +100,7 @@ fn test_dense() {
     let mut builder = DocIdSetBuilder::new(max_doc);
     let num_iterators = 1 + random.gen_range(0..10);
     let mut fixed_set_bit = FixedBitSet::new(max_doc);
-    for i in 0..num_iterators {
+    for _i in 0..num_iterators {
         let mut b = RoaringDocIdSetBuilder::new(max_doc);
         let mut doc = random.gen_range(0..1000);
         while doc < max_doc {
@@ -196,7 +196,7 @@ fn test_misleading_disi_cost() {
     let max_doc = random.gen_range(1000..=10000);
     let mut builder = DocIdSetBuilder::new(max_doc);
     let mut expected = FixedBitSet::new(max_doc);
-    for i in 0..100 {
+    for _i in 0..100 {
         let mut docs = FixedBitSet::new(max_doc);
         let num_docs = random.gen_range(1..=max_doc / 1000);
         for _ in 0..num_docs {

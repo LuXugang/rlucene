@@ -4,8 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+[dev-dependencies]
 rand = "0.8.5"
 bit-set = "0.5.3"
 
 [profile.dev]
 overflow-checks = false
+
+[features]
+default= ["test_only"]
+test_only = []

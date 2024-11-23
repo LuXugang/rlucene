@@ -21,6 +21,7 @@ use std::cmp::min;
 use std::rc::Rc;
 
 // TODO
+#[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 
 /**

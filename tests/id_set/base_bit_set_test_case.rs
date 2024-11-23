@@ -37,7 +37,7 @@ pub fn random_set_impl(random: &mut StdRng, num_bits: i32, num_bits_set: i32) ->
     if num_bits_set == num_bits {
         id_set_common::set_range(&mut set, 0, num_bits as usize)
     } else {
-        for i in 0..num_bits_set {
+        for _i in 0..num_bits_set {
             loop {
                 let o = random.gen_range(0..num_bits);
                 if !set.contains(o as usize) {
@@ -131,7 +131,7 @@ pub trait BaseBitSetTestCase {
         let mut set1 = set3.clone();
         let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
         let iters = 10000 + random.gen_range(0..10000);
-        for i in 0..iters {
+        for _i in 0..iters {
             let index = random.gen_range(0..num_bits);
             let v1 = set1.get_and_set(index);
             let v2 = set2.get_and_set(index);
@@ -144,7 +144,7 @@ pub trait BaseBitSetTestCase {
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let mut set1 = set3.clone();
-            let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
+            let (mut set2, _sfbs) = self.copy_of(&set3, num_bits);
             let iters = 1 + random.gen_range(0..(num_bits * 2));
             for _i in 0..iters {
                 let index = random.gen_range(0..num_bits);
@@ -195,7 +195,7 @@ pub trait BaseBitSetTestCase {
         let random_float: f32 = random.gen();
         self.test_or_impl(random, random_float)
     }
-    fn test_or_impl(&self, random: &mut StdRng, load: f32) {
+    fn test_or_impl(&self, _random: &mut StdRng, _load: f32) {
         // let num_bits = 1 + random.gen_range(0..100000);
         // let set1 = RustUtilBitSet::new(random_set(random, num_bits, 0f32), num_bits);
         // let (mut set2, sfbs) = self.copy_of(&set1, num_bits);
@@ -224,18 +224,10 @@ pub trait BaseBitSetTestCaseSupperImpl {
 }
 
 //todo
-fn random_copy(random: &mut StdRng, set: impl BitSet, num_bits: i32) {
+#[allow(dead_code)]
+fn random_copy(_random: &mut StdRng, _set: impl BitSet, _num_bits: i32) {
     todo!()
 }
-
-trait DefaultMethod {
-    fn assert_equals(set1: &RustUtilBitSet, set2: &impl BitSet, max_doc: i32) {
-        for i in 0..max_doc {
-            assert_eq!(set1.get(i), set2.get(i), "Different at: {}", i);
-        }
-    }
-}
-
 pub struct RustUtilBitSet {
     bitset: bit_set::BitSet,
     num_bits: i32,
@@ -349,7 +341,7 @@ impl BitSet for RustUtilBitSet {
         NO_MORE_DOCS
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), String> {
+    fn or<T: DocIdSetIterator>(&mut self, _iter: T) -> Result<(), String> {
         todo!()
     }
 }

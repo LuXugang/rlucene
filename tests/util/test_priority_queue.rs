@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#[path = "common.rs"]
-mod common;
 use crate::common::my_random;
 use rand::Rng;
 use rlucene::priority_queue::PriorityQueue;

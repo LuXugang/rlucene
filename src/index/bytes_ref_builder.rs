@@ -62,7 +62,7 @@ impl BytesRefBuilder {
         if capacity <= current_len as i32 {
             return;
         }
-        for i in 0..(capacity as usize - current_len) {
+        for _i in 0..(capacity as usize - current_len) {
             self.bytes_ref.bytes.push(0);
         }
     }

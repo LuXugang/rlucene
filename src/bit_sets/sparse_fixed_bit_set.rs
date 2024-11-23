@@ -232,7 +232,7 @@ impl SparseFixedBitSet {
     }
 
     fn or_impl(&mut self, i4096: i32, index: i64, bits: &Vec<u64>, non_zero_long_count: i32) {
-        assert!(index.count_ones() == non_zero_long_count as u32);
+        assert_eq!(index.count_ones(), non_zero_long_count as u32);
         let current_index = self.indices[i4096 as usize];
         if current_index == 0 {
             // fast path: if we currently have nothing in the block, just copy the data
@@ -279,6 +279,7 @@ impl SparseFixedBitSet {
         self.non_zero_long_count +=
             non_zero_long_count - (current_index & index).count_ones() as i32;
     }
+    #[allow(dead_code)]
     fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<(), String> {
         SparseFixedBitSet::check_unpositioned(&it)?;
         // The goal here is to try to take advantage of the ordering of documents
@@ -302,13 +303,13 @@ impl SparseFixedBitSet {
             let doc64 = doc >> 6;
             if doc64 == i64 {
                 // still in the same long, just set the bit
-                current_long != 1_u64 << (doc % 64);
+                current_long |= 1_u64 << (doc % 64);
             } else {
                 longs[num_longs] = current_long;
                 num_longs += 1;
                 let doc4096 = doc >> 12;
                 if doc4096 == i4096 {
-                    index != index | (1_u64 << (doc64 % 64));
+                    index |= 1_u64 << (doc64 % 64);
                 } else {
                     // we are on a new block, flush what we buffered
                     self.or_impl(i4096, index as i64, &longs, num_longs as i32);
@@ -330,15 +331,15 @@ impl SparseFixedBitSet {
         self.or_impl(i4096, index as i64, &longs, num_longs as i32);
         Ok(())
     }
-    // test only
+    #[cfg(feature = "test_only")]
     pub fn get_indices(&self) -> &Vec<i64> {
         &self.indices
     }
-    // test only
+    #[cfg(feature = "test_only")]
     pub fn get_bits(&self) -> &Vec<Option<Vec<u64>>> {
         &self.bits
     }
-    // test only
+    #[cfg(feature = "test_only")]
     pub fn get_non_zero_long_count(&self) -> i32 {
         self.non_zero_long_count
     }
@@ -355,6 +356,7 @@ fn oversize(s: i32) -> i32 {
     }
     new_size
 }
+#[allow(dead_code)]
 fn long_bits(index: i64, bits: &[u64], i64: i32) -> i64 {
     if ((index as u64) & (1_u64 << (i64 % 64))) == 0 {
         0

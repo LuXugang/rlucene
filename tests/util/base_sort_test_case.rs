@@ -16,7 +16,7 @@
  */
 use crate::common::rarely;
 use crate::util::base_sort_test_case::Strategy::{
-    RandomLowCardinality, RandomMediumCardinality, RANDOM,
+    Random, RandomLowCardinality, RandomMediumCardinality,
 };
 use rand::prelude::StdRng;
 use rand::Rng;
@@ -68,45 +68,47 @@ pub trait BaseSortTestCase {
     }
 
     fn test_one(&self, random: &mut StdRng) {
-        self.test(random, RANDOM(), 1);
+        self.test(random, Random(), 1);
     }
     fn test_two(&self, random: &mut StdRng) {
         self.test(random, RandomLowCardinality(), 2);
     }
     fn test_random(&self, random: &mut StdRng) {
-        self.test_with_strategy(random, RANDOM());
+        self.test_with_strategy(random, Random());
     }
     fn test_random_low_cardinality(&self, random: &mut StdRng) {
         self.test_with_strategy(random, RandomLowCardinality());
     }
     fn test_ascending(&self, random: &mut StdRng) {
-        self.test_with_strategy(random, Strategy::ASCENDING());
+        self.test_with_strategy(random, Strategy::Ascending());
     }
     fn test_ascending_sequences(&self, random: &mut StdRng) {
         self.test_with_strategy(random, Strategy::AscendingSequences());
     }
     fn test_descending(&self, random: &mut StdRng) {
-        self.test_with_strategy(random, Strategy::DESCENDING());
+        self.test_with_strategy(random, Strategy::Descending());
     }
     fn test_strictly_descending(&self, random: &mut StdRng) {
         self.test_with_strategy(random, Strategy::StrictlyDescending());
     }
 }
 
-enum Strategy {
-    RANDOM(),
+pub enum Strategy {
+    Random(),
     RandomLowCardinality(),
+    #[allow(dead_code)]
     RandomMediumCardinality(),
-    ASCENDING(),
-    DESCENDING(),
+    Ascending(),
+    Descending(),
     StrictlyDescending(),
     AscendingSequences(),
+    #[allow(dead_code)]
     MostlyAscending(),
 }
 impl Strategy {
-    fn set(&self, arr: &mut Vec<Entry>, i: i32, random: &mut StdRng) {
+    fn set(&self, arr: &mut [Entry], i: i32, random: &mut StdRng) {
         match self {
-            RANDOM() => {
+            Random() => {
                 arr[i as usize] = Entry::new(random.gen(), i);
             }
             RandomLowCardinality() => {
@@ -116,14 +118,14 @@ impl Strategy {
                 let length = arr.len() >> 1;
                 arr[i as usize] = Entry::new(random.gen_range(0..length) as i32, i);
             }
-            Strategy::ASCENDING() => {
+            Strategy::Ascending() => {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.gen_range(0..6), 0)
                 } else {
                     Entry::new(arr[(i - 1) as usize].value + random.gen_range(0..6), i)
                 }
             }
-            Strategy::DESCENDING() => {
+            Strategy::Descending() => {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.gen_range(0..6), 0)
                 } else {
@@ -160,8 +162,7 @@ impl Strategy {
     }
 }
 
-#[derive(Clone, Eq, Debug)]
-#[derive(Default)]
+#[derive(Clone, Eq, Debug, Default)]
 pub struct Entry {
     value: i32,
     ord: i32,

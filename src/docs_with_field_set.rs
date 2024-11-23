@@ -21,6 +21,7 @@ use crate::{AllDocIdSetIterator, BitSetIterator, Bits, DocIdSet, DocIdSetIterato
 use std::rc::Rc;
 
 //todo
+#[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 /**
  * Accumulator for documents that have a value for a field. This is optimized for the case that all

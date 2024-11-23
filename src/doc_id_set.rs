@@ -51,6 +51,7 @@ struct All {
     bits: Option<Rc<MatchAllBits>>,
 }
 impl All {
+    #[allow(dead_code)]
     fn new(max_doc: i32) -> Self {
         let bits = Some(Rc::new(MatchAllBits::new(max_doc)));
         All { max_doc, bits }

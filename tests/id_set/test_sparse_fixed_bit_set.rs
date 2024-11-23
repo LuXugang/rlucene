@@ -30,7 +30,7 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
         &self,
         bs: &RustUtilBitSet,
         length: i32,
-    ) -> (SparseFixedBitSet, Option<SparseFixedBitSet>) {
+    ) -> (impl BitSet, Option<SparseFixedBitSet>) {
         let mut set = SparseFixedBitSet::new(length).unwrap();
         let mut set1 = SparseFixedBitSet::new(length).unwrap();
         let mut doc = bs.next_set_bit(0);
@@ -64,7 +64,7 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
                 let mut j = n;
                 while j < sparse_fixed_bit_set.get_bits()[i].as_ref().unwrap().len() as u32 {
                     let array = sparse_fixed_bit_set.get_bits()[i].as_ref().unwrap();
-                    assert!(array[j as usize] == 0);
+                    assert_eq!(array[j as usize], 0);
                     j += 1;
                 }
             }
@@ -177,6 +177,7 @@ fn test_approximate_cardinality_on_dense_set() {
     assert_eq!(num_docs, set.approximate_cardinality());
 }
 #[test]
-fn testRamBytesUsed() {
+#[allow(dead_code)]
+fn test_ram_bytes_used() {
     // todo
 }

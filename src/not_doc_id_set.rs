@@ -18,7 +18,7 @@ use crate::accountable::Accountable;
 use crate::doc_id_set::DocIdSet;
 use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
 use std::rc::Rc;
-
+#[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 /**
  * This DocIdSet encodes the negation of another DocIdSet. It is cacheable and

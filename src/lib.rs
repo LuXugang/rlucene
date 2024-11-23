@@ -42,8 +42,8 @@ pub use crate::doc_id_set_iterator::*;
 pub mod docs_with_field_set;
 pub use crate::docs_with_field_set::*;
 
-pub mod int_array_doc_Id_set;
-pub use crate::int_array_doc_Id_set::*;
+pub mod int_array_doc_id_set;
+pub use crate::int_array_doc_id_set::*;
 
 pub mod not_doc_id_set;
 pub use crate::not_doc_id_set::*;

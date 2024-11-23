@@ -276,6 +276,7 @@ where
      * This method returns the internal heap array as Object[].
      *
      */
+    #[allow(dead_code)]
     fn get_heap_array(&self) -> &Vec<T> {
         &self.heap
     }

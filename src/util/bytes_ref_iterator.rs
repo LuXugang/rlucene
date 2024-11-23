@@ -27,6 +27,7 @@ pub trait BytesRefIterator {
      * @return the next `BytesRef` in the iterator or `None` if the end of the
      *     iterator is reached.
      */
+    #[allow(dead_code)]
     fn next(&self) -> Option<BytesRef>;
 }
 
@@ -39,5 +40,6 @@ impl BytesRefIterator for EmptyBytesRefIterator {
 }
 
 impl EmptyBytesRefIterator {
+    #[allow(dead_code)]
     pub const EMPTY: Self = EmptyBytesRefIterator;
 }
