@@ -24,8 +24,10 @@ use rlucene::util::{Comparator, Sorter};
 use std::cmp::Ordering;
 
 pub trait BaseSortTestCase {
-    fn new_sorter(&self, arr: &mut Vec<Entry>) -> impl Sorter;
-    fn get_stable(&self) -> bool;
+    fn new_sorter(&self, random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter;
+    fn get_stable(&self) -> bool {
+        false
+    }
     fn assert_sorted(&self, original: &Vec<Entry>, sorted: &Vec<Entry>) {
         assert_eq!(original.len(), sorted.len());
         let mut actually_sorted = original.clone();
@@ -44,7 +46,7 @@ pub trait BaseSortTestCase {
         to_sort[o..o + arr.len()].clone_from_slice(&arr[0..arr.len()]);
         let arr_len = arr.len();
         {
-            let mut sorter = self.new_sorter(&mut to_sort);
+            let mut sorter = self.new_sorter(random, &mut to_sort);
             let result = sorter.sort(o, o + arr_len);
             assert!(result.is_ok());
         }

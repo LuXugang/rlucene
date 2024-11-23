@@ -16,12 +16,16 @@
  */
 use crate::util::sorter::{check_range, Sorter, INSERTION_SORT_THRESHOLD};
 /** Below this size threshold, the partition selection is simplified to a single median. */
-const SINGLE_MEDIAN_THRESHOLD: usize = 40;
+const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 
 pub trait IntroSorter: Sorter {
     fn sort_range(&mut self, from: usize, to: usize) -> Result<(), String> {
         check_range(from, to)?;
-        self.sort_in_intro(from, to, (2.0 * ((to - from) as f64).log2()) as usize);
+        self.sort_in_intro(
+            from as i32,
+            to as i32,
+            (2.0 * ((to - from) as f64).log2()) as usize,
+        );
         Ok(())
     }
     /**
@@ -31,9 +35,9 @@ pub trait IntroSorter: Sorter {
      * case. Selects the pivot with medians and partitions with the Bentley-McIlroy fast 3-ways
      * algorithm (Engineering a Sort Function, Bentley-McIlroy).
      */
-    fn sort_in_intro(&mut self, mut from: usize, mut to: usize, mut max_depth: usize) {
+    fn sort_in_intro(&mut self, mut from: i32, mut to: i32, mut max_depth: usize) {
         while to - from > INSERTION_SORT_THRESHOLD {
-            if max_depth <= 0 {
+            if max_depth == 0 {
                 // Max recursion depth exceeded: fallback to heap sort.
                 self.heap_sort(from, to);
                 return;
@@ -131,7 +135,7 @@ pub trait IntroSorter: Sorter {
         self.insertion_sort(from, to);
     }
     /** Returns the index of the median element among three elements at provided indices. */
-    fn median(&self, i: usize, j: usize, k: usize) -> usize {
+    fn median(&self, i: i32, j: i32, k: i32) -> i32 {
         if self.compare(i, j) < 0 {
             if self.compare(j, k) <= 0 {
                 return j;
@@ -150,7 +154,7 @@ pub trait IntroSorter: Sorter {
     // Don't rely on the slow default impl of setPivot/comparePivot since
     // quicksort relies on these methods to be fast for good performance
     #[allow(dead_code)]
-    fn compare(&mut self, i: usize, j: usize) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> i32 {
         self.set_pivot(i);
         self.compare_pivot(j)
     }

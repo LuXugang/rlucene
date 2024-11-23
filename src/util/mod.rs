@@ -22,14 +22,16 @@ mod bytes_ref_comparator;
 mod bytes_ref_iterator;
 pub mod comparator;
 pub use comparator::*;
-mod array_tim_sorter;
+pub mod array_tim_sorter;
 pub mod counter;
 mod intro_sorter;
 mod most_significant_bit_radix_sort;
 mod sortable_bytes_ref_array;
 pub mod sorter;
-mod tim_sorter;
+pub mod tim_sorter;
 mod tim_sorter_base;
+pub use array_tim_sorter::*;
+pub use tim_sorter::*;
 
 pub use sorter::*;
 

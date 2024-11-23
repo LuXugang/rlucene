@@ -17,92 +17,89 @@
 use crate::common::my_random;
 use crate::util::base_sort_test_case::{BaseSortTestCase, Entry};
 use rand::rngs::StdRng;
-use rlucene::util::{ArrayIntroSorter, Comparator, NaturalOrder};
+use rand::Rng;
+use rlucene::util::{ArrayTimSorter, Comparator, NaturalOrder, TimSorter};
 
-const STABLE: bool = false;
-
-struct TestIntroSorter<T, C: Comparator<T>>
-where
-    T: Ord,
-{
+struct TestTimSorter<T, C> {
     _marker: std::marker::PhantomData<(T, C)>,
 }
-impl Default for TestIntroSorter<i32, NaturalOrder<i32>> {
+
+impl TestTimSorter<Entry, NaturalOrder<Entry>> {
     fn default() -> Self {
-        TestIntroSorter {
+        TestTimSorter {
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<T, C: Comparator<T>> BaseSortTestCase for TestIntroSorter<T, C>
-where
-    T: Ord,
-{
+impl<T: Default + Clone, C: Comparator<T>> BaseSortTestCase for TestTimSorter<T, C> {
     fn new_sorter<'a>(
         &self,
-        _random: &mut StdRng,
+        random: &mut StdRng,
         arr: &'a mut Vec<Entry>,
-    ) -> ArrayIntroSorter<'a, Entry, NaturalOrder<Entry>> {
-        ArrayIntroSorter::new(arr, NaturalOrder::new())
+    ) -> TimSorter<ArrayTimSorter<'a, Entry, NaturalOrder<Entry>>> {
+        let arr_len = arr.len();
+        let max_temp_slots = random.gen_range(0..=arr_len);
+        let array_tim_sorter = ArrayTimSorter::new(arr, NaturalOrder::new(), arr_len as i32);
+        TimSorter::new(max_temp_slots as i32, array_tim_sorter)
     }
 
     fn get_stable(&self) -> bool {
-        STABLE
+        true
     }
 }
 
 #[test]
 fn test_empty() {
-    let mut random = my_random("test_test".to_string());
-    let case = TestIntroSorter::default();
+    let mut random = my_random("test_empty".to_string());
+    let case = TestTimSorter::default();
     case.test_empty(&mut random);
 }
 #[test]
 fn test_one() {
     let mut random = my_random("test_one".to_string());
-    let case = TestIntroSorter::default();
+    let case = TestTimSorter::default();
     case.test_one(&mut random);
 }
 #[test]
 fn test_two() {
     let mut random = my_random("test_two".to_string());
-    let case = TestIntroSorter::default();
+    let case = TestTimSorter::default();
     case.test_two(&mut random);
 }
 #[test]
 fn test_random() {
     let mut random = my_random("test_random".to_string());
-    let case = TestIntroSorter::default();
+    let case = TestTimSorter::default();
     case.test_random(&mut random);
 }
 #[test]
 fn test_random_low_cardinality() {
     let mut random = my_random("test_random_low_cardinality".to_string());
-    let case = TestIntroSorter::default();
+    let case = TestTimSorter::default();
     case.test_random_low_cardinality(&mut random);
 }
 #[test]
 fn test_ascending() {
     let mut random = my_random("test_ascending".to_string());
-    let case = TestIntroSorter::default();
+    let case = TestTimSorter::default();
     case.test_ascending(&mut random);
 }
 #[test]
 fn test_ascending_sequences() {
     let mut random = my_random("test_ascending_sequences".to_string());
-    let case = TestIntroSorter::default();
+    let case = TestTimSorter::default();
     case.test_ascending_sequences(&mut random);
 }
 #[test]
 fn test_descending() {
     let mut random = my_random("test_descending".to_string());
-    let case = TestIntroSorter::default();
+    let case = TestTimSorter::default();
     case.test_descending(&mut random);
 }
 #[test]
 fn test_strictly_descending() {
     let mut random = my_random("test_strictly_descending".to_string());
-    let case = TestIntroSorter::default();
+    let case = TestTimSorter::default();
     case.test_strictly_descending(&mut random);
 }

@@ -35,64 +35,65 @@ use std::cmp::{max, min};
  *       gallops on the longest slice.
  *
  */
-const MINRUN: usize = 32;
-const THRESHOLD: usize = 64;
-const STACKSIZE: usize = 49; // depends on MINRUN
-const MIN_GALLOP: usize = 7;
+const MINRUN: i32 = 32;
+const THRESHOLD: i32 = 64;
+const STACKSIZE: i32 = 49; // depends on MINRUN
+const MIN_GALLOP: i32 = 7;
 
 pub struct TimSorter<T>
 where
     T: Sorter + TimSorterBase,
 {
-    max_temp_slots: usize,
-    min_run: usize,
-    to: usize,
-    stack_size: usize,
-    run_ends: Vec<usize>,
+    max_temp_slots: i32,
+    min_run: i32,
+    to: i32,
+    stack_size: i32,
+    run_ends: Vec<i32>,
     sub_sorter: T,
 }
 impl<T: Sorter + TimSorterBase> TimSorter<T> {
-    pub fn new(max_temp_slots: usize, sub_sorter: T) -> TimSorter<T> {
+    pub fn new(max_temp_slots: i32, sub_sorter: T) -> TimSorter<T> {
         TimSorter {
             max_temp_slots,
             min_run: 0,
             to: 0,
             stack_size: 0,
-            run_ends: vec![0; STACKSIZE + 1],
+            run_ends: vec![0; STACKSIZE as usize + 1],
             sub_sorter,
         }
     }
-    fn min_run(&self, length: usize) -> usize {
+    fn min_run(&self, length: i32) -> i32 {
         assert!(length >= MINRUN);
         let mut n = length;
         let mut r = 0;
         while n >= 64 {
             r |= n & 1;
-            n >>= 1; //
+            n >>= 1;
         }
         let min_run = n + r;
         assert!((MINRUN..=THRESHOLD).contains(&min_run));
         min_run
     }
-    fn run_len(&self, i: usize) -> usize {
+    fn run_len(&self, i: i32) -> i32 {
         let off = self.stack_size - i;
-        self.run_ends[off] - self.run_ends[off - 1]
+        self.run_ends[off as usize] - self.run_ends[(off - 1) as usize]
     }
-    fn run_base(&self, i: usize) -> usize {
-        self.run_ends[self.stack_size - i - 1]
+    fn run_base(&self, i: i32) -> i32 {
+        self.run_ends[(self.stack_size - i - 1) as usize]
     }
-    fn run_end(&self, i: usize) -> usize {
-        self.run_ends[self.stack_size - i]
+    fn run_end(&self, i: i32) -> i32 {
+        self.run_ends[(self.stack_size - i) as usize]
     }
-    fn set_run_end(&mut self, i: usize, run_end: usize) {
-        self.run_ends[self.stack_size - i] = run_end;
+    fn set_run_end(&mut self, i: i32, run_end: i32) {
+        self.run_ends[(self.stack_size - i) as usize] = run_end;
     }
-    fn push_run_len(&mut self, len: usize) {
-        self.run_ends[self.stack_size + 1] = self.run_ends[self.stack_size] + len;
+    fn push_run_len(&mut self, len: i32) {
+        self.run_ends[(self.stack_size + 1) as usize] =
+            self.run_ends[(self.stack_size) as usize] + len;
         self.stack_size += 1;
     }
     /** Compute the length of the next run, make the run sorted and return its length. */
-    fn next_run(&mut self) -> usize {
+    fn next_run(&mut self) -> i32 {
         let run_base = self.run_end(0);
         assert!(run_base < self.to);
 
@@ -100,18 +101,18 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             return 1;
         }
         let mut o = run_base + 2;
-        if self.sub_sorter.compare(run_base, run_base + 1) > 0 {
-            while o < self.to && self.sub_sorter.compare(o - 1, o) > 0 {
+        if self.compare(run_base, run_base + 1) > 0 {
+            while o < self.to && self.compare(o - 1, o) > 0 {
                 o += 1;
             }
-            self.sub_sorter.reverse(run_base, o);
+            self.reverse(run_base, o);
         } else {
-            while o < self.to && self.sub_sorter.compare(o - 1, o) <= 0 {
+            while o < self.to && self.compare(o - 1, o) <= 0 {
                 o += 1;
             }
         }
         let run_hi = max(o, min(self.to, run_base + self.min_run));
-        self.sub_sorter.binary_sort_with_start(run_base, run_hi, o);
+        self.binary_sort_with_start(run_base, run_hi, o);
         run_hi - run_base
     }
     pub fn ensure_invariants(&mut self) {
@@ -123,7 +124,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
                 let run_len2 = self.run_len(2);
 
                 if run_len2 <= run_len1 + run_len0 {
-                    // 合并 0 和 2 中较小的一个与 1
+                    // merge the smaller of 0 and 2 with 1
                     if run_len2 < run_len0 {
                         self.merge_at(1);
                     } else {
@@ -141,16 +142,13 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             break;
         }
     }
-    pub fn exhaust_stack(&mut self)
-    where
-        T: TimSorterBase + Sorter,
-    {
+    pub fn exhaust_stack(&mut self) {
         while self.stack_size > 1 {
             self.merge_at(0);
         }
     }
 
-    pub fn reset(&mut self, from: usize, to: usize) {
+    pub fn reset(&mut self, from: i32, to: i32) {
         self.stack_size = 0;
         self.run_ends.fill(0);
         self.run_ends[0] = from;
@@ -163,13 +161,9 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         };
     }
 
-    pub fn merge_at(&mut self, n: usize) {
+    pub fn merge_at(&mut self, n: i32) {
         assert!(self.stack_size >= 2);
-        self.merge(
-            self.run_base(n + 1),
-            self.run_base(n),
-            self.run_end(n),
-        );
+        self.merge(self.run_base(n + 1), self.run_base(n), self.run_end(n));
 
         for j in (1..=n + 1).rev() {
             self.set_run_end(j, self.run_end(j - 1));
@@ -178,82 +172,23 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         self.stack_size -= 1;
     }
 
-    pub fn merge(&mut self, mut lo: usize, mid: usize, mut hi: usize) {
-        if self.sub_sorter.compare(mid - 1, mid) <= 0 {
+    fn merge(&mut self, mut lo: i32, mid: i32, mut hi: i32) {
+        if self.compare(mid - 1, mid) <= 0 {
             return;
         }
 
-        lo = self.sub_sorter.upper2(lo, mid, mid);
-        hi = self.sub_sorter.lower2(mid, hi, mid - 1);
-
+        lo = self.upper2(lo, mid, mid);
+        hi = self.lower2(mid, hi, mid - 1);
         if hi - mid <= mid - lo && hi - mid <= self.max_temp_slots {
             self.merge_hi(lo, mid, hi);
         } else if mid - lo <= self.max_temp_slots {
             self.merge_lo(lo, mid, hi);
         } else {
-            self.sub_sorter.merge_in_place(lo, mid, hi);
+            self.merge_in_place(lo, mid, hi);
         }
     }
 
-    pub fn sort(&mut self, from: usize, to: usize) -> Result<(), String> {
-        sorter::check_range(from, to)?;
-        if to - from <= 1 {
-            return Ok(());
-        }
-
-        self.reset(from, to);
-
-        loop {
-            self.ensure_invariants();
-            let run_length = self.next_run();
-            self.push_run_len(run_length);
-
-            if self.run_end(0) >= to {
-                break;
-            }
-        }
-        self.exhaust_stack();
-
-        assert!(self.run_end(0) == to);
-        Ok(())
-    }
-    pub fn do_rotate(&mut self, lo: usize, mid: usize, hi: usize) {
-        let len1 = mid - lo;
-        let len2 = hi - mid;
-
-        if len1 == len2 {
-            let mut lo_idx = lo;
-            let mut mid_idx = mid;
-            while mid_idx < hi {
-                self.sub_sorter.swap(lo_idx, mid_idx);
-                lo_idx += 1;
-                mid_idx += 1;
-            }
-        } else if len2 < len1 && len2 <= self.max_temp_slots {
-            self.sub_sorter.save(mid, len2);
-            for (i, j) in (lo..lo + len1).rev().zip((hi - len2..hi).rev()) {
-                self.sub_sorter.copy(i, j);
-            }
-            for (i, j) in (0..len2).zip(lo..lo + len2) {
-                self.sub_sorter.restore(i, j);
-            }
-        } else if len1 <= self.max_temp_slots {
-            // len1 较小且临时空间足够
-            self.sub_sorter.save(lo, len1);
-            for (i, j) in (mid..hi).zip(lo..lo + len2) {
-                self.sub_sorter.copy(i, j);
-            }
-            for (i, j) in (0..len1).zip(lo + len2..hi) {
-                self.sub_sorter.restore(i, j);
-            }
-        } else {
-            // 使用反转实现旋转
-            self.sub_sorter.reverse(lo, mid);
-            self.sub_sorter.reverse(mid, hi);
-            self.sub_sorter.reverse(lo, hi);
-        }
-    }
-    pub fn merge_lo(&mut self, lo: usize, mid: usize, hi: usize) {
+    fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) {
         assert!(self.sub_sorter.compare(lo, mid) > 0);
 
         let len1 = mid - lo;
@@ -303,21 +238,15 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         assert_eq!(j, dest);
     }
 
-    pub fn merge_hi(&mut self, lo: usize, mid: usize, hi: usize)
-    where
-        T: Sorter + TimSorterBase,
-    {
-        assert!(
-            self.sub_sorter.compare(mid - 1, hi - 1) > 0,
-            "mergeHi precondition failed"
-        );
+    pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) {
+        assert!(self.compare(mid - 1, hi - 1) > 0);
 
         let len2 = hi - mid;
         self.sub_sorter.save(mid, len2);
         self.sub_sorter.copy(mid - 1, hi - 1);
 
         let mut i = mid - 2;
-        let mut j: i32 = (len2 - 1) as i32;
+        let mut j: i32 = len2 - 1;
         let mut dest = hi - 2;
 
         'outer: loop {
@@ -325,8 +254,8 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             while count < MIN_GALLOP {
                 if i < lo || j < 0 {
                     break 'outer;
-                } else if self.sub_sorter.compare_saved(j as usize, i) >= 0 {
-                    self.sub_sorter.restore(j as usize, dest);
+                } else if self.sub_sorter.compare_saved(j, i) >= 0 {
+                    self.sub_sorter.restore(j, dest);
                     j -= 1;
                     dest -= 1;
                     count = 0;
@@ -339,19 +268,19 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             }
 
             // Galloping phase
-            let next = self.upper_saved3(lo, i + 1, j as usize);
+            let next = self.upper_saved3(lo, i + 1, j);
             while i >= next {
                 self.sub_sorter.copy(i, dest);
                 i -= 1;
                 dest -= 1;
             }
-            self.sub_sorter.restore(j as usize, dest);
+            self.sub_sorter.restore(j, dest);
             j -= 1;
             dest -= 1;
         }
 
         while j >= 0 {
-            self.sub_sorter.restore(j as usize, dest);
+            self.sub_sorter.restore(j, dest);
             j -= 1;
             dest -= 1;
         }
@@ -359,50 +288,39 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         assert!(i == dest);
     }
 
-    pub fn lower_saved(&self, from: usize, to: usize, val: usize) -> usize
-    where
-        T: Sorter + TimSorterBase,
-    {
+    pub fn lower_saved(&self, mut from: i32, to: i32, val: i32) -> i32 {
         let mut len = to - from;
-        let mut start = from;
 
         while len > 0 {
-            let half = len / 2;
-            let mid = start + half;
+            let half = len >> 1;
+            let mid = from + half;
             if self.sub_sorter.compare_saved(val, mid) > 0 {
-                start = mid + 1;
+                from = mid + 1;
                 len -= half + 1;
             } else {
                 len = half;
             }
         }
-        start
+        from
     }
 
-    pub fn upper_saved(&self, from: usize, to: usize, val: usize) -> usize
-    where
-        T: Sorter + TimSorterBase,
-    {
+    pub fn upper_saved(&self, mut from: i32, to: i32, val: i32) -> i32 {
         let mut len = to - from;
-        let mut start = from;
 
         while len > 0 {
-            let half = len / 2;
-            let mid = start + half;
+            let half = len >> 1;
+            let mid = from + half;
             if self.sub_sorter.compare_saved(val, mid) < 0 {
                 len = half;
             } else {
-                start = mid + 1;
+                from = mid + 1;
                 len -= half + 1;
             }
         }
-        start
+        from
     }
 
-    pub fn lower_saved3(&self, from: usize, to: usize, val: usize) -> usize
-    where
-        T: Sorter + TimSorterBase,
-    {
+    pub fn lower_saved3(&self, from: i32, to: i32, val: i32) -> i32 {
         let mut f = from;
         let mut t = f + 1;
 
@@ -417,10 +335,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         self.lower_saved(f, to, val)
     }
 
-    pub fn upper_saved3(&self, from: usize, to: usize, val: usize) -> usize
-    where
-        T: Sorter + TimSorterBase,
-    {
+    pub fn upper_saved3(&self, from: i32, to: i32, val: i32) -> i32 {
         let mut f = to - 1;
         let mut t = to;
 
@@ -433,5 +348,97 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             f = f.saturating_sub(delta * 2);
         }
         self.upper_saved(from, t, val)
+    }
+}
+impl<T> Sorter for TimSorter<T>
+where
+    T: Sorter + TimSorterBase,
+{
+    fn compare(&self, i: i32, j: i32) -> i32 {
+        self.sub_sorter.compare(i, j)
+    }
+
+    fn swap(&mut self, i: i32, j: i32) {
+        self.sub_sorter.swap(i, j);
+    }
+
+    fn set_pivot(&mut self, i: i32) {
+        self.sub_sorter.set_pivot(i);
+    }
+
+    fn compare_pivot(&self, i: i32) -> i32 {
+        self.sub_sorter.compare_pivot(i)
+    }
+
+    fn sort(&mut self, from: usize, to: usize) -> Result<(), String> {
+        sorter::check_range(from, to)?;
+        if to - from <= 1 {
+            return Ok(());
+        }
+
+        self.reset(from as i32, to as i32);
+
+        loop {
+            self.ensure_invariants();
+            let run_length = self.next_run();
+            self.push_run_len(run_length);
+
+            if self.run_end(0) >= to as i32 {
+                break;
+            }
+        }
+        self.exhaust_stack();
+
+        assert_eq!(self.run_end(0), to as i32);
+        Ok(())
+    }
+
+    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) {
+        let len1 = mid - lo;
+        let len2 = hi - mid;
+
+        if len1 == len2 {
+            while mid < hi {
+                self.swap(lo, mid);
+                lo += 1;
+                mid += 1;
+            }
+        } else if len2 < len1 && len2 <= self.max_temp_slots {
+            self.sub_sorter.save(mid, len2);
+            let mut i = lo + len1 - 1;
+            let mut j = hi - 1;
+            while i >= lo {
+                self.sub_sorter.copy(i, j);
+                i -= 1;
+                j -= 1;
+            }
+            i = 0;
+            j = lo;
+            while i < len2 {
+                self.sub_sorter.restore(i, j);
+                i += 1;
+                j += 1;
+            }
+        } else if len1 <= self.max_temp_slots {
+            self.sub_sorter.save(lo, len1);
+            let mut i = mid;
+            let mut j = lo;
+            while i < hi {
+                self.sub_sorter.copy(i, j);
+                i += 1;
+                j += 1;
+            }
+            i = 0;
+            j = lo + len2;
+            while j < hi {
+                self.sub_sorter.restore(i, j);
+                i += 1;
+                j += 1;
+            }
+        } else {
+            self.reverse(lo, mid);
+            self.reverse(mid, hi);
+            self.reverse(lo, hi);
+        }
     }
 }
