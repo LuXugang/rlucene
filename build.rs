@@ -18,7 +18,7 @@ use std::process::Command;
 
 fn main() {
     let status = Command::new("cargo")
-        .args(&["xtask"])
+        .args(["xtask"])
         .status()
         .expect("Failed to run license-check via xtask");
 

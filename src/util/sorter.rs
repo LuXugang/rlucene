@@ -15,36 +15,36 @@
  * limitations under the License.
  */
 
-pub const BINARY_SORT_THRESHOLD: i32 = 20;
+pub const BINARY_SORT_THRESHOLD: usize = 20;
 /** Below this size threshold, the sub-range is sorted using Insertion sort. */
-pub const INSERTION_SORT_THRESHOLD: i32 = 16;
+pub const INSERTION_SORT_THRESHOLD: usize = 16;
 
 pub trait Sorter {
     /**
      * Compare entries found in slots i and j
      */
-    fn compare(&self, i: i32, j: i32) -> i32;
+    fn compare(&self, i: usize, j: usize) -> i32;
 
     /** Swap values at slots <code>i</code> and <code>j</code>. */
-    fn swap(&mut self, i: i32, j: i32);
+    fn swap(&mut self, i: usize, j: usize);
 
     /**
      * Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
      */
-    fn set_pivot(&mut self, i: i32);
+    fn set_pivot(&mut self, i: usize);
 
     /**
      * Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
      * compare(i, j).
      */
-    fn compare_pivot(&self, i: i32) -> i32;
+    fn compare_pivot(&self, i: usize) -> i32;
 
     /**
      * Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
      */
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), String>;
+    fn sort(&mut self, from: usize, to: usize) -> Result<(), String>;
 
-    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
+    fn merge_in_place(&mut self, mut from: usize, mid: usize, mut to: usize) {
         if from == mid || mid == to || self.compare(mid - 1, mid) <= 0 {
             return;
         } else if to - from == 2 {
@@ -79,7 +79,7 @@ pub trait Sorter {
         self.merge_in_place(new_mid, second_cut, to);
     }
 
-    fn lower(&self, mut from: i32, to: i32, val: i32) -> i32 {
+    fn lower(&self, mut from: usize, to: usize, val: usize) -> usize {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 2;
@@ -94,7 +94,7 @@ pub trait Sorter {
         from
     }
 
-    fn upper(&self, mut from: i32, to: i32, val: i32) -> i32 {
+    fn upper(&self, mut from: usize, to: usize, val: usize) -> usize {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 2;
@@ -109,7 +109,7 @@ pub trait Sorter {
         from
     }
     // faster than lower when val is at the end of [from:to[
-    fn lower2(&self, from: i32, to: i32, val: i32) -> i32 {
+    fn lower2(&self, from: usize, to: usize, val: usize) -> usize {
         let mut f = to - 1;
         let mut t = to;
 
@@ -126,7 +126,7 @@ pub trait Sorter {
     }
 
     // faster than upper when val is at the beginning of [from:to[
-    fn upper2(&self, from: i32, to: i32, val: i32) -> i32 {
+    fn upper2(&self, from: usize, to: usize, val: usize) -> usize {
         let mut f = from;
         let mut t = f + 1;
 
@@ -142,7 +142,7 @@ pub trait Sorter {
         self.upper(f, to, val)
     }
 
-    fn reverse(&mut self, from: i32, to: i32) {
+    fn reverse(&mut self, from: usize, to: usize) {
         let mut from = from;
         let mut to = to - 1;
         while from < to {
@@ -152,7 +152,7 @@ pub trait Sorter {
         }
     }
 
-    fn rotate(&mut self, lo: i32, mid: i32, hi: i32) {
+    fn rotate(&mut self, lo: usize, mid: usize, hi: usize) {
         assert!(lo <= mid && mid <= hi);
         if lo == mid || mid == hi {
             return;
@@ -160,7 +160,7 @@ pub trait Sorter {
         self.do_rotate(lo, mid, hi);
     }
 
-    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) {
+    fn do_rotate(&mut self, mut lo: usize, mut mid: usize, hi: usize) {
         if mid - lo == hi - mid {
             while mid < hi {
                 self.swap(lo, mid);
@@ -180,11 +180,11 @@ pub trait Sorter {
      * number of items to sort has become less than #BINARY_SORT_THRESHOLD. This algorithm is
      * stable.
      */
-    fn binary_sort(&mut self, from: i32, to: i32) {
+    fn binary_sort(&mut self, from: usize, to: usize) {
         self.binary_sort_with_start(from, to, from + 1);
     }
 
-    fn binary_sort_with_start(&mut self, from: i32, to: i32, mut i: i32) {
+    fn binary_sort_with_start(&mut self, from: usize, to: usize, mut i: usize) {
         while i < to {
             self.set_pivot(i);
             let mut l = from;
@@ -212,7 +212,7 @@ pub trait Sorter {
      * It is typically used by more sophisticated implementations as a fall-back when the number of
      * items to sort becomes less than #INSERTION_SORT_THRESHOLD. This algorithm is stable.
      */
-    fn insertion_sort(&mut self, from: i32, to: i32) {
+    fn insertion_sort(&mut self, from: usize, to: usize) {
         let mut i = from + 1;
         while i < to {
             let mut current = i;
@@ -236,7 +236,7 @@ pub trait Sorter {
      * in `O(n*log(n))` and is used as a fall-back by `IntroSorter`. This algorithm is NOT
      * stable.
      */
-    fn heap_sort(&mut self, from: i32, to: i32) {
+    fn heap_sort(&mut self, from: usize, to: usize) {
         if to - from <= 1 {
             return;
         }
@@ -249,7 +249,7 @@ pub trait Sorter {
         }
     }
 
-    fn heapify(&mut self, from: i32, to: i32) {
+    fn heapify(&mut self, from: usize, to: usize) {
         let mut i = Self::heap_parent(from, to - 1);
         while i >= from {
             self.sift_down(i, from, to);
@@ -257,7 +257,7 @@ pub trait Sorter {
         }
     }
 
-    fn sift_down(&mut self, mut i: i32, from: i32, to: i32) {
+    fn sift_down(&mut self, mut i: usize, from: usize, to: usize) {
         let mut left_child = Self::heap_child(from, i);
         while left_child < to {
             let right_child = left_child + 1;
@@ -278,15 +278,15 @@ pub trait Sorter {
             left_child = Self::heap_child(from, i);
         }
     }
-    fn heap_parent(from: i32, i: i32) -> i32 {
+    fn heap_parent(from: usize, i: usize) -> usize {
         ((i - 1 - from) >> 1) + from
     }
 
-    fn heap_child(from: i32, i: i32) -> i32 {
+    fn heap_child(from: usize, i: usize) -> usize {
         ((i - from) << 1) + 1 + from
     }
 }
-pub fn check_range(from: i32, to: i32) -> Result<(), String> {
+pub fn check_range(from: usize, to: usize) -> Result<(), String> {
     if to < from {
         return Err(format!(
             "'to' must be >= 'from', got from= {} and to= {}",

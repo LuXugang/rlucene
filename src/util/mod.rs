@@ -27,6 +27,8 @@ mod intro_sorter;
 mod most_significant_bit_radix_sort;
 mod sortable_bytes_ref_array;
 pub mod sorter;
+mod tim_sorter;
+
 pub use sorter::*;
 
 pub use counter::*;
