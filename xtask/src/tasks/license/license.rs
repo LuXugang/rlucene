@@ -34,11 +34,9 @@ pub fn check_licenses_in_dir(dir: &Path, license_text: &str) -> bool {
 
         if path.is_dir() {
             all_valid &= check_licenses_in_dir(&path, license_text);
-        } else if path.extension().map(|ext| ext == "rs").unwrap_or(false) {
-            if !check_license_in_file(&path, license_text) {
-                println!("Missing or incorrect license in file: {}", path.display());
-                all_valid = false;
-            }
+        } else if path.extension().map(|ext| ext == "rs").unwrap_or(false) && !check_license_in_file(&path, license_text) {
+            println!("Missing or incorrect license in file: \x1b[31m{}\x1b[0m", path.display());
+            all_valid = false;
         }
     }
 

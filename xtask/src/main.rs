@@ -77,17 +77,27 @@ fn main() {
                     tasks::license::license::check_licenses_in_dir(&test_dir, &license_text);
 
                 if src_valid && test_valid {
-                    println!("All files have the correct license header.");
+                    eprintln!("\x1b[32mAll files have the correct license header\x1b[0m.");
                 } else {
                     eprintln!(
-                        "License check failed: you should copy the correct license header from {}",
+                        "License check failed: you should copy the correct license header from \x1b[31m{}\x1b[0m",
                         license_header_path
                     );
                     process::exit(1);
                 }
             }
+            "format" => {
+                let status = process::Command::new("cargo")
+                    .args(&["fmt", "--all"])
+                    .status()
+                    .expect("Failed to run cargo fmt");
+                if !status.success() {
+                    eprintln!("cargo fmt failed");
+                    process::exit(1);
+                }
+            }
             _ => {
-                eprintln!("Unknown task: {}", task);
+                eprintln!("\x1b[31mUnknown task: {}\x1b[31m", task);
             }
         }
     }
