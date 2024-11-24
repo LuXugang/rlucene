@@ -21,3 +21,4 @@ pub use bytes_ref::*;
 pub mod bytes_ref_builder;
 pub use bytes_ref_builder::*;
 mod documents_writer_delete_queue;
+mod index_options;
