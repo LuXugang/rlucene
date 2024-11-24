@@ -56,4 +56,5 @@ pub use crate::roaring_doc_id_set::*;
 pub mod terms;
 
 pub mod index;
+pub mod search;
 pub mod util;
