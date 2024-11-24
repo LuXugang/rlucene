@@ -72,7 +72,7 @@ impl SparseFixedBitSet {
         self.indices[i4096 as usize] = i64bit;
         assert!(self.bits[i4096 as usize].is_none());
         let mut block: Vec<u64> = vec![];
-        block.push(1_u64 << i);
+        block.push(1_u64 << (i % 64));
         self.bits[i4096 as usize] = Some(block);
         self.non_zero_long_count += 1;
         //todo
@@ -194,7 +194,7 @@ impl SparseFixedBitSet {
             // There is at least one bit that is set in the current long, check if
             // one of them is after i
             assert!(bit_array.is_some());
-            let bits = bit_array.unwrap()[o] >> start;
+            let bits = bit_array.unwrap()[o] >> (start % 64);
             if bits != 0 {
                 return start + bits.trailing_zeros() as i32;
             }
@@ -346,7 +346,8 @@ impl SparseFixedBitSet {
 }
 
 fn mask(from: i32, to: i32) -> i64 {
-    (((1_u64 << ((to - from) % 64) << 1) - 1) << from) as i64
+    let shift = ((to - from) % 64 + 64) % 64;
+    (((1_u64 << shift << 1) - 1) << (from % 64)) as i64
 }
 
 fn oversize(s: i32) -> i32 {

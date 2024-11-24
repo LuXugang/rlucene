@@ -119,7 +119,7 @@ pub trait Sorter {
             }
             let delta = t - f;
             t = f;
-            f = f.saturating_sub(delta << 1);
+            f -= delta << 1
         }
 
         self.lower(from, t, val)
@@ -136,7 +136,7 @@ pub trait Sorter {
             }
             let delta = t - f;
             f = t;
-            t = t.saturating_add(delta << 1);
+            t += delta << 1;
         }
 
         self.upper(f, to, val)

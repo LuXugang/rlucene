@@ -9,6 +9,9 @@ build = "build.rs"
 rand = "0.8.5"
 bit-set = "0.5.3"
 
+[profile.dev]
+overflow-checks = false
+
 [features]
 default= ["test_only"]
 test_only = []

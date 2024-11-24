@@ -345,7 +345,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             }
             let delta = t - f;
             t = f;
-            f = f.saturating_sub(delta * 2);
+            f -= delta * 2
         }
         self.upper_saved(from, t, val)
     }
