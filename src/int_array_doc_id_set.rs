@@ -19,6 +19,7 @@ use crate::doc_id_set::DocIdSet;
 use crate::{DocIdSetIterator, MatchNoBits, NO_MORE_DOCS};
 use std::cmp::min;
 use std::rc::Rc;
+use crate::util::error::runtime_error::RuntimeError;
 
 // TODO
 #[allow(dead_code)]
@@ -40,22 +41,21 @@ pub struct IntArrayDocIdSet {
  * param len The valid docs length in array.
  */
 impl IntArrayDocIdSet {
-    pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet, String> {
+    pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet, RuntimeError> {
         if docs[length as usize] != NO_MORE_DOCS {
-            return Err(format!("last value must be {}", NO_MORE_DOCS));
+            return Err(RuntimeError::argument( format!("last value must be {}", NO_MORE_DOCS)));
         }
-        let ordered = docs.windows(2).all(|w| w[0] < w[1]);
-        if !ordered {
-            return Err(format!(
-                "IntArrayDocIdSet need docs to be sorted:{}",
-                docs.iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ));
-        }
+        assert!(assert_array_sorted(&docs), "IntArrayDocIdSet need docs to be sorted:{}", docs.iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(", "));
         Ok(IntArrayDocIdSet { docs, length })
     }
+    
+}
+fn assert_array_sorted(docs: &[i32]) -> bool {
+    docs.windows(2).all(|w| w[0] < w[1])
+
 }
 
 impl DocIdSet for IntArrayDocIdSet {

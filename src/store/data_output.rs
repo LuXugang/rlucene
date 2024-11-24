@@ -16,10 +16,10 @@
  */
 use crate::index::BytesRef;
 use crate::store::data_input::DataInput;
-use crate::store::data_io_error_enum::DataIOErrorEnum;
 use crate::util::bit_util::BitUtil;
 use crate::util::group_vint_util::{GroupVIntUtil, MAX_LENGTH_PER_GROUP};
 use std::collections::{HashMap, HashSet};
+use crate::util::error::data_io_error_enum::DataIOError;
 
 /**
  * Abstract base class for performing write operations of Lucene's low-level data types.
@@ -36,12 +36,12 @@ pub trait DataOutput: Sized {
      * All other data types are defined as sequences of bytes, so file formats are byte-order
      * independent.
      */
-    fn write_byte(&mut self, b: u8) -> Result<(), DataIOErrorEnum>;
+    fn write_byte(&mut self, b: u8) -> Result<(), DataIOError>;
 
     /**
      * Writes an array of bytes.
      */
-    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<(), DataIOErrorEnum> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<(), DataIOError> {
         self.write_bytes_range(b, 0, len)
     }
     /**
@@ -53,12 +53,12 @@ pub trait DataOutput: Sized {
         b: &[u8],
         offset: i32,
         length: i32,
-    ) -> Result<(), DataIOErrorEnum>;
+    ) -> Result<(), DataIOError>;
 
     /**
      * Writes an int as four bytes (LE byte order).
      */
-    fn write_int(&mut self, i: i32) -> Result<(), DataIOErrorEnum> {
+    fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
         self.write_byte(i as u8)?;
         self.write_byte((i >> 8) as u8)?;
         self.write_byte((i >> 16) as u8)?;
@@ -69,7 +69,7 @@ pub trait DataOutput: Sized {
     /**
      * Writes a short as two bytes (LE byte order).
      */
-    fn write_short(&mut self, i: i16) -> Result<(), DataIOErrorEnum> {
+    fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
         self.write_byte(i as u8)?;
         self.write_byte((i >> 8) as u8)?;
         Ok(())
@@ -182,7 +182,7 @@ pub trait DataOutput: Sized {
      * @throws IOException If there is an I/O error writing to the underlying medium.
      * @see DataInput#readVInt()
      */
-    fn write_vint(&mut self, mut i: i32) -> Result<(), DataIOErrorEnum> {
+    fn write_vint(&mut self, mut i: i32) -> Result<(), DataIOError> {
         while (i & !0x7F) != 0 {
             self.write_byte(((i & 0x7F) | 0x80) as u8)?;
             i >>= 7;
@@ -196,31 +196,30 @@ pub trait DataOutput: Sized {
      * variable-length integer. This is typically useful to write small signed ints and is equivalent
      * to calling `writeVInt(BitUtil.zig_zag_encode_i32(i))`
      */
-    fn write_zint(&mut self, i: i32) -> Result<(), DataIOErrorEnum> {
+    fn write_zint(&mut self, i: i32) -> Result<(), DataIOError> {
         self.write_vint(BitUtil::zig_zag_encode_i32(i))
     }
 
     /**
      * Writes a long as eight bytes (LE byte order).
      */
-    fn write_long(&mut self, i: i64) -> Result<(), DataIOErrorEnum> {
+    fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
         self.write_int(i as i32)?;
         self.write_int((i >> 32) as i32)?;
         Ok(())
     }
     // write a potentially negative vLong
-    fn write_vlong(&mut self, i: i64) -> Result<(), DataIOErrorEnum> {
+    fn write_vlong(&mut self, i: i64) -> Result<(), DataIOError> {
         if i < 0 {
-            return Err(DataIOErrorEnum::IllegalArgument(format!(
-                "cost must be >= 0, got {}",
-                i
-            )));
+            return Err(DataIOError::argument(
+                "cannot write negative vLong (got: ".to_string() + &i.to_string() + ")",
+            ));
         }
         self.write_signed_vlong(i)?;
         Ok(())
     }
 
-    fn write_signed_vlong(&mut self, mut i: i64) -> Result<(), DataIOErrorEnum> {
+    fn write_signed_vlong(&mut self, mut i: i64) -> Result<(), DataIOError> {
         while (i & !0x7F) != 0 {
             self.write_byte(((i & 0x7F) | 0x80) as u8)?;
             i >>= 7;
@@ -233,7 +232,7 @@ pub trait DataOutput: Sized {
      * variable-length long. Writes between one and ten bytes. This is typically useful to write
      * small signed ints.
      */
-    fn write_zlong(&mut self, i: i64) -> Result<(), DataIOErrorEnum> {
+    fn write_zlong(&mut self, i: i64) -> Result<(), DataIOError> {
         self.write_vlong(BitUtil::zig_zag_encode_i64(i))
     }
 
@@ -244,7 +243,7 @@ pub trait DataOutput: Sized {
      * #writeVInt VInt}, followed by the bytes.
      *
      */
-    fn write_string(&mut self, s: &str) -> Result<(), DataIOErrorEnum> {
+    fn write_string(&mut self, s: &str) -> Result<(), DataIOError> {
         let utf8_result = BytesRef::new_from_string(s);
         let len = utf8_result.length;
         let offset = utf8_result.offset;
@@ -256,7 +255,7 @@ pub trait DataOutput: Sized {
         &mut self,
         input: &T,
         num_bytes: i64,
-    ) -> Result<(), DataIOErrorEnum> {
+    ) -> Result<(), DataIOError> {
         assert!(num_bytes >= 0, "num_bytes = {}", num_bytes);
         let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
         let mut left = num_bytes;
@@ -282,7 +281,7 @@ pub trait DataOutput: Sized {
     fn write_map_of_strings(
         &mut self,
         map: &HashMap<String, String>,
-    ) -> Result<(), DataIOErrorEnum> {
+    ) -> Result<(), DataIOError> {
         self.write_vint(map.len() as i32)?;
         for (key, value) in map.iter() {
             self.write_string(key)?;
@@ -297,7 +296,7 @@ pub trait DataOutput: Sized {
      * <p>First the size is written as an {@link #writeVInt(int) vInt}, followed by each value written
      * as a {@link #writeString(String) String}.
      */
-    fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<(), DataIOErrorEnum> {
+    fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<(), DataIOError> {
         self.write_vint(set.len() as i32)?;
         for value in set.iter() {
             self.write_string(value)?;
@@ -310,7 +309,7 @@ pub trait DataOutput: Sized {
      * values that are not enough for a group. we need a `vec<i64>` because this is what postings are
      * using, all longs are actually required to be integers.
      */
-    fn write_group_vints(&mut self, values: &mut [i64], limit: i32) -> Result<(), DataIOErrorEnum> {
+    fn write_group_vints(&mut self, values: &mut [i64], limit: i32) -> Result<(), DataIOError> {
         let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];
         GroupVIntUtil::write_group_vint(self, &mut group_vint_bytes, values, limit)?;
         Ok(())

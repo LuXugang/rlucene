@@ -14,28 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::io::Error;
-use std::string::FromUtf8Error;
-
-#[derive(Debug)]
-pub enum DataIOErrorEnum {
-    Io(Error),
-    Utf8(FromUtf8Error),
-    IllegalArgument(String),
-}
-impl From<Error> for DataIOErrorEnum {
-    fn from(err: Error) -> Self {
-        DataIOErrorEnum::Io(err)
-    }
-}
-
-impl From<FromUtf8Error> for DataIOErrorEnum {
-    fn from(err: FromUtf8Error) -> Self {
-        DataIOErrorEnum::Utf8(err)
-    }
-}
-impl From<String> for DataIOErrorEnum {
-    fn from(err: String) -> Self {
-        DataIOErrorEnum::IllegalArgument(err)
-    }
-}
+pub mod data_io_error_enum;
+pub mod illegal_argument;
+pub mod illegal_state;
+pub mod runtime_error;

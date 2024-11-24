@@ -18,6 +18,7 @@ use crate::accountable::Accountable;
 use crate::bit_sets::bit_set::BitSet;
 use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
 use std::cmp::min;
+use crate::util::error::runtime_error::RuntimeError;
 
 // todo
 const _SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
@@ -43,9 +44,9 @@ pub struct SparseFixedBitSet {
 }
 
 impl SparseFixedBitSet {
-    pub fn new(length: i32) -> Result<SparseFixedBitSet, String> {
+    pub fn new(length: i32) -> Result<SparseFixedBitSet, RuntimeError> {
         if length < 1 {
-            return Err("length needs to be >= 1".to_string());
+            return Err(RuntimeError::argument( "length needs to be >= 1"));
         }
         let block_count = block_count(length);
         let indices = vec![0; block_count as usize];
@@ -71,8 +72,7 @@ impl SparseFixedBitSet {
     fn insert_block(&mut self, i4096: i32, i64bit: i64, i: i32) {
         self.indices[i4096 as usize] = i64bit;
         assert!(self.bits[i4096 as usize].is_none());
-        let mut block: Vec<u64> = vec![];
-        block.push(1_u64 << (i % 64));
+        let block: Vec<u64> =vec![1_u64 << (i % 64)];
         self.bits[i4096 as usize] = Some(block);
         self.non_zero_long_count += 1;
         //todo
@@ -93,9 +93,7 @@ impl SparseFixedBitSet {
         } else {
             let new_size = oversize(bit_array.len() as i32 + 1);
             let mut new_bit_array = vec![0; new_size as usize];
-            for j in 0..o {
-                new_bit_array[j] = bit_array[j];
-            }
+            new_bit_array[..o].copy_from_slice(&bit_array[..o]);
             new_bit_array[o] = 1_u64 << (i % 64);
             new_bit_array[o + 1..o + 1 + (bit_array.len() - o)].copy_from_slice(&bit_array[o..]);
             self.bits[i4096 as usize] = Some(new_bit_array);
@@ -231,7 +229,7 @@ impl SparseFixedBitSet {
         }
     }
 
-    fn or_impl(&mut self, i4096: i32, index: i64, bits: &Vec<u64>, non_zero_long_count: i32) {
+    fn or_impl(&mut self, i4096: i32, index: i64, bits: &[u64], non_zero_long_count: i32) {
         assert_eq!(index.count_ones(), non_zero_long_count as u32);
         let current_index = self.indices[i4096 as usize];
         if current_index == 0 {
@@ -280,7 +278,7 @@ impl SparseFixedBitSet {
             non_zero_long_count - (current_index & index).count_ones() as i32;
     }
     #[allow(dead_code)]
-    fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<(), String> {
+    fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<(), RuntimeError> {
         SparseFixedBitSet::check_unpositioned(&it)?;
         // The goal here is to try to take advantage of the ordering of documents
         // to build the data-structure more efficiently
@@ -557,7 +555,7 @@ impl BitSet for SparseFixedBitSet {
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), String> {
+    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), RuntimeError> {
         //todo: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
         let mut doc = iter.next_doc();

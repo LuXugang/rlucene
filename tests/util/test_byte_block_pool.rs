@@ -118,7 +118,7 @@ fn test_read_and_write() {
                         );
                 }
                 _ => {
-                    assert!(false, "should not reach here");
+                    unreachable!()
                 }
             }
             assert!(bytes_ref_builder.get().bytes_equals(expected));
@@ -146,8 +146,8 @@ fn test_large_random_block() {
     let iter = 100;
     let mut iterms: Vec<Vec<u8>> = vec![vec![]; iter];
 
+    let mut size: i32;
     for _i in 0..iter {
-        let size: i32;
         if random.gen_bool(0.5) {
             size = random.gen_range(100..1000);
         } else {

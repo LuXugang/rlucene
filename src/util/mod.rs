@@ -32,6 +32,7 @@ mod sortable_bytes_ref_array;
 pub mod sorter;
 pub mod tim_sorter;
 mod tim_sorter_base;
+pub mod error;
 
 pub use array_tim_sorter::*;
 pub use tim_sorter::*;

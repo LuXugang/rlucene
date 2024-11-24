@@ -19,6 +19,7 @@ use crate::bit_sets::bit_set::BitSet;
 use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
+use crate::util::error::runtime_error::RuntimeError;
 
 // todo
 #[allow(dead_code)]
@@ -145,8 +146,7 @@ impl FixedBitSet {
      */
     pub fn new(num_bits: i32) -> FixedBitSet {
         let size: usize = Self::bits2words(num_bits) as usize;
-        let mut bits: Vec<u64> = Vec::with_capacity(size);
-        bits.resize(size, 0);
+        let bits: Vec<u64> = vec![0; size];
         let exact_size = bits.len();
         assert!(exact_size < i32::MAX as usize);
         FixedBitSet {
@@ -163,13 +163,13 @@ impl FixedBitSet {
      * @param storedBits the array to use as backing store
      * @param numBits the number of bits actually needed
      */
-    pub fn with_capacity(stored_bits: Vec<u64>, num_bits: i32) -> Result<FixedBitSet, String> {
+    pub fn with_capacity(stored_bits: Vec<u64>, num_bits: i32) -> Result<FixedBitSet, RuntimeError> {
         let num_words = Self::bits2words(num_bits);
         if num_words as usize > stored_bits.len() {
-            return Err(format!(
+            return Err(RuntimeError::argument( format!(
                 "The given long array is too small  to hold {} bits",
                 num_words
-            ));
+            )));
         }
         let result = FixedBitSet {
             bits: stored_bits,
@@ -230,7 +230,7 @@ impl FixedBitSet {
         self.or_impl(other_offset_words, &other.bits, other.num_words);
     }
 
-    fn or_impl(&mut self, other_offset_words: i32, other_arr: &Vec<u64>, other_num_words: i32) {
+    fn or_impl(&mut self, other_offset_words: i32, other_arr: &[u64], other_num_words: i32) {
         assert!(
             other_num_words + other_offset_words <= self.num_words,
             "num_words = {} other_num_words = {}",
@@ -252,7 +252,7 @@ impl FixedBitSet {
         // not used in Java Lucene, so we did not impl it
         todo!()
     }
-    fn xor_impl(&mut self, other_bits: &Vec<u64>, other_num_words: i32) {
+    fn xor_impl(&mut self, other_bits: &[u64], other_num_words: i32) {
         assert!(
             other_num_words <= self.num_words,
             "num_words = {} other_num_words = {}",
@@ -281,7 +281,7 @@ impl FixedBitSet {
         self.and_self(&other.bits, other.num_words);
     }
 
-    pub fn and_self(&mut self, other_arr: &Vec<u64>, other_num_words: i32) {
+    pub fn and_self(&mut self, other_arr: &[u64], other_num_words: i32) {
         let pos = min(self.num_words, other_num_words);
         for i in (0..pos).rev() {
             self.bits[i as usize] &= other_arr[i as usize];
@@ -315,7 +315,7 @@ impl FixedBitSet {
     fn and_not_impl(
         &mut self,
         other_offset_words: i32,
-        other_arr: &Vec<u64>,
+        other_arr: &[u64],
         other_num_words: i32,
     ) {
         let pos = min(self.num_words - other_offset_words, other_num_words);
@@ -649,7 +649,7 @@ impl BitSet for FixedBitSet {
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), String> {
+    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), RuntimeError> {
         //todo: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
         let mut doc = iter.next_doc();

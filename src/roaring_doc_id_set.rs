@@ -24,6 +24,7 @@ use crate::{
 };
 use std::cmp::min;
 use std::rc::Rc;
+use crate::util::error::runtime_error::RuntimeError;
 
 // Number of documents in a block
 const BLOCK_SIZE: i32 = 1 << 16;
@@ -164,7 +165,7 @@ impl RoaringDocIdSetBuilder {
         let _ = self.flush();
         RoaringDocIdSet::new(self.sets.take(), self.cardinality)
     }
-    fn flush(&mut self) -> Result<(), String> {
+    fn flush(&mut self) -> Result<(), RuntimeError> {
         assert!(self.current_block_cardinality <= BLOCK_SIZE);
         if self.current_block_cardinality <= MAX_ARRAY_LENGTH {
             // use sparse encoding
@@ -189,11 +190,12 @@ impl RoaringDocIdSetBuilder {
                 let mut excluded_docs: Vec<i16> = vec![0; capacity];
                 self.dense_buffer.flip_range(0, self.dense_buffer.length());
                 let mut excluded_doc = -1;
-                for i in 0..excluded_docs.len() {
+                for _i in 0..excluded_docs.len() {
                     excluded_doc = self.dense_buffer.next_set_bit(excluded_doc + 1);
                     assert_ne!(excluded_doc, NO_MORE_DOCS);
-                    excluded_docs[i] = excluded_doc as i16;
+                    excluded_docs.push(excluded_doc as i16);
                 }
+                
                 assert!(
                     excluded_doc + 1 == self.dense_buffer.length()
                         || self.dense_buffer.next_set_bit(excluded_doc + 1) == NO_MORE_DOCS
@@ -353,7 +355,7 @@ impl<'a> Iterator<'a> {
         self.doc
     }
 }
-impl<'a> DocIdSetIterator for Iterator<'_> {
+impl DocIdSetIterator for Iterator<'_> {
     fn doc_id(&self) -> i32 {
         self.doc
     }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::comparator::Comparator;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::sorter::Sorter;
 
@@ -62,7 +63,7 @@ where
             .compare(&self.arr[self.pivot as usize], &self.arr[i as usize])
     }
 
-    fn sort(&mut self, from: usize, to: usize) -> Result<(), String> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<(), RuntimeError> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }

@@ -77,7 +77,7 @@ impl BytesRefBuilder {
     }
 
     /** Append the provided bytes to this builder. */
-    pub fn append(&mut self, b: &Vec<u8>, off: i32, len: i32) {
+    pub fn append(&mut self, b: &[u8], off: i32, len: i32) {
         self.bytes_ref
             .bytes
             .extend_from_slice(&b[off as usize..(off + len) as usize]);
@@ -103,7 +103,7 @@ impl BytesRefBuilder {
      * Replace the content of this builder with the provided bytes. Equivalent to calling
      * clear() and then `#append(vec<u8>, int, int)}`.
      */
-    pub fn copy_bytes_with_vec(&mut self, b: &Vec<u8>, off: i32, len: i32) {
+    pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: i32, len: i32) {
         self.grow(len);
         assert_eq!(self.bytes_ref.offset, 0);
         self.bytes_ref.length = len;

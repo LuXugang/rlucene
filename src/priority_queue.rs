@@ -16,6 +16,7 @@
  */
 use std::iter::repeat_with;
 use std::mem;
+use crate::util::error::runtime_error::RuntimeError;
 
 /**
  * Create a priority queue that is pre-filled with sentinel objects, so that the code which uses
@@ -57,7 +58,7 @@ where
         max_size: i32,
         sentinel_object_supplier: F,
         compare: C,
-    ) -> Result<PriorityQueue<T, C>, String>
+    ) -> Result<PriorityQueue<T, C>, RuntimeError>
     where
         F: Fn() -> Option<T>,
         C: Compare<T>,
@@ -67,11 +68,11 @@ where
             2
         } else {
             if !(0..i32::MAX).contains(&max_size) {
-                return Err(format!(
+                return Err(RuntimeError::argument(format!(
                     "maxSize must be >= 0 and < {}; got: {}",
                     i32::MAX,
                     max_size
-                ));
+                )));
             }
             // NOTE: we add +1 because all access to heap is
             // 1-based not 0-based.  heap[0] is unused.
@@ -104,7 +105,7 @@ where
     }
 
     // construct
-    pub fn new(max_size: i32, compare: C) -> Result<PriorityQueue<T, C>, String> {
+    pub fn new(max_size: i32, compare: C) -> Result<PriorityQueue<T, C>, RuntimeError> {
         Self::with_sentinel_object(max_size, || None, compare)
     }
 

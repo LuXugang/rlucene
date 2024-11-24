@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::runtime_error::RuntimeError;
 
 pub const BINARY_SORT_THRESHOLD: i32 = 20;
 /** Below this size threshold, the sub-range is sorted using Insertion sort. */
@@ -42,7 +43,7 @@ pub trait Sorter {
     /**
      * Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
      */
-    fn sort(&mut self, from: usize, to: usize) -> Result<(), String>;
+    fn sort(&mut self, from: usize, to: usize) -> Result<(), RuntimeError>;
 
     fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
         if from == mid || mid == to || self.compare(mid - 1, mid) <= 0 {
@@ -285,12 +286,9 @@ pub trait Sorter {
         ((i - from) << 1) + 1 + from
     }
 }
-pub fn check_range(from: usize, to: usize) -> Result<(), String> {
+pub fn check_range(from: usize, to: usize) -> Result<(), RuntimeError> {
     if to < from {
-        return Err(format!(
-            "'to' must be >= 'from', got from= {} and to= {}",
-            from, to
-        ));
+        return Err(RuntimeError::argument(format!("'to' must be >= 'from', got from= {} and to= {}", from, to)));
     }
     Ok(())
 }

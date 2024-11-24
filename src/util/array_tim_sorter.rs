@@ -16,6 +16,7 @@
  */
 use crate::util::tim_sorter_base::TimSorterBase;
 use crate::util::{Comparator, Sorter};
+use crate::util::error::runtime_error::RuntimeError;
 
 pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
 where
@@ -65,7 +66,7 @@ where
         self.compare(self.pivot_index, j)
     }
 
-    fn sort(&mut self, _from: usize, _to: usize) -> Result<(), String> {
+    fn sort(&mut self, _from: usize, _to: usize) -> Result<(), RuntimeError> {
         unimplemented!()
     }
 }

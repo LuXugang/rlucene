@@ -249,7 +249,7 @@ impl<'a> ByteBlockPool<'a> {
     pub fn read_bytes(
         &self,
         offset: i64,
-        bytes: &mut Vec<u8>,
+        bytes: &mut [u8],
         mut bytes_offset: i32,
         bytes_length: i32,
     ) -> Option<()> {
@@ -276,8 +276,7 @@ impl<'a> ByteBlockPool<'a> {
     pub fn read_byte(&self, offset: i64) -> Option<u8> {
         let buffer_index = (offset >> BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
         let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
-        self.buffers[buffer_index][pos as usize];
-        None
+        Some(self.buffers[buffer_index][pos as usize])
     }
     /** the current position (in absolute value) of this byte pool */
     pub fn get_position(&self) -> i64 {
@@ -293,7 +292,7 @@ impl<'a> ByteBlockPool<'a> {
 
 /** allocating and freeing byte blocks. */
 pub trait Allocator {
-    fn recycle_byte_blocks(&mut self, blocks: &Vec<Vec<u8>>, start: i32, end: i32);
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32);
     fn get_byte_block(&mut self) -> Vec<u8>;
     fn get_block_size(&self) -> i32;
 }
@@ -315,7 +314,7 @@ impl DirectAllocator {
     }
 }
 impl Allocator for DirectAllocator {
-    fn recycle_byte_blocks(&mut self, _blocks: &Vec<Vec<u8>>, _start: i32, _end: i32) {}
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: i32, _end: i32) {}
 
     fn get_byte_block(&mut self) -> Vec<u8> {
         vec![0; self.block_size as usize]
@@ -338,7 +337,7 @@ impl<'a> DirectTrackingAllocator<'a> {
     }
 }
 impl Allocator for DirectTrackingAllocator<'_> {
-    fn recycle_byte_blocks(&mut self, _blocks: &Vec<Vec<u8>>, start: i32, end: i32) {
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: i32, end: i32) {
         self.byte_used
             .add_and_get(-(end - start) as i64 * self.block_size as i64);
     }
@@ -364,7 +363,7 @@ impl<'a> AllocatorEnum<'a> {
             AllocatorEnum::DTA(dta) => dta.byte_used.get(),
         }
     }
-    fn recycle_byte_blocks(&mut self, blocks: &Vec<Vec<u8>>, start: i32, end: i32) {
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
         match self {
             AllocatorEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
             AllocatorEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),

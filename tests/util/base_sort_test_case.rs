@@ -28,18 +28,18 @@ pub trait BaseSortTestCase {
     fn get_stable(&self) -> bool {
         false
     }
-    fn assert_sorted(&self, original: &Vec<Entry>, sorted: &Vec<Entry>) {
+    fn assert_sorted(&self, original: &mut [Entry], sorted: &[Entry]) {
         assert_eq!(original.len(), sorted.len());
-        let mut actually_sorted = original.clone();
-        actually_sorted.sort();
-        for i in 0..original.len() {
-            assert_eq!(actually_sorted[i].value, sorted[i].value);
+        let len = original.len();
+        original.sort();
+        for i in 0..len {
+            assert_eq!(original[i].value, sorted[i].value);
             if self.get_stable() {
-                assert_eq!(actually_sorted[i].ord, sorted[i].ord);
+                assert_eq!(original[i].ord, sorted[i].ord);
             }
         }
     }
-    fn test_impl(&self, random: &mut StdRng, arr: Vec<Entry>) {
+    fn test_impl(&self, random: &mut StdRng, mut arr: Vec<Entry>) {
         let o = random.gen_range(0..1000);
         let value = random.gen_range(0..3);
         let mut to_sort = vec![Entry::default(); o + arr.len() + value];
@@ -50,7 +50,7 @@ pub trait BaseSortTestCase {
             let result = sorter.sort(o, o + arr_len);
             assert!(result.is_ok());
         }
-        self.assert_sorted(&arr, &to_sort[o..o + arr_len].to_vec());
+        self.assert_sorted(&mut arr, &to_sort[o..o + arr_len]);
     }
     fn test(&self, random: &mut StdRng, strategy: Strategy, length: i32) {
         let mut arr = vec![Entry::default(); length as usize];

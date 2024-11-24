@@ -29,6 +29,7 @@ use rlucene::{
     NO_MORE_DOCS,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
+use rlucene::util::error::runtime_error::RuntimeError;
 
 struct TestFixedBitSet;
 
@@ -467,20 +468,20 @@ fn test_small_bitsets() {
     }
 }
 
-fn make_fixed_bitset(random: &mut StdRng, a: &Vec<i32>, num_bits: i32) -> FixedBitSet {
+fn make_fixed_bitset(random: &mut StdRng, a: &Vec<i32>, num_bits: i32) -> Result<FixedBitSet,RuntimeError>{
     let mut bs: FixedBitSet;
     if random.gen_bool(0.5) {
         let bits_2_words = FixedBitSet::bits2words(num_bits);
         let mut words: Vec<u64> = Vec::with_capacity(bits_2_words as usize);
         words.resize(num_bits as usize, 0);
-        bs = FixedBitSet::with_capacity(words, num_bits).unwrap()
+        bs = FixedBitSet::with_capacity(words, num_bits)?
     } else {
         bs = FixedBitSet::new(num_bits)
     }
     for e in a {
         bs.set(*e);
     }
-    bs
+    Ok(bs)
 }
 
 fn make_bitset(a: &Vec<i32>) -> bit_set::BitSet {
@@ -492,13 +493,13 @@ fn make_bitset(a: &Vec<i32>) -> bit_set::BitSet {
 }
 
 fn check_prev_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) {
-    let obs = make_fixed_bitset(random, &a, num_bits);
+    let obs = make_fixed_bitset(random, &a, num_bits).unwrap();
     let bs = make_bitset(&a);
     do_prev_set_bit(&bs, &obs);
 }
 
 fn check_next_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) {
-    let obs = make_fixed_bitset(random, &a, num_bits);
+    let obs = make_fixed_bitset(random, &a, num_bits).unwrap();
     let bs = make_bitset(&a);
     do_next_set_bit(&bs, &obs);
 }
@@ -593,7 +594,7 @@ fn test_intersection_count() {
     // here
     // assertTrue(fixedBitSet1.cardinality() <= bits1.length);
     // assertTrue(fixedBitSet2.cardinality() <= bits2.length);
-    let intersection_count = FixedBitSet::intersection_count(fixed_bit_set1, fixed_bit_set2);
+    let intersection_count = FixedBitSet::intersection_count(fixed_bit_set1.unwrap(), fixed_bit_set2.unwrap());
 
     let mut bit_set1 = make_bitset(&bits1);
     let bit_set2 = make_bitset(&bits2);
@@ -628,24 +629,24 @@ fn test_and_not() {
 
     {
         // test BitSetIterator
-        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2);
-        let fixed_bit = make_fixed_bitset(&mut random, &bits1, num_bits1);
+        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
+        let fixed_bit = make_fixed_bitset(&mut random, &bits1, num_bits1).unwrap();
         let disi = BitSetIterator::new(&fixed_bit, count1 as i64).unwrap();
         fixed_bit_set2.and_not_iter(disi);
         do_get(&bitset2, &fixed_bit_set2);
     }
     {
         // test DocBaseBitSetIterator
-        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2);
+        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
         let offset_bits: Vec<i32> = bits1.iter().map(|&i| i - offset1).collect();
-        let fixed_bit = make_fixed_bitset(&mut random, &offset_bits, num_bits1 - offset1);
+        let fixed_bit = make_fixed_bitset(&mut random, &offset_bits, num_bits1 - offset1).unwrap();
         let disi = DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1).unwrap();
         fixed_bit_set2.and_not_iter(disi);
         do_get(&bitset2, &fixed_bit_set2);
     }
     {
         // test other
-        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2);
+        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
         let mut sorted = bits1.clone();
         sorted.push(0);
         sorted[bits1.len()] = NO_MORE_DOCS;
@@ -668,8 +669,8 @@ fn test_union_count() {
     let bits1 = make_int_array(&mut random, count1, 0, num_bits1 - 1);
     let bits2 = make_int_array(&mut random, count2, 0, num_bits2 - 1);
 
-    let fixed_bit_set1 = make_fixed_bitset(&mut random, &bits1, num_bits1);
-    let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2);
+    let fixed_bit_set1 = make_fixed_bitset(&mut random, &bits1, num_bits1).unwrap();
+    let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
 
     let union_count = FixedBitSet::union_count(&fixed_bit_set1, &fixed_bit_set2);
 
@@ -693,8 +694,8 @@ fn test_and_not_count() {
     let bits1 = make_int_array(&mut random, count1, 0, num_bits1 - 1);
     let bits2 = make_int_array(&mut random, count2, 0, num_bits2 - 1);
 
-    let fixed_bit_set1 = make_fixed_bitset(&mut random, &bits1, num_bits1);
-    let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2);
+    let fixed_bit_set1 = make_fixed_bitset(&mut random, &bits1, num_bits1).unwrap();
+    let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
 
     let and_not_count = FixedBitSet::and_not_count(&fixed_bit_set1, &fixed_bit_set2);
 

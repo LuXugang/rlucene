@@ -19,6 +19,7 @@ use crate::bit_sets::bit_set_type::BitSetType;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::{Bits, DocIdSetIterator};
+use crate::util::error::runtime_error::RuntimeError;
 
 /**
  * Base implementation for a bit set.
@@ -28,18 +29,18 @@ pub trait BitSet: Bits + Accountable {
      * Build a `BitSet` from the content of the provided `DocIdSetIterator`.
      * NOTE: this will fully consume the `DocIdSetIterator`.
      */
-    fn of(it: impl DocIdSetIterator, max_doc: i32) -> BitSetType {
+    fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType, RuntimeError>{
         let cost = it.cost();
         let threshold = max_doc >> 7;
         let mut set: BitSetType;
         if cost < (threshold as i64) {
-            set = BitSetType::Sparse(SparseFixedBitSet::new(max_doc).unwrap());
+            set = BitSetType::Sparse(SparseFixedBitSet::new(max_doc)?);
         } else {
             let result = FixedBitSet::new(max_doc);
             set = BitSetType::Fixed(result);
         };
         let _ = set.or(it);
-        set
+        Ok(set)
     }
 
     /**
@@ -95,9 +96,9 @@ pub trait BitSet: Bits + Accountable {
     fn next_set_bit_range(&self, start: i32, end: i32) -> i32;
 
     /** Assert that the current doc is -1. */
-    fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<(), String> {
+    fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<(), RuntimeError> {
         if iter.doc_id() != -1 {
-            return Err(format!("This operation only works with an unpositioned iterator, got current position = {}", iter.doc_id()));
+            return Err(RuntimeError::state( format!("This operation only works with an unpositioned iterator, got current position = {}", iter.doc_id())));
         }
         Ok(())
     }
@@ -106,5 +107,5 @@ pub trait BitSet: Bits + Accountable {
      * Does in-place OR of the bits provided by the iterator. The state of the iterator after this
      * operation terminates is undefined.
      */
-    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), String>;
+    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), RuntimeError>;
 }

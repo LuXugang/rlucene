@@ -19,6 +19,7 @@ use crate::bit_sets::bit_set::BitSet;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::{Bits, DocIdSetIterator};
+use crate::util::error::runtime_error::RuntimeError;
 
 pub enum BitSetType {
     Sparse(SparseFixedBitSet),
@@ -122,7 +123,7 @@ impl BitSet for BitSetType {
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), String> {
+    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), RuntimeError> {
         match self {
             Self::Sparse(s) => s.or(iter),
             Self::Fixed(fixed) => BitSet::or(fixed, iter),

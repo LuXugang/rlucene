@@ -14,29 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::data_input::DataInput;
-use crate::store::data_output::DataOutput;
-use crate::util::error::data_io_error_enum::DataIOError;
+use std::fmt;
 
-pub const MAX_LENGTH_PER_GROUP: usize = 17;
+#[derive(Debug)]
+pub struct IllegalArgument {
+    pub message: String,
+}
 
-pub struct GroupVIntUtil;
-
-impl GroupVIntUtil {
-    pub fn read_group_vint<T: DataInput>(
-        _data_input: &T,
-        _dst: &mut [i64],
-        _offset: i32,
-    ) -> Result<(), DataIOError> {
-        todo!()
+impl IllegalArgument {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
     }
 
-    pub fn write_group_vint<T: DataOutput>(
-        _data_output: &T,
-        _scratch: &mut [u8],
-        _values: &mut [i64],
-        _limit: i32,
-    ) -> Result<(), DataIOError> {
-        todo!()
+    pub fn with_format(args: impl fmt::Display) -> Self {
+        Self {
+            message: args.to_string(),
+        }
     }
 }
+
+impl fmt::Display for IllegalArgument {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Illegal argument: {}", self.message)
+    }
+}
+
+impl std::error::Error for IllegalArgument {}

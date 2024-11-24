@@ -17,6 +17,7 @@
 use crate::util::tim_sorter_base::TimSorterBase;
 use crate::util::{sorter, Sorter};
 use std::cmp::{max, min};
+use crate::util::error::runtime_error::RuntimeError;
 
 /**
  * Sorter implementation based on the
@@ -370,7 +371,7 @@ where
         self.sub_sorter.compare_pivot(i)
     }
 
-    fn sort(&mut self, from: usize, to: usize) -> Result<(), String> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<(), RuntimeError> {
         sorter::check_range(from, to)?;
         if to - from <= 1 {
             return Ok(());

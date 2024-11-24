@@ -23,6 +23,7 @@ use crate::{
 };
 use std::cmp::min;
 use std::rc::Rc;
+use crate::util::error::runtime_error::RuntimeError;
 
 /**
  * A builder of link DocIdSet. At first it uses a sparse structure to gather documents, and then
@@ -130,7 +131,7 @@ impl DocIdSetBuilder {
         self.counter = counter;
         self.buffer.clear();
     }
-    pub fn build(&mut self) -> Result<DocIdSetBuilderEnum, String> {
+    pub fn build(&mut self) -> Result<DocIdSetBuilderEnum, RuntimeError> {
         if self.bit_set.is_some() {
             assert!(self.counter >= 0);
             let cost = (self.counter as f64 / self.num_values_per_doc).round();

@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::sorter::{check_range, Sorter, INSERTION_SORT_THRESHOLD};
 /** Below this size threshold, the partition selection is simplified to a single median. */
 const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 
 pub trait IntroSorter: Sorter {
-    fn sort_range(&mut self, from: usize, to: usize) -> Result<(), String> {
+    fn sort_range(&mut self, from: usize, to: usize) -> Result<(), RuntimeError> {
         check_range(from, to)?;
         self.sort_in_intro(
             from as i32,

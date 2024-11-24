@@ -119,6 +119,7 @@ impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
         if self.set.length() != 0 {
+            assert!(self.cardinality > 0);
             Some(DocsWithFieldSetEnum::Sparse(
                 BitSetIterator::new(&self.set, self.cardinality as i64).unwrap(),
             ))

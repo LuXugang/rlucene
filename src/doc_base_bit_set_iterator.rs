@@ -18,6 +18,7 @@ use crate::bit_sets::bit_set::BitSet;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
 use std::cmp::max;
+use crate::util::error::runtime_error::RuntimeError;
 
 pub struct DocBaseBitSetIterator {
     bits: FixedBitSet,
@@ -32,15 +33,15 @@ impl DocBaseBitSetIterator {
         bits: FixedBitSet,
         cost: i64,
         doc_base: i32,
-    ) -> Result<DocBaseBitSetIterator, String> {
+    ) -> Result<DocBaseBitSetIterator, RuntimeError> {
         if cost < 0 {
-            return Err(format!("cost must be >= 0, got {}", cost));
+            return Err(RuntimeError::argument( format!("cost must be >= 0, got {}", cost)));
         }
         if (doc_base & 63) != 0 {
-            return Err(format!(
+            return Err(RuntimeError::argument( format!(
                 "docBase need to be a multiple of 64, got {}",
                 doc_base
-            ));
+            )));
         }
         let length = bits.length();
         Ok(DocBaseBitSetIterator {

@@ -19,6 +19,7 @@ use crate::bit_sets::bit_set::BitSet;
 use crate::doc_id_set::DocIdSet;
 use crate::BitSetIterator;
 use std::rc::Rc;
+use crate::util::error::runtime_error::RuntimeError;
 
 //todo
 const _BASE_RAM_BYTES_USED: i64 = 0;
@@ -35,9 +36,9 @@ pub struct BitDocIdSet<T: BitSet> {
  * modified afterwards.
  */
 impl<T: BitSet> BitDocIdSet<T> {
-    pub fn new_with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, String> {
+    pub fn new_with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, RuntimeError> {
         if cost < 0 {
-            return Err(format!("cost must be >= 0, got {}", cost));
+            return Err(RuntimeError::argument(format!("cost must be >= 0, got {}", cost)));
         }
         Ok(BitDocIdSet {
             set: Some(Rc::new(set.unwrap())),
@@ -48,7 +49,7 @@ impl<T: BitSet> BitDocIdSet<T> {
      * Same as new_with_cost(BitSet, long) but uses the set's
      * BitSet#approximateCardinality() approximate cardinality as a cost.
      */
-    pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>, String> {
+    pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>, RuntimeError> {
         let cost = set.as_ref().unwrap().approximate_cardinality();
         Self::new_with_cost(set, cost as i64)
     }
