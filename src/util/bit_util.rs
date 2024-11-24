@@ -20,7 +20,15 @@ impl BitUtil {
         (i >> 1) ^ -(i & 1)
     }
 
+    pub fn zig_zag_encode_i32(i: i32) -> i32 {
+        (i >> 31) ^ (i << 1)
+    }
+
     pub fn zig_zag_decode_i64(l: i64) -> i64 {
+        (l >> 1) ^ -(l & 1)
+    }
+
+    pub fn zig_zag_encode_i64(l: i64) -> i64 {
         (l >> 1) ^ -(l & 1)
     }
 }

@@ -83,7 +83,7 @@ fn test_read_and_write() {
                 .map(char::from)
                 .collect::<String>();
             let value_copy = value.clone();
-            list.push(BytesRef::new_from_string(value));
+            list.push(BytesRef::new_from_string(&value));
             bytes_ref_builder.copy_chars_with_string(&value_copy);
             pool.append_bytes_ref(bytes_ref_builder.get().clone());
         }

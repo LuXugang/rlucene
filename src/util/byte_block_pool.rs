@@ -59,7 +59,7 @@ impl<'a> ByteBlockPool<'a> {
     }
     /**
      * Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
-     * Buffers that are not reused are reclaimed by Allocator#recycleByteBlocks(vec<vec<u8>>, i32,
+     * Buffers that are not reused are reclaimed by Allocator#recycleByteBlocks`(vec<vec<u8>>`, i32,
      * i32). Buffers can be filled with zeros before recycling them. This is useful if a slice pool
      * works on top of this byte pool and relies on the buffers being filled with zeros to find the
      * non-zero end of slices.
@@ -244,7 +244,7 @@ impl<'a> ByteBlockPool<'a> {
      * Reads bytes out of the pool starting at the given offset with the given length into the given
      * byte array at offset <code>off</code>.
      *
-     * <p>Note: this method allows to copy across block boundaries.
+     * <p>Note: this method allows to copy across block boundaries.</p>
      */
     pub fn read_bytes(
         &self,

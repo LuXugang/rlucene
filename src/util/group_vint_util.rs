@@ -16,6 +16,9 @@
  */
 use crate::store::data_input::DataInput;
 use crate::store::data_io_error_enum::DataIOErrorEnum;
+use crate::store::data_output::DataOutput;
+
+pub const MAX_LENGTH_PER_GROUP: usize = 17;
 
 pub struct GroupVIntUtil;
 
@@ -24,6 +27,15 @@ impl GroupVIntUtil {
         _data_input: &T,
         _dst: &mut [i64],
         _offset: i32,
+    ) -> Result<(), DataIOErrorEnum> {
+        todo!()
+    }
+
+    pub fn write_group_vint<T: DataOutput>(
+        _data_output: &T,
+        _scratch: &mut [u8],
+        _values: &mut [i64],
+        _limit: i32,
     ) -> Result<(), DataIOErrorEnum> {
         todo!()
     }

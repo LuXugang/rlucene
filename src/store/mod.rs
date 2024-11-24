@@ -17,4 +17,5 @@
 
 pub mod data_input;
 pub mod data_io_error_enum;
+pub mod data_output;
 pub mod directory;

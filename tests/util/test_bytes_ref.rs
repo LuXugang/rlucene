@@ -56,9 +56,7 @@ fn test_from_chars() {
             .take(length)
             .map(char::from)
             .collect::<String>();
-        let s2 = BytesRef::new_from_string(s.clone())
-            .utf8_to_string()
-            .unwrap();
+        let s2 = BytesRef::new_from_string(&s).utf8_to_string().unwrap();
         assert_eq!(s, s2);
     }
 }

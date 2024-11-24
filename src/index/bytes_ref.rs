@@ -18,11 +18,11 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 
 /**
- * Represents vec<i16>, as a slice (offset + length) into an existing vec<i16>.
+ * Represents `vec<i16>`, as a slice (offset + length) into an existing `vec<i16>`.
  *
- * <p>{@code BytesRef} implements {@link Comparable}. The underlying byte arrays are sorted
+ * <p>`BytesRef` implements `Comparable`. The underlying byte arrays are sorted
  * lexicographically, numerically treating elements as unsigned. This is identical to Unicode
- * codepoint order.
+ * codepoint order.</p>
 */
 pub struct BytesRef {
     pub bytes: Vec<u8>,
@@ -65,7 +65,7 @@ impl BytesRef {
             length: 0,
         }
     }
-    pub fn new_from_string(s: String) -> BytesRef {
+    pub fn new_from_string(s: &str) -> BytesRef {
         BytesRef {
             bytes: s.as_bytes().to_vec(),
             offset: 0,

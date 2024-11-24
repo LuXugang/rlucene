@@ -21,6 +21,7 @@ use std::string::FromUtf8Error;
 pub enum DataIOErrorEnum {
     Io(Error),
     Utf8(FromUtf8Error),
+    IllegalArgument(String),
 }
 impl From<Error> for DataIOErrorEnum {
     fn from(err: Error) -> Self {
@@ -31,5 +32,10 @@ impl From<Error> for DataIOErrorEnum {
 impl From<FromUtf8Error> for DataIOErrorEnum {
     fn from(err: FromUtf8Error) -> Self {
         DataIOErrorEnum::Utf8(err)
+    }
+}
+impl From<String> for DataIOErrorEnum {
+    fn from(err: String) -> Self {
+        DataIOErrorEnum::IllegalArgument(err)
     }
 }

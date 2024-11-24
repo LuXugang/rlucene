@@ -36,15 +36,21 @@ pub trait DataInput: Sized + Clone {
     /**
      * Reads a specified number of bytes into an array at the specified offset.
      */
-    fn read_bytes(&self, b: &mut [u8], offset: i32, len: i32);
+    fn read_bytes(&self, b: &mut [u8], offset: i32, len: i32) -> Result<(), DataIOErrorEnum>;
     /**
      * Reads a specified number of bytes into an array at the specified offset with control over
      * whether the read should be buffered (callers who have their own buffer should pass in "false"
      * for useBuffer). Currently only `BufferedIndexInput` respects this parameter.
      *
      */
-    fn read_bytes_with_buffer(&self, b: &mut [u8], offset: i32, len: i32, _use_buffer: bool) {
-        self.read_bytes(b, offset, len);
+    fn read_bytes_with_buffer(
+        &self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+        _use_buffer: bool,
+    ) -> Result<(), DataIOErrorEnum> {
+        self.read_bytes(b, offset, len)
     }
     /**
      * Reads two bytes and returns a short (LE byte order).
@@ -167,7 +173,7 @@ pub trait DataInput: Sized + Clone {
     fn read_string(&self) -> Result<String, DataIOErrorEnum> {
         let length = self.read_vint()?;
         let mut bytes = vec![0u8; length as usize];
-        self.read_bytes(&mut bytes, 0, length);
+        self.read_bytes(&mut bytes, 0, length)?;
         Ok(String::from_utf8(bytes)?)
     }
 

@@ -33,7 +33,7 @@ const MAX_ARRAY_LENGTH: i32 = 1 << 12;
 #[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 /**
- * link DocIdSet implementation inspired from http://roaringbitmap.org/
+ * link DocIdSet implementation inspired from `http://roaringbitmap.org/`
  *
  * The space is divided into blocks of 2^16 bits and each block is encoded independently. In each
  * block, if less than 2^12 bits are set, then documents are simply stored in a short[]. If more

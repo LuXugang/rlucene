@@ -101,7 +101,7 @@ impl BytesRefBuilder {
 
     /**
      * Replace the content of this builder with the provided bytes. Equivalent to calling
-     * clear() and then #append(vec<u8>, int, int)}.
+     * clear() and then `#append(vec<u8>, int, int)}`.
      */
     pub fn copy_bytes_with_vec(&mut self, b: &Vec<u8>, off: i32, len: i32) {
         self.grow(len);
