@@ -57,4 +57,5 @@ pub mod terms;
 
 pub mod index;
 pub mod search;
+mod store;
 pub mod util;

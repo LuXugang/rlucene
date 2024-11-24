@@ -36,5 +36,4 @@
  *       hits whose score is <= 0.0
  *
  */
-pub trait Collector {
-}
+pub trait Collector {}

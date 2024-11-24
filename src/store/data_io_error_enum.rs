@@ -14,28 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod byte_block_pool;
-pub use byte_block_pool::*;
-pub mod array_intro_sorter;
-pub use array_intro_sorter::*;
-mod bytes_ref_comparator;
-mod bytes_ref_iterator;
-pub mod comparator;
-pub use comparator::*;
-pub mod array_tim_sorter;
-pub mod bit_util;
-pub mod counter;
-pub mod group_vint_util;
-mod intro_sorter;
-mod most_significant_bit_radix_sort;
-mod sortable_bytes_ref_array;
-pub mod sorter;
-pub mod tim_sorter;
-mod tim_sorter_base;
+use std::io::Error;
+use std::string::FromUtf8Error;
 
-pub use array_tim_sorter::*;
-pub use tim_sorter::*;
+#[derive(Debug)]
+pub enum DataIOErrorEnum {
+    Io(Error),
+    Utf8(FromUtf8Error),
+}
+impl From<Error> for DataIOErrorEnum {
+    fn from(err: Error) -> Self {
+        DataIOErrorEnum::Io(err)
+    }
+}
 
-pub use sorter::*;
-
-pub use counter::*;
+impl From<FromUtf8Error> for DataIOErrorEnum {
+    fn from(err: FromUtf8Error) -> Self {
+        DataIOErrorEnum::Utf8(err)
+    }
+}

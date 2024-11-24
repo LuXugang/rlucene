@@ -16,5 +16,4 @@
  */
 
 #[allow(dead_code)]
-pub trait LeafCollector {
-}
+pub trait LeafCollector {}
