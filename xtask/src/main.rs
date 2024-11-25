@@ -67,14 +67,14 @@ fn main() {
                 }
 
                 let license_text =
-                    tasks::license::license::load_license_text(license_path.unwrap().as_path());
+                    tasks::license::license_checker::load_license_text(license_path.unwrap().as_path());
 
                 println!("Checking licenses in src/ and test/...");
 
                 let src_valid =
-                    tasks::license::license::check_licenses_in_dir(&src_dir, &license_text);
+                    tasks::license::license_checker::check_licenses_in_dir(&src_dir, &license_text);
                 let test_valid =
-                    tasks::license::license::check_licenses_in_dir(&test_dir, &license_text);
+                    tasks::license::license_checker::check_licenses_in_dir(&test_dir, &license_text);
 
                 if src_valid && test_valid {
                     eprintln!("\x1b[32mAll files have the correct license header\x1b[0m.");
