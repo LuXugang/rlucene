@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
-[dependencies]
 [dev-dependencies]
 rand = "0.8.5"
 bit-set = "0.5.3"
+byteorder = "1.5.0"
 
 [profile.dev]
 overflow-checks = false

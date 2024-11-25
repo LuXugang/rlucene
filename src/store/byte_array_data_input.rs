@@ -95,6 +95,7 @@ impl DataInput for ByteArrayDataInput {
             let dst = b.as_mut_ptr().add(offset as usize);
             std::ptr::copy_nonoverlapping(src, dst, len as usize);
         }
+        self.pos += len;
         Ok(())
     }
 

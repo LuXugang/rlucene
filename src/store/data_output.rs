@@ -246,7 +246,11 @@ pub trait DataOutput: Sized {
         self.write_bytes_range(&utf8_result.bytes, offset, len)
     }
 
-    fn copy_bytes<T: DataInput>(&mut self, input: &mut T, num_bytes: i64) -> Result<(), DataIOError> {
+    fn copy_bytes<T: DataInput>(
+        &mut self,
+        input: &mut T,
+        num_bytes: i64,
+    ) -> Result<(), DataIOError> {
         assert!(num_bytes >= 0, "num_bytes = {}", num_bytes);
         let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
         let mut left = num_bytes;

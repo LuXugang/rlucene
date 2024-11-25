@@ -22,33 +22,36 @@ use crate::store::data_output::DataOutput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 
-#[derive(Default)]
-struct ByteArrayDataOutput {
-    bytes: Vec<u8>,
+pub struct ByteArrayDataOutput<'a> {
+    bytes: &'a mut [u8],
     pos: i32,
     limit: i32,
 }
 
-impl ByteArrayDataOutput {
-    pub fn new() -> Self {
-        Self::default()
+impl<'a> ByteArrayDataOutput<'a> {
+    pub fn new(bytes: &'a mut [u8]) -> Self {
+        Self {
+            bytes,
+            pos: 0,
+            limit: 0,
+        }
     }
 
-    pub fn new_with_bytes(bytes: Vec<u8>) -> Self {
+    pub fn new_with_bytes(bytes: &'a mut [u8]) -> Self {
         let len = bytes.len() as i32;
         Self::new_with_range(bytes, 0, len)
     }
-    pub fn new_with_range(bytes: Vec<u8>, offset: i32, length: i32) -> Self {
-        let mut data_input = Self::new();
-        data_input.reset_with_range(bytes, offset, length);
+    pub fn new_with_range(bytes: &'a mut [u8], offset: i32, length: i32) -> Self {
+        let mut data_input = Self::new(bytes);
+        data_input.reset_with_range(offset, length);
         data_input
     }
-    pub fn reset(&mut self, bytes: Vec<u8>) {
+    pub fn reset(&mut self, bytes: &'a mut [u8]) {
         let len = bytes.len() as i32;
-        self.reset_with_range(bytes, 0, len);
-    }
-    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: i32, length: i32) {
         self.bytes = bytes;
+        self.reset_with_range(0, len);
+    }
+    pub fn reset_with_range(&mut self, offset: i32, length: i32) {
         self.pos = offset;
         self.limit = offset + length;
     }
@@ -58,7 +61,7 @@ impl ByteArrayDataOutput {
     }
 }
 
-impl DataOutput for ByteArrayDataOutput {
+impl DataOutput for ByteArrayDataOutput<'_> {
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
         assert!(self.pos < self.limit, "Write exceeds the allowed limit");
         debug_assert!(
@@ -124,7 +127,7 @@ impl DataOutput for ByteArrayDataOutput {
             self.pos + 4 <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_u32_le(&mut self.bytes, self.pos as usize, i as u32);
+        BitUtil::set_u32_le(self.bytes, self.pos as usize, i as u32);
         self.pos += 4;
         Ok(())
     }
@@ -134,7 +137,7 @@ impl DataOutput for ByteArrayDataOutput {
             self.pos + 2 <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_u16_le(&mut self.bytes, self.pos as usize, i as u16);
+        BitUtil::set_u16_le(self.bytes, self.pos as usize, i as u16);
         self.pos += 2;
         Ok(())
     }
@@ -144,7 +147,7 @@ impl DataOutput for ByteArrayDataOutput {
             self.pos + 8 <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_u64_le(&mut self.bytes, self.pos as usize, i as u64);
+        BitUtil::set_u64_le(self.bytes, self.pos as usize, i as u64);
         self.pos += 8;
         Ok(())
     }
