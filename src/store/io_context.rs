@@ -18,7 +18,6 @@ use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
 use crate::util::error::runtime_error::RuntimeError;
-use std::cmp::PartialEq;
 
 /**
  * IOContext holds additional details on the merge/search context. An IOContext object can never be

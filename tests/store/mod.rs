@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod test_byte_array_data_input;
+pub mod test_output_stream_index_output;

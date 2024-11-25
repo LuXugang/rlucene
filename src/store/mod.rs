@@ -21,12 +21,15 @@ pub mod data_input;
 pub mod data_output;
 pub mod directory;
 mod flush_info;
-mod index_output;
-mod io_context;
+pub mod index_output;
+pub mod io_context;
 mod merge_info;
+pub mod output_stream_index_output;
 pub mod read_advice;
 
 pub use byte_array_data_input::*;
 pub use byte_array_data_output::*;
 pub use data_input::*;
+pub use io_context::*;
+pub use output_stream_index_output::*;
 pub use read_advice::*;
