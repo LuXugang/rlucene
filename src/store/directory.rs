@@ -21,10 +21,10 @@
  *
  * Implementing classes must comply with the following:
  *
- * A file in a directory can be created ({@link #createOutput}), appended to, then closed.
- * A file open for writing may not be available for read access until the corresponding {@link
- * IndexOutput} is closed.
- * Once a file is created it must only be opened for input ({@link #openInput}), or deleted
+ * A file in a directory can be created `#createOutput`, appended to, then closed.
+ * A file open for writing may not be available for read access until the corresponding
+ * `IndexOutput` is closed.
+ * Once a file is created it must only be opened for input `#openInput`, or deleted
  * `#deleteFile`.
  *
  * NOTE: If your application requires external synchronization, you should `not
@@ -50,4 +50,10 @@ pub trait Directory {
      *
      */
     fn file_length(name: &str) -> u64;
+
+    /**
+     * Creates a new, empty file in the directory and returns an `IndexOutput` instance for
+     * appending data to this file.
+     */
+    fn create_output(name: &str);
 }

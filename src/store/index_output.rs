@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::data_output::DataOutput;
 
-pub mod byte_array_data_input;
-pub mod byte_array_data_output;
-pub mod data_input;
-pub mod data_output;
-pub mod directory;
-mod index_output;
-pub mod read_advice;
-
-pub use byte_array_data_input::*;
-pub use byte_array_data_output::*;
-pub use data_input::*;
-pub use read_advice::*;
+/**
+ * A `DataOutput` for appending data to a file in a `Directory`.
+ *
+ * <p>Instances of this class are <b>not</b> thread-safe.
+ *
+ * @see Directory
+ * @see IndexInput
+ */
+#[allow(dead_code)]
+pub trait IndexOutput: DataOutput {}
