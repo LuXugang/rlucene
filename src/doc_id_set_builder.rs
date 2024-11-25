@@ -61,7 +61,7 @@ impl DocIdSetBuilder {
             // otherwise compute from index stats
             value_count as f64 / doc_count as f64
         };
-        assert!(
+        debug_assert!(
             num_values_per_doc >= 1f64,
             "value_count = {} doc_count = {}",
             value_count,
@@ -120,7 +120,7 @@ impl DocIdSetBuilder {
         }
     }
     fn upgrade_to_bitset(&mut self) {
-        assert!(self.bit_set.is_none());
+        debug_assert!(self.bit_set.is_none());
         let mut bitset = FixedBitSet::new(self.max_doc);
         let mut counter = 0i64;
         for doc in self.buffer.iter() {
@@ -133,7 +133,7 @@ impl DocIdSetBuilder {
     }
     pub fn build(&mut self) -> Result<DocIdSetBuilderEnum, RuntimeError> {
         if self.bit_set.is_some() {
-            assert!(self.counter >= 0);
+            debug_assert!(self.counter >= 0);
             let cost = (self.counter as f64 / self.num_values_per_doc).round();
             let result = BitDocIdSet::new_with_cost(self.bit_set.take(), cost as i64)?;
             Ok(DocIdSetBuilderEnum::B(result))
@@ -142,7 +142,7 @@ impl DocIdSetBuilder {
             if self.multi_valued {
                 self.buffer.dedup();
             } else {
-                assert!(self.no_dups());
+                debug_assert!(self.no_dups());
             }
             self.buffer.push(NO_MORE_DOCS);
             let l = self.buffer.len() - 1;

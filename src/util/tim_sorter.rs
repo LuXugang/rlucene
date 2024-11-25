@@ -64,7 +64,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         }
     }
     fn min_run(&self, length: i32) -> i32 {
-        assert!(length >= MINRUN);
+        debug_assert!(length >= MINRUN);
         let mut n = length;
         let mut r = 0;
         while n >= 64 {
@@ -72,7 +72,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             n >>= 1;
         }
         let min_run = n + r;
-        assert!((MINRUN..=THRESHOLD).contains(&min_run));
+        debug_assert!((MINRUN..=THRESHOLD).contains(&min_run));
         min_run
     }
     fn run_len(&self, i: i32) -> i32 {
@@ -96,7 +96,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
     /** Compute the length of the next run, make the run sorted and return its length. */
     fn next_run(&mut self) -> i32 {
         let run_base = self.run_end(0);
-        assert!(run_base < self.to);
+        debug_assert!(run_base < self.to);
 
         if run_base == self.to - 1 {
             return 1;
@@ -163,7 +163,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
     }
 
     pub fn merge_at(&mut self, n: i32) {
-        assert!(self.stack_size >= 2);
+        debug_assert!(self.stack_size >= 2);
         self.merge(self.run_base(n + 1), self.run_base(n), self.run_end(n));
 
         for j in (1..=n + 1).rev() {
@@ -190,7 +190,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
     }
 
     fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) {
-        assert!(self.sub_sorter.compare(lo, mid) > 0);
+        debug_assert!(self.sub_sorter.compare(lo, mid) > 0);
 
         let len1 = mid - lo;
         self.sub_sorter.save(lo, len1);
@@ -240,7 +240,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
     }
 
     pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) {
-        assert!(self.compare(mid - 1, hi - 1) > 0);
+        debug_assert!(self.compare(mid - 1, hi - 1) > 0);
 
         let len2 = hi - mid;
         self.sub_sorter.save(mid, len2);
@@ -286,7 +286,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             dest -= 1;
         }
 
-        assert!(i == dest);
+        debug_assert!(i == dest);
     }
 
     pub fn lower_saved(&self, mut from: i32, to: i32, val: i32) -> i32 {

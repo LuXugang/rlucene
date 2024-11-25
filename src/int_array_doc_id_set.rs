@@ -48,7 +48,7 @@ impl IntArrayDocIdSet {
                 NO_MORE_DOCS
             )));
         }
-        assert!(
+        debug_assert!(
             assert_array_sorted(&docs),
             "IntArrayDocIdSet need docs to be sorted:{}",
             docs.iter()

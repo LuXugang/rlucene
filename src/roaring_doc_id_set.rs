@@ -166,7 +166,7 @@ impl RoaringDocIdSetBuilder {
         RoaringDocIdSet::new(self.sets.take(), self.cardinality)
     }
     fn flush(&mut self) -> Result<(), RuntimeError> {
-        assert!(self.current_block_cardinality <= BLOCK_SIZE);
+        debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
         if self.current_block_cardinality <= MAX_ARRAY_LENGTH {
             // use sparse encoding
             assert_eq!(self.dense_buffer.length(), 0);
@@ -196,7 +196,7 @@ impl RoaringDocIdSetBuilder {
                     excluded_docs.push(excluded_doc as i16);
                 }
 
-                assert!(
+                debug_assert!(
                     excluded_doc + 1 == self.dense_buffer.length()
                         || self.dense_buffer.next_set_bit(excluded_doc + 1) == NO_MORE_DOCS
                 );
@@ -347,7 +347,7 @@ impl<'a> Iterator<'a> {
                 let a = self.doc_id_sets.as_ref().unwrap()[self.block as usize].as_ref();
                 self.sub = a.unwrap().iterator();
                 let sub_next = self.sub.as_mut().unwrap().next_doc();
-                assert!(sub_next != NO_MORE_DOCS);
+                debug_assert!(sub_next != NO_MORE_DOCS);
                 self.doc = (self.block << 16) | sub_next;
                 break;
             }

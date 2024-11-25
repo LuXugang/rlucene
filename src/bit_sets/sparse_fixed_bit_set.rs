@@ -30,7 +30,7 @@ fn block_count(length: i32) -> i32 {
     if (block_count << 12) < length {
         block_count += 1;
     }
-    assert!((block_count << 12) >= length);
+    debug_assert!((block_count << 12) >= length);
     block_count
 }
 
@@ -61,7 +61,7 @@ impl SparseFixedBitSet {
         })
     }
     fn consistent(&self, index: i32) -> bool {
-        assert!(
+        debug_assert!(
             index >= 0 && index < self.length,
             "index= {} ,length= {}",
             index,
@@ -71,7 +71,7 @@ impl SparseFixedBitSet {
     }
     fn insert_block(&mut self, i4096: i32, i64bit: i64, i: i32) {
         self.indices[i4096 as usize] = i64bit;
-        assert!(self.bits[i4096 as usize].is_none());
+        debug_assert!(self.bits[i4096 as usize].is_none());
         let block: Vec<u64> = vec![1_u64 << (i % 64)];
         self.bits[i4096 as usize] = Some(block);
         self.non_zero_long_count += 1;
@@ -136,7 +136,7 @@ impl SparseFixedBitSet {
         if first_long == last_long {
             self.and(i4096, first_long, !mask(from, to));
         } else {
-            assert!(first_long < last_long);
+            debug_assert!(first_long < last_long);
             self.and(i4096, last_long, !mask(0, to));
             for i in (first_long + 1..last_long).rev() {
                 self.and(i4096, i, 0);
@@ -145,7 +145,7 @@ impl SparseFixedBitSet {
         }
     }
     fn first_doc(&self, mut i4096: i32, i4096_upper: i32) -> i32 {
-        assert!(i4096_upper <= self.indices.len() as i32);
+        debug_assert!(i4096_upper <= self.indices.len() as i32);
         let mut index;
         while i4096 < i4096_upper {
             index = self.indices[i4096 as usize];
@@ -174,8 +174,8 @@ impl SparseFixedBitSet {
         -1
     }
     fn next_set_bit_in_range_impl(&self, start: i32, upper_bound: i32) -> i32 {
-        assert!(start < self.length);
-        assert!(
+        debug_assert!(start < self.length);
+        debug_assert!(
             upper_bound > start && upper_bound <= self.length,
             "upper_bound= {}, start= {}, length= {}",
             upper_bound,
@@ -191,7 +191,7 @@ impl SparseFixedBitSet {
         if index as u64 & i64bit != 0 {
             // There is at least one bit that is set in the current long, check if
             // one of them is after i
-            assert!(bit_array.is_some());
+            debug_assert!(bit_array.is_some());
             let bits = bit_array.unwrap()[o] >> (start % 64);
             if bits != 0 {
                 return start + bits.trailing_zeros() as i32;
@@ -210,7 +210,7 @@ impl SparseFixedBitSet {
         }
         // there are still set bits
         i64 += 1 + index_bits.trailing_zeros() as i32;
-        assert!(bit_array.is_some());
+        debug_assert!(bit_array.is_some());
         let bits = bit_array.unwrap()[o];
         i64 << 6 | bits.trailing_zeros() as i32
     }
@@ -262,7 +262,7 @@ impl SparseFixedBitSet {
             // bitIndex is the index of a bit which is set in newIndex and newO is the number of 1 bits on
             // its right
             let bit_index = 63 - i;
-            assert!(new0 == (new_index as u64 & (1_u64 << (bit_index % 64))).count_ones());
+            debug_assert!(new0 == (new_index as u64 & (1_u64 << (bit_index % 64))).count_ones());
             new_bits[new0 as usize] = (long_bits(
                 current_index,
                 current_bits.as_ref().unwrap(),
@@ -366,7 +366,7 @@ fn long_bits(index: i64, bits: &[u64], i64: i32) -> i64 {
 
 impl Bits for SparseFixedBitSet {
     fn get(&self, i: i32) -> bool {
-        assert!(self.consistent(i));
+        debug_assert!(self.consistent(i));
         let i4096 = i >> 12;
         let index = self.indices[i4096 as usize];
         let i64 = i >> 6;
@@ -404,7 +404,7 @@ impl BitSet for SparseFixedBitSet {
     }
 
     fn set(&mut self, i: i32) {
-        assert!(self.consistent(i));
+        debug_assert!(self.consistent(i));
         let i4096 = i >> 12;
         let index = self.indices[i4096 as usize];
         let i64 = i >> 6;
@@ -429,7 +429,7 @@ impl BitSet for SparseFixedBitSet {
     }
 
     fn get_and_set(&mut self, i: i32) -> bool {
-        assert!(self.consistent(i));
+        debug_assert!(self.consistent(i));
         let i4096 = i >> 12;
         let index = self.indices[i4096 as usize];
         let i64 = i >> 6;
@@ -459,15 +459,15 @@ impl BitSet for SparseFixedBitSet {
     }
 
     fn clear_with_index(&mut self, i: i32) {
-        assert!(self.consistent(i));
+        debug_assert!(self.consistent(i));
         let i4096 = i >> 12;
         let i64 = i >> 6;
         self.and(i4096, i64, !(1_u64 << (i % 64)) as i64);
     }
 
     fn clear_range(&mut self, from: i32, to: i32) {
-        assert!(from >= 0);
-        assert!(to <= self.length);
+        debug_assert!(from >= 0);
+        debug_assert!(to <= self.length);
         if from >= to {
             return;
         }
@@ -501,7 +501,7 @@ impl BitSet for SparseFixedBitSet {
         // algorithm to estimate the number of bits that are set based on the number
         // of longs that are different from zero
         let total_longs = (self.length + 63) >> 6; //  total number of longs in the space
-        assert!(total_longs >= self.non_zero_long_count);
+        debug_assert!(total_longs >= self.non_zero_long_count);
         let zero_longs = total_longs - self.non_zero_long_count; // number of longs that are zero
                                                                  // No need to guard against division by zero, it will return +Infinity and things will work as
                                                                  // expected
@@ -511,7 +511,7 @@ impl BitSet for SparseFixedBitSet {
     }
 
     fn prev_set_bit(&self, i: i32) -> i32 {
-        assert!(i >= 0);
+        debug_assert!(i >= 0);
         let i4096 = i >> 12;
         let index = self.indices[i4096 as usize];
         let bit_array = self.bits[i4096 as usize].as_ref();
@@ -521,7 +521,7 @@ impl BitSet for SparseFixedBitSet {
         if index as u64 & (1_u64 << (i64 % 64)) != 0 {
             // There is at least one bit that is set in the same long, check if there
             // is one bit that is set that is lower than i
-            assert!(bit_array.is_some());
+            debug_assert!(bit_array.is_some());
             let bits = bit_array.unwrap()[o] & ((1_u64 << (i % 64) << 1) - 1);
             if bits != 0 {
                 //todo: 正数跟负数的是否一样？？
@@ -536,7 +536,7 @@ impl BitSet for SparseFixedBitSet {
         // go to the previous long
         //todo: 正数跟负数的是否一样？？
         i64 = 63 - index_bits.leading_zeros() as i32;
-        assert!(bit_array.is_some());
+        debug_assert!(bit_array.is_some());
         let bits = bit_array.unwrap()[o - 1];
         //todo: 正数跟负数的是否一样？？
         (i4096 << 12) | (i64 << 6) | (63 - bits.leading_zeros() as i32)

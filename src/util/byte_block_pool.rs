@@ -183,7 +183,7 @@ impl<'a> ByteBlockPool<'a> {
         mut src_offset: i64,
         mut length: i32,
     ) {
-        assert!(length <= BYTE_BLOCK_SIZE - self.byte_up_to);
+        debug_assert!(length <= BYTE_BLOCK_SIZE - self.byte_up_to);
         while length > 0 {
             let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
             let bytes_to_copy = min(BYTE_BLOCK_SIZE - src_pos as i32, length);

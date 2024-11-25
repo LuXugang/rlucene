@@ -127,7 +127,7 @@ impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
                 self.doc = NO_MORE_DOCS;
                 break;
             }
-            assert!(self.doc <= self.next_skipped_doc);
+            debug_assert!(self.doc <= self.next_skipped_doc);
             if self.doc != self.next_skipped_doc {
                 return self.doc;
             }

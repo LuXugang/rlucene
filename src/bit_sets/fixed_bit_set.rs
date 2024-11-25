@@ -148,7 +148,7 @@ impl FixedBitSet {
         let size: usize = Self::bits2words(num_bits) as usize;
         let bits: Vec<u64> = vec![0; size];
         let exact_size = bits.len();
-        assert!(exact_size < i32::MAX as usize);
+        debug_assert!(exact_size < i32::MAX as usize);
         FixedBitSet {
             bits,
             num_bits,
@@ -179,7 +179,7 @@ impl FixedBitSet {
             num_bits,
             num_words,
         };
-        assert!(Self::verify_ghost_bits_clear(&result));
+        debug_assert!(Self::verify_ghost_bits_clear(&result));
         Ok(result)
     }
 
@@ -210,7 +210,7 @@ impl FixedBitSet {
 
     #[allow(dead_code)]
     fn get_and_clear(&mut self, index: i32) -> bool {
-        assert!(
+        debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
@@ -234,7 +234,7 @@ impl FixedBitSet {
     }
 
     fn or_impl(&mut self, other_offset_words: i32, other_arr: &[u64], other_num_words: i32) {
-        assert!(
+        debug_assert!(
             other_num_words + other_offset_words <= self.num_words,
             "num_words = {} other_num_words = {}",
             self.num_words,
@@ -256,7 +256,7 @@ impl FixedBitSet {
         todo!()
     }
     fn xor_impl(&mut self, other_bits: &[u64], other_num_words: i32) {
-        assert!(
+        debug_assert!(
             other_num_words <= self.num_words,
             "num_words = {} other_num_words = {}",
             self.num_words,
@@ -329,8 +329,8 @@ impl FixedBitSet {
      * @param endIndex one-past the last bit to flip
      */
     pub fn flip_range(&mut self, start_index: i32, end_index: i32) {
-        assert!(start_index >= 0 && start_index < self.num_bits);
-        assert!(end_index >= 0 && end_index <= self.num_bits);
+        debug_assert!(start_index >= 0 && start_index < self.num_bits);
+        debug_assert!(end_index >= 0 && end_index <= self.num_bits);
         if end_index <= start_index {
             return;
         }
@@ -356,7 +356,7 @@ impl FixedBitSet {
 
     /** Flip the bit at the provided index. */
     pub fn flip(&mut self, index: i32) {
-        assert!(
+        debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
@@ -374,13 +374,13 @@ impl FixedBitSet {
      * @param endIndex one-past the last bit to set
      */
     pub fn set_range(&mut self, start_index: i32, end_index: i32) {
-        assert!(
+        debug_assert!(
             start_index >= 0 && start_index < self.num_bits,
             "start_index = {}, num_bits = {}",
             start_index,
             end_index
         );
-        assert!(
+        debug_assert!(
             end_index >= 0 && end_index <= self.num_bits,
             "end_index = {}, num_bits = {}",
             end_index,
@@ -409,19 +409,19 @@ impl FixedBitSet {
     }
     fn next_set_bit_impl(&self, start: i32, upper_bound: i32) -> i32 {
         // Depends on the ghost bits being clear!
-        assert!(
+        debug_assert!(
             start >= 0 && start < self.num_bits,
             "index = {}, num_bits = {}",
             start,
             self.num_bits
         );
-        assert!(
+        debug_assert!(
             start < upper_bound,
             "index = {}, upper_bound= {}",
             start,
             upper_bound
         );
-        assert!(
+        debug_assert!(
             upper_bound <= self.num_bits,
             "upper_bound = {}, num_bits = {}",
             upper_bound,
@@ -467,7 +467,7 @@ impl FixedBitSet {
 
 impl Bits for FixedBitSet {
     fn get(&self, index: i32) -> bool {
-        assert!(
+        debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
@@ -493,7 +493,7 @@ impl Accountable for FixedBitSet {
 
 impl BitSet for FixedBitSet {
     fn set(&mut self, index: i32) {
-        assert!(
+        debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
@@ -505,7 +505,7 @@ impl BitSet for FixedBitSet {
     }
 
     fn get_and_set(&mut self, index: i32) -> bool {
-        assert!(
+        debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
@@ -519,7 +519,7 @@ impl BitSet for FixedBitSet {
     }
 
     fn clear_with_index(&mut self, index: i32) {
-        assert!(
+        debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
@@ -531,13 +531,13 @@ impl BitSet for FixedBitSet {
     }
 
     fn clear_range(&mut self, start_index: i32, end_index: i32) {
-        assert!(
+        debug_assert!(
             start_index >= 0 && start_index < self.num_bits,
             "start_index = {}, num_bits = {}",
             start_index,
             self.num_bits
         );
-        assert!(
+        debug_assert!(
             end_index >= 0 && end_index <= self.num_bits,
             "end_index = {}, num_bits = {}",
             end_index,
@@ -603,7 +603,7 @@ impl BitSet for FixedBitSet {
     }
 
     fn prev_set_bit(&self, index: i32) -> i32 {
-        assert!(
+        debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
             index,

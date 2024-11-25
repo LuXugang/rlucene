@@ -63,7 +63,7 @@ impl<'a> ByteArrayDataOutput<'a> {
 
 impl DataOutput for ByteArrayDataOutput<'_> {
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
-        assert!(self.pos < self.limit, "Write exceeds the allowed limit");
+        debug_assert!(self.pos < self.limit, "Write exceeds the allowed limit");
         debug_assert!(
             self.pos < self.limit,
             "Write position out of bounds: pos={}, limit={}",
@@ -123,7 +123,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
     }
 
     fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
-        assert!(
+        debug_assert!(
             self.pos + 4 <= self.limit,
             "Write exceeds the allowed limit"
         );
@@ -133,7 +133,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
     }
 
     fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
-        assert!(
+        debug_assert!(
             self.pos + 2 <= self.limit,
             "Write exceeds the allowed limit"
         );
@@ -143,7 +143,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
     }
 
     fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
-        assert!(
+        debug_assert!(
             self.pos + 8 <= self.limit,
             "Write exceeds the allowed limit"
         );

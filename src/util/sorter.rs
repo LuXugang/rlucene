@@ -153,7 +153,7 @@ pub trait Sorter {
     }
 
     fn rotate(&mut self, lo: i32, mid: i32, hi: i32) {
-        assert!(lo <= mid && mid <= hi);
+        debug_assert!(lo <= mid && mid <= hi);
         if lo == mid || mid == hi {
             return;
         }

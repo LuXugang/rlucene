@@ -53,7 +53,7 @@ pub trait DocIdSetIterator {
      * beyond the target position.
      */
     fn slow_advance(&mut self, target: i32) -> i32 {
-        assert!(self.doc_id() < target);
+        debug_assert!(self.doc_id() < target);
         let mut doc;
         loop {
             doc = self.next_doc();
@@ -96,14 +96,14 @@ impl DocIdSetIterator for EmptyDISI {
     }
 
     fn next_doc(&mut self) -> i32 {
-        assert!(!self.exhausted);
+        debug_assert!(!self.exhausted);
         self.exhausted = true;
         NO_MORE_DOCS
     }
 
     fn advance(&mut self, target: i32) -> i32 {
-        assert!(!self.exhausted);
-        assert!(target >= 0);
+        debug_assert!(!self.exhausted);
+        debug_assert!(target >= 0);
         self.exhausted = true;
         NO_MORE_DOCS
     }
