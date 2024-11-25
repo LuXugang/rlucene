@@ -14,18 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-pub mod byte_array_data_input;
-pub mod byte_array_data_output;
-pub mod data_input;
-pub mod data_output;
-pub mod directory;
-mod flush_info;
-mod index_output;
-mod merge_info;
-pub mod read_advice;
-
-pub use byte_array_data_input::*;
-pub use byte_array_data_output::*;
-pub use data_input::*;
-pub use read_advice::*;
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct MergeInfo {
+    total_max_doc: i32,
+    estimated_merge_bytes: i64,
+    is_external: bool,
+    merge_max_num_segments: i32,
+}
