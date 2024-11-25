@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+pub mod byte_array_data_input;
+mod byte_array_data_output;
 pub mod data_input;
 pub mod data_output;
 pub mod directory;

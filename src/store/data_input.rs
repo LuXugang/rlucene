@@ -210,5 +210,5 @@ pub trait DataInput: Sized + Clone {
             Ok(set)
         }
     }
-    fn skip_bytes(&self, num_bytes: i64) -> Result<(), DataIOError>;
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), DataIOError>;
 }

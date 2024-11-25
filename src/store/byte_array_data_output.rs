@@ -1,0 +1,151 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * DataOutput backed by a byte array. WARNING: This class omits most low-level checks, so be
+ * sure to test heavily with assertions enabled.
+ */
+use crate::store::data_output::DataOutput;
+use crate::util::bit_util::BitUtil;
+use crate::util::error::data_io_error_enum::DataIOError;
+
+#[derive(Default)]
+struct ByteArrayDataOutput {
+    bytes: Vec<u8>,
+    pos: i32,
+    limit: i32,
+}
+
+impl ByteArrayDataOutput {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn new_with_bytes(bytes: Vec<u8>) -> Self {
+        let len = bytes.len() as i32;
+        Self::new_with_range(bytes, 0, len)
+    }
+    pub fn new_with_range(bytes: Vec<u8>, offset: i32, length: i32) -> Self {
+        let mut data_input = Self::new();
+        data_input.reset_with_range(bytes, offset, length);
+        data_input
+    }
+    pub fn reset(&mut self, bytes: Vec<u8>) {
+        let len = bytes.len() as i32;
+        self.reset_with_range(bytes, 0, len);
+    }
+    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: i32, length: i32) {
+        self.bytes = bytes;
+        self.pos = offset;
+        self.limit = offset + length;
+    }
+
+    pub fn get_position(&self) -> i32 {
+        self.pos
+    }
+}
+
+impl DataOutput for ByteArrayDataOutput {
+    fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
+        assert!(self.pos < self.limit, "Write exceeds the allowed limit");
+        debug_assert!(
+            self.pos < self.limit,
+            "Write position out of bounds: pos={}, limit={}",
+            self.pos,
+            self.limit
+        );
+
+        unsafe {
+            *self.bytes.as_mut_ptr().add(self.pos as usize) = b;
+        }
+        self.pos += 1;
+        Ok(())
+    }
+
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), DataIOError> {
+        debug_assert!(
+            self.pos + length <= self.limit,
+            "Write exceeds the allowed limit: pos={}, length={}, limit={}",
+            self.pos,
+            length,
+            self.limit
+        );
+        debug_assert!(
+            offset + length <= b.len() as i32,
+            "Source slice out of bounds: offset={}, length={}, source_len={}",
+            offset,
+            length,
+            b.len()
+        );
+        debug_assert!(
+            self.pos + length <= self.bytes.len() as i32,
+            "Destination slice out of bounds: pos={}, length={}, dest_len={}",
+            self.pos,
+            length,
+            self.bytes.len()
+        );
+
+        debug_assert!(
+            {
+                let dst_start = self.bytes.as_mut_ptr() as usize + self.pos as usize;
+                let dst_end = dst_start + length as usize;
+                let src_start = b.as_ptr() as usize + offset as usize;
+                let src_end = src_start + length as usize;
+                dst_start >= src_end || src_start >= dst_end
+            },
+            "Source and destination memory regions overlap"
+        );
+
+        unsafe {
+            let dst = self.bytes.as_mut_ptr().add(self.pos as usize);
+            let src = b.as_ptr().add(offset as usize);
+            std::ptr::copy_nonoverlapping(src, dst, length as usize);
+        }
+
+        self.pos += length;
+        Ok(())
+    }
+
+    fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
+        assert!(
+            self.pos + 4 <= self.limit,
+            "Write exceeds the allowed limit"
+        );
+        BitUtil::set_u32_le(&mut self.bytes, self.pos as usize, i as u32);
+        self.pos += 4;
+        Ok(())
+    }
+
+    fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
+        assert!(
+            self.pos + 2 <= self.limit,
+            "Write exceeds the allowed limit"
+        );
+        BitUtil::set_u16_le(&mut self.bytes, self.pos as usize, i as u16);
+        self.pos += 2;
+        Ok(())
+    }
+
+    fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
+        assert!(
+            self.pos + 8 <= self.limit,
+            "Write exceeds the allowed limit"
+        );
+        BitUtil::set_u64_le(&mut self.bytes, self.pos as usize, i as u64);
+        self.pos += 8;
+        Ok(())
+    }
+}
