@@ -16,9 +16,9 @@
  */
 use crate::accountable::Accountable;
 use crate::bit_sets::bit_set::BitSet;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
 use std::cmp::min;
-use crate::util::error::runtime_error::RuntimeError;
 
 // todo
 const _SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
@@ -46,7 +46,7 @@ pub struct SparseFixedBitSet {
 impl SparseFixedBitSet {
     pub fn new(length: i32) -> Result<SparseFixedBitSet, RuntimeError> {
         if length < 1 {
-            return Err(RuntimeError::argument( "length needs to be >= 1"));
+            return Err(RuntimeError::argument("length needs to be >= 1"));
         }
         let block_count = block_count(length);
         let indices = vec![0; block_count as usize];
@@ -72,7 +72,7 @@ impl SparseFixedBitSet {
     fn insert_block(&mut self, i4096: i32, i64bit: i64, i: i32) {
         self.indices[i4096 as usize] = i64bit;
         assert!(self.bits[i4096 as usize].is_none());
-        let block: Vec<u64> =vec![1_u64 << (i % 64)];
+        let block: Vec<u64> = vec![1_u64 << (i % 64)];
         self.bits[i4096 as usize] = Some(block);
         self.non_zero_long_count += 1;
         //todo

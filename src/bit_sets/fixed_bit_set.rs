@@ -16,10 +16,10 @@
  */
 use crate::accountable::Accountable;
 use crate::bit_sets::bit_set::BitSet;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
-use crate::util::error::runtime_error::RuntimeError;
 
 // todo
 #[allow(dead_code)]
@@ -163,10 +163,13 @@ impl FixedBitSet {
      * @param storedBits the array to use as backing store
      * @param numBits the number of bits actually needed
      */
-    pub fn with_capacity(stored_bits: Vec<u64>, num_bits: i32) -> Result<FixedBitSet, RuntimeError> {
+    pub fn with_capacity(
+        stored_bits: Vec<u64>,
+        num_bits: i32,
+    ) -> Result<FixedBitSet, RuntimeError> {
         let num_words = Self::bits2words(num_bits);
         if num_words as usize > stored_bits.len() {
-            return Err(RuntimeError::argument( format!(
+            return Err(RuntimeError::argument(format!(
                 "The given long array is too small  to hold {} bits",
                 num_words
             )));
@@ -312,12 +315,7 @@ impl FixedBitSet {
         self.and_not_impl(other_offset_words, &other.bits, other.num_words);
     }
 
-    fn and_not_impl(
-        &mut self,
-        other_offset_words: i32,
-        other_arr: &[u64],
-        other_num_words: i32,
-    ) {
+    fn and_not_impl(&mut self, other_offset_words: i32, other_arr: &[u64], other_num_words: i32) {
         let pos = min(self.num_words - other_offset_words, other_num_words);
         for i in (0..pos).rev() {
             self.bits[(i + other_offset_words) as usize] &= !other_arr[i as usize];

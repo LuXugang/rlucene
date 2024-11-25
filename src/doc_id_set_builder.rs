@@ -17,13 +17,13 @@
 use crate::accountable::Accountable;
 use crate::bit_sets::bit_set::BitSet;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::{
     BitDocIdSet, BitSetIterator, DocIdSet, DocIdSetIterator, IntArrayDocIdSet,
     IntArrayDocIdSetIterator, NO_MORE_DOCS,
 };
 use std::cmp::min;
 use std::rc::Rc;
-use crate::util::error::runtime_error::RuntimeError;
 
 /**
  * A builder of link DocIdSet. At first it uses a sparse structure to gather documents, and then

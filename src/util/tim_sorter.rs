@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::tim_sorter_base::TimSorterBase;
 use crate::util::{sorter, Sorter};
 use std::cmp::{max, min};
-use crate::util::error::runtime_error::RuntimeError;
 
 /**
  * Sorter implementation based on the

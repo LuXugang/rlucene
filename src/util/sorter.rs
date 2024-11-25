@@ -288,7 +288,10 @@ pub trait Sorter {
 }
 pub fn check_range(from: usize, to: usize) -> Result<(), RuntimeError> {
     if to < from {
-        return Err(RuntimeError::argument(format!("'to' must be >= 'from', got from= {} and to= {}", from, to)));
+        return Err(RuntimeError::argument(format!(
+            "'to' must be >= 'from', got from= {} and to= {}",
+            from, to
+        )));
     }
     Ok(())
 }

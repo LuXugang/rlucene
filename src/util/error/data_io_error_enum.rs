@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::illegal_argument::IllegalArgument;
 use std::fmt;
 use std::io::Error;
 use std::string::FromUtf8Error;
-use crate::util::error::illegal_argument::IllegalArgument;
 
 #[derive(Debug)]
 pub enum DataIOError {
@@ -26,7 +26,7 @@ pub enum DataIOError {
     IA(IllegalArgument),
 }
 
-impl DataIOError{
+impl DataIOError {
     pub fn argument(msg: impl Into<String>) -> Self {
         Self::IA(IllegalArgument::new(msg))
     }

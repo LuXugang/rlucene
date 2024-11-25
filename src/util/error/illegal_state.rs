@@ -17,7 +17,7 @@
 use std::fmt;
 
 #[derive(Debug)]
-pub struct IllegalState{
+pub struct IllegalState {
     pub message: String,
 }
 

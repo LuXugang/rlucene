@@ -25,6 +25,7 @@ pub use comparator::*;
 pub mod array_tim_sorter;
 pub mod bit_util;
 pub mod counter;
+pub mod error;
 pub mod group_vint_util;
 mod intro_sorter;
 mod most_significant_bit_radix_sort;
@@ -32,7 +33,6 @@ mod sortable_bytes_ref_array;
 pub mod sorter;
 pub mod tim_sorter;
 mod tim_sorter_base;
-pub mod error;
 
 pub use array_tim_sorter::*;
 pub use tim_sorter::*;

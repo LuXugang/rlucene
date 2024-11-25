@@ -18,8 +18,8 @@ use crate::accountable::Accountable;
 use crate::bit_sets::bit_set_type::BitSetType;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::{Bits, DocIdSetIterator};
 use crate::util::error::runtime_error::RuntimeError;
+use crate::{Bits, DocIdSetIterator};
 
 /**
  * Base implementation for a bit set.
@@ -29,7 +29,7 @@ pub trait BitSet: Bits + Accountable {
      * Build a `BitSet` from the content of the provided `DocIdSetIterator`.
      * NOTE: this will fully consume the `DocIdSetIterator`.
      */
-    fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType, RuntimeError>{
+    fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType, RuntimeError> {
         let cost = it.cost();
         let threshold = max_doc >> 7;
         let mut set: BitSetType;

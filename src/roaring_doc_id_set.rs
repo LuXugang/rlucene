@@ -18,13 +18,13 @@ use crate::accountable::Accountable;
 use crate::bit_sets::bit_set::BitSet;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::doc_id_set::DocIdSet;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::{
     BitDocIdSet, BitSetIterator, Bits, DocIdSetIterator, EmptyDISI, MatchNoBits,
     NotDocDocIdSetIterator, NotDocIdSet, NO_MORE_DOCS,
 };
 use std::cmp::min;
 use std::rc::Rc;
-use crate::util::error::runtime_error::RuntimeError;
 
 // Number of documents in a block
 const BLOCK_SIZE: i32 = 1 << 16;
@@ -195,7 +195,7 @@ impl RoaringDocIdSetBuilder {
                     assert_ne!(excluded_doc, NO_MORE_DOCS);
                     excluded_docs.push(excluded_doc as i16);
                 }
-                
+
                 assert!(
                     excluded_doc + 1 == self.dense_buffer.length()
                         || self.dense_buffer.next_set_bit(excluded_doc + 1) == NO_MORE_DOCS

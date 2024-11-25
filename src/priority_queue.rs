@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::runtime_error::RuntimeError;
 use std::iter::repeat_with;
 use std::mem;
-use crate::util::error::runtime_error::RuntimeError;
 
 /**
  * Create a priority queue that is pre-filled with sentinel objects, so that the code which uses

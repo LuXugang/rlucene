@@ -24,12 +24,12 @@ use rand::Rng;
 use rlucene::bit_sets::bit_set::BitSet;
 use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
 use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::{
     BitSetIterator, Bits, DocBaseBitSetIterator, DocIdSetIterator, IntArrayDocIdSetIterator,
     NO_MORE_DOCS,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
-use rlucene::util::error::runtime_error::RuntimeError;
 
 struct TestFixedBitSet;
 
@@ -468,7 +468,11 @@ fn test_small_bitsets() {
     }
 }
 
-fn make_fixed_bitset(random: &mut StdRng, a: &Vec<i32>, num_bits: i32) -> Result<FixedBitSet,RuntimeError>{
+fn make_fixed_bitset(
+    random: &mut StdRng,
+    a: &Vec<i32>,
+    num_bits: i32,
+) -> Result<FixedBitSet, RuntimeError> {
     let mut bs: FixedBitSet;
     if random.gen_bool(0.5) {
         let bits_2_words = FixedBitSet::bits2words(num_bits);
@@ -594,7 +598,8 @@ fn test_intersection_count() {
     // here
     // assertTrue(fixedBitSet1.cardinality() <= bits1.length);
     // assertTrue(fixedBitSet2.cardinality() <= bits2.length);
-    let intersection_count = FixedBitSet::intersection_count(fixed_bit_set1.unwrap(), fixed_bit_set2.unwrap());
+    let intersection_count =
+        FixedBitSet::intersection_count(fixed_bit_set1.unwrap(), fixed_bit_set2.unwrap());
 
     let mut bit_set1 = make_bitset(&bits1);
     let bit_set2 = make_bitset(&bits2);

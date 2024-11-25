@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::util::bit_util::BitUtil;
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use std::collections::{HashMap, HashSet};
-use crate::util::error::data_io_error_enum::DataIOError;
 
 /**
  * Abstract base class for performing read operations of Lucene's low-level data types.

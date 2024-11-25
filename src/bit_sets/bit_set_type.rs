@@ -18,8 +18,8 @@ use crate::accountable::Accountable;
 use crate::bit_sets::bit_set::BitSet;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::{Bits, DocIdSetIterator};
 use crate::util::error::runtime_error::RuntimeError;
+use crate::{Bits, DocIdSetIterator};
 
 pub enum BitSetType {
     Sparse(SparseFixedBitSet),

@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
-use std::fmt::{Debug};
 use crate::util::error::illegal_argument::IllegalArgument;
 use crate::util::error::illegal_state::IllegalState;
+use std::fmt;
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub enum RuntimeError {
@@ -55,7 +55,5 @@ impl fmt::Display for RuntimeError {
         }
     }
 }
-
-
 
 impl std::error::Error for RuntimeError {}

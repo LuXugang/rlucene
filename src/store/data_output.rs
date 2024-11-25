@@ -17,9 +17,9 @@
 use crate::index::BytesRef;
 use crate::store::data_input::DataInput;
 use crate::util::bit_util::BitUtil;
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::{GroupVIntUtil, MAX_LENGTH_PER_GROUP};
 use std::collections::{HashMap, HashSet};
-use crate::util::error::data_io_error_enum::DataIOError;
 
 /**
  * Abstract base class for performing write operations of Lucene's low-level data types.
@@ -48,12 +48,7 @@ pub trait DataOutput: Sized {
      * Writes an array of bytes.
      *
      */
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: i32,
-        length: i32,
-    ) -> Result<(), DataIOError>;
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), DataIOError>;
 
     /**
      * Writes an int as four bytes (LE byte order).
@@ -251,11 +246,7 @@ pub trait DataOutput: Sized {
         self.write_bytes_range(&utf8_result.bytes, offset, len)
     }
 
-    fn copy_bytes<T: DataInput>(
-        &mut self,
-        input: &T,
-        num_bytes: i64,
-    ) -> Result<(), DataIOError> {
+    fn copy_bytes<T: DataInput>(&mut self, input: &T, num_bytes: i64) -> Result<(), DataIOError> {
         assert!(num_bytes >= 0, "num_bytes = {}", num_bytes);
         let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
         let mut left = num_bytes;
@@ -278,10 +269,7 @@ pub trait DataOutput: Sized {
      * pair written as two consecutive {@link #writeString(String) String}s.
      *
      */
-    fn write_map_of_strings(
-        &mut self,
-        map: &HashMap<String, String>,
-    ) -> Result<(), DataIOError> {
+    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), DataIOError> {
         self.write_vint(map.len() as i32)?;
         for (key, value) in map.iter() {
             self.write_string(key)?;

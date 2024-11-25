@@ -17,9 +17,9 @@
 use crate::bit_sets::bit_set::BitSet;
 use crate::bit_sets::fixed_bit_set::FixedBitSet;
 use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::{DocIdSetIterator, NO_MORE_DOCS};
 use std::any::TypeId;
-use crate::util::error::runtime_error::RuntimeError;
 
 pub struct BitSetIterator<'a, T: BitSet> {
     bits: &'a T,
@@ -31,8 +31,10 @@ pub struct BitSetIterator<'a, T: BitSet> {
 impl<'a, T: BitSet> BitSetIterator<'a, T> {
     pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<T>, RuntimeError> {
         if cost < 0 {
-            return Err(RuntimeError::argument(format!("cost must be >= 0, got {}", cost)));
-
+            return Err(RuntimeError::argument(format!(
+                "cost must be >= 0, got {}",
+                cost
+            )));
         }
         let length = bits.length();
         Ok(BitSetIterator {
