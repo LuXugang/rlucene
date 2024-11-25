@@ -333,7 +333,7 @@ impl BitSet for RustUtilBitSet {
     }
 
     fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {
-        // todo : this implement too slow
+        // TODO : this implement too slow
         for index in start..upper_bound {
             if self.index_hash_set.contains(&index) {
                 return index;

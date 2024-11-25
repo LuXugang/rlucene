@@ -22,6 +22,7 @@ pub mod data_output;
 pub mod directory;
 mod flush_info;
 mod index_output;
+mod io_context;
 mod merge_info;
 pub mod read_advice;
 

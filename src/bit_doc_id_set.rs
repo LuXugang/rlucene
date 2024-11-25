@@ -21,7 +21,7 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::BitSetIterator;
 use std::rc::Rc;
 
-//todo
+//TODO
 const _BASE_RAM_BYTES_USED: i64 = 0;
 
 /**

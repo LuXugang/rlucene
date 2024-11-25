@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[derive(Clone)]
 pub enum ReadAdvice {
     /**
      * Normal behavior. Data is expected to be read mostly sequentially. The system is expected to

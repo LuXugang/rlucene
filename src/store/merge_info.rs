@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct MergeInfo {
+pub struct MergeInfo {
     total_max_doc: i32,
     estimated_merge_bytes: i64,
     is_external: bool,

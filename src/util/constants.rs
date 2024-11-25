@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct FlushInfo {
-    num_docs: i32,
-    estimated_segment_size: i64,
-}
+use crate::store::ReadAdvice;
+
+pub const DEFAULT_READ_ADVICE: ReadAdvice = ReadAdvice::Random;
+
+struct Constants;
