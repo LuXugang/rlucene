@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::store::data_input::DataInput;
+use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 
 #[derive(Default)]
@@ -74,32 +75,45 @@ impl Clone for ByteArrayDataInput {
 }
 
 impl DataInput for ByteArrayDataInput {
-    fn read_byte(&self) -> Result<u8, DataIOError> {
-        todo!()
+    fn read_byte(&mut self) -> Result<u8, DataIOError> {
+        let value = self.bytes[self.pos as usize];
+        self.pos += 1;
+        Ok(value)
     }
 
-    fn read_bytes(&self, b: &mut [u8], offset: i32, len: i32) -> Result<(), DataIOError> {
-        todo!()
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), DataIOError> {
+        debug_assert!(
+            (offset + len) as usize <= b.len(),
+            "Offset and length exceed the destination buffer size"
+        );
+        debug_assert!(
+            (self.pos + len) as usize <= self.bytes.len(),
+            "Read range exceeds the source buffer size"
+        );
+        unsafe {
+            let src = self.bytes.as_ptr().add(self.pos as usize);
+            let dst = b.as_mut_ptr().add(offset as usize);
+            std::ptr::copy_nonoverlapping(src, dst, len as usize);
+        }
+        Ok(())
     }
 
-    fn read_short(&self) -> Result<i16, DataIOError> {
-        todo!()
+    fn read_short(&mut self) -> Result<i16, DataIOError> {
+        let result = BitUtil::get_u16_le(&self.bytes, self.pos as usize) as i16;
+        self.pos += 2;
+        Ok(result)
     }
 
-    fn read_int(&self) -> Result<i32, DataIOError> {
-        todo!()
+    fn read_int(&mut self) -> Result<i32, DataIOError> {
+        let value = BitUtil::get_u32_le(&self.bytes, self.pos as usize) as i32;
+        self.pos += 4;
+        Ok(value)
     }
 
-    fn read_vint(&self) -> Result<i32, DataIOError> {
-        todo!()
-    }
-
-    fn read_long(&self) -> Result<i64, DataIOError> {
-        todo!()
-    }
-
-    fn read_vlong(&self) -> Result<i64, DataIOError> {
-        todo!()
+    fn read_long(&mut self) -> Result<i64, DataIOError> {
+        let value = BitUtil::get_u64_le(&self.bytes, self.pos as usize) as i64;
+        self.pos += 8;
+        Ok(value)
     }
 
     fn skip_bytes(&mut self, count: i64) -> Result<(), DataIOError> {
