@@ -16,7 +16,10 @@
  */
 use crate::common::my_random;
 use rand::Rng;
-use rlucene::{DocIdSet, DocIdSetIterator, DocsWithFieldSet, NO_MORE_DOCS};
+use rlucene::index::docs_with_field_set::DocsWithFieldSet;
+use rlucene::search::doc_id_set::DocIdSet;
+use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+
 #[allow(dead_code)]
 struct TestDocsWithFieldSet {}
 #[test]

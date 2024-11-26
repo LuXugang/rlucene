@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rlucene::doc_id_set_iterator::*;
+use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
+
 #[allow(dead_code)]
 struct TestDocIdSetIterator {}
 #[test]

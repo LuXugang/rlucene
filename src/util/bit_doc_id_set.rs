@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::accountable::Accountable;
-use crate::bit_sets::bit_set::BitSet;
-use crate::doc_id_set::DocIdSet;
+use crate::search::doc_id_set::DocIdSet;
+use crate::util::accountable::Accountable;
+use crate::util::bit_set::BitSet;
+use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::error::runtime_error::RuntimeError;
-use crate::BitSetIterator;
 use std::rc::Rc;
 
 //TODO

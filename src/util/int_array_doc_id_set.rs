@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::accountable::Accountable;
-use crate::doc_id_set::DocIdSet;
+use crate::search::doc_id_set::DocIdSet;
+use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::util::accountable::Accountable;
+use crate::util::bits::MatchNoBits;
 use crate::util::error::runtime_error::RuntimeError;
-use crate::{DocIdSetIterator, MatchNoBits, NO_MORE_DOCS};
 use std::cmp::min;
 use std::rc::Rc;
 

@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::bit_sets::bit_set::BitSet;
-use crate::bit_sets::fixed_bit_set::FixedBitSet;
-use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
+use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::util::bit_set::BitSet;
 use crate::util::error::runtime_error::RuntimeError;
-use crate::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::any::TypeId;
 
 pub struct BitSetIterator<'a, T: BitSet> {

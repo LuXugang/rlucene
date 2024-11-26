@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::accountable::Accountable;
-use crate::bit_sets::bit_set::BitSet;
-use crate::bit_sets::fixed_bit_set::FixedBitSet;
-use crate::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::util::accountable::Accountable;
+use crate::util::bit_set::BitSet;
+use crate::util::bits::Bits;
 use crate::util::error::runtime_error::RuntimeError;
-use crate::{Bits, DocIdSetIterator};
+use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
 pub enum BitSetType {
     Sparse(SparseFixedBitSet),

@@ -17,8 +17,7 @@
 
 use crate::common::my_random;
 use rand::Rng;
-use rlucene::priority_queue::PriorityQueue;
-use rlucene::Compare;
+use rlucene::util::priority_queue::{Compare, PriorityQueue};
 use std::fmt::Debug;
 
 #[allow(dead_code)]

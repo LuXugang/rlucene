@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::accountable::Accountable;
-use crate::{Bits, DocIdSetIterator, EmptyDISI, MatchAllBits, MatchNoBits};
+use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, EmptyDISI};
+use crate::util::accountable::Accountable;
+use crate::util::bits::{Bits, MatchAllBits, MatchNoBits};
 use std::rc::Rc;
 
 pub trait DocIdSet: Accountable {
@@ -59,10 +60,10 @@ impl All {
 }
 /** A `DocIdSet` that matches all doc ids up to a specified doc (exclusive). */
 impl DocIdSet for All {
-    type DISIType<'a> = crate::AllDocIdSetIterator;
+    type DISIType<'a> = AllDocIdSetIterator;
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
-        Some(crate::AllDocIdSetIterator::new(self.max_doc))
+        Some(AllDocIdSetIterator::new(self.max_doc))
     }
 
     type BitType = MatchAllBits;

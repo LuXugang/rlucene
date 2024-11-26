@@ -16,13 +16,18 @@
  */
 use crate::common::{is_night_mode, my_random, rarely};
 use rand::Rng;
-use rlucene::bit_sets::bit_set::BitSet;
-use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
-use rlucene::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderEnum, DocIdSetBuilderIterator};
-use rlucene::{
-    BitDocIdSet, BitSetIterator, Bits, DocIdSet, DocIdSetIterator, IntArrayDocIdSet, Range,
-    RoaringDocIdSetBuilder, NO_MORE_DOCS,
+use rlucene::search::doc_id_set::DocIdSet;
+use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
+use rlucene::util::bit_doc_id_set::BitDocIdSet;
+use rlucene::util::bit_set::BitSet;
+use rlucene::util::bit_set_iterator::BitSetIterator;
+use rlucene::util::bits::Bits;
+use rlucene::util::doc_id_set_builder::{
+    DocIdSetBuilder, DocIdSetBuilderEnum, DocIdSetBuilderIterator,
 };
+use rlucene::util::fixed_bit_set::FixedBitSet;
+use rlucene::util::int_array_doc_id_set::IntArrayDocIdSet;
+use rlucene::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
 
 #[allow(dead_code)]
 struct TestDocIdSetBuilder {}
@@ -58,7 +63,7 @@ fn assert_equals<T1: DocIdSet, T2: DocIdSet>(mut d1: Option<T1>, mut d2: Option<
             assert_eq!(doc, i2.next_doc());
             doc = i1.next_doc();
         }
-        assert!(i2.next_doc() == NO_MORE_DOCS);
+        assert_eq!(i2.next_doc(), NO_MORE_DOCS);
     }
 }
 
@@ -89,7 +94,7 @@ fn test_sparse() {
         DocIdSetBuilderEnum::B(_) => enum_type1,
         DocIdSetBuilderEnum::I(_) => enum_type2,
     };
-    assert!(doc_id_set_type == enum_type2);
+    assert_eq!(doc_id_set_type, enum_type2);
     let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit)).unwrap();
     assert_equals(Some(bit_doc_id_set), Some(result));
 }
@@ -119,7 +124,7 @@ fn test_dense() {
         DocIdSetBuilderEnum::B(_) => enum_type1,
         DocIdSetBuilderEnum::I(_) => enum_type2,
     };
-    assert!(doc_id_set_type == enum_type1);
+    assert_eq!(doc_id_set_type, enum_type1);
     let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit)).unwrap();
     assert_equals(Some(bit_doc_id_set), Some(result));
 }
@@ -218,7 +223,7 @@ fn test_leverage_stats() {
     let mut doc_count = 42;
     let mut value_count = 42;
     let mut builder = DocIdSetBuilder::new_with_count(100, doc_count, value_count);
-    assert_eq!((1f64 - builder.get_num_values_per_doc()), 0f64);
+    assert_eq!(1f64 - builder.get_num_values_per_doc(), 0f64);
     assert!(!builder.get_multi_valued());
     builder.grow(2);
     builder.add_doc(5);

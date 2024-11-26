@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::accountable::Accountable;
-use crate::bit_sets::bit_set::BitSet;
+use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::util::accountable::Accountable;
+use crate::util::bit_set::BitSet;
+use crate::util::bits::Bits;
 use crate::util::error::runtime_error::RuntimeError;
-use crate::{Bits, DocIdSetIterator, NO_MORE_DOCS};
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
 

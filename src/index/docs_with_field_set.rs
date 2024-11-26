@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::accountable::Accountable;
-use crate::bit_sets::bit_set::BitSet;
-use crate::bit_sets::fixed_bit_set::FixedBitSet;
-use crate::{AllDocIdSetIterator, BitSetIterator, Bits, DocIdSet, DocIdSetIterator, MatchNoBits};
+use crate::search::doc_id_set::DocIdSet;
+use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator};
+use crate::util::accountable::Accountable;
+use crate::util::bit_set::BitSet;
+use crate::util::bit_set_iterator::BitSetIterator;
+use crate::util::bits::{Bits, MatchNoBits};
+use crate::util::fixed_bit_set::FixedBitSet;
 use std::rc::Rc;
 
 //todo

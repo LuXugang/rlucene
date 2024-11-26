@@ -19,13 +19,12 @@ use crate::id_set::id_set_common;
 use crate::id_set::id_set_common::clear_range;
 use rand::rngs::StdRng;
 use rand::Rng;
-use rlucene::accountable::Accountable;
-use rlucene::bit_sets::bit_set::BitSet;
-use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
-use rlucene::bits::Bits;
-use rlucene::doc_id_set_iterator::NO_MORE_DOCS;
+use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use rlucene::util::accountable::Accountable;
+use rlucene::util::bit_set::BitSet;
+use rlucene::util::bits::Bits;
 use rlucene::util::error::runtime_error::RuntimeError;
-use rlucene::DocIdSetIterator;
+use rlucene::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::collections::HashSet;
 
 pub fn random_set(random: &mut StdRng, num_bits: i32, percent_set: f32) -> bit_set::BitSet {

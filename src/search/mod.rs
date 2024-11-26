@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 pub mod collector;
+pub mod doc_id_set;
+pub mod doc_id_set_iterator;
 pub mod leaf_collector;
 pub mod score_mode;
 pub mod weight;

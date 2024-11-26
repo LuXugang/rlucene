@@ -19,7 +19,9 @@ use crate::id_set::base_doc_id_set_test_case::{
     BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
 use rand::rngs::StdRng;
-use rlucene::{DocIdSet, IntArrayDocIdSet, NO_MORE_DOCS};
+use rlucene::search::doc_id_set::DocIdSet;
+use rlucene::search::doc_id_set_iterator::NO_MORE_DOCS;
+use rlucene::util::int_array_doc_id_set::IntArrayDocIdSet;
 
 struct TestIntArrayDocIdSet;
 impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {

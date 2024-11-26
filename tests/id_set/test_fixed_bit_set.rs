@@ -21,14 +21,15 @@ use crate::id_set::base_bit_set_test_case::{
 use crate::id_set::id_set_common::*;
 use rand::rngs::StdRng;
 use rand::Rng;
-use rlucene::bit_sets::bit_set::BitSet;
-use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
-use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
+use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use rlucene::util::bit_set::BitSet;
+use rlucene::util::bit_set_iterator::BitSetIterator;
+use rlucene::util::bits::Bits;
+use rlucene::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
 use rlucene::util::error::runtime_error::RuntimeError;
-use rlucene::{
-    BitSetIterator, Bits, DocBaseBitSetIterator, DocIdSetIterator, IntArrayDocIdSetIterator,
-    NO_MORE_DOCS,
-};
+use rlucene::util::fixed_bit_set::FixedBitSet;
+use rlucene::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
+use rlucene::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 struct TestFixedBitSet;
@@ -199,7 +200,7 @@ fn do_prev_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
     let mut count = 0;
     let mut iter: Vec<_> = a.iter().collect();
     iter.reverse();
-    // check set bit in BitSet should be in FixedBitSet
+    // check set a bit in BitSet should be in FixedBitSet
     for index in iter {
         bb = b.prev_set_bit(index as i32);
         assert_eq!(bb as usize, index);
@@ -249,7 +250,7 @@ fn do_iterate1(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) {
         } else {
             iterator.advance(index as i32)
         };
-        assert!(index == bb as usize);
+        assert_eq!(index, bb as usize);
     }
     assert_eq!(iterator.next_doc(), NO_MORE_DOCS);
 }
@@ -264,7 +265,7 @@ fn do_iterate2(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) {
         } else {
             iterator.advance(index as i32)
         };
-        assert!(index == bb as usize);
+        assert_eq!(index, bb as usize);
     }
     assert_eq!(iterator.next_doc(), NO_MORE_DOCS);
 }
@@ -299,13 +300,13 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
 
             let val2 = b.get(idx);
             let val = b.get_and_set(idx);
-            assert!(val2 == val);
+            assert_eq!(val2, val);
             assert!(b.get(idx));
 
             if !val {
                 b.clear_with_index(idx);
             }
-            assert!(b.get(idx) == val);
+            assert_eq!(b.get(idx), val);
         }
 
         // test that the various ways of accessing the bits are equivalent
@@ -539,7 +540,7 @@ fn test_ensure_capacity() {
     let length = bits.length();
     let bits_clone_1 = bits.clone();
     FixedBitSet::ensure_capacity(&mut bits, length - 2);
-    assert!(bits_clone_1.length() == bits.length());
+    assert_eq!(bits_clone_1.length(), bits.length());
     assert!(bits.get(1));
 
     bits_clone.set(1);

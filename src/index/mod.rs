@@ -20,6 +20,7 @@ pub mod bytes_ref;
 pub use bytes_ref::*;
 pub mod bytes_ref_builder;
 pub use bytes_ref_builder::*;
+pub mod docs_with_field_set;
 mod documents_writer_delete_queue;
 pub mod index_options;
 pub mod leaf_reader_context;

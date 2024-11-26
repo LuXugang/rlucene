@@ -19,9 +19,10 @@ use crate::id_set::base_doc_id_set_test_case::{
     BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
 use rand::prelude::StdRng;
-use rlucene::bit_sets::bit_set::BitSet;
-use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
-use rlucene::{BitDocIdSet, DocIdSet};
+use rlucene::search::doc_id_set::DocIdSet;
+use rlucene::util::bit_doc_id_set::BitDocIdSet;
+use rlucene::util::bit_set::BitSet;
+use rlucene::util::fixed_bit_set::FixedBitSet;
 
 impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {

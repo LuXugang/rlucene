@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::accountable::Accountable;
-use crate::bit_sets::bit_set::BitSet;
-use crate::bit_sets::fixed_bit_set::FixedBitSet;
-use crate::doc_id_set::DocIdSet;
+use crate::search::doc_id_set::DocIdSet;
+use crate::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI, NO_MORE_DOCS};
+use crate::util::accountable::Accountable;
+use crate::util::bit_doc_id_set::BitDocIdSet;
+use crate::util::bit_set::BitSet;
+use crate::util::bit_set_iterator::BitSetIterator;
+use crate::util::bits::{Bits, MatchNoBits};
 use crate::util::error::runtime_error::RuntimeError;
-use crate::{
-    BitDocIdSet, BitSetIterator, Bits, DocIdSetIterator, EmptyDISI, MatchNoBits,
-    NotDocDocIdSetIterator, NotDocIdSet, NO_MORE_DOCS,
-};
+use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 use std::cmp::min;
 use std::rc::Rc;
 

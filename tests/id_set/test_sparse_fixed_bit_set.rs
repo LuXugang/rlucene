@@ -19,9 +19,10 @@ use crate::id_set::base_bit_set_test_case::{
     BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
 };
 use rand::Rng;
-use rlucene::bit_sets::bit_set::BitSet;
-use rlucene::bit_sets::sparse_fixed_bit_set::SparseFixedBitSet;
-use rlucene::{Bits, NO_MORE_DOCS};
+use rlucene::search::doc_id_set_iterator::NO_MORE_DOCS;
+use rlucene::util::bit_set::BitSet;
+use rlucene::util::bits::Bits;
+use rlucene::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
 pub struct TestSparseFixedBitSet;
 

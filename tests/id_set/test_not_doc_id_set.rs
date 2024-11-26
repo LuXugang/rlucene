@@ -19,11 +19,12 @@ use crate::id_set::base_doc_id_set_test_case::{
     BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
 use rand::rngs::StdRng;
-use rlucene::bit_sets::bit_set::BitSet;
-use rlucene::bit_sets::fixed_bit_set::FixedBitSet;
-use rlucene::doc_id_set::DocIdSet;
-use rlucene::{BitDocIdSet, EmptyDocIdSet};
-use rlucene::{Bits, NotDocIdSet};
+use rlucene::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
+use rlucene::util::bit_doc_id_set::BitDocIdSet;
+use rlucene::util::bit_set::BitSet;
+use rlucene::util::bits::Bits;
+use rlucene::util::fixed_bit_set::FixedBitSet;
+use rlucene::util::not_doc_id_set::NotDocIdSet;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 

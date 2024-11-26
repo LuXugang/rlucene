@@ -19,7 +19,9 @@ use crate::id_set::base_bit_set_test_case::random_set;
 use rand::prelude::StdRng;
 use rand::Rng;
 
-use rlucene::{Bits, DocIdSet, DocIdSetIterator, NO_MORE_DOCS};
+use rlucene::search::doc_id_set::DocIdSet;
+use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use rlucene::util::bits::Bits;
 use std::cmp::max;
 
 pub trait BaseDocIdSetTestCase {

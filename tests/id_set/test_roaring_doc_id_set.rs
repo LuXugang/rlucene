@@ -19,7 +19,8 @@ use crate::id_set::base_doc_id_set_test_case::{
     BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
 use rand::prelude::StdRng;
-use rlucene::{DocIdSet, RoaringDocIdSetBuilder};
+use rlucene::search::doc_id_set::DocIdSet;
+use rlucene::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
 
 struct TestRoaringDocIdSet;
 #[test]
