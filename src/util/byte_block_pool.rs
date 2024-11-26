@@ -18,7 +18,7 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::{Counter, CounterEnum};
 use std::cmp::min;
 
-//todo
+//TODO
 #[allow(dead_code)]
 const BASE_RAM_BYTES: i64 = 0;
 /**

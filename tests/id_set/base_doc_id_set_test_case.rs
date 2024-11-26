@@ -92,7 +92,7 @@ pub trait BaseDocIdSetTestCase {
             inc += random.gen_range(1..=100);
         }
     }
-    //todo
+    //TODO
     /** Test ram usage estimation. */
     fn test_ram_bytes_used(&self, _random: &mut StdRng) {}
     fn assert_equals<T: DocIdSet>(

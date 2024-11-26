@@ -77,7 +77,7 @@ impl FixedBitSet {
         } else {
             let num_words = Self::bits2words(num_bits);
             let arr_len = bits.bits.len() as i32;
-            // TODO should not add another 64bit so simply,see what Java lucene `ArrayUtil.grow`
+            // TODO:should not add another 64bit so simply,see what Java lucene `ArrayUtil.grow`
             let grow = 1;
             bits.num_bits = num_bits + (64 * grow);
             bits.num_words = num_words + grow;
@@ -649,7 +649,7 @@ impl BitSet for FixedBitSet {
     }
 
     fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), RuntimeError> {
-        //todo: this is a naive implementation, we can optimize it from Java Lucene
+        //TODO: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
         let mut doc = iter.next_doc();
         while doc != NO_MORE_DOCS {

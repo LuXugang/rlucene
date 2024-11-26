@@ -17,7 +17,7 @@
 use crate::util::accountable::Accountable;
 use std::sync::atomic::AtomicI32;
 
-//todo
+//TODO
 #[allow(dead_code)]
 const BYTES_PER_DEL_QUERY: i64 = 0;
 /**

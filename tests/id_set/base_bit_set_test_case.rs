@@ -68,7 +68,7 @@ pub trait BaseBitSetTestCase {
         }
     }
     fn test_prev_set_bit(&mut self, random: &mut StdRng) {
-        // todo: 1000 should be 100000
+        // TODO: 1000 should be 100000
         let num_bits = 1 + random.gen_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
@@ -79,7 +79,7 @@ pub trait BaseBitSetTestCase {
         }
     }
     fn test_next_set_bit(&mut self, random: &mut StdRng) {
-        // todo: 1000 should be 100000
+        // TODO: 1000 should be 100000
         let num_bits = 1 + random.gen_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
@@ -90,7 +90,7 @@ pub trait BaseBitSetTestCase {
         }
     }
     fn test_next_set_bit_in_range(&mut self, random: &mut StdRng) {
-        // todo: 1000 should be 100000
+        // TODO: 1000 should be 100000
         let num_bits = 1 + random.gen_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
@@ -223,7 +223,7 @@ pub trait BaseBitSetTestCaseSupperImpl {
     }
 }
 
-//todo
+//TODO
 #[allow(dead_code)]
 fn random_copy(_random: &mut StdRng, _set: impl BitSet, _num_bits: i32) {
     todo!()
@@ -332,7 +332,7 @@ impl BitSet for RustUtilBitSet {
     }
 
     fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {
-        // TODO : this implement too slow
+        // TODO:: this implement too slow
         for index in start..upper_bound {
             if self.index_hash_set.contains(&index) {
                 return index;

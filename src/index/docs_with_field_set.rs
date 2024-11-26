@@ -23,7 +23,7 @@ use crate::util::bits::{Bits, MatchNoBits};
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::rc::Rc;
 
-//todo
+//TODO
 #[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 /**

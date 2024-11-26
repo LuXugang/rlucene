@@ -14,20 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// todo: should with mask
+// TODO: should with mask
 pub fn flip_bit_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
     for i in start..end {
         flip_bit(bitset, i);
     }
 }
 
-// todo: should with mask
+// TODO: should with mask
 pub fn clear_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
     for i in start..end {
         bitset.remove(i);
     }
 }
-// todo: should with mask
+// TODO: should with mask
 pub fn set_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
     for i in start..end {
         bitset.insert(i);

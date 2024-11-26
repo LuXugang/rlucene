@@ -34,12 +34,12 @@ fn test_dense() {
     assert_eq!(0, it.next_doc());
     assert_eq!(it.next_doc(), NO_MORE_DOCS);
 
-    //todo
+    //TODO
     // let ram_bytes_used = set.ram_bytes_used();
     for i in 0..1000 {
         let _ = set.add(i);
     }
-    //todo:
+    //TODO:
     // assert_eq!(ram_bytes_used, set.ram_bytes_used());
     it = set.iterator().unwrap();
     for i in 0..1000 {

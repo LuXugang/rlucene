@@ -68,7 +68,7 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     ) -> bool {
         TypeId::of::<T1>() == TypeId::of::<T2>()
     }
-    //todo
+    //TODO
     pub fn try_get_bit_set<B: BitSet + 'static>(
         _iterator: impl DocIdSetIterator + 'static,
         _bit_set: B,

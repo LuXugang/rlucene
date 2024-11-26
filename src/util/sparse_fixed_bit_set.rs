@@ -76,7 +76,7 @@ impl SparseFixedBitSet {
         let block: Vec<u64> = vec![1_u64 << (i % 64)];
         self.bits[i4096 as usize] = Some(block);
         self.non_zero_long_count += 1;
-        //todo
+        //TODO
         self.ram_bytes_used = 0;
     }
     fn insert_long(&mut self, i4096: i32, i64bit: i64, i: i32, index: i64) {
@@ -98,7 +98,7 @@ impl SparseFixedBitSet {
             new_bit_array[o] = 1_u64 << (i % 64);
             new_bit_array[o + 1..o + 1 + (bit_array.len() - o)].copy_from_slice(&bit_array[o..]);
             self.bits[i4096 as usize] = Some(new_bit_array);
-            //todo
+            //TODO
             self.ram_bytes_used = 0;
         }
         self.non_zero_long_count += 1;
@@ -240,7 +240,7 @@ impl SparseFixedBitSet {
             let new_bits = bits[0..non_zero_long_count as usize].to_vec();
             self.bits[i4096 as usize] = Some(new_bits);
             // we may slightly overestimate size here, but keep it cheap
-            //todo
+            //TODO
             self.ram_bytes_used = 0;
             self.non_zero_long_count += non_zero_long_count;
             return;
@@ -251,7 +251,7 @@ impl SparseFixedBitSet {
         let mut new_bits = if current_bits.as_ref().unwrap().len() >= required_capacity as usize {
             current_bits.as_ref().unwrap().clone()
         } else {
-            //todo
+            //TODO
             self.ram_bytes_used = 0;
             vec![0; oversize(required_capacity as i32) as usize]
         };
@@ -400,7 +400,7 @@ impl BitSet for SparseFixedBitSet {
         self.bits = vec![None; self.bits.len()];
         self.indices = vec![0; self.indices.len()];
         self.non_zero_long_count = 0;
-        //todo
+        //TODO
         self.ram_bytes_used = 0;
     }
 
@@ -525,7 +525,7 @@ impl BitSet for SparseFixedBitSet {
             debug_assert!(bit_array.is_some());
             let bits = bit_array.unwrap()[o] & ((1_u64 << (i % 64) << 1) - 1);
             if bits != 0 {
-                //todo: 正数跟负数的是否一样？？
+                //TODO: 正数跟负数的是否一样？？
                 return (i64 << 6) | (63 - bits.leading_zeros() as i32);
             }
         }
@@ -535,11 +535,11 @@ impl BitSet for SparseFixedBitSet {
             return self.last_doc(i4096 - 1);
         }
         // go to the previous long
-        //todo: 正数跟负数的是否一样？？
+        //TODO: 正数跟负数的是否一样？？
         i64 = 63 - index_bits.leading_zeros() as i32;
         debug_assert!(bit_array.is_some());
         let bits = bit_array.unwrap()[o - 1];
-        //todo: 正数跟负数的是否一样？？
+        //TODO: 正数跟负数的是否一样？？
         (i4096 << 12) | (i64 << 6) | (63 - bits.leading_zeros() as i32)
     }
 
@@ -557,7 +557,7 @@ impl BitSet for SparseFixedBitSet {
     }
 
     fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), RuntimeError> {
-        //todo: this is a naive implementation, we can optimize it from Java Lucene
+        //TODO: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
         let mut doc = iter.next_doc();
         while doc != NO_MORE_DOCS {
