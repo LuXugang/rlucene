@@ -17,7 +17,8 @@
 
 pub mod byte_array_data_input;
 pub mod byte_array_data_output;
-mod byte_buffers_data_output;
+mod byte_buffers_data_input;
+pub mod byte_buffers_data_output;
 pub mod data_input;
 pub mod data_output;
 pub mod directory;
@@ -36,3 +37,4 @@ pub use data_input::*;
 pub use io_context::*;
 pub use output_stream_index_output::*;
 pub use read_advice::*;
+pub use byte_buffers_data_output::*;

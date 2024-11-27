@@ -48,7 +48,12 @@ pub trait DataOutput: Sized {
      * Writes an array of bytes.
      *
      */
-    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<(), DataIOError>;
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: usize,
+        length: usize,
+    ) -> Result<(), DataIOError>;
 
     /**
      * Writes an int as four bytes (LE byte order).
@@ -177,7 +182,8 @@ pub trait DataOutput: Sized {
      * @throws IOException If there is an I/O error writing to the underlying medium.
      * @see DataInput#readVInt()
      */
-    fn write_vint(&mut self, mut i: i32) -> Result<(), DataIOError> {
+    fn write_vint(&mut self, i: i32) -> Result<(), DataIOError> {
+        let mut i = i as u32;
         while (i & !0x7F) != 0 {
             self.write_byte(((i & 0x7F) | 0x80) as u8)?;
             i >>= 7;
@@ -214,7 +220,8 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    fn write_signed_vlong(&mut self, mut i: i64) -> Result<(), DataIOError> {
+    fn write_signed_vlong(&mut self, i: i64) -> Result<(), DataIOError> {
+        let mut i = i as u64;
         while (i & !0x7F) != 0 {
             self.write_byte(((i & 0x7F) | 0x80) as u8)?;
             i >>= 7;

@@ -19,11 +19,11 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use byteorder::WriteBytesExt;
 use std::io::{BufWriter, Write};
 
-struct OutputStreamDataOutput<W: Write> {
-    os: BufWriter<W>,
+pub struct OutputStreamDataOutput<W: Write> {
+    pub os: BufWriter<W>,
 }
 impl<W: Write> OutputStreamDataOutput<W> {
-    fn new(os: W) -> OutputStreamDataOutput<W> {
+    pub fn new(os: W) -> OutputStreamDataOutput<W> {
         OutputStreamDataOutput {
             os: BufWriter::new(os),
         }
@@ -34,7 +34,12 @@ impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
         Ok(self.os.write_u8(b)?)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<(), DataIOError> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: usize,
+        length: usize,
+    ) -> Result<(), DataIOError> {
         let end = offset + length;
         Ok(self.os.write_all(&b[offset..end])?)
     }

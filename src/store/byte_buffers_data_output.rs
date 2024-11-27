@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
@@ -21,32 +22,36 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
 use byteorder::WriteBytesExt;
 use std::collections::VecDeque;
-use std::io::Cursor;
+use std::io::{Cursor, Seek};
 
 /** Smallest `minBitsPerBlock` allowed */
-const LIMIT_MIN_BITS_PER_BLOCK: usize = 1;
+pub const LIMIT_MIN_BITS_PER_BLOCK: usize = 1;
 /** Largest `maxBitsPerBlock` allowed */
-const LIMIT_MAX_BITS_PER_BLOCK: usize = 30;
+pub const LIMIT_MAX_BITS_PER_BLOCK: usize = 31;
 /**
  * Maximum number of blocks at the current `blockBits` block size before we increase the
  * block size (and thus decrease the number of blocks).
  */
-const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: usize = 100;
+pub const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: usize = 100;
 /** Default `maxBitsPerBlock` */
-const DEFAULT_MAX_BITS_PER_BLOCK: u32 = 15;
+pub const DEFAULT_MAX_BITS_PER_BLOCK: usize = 26;
 /** Default `minBitsPerBlock` */
-const DEFAULT_MIN_BITS_PER_BLOCK: u32 = 10;
+pub const DEFAULT_MIN_BITS_PER_BLOCK: usize = 10;
 
 /** A `DataOutput` storing data in a list of `vec<u8>`. */
 pub struct ByteBuffersDataOutput {
     blocks: VecDeque<Cursor<Vec<u8>>>,
     max_bits_per_block: usize,
     block_bits: usize,
-    current_block: usize,
     ram_bytes_used: i64,
+    // it is needed when we want to reuse the dataoutput
+    current_block_index:usize,
     reuse: bool,
 }
 impl ByteBuffersDataOutput {
+    pub fn new_default() -> Result<Self, RuntimeError> {
+        Self::new(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK, true)
+    }
     pub fn new(
         min_bits_per_block: usize,
         max_bits_per_block: usize,
@@ -71,20 +76,20 @@ impl ByteBuffersDataOutput {
             )));
         }
         let block = Cursor::new(vec![0u8; 1 << min_bits_per_block]);
-        let mut bocks = VecDeque::new();
-        bocks.push_back(block);
+        let mut blocks = VecDeque::new();
+        blocks.push_back(block);
         Ok(Self {
             max_bits_per_block,
             block_bits: min_bits_per_block,
-            blocks: bocks,
-            current_block: 0,
+            blocks,
             ram_bytes_used: 0,
-            reuse: false,
+            current_block_index: 0,
+            reuse,
         })
     }
-    fn new_with_expected_size(expected_size: u64, reuse: bool) -> Result<Self, RuntimeError> {
+    pub fn new_with_expected_size(expected_size: u64) -> Result<Self, RuntimeError> {
         let block_bits = compute_block_size_bits_for(expected_size);
-        Self::new(block_bits, DEFAULT_MAX_BITS_PER_BLOCK as usize, reuse)
+        Self::new(block_bits, DEFAULT_MAX_BITS_PER_BLOCK, false)
     }
 
     fn append_block(&mut self) {
@@ -92,42 +97,40 @@ impl ByteBuffersDataOutput {
             && self.block_bits < self.max_bits_per_block
         {
             self.rewrite_to_block_size(self.block_bits + 1);
-            if self.blocks.back_mut().unwrap().remain() > 0 {
+            if self.blocks.get_mut(self.current_block_index).unwrap().remain() > 0 {
                 return;
             }
         }
         let required_block_size = 1 << self.block_bits;
         self.blocks
             .push_back(Cursor::new(vec![0u8; required_block_size]));
-        self.current_block = self.blocks.len() - 1;
-        debug_assert!(self.current_block == self.blocks.len());
         // TODO: self.ramBytesUsed += 0;
         self.ram_bytes_used += 0;
+        self.current_block_index +=1;
     }
     fn rewrite_to_block_size(&mut self, target_block_bits: usize) {
         debug_assert!(target_block_bits <= self.max_bits_per_block);
-        let old_blocks_size = self.blocks.len();
-        debug_assert!(
-            self.blocks.len() < old_blocks_size
-                || (old_blocks_size == self.blocks.len()
-                    && self.blocks.back_mut().unwrap().remain() > 0)
-        );
         self.rewrite_blocks(target_block_bits);
         // TODO:
         self.ram_bytes_used += 0;
     }
     // create larger blocks and copy data from smaller blocks
+    // TODO: the first old_block's data could be reused ,first do expansion by `push_back` and then move to tail and continue copy the second old_block's data to it
     pub fn rewrite_blocks(&mut self, target_block_bits: usize) {
         debug_assert!(target_block_bits > self.block_bits);
         self.block_bits = target_block_bits;
         let block_size = 1 << self.block_bits;
         let mut new_block = Cursor::new(vec![0; block_size]);
+        let mut old_block_count = self.blocks.len();
         while let Some(mut old_block) = self.blocks.pop_front() {
+            // read from head
+            old_block.set_position(0);
             while old_block.remain() > 0 {
-                let available_space = new_block.remain();
+                let mut available_space = new_block.remain();
                 if available_space == 0 {
                     self.blocks.push_back(new_block);
                     new_block = Cursor::new(vec![0; block_size]);
+                    available_space = 1 << self.block_bits;
                 }
                 let bytes_to_copy = available_space.min(old_block.remain()) as usize;
                 let old_position = old_block.position() as usize;
@@ -139,12 +142,96 @@ impl ByteBuffersDataOutput {
                 old_block.set_position((old_position + bytes_to_copy) as u64);
                 new_block.set_position((new_position + bytes_to_copy) as u64);
             }
+            old_block_count -= 1;
+            if old_block_count == 0 {
+                break;
+            }
         }
         if new_block.position() > 0 {
             self.blocks.push_back(new_block);
         }
-        self.current_block = self.blocks.len() - 1;
+        self.current_block_index = self.blocks.len() - 1;
     }
+    /** Copy the current content of this object into another `DataOutput`. */
+    fn copy_to<T: DataInput>(&mut self, _output: T) -> Result<(), DataIOError> {
+        unimplemented!()
+    }
+    /**
+     * The number of bytes written to this output so far.
+     */
+    pub fn size(&mut self) -> u64 {
+        let mut size = 0;
+        let block_count = self.current_block_index + 1;
+        if block_count >= 1 {
+            let full_block_size = (block_count - 1) * self.block_size() ;
+            let last_block_size = self.blocks.get_mut(self.current_block_index).unwrap().position() as usize;
+            size = full_block_size + last_block_size;
+        }
+        size as u64
+    }
+    fn block_size(&self) -> usize {
+        1 << self.block_bits
+    }
+
+    pub fn reset(&mut self) {
+        if self.reuse {
+            for block in &mut self.blocks {
+                let _ = block.rewind();
+            }
+        }
+        self.current_block_index = 0;
+        self.ram_bytes_used = 0;
+    }
+
+    /**
+     * Return a list of read-only view of `ByteBuffer` blocks over the current content written
+     * to the output.
+     */
+    pub fn to_buffer_list(&self) -> Vec<&Cursor<Vec<u8>>> {
+        self.blocks.iter().collect()
+    }
+    pub fn get_writeable_buffer_list(&mut self) -> Vec<&mut Cursor<Vec<u8>>> {
+        self.blocks.iter_mut().collect()
+    }
+    /**
+     * Return a contiguous array with the current content written to the output. The returned array is
+     * always a copy.
+     *
+     */
+    pub fn to_array_copy(&mut self) -> Vec<u8> {
+        let mut buffer = Vec::with_capacity(self.size() as usize);
+
+        for block in &self.blocks {
+            let end = block.position() as usize;
+            buffer.extend_from_slice(&block.get_ref()[..end]);
+        }
+        buffer
+    }
+
+    pub fn to_data_input(&self) -> ByteBuffersDataInput {
+        ByteBuffersDataInput::new(self.to_buffer_list())
+    }
+
+    fn append_block_if_needed(&mut self) -> u64{
+        let mut last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+        if last_block.remain() == 0 {
+            if self.reuse && self.current_block_index < self.blocks.len() - 1 {
+                self.current_block_index += 1;
+                last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+            }else {
+                self.append_block();
+                // it is safe to get by `back_mut` because blocks are not reused
+                last_block = self.blocks.back_mut().unwrap();
+            }
+        }
+        last_block.remain()
+    }
+
+    #[cfg(feature = "test_only")]
+    pub fn write_bytes(&mut self, b: &[u8]) -> Result<(), DataIOError> {
+        self.write_bytes_range(b, 0, b.len())
+    }
+
     #[cfg(feature = "test_only")]
     pub fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
         self.write_bytes_range(&[b], 0, 1)
@@ -152,15 +239,11 @@ impl ByteBuffersDataOutput {
 }
 
 impl DataOutput for ByteBuffersDataOutput {
+   
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
-        if self.blocks.get_mut(self.current_block).unwrap().remain() == 0 {
-            self.append_block();
-        }
-        Ok(self
-            .blocks
-            .get_mut(self.current_block)
-            .unwrap()
-            .write_u8(b)?)
+        self.append_block_if_needed();
+        let last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+        Ok(last_block.write_u8(b)?)
     }
 
     fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<(), DataIOError> {
@@ -173,19 +256,15 @@ impl DataOutput for ByteBuffersDataOutput {
         mut offset: usize,
         mut length: usize,
     ) -> Result<(), DataIOError> {
-        debug_assert!(length >= 0);
         while length > 0 {
-            let mut block = self.blocks.get_mut(self.current_block).unwrap();
-            let mut available_space = block.remain();
-            if available_space == 0 {
-                self.append_block();
-                block = self.blocks.get_mut(self.current_block).unwrap();
-                available_space = 1 << self.block_bits;
-            }
+            let available_space = self.append_block_if_needed();
+            let last_block = self.blocks.get_mut(self.current_block_index).unwrap();
             let chunk = available_space.min(length as u64) as usize;
-            let block_position = block.position() as usize;
-            block.get_mut()[block_position..block_position + chunk]
+            let mut block_position = last_block.position() as usize;
+            last_block.get_mut()[block_position..block_position + chunk]
                 .copy_from_slice(&b[offset..offset + chunk]);
+            block_position += chunk;
+            last_block.set_position(block_position as u64);
             length -= chunk;
             offset += chunk;
         }
@@ -208,15 +287,29 @@ impl DataOutput for ByteBuffersDataOutput {
     }
 
     fn write_string(&mut self, s: &str) -> Result<(), DataIOError> {
-        todo!()
+        let bytes = s.as_bytes();
+        let length = bytes.len();
+        self.write_vint(length as i32)?;
+        self.write_bytes_range(bytes, 0, length)
     }
 
     fn copy_bytes<T: DataInput>(
         &mut self,
         input: &mut T,
-        num_bytes: i64,
+        mut num_bytes: i64,
     ) -> Result<(), DataIOError> {
-        todo!()
+        while num_bytes > 0 {
+            let available_space = self.append_block_if_needed();
+            let last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+            let bytes_to_copy = available_space.min(num_bytes as u64);
+
+            let current_pos = last_block.position();
+            let current_block_mut = last_block.get_mut();
+            input.read_bytes(current_block_mut, current_pos as usize, bytes_to_copy as usize)?;
+            last_block.set_position(current_pos + bytes_to_copy);
+            num_bytes -= bytes_to_copy as i64;
+        }
+        Ok(())
     }
 }
 
@@ -239,9 +332,16 @@ fn compute_block_size_bits_for(bytes: u64) -> usize {
     let avg_block_size = bytes / MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as u64;
     let power_of_two = avg_block_size.next_power_of_two();
     if power_of_two == 0 {
-        return DEFAULT_MIN_BITS_PER_BLOCK as usize;
+        return DEFAULT_MIN_BITS_PER_BLOCK;
     }
     let mut block_bits = power_of_two.trailing_zeros();
-    block_bits = block_bits.clamp(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK);
+    block_bits = block_bits.min(DEFAULT_MAX_BITS_PER_BLOCK as u32);
+    block_bits = block_bits.max(DEFAULT_MIN_BITS_PER_BLOCK as u32);
     block_bits as usize
+}
+
+#[allow(dead_code)]
+// no need in rlucene
+fn write_long_string(_byte_len: usize, _s: String) {
+    unimplemented!()
 }

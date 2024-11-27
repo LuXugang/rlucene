@@ -16,6 +16,8 @@
  */
 use crate::store::ReadAdvice;
 
+#[allow(dead_code)]
 pub const DEFAULT_READ_ADVICE: ReadAdvice = ReadAdvice::Random;
 
+#[allow(dead_code)]
 struct Constants;

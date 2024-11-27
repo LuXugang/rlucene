@@ -57,16 +57,16 @@ impl BitUtil {
         let value = value.to_le();
         unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut u64, value) }
     }
-    pub fn zig_zag_decode_i32(i: i32) -> i32 {
-        (i >> 1) ^ -(i & 1)
+    pub fn zig_zag_decode_i32(i: u32) -> i32 {
+        ((i >> 1) as i32) ^ -((i & 1) as i32)
     }
 
     pub fn zig_zag_encode_i32(i: i32) -> i32 {
         (i >> 31) ^ (i << 1)
     }
 
-    pub fn zig_zag_decode_i64(l: i64) -> i64 {
-        (l >> 1) ^ -(l & 1)
+    pub fn zig_zag_decode_i64(l: u64) -> i64 {
+        ((l >> 1) as i64) ^ -((l & 1) as i64)
     }
 
     pub fn zig_zag_encode_i64(l: i64) -> i64 {

@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod base_data_output_test_case;
-pub mod test_byte_array_data_input;
-mod test_byte_buffers_data_output;
-pub mod test_output_stream_index_output;
+use std::io::Cursor;
+
+pub struct ByteBuffersDataInput;
+impl ByteBuffersDataInput {
+    pub fn new(buffers: Vec<&Cursor<Vec<u8>>>) -> Self {
+        ByteBuffersDataInput
+    }
+}

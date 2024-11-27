@@ -98,7 +98,7 @@ pub trait DataInput: Sized + Clone {
      * integer.
      */
     fn read_zint(&mut self) -> Result<i32, DataIOError> {
-        Ok(BitUtil::zig_zag_decode_i32(self.read_vint()?))
+        Ok(BitUtil::zig_zag_decode_i32(self.read_vint()? as u32))
     }
 
     fn read_long(&mut self) -> Result<i64, DataIOError> {
@@ -109,7 +109,12 @@ pub trait DataInput: Sized + Clone {
     /**
      * Read a specified number of longs.
      */
-    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<(), DataIOError> {
+    fn read_longs(
+        &mut self,
+        dst: &mut [i64],
+        offset: usize,
+        len: usize,
+    ) -> Result<(), DataIOError> {
         let mut i = 0;
         while i < len {
             dst[i + offset] = self.read_long()?;
@@ -133,7 +138,12 @@ pub trait DataInput: Sized + Clone {
      * Reads a specified number of floats into an array at the specified offset.
      *
      */
-    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<(), DataIOError> {
+    fn read_floats(
+        &mut self,
+        dst: &mut [f32],
+        offset: usize,
+        len: usize,
+    ) -> Result<(), DataIOError> {
         let mut i = 0;
         while i < len {
             dst[i + offset] = f32::from_bits(self.read_int()? as u32);
@@ -165,13 +175,14 @@ pub trait DataInput: Sized + Clone {
      * integer. Reads between one and ten bytes.
      */
     fn read_zlong(&mut self) -> Result<i64, DataIOError> {
-        Ok(BitUtil::zig_zag_decode_i64(self.read_vlong()?))
+        Ok(BitUtil::zig_zag_decode_i64(self.read_vlong()? as u64))
     }
     /**
      * Reads a string.
      */
     fn read_string(&mut self) -> Result<String, DataIOError> {
         let length = self.read_vint()?;
+        debug_assert!(length >= 0, "Length must be positive: {}", length);
         let mut bytes = vec![0u8; length as usize];
         self.read_bytes(&mut bytes, 0, length as usize)?;
         Ok(String::from_utf8(bytes)?)
@@ -210,5 +221,5 @@ pub trait DataInput: Sized + Clone {
             Ok(set)
         }
     }
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), DataIOError>;
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError>;
 }

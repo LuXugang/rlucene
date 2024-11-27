@@ -30,6 +30,10 @@ pub fn my_random(test_name: String) -> StdRng {
     StdRng::seed_from_u64(seed)
 }
 
+pub fn my_random_with_seed(seed: u64) -> StdRng {
+    StdRng::seed_from_u64(seed)
+}
+
 pub fn is_night_mode() -> bool {
     std::env::var("NIGHT_MODE").map_or(false, |v| v == "true")
 }

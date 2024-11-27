@@ -117,8 +117,8 @@ impl DataInput for ByteArrayDataInput {
         Ok(value)
     }
 
-    fn skip_bytes(&mut self, count: i64) -> Result<(), DataIOError> {
-        debug_assert!(count >= 0 && count <= i32::MAX as i64, "Skip count is negative");
+    fn skip_bytes(&mut self, count: u64) -> Result<(), DataIOError> {
+        debug_assert!(count <= usize::MAX as u64, "count exceeds usize range");
         self.pos += count as usize;
         Ok(())
     }

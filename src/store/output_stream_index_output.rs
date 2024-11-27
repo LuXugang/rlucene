@@ -28,7 +28,6 @@ pub struct OutputStreamIndexOutput<W: Write> {
     bytes_written: i64,
     name: String,
     resource_description: String,
-    buffer_size: usize,
 }
 impl<W: Write> OutputStreamIndexOutput<W> {
     /**
@@ -42,8 +41,7 @@ impl<W: Write> OutputStreamIndexOutput<W> {
             os,
             bytes_written: 0,
             name: name.to_string(),
-            resource_description: resource_description.to_string(),
-            buffer_size,
+            resource_description: resource_description.to_string()
         }
     }
     pub fn close() {}
@@ -55,7 +53,12 @@ impl<W: Write> DataOutput for OutputStreamIndexOutput<W> {
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<(), DataIOError> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: usize,
+        length: usize,
+    ) -> Result<(), DataIOError> {
         let end = offset + length;
         self.bytes_written += length as i64;
         self.os.write_bytes(&b[offset..end])

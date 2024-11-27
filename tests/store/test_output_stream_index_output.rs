@@ -115,7 +115,7 @@ fn test_multiple_writes_with_checksum() -> Result<(), DataIOError> {
         out.write_bytes_range(data1, 0, data1.len())?;
         hasher.update(data1);
         let sum1 = out.get_check_sum();
-        out.write_bytes_range(data2, 0, data2.len() )?;
+        out.write_bytes_range(data2, 0, data2.len())?;
         hasher.update(data2);
         let sum2 = out.get_check_sum();
         assert_ne!(sum1, sum2, "Checksum mismatch");
