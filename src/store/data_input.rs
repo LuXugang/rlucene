@@ -36,7 +36,7 @@ pub trait DataInput: Sized + Clone {
     /**
      * Reads a specified number of bytes into an array at the specified offset.
      */
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), DataIOError>;
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<(), DataIOError>;
     /**
      * Reads a specified number of bytes into an array at the specified offset with control over
      * whether the read should be buffered (callers who have their own buffer should pass in "false"
@@ -46,8 +46,8 @@ pub trait DataInput: Sized + Clone {
     fn read_bytes_with_buffer(
         &mut self,
         b: &mut [u8],
-        offset: i32,
-        len: i32,
+        offset: usize,
+        len: usize,
         _use_buffer: bool,
     ) -> Result<(), DataIOError> {
         self.read_bytes(b, offset, len)
@@ -74,7 +74,7 @@ pub trait DataInput: Sized + Clone {
      * Override if you have an efficient implementation. In general this is when the input supports
      * random access.
      */
-    fn read_group_vint(&self, dst: &mut [i64], offset: i32) -> Result<(), DataIOError> {
+    fn read_group_vint(&self, dst: &mut [i64], offset: usize) -> Result<(), DataIOError> {
         GroupVIntUtil::read_group_vint(self, dst, offset)
     }
     /**
@@ -109,10 +109,10 @@ pub trait DataInput: Sized + Clone {
     /**
      * Read a specified number of longs.
      */
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<(), DataIOError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<(), DataIOError> {
         let mut i = 0;
         while i < len {
-            dst[(i + offset) as usize] = self.read_long()?;
+            dst[i + offset] = self.read_long()?;
             i += 1;
         }
         Ok(())
@@ -120,10 +120,10 @@ pub trait DataInput: Sized + Clone {
     /**
      * Reads a specified number of ints into an array at the specified offset.
      */
-    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<(), DataIOError> {
+    fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<(), DataIOError> {
         let mut i = 0;
         while i < len {
-            dst[(i + offset) as usize] = self.read_int()?;
+            dst[i + offset] = self.read_int()?;
             i += 1;
         }
         Ok(())
@@ -133,10 +133,10 @@ pub trait DataInput: Sized + Clone {
      * Reads a specified number of floats into an array at the specified offset.
      *
      */
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<(), DataIOError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<(), DataIOError> {
         let mut i = 0;
         while i < len {
-            dst[(i + offset) as usize] = f32::from_bits(self.read_int()? as u32);
+            dst[i + offset] = f32::from_bits(self.read_int()? as u32);
             i += 1;
         }
         Ok(())
@@ -173,7 +173,7 @@ pub trait DataInput: Sized + Clone {
     fn read_string(&mut self) -> Result<String, DataIOError> {
         let length = self.read_vint()?;
         let mut bytes = vec![0u8; length as usize];
-        self.read_bytes(&mut bytes, 0, length)?;
+        self.read_bytes(&mut bytes, 0, length as usize)?;
         Ok(String::from_utf8(bytes)?)
     }
 

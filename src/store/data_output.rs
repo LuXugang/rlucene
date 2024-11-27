@@ -41,14 +41,14 @@ pub trait DataOutput: Sized {
     /**
      * Writes an array of bytes.
      */
-    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<(), DataIOError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<(), DataIOError> {
         self.write_bytes_range(b, 0, len)
     }
     /**
      * Writes an array of bytes.
      *
      */
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), DataIOError>;
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<(), DataIOError>;
 
     /**
      * Writes an int as four bytes (LE byte order).
@@ -240,9 +240,9 @@ pub trait DataOutput: Sized {
      */
     fn write_string(&mut self, s: &str) -> Result<(), DataIOError> {
         let utf8_result = BytesRef::new_from_string(s);
-        let len = utf8_result.length;
-        let offset = utf8_result.offset;
-        self.write_vint(len)?;
+        let len = utf8_result.length as usize;
+        let offset = utf8_result.offset as usize;
+        self.write_vint(len as i32)?;
         self.write_bytes_range(&utf8_result.bytes, offset, len)
     }
 
@@ -260,8 +260,8 @@ pub trait DataOutput: Sized {
             } else {
                 left
             };
-            input.read_bytes(&mut buffer, 0, to_copy as i32)?;
-            self.write_bytes_with_len(&buffer, to_copy as i32)?;
+            input.read_bytes(&mut buffer, 0, to_copy as usize)?;
+            self.write_bytes_with_len(&buffer, to_copy as usize)?;
             left -= to_copy;
         }
         Ok(())
@@ -301,7 +301,7 @@ pub trait DataOutput: Sized {
      * values that are not enough for a group. we need a `vec<i64>` because this is what postings are
      * using, all longs are actually required to be integers.
      */
-    fn write_group_vints(&mut self, values: &mut [i64], limit: i32) -> Result<(), DataIOError> {
+    fn write_group_vints(&mut self, values: &mut [i64], limit: usize) -> Result<(), DataIOError> {
         let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];
         GroupVIntUtil::write_group_vint(self, &mut group_vint_bytes, values, limit)?;
         Ok(())

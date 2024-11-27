@@ -14,25 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::data_output::DataOutput;
+use crate::util::error::data_io_error_enum::DataIOError;
+use byteorder::WriteBytesExt;
+use std::io::{BufWriter, Write};
 
-pub mod byte_array_data_input;
-pub mod byte_array_data_output;
-mod byte_buffers_data_output;
-pub mod data_input;
-pub mod data_output;
-pub mod directory;
-mod flush_info;
-pub mod index_input;
-pub mod index_output;
-pub mod io_context;
-mod merge_info;
-pub mod output_stream_data_output;
-pub mod output_stream_index_output;
-pub mod read_advice;
+struct OutputStreamDataOutput<W: Write> {
+    os: BufWriter<W>,
+}
+impl<W: Write> OutputStreamDataOutput<W> {
+    fn new(os: W) -> OutputStreamDataOutput<W> {
+        OutputStreamDataOutput {
+            os: BufWriter::new(os),
+        }
+    }
+}
+impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
+    fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
+        Ok(self.os.write_u8(b)?)
+    }
 
-pub use byte_array_data_input::*;
-pub use byte_array_data_output::*;
-pub use data_input::*;
-pub use io_context::*;
-pub use output_stream_index_output::*;
-pub use read_advice::*;
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<(), DataIOError> {
+        let end = offset + length;
+        Ok(self.os.write_all(&b[offset..end])?)
+    }
+}

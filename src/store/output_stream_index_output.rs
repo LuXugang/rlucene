@@ -28,7 +28,7 @@ pub struct OutputStreamIndexOutput<W: Write> {
     bytes_written: i64,
     name: String,
     resource_description: String,
-    buffer_size: i32,
+    buffer_size: usize,
 }
 impl<W: Write> OutputStreamIndexOutput<W> {
     /**
@@ -36,8 +36,8 @@ impl<W: Write> OutputStreamIndexOutput<W> {
      *
      * bufferSize :recommend value： 8kb
      */
-    pub fn new(resource_description: &str, name: &str, inner: W, buffer_size: i32) -> Self {
-        let os = XBufferedOutputStream::new(inner, buffer_size as usize);
+    pub fn new(resource_description: &str, name: &str, inner: W, buffer_size: usize) -> Self {
+        let os = XBufferedOutputStream::new(inner, buffer_size);
         Self {
             os,
             bytes_written: 0,
@@ -55,10 +55,10 @@ impl<W: Write> DataOutput for OutputStreamIndexOutput<W> {
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), DataIOError> {
-        let end = (offset + length) as usize;
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<(), DataIOError> {
+        let end = offset + length;
         self.bytes_written += length as i64;
-        self.os.write_bytes(&b[offset as usize..end])
+        self.os.write_bytes(&b[offset..end])
     }
 
     fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {

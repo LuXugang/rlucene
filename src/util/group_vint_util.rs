@@ -26,7 +26,7 @@ impl GroupVIntUtil {
     pub fn read_group_vint<T: DataInput>(
         _data_input: &T,
         _dst: &mut [i64],
-        _offset: i32,
+        _offset: usize,
     ) -> Result<(), DataIOError> {
         todo!()
     }
@@ -35,7 +35,7 @@ impl GroupVIntUtil {
         _data_output: &T,
         _scratch: &mut [u8],
         _values: &mut [i64],
-        _limit: i32,
+        _limit: usize,
     ) -> Result<(), DataIOError> {
         todo!()
     }

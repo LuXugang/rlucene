@@ -21,7 +21,7 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
 use byteorder::WriteBytesExt;
 use std::collections::VecDeque;
-use std::io::{Cursor};
+use std::io::Cursor;
 
 /** Smallest `minBitsPerBlock` allowed */
 const LIMIT_MIN_BITS_PER_BLOCK: usize = 1;
@@ -163,15 +163,15 @@ impl DataOutput for ByteBuffersDataOutput {
             .write_u8(b)?)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<(), DataIOError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<(), DataIOError> {
         self.write_bytes_range(b, 0, len)
     }
 
     fn write_bytes_range(
         &mut self,
         b: &[u8],
-        mut offset: i32,
-        mut length: i32,
+        mut offset: usize,
+        mut length: usize,
     ) -> Result<(), DataIOError> {
         debug_assert!(length >= 0);
         while length > 0 {
@@ -185,9 +185,9 @@ impl DataOutput for ByteBuffersDataOutput {
             let chunk = available_space.min(length as u64) as usize;
             let block_position = block.position() as usize;
             block.get_mut()[block_position..block_position + chunk]
-                .copy_from_slice(&b[offset as usize..offset as usize + chunk]);
-            length -= chunk as i32;
-            offset += chunk as i32;
+                .copy_from_slice(&b[offset..offset + chunk]);
+            length -= chunk;
+            offset += chunk;
         }
         Ok(())
     }

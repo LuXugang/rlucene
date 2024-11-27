@@ -21,8 +21,8 @@ use crate::util::error::data_io_error_enum::DataIOError;
 #[derive(Default)]
 pub struct ByteArrayDataInput {
     bytes: Vec<u8>,
-    pos: i32,
-    limit: i32,
+    pos: usize,
+    limit: usize,
 }
 impl ByteArrayDataInput {
     pub fn new() -> Self {
@@ -30,20 +30,20 @@ impl ByteArrayDataInput {
     }
 
     pub fn new_with_bytes(bytes: Vec<u8>) -> Self {
-        let len = bytes.len() as i32;
+        let len = bytes.len();
         Self::new_with_range(bytes, 0, len)
     }
-    pub fn new_with_range(bytes: Vec<u8>, offset: i32, length: i32) -> Self {
+    pub fn new_with_range(bytes: Vec<u8>, offset: usize, length: usize) -> Self {
         let mut data_input = Self::new();
         data_input.reset_with_range(bytes, offset, length);
         data_input
     }
 
     pub fn reset(&mut self, bytes: Vec<u8>) {
-        let len = bytes.len() as i32;
+        let len = bytes.len();
         self.reset_with_range(bytes, 0, len);
     }
-    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: i32, length: i32) {
+    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: usize, length: usize) {
         self.bytes = bytes;
         self.pos = offset;
         self.limit = offset + length;
@@ -54,13 +54,13 @@ impl ByteArrayDataInput {
         self.pos = 0;
     }
 
-    pub fn get_position(&self) -> i32 {
+    pub fn get_position(&self) -> usize {
         self.pos
     }
-    pub fn set_position(&mut self, pos: i32) {
+    pub fn set_position(&mut self, pos: usize) {
         self.pos = pos;
     }
-    pub fn length(&self) -> i32 {
+    pub fn length(&self) -> usize {
         self.limit
     }
     pub fn eof(&self) -> bool {
@@ -76,49 +76,50 @@ impl Clone for ByteArrayDataInput {
 
 impl DataInput for ByteArrayDataInput {
     fn read_byte(&mut self) -> Result<u8, DataIOError> {
-        let value = self.bytes[self.pos as usize];
+        let value = self.bytes[self.pos];
         self.pos += 1;
         Ok(value)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<(), DataIOError> {
         debug_assert!(
-            (offset + len) as usize <= b.len(),
+            (offset + len) <= b.len(),
             "Offset and length exceed the destination buffer size"
         );
         debug_assert!(
-            (self.pos + len) as usize <= self.bytes.len(),
+            (self.pos + len) <= self.bytes.len(),
             "Read range exceeds the source buffer size"
         );
         unsafe {
-            let src = self.bytes.as_ptr().add(self.pos as usize);
-            let dst = b.as_mut_ptr().add(offset as usize);
-            std::ptr::copy_nonoverlapping(src, dst, len as usize);
+            let src = self.bytes.as_ptr().add(self.pos);
+            let dst = b.as_mut_ptr().add(offset);
+            std::ptr::copy_nonoverlapping(src, dst, len);
         }
         self.pos += len;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16, DataIOError> {
-        let result = BitUtil::get_u16_le(&self.bytes, self.pos as usize) as i16;
+        let result = BitUtil::get_u16_le(&self.bytes, self.pos) as i16;
         self.pos += 2;
         Ok(result)
     }
 
     fn read_int(&mut self) -> Result<i32, DataIOError> {
-        let value = BitUtil::get_u32_le(&self.bytes, self.pos as usize) as i32;
+        let value = BitUtil::get_u32_le(&self.bytes, self.pos) as i32;
         self.pos += 4;
         Ok(value)
     }
 
     fn read_long(&mut self) -> Result<i64, DataIOError> {
-        let value = BitUtil::get_u64_le(&self.bytes, self.pos as usize) as i64;
+        let value = BitUtil::get_u64_le(&self.bytes, self.pos) as i64;
         self.pos += 8;
         Ok(value)
     }
 
     fn skip_bytes(&mut self, count: i64) -> Result<(), DataIOError> {
-        self.pos += count as i32;
+        debug_assert!(count >= 0 && count <= i32::MAX as i64, "Skip count is negative");
+        self.pos += count as usize;
         Ok(())
     }
 }
