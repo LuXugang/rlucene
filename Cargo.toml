@@ -13,10 +13,12 @@ rand = "0.8.5"
 bit-set = "0.5.3"
 rand_xoshiro = "0.6.0"
 
+
 [profile.dev]
 overflow-checks = false
 
 [features]
-default= ["test_only"]
+default= ["test_only", "not_required_in_rlucene"]
 test_only = []
+not_required_in_rlucene = []
 

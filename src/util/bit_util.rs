@@ -14,48 +14,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::ptr;
+use std::{mem, ptr};
 
 pub struct BitUtil {}
 impl BitUtil {
     #[cfg(target_endian = "little")]
-    pub fn get_u16_le(bytes: &[u8], pos: usize) -> u16 {
+    pub fn get_i16_le(bytes: &[u8], pos: usize) -> i16 {
         debug_assert!(pos + 2 <= bytes.len(), "Index out of bounds");
-        unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const u16) }
+        unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i16) }
     }
     #[cfg(target_endian = "little")]
-    pub fn set_u16_le(bytes: &mut [u8], pos: usize, value: u16) {
+    pub fn set_i16_le(bytes: &mut [u8], pos: usize, value: i16) {
         debug_assert!(pos + 2 <= bytes.len(), "Index out of bounds");
-        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut u16, value) }
+        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut i16, value) }
     }
     #[cfg(target_endian = "little")]
-    pub fn get_u32_le(bytes: &[u8], pos: usize) -> u32 {
+    pub fn get_i32_le(bytes: &[u8], pos: usize) -> i32 {
         debug_assert!(pos + 4 <= bytes.len(), "Index out of bounds");
 
-        unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const u32) }
+        unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32) }
     }
 
     #[cfg(target_endian = "little")]
-    pub fn set_u32_le(bytes: &mut [u8], pos: usize, value: u32) {
+    pub fn set_i32_le(bytes: &mut [u8], pos: usize, value: i32) {
         debug_assert!(pos + 4 <= bytes.len(), "Index out of bounds");
 
         let value = value.to_le();
-        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut u32, value) }
+        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut i32, value) }
     }
 
     #[cfg(target_endian = "little")]
-    pub fn get_u64_le(bytes: &[u8], pos: usize) -> u64 {
+    pub fn get_i64_le(bytes: &[u8], pos: usize) -> i64 {
         debug_assert!(pos + 8 <= bytes.len(), "Index out of bounds");
 
-        unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const u64) }
+        unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i64) }
     }
 
     #[cfg(target_endian = "little")]
-    pub fn set_u64_le(bytes: &mut [u8], pos: usize, value: u64) {
+    pub fn set_i64_le(bytes: &mut [u8], pos: usize, value: i64) {
         debug_assert!(pos + 8 <= bytes.len(), "Index out of bounds");
 
         let value = value.to_le();
-        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut u64, value) }
+        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut i64, value) }
     }
     pub fn zig_zag_decode_i32(i: u32) -> i32 {
         ((i >> 1) as i32) ^ -((i & 1) as i32)
@@ -73,3 +73,9 @@ impl BitUtil {
         (l >> 1) ^ -(l & 1)
     }
 }
+
+pub const SHORT_BYTES: usize = mem::size_of::<i16>();
+pub const INT_BYTES: usize = mem::size_of::<i32>();
+pub const LONG_BYTES: usize = mem::size_of::<i64>();
+pub const FLOAT_BYTES: usize = mem::size_of::<f32>();
+pub const USIZE_BYTES: usize = mem::size_of::<usize>();

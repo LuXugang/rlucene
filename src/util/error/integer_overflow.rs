@@ -14,9 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod data_io_error_enum;
-mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-mod integer_overflow;
-pub mod runtime_error;
+#[derive(Debug)]
+pub struct IntegerOverflow {
+    message: String,
+}
+
+impl IntegerOverflow {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for IntegerOverflow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for IntegerOverflow {}

@@ -28,7 +28,7 @@ use std::collections::{HashMap, HashSet};
  * `#clone()`, returning a new `DataInput` which operates on the same underlying resource, but
  * positioned independently.
 */
-pub trait DataInput: Sized + Clone {
+pub trait DataInput: Sized {
     /**
      * Reads a specified number of bytes into an array at the specified offset.
      */
@@ -56,6 +56,9 @@ pub trait DataInput: Sized + Clone {
      * Reads two bytes and returns a i16 (LE byte order).
      */
     fn read_short(&mut self) -> Result<i16, DataIOError> {
+        self.default_read_short()
+    }
+    fn default_read_short(&mut self) -> Result<i16, DataIOError> {
         let b1 = self.read_byte()?;
         let b2 = self.read_byte()?;
         Ok(i16::from_le_bytes([b2, b1]))
@@ -64,6 +67,9 @@ pub trait DataInput: Sized + Clone {
      * Reads four bytes and returns an int (LE byte order).
      */
     fn read_int(&mut self) -> Result<i32, DataIOError> {
+        self.default_read_int()
+    }
+    fn default_read_int(&mut self) -> Result<i32, DataIOError> {
         let b1 = self.read_byte()?;
         let b2 = self.read_byte()?;
         let b3 = self.read_byte()?;
@@ -74,7 +80,14 @@ pub trait DataInput: Sized + Clone {
      * Override if you have an efficient implementation. In general this is when the input supports
      * random access.
      */
-    fn read_group_vint(&self, dst: &mut [i64], offset: usize) -> Result<(), DataIOError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: usize) -> Result<(), DataIOError> {
+        self.default_read_group_vint(dst, offset)
+    }
+    fn default_read_group_vint(
+        &mut self,
+        dst: &mut [i64],
+        offset: usize,
+    ) -> Result<(), DataIOError> {
         GroupVIntUtil::read_group_vint(self, dst, offset)
     }
     /**
@@ -102,6 +115,9 @@ pub trait DataInput: Sized + Clone {
     }
 
     fn read_long(&mut self) -> Result<i64, DataIOError> {
+        self.default_read_long()
+    }
+    fn default_read_long(&mut self) -> Result<i64, DataIOError> {
         let b1 = self.read_int()? as u64 & 0xFFFFFFFF;
         let b2 = (self.read_int()? as u64) << 32;
         Ok((b2 | b1) as i64)

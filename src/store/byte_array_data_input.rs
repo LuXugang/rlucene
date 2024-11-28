@@ -67,13 +67,6 @@ impl ByteArrayDataInput {
         self.pos == self.limit
     }
 }
-
-impl Clone for ByteArrayDataInput {
-    fn clone(&self) -> Self {
-        todo!()
-    }
-}
-
 impl DataInput for ByteArrayDataInput {
     fn read_byte(&mut self) -> Result<u8, DataIOError> {
         let value = self.bytes[self.pos];
@@ -100,19 +93,19 @@ impl DataInput for ByteArrayDataInput {
     }
 
     fn read_short(&mut self) -> Result<i16, DataIOError> {
-        let result = BitUtil::get_u16_le(&self.bytes, self.pos) as i16;
+        let result = BitUtil::get_i16_le(&self.bytes, self.pos);
         self.pos += 2;
         Ok(result)
     }
 
     fn read_int(&mut self) -> Result<i32, DataIOError> {
-        let value = BitUtil::get_u32_le(&self.bytes, self.pos) as i32;
+        let value = BitUtil::get_i32_le(&self.bytes, self.pos);
         self.pos += 4;
         Ok(value)
     }
 
     fn read_long(&mut self) -> Result<i64, DataIOError> {
-        let value = BitUtil::get_u64_le(&self.bytes, self.pos) as i64;
+        let value = BitUtil::get_i64_le(&self.bytes, self.pos);
         self.pos += 8;
         Ok(value)
     }

@@ -22,14 +22,13 @@ use rlucene::store::{
     ByteArrayDataInput, ByteBuffersDataOutput, DEFAULT_MAX_BITS_PER_BLOCK,
     DEFAULT_MIN_BITS_PER_BLOCK, LIMIT_MIN_BITS_PER_BLOCK, MAX_BLOCKS_BEFORE_BLOCK_EXPANSION,
 };
-use std::sync::atomic::AtomicI32;
 
 struct TestByteBuffersDataOutput;
 impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
     type DO = ByteBuffersDataOutput;
 
     fn new_instance(&self) -> Self::DO {
-        ByteBuffersDataOutput::new_default().unwrap()
+        ByteBuffersDataOutput::new_resettable_instance().unwrap()
     }
 
     fn get_bytes(&mut self, mut instance: Self::DO) -> Vec<u8> {
@@ -126,7 +125,7 @@ fn test_sanity() {
 #[test]
 fn test_large_array_add() {
     let mut random = my_random("test_large_array_add".to_string());
-    let mut o = ByteBuffersDataOutput::new_default().unwrap();
+    let mut o = ByteBuffersDataOutput::new_resettable_instance().unwrap();
     let mb = 1024 * 1024;
     let mut bytes = if is_night_mode() {
         let size = random.gen_range(5 * mb..=15 * mb);

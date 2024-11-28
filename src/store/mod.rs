@@ -20,6 +20,7 @@ pub mod byte_array_data_output;
 mod byte_buffers_data_input;
 pub mod byte_buffers_data_output;
 pub mod data_input;
+mod data_input_default_impl;
 pub mod data_output;
 pub mod directory;
 mod flush_info;
@@ -29,7 +30,7 @@ pub mod io_context;
 mod merge_info;
 pub mod output_stream_data_output;
 pub mod output_stream_index_output;
-mod random_access_input;
+pub mod random_access_input;
 pub mod read_advice;
 
 pub use byte_array_data_input::*;

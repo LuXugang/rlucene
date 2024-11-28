@@ -19,7 +19,7 @@
  * sure to test heavily with assertions enabled.
  */
 use crate::store::data_output::DataOutput;
-use crate::util::bit_util::BitUtil;
+use crate::util::bit_util::{BitUtil, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
 
 pub struct ByteArrayDataOutput<'a> {
@@ -129,31 +129,31 @@ impl DataOutput for ByteArrayDataOutput<'_> {
 
     fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + 4 <= self.limit,
+            self.pos + INT_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_u32_le(self.bytes, self.pos, i as u32);
-        self.pos += 4;
+        BitUtil::set_i32_le(self.bytes, self.pos, i);
+        self.pos += INT_BYTES;
         Ok(())
     }
 
     fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + 2 <= self.limit,
+            self.pos + SHORT_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_u16_le(self.bytes, self.pos, i as u16);
-        self.pos += 2;
+        BitUtil::set_i16_le(self.bytes, self.pos, i);
+        self.pos += SHORT_BYTES;
         Ok(())
     }
 
     fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + 8 <= self.limit,
+            self.pos + LONG_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_u64_le(self.bytes, self.pos, i as u64);
-        self.pos += 8;
+        BitUtil::set_i64_le(self.bytes, self.pos, i);
+        self.pos += LONG_BYTES;
         Ok(())
     }
 }

@@ -310,7 +310,7 @@ pub trait DataOutput: Sized {
      */
     fn write_group_vints(&mut self, values: &mut [i64], limit: usize) -> Result<(), DataIOError> {
         let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];
-        GroupVIntUtil::write_group_vint(self, &mut group_vint_bytes, values, limit)?;
+        GroupVIntUtil::write_group_vints(self, &mut group_vint_bytes, values, limit)?;
         Ok(())
     }
 }

@@ -49,7 +49,7 @@ pub struct ByteBuffersDataOutput {
     reuse: bool,
 }
 impl ByteBuffersDataOutput {
-    pub fn new_default() -> Result<Self, RuntimeError> {
+    pub fn new_resettable_instance() -> Result<Self, RuntimeError> {
         Self::new(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK, true)
     }
     pub fn new(
@@ -346,7 +346,16 @@ trait CursorExt {
 
 impl CursorExt for Cursor<Vec<u8>> {
     fn remain(&self) -> u64 {
-        (self.get_ref().len() as u64) - self.position()
+        let position = self.position();
+        let total = self.get_ref().len() as u64;
+        // set_position seems not check bound
+        debug_assert!(
+            position <= total,
+            "Position ({}) exceeds total ({})",
+            position,
+            total
+        );
+        total.saturating_sub(position)
     }
 }
 fn compute_block_size_bits_for(bytes: u64) -> usize {
@@ -361,8 +370,7 @@ fn compute_block_size_bits_for(bytes: u64) -> usize {
     block_bits as usize
 }
 
-#[allow(dead_code)]
-// no need in rlucene
+#[cfg(feature = "not_required_in_rlucene")]
 fn write_long_string(_byte_len: usize, _s: String) {
     unimplemented!()
 }

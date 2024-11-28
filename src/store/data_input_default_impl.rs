@@ -14,9 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod data_io_error_enum;
-mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-mod integer_overflow;
-pub mod runtime_error;
+pub trait DataInputDefaultImpl {}

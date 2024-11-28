@@ -132,3 +132,23 @@ fn test_multiple_writes_with_checksum() -> Result<(), DataIOError> {
 
     Ok(())
 }
+
+trait MyTrait {
+    fn method_a(&self) {
+        println!("Default implementation of method_a");
+    }
+}
+
+struct MyStruct;
+
+impl MyTrait for MyStruct {
+    fn method_a(&self) {}
+}
+
+#[test]
+fn main() {
+    let instance = MyStruct;
+
+    println!("Calling method_a:");
+    instance.method_a();
+}
