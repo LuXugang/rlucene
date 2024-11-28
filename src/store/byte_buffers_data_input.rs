@@ -18,7 +18,7 @@ use std::io::Cursor;
 
 pub struct ByteBuffersDataInput;
 impl ByteBuffersDataInput {
-    pub fn new(buffers: Vec<&Cursor<Vec<u8>>>) -> Self {
+    pub fn new(buffers: Vec<Cursor<&[u8]>>) -> Self {
         ByteBuffersDataInput
     }
 }

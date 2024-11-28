@@ -53,7 +53,7 @@ pub trait DataInput: Sized + Clone {
         self.read_bytes(b, offset, len)
     }
     /**
-     * Reads two bytes and returns a short (LE byte order).
+     * Reads two bytes and returns a i16 (LE byte order).
      */
     fn read_short(&mut self) -> Result<i16, DataIOError> {
         let b1 = self.read_byte()?;
@@ -95,7 +95,7 @@ pub trait DataInput: Sized + Clone {
     }
     /**
      * Read a `BitUtil#zig_Zag_Decode_i32(vint)` zig-zag encoded `#readVInt()` variable-length
-     * integer.
+     * i32.
      */
     fn read_zint(&mut self) -> Result<i32, DataIOError> {
         Ok(BitUtil::zig_zag_decode_i32(self.read_vint()? as u32))
@@ -172,7 +172,7 @@ pub trait DataInput: Sized + Clone {
 
     /**
      * Read a `BitUtil#zig_Zag_Decode_i64(vlong)` zig-zag-encoded `#readVLong()` variable-length}
-     * integer. Reads between one and ten bytes.
+     * i32. Reads between one and ten bytes.
      */
     fn read_zlong(&mut self) -> Result<i64, DataIOError> {
         Ok(BitUtil::zig_zag_decode_i64(self.read_vlong()? as u64))

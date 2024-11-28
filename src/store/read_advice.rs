@@ -23,7 +23,7 @@ pub enum ReadAdvice {
     Normal,
     /**
      * Data is expected to be read in a random-access fashion, either by `IndexInput#seek(i64)`
-     * seeking often and reading relatively short sequences of bytes at once, or by reading data
+     * seeking often and reading relatively i16 sequences of bytes at once, or by reading data
      * through the `RandomAccessInput` abstraction in random order.
      */
     Random,

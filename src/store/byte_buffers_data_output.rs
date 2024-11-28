@@ -45,7 +45,7 @@ pub struct ByteBuffersDataOutput {
     block_bits: usize,
     ram_bytes_used: i64,
     // it is needed when we want to reuse the dataoutput
-    current_block_index:usize,
+    current_block_index: usize,
     reuse: bool,
 }
 impl ByteBuffersDataOutput {
@@ -97,7 +97,13 @@ impl ByteBuffersDataOutput {
             && self.block_bits < self.max_bits_per_block
         {
             self.rewrite_to_block_size(self.block_bits + 1);
-            if self.blocks.get_mut(self.current_block_index).unwrap().remain() > 0 {
+            if self
+                .blocks
+                .get_mut(self.current_block_index)
+                .unwrap()
+                .remain()
+                > 0
+            {
                 return;
             }
         }
@@ -106,7 +112,7 @@ impl ByteBuffersDataOutput {
             .push_back(Cursor::new(vec![0u8; required_block_size]));
         // TODO: self.ramBytesUsed += 0;
         self.ram_bytes_used += 0;
-        self.current_block_index +=1;
+        self.current_block_index += 1;
     }
     fn rewrite_to_block_size(&mut self, target_block_bits: usize) {
         debug_assert!(target_block_bits <= self.max_bits_per_block);
@@ -154,7 +160,7 @@ impl ByteBuffersDataOutput {
     }
     /** Copy the current content of this object into another `DataOutput`. */
     fn copy_to<T: DataInput>(&mut self, _output: T) -> Result<(), DataIOError> {
-        unimplemented!()
+        unimplemented!("ByteBuffersDataInput not implemented yet")
     }
     /**
      * The number of bytes written to this output so far.
@@ -163,8 +169,12 @@ impl ByteBuffersDataOutput {
         let mut size = 0;
         let block_count = self.current_block_index + 1;
         if block_count >= 1 {
-            let full_block_size = (block_count - 1) * self.block_size() ;
-            let last_block_size = self.blocks.get_mut(self.current_block_index).unwrap().position() as usize;
+            let full_block_size = (block_count - 1) * self.block_size();
+            let last_block_size = self
+                .blocks
+                .get_mut(self.current_block_index)
+                .unwrap()
+                .position() as usize;
             size = full_block_size + last_block_size;
         }
         size as u64
@@ -187,8 +197,16 @@ impl ByteBuffersDataOutput {
      * Return a list of read-only view of `ByteBuffer` blocks over the current content written
      * to the output.
      */
-    pub fn to_buffer_list(&self) -> Vec<&Cursor<Vec<u8>>> {
-        self.blocks.iter().collect()
+    pub fn to_buffer_list(&self) -> Vec<Cursor<&[u8]>> {
+        self.blocks
+            .iter()
+            .map(|cursor| {
+                let slice: &[u8] = cursor.get_ref().as_slice();
+                let mut new_cursor = Cursor::new(slice);
+                new_cursor.set_position(0);
+                new_cursor
+            })
+            .collect()
     }
     pub fn get_writeable_buffer_list(&mut self) -> Vec<&mut Cursor<Vec<u8>>> {
         self.blocks.iter_mut().collect()
@@ -212,13 +230,13 @@ impl ByteBuffersDataOutput {
         ByteBuffersDataInput::new(self.to_buffer_list())
     }
 
-    fn append_block_if_needed(&mut self) -> u64{
+    fn append_block_if_needed(&mut self) -> u64 {
         let mut last_block = self.blocks.get_mut(self.current_block_index).unwrap();
         if last_block.remain() == 0 {
             if self.reuse && self.current_block_index < self.blocks.len() - 1 {
                 self.current_block_index += 1;
                 last_block = self.blocks.get_mut(self.current_block_index).unwrap();
-            }else {
+            } else {
                 self.append_block();
                 // it is safe to get by `back_mut` because blocks are not reused
                 last_block = self.blocks.back_mut().unwrap();
@@ -239,7 +257,6 @@ impl ByteBuffersDataOutput {
 }
 
 impl DataOutput for ByteBuffersDataOutput {
-   
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
         self.append_block_if_needed();
         let last_block = self.blocks.get_mut(self.current_block_index).unwrap();
@@ -305,7 +322,11 @@ impl DataOutput for ByteBuffersDataOutput {
 
             let current_pos = last_block.position();
             let current_block_mut = last_block.get_mut();
-            input.read_bytes(current_block_mut, current_pos as usize, bytes_to_copy as usize)?;
+            input.read_bytes(
+                current_block_mut,
+                current_pos as usize,
+                bytes_to_copy as usize,
+            )?;
             last_block.set_position(current_pos + bytes_to_copy);
             num_bytes -= bytes_to_copy as i64;
         }

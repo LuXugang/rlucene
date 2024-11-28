@@ -38,8 +38,8 @@ const BASE_RAM_BYTES_USED: i64 = 0;
  * link DocIdSet implementation inspired from `http://roaringbitmap.org/`
  *
  * The space is divided into blocks of 2^16 bits and each block is encoded independently. In each
- * block, if less than 2^12 bits are set, then documents are simply stored in a short[]. If more
- * than 2^16-2^12 bits are set, then the inverse of the set is encoded in a simple short[].
+ * block, if less than 2^12 bits are set, then documents are simply stored in a i16[]. If more
+ * than 2^16-2^12 bits are set, then the inverse of the set is encoded in a simple i16[].
  * Otherwise a FixedBitSet is used.
  *
  * @lucene.internal

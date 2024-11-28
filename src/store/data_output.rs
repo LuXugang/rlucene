@@ -67,7 +67,7 @@ pub trait DataOutput: Sized {
     }
 
     /**
-     * Writes a short as two bytes (LE byte order).
+     * Writes a i16 as two bytes (LE byte order).
      */
     fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
         self.write_byte(i as u8)?;
@@ -79,9 +79,9 @@ pub trait DataOutput: Sized {
      * Writes an int in a variable-length format. Writes between one and five bytes. Smaller values
      * take fewer bytes. Negative numbers are supported, but should be avoided.
      *
-     * VByte is a variable-length format for positive integers is defined where the high-order bit
+     * VByte is a variable-length format for positive i32s is defined where the high-order bit
      * of each byte indicates whether more bytes remain to be read. The low-order seven bits are
-     * appended as increasingly more significant bits in the resulting integer value. Thus values from
+     * appended as increasingly more significant bits in the resulting i32 value. Thus values from
      * zero to 127 may be stored in a single byte, values from 128 to 16,383 may be stored in two
      * bytes, and so on.
      *
@@ -194,7 +194,7 @@ pub trait DataOutput: Sized {
 
     /**
      * Write a `BitUtil#zig_zag_encode_i32(i32)` zig-zag-encoded `#writeVInt(i32)`
-     * variable-length integer. This is typically useful to write small signed ints and is equivalent
+     * variable-length i32. This is typically useful to write small signed ints and is equivalent
      * to calling `writeVInt(BitUtil.zig_zag_encode_i32(i))`
      */
     fn write_zint(&mut self, i: i32) -> Result<(), DataIOError> {
@@ -304,9 +304,9 @@ pub trait DataOutput: Sized {
     }
 
     /**
-     * Encode integers using group-varint. It uses `DataOutput#writeVInt` to encode tail
+     * Encode i32s using group-varint. It uses `DataOutput#writeVInt` to encode tail
      * values that are not enough for a group. we need a `vec<i64>` because this is what postings are
-     * using, all longs are actually required to be integers.
+     * using, all longs are actually required to be i32s.
      */
     fn write_group_vints(&mut self, values: &mut [i64], limit: usize) -> Result<(), DataIOError> {
         let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];

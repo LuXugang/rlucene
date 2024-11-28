@@ -35,7 +35,7 @@ pub trait BaseDataOutputTestCase {
         let mut os = OutputStreamDataOutput::new(&mut buffer);
         let max = 500000;
         let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
-        let mut random2= Xoroshiro128Plus::seed_from_u64(seed);
+        let mut random2 = Xoroshiro128Plus::seed_from_u64(seed);
 
         add_random_data::<DI>(&mut instance, &mut random1, max);
         add_random_data::<DI>(&mut os, &mut random2, max);
@@ -59,12 +59,12 @@ pub fn add_random_data<DI: DataInput>(
 
 type Generator<DO, DI, R> = fn(&mut DO, &mut R) -> fn(&mut DI) -> ();
 
-fn create_generators<DO: DataOutput, DI: DataInput, R:RngCore>() -> Vec<Generator<DO, DI,R >> {
+fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generator<DO, DI, R>> {
     vec![
         //0 writeByte / readByte
         |dst, rnd| {
             let value: u8 = rnd.gen();
-            let _ =dst.write_byte(value);
+            let _ = dst.write_byte(value);
             |src| {}
         },
         //1 writeBytes / readBytes (array and buffer version).
@@ -80,21 +80,29 @@ fn create_generators<DO: DataOutput, DI: DataInput, R:RngCore>() -> Vec<Generato
             let len = rnd.gen_range(0..10000);
             let bytes: Vec<u8> = (0..len).map(|_| rnd.gen()).collect();
             let bytes_len = bytes.len();
-            let off = if len == 0 { 0 } else { rnd.gen_range(0..bytes_len) };
-            let length = if len == 0 { 0 } else { rnd.gen_range(0..(bytes_len - off)) };
+            let off = if len == 0 {
+                0
+            } else {
+                rnd.gen_range(0..bytes_len)
+            };
+            let length = if len == 0 {
+                0
+            } else {
+                rnd.gen_range(0..(bytes_len - off))
+            };
             let _ = dst.write_bytes_range(&bytes, off, length);
             |src| {}
         },
         //3 writeInt / readInt
         |dst, rnd| {
             let value: i32 = rnd.gen();
-            let _ =dst.write_int(value);
+            let _ = dst.write_int(value);
             |src| {}
         },
         //4 writeLong / readInt
         |dst, rnd| {
             let value: i64 = rnd.gen();
-            let _ =dst.write_long(value);
+            let _ = dst.write_long(value);
             |src| {}
         },
         //5 writeShort / readShort
@@ -106,7 +114,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R:RngCore>() -> Vec<Generato
         //6 writeVInt / readVInt
         |dst, rnd| {
             let value: i32 = rnd.gen();
-            let _ =dst.write_vint(value);
+            let _ = dst.write_vint(value);
             |src| {}
         },
         //7 writeZInt / readZInt
@@ -118,7 +126,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R:RngCore>() -> Vec<Generato
         //8 writeZLong / readZLong
         |dst, rnd| {
             let value: i64 = rnd.gen();
-            let _ =dst.write_zlong(value);
+            let _ = dst.write_zlong(value);
             |src| {}
         },
         //9 writeVLong / readVLong
@@ -139,7 +147,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R:RngCore>() -> Vec<Generato
                     .map(|_| rnd.gen::<char>())
                     .collect::<String>()
             };
-            let _ =dst.write_string(&value);
+            let _ = dst.write_string(&value);
             |src| {}
         },
     ]

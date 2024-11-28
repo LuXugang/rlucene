@@ -41,7 +41,7 @@ impl<W: Write> OutputStreamIndexOutput<W> {
             os,
             bytes_written: 0,
             name: name.to_string(),
-            resource_description: resource_description.to_string()
+            resource_description: resource_description.to_string(),
         }
     }
     pub fn close() {}
