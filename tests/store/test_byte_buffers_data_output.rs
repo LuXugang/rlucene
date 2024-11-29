@@ -31,8 +31,8 @@ impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
         ByteBuffersDataOutput::new_resettable_instance().unwrap()
     }
 
-    fn get_bytes(&mut self, mut instance: Self::DO) -> Vec<u8> {
-        instance.to_array_copy()
+    fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8> {
+        instance.get_array_copy()
     }
 }
 
@@ -48,11 +48,11 @@ fn test_reuse() {
     let mut random2 = my_random_with_seed(gen_seed);
     let add_count = random.gen_range(1000..=5000);
     add_random_data::<ByteArrayDataInput>(&mut o, &mut random1, add_count);
-    let dta = o.to_array_copy();
+    let dta = o.get_array_copy();
 
     o.reset();
     add_random_data::<ByteArrayDataInput>(&mut o, &mut random2, add_count);
-    assert_eq!(dta, o.to_array_copy());
+    assert_eq!(dta, o.get_array_copy());
 }
 #[test]
 fn test_constructor_with_expected_size() {
@@ -76,6 +76,7 @@ fn test_constructor_with_expected_size() {
 fn test_randomized_writes() {
     let mut test = TestByteBuffersDataOutput;
     let mut random = my_random("test_randomized_writes".to_string());
+    // here could use any DataInput impl because this test dose not test ByteArrayDataInput
     test.test_randomized_writes::<ByteArrayDataInput>(&mut random);
 }
 
@@ -108,7 +109,7 @@ fn test_sanity() {
     let mut o = case.new_instance();
 
     assert_eq!(o.size(), 0);
-    assert_eq!(o.to_array_copy().len(), 0);
+    assert_eq!(o.get_array_copy().len(), 0);
     // TODO
     // assert_eq!(o.ram_bytes_used(), 0);
 
@@ -116,11 +117,11 @@ fn test_sanity() {
     assert_eq!(o.size(), 1);
     // TODO
     // assert!(o.ram_bytes_used() > 0);
-    assert_eq!(o.to_array_copy(), vec![1]);
+    assert_eq!(o.get_array_copy(), vec![1]);
 
     o.write_bytes_with_len(&[2, 3, 4], 3).unwrap();
     assert_eq!(o.size(), 4);
-    assert_eq!(o.to_array_copy(), vec![1, 2, 3, 4]);
+    assert_eq!(o.get_array_copy(), vec![1, 2, 3, 4]);
 }
 #[test]
 fn test_large_array_add() {
@@ -141,7 +142,7 @@ fn test_large_array_add() {
     o.write_bytes_range(&bytes, offset, len).unwrap();
     assert_eq!(len as u64, o.size());
     let expected = bytes[offset..offset + len].to_vec();
-    assert_eq!(expected, o.to_array_copy());
+    assert_eq!(expected, o.get_array_copy());
 }
 #[test]
 fn test_copy_bytes_on_heap() {
@@ -161,7 +162,7 @@ fn test_copy_bytes_on_heap() {
     .unwrap();
     o.copy_bytes(&mut input, len as i64).unwrap();
     let expected = bytes_clone[offset..offset + len].to_vec();
-    assert_eq!(o.to_array_copy(), expected);
+    assert_eq!(o.get_array_copy(), expected);
 }
 #[test]
 fn test_copy_bytes_on_direct_byte_buffer() {
@@ -180,7 +181,7 @@ fn test_copy_bytes_on_direct_byte_buffer() {
     .unwrap();
     o.copy_bytes(&mut input, len as i64).unwrap();
     let expected = bytes_clone[offset..offset + len].to_vec();
-    assert_eq!(o.to_array_copy(), expected);
+    assert_eq!(o.get_array_copy(), expected);
 }
 
 #[test]

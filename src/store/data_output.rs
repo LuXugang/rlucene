@@ -235,7 +235,7 @@ pub trait DataOutput: Sized {
      * small signed ints.
      */
     fn write_zlong(&mut self, i: i64) -> Result<(), DataIOError> {
-        self.write_vlong(BitUtil::zig_zag_encode_i64(i))
+        self.write_signed_vlong(BitUtil::zig_zag_encode_i64(i))
     }
 
     /**

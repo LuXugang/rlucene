@@ -40,6 +40,9 @@ pub const DEFAULT_MIN_BITS_PER_BLOCK: usize = 10;
 
 /** A `DataOutput` storing data in a list of `vec<u8>`. */
 pub struct ByteBuffersDataOutput {
+    //In Rust Lucene, all data within each block is considered valid.
+    // However, in Java Lucene, the valid data range can be controlled
+    // by the `limit` parameter of the `java.nio.ByteBuffer` encapsulation.
     blocks: VecDeque<Cursor<Vec<u8>>>,
     max_bits_per_block: usize,
     block_bits: usize,
@@ -165,21 +168,21 @@ impl ByteBuffersDataOutput {
     /**
      * The number of bytes written to this output so far.
      */
-    pub fn size(&mut self) -> u64 {
+    pub fn size(&self) -> u64 {
         let mut size = 0;
         let block_count = self.current_block_index + 1;
         if block_count >= 1 {
-            let full_block_size = (block_count - 1) * self.block_size();
+            let full_block_size = (block_count - 1) as u64 * self.block_size();
             let last_block_size = self
                 .blocks
-                .get_mut(self.current_block_index)
+                .get(self.current_block_index)
                 .unwrap()
-                .position() as usize;
+                .position();
             size = full_block_size + last_block_size;
         }
-        size as u64
+        size
     }
-    fn block_size(&self) -> usize {
+    fn block_size(&self) -> u64 {
         1 << self.block_bits
     }
 
@@ -216,7 +219,7 @@ impl ByteBuffersDataOutput {
      * always a copy.
      *
      */
-    pub fn to_array_copy(&mut self) -> Vec<u8> {
+    pub fn get_array_copy(&self) -> Vec<u8> {
         let mut buffer = Vec::with_capacity(self.size() as usize);
 
         for block in &self.blocks {
@@ -226,8 +229,9 @@ impl ByteBuffersDataOutput {
         buffer
     }
 
-    pub fn to_data_input(&self) -> ByteBuffersDataInput {
-        ByteBuffersDataInput::new(self.to_buffer_list())
+    pub fn get_data_input(&mut self) -> ByteBuffersDataInput {
+        let length = self.size();
+        ByteBuffersDataInput::new(self.to_buffer_list(), length)
     }
 
     fn append_block_if_needed(&mut self) -> u64 {
@@ -244,10 +248,9 @@ impl ByteBuffersDataOutput {
         }
         last_block.remain()
     }
-
     #[cfg(feature = "test_only")]
-    pub fn write_bytes(&mut self, b: &[u8]) -> Result<(), DataIOError> {
-        self.write_bytes_range(b, 0, b.len())
+    pub fn write_bytes(&mut self, b: Vec<u8>) -> Result<(), DataIOError> {
+        self.write_bytes_range(&b, 0, b.len())
     }
 
     #[cfg(feature = "test_only")]

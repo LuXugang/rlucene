@@ -47,17 +47,17 @@ pub fn add_random_data<DI: DataInput>(
     dst: &mut impl DataOutput,
     rnd: &mut impl RngCore,
     max_add_calls: i32,
-) -> Vec<fn(&mut DI) -> ()> {
+) -> Vec<Box<dyn FnMut(&mut DI)>> {
     let cg = create_generators();
-    let mut vec: Vec<fn(&mut DI) -> ()> = Vec::new();
+    let mut vec: Vec<Box<dyn FnMut(&mut DI)>> = Vec::new();
     for _i in 0..max_add_calls {
         let random_generator = rnd.gen_range(0..cg.len());
         vec.push(cg[random_generator](dst, rnd));
+        // vec.push(cg[0](dst, rnd));
     }
     vec
 }
-
-type Generator<DO, DI, R> = fn(&mut DO, &mut R) -> fn(&mut DI) -> ();
+type Generator<DO, DI, R> = fn(&mut DO, &mut R) -> Box<dyn FnMut(&mut DI)>;
 
 fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generator<DO, DI, R>> {
     vec![
@@ -65,7 +65,9 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         |dst, rnd| {
             let value: u8 = rnd.gen();
             let _ = dst.write_byte(value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_byte().unwrap(), value, "Condition failed for DI")
+            })
         },
         //1 writeBytes / readBytes (array and buffer version).
         |dst, rnd| {
@@ -73,7 +75,11 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
             let bytes: Vec<u8> = (0..len).map(|_| rnd.gen()).collect();
             let bytes_len = bytes.len();
             let _ = dst.write_bytes_with_len(&bytes, bytes_len);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                let mut buffer = vec![0u8; bytes_len];
+                let _ = src.read_bytes(&mut buffer, 0, bytes_len);
+                assert_eq!(buffer, bytes, "Condition failed for DI")
+            })
         },
         //2 writeBytes / readBytes (array + offset).
         |dst, rnd| {
@@ -91,49 +97,72 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
                 rnd.gen_range(0..(bytes_len - off))
             };
             let _ = dst.write_bytes_range(&bytes, off, length);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                let mut read: Vec<u8> = vec![0u8; bytes.len() + off];
+                src.read_bytes(&mut read, off, length);
+                assert_eq!(
+                    read[off..off + length],
+                    bytes[off..off + length],
+                    "readBytes(byte[], off)"
+                );
+            })
         },
         //3 writeInt / readInt
         |dst, rnd| {
             let value: i32 = rnd.gen();
             let _ = dst.write_int(value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_int().unwrap(), value, "readInt()");
+            })
         },
         //4 writeLong / readInt
         |dst, rnd| {
             let value: i64 = rnd.gen();
             let _ = dst.write_long(value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_long().unwrap(), value, "readLong()");
+            })
         },
         //5 writeShort / readShort
         |dst, rnd| {
             let value: i16 = rnd.gen();
             let _ = dst.write_short(value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_short().unwrap(), value, "readShort()");
+            })
         },
         //6 writeVInt / readVInt
         |dst, rnd| {
             let value: i32 = rnd.gen();
             let _ = dst.write_vint(value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_vint().unwrap(), value, "readVInt()");
+            })
         },
         //7 writeZInt / readZInt
         |dst, rnd| {
             let value: i32 = rnd.gen();
             let _ = dst.write_zint(value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_zint().unwrap(), value, "readZInt()");
+            })
         },
         //8 writeZLong / readZLong
         |dst, rnd| {
             let value: i64 = rnd.gen();
             let _ = dst.write_zlong(value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_zlong().unwrap(), value, "readZLong()");
+            })
         },
         //9 writeVLong / readVLong
         |dst, rnd| {
-            let value: i64 = rnd.gen();
+            let mut value: i64 = rnd.gen();
+            value &= (-1i64 as u64 >> 1) as i64;
             let _ = dst.write_vlong(value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_vlong().unwrap(), value, "readVLong()");
+            })
         },
         //10  writeString / readString
         |dst, rnd| {
@@ -148,7 +177,9 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
                     .collect::<String>()
             };
             let _ = dst.write_string(&value);
-            |src| {}
+            Box::new(move |src: &mut DI| {
+                assert_eq!(src.read_string().unwrap(), value, "readString()");
+            })
         },
     ]
 }

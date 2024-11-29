@@ -70,7 +70,7 @@ impl BitUtil {
     }
 
     pub fn zig_zag_encode_i64(l: i64) -> i64 {
-        (l >> 1) ^ -(l & 1)
+        (((l >> 63) as u64) ^ ((l << 1) as u64)) as i64
     }
 }
 
