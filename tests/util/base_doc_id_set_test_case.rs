@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::common::is_night_mode;
-use crate::id_set::base_bit_set_test_case::random_set;
 use rand::prelude::StdRng;
 use rand::Rng;
 
+use crate::util::base_bit_set_test_case::random_set;
 use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use rlucene::util::bits::Bits;

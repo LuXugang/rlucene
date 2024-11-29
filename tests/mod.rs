@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 pub mod common;
-pub mod id_set;
 pub mod index;
 pub mod store;
 pub mod util;

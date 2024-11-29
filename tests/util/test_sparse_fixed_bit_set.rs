@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::common::my_random;
-use crate::id_set::base_bit_set_test_case::{
+use crate::util::base_bit_set_test_case::{
     BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
 };
 use rand::Rng;

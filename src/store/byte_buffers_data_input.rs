@@ -137,6 +137,7 @@ impl<'a> ByteBuffersDataInput<'a> {
         self.read_buffer(pos, len, output, LONG_BYTES, LE::read_i64)
     }
     fn read_bytes(&mut self, pos: u64, len: usize, output: &mut [u8]) -> Result<(), DataIOError> {
+        // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
     fn read_ints(&mut self, pos: u64, len: usize, output: &mut [i32]) -> Result<(), DataIOError> {

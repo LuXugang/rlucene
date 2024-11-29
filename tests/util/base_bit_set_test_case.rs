@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::common::my_random;
-use crate::id_set::id_set_common;
-use crate::id_set::id_set_common::clear_range;
+use crate::util::id_set_common;
+use crate::util::id_set_common::clear_range;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};

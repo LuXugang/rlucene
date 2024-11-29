@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::common::my_random;
-use crate::id_set::base_doc_id_set_test_case::{
+use crate::util::base_doc_id_set_test_case::{
     BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
 use rand::prelude::StdRng;
