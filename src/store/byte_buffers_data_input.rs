@@ -277,7 +277,7 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, pos: u64, len: u64) {
+    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
         todo!()
     }
 }
