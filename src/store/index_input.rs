@@ -18,7 +18,6 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, ReadAdvice};
 use crate::util::error::data_io_error_enum::DataIOError;
-use rand::seq::SliceChooseIter;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 use thiserror::__private::AsDisplay;

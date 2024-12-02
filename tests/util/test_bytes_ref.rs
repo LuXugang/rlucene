@@ -20,7 +20,7 @@ use rand::Rng;
 use rlucene::index::BytesRef;
 use std::ptr;
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestBytesRef {}
 
 #[test]

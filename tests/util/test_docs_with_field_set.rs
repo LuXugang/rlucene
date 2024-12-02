@@ -20,7 +20,7 @@ use rlucene::index::docs_with_field_set::DocsWithFieldSet;
 use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestDocsWithFieldSet {}
 #[test]
 fn test_dense() {

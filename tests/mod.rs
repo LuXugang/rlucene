@@ -18,3 +18,4 @@ pub mod common;
 pub mod index;
 pub mod store;
 pub mod util;
+pub mod codecs;

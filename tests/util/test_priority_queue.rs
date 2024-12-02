@@ -20,7 +20,7 @@ use rand::Rng;
 use rlucene::util::priority_queue::{Compare, PriorityQueue};
 use std::fmt::Debug;
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestPriorityQueue {}
 
 struct I32Compare;

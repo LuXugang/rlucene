@@ -16,7 +16,7 @@
  */
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestDocIdSetIterator {}
 #[test]
 fn test_range_basic() {

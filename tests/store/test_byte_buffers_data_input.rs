@@ -25,7 +25,7 @@ use rlucene::store::data_output::DataOutput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{ByteBuffersDataOutput, DataInput};
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestByteBuffersDataInput;
 
 #[test]

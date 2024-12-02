@@ -29,7 +29,7 @@ use rlucene::util::fixed_bit_set::FixedBitSet;
 use rlucene::util::int_array_doc_id_set::IntArrayDocIdSet;
 use rlucene::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestDocIdSetBuilder {}
 #[test]
 fn test_empty() {

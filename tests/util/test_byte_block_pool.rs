@@ -23,7 +23,7 @@ use rlucene::util::{
     BYTE_BLOCK_SIZE,
 };
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestByteBlockPool {}
 #[test]
 fn test_append_from_other_pool() {

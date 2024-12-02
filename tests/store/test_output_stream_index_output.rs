@@ -21,7 +21,7 @@ use rlucene::store::output_stream_index_output::OutputStreamIndexOutput;
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use std::io::Cursor;
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestOutputStreamIndexOutput;
 
 #[test]

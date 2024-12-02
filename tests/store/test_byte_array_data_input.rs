@@ -22,7 +22,7 @@ use rlucene::store::data_input::DataInput;
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::{ByteArrayDataInput, ByteArrayDataOutput};
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestByteArrayDataInput;
 
 #[test]

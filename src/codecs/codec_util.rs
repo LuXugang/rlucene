@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-pub mod index;
-pub mod search;
-pub mod store;
-pub mod util;
-pub mod codecs;
+/**
+ * Utility class for reading and writing versioned headers.
+ *
+ * <p>Writing codec headers is useful to ensure that a file is in the format you think it is.
+ *
+ * @lucene.experimental
+ */
+#[allow(dead_code)] // for quick search
+struct CodecUtil;

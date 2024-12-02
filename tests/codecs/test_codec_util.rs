@@ -14,9 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use rlucene::store::{ByteBuffersDataOutput, ByteBuffersIndexOutput};
+use crate::util::test_error::TestError;
 
-pub mod index;
-pub mod search;
-pub mod store;
-pub mod util;
-pub mod codecs;
+#[allow(dead_code)] // for quick search
+struct TestCodecUtil;
+
+#[test]
+fn test_header_length() -> Result<(), TestError>{
+    let out = ByteBuffersDataOutput::new_resettable_instance()?;
+    let output = ByteBuffersIndexOutput::new("temp","temp",out);
+    Ok(())
+}
