@@ -23,6 +23,7 @@ pub mod test_bytes_ref;
 mod test_doc_id_set_builder;
 mod test_doc_id_set_iterator;
 mod test_docs_with_field_set;
+pub mod test_error;
 mod test_fixed_bit_doc_id_set;
 mod test_fixed_bit_set;
 mod test_int_array_doc_id_set;

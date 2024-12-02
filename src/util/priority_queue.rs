@@ -68,7 +68,7 @@ where
             2
         } else {
             if !(0..i32::MAX).contains(&max_size) {
-                return Err(RuntimeError::argument(format!(
+                return Err(RuntimeError::illegal_argument(format!(
                     "maxSize must be >= 0 and < {}; got: {}",
                     i32::MAX,
                     max_size

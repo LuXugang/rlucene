@@ -14,26 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::illegal_argument::IllegalArgument;
-use crate::util::error::illegal_state::IllegalState;
-use std::fmt::Debug;
+use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum RuntimeError {
-    #[error("{0}")]
-    Argument(#[from] IllegalArgument),
+pub enum TestError {
+    #[error("Data IO Error: {0}")]
+    DataIO(#[from] DataIOError),
 
-    #[error("{0}")]
-    State(#[from] IllegalState),
-}
-
-impl RuntimeError {
-    pub fn illegal_argument(msg: impl Into<String>) -> Self {
-        RuntimeError::Argument(IllegalArgument::new(msg))
-    }
-
-    pub fn illegal_state(msg: impl Into<String>) -> Self {
-        RuntimeError::State(IllegalState::new(msg))
-    }
+    #[error("Runtime Error: {0}")]
+    Runtime(#[from] RuntimeError),
 }

@@ -17,79 +17,44 @@
 use crate::util::error::eof::Eof;
 use crate::util::error::illegal_argument::IllegalArgument;
 use crate::util::error::integer_overflow::IntegerOverflow;
-use std::fmt;
 use std::io::Error;
 use std::string::FromUtf8Error;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DataIOError {
-    Io(Error),
-    Utf8(FromUtf8Error),
-    IA(IllegalArgument),
-    Eof(Eof),
-    IOverflow(IntegerOverflow),
+    #[error("IO error: {0}")]
+    Io(#[from] Error),
+
+    #[error("UTF-8 conversion error: {0}")]
+    Utf8(#[from] FromUtf8Error),
+
+    #[error("{0}")]
+    IllegalArgument(#[from] IllegalArgument),
+
+    #[error("{0}")]
+    Eof(#[from] Eof),
+
+    #[error("{0}")]
+    IOverflow(#[from] IntegerOverflow),
 }
-
 impl DataIOError {
-    pub fn argument(msg: impl Into<String>) -> Self {
-        Self::IA(IllegalArgument::new(msg))
-    }
-
     pub fn io(err: Error) -> Self {
-        Self::Io(err)
+        DataIOError::Io(err)
     }
 
     pub fn utf8(err: FromUtf8Error) -> Self {
-        Self::Utf8(err)
-    }
-    pub fn eof(msg: impl Into<String>) -> Self {
-        Self::Eof(Eof::new(msg))
-    }
-    pub fn integer_overflow(msg: impl Into<String>) -> Self {
-        Self::IOverflow(IntegerOverflow::new(msg))
-    }
-}
-
-impl fmt::Display for DataIOError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DataIOError::Io(err) => write!(f, "IO error: {}", err),
-            DataIOError::Utf8(err) => write!(f, "UTF-8 conversion error: {}", err),
-            DataIOError::IA(err) => write!(f, "{}", err),
-            DataIOError::Eof(err) => write!(f, "{}", err),
-            DataIOError::IOverflow(msg) => write!(f, "{}", msg),
-        }
-    }
-}
-
-impl std::error::Error for DataIOError {}
-
-impl From<Error> for DataIOError {
-    fn from(err: Error) -> Self {
-        DataIOError::Io(err)
-    }
-}
-
-impl From<FromUtf8Error> for DataIOError {
-    fn from(err: FromUtf8Error) -> Self {
         DataIOError::Utf8(err)
     }
-}
-
-impl From<IllegalArgument> for DataIOError {
-    fn from(err: IllegalArgument) -> Self {
-        DataIOError::IA(err)
+    pub fn illegal_argument(msg: impl Into<String>) -> Self {
+        DataIOError::IllegalArgument(IllegalArgument::new(msg))
     }
-}
 
-impl From<Eof> for DataIOError {
-    fn from(err: Eof) -> Self {
-        DataIOError::Eof(err)
+    pub fn eof(msg: impl Into<String>) -> Self {
+        DataIOError::Eof(Eof::new(msg))
     }
-}
 
-impl From<IntegerOverflow> for DataIOError {
-    fn from(err: IntegerOverflow) -> Self {
-        DataIOError::IOverflow(err)
+    pub fn integer_overflow(msg: impl Into<String>) -> Self {
+        DataIOError::IOverflow(IntegerOverflow::new(msg))
     }
 }

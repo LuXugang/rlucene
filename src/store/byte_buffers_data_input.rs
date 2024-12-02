@@ -86,7 +86,6 @@ impl<'a> ByteBuffersDataInput<'a> {
         let mut bytes_read = len * type_size;
         let mut bytes = vec![0; bytes_read];
         let mut bytes_offset = 0;
-
         while bytes_read > 0 {
             let block_index = self.block_index(pos);
             let block_offset = self.block_offset(pos);
@@ -159,7 +158,7 @@ impl<'a> ByteBuffersDataInput<'a> {
     }
     pub fn slice(&self, offset: u64, length: u64) -> Result<ByteBuffersDataInput<'a>, DataIOError> {
         if offset + length > self.length {
-            return Err(DataIOError::argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
                 offset, length, self.length
             )));

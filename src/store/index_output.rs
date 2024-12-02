@@ -55,10 +55,12 @@ pub trait IndexOutput: DataOutput + Display {
  */
 fn align_offset(offset: i64, alignment_bytes: i64) -> Result<i64, DataIOError> {
     if offset < 0 {
-        return Err(DataIOError::argument("Offset must be positive"));
+        return Err(DataIOError::illegal_argument("Offset must be positive"));
     }
     if alignment_bytes.count_ones() != 1 || alignment_bytes < 0 {
-        return Err(DataIOError::argument("Alignment must be a power of 2"));
+        return Err(DataIOError::illegal_argument(
+            "Alignment must be a power of 2",
+        ));
     }
     Ok((offset + alignment_bytes - 1) & !(alignment_bytes - 1))
 }

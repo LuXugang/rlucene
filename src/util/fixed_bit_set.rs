@@ -170,7 +170,7 @@ impl FixedBitSet {
     ) -> Result<FixedBitSet, RuntimeError> {
         let num_words = Self::bits2words(num_bits);
         if num_words as usize > stored_bits.len() {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "The given long array is too small  to hold {} bits",
                 num_words
             )));

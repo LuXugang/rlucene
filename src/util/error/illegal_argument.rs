@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
 
 #[derive(Debug)]
 pub struct IllegalArgument {
@@ -27,17 +26,11 @@ impl IllegalArgument {
             message: msg.into(),
         }
     }
-
-    pub fn with_format(args: impl fmt::Display) -> Self {
-        Self {
-            message: args.to_string(),
-        }
-    }
 }
 
-impl fmt::Display for IllegalArgument {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Illegal argument: {}", self.message)
+impl std::fmt::Display for IllegalArgument {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Illegal Argument: {}", self.message)
     }
 }
 

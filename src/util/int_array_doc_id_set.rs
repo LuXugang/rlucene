@@ -44,7 +44,7 @@ pub struct IntArrayDocIdSet {
 impl IntArrayDocIdSet {
     pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet, RuntimeError> {
         if docs[length as usize] != NO_MORE_DOCS {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "last value must be {}",
                 NO_MORE_DOCS
             )));

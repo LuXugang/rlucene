@@ -212,7 +212,7 @@ pub trait DataOutput: Sized {
     // write a potentially negative vLong
     fn write_vlong(&mut self, i: i64) -> Result<(), DataIOError> {
         if i < 0 {
-            return Err(DataIOError::argument(
+            return Err(DataIOError::illegal_argument(
                 "cannot write negative vLong (got: ".to_string() + &i.to_string() + ")",
             ));
         }

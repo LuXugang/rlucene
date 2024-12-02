@@ -48,26 +48,26 @@ impl IOContext {
         merge_info: Option<MergeInfo>,
         flush_info: Option<FlushInfo>,
     ) -> Result<IOContext, RuntimeError> {
-        let context = context.ok_or(RuntimeError::argument(
+        let context = context.ok_or(RuntimeError::illegal_argument(
             "context must not be None".to_string(),
         ))?;
-        let read_advice = read_advice.ok_or(RuntimeError::argument(
+        let read_advice = read_advice.ok_or(RuntimeError::illegal_argument(
             "read_advice must not be None".to_string(),
         ))?;
         if matches!(context, Context::Merge) && merge_info.is_none() {
-            return Err(RuntimeError::argument(
+            return Err(RuntimeError::illegal_argument(
                 "merge_info must not be None if context is MERGE".to_string(),
             ));
         }
         if matches!(context, Context::Flush) && flush_info.is_none() {
-            return Err(RuntimeError::argument(
+            return Err(RuntimeError::illegal_argument(
                 "flush_info must not be None if context is FLUSH".to_string(),
             ));
         }
         if (matches!(context, Context::Flush) || matches!(context, Context::Merge))
             && matches!(read_advice, ReadAdvice::Sequential)
         {
-            return Err(RuntimeError::argument(
+            return Err(RuntimeError::illegal_argument(
                 "The FLUSH and MERGE contexts must use the SEQUENTIAL read access advice"
                     .to_string(),
             ));

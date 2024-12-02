@@ -31,7 +31,7 @@ pub struct BitSetIterator<'a, T: BitSet> {
 impl<'a, T: BitSet> BitSetIterator<'a, T> {
     pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<T>, RuntimeError> {
         if cost < 0 {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
                 cost
             )));

@@ -47,7 +47,7 @@ pub struct SparseFixedBitSet {
 impl SparseFixedBitSet {
     pub fn new(length: i32) -> Result<SparseFixedBitSet, RuntimeError> {
         if length < 1 {
-            return Err(RuntimeError::argument("length needs to be >= 1"));
+            return Err(RuntimeError::illegal_argument("length needs to be >= 1"));
         }
         let block_count = block_count(length);
         let indices = vec![0; block_count as usize];

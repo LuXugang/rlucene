@@ -38,7 +38,7 @@ pub struct BitDocIdSet<T: BitSet> {
 impl<T: BitSet> BitDocIdSet<T> {
     pub fn new_with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, RuntimeError> {
         if cost < 0 {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
                 cost
             )));

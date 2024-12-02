@@ -99,7 +99,7 @@ pub trait BitSet: Bits + Accountable {
     /** Assert that the current doc is -1. */
     fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<(), RuntimeError> {
         if iter.doc_id() != -1 {
-            return Err(RuntimeError::state( format!("This operation only works with an unpositioned iterator, got current position = {}", iter.doc_id())));
+            return Err(RuntimeError::illegal_state( format!("This operation only works with an unpositioned iterator, got current position = {}", iter.doc_id())));
         }
         Ok(())
     }

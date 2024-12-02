@@ -16,6 +16,7 @@
  */
 use crate::common::{is_night_mode, my_random, my_random_with_seed};
 use crate::store::base_data_output_test_case::{add_random_data, BaseDataOutputTestCase};
+use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::{
@@ -27,8 +28,8 @@ struct TestByteBuffersDataOutput;
 impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
     type DO = ByteBuffersDataOutput;
 
-    fn new_instance(&self) -> Self::DO {
-        ByteBuffersDataOutput::new_resettable_instance().unwrap()
+    fn new_instance(&self) -> Result<Self::DO, TestError> {
+        Ok(ByteBuffersDataOutput::new_resettable_instance()?)
     }
 
     fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8> {
@@ -37,11 +38,10 @@ impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
 }
 
 #[test]
-fn test_reuse() {
+fn test_reuse() -> Result<(), TestError> {
     let mut random = my_random("test_reuse".to_string());
     let mut o =
-        ByteBuffersDataOutput::new(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK, true)
-            .unwrap();
+        ByteBuffersDataOutput::new(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK, true)?;
     // add some random data first
     let gen_seed: u64 = random.gen();
     let mut random1 = my_random_with_seed(gen_seed);
@@ -53,30 +53,32 @@ fn test_reuse() {
     o.reset();
     add_random_data::<ByteArrayDataInput>(&mut o, &mut random2, add_count);
     assert_eq!(dta, o.get_array_copy());
+    Ok(())
 }
 #[test]
-fn test_constructor_with_expected_size() {
+fn test_constructor_with_expected_size() -> Result<(), TestError> {
     let mut random = my_random("test_constructor_with_expected_size".to_string());
-    let mut o = ByteBuffersDataOutput::new_with_expected_size(0).unwrap();
-    o.write_byte(0).unwrap();
+    let mut o = ByteBuffersDataOutput::new_with_expected_size(0)?;
+    o.write_byte(0)?;
     let mut result = o.to_buffer_list();
     let capacity = result.get_mut(0).unwrap().get_ref().len();
     assert_eq!(1 << DEFAULT_MIN_BITS_PER_BLOCK, capacity);
 
     let mb = 1024 * 1024;
     let expected_size: i64 = random.gen_range(mb..mb * 1024);
-    let mut o = ByteBuffersDataOutput::new_with_expected_size(expected_size as u64).unwrap();
+    let mut o = ByteBuffersDataOutput::new_with_expected_size(expected_size as u64)?;
     let _ = o.write_byte(0);
     let cap = o.to_buffer_list().get_mut(0).unwrap().get_ref().len();
     assert!((cap >> 1) * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION < expected_size as usize);
     assert!(cap * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION >= expected_size as usize);
+    Ok(())
 }
 
 #[test]
 fn test_randomized_writes() {
     let mut test = TestByteBuffersDataOutput;
     let mut random = my_random("test_randomized_writes".to_string());
-    // here could use any DataInput impl because this test dose not test ByteArrayDataInput
+    // here could use any DataInput impl because this test does not test ByteArrayDataInput
     test.test_randomized_writes::<ByteArrayDataInput>(&mut random);
 }
 
@@ -104,29 +106,30 @@ fn test_illegal_bits_per_block_range() {
     assert!(o.is_err());
 }
 #[test]
-fn test_sanity() {
+fn test_sanity() -> Result<(), TestError> {
     let case = TestByteBuffersDataOutput;
-    let mut o = case.new_instance();
+    let mut o = case.new_instance()?;
 
     assert_eq!(o.size(), 0);
     assert_eq!(o.get_array_copy().len(), 0);
     // TODO
     // assert_eq!(o.ram_bytes_used(), 0);
 
-    o.write_byte(1).unwrap();
+    o.write_byte(1)?;
     assert_eq!(o.size(), 1);
     // TODO
     // assert!(o.ram_bytes_used() > 0);
     assert_eq!(o.get_array_copy(), vec![1]);
 
-    o.write_bytes_with_len(&[2, 3, 4], 3).unwrap();
+    o.write_bytes_with_len(&[2, 3, 4], 3)?;
     assert_eq!(o.size(), 4);
     assert_eq!(o.get_array_copy(), vec![1, 2, 3, 4]);
+    Ok(())
 }
 #[test]
-fn test_large_array_add() {
+fn test_large_array_add() -> Result<(), TestError> {
     let mut random = my_random("test_large_array_add".to_string());
-    let mut o = ByteBuffersDataOutput::new_resettable_instance().unwrap();
+    let mut o = ByteBuffersDataOutput::new_resettable_instance()?;
     let mb = 1024 * 1024;
     let mut bytes = if is_night_mode() {
         let size = random.gen_range(5 * mb..=15 * mb);
@@ -139,13 +142,14 @@ fn test_large_array_add() {
     bytes.iter_mut().for_each(|byte| *byte = random.gen());
     let offset = random.gen_range(0..=100);
     let len = bytes.len() - offset;
-    o.write_bytes_range(&bytes, offset, len).unwrap();
+    o.write_bytes_range(&bytes, offset, len)?;
     assert_eq!(len as u64, o.size());
     let expected = bytes[offset..offset + len].to_vec();
     assert_eq!(expected, o.get_array_copy());
+    Ok(())
 }
 #[test]
-fn test_copy_bytes_on_heap() {
+fn test_copy_bytes_on_heap() -> Result<(), TestError> {
     let mut random = my_random("test_copy_bytes_on_heap".to_string());
     let mut bytes = vec![0u8; 1024 * 8 + 10];
     random.fill(&mut bytes[..]);
@@ -158,14 +162,14 @@ fn test_copy_bytes_on_heap() {
         DEFAULT_MIN_BITS_PER_BLOCK,
         DEFAULT_MAX_BITS_PER_BLOCK,
         false,
-    )
-    .unwrap();
-    o.copy_bytes(&mut input, len as i64).unwrap();
+    )?;
+    o.copy_bytes(&mut input, len as i64)?;
     let expected = bytes_clone[offset..offset + len].to_vec();
     assert_eq!(o.get_array_copy(), expected);
+    Ok(())
 }
 #[test]
-fn test_copy_bytes_on_direct_byte_buffer() {
+fn test_copy_bytes_on_direct_byte_buffer() -> Result<(), TestError> {
     let mut random = my_random("test_copy_bytes_on_direct_byte_buffer".to_string());
     let mut bytes = vec![0u8; 1024 * 8 + 10];
     random.fill(&mut bytes[..]);
@@ -177,11 +181,11 @@ fn test_copy_bytes_on_direct_byte_buffer() {
         DEFAULT_MIN_BITS_PER_BLOCK,
         DEFAULT_MAX_BITS_PER_BLOCK,
         false,
-    )
-    .unwrap();
-    o.copy_bytes(&mut input, len as i64).unwrap();
+    )?;
+    o.copy_bytes(&mut input, len as i64)?;
     let expected = bytes_clone[offset..offset + len].to_vec();
     assert_eq!(o.get_array_copy(), expected);
+    Ok(())
 }
 
 #[test]

@@ -61,19 +61,19 @@ impl ByteBuffersDataOutput {
         reuse: bool,
     ) -> Result<Self, RuntimeError> {
         if min_bits_per_block < LIMIT_MIN_BITS_PER_BLOCK {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "minBitsPerBlock ({}) too small, must be at least {}",
                 min_bits_per_block, LIMIT_MIN_BITS_PER_BLOCK
             )));
         }
         if max_bits_per_block > LIMIT_MAX_BITS_PER_BLOCK {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "maxBitsPerBlock ({}) too large, must not exceed {}",
                 max_bits_per_block, LIMIT_MAX_BITS_PER_BLOCK
             )));
         }
         if min_bits_per_block > max_bits_per_block {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "minBitsPerBlock ({}) cannot exceed maxBitsPerBlock ({})",
                 min_bits_per_block, max_bits_per_block
             )));

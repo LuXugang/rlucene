@@ -17,6 +17,7 @@
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Cursor;
 
+use crate::util::test_error::TestError;
 use rlucene::store::data_input::DataInput;
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::{ByteArrayDataInput, ByteArrayDataOutput};
@@ -25,23 +26,24 @@ use rlucene::store::{ByteArrayDataInput, ByteArrayDataOutput};
 struct TestByteArrayDataInput;
 
 #[test]
-fn test_basic() {
+fn test_basic() -> Result<(), TestError> {
     let bytes = vec![1, 65];
     let mut data_input = ByteArrayDataInput::new_with_bytes(bytes);
-    assert_eq!(data_input.read_string().unwrap(), "A");
+    assert_eq!(data_input.read_string()?, "A");
     assert!(data_input.eof());
+    Ok(())
 }
 
 #[test]
-fn test_data_types() {
+fn test_data_types() -> Result<(), TestError> {
     // write some primitives using ByteArrayDataOutput:
     let mut bytes = vec![0u8; 32];
     let mut out = ByteArrayDataOutput::new_with_bytes(&mut bytes);
 
-    out.write_byte(43).unwrap();
-    out.write_short(12345).unwrap();
-    out.write_int(1234567890).unwrap();
-    out.write_long(1234567890123456789).unwrap();
+    out.write_byte(43)?;
+    out.write_short(12345)?;
+    out.write_int(1234567890)?;
+    out.write_long(1234567890123456789)?;
     let size = out.get_position();
     assert_eq!(size, 15);
 
@@ -56,9 +58,10 @@ fn test_data_types() {
 
     // read the primitives using ByteArrayDataInput:
     let mut data_input = ByteArrayDataInput::new_with_range(bytes, 0, size);
-    assert_eq!(data_input.read_byte().unwrap(), 43);
-    assert_eq!(data_input.read_short().unwrap(), 12345);
-    assert_eq!(data_input.read_int().unwrap(), 1234567890);
-    assert_eq!(data_input.read_long().unwrap(), 1234567890123456789);
+    assert_eq!(data_input.read_byte()?, 43);
+    assert_eq!(data_input.read_short()?, 12345);
+    assert_eq!(data_input.read_int()?, 1234567890);
+    assert_eq!(data_input.read_long()?, 1234567890123456789);
     assert!(data_input.eof());
+    Ok(())
 }

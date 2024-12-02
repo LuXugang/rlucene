@@ -36,13 +36,13 @@ impl DocBaseBitSetIterator {
         doc_base: i32,
     ) -> Result<DocBaseBitSetIterator, RuntimeError> {
         if cost < 0 {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
                 cost
             )));
         }
         if (doc_base & 63) != 0 {
-            return Err(RuntimeError::argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "docBase need to be a multiple of 64, got {}",
                 doc_base
             )));

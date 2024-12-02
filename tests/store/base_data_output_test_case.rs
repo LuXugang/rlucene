@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rand_xoshiro::rand_core::SeedableRng;
@@ -25,12 +26,15 @@ use rlucene::store::DataInput;
 pub trait BaseDataOutputTestCase {
     type DO: DataOutput;
 
-    fn new_instance(&self) -> Self::DO;
+    fn new_instance(&self) -> Result<Self::DO, TestError>;
     fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8>;
 
-    fn test_randomized_writes<DI: DataInput>(&mut self, random: &mut StdRng) {
+    fn test_randomized_writes<DI: DataInput>(
+        &mut self,
+        random: &mut StdRng,
+    ) -> Result<(), TestError> {
         let seed: u64 = random.gen();
-        let mut instance = self.new_instance();
+        let mut instance = self.new_instance()?;
         let mut buffer = Vec::new();
         let mut os = OutputStreamDataOutput::new(&mut buffer);
         let max = 500000;
@@ -40,6 +44,7 @@ pub trait BaseDataOutputTestCase {
         add_random_data::<DI>(&mut instance, &mut random1, max);
         add_random_data::<DI>(&mut os, &mut random2, max);
         assert_eq!(&self.get_bytes(instance), os.os.into_inner().unwrap());
+        Ok(())
     }
 }
 
