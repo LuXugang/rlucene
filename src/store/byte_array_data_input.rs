@@ -17,6 +17,7 @@
 use crate::store::data_input::DataInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
+use std::fmt::{Display, Formatter};
 
 #[derive(Default)]
 pub struct ByteArrayDataInput {
@@ -67,6 +68,13 @@ impl ByteArrayDataInput {
         self.pos == self.limit
     }
 }
+
+impl Display for ByteArrayDataInput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 impl DataInput for ByteArrayDataInput {
     fn read_byte(&mut self) -> Result<u8, DataIOError> {
         let value = self.bytes[self.pos];

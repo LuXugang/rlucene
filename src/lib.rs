@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
+pub mod codecs;
 pub mod index;
 pub mod search;
 pub mod store;
 pub mod util;
-pub mod codecs;

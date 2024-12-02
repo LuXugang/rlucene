@@ -18,6 +18,7 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
 
 /**
  * Abstract base class for performing read operations of Lucene's low-level data types.
@@ -28,7 +29,7 @@ use std::collections::{HashMap, HashSet};
  * `#clone()`, returning a new `DataInput` which operates on the same underlying resource, but
  * positioned independently.
 */
-pub trait DataInput: Sized {
+pub trait DataInput: Sized + Display {
     /**
      * Reads a specified number of bytes into an array at the specified offset.
      */

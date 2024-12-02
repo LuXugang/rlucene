@@ -14,12 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod corrupt_index;
-pub mod data_io_error_enum;
-pub mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-pub mod index_format_too_new;
-pub mod integer_overflow;
-pub mod parse;
-pub mod runtime_error;
+use std::fmt::Write;
+pub const ID_LENGTH: u32 = 36;
+struct StringHelper;
+
+/**
+ * Helper method to render an ID as a string, for debugging
+ *
+ * Returns the string `(null)` if the id is invalid. Otherwise, returns a string
+ * representation for debugging. Never throws an exception. The returned string may indicate if
+ * the id is definitely invalid.
+*/
+pub fn id_to_string(id: Option<&[u8]>) -> String {
+    if let Some(id) = id {
+        let big_int = num_bigint::BigUint::from_bytes_be(id);
+        let mut result = big_int.to_str_radix(36);
+        if id.len() != ID_LENGTH as usize {
+            write!(&mut result, " (INVALID FORMAT)").unwrap();
+        }
+        result
+    } else {
+        "(null)".to_string()
+    }
+}

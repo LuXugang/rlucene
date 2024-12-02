@@ -14,15 +14,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::version::VersionError;
+use rlucene::util::error::corrupt_index::CorruptIndex;
 use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::eof::Eof;
+use rlucene::util::error::illegal_argument::IllegalArgument;
+use rlucene::util::error::illegal_state::IllegalState;
+use rlucene::util::error::index_format_too_new::IndexFormat;
+use rlucene::util::error::integer_overflow::IntegerOverflow;
 use rlucene::util::error::runtime_error::RuntimeError;
+use std::io::Error;
+use std::string::FromUtf8Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum TestError {
-    #[error("Data IO Error: {0}")]
-    DataIO(#[from] DataIOError),
+    // single error
+    #[error("IO error: {0}")]
+    Io(#[from] Error),
 
-    #[error("Runtime Error: {0}")]
-    Runtime(#[from] RuntimeError),
+    #[error("UTF-8 conversion error: {0}")]
+    FromUtf8Error(#[from] FromUtf8Error),
+
+    #[error("{0}")]
+    IllegalArgument(#[from] IllegalArgument),
+
+    #[error("{0}")]
+    Eof(#[from] Eof),
+
+    #[error("{0}")]
+    IntegerOverflow(#[from] IntegerOverflow),
+
+    #[error("{0}")]
+    CorruptIndex(#[from] CorruptIndex),
+
+    #[error("{0}")]
+    IndexFormat(#[from] IndexFormat),
+
+    #[error("{0}")]
+    IllegalState(#[from] IllegalState),
+
+    // combined errors
+    #[error("{0}")]
+    RuntimeError(#[from] RuntimeError),
+
+    #[error("{0}")]
+    DataIOError(#[from] DataIOError),
+
+    #[error("{0}")]
+    VersionError(#[from] VersionError),
 }

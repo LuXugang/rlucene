@@ -17,6 +17,7 @@
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::{ByteArrayDataInput, DataInput};
 use crate::util::error::data_io_error_enum::DataIOError;
+use std::fmt::{Display, Formatter};
 
 pub enum DataInputType<'a> {
     ByteArray(ByteArrayDataInput),
@@ -26,6 +27,12 @@ pub enum DataInputType<'a> {
 impl DataInputType<'_> {
     pub fn new_byte_buffers(input: ByteBuffersDataInput) -> DataInputType {
         DataInputType::ByteBuffers(input)
+    }
+}
+
+impl Display for DataInputType<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }
 

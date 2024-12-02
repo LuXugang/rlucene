@@ -21,6 +21,7 @@ use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use byteorder::{ByteOrder, LE};
+use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 
 /**
@@ -165,6 +166,12 @@ impl<'a> ByteBuffersDataInput<'a> {
         }
         let blocks = slice_buffer_list(&self.blocks, offset, length);
         Ok(Self::new(blocks, length))
+    }
+}
+
+impl Display for ByteBuffersDataInput<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }
 

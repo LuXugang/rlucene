@@ -46,6 +46,8 @@ pub mod roaring_doc_id_set;
 mod sortable_bytes_ref_array;
 pub mod sorter;
 pub mod sparse_fixed_bit_set;
+pub mod strict_string_tokenizer;
+pub mod string_helper;
 pub mod tim_sorter;
 mod tim_sorter_base;
 
@@ -55,3 +57,5 @@ pub use tim_sorter::*;
 pub use sorter::*;
 
 pub use counter::*;
+pub use strict_string_tokenizer::*;
+pub use string_helper::*;

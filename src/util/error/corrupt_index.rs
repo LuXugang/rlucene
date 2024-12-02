@@ -14,12 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod corrupt_index;
-pub mod data_io_error_enum;
-pub mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-pub mod index_format_too_new;
-pub mod integer_overflow;
-pub mod parse;
-pub mod runtime_error;
+#[derive(Debug)]
+pub struct CorruptIndex {
+    pub message: String,
+}
+
+impl CorruptIndex {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for CorruptIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "corrupt index: {}", self.message)
+    }
+}
+
+impl std::error::Error for CorruptIndex {}

@@ -22,18 +22,18 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum RuntimeError {
     #[error("{0}")]
-    Argument(#[from] IllegalArgument),
+    IllegalArgument(#[from] IllegalArgument),
 
     #[error("{0}")]
-    State(#[from] IllegalState),
+    IllegalState(#[from] IllegalState),
 }
 
 impl RuntimeError {
     pub fn illegal_argument(msg: impl Into<String>) -> Self {
-        RuntimeError::Argument(IllegalArgument::new(msg))
+        RuntimeError::IllegalArgument(IllegalArgument::new(msg))
     }
 
     pub fn illegal_state(msg: impl Into<String>) -> Self {
-        RuntimeError::State(IllegalState::new(msg))
+        RuntimeError::IllegalState(IllegalState::new(msg))
     }
 }
