@@ -25,7 +25,7 @@ use std::io::{BufWriter, Write};
 /** Implementation class for buffered `IndexOutput` that writes to an `OutputStream` */
 pub struct OutputStreamIndexOutput<W: Write> {
     os: XBufferedOutputStream<W>,
-    bytes_written: i64,
+    bytes_written: u64,
     name: String,
     resource_description: String,
 }
@@ -60,7 +60,7 @@ impl<W: Write> DataOutput for OutputStreamIndexOutput<W> {
         length: usize,
     ) -> Result<(), DataIOError> {
         let end = offset + length;
-        self.bytes_written += length as i64;
+        self.bytes_written += length as u64;
         self.os.write_bytes(&b[offset..end])
     }
 
@@ -87,7 +87,7 @@ impl<W: Write> Display for OutputStreamIndexOutput<W> {
 }
 
 impl<W: Write> IndexOutput for OutputStreamIndexOutput<W> {
-    fn get_file_pointer(&self) -> i64 {
+    fn get_file_pointer(&self) -> u64 {
         self.bytes_written
     }
 

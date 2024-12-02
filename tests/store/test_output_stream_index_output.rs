@@ -51,7 +51,7 @@ fn do_test_data_types(offset: usize) -> Result<(), DataIOError> {
 
         out.write_long(1234567890123456789)?;
         hasher.update(&1234567890123456789u64.to_le_bytes());
-        assert_eq!(out.get_file_pointer(), (offset + 14) as i64);
+        assert_eq!(out.get_file_pointer(), (offset + 14) as u64);
         assert_eq!(
             out.get_check_sum() as u32,
             hasher.finalize(),
@@ -87,7 +87,7 @@ fn test_write_exceeding_buffer() -> Result<(), DataIOError> {
         out.write_bytes_range(&large_data, 0, large_data.len())?;
         hasher.update(&large_data);
 
-        assert_eq!(out.get_file_pointer(), large_data.len() as i64);
+        assert_eq!(out.get_file_pointer(), large_data.len() as u64);
         assert_eq!(
             out.get_check_sum() as u32,
             hasher.finalize(),

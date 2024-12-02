@@ -26,7 +26,7 @@ use std::fmt::Display;
  */
 pub trait IndexOutput: DataOutput + Display {
     /** Returns the current position in this file, where the next write will occur. */
-    fn get_file_pointer(&self) -> i64;
+    fn get_file_pointer(&self) -> u64;
     /** Returns the current checksum of bytes written so far */
     fn get_check_sum(&mut self) -> i64;
     /**
@@ -39,28 +39,25 @@ pub trait IndexOutput: DataOutput + Display {
      * with mmap. This will write between 0 and `(alignmentBytes-1)` zero bytes using `#writeByte(byte)`.
      *
      */
-    fn align_file_pointer(&mut self, alignment_bytes: i64) -> Result<i64, DataIOError> {
+    fn align_file_pointer(&mut self, alignment_bytes: u32) -> Result<u64, DataIOError> {
         let offset = self.get_file_pointer();
         let aligned_offset = align_offset(offset, alignment_bytes)?;
         let count = (aligned_offset - offset) as usize;
         for _ in 0..count {
             self.write_byte(0)?;
         }
-        Ok(aligned_offset as i64)
+        Ok(aligned_offset)
     }
 }
 /**
  * Aligns the given `offset` to multiples of `alignmentBytes` bytes by rounding up.
  * The alignment must be a power of 2.
  */
-fn align_offset(offset: i64, alignment_bytes: i64) -> Result<i64, DataIOError> {
-    if offset < 0 {
-        return Err(DataIOError::illegal_argument("Offset must be positive"));
-    }
-    if alignment_bytes.count_ones() != 1 || alignment_bytes < 0 {
+pub fn align_offset(offset: u64, alignment_bytes: u32) -> Result<u64, DataIOError> {
+    if alignment_bytes == 0 || alignment_bytes.count_ones() != 1 {
         return Err(DataIOError::illegal_argument(
             "Alignment must be a power of 2",
         ));
     }
-    Ok((offset + alignment_bytes - 1) & !(alignment_bytes - 1))
+    Ok((offset + alignment_bytes as u64 - 1) & !(alignment_bytes as u64 - 1))
 }

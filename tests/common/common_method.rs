@@ -45,7 +45,7 @@ pub fn rarely(random_value: i32) -> bool {
     random_value >= min
 }
 
-fn get_random_multiplier() -> i32 {
+pub fn get_random_multiplier() -> i32 {
     let multiplier = std::env::var("TESTS_MULTIPLIER").ok();
 
     multiplier

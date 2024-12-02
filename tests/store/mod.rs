@@ -18,6 +18,7 @@ pub mod base_data_output_test_case;
 pub mod test_byte_array_data_input;
 pub mod test_byte_buffers_data_input;
 mod test_byte_buffers_data_output;
+mod test_index_output_alignment;
 pub mod test_output_stream_index_output;
 
 pub use base_data_output_test_case::*;
