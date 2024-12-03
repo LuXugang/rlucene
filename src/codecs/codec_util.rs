@@ -16,8 +16,10 @@
  */
 use crate::index::BytesRef;
 use crate::store::data_output::DataOutput;
-use crate::store::DataInput;
+use crate::store::index_input::IndexInput;
+use crate::store::{DataInput, IndexOutput};
 use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::version::MIN_SUPPORTED_MAJOR;
 use crate::util::{id_to_string, ID_LENGTH};
 
 /** Constant to identify the start of a codec header. */
@@ -118,7 +120,7 @@ pub fn check_header(
             actual_header, CODEC_MAGIC
         )));
     }
-    todo!()
+    check_header_no_magic(data_input, codec, min_version, max_version)
 }
 /**
  * Like `checkHeader(DataInput,&str,i32,i32)} except this version assumes the first int
@@ -139,17 +141,315 @@ pub fn check_header_no_magic(
     }
     let actual_version = read_be_int(data_input)?;
     if (actual_version as u32) < min_version {
+        return Err(DataIOError::index_format(format!("Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later", data_input, actual_version, min_version, max_version, *MIN_SUPPORTED_MAJOR)));
+    }
+    if (actual_version as u32) > max_version {
         return Err(DataIOError::index_format(format!(
             "Format version is not supported (resource {}): {} (needs to be between {} and {}) ",
             data_input, actual_version, min_version, max_version
         )));
     }
-    if (actual_version as u32) > max_version {
-        return Err(DataIOError::index_format(format!("Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release ", data_input, actual_version, min_version, max_version)));
+    Ok(actual_version)
+}
+/**
+ * Reads and validates a header previously written with `writeIndexHeader(DataOutput,
+ * &str, i32, byte[], &str)`.
+ * When reading a file, supply the expected `codec`, expected version range (`minVersion` to `maxVersion`), and object ID and suffix.
+ */
+
+/** Expert: just reads and verifies the object ID of an index header */
+
+pub fn check_index_header(
+    data_input: &mut impl DataInput,
+    codec: &str,
+    min_version: u32,
+    max_version: u32,
+    expected_id: &[u8],
+    expected_suffix: &str,
+) -> Result<i32, DataIOError> {
+    let version = check_header(data_input, codec, min_version, max_version)?;
+    check_index_header_id(data_input, expected_id)?;
+    check_index_header_suffix(data_input, expected_suffix)?;
+    Ok(version)
+}
+
+/**
+ * Expert: verifies the incoming `IndexInput` has an index header and that its segment ID
+ * matches the expected one, and then copies that index header into the provided
+ * `DataOutput`. This is useful when building compound files.
+ */
+pub fn verify_and_copy_index_header(
+    data_in: &mut impl IndexInput,
+    data_out: &mut impl DataOutput,
+    expected_id: &[u8],
+) -> Result<(), DataIOError> {
+    if data_in.length() < (footer_length() + header_length("")) as u64 {
+        return Err(DataIOError::corrupt_index(format!(
+            "compound sub-files must have a valid codec header and footer: file is too small ({} bytes): {}",
+            data_in.length(),data_in.to_string()
+        )));
     }
+    let actual_header = read_be_int(data_in)?;
+    if actual_header != CODEC_MAGIC {
+        return Err(DataIOError::corrupt_index(format!(
+            "compound sub-files must have a valid codec header and footer: codec header mismatch: actual header= {} vs expected header= {}",
+            actual_header, CODEC_MAGIC
+        )));
+    }
+
+    let codec = data_in.read_string()?;
+    let version = read_be_int(data_in)?;
+    check_index_header_id(data_in, expected_id)?;
+    let suffix_length = data_in.read_byte()? & 0xFF;
+    let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_length as usize];
+    data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as usize)?;
+    write_be_int(data_out, CODEC_MAGIC)?;
+    data_out.write_string(&codec)?;
+    write_be_int(data_out, version)?;
+    data_out.write_bytes_range(expected_id, 0, ID_LENGTH as usize)?;
+    data_out.write_byte(suffix_length)?;
+    data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as usize)?;
+    Ok(())
+}
+/**
+ * Retrieves the full index header from the provided `IndexInput`. This throws
+ * `Corrupt Error` if this file does not appear to be an index file.
+ */
+pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOError> {
+    let actual_header = read_be_int(data_input)?;
+    if actual_header != CODEC_MAGIC {
+        return Err(DataIOError::corrupt_index(format!(
+            "codec header mismatch: actual header= {} vs expected header= {}",
+            actual_header, CODEC_MAGIC
+        )));
+    }
+    let codec = data_input.read_string()?;
+    read_be_int(data_input)?;
+    data_input.seek(data_input.get_file_pointer() + ID_LENGTH as u64)?;
+    let suffix_length = data_input.read_byte()? & 0xFF;
+    let bytes_len = (header_length(&*codec) + ID_LENGTH + 1 + suffix_length as u32) as usize;
+    let mut bytes: Vec<u8> = vec![0u8; bytes_len];
+    data_input.seek(0)?;
+    data_input.read_bytes(&mut bytes, 0, bytes_len)?;
+    Ok(bytes)
+}
+
+/**
+ * Retrieves the full footer from the provided `IndexInput`. This throws `Corrupt Error` if this file does not have a valid footer.
+ */
+pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOError> {
+    if data_input.length() < footer_length() as u64 {
+        return Err(DataIOError::corrupt_index(format!(
+            "misplaced codec footer (file truncated?): length= {} but footerLength== {}: {}",
+            data_input.length(),
+            footer_length(),
+            data_input.to_string()
+        )));
+    }
+    data_input.seek(data_input.length() - footer_length() as u64)?;
     todo!()
 }
 
+pub fn check_index_header_id(
+    data_input: &mut impl DataInput,
+    expected_id: &[u8],
+) -> Result<(), DataIOError> {
+    let mut id: Vec<u8> = vec![0u8; ID_LENGTH as usize];
+    data_input.read_bytes(&mut id, 0, ID_LENGTH as usize)?;
+    if id != expected_id {
+        return Err(DataIOError::corrupt_index(format!(
+            "file mismatch, expected id={}, got={}: {}",
+            id_to_string(Option::from(expected_id)),
+            id_to_string(Option::from(&id[0..id.len()])),
+            data_input.to_string()
+        )));
+    }
+    Ok(())
+}
+/** Expert: just reads and verifies the suffix of an index header */
+pub fn check_index_header_suffix(
+    data_input: &mut impl DataInput,
+    expected_suffix: &str,
+) -> Result<(), DataIOError> {
+    let suffix_length = data_input.read_byte()? & 0xFF;
+    let mut suffix: Vec<u8> = vec![0u8; suffix_length as usize];
+    data_input.read_bytes(&mut suffix, 0, suffix_length as usize)?;
+    let actual_suffix = String::from_utf8(suffix)?;
+    if actual_suffix != expected_suffix {
+        return Err(DataIOError::corrupt_index(format!(
+            "file mismatch, expected suffix= {}, got= {}: {}",
+            expected_suffix,
+            actual_suffix,
+            data_input.to_string()
+        )));
+    }
+    Ok(())
+}
+/**
+ * Writes a codec footer, which records both a checksum algorithm ID and a checksum. This footer
+ * can be parsed and validated with {@link #checkFooter(ChecksumIndexInput) checkFooter()}.
+ */
+pub fn write_footer(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
+    write_be_int(out, FOOTER_MAGIC)?;
+    write_be_int(out, 0)?;
+    write_crc(out)?;
+    Ok(())
+}
+
+/**
+ * Computes the length of a codec footer.
+ */
+pub fn footer_length() -> u32 {
+    16
+}
+
+/**
+ * Validates the codec footer previously written by {@link #writeFooter}.
+ *
+ */
+pub fn check_footer() {
+    todo!()
+}
+
+/**
+ * Validates the codec footer previously written by `writeFooter`, optionally passing an
+ * unexpected exception that has already occurred.
+ *
+ * When a `prior error` is provided, this method will add a suppressed exception
+ * indicating whether the checksum for the stream passes, fails, or cannot be computed, and
+ * rethrow it. Otherwise it behaves the same as `checkFooter(ChecksumIndexInput)`.
+ *
+ */
+pub fn check_footer_with_error() {
+    todo!()
+}
+
+/**
+ * Returns (but does not validate) the checksum previously written by `checkFooter`.
+ */
+pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<i64, DataIOError> {
+    if input.length() < footer_length() as u64 {
+        return Err(DataIOError::corrupt_index(format!(
+            "misplaced codec footer (file truncated?): length= {} but footerLength== {}: {}",
+            input.length(),
+            footer_length(),
+            input.to_string()
+        )));
+    }
+    input.seek(input.length() - footer_length() as u64)?;
+    validate_footer(input)?;
+    read_crc(input)
+}
+
+/**
+ * Returns (but does not validate) the checksum previously written by `checkFooter`.
+ */
+fn retrieve_checksum_with_expected(
+    input: &mut impl IndexInput,
+    expected_length: u64,
+) -> Result<i64, DataIOError> {
+    if expected_length < footer_length() as u64 {
+        return Err(DataIOError::illegal_argument(format!(
+            "expectedLength cannot be less than the footer length"
+        )));
+    }
+    if input.length() < expected_length {
+        return Err(DataIOError::corrupt_index(format!(
+            "truncated file: length= {} but expected_length= {}: {}",
+            input.length(),
+            expected_length,
+            input.to_string()
+        )));
+    } else if input.length() > expected_length {
+        return Err(DataIOError::corrupt_index(format!(
+            "file too long: length= {} but expected_length= {}: {}",
+            input.length(),
+            expected_length,
+            input.to_string()
+        )));
+    }
+    retrieve_checksum(input)
+}
+
+fn validate_footer(input: &mut impl IndexInput) -> Result<(), DataIOError> {
+    let remaining = input.length() - input.get_file_pointer();
+    let expected = footer_length();
+    if remaining < expected as u64 {
+        return Err(DataIOError::corrupt_index(format!(
+            "misplaced codec footer (file truncated?): remaining= {}, expected= {}, fp={}: {}",
+            remaining,
+            expected,
+            input.get_file_pointer(),
+            input.to_string()
+        )));
+    } else if remaining > expected as u64 {
+        return Err(DataIOError::corrupt_index(format!(
+            "misplaced codec footer (file extended?): remaining= {}, expected= {}, fp={}: {}",
+            remaining,
+            expected,
+            input.get_file_pointer(),
+            input.to_string()
+        )));
+    }
+    let magic = read_be_int(input)?;
+    if magic != FOOTER_MAGIC {
+        return Err(DataIOError::corrupt_index(format!(
+            "codec footer mismatch  (file truncated?): actual footer= {} vs expected footer= {}: {}",
+            magic, FOOTER_MAGIC, input.to_string()
+        )));
+    }
+    let algorithm_id = read_be_int(input)?;
+    if algorithm_id != 0 {
+        return Err(DataIOError::corrupt_index(format!(
+            "codec footer mismatch: unknown algorithmID= {}: {}",
+            algorithm_id,
+            input.to_string()
+        )));
+    }
+    Ok(())
+}
+
+/**
+ * Clones the provided input, reads all bytes from the file, and calls `checkFooter`
+ *
+ * Note that this method may be slow, as it must process the entire file. If you just need to
+ * extract the checksum value, call `retrieveChecksum`.
+*/
+pub fn check_sum_entire_file(input: &mut impl IndexInput) -> Result<i64, DataIOError> {
+    todo!()
+}
+
+/**
+ * Reads CRC32 value as a 64-bit long from the input.
+ */
+pub fn read_crc(input: &mut impl IndexInput) -> Result<i64, DataIOError> {
+    let value = read_be_long(input)?;
+    if value as u64 & 0xFFFFFFFF00000000 != 0 {
+        return Err(DataIOError::corrupt_index(format!(
+            "Illegal CRC-32 checksum: {}: {}",
+            value,
+            input.to_string()
+        )));
+    }
+    Ok(value)
+}
+
+/**
+ * Writes CRC32 value as a 64-bit long to the output.
+ */
+pub fn write_crc(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
+    let value = out.get_check_sum();
+    if value as u64 & 0xFFFFFFFF00000000 != 0 {
+        return Err(DataIOError::illegal_state(format!(
+            "Illegal CRC-32 checksum: {} +  (resource= {})",
+            value,
+            out.to_string()
+        )));
+    }
+    write_be_long(out, value)
+}
+
+/** write int value on header / footer with big endian order */
 pub fn write_be_int(out: &mut impl DataOutput, i: i32) -> Result<(), DataIOError> {
     let bytes = [
         ((i >> 24) & 0xFF) as u8,
@@ -160,6 +460,22 @@ pub fn write_be_int(out: &mut impl DataOutput, i: i32) -> Result<(), DataIOError
     out.write_bytes_range(&bytes, 0, 4)?;
     Ok(())
 }
+/** write long value on header / footer with big endian order */
+pub fn write_be_long(out: &mut impl DataOutput, i: i64) -> Result<(), DataIOError> {
+    let bytes = [
+        ((i >> 56) & 0xFF) as u8,
+        ((i >> 48) & 0xFF) as u8,
+        ((i >> 40) & 0xFF) as u8,
+        ((i >> 32) & 0xFF) as u8,
+        ((i >> 24) & 0xFF) as u8,
+        ((i >> 16) & 0xFF) as u8,
+        ((i >> 8) & 0xFF) as u8,
+        (i & 0xFF) as u8,
+    ];
+    out.write_bytes_range(&bytes, 0, 8)?;
+    Ok(())
+}
+/** read int value from header / footer with big endian order */
 pub fn read_be_int(out: &mut impl DataInput) -> Result<i32, DataIOError> {
     let byte1 = out.read_byte()? as i32;
     let byte2 = out.read_byte()? as i32;
@@ -167,4 +483,25 @@ pub fn read_be_int(out: &mut impl DataInput) -> Result<i32, DataIOError> {
     let byte4 = out.read_byte()? as i32;
 
     Ok((byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4)
+}
+
+/** read long value from header / footer with big endian order */
+pub fn read_be_long(out: &mut impl DataInput) -> Result<i64, DataIOError> {
+    let byte1 = out.read_byte()? as i64;
+    let byte2 = out.read_byte()? as i64;
+    let byte3 = out.read_byte()? as i64;
+    let byte4 = out.read_byte()? as i64;
+    let byte5 = out.read_byte()? as i64;
+    let byte6 = out.read_byte()? as i64;
+    let byte7 = out.read_byte()? as i64;
+    let byte8 = out.read_byte()? as i64;
+
+    Ok((byte1 << 56)
+        | (byte2 << 48)
+        | (byte3 << 40)
+        | (byte4 << 32)
+        | (byte5 << 24)
+        | (byte6 << 16)
+        | (byte7 << 8)
+        | byte8)
 }

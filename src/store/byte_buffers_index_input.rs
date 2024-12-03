@@ -142,6 +142,12 @@ impl Display for ByteBuffersIndexInput<'_> {
     }
 }
 
+impl Clone for ByteBuffersIndexInput<'_> {
+    fn clone(&self) -> Self {
+        todo!()
+    }
+}
+
 impl IndexInput for ByteBuffersIndexInput<'_> {
     fn get_file_pointer(&self) -> u64 {
         self.data_input.position()

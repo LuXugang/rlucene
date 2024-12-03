@@ -17,7 +17,7 @@
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, ReadAdvice};
 use crate::util::error::data_io_error_enum::DataIOError;
-use std::fmt::{Display};
+use std::fmt::Display;
 
 /**
  * Abstract base class for input from a file in a `Directory`. A random-access input stream.
@@ -30,7 +30,7 @@ use std::fmt::{Display};
  * positioned independently.
  *
  */
-pub trait IndexInput: DataInput + Display {
+pub trait IndexInput: DataInput + Display + Clone {
     /** Returns the current position in this file, where the next read will occur. */
     fn get_file_pointer(&self) -> u64;
 

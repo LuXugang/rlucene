@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::illegal_argument::IllegalArgument;
+use crate::util::error::illegal_state::IllegalState;
+use crate::util::error::parse::Parse;
+use crate::util::StrictStringTokenizer;
 use lazy_static::lazy_static;
 use regex::Regex;
-use rlucene::util::error::illegal_argument::IllegalArgument;
-use rlucene::util::error::illegal_state::IllegalState;
-use rlucene::util::error::parse::Parse;
-use rlucene::util::StrictStringTokenizer;
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
 use thiserror::Error;
@@ -58,7 +58,7 @@ pub static ref MIN_SUPPORTED_MAJOR:u32= LATEST.major - 1;
 
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Debug, Hash)]
 pub struct Version {
-    pub(crate) major: u32,
+    pub major: u32,
     minor: u32,
     bug_fix: u32,
     prerelease: u32,
@@ -119,7 +119,7 @@ impl Version {
             encoded_value,
         })
     }
-    pub(crate) fn on_or_after(&self, other: Version) -> bool {
+    pub fn on_or_after(&self, other: Version) -> bool {
         self.encoded_value >= other.encoded_value
     }
 }

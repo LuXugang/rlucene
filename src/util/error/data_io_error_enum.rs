@@ -17,6 +17,7 @@
 use crate::util::error::corrupt_index::CorruptIndex;
 use crate::util::error::eof::Eof;
 use crate::util::error::illegal_argument::IllegalArgument;
+use crate::util::error::illegal_state::IllegalState;
 use crate::util::error::index_format_too_new::IndexFormat;
 use crate::util::error::integer_overflow::IntegerOverflow;
 use std::io::Error;
@@ -33,6 +34,9 @@ pub enum DataIOError {
 
     #[error("{0}")]
     IllegalArgument(#[from] IllegalArgument),
+
+    #[error("{0}")]
+    IllegalState(#[from] IllegalState),
 
     #[error("{0}")]
     Eof(#[from] Eof),
@@ -56,6 +60,9 @@ impl DataIOError {
     }
     pub fn illegal_argument(msg: impl Into<String>) -> Self {
         DataIOError::IllegalArgument(IllegalArgument::new(msg))
+    }
+    pub fn illegal_state(msg: impl Into<String>) -> Self {
+        DataIOError::IllegalState(IllegalState::new(msg))
     }
 
     pub fn eof(msg: impl Into<String>) -> Self {

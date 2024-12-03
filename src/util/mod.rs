@@ -50,6 +50,7 @@ pub mod strict_string_tokenizer;
 pub mod string_helper;
 pub mod tim_sorter;
 mod tim_sorter_base;
+pub mod version;
 
 pub use array_tim_sorter::*;
 pub use tim_sorter::*;

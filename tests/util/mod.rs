@@ -34,4 +34,3 @@ mod test_roaring_doc_id_set;
 mod test_sparse_fixed_bit_set;
 mod test_tim_sorter;
 mod test_version;
-mod version;

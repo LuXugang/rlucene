@@ -16,11 +16,11 @@
  */
 use crate::common::my_random;
 use crate::util::test_error::TestError;
-use crate::util::version::{
-    from_bits, parse, parse_leniently, LATEST, LUCENE_10_0_0, LUCENE_10_1_0,
-    LUCENE_11_0_0, LUCENE_CURRENT,
-};
 use rand::Rng;
+use rlucene::util::version::{
+    from_bits, parse, parse_leniently, LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0,
+    LUCENE_CURRENT,
+};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[allow(dead_code)] // for quick search

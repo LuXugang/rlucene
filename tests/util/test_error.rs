@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::version::VersionError;
 use rlucene::util::error::corrupt_index::CorruptIndex;
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::error::eof::Eof;
@@ -23,6 +22,7 @@ use rlucene::util::error::illegal_state::IllegalState;
 use rlucene::util::error::index_format_too_new::IndexFormat;
 use rlucene::util::error::integer_overflow::IntegerOverflow;
 use rlucene::util::error::runtime_error::RuntimeError;
+use rlucene::util::version::VersionError;
 use std::io::Error;
 use std::string::FromUtf8Error;
 use thiserror::Error;
