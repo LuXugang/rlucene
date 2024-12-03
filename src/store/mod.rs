@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+mod buffered_checksum_index_input;
 pub mod byte_array_data_input;
 pub mod byte_array_data_output;
 pub mod byte_buffers_data_input;

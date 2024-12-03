@@ -31,14 +31,13 @@ pub trait ChecksumIndexInput: IndexInput {
 
     fn seek(&mut self, pos: u64) -> Result<(), DataIOError> {
         let cur_fp = self.get_file_pointer();
-        let skip = pos - cur_fp;
-        if skip < 0 {
+        if pos < cur_fp {
             return Err(DataIOError::illegal_state(format!(
                 "cannot seek backwards (pos= {}  getFilePointer()= {})",
                 pos, cur_fp
             )));
         }
-        self.skip_by_reading(skip)
+        self.skip_by_reading(pos - cur_fp)
     }
     fn skip_by_reading(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
         let mut skip_buffer = [0u8; SKIP_BUFFER_SIZE as usize];
