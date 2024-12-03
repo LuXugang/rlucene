@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+mod buffered_checksum;
 mod buffered_checksum_index_input;
 pub mod byte_array_data_input;
 pub mod byte_array_data_output;
@@ -23,6 +24,7 @@ pub mod byte_buffers_data_output;
 pub mod byte_buffers_index_input;
 pub mod byte_buffers_index_output;
 mod check_sum_index_input;
+pub mod checksum;
 pub mod data_input;
 pub mod data_input_default_impl;
 pub mod data_input_type;
@@ -43,6 +45,7 @@ pub use byte_array_data_output::*;
 pub use byte_buffers_data_output::*;
 pub use byte_buffers_index_input::*;
 pub use byte_buffers_index_output::*;
+pub use checksum::*;
 pub use data_input::*;
 pub use data_input_type::*;
 pub use index_output::*;
