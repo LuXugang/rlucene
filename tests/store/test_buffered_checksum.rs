@@ -17,7 +17,6 @@
 use crc32fast::Hasher;
 use rand::Rng;
 use rlucene::store::{BufferedChecksum, Checksum, HasherChecksum};
-use std::hash::DefaultHasher;
 
 #[allow(dead_code)] // for quick search
 struct TestBufferedChecksum {}

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::store::Checksum;
-use crc32fast::Hasher;
 
 pub const DEFAULT_BUFFER_SIZE: u32 = 1024;
 /** Wraps another `Checksum` with an internal buffer to speed up checksum calculations. */

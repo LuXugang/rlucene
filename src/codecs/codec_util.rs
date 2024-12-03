@@ -186,7 +186,7 @@ pub fn verify_and_copy_index_header(
     if data_in.length() < (footer_length() + header_length("")) as u64 {
         return Err(DataIOError::corrupt_index(format!(
             "compound sub-files must have a valid codec header and footer: file is too small ({} bytes): {}",
-            data_in.length(),data_in.to_string()
+            data_in.length(),data_in
         )));
     }
     let actual_header = read_be_int(data_in)?;
@@ -200,7 +200,7 @@ pub fn verify_and_copy_index_header(
     let codec = data_in.read_string()?;
     let version = read_be_int(data_in)?;
     check_index_header_id(data_in, expected_id)?;
-    let suffix_length = data_in.read_byte()? & 0xFF;
+    let suffix_length = data_in.read_byte()?;
     let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_length as usize];
     data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as usize)?;
     write_be_int(data_out, CODEC_MAGIC)?;
@@ -226,8 +226,8 @@ pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>, Da
     let codec = data_input.read_string()?;
     read_be_int(data_input)?;
     data_input.seek(data_input.get_file_pointer() + ID_LENGTH as u64)?;
-    let suffix_length = data_input.read_byte()? & 0xFF;
-    let bytes_len = (header_length(&*codec) + ID_LENGTH + 1 + suffix_length as u32) as usize;
+    let suffix_length = data_input.read_byte()?;
+    let bytes_len = (header_length(&codec) + ID_LENGTH + 1 + suffix_length as u32) as usize;
     let mut bytes: Vec<u8> = vec![0u8; bytes_len];
     data_input.seek(0)?;
     data_input.read_bytes(&mut bytes, 0, bytes_len)?;
@@ -243,7 +243,7 @@ pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOEr
             "misplaced codec footer (file truncated?): length= {} but footerLength== {}: {}",
             data_input.length(),
             footer_length(),
-            data_input.to_string()
+            data_input
         )));
     }
     data_input.seek(data_input.length() - footer_length() as u64)?;
@@ -261,7 +261,7 @@ pub fn check_index_header_id(
             "file mismatch, expected id={}, got={}: {}",
             id_to_string(Option::from(expected_id)),
             id_to_string(Option::from(&id[0..id.len()])),
-            data_input.to_string()
+            data_input
         )));
     }
     Ok(())
@@ -271,7 +271,7 @@ pub fn check_index_header_suffix(
     data_input: &mut impl DataInput,
     expected_suffix: &str,
 ) -> Result<(), DataIOError> {
-    let suffix_length = data_input.read_byte()? & 0xFF;
+    let suffix_length = data_input.read_byte()?;
     let mut suffix: Vec<u8> = vec![0u8; suffix_length as usize];
     data_input.read_bytes(&mut suffix, 0, suffix_length as usize)?;
     let actual_suffix = String::from_utf8(suffix)?;
@@ -280,7 +280,7 @@ pub fn check_index_header_suffix(
             "file mismatch, expected suffix= {}, got= {}: {}",
             expected_suffix,
             actual_suffix,
-            data_input.to_string()
+            data_input
         )));
     }
     Ok(())
@@ -333,7 +333,7 @@ pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<i64, DataIOError
             "misplaced codec footer (file truncated?): length= {} but footerLength== {}: {}",
             input.length(),
             footer_length(),
-            input.to_string()
+            input
         )));
     }
     input.seek(input.length() - footer_length() as u64)?;
@@ -349,23 +349,21 @@ fn retrieve_checksum_with_expected(
     expected_length: u64,
 ) -> Result<i64, DataIOError> {
     if expected_length < footer_length() as u64 {
-        return Err(DataIOError::illegal_argument(format!(
-            "expectedLength cannot be less than the footer length"
-        )));
+        return Err(DataIOError::illegal_argument("expectedLength cannot be less than the footer length".to_string()));
     }
     if input.length() < expected_length {
         return Err(DataIOError::corrupt_index(format!(
             "truncated file: length= {} but expected_length= {}: {}",
             input.length(),
             expected_length,
-            input.to_string()
+            input
         )));
     } else if input.length() > expected_length {
         return Err(DataIOError::corrupt_index(format!(
             "file too long: length= {} but expected_length= {}: {}",
             input.length(),
             expected_length,
-            input.to_string()
+            input
         )));
     }
     retrieve_checksum(input)
@@ -380,7 +378,7 @@ fn validate_footer(input: &mut impl IndexInput) -> Result<(), DataIOError> {
             remaining,
             expected,
             input.get_file_pointer(),
-            input.to_string()
+            input
         )));
     } else if remaining > expected as u64 {
         return Err(DataIOError::corrupt_index(format!(
@@ -388,14 +386,14 @@ fn validate_footer(input: &mut impl IndexInput) -> Result<(), DataIOError> {
             remaining,
             expected,
             input.get_file_pointer(),
-            input.to_string()
+            input
         )));
     }
     let magic = read_be_int(input)?;
     if magic != FOOTER_MAGIC {
         return Err(DataIOError::corrupt_index(format!(
             "codec footer mismatch  (file truncated?): actual footer= {} vs expected footer= {}: {}",
-            magic, FOOTER_MAGIC, input.to_string()
+            magic, FOOTER_MAGIC, input
         )));
     }
     let algorithm_id = read_be_int(input)?;
@@ -403,7 +401,7 @@ fn validate_footer(input: &mut impl IndexInput) -> Result<(), DataIOError> {
         return Err(DataIOError::corrupt_index(format!(
             "codec footer mismatch: unknown algorithmID= {}: {}",
             algorithm_id,
-            input.to_string()
+            input
         )));
     }
     Ok(())
@@ -428,7 +426,7 @@ pub fn read_crc(input: &mut impl IndexInput) -> Result<i64, DataIOError> {
         return Err(DataIOError::corrupt_index(format!(
             "Illegal CRC-32 checksum: {}: {}",
             value,
-            input.to_string()
+            input
         )));
     }
     Ok(value)
@@ -443,7 +441,7 @@ pub fn write_crc(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
         return Err(DataIOError::illegal_state(format!(
             "Illegal CRC-32 checksum: {} +  (resource= {})",
             value,
-            out.to_string()
+            out
         )));
     }
     write_be_long(out, value)

@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 use crate::store::index_input::IndexInput;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::error::data_io_error_enum::DataIOError;
-use std::fmt::{Display, Formatter};
 
 const SKIP_BUFFER_SIZE: u32 = 1024;
 /**
