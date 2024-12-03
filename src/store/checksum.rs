@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use std::hash::Hasher;
-use std::mem::offset_of;
-use std::os::unix::raw::off_t;
 
 pub trait Checksum {
     fn update(&mut self, b: u8);

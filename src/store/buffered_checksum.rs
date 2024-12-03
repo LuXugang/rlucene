@@ -54,6 +54,7 @@ impl<T: Checksum> Checksum for BufferedChecksum<T> {
             self.flush();
         }
         self.buffer[self.upto as usize] = b;
+        self.upto += 1;
     }
 
     fn update_bytes(&mut self, bytes: &[u8], offset: u32, len: u32) {

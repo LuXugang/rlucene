@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-mod buffered_checksum;
-mod buffered_checksum_index_input;
+pub mod buffered_checksum;
+pub mod buffered_checksum_index_input;
 pub mod byte_array_data_input;
 pub mod byte_array_data_output;
 pub mod byte_buffers_data_input;
 pub mod byte_buffers_data_output;
 pub mod byte_buffers_index_input;
 pub mod byte_buffers_index_output;
-mod check_sum_index_input;
+pub mod check_sum_index_input;
 pub mod checksum;
 pub mod data_input;
 pub mod data_input_default_impl;
@@ -40,6 +40,7 @@ pub mod output_stream_index_output;
 pub mod random_access_input;
 pub mod read_advice;
 
+pub use buffered_checksum::*;
 pub use byte_array_data_input::*;
 pub use byte_array_data_output::*;
 pub use byte_buffers_data_output::*;

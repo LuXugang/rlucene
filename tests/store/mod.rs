@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 pub mod base_data_output_test_case;
+mod test_buffered_checksum;
 pub mod test_byte_array_data_input;
 pub mod test_byte_buffers_data_input;
 mod test_byte_buffers_data_output;
