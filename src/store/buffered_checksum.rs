@@ -74,7 +74,7 @@ impl<T: Checksum> Checksum for BufferedChecksum<T> {
         }
     }
 
-    fn get_value(&mut self) -> u32 {
+    fn get_value(&mut self) -> u64 {
         self.flush();
         self.checksum.get_value()
     }

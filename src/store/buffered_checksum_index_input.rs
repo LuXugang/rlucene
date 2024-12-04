@@ -14,5 +14,116 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::check_sum_index_input::ChecksumIndexInput;
+use crate::store::index_input::IndexInput;
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{BufferedChecksum, Checksum, DataInput};
+use crate::util::error::data_io_error_enum::DataIOError;
+use crc32fast::Hasher;
+use std::fmt::{Display, Formatter};
 
-struct BufferedChecksumIndexInput {}
+struct BufferedChecksumIndexInput<T: IndexInput, C: Checksum> {
+    main: T,
+    digest: C,
+}
+impl<T, C> BufferedChecksumIndexInput<T, C>
+where
+    T: IndexInput,
+    C: Checksum,
+{
+    pub fn new(main: T) -> BufferedChecksumIndexInput<T, C> {
+        let digest = BufferedChecksum::new(Hasher::new());
+        BufferedChecksumIndexInput { main, digest }
+    }
+}
+
+impl<T, C> IndexInput for BufferedChecksumIndexInput<T, C>
+where
+    C: Checksum,
+    T: IndexInput,
+{
+    fn get_file_pointer(&self) -> u64 {
+        self.main.get_file_pointer();
+    }
+
+    fn seek(&mut self, pos: u64) -> Result<(), DataIOError> {
+        ChecksumIndexInput::seek(self, pos)
+    }
+
+    fn length(&self) -> u64 {
+        self.main.length()
+    }
+
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: u64,
+        length: u64,
+    ) -> Result<impl IndexInput, DataIOError> {
+        unreachable!("unsupported operation")
+    }
+
+    fn is_random_access(&self) -> bool {
+        false
+    }
+
+    fn get_random_access_slice(
+        &self,
+        offset: u64,
+        length: u64,
+    ) -> Result<impl RandomAccessInput, DataIOError> {
+        self.slice("", offset, length)
+    }
+}
+
+impl<T, C> DataInput for BufferedChecksumIndexInput<T, C>
+where
+    C: Checksum,
+    T: IndexInput,
+{
+    fn read_byte(&mut self) -> Result<u8, DataIOError> {
+        let b = self.main.read_byte()?;
+        self.digest.update(b);
+        Ok(b)
+    }
+
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<(), DataIOError> {
+        self.main.read_bytes(b, offset, len)?;
+        self.digest.update_bytes(b, offset as u32, len as u32);
+        Ok(())
+    }
+
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
+        IndexInput::skip_bytes(&mut self.main, num_bytes)
+    }
+}
+
+impl<T, C> Display for BufferedChecksumIndexInput<T, C>
+where
+    C: Checksum,
+    T: IndexInput,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl<T, C> Clone for BufferedChecksumIndexInput<T, C>
+where
+    C: Checksum,
+    T: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!("unsupported operation")
+    }
+}
+
+impl<T, C> ChecksumIndexInput for BufferedChecksumIndexInput<T, C>
+where
+    T: IndexInput,
+    C: Checksum,
+{
+    fn get_checksum(&mut self) -> u64 {
+        self.digest.get_value()
+    }
+}

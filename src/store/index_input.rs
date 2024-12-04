@@ -42,14 +42,10 @@ pub trait IndexInput: DataInput + Display + Clone {
     fn seek(&mut self, pos: u64) -> Result<(), DataIOError>;
 
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
-        self.default_skip_bytes(num_bytes)
-    }
-    fn default_skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
         let skip_to = self.get_file_pointer() + num_bytes;
         self.seek(skip_to)?;
         Ok(())
     }
-
     /** The number of bytes in the file. */
     fn length(&self) -> u64;
 
@@ -117,7 +113,13 @@ pub trait IndexInput: DataInput + Display + Clone {
     ) -> Result<impl RandomAccessInput, DataIOError> {
         self.get_random_access_slice(offset, length)
     }
-    fn prefetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError>;
+    fn prefetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
+        self.default_prefetch(pos, len)
+    }
+
+    fn default_prefetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
+        Ok(())
+    }
     /**
      * whether `IndexInput` implementation supports random access
      */

@@ -181,10 +181,6 @@ impl IndexInput for ByteBuffersIndexInput<'_> {
         self.slice("", offset, length)
     }
 
-    fn prefetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
-        Ok(())
-    }
-
     fn is_random_access(&self) -> bool {
         true
     }

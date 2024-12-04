@@ -25,7 +25,7 @@ const SKIP_BUFFER_SIZE: u32 = 1024;
  */
 pub trait ChecksumIndexInput: IndexInput {
     /** Returns the current checksum value */
-    fn get_checksum(&self) -> u64;
+    fn get_checksum(&mut self) -> u64;
 
     fn seek(&mut self, pos: u64) -> Result<(), DataIOError> {
         let cur_fp = self.get_file_pointer();

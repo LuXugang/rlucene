@@ -19,7 +19,7 @@ use std::hash::Hasher;
 pub trait Checksum {
     fn update(&mut self, b: u8);
     fn update_bytes(&mut self, bytes: &[u8], offset: u32, len: u32);
-    fn get_value(&mut self) -> u32;
+    fn get_value(&mut self) -> u64;
     fn reset(&mut self);
 }
 
@@ -48,8 +48,8 @@ impl<T: Hasher + Clone> Checksum for HasherChecksum<T> {
         self.hasher.write(&bytes[offset..offset + len]);
     }
 
-    fn get_value(&mut self) -> u32 {
-        (self.hasher.finish() & 0xFFFFFFFF) as u32
+    fn get_value(&mut self) -> u64 {
+        self.hasher.finish()
     }
 
     fn reset(&mut self) {

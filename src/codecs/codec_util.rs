@@ -278,9 +278,7 @@ pub fn check_index_header_suffix(
     if actual_suffix != expected_suffix {
         return Err(DataIOError::corrupt_index(format!(
             "file mismatch, expected suffix= {}, got= {}: {}",
-            expected_suffix,
-            actual_suffix,
-            data_input
+            expected_suffix, actual_suffix, data_input
         )));
     }
     Ok(())
@@ -349,7 +347,9 @@ fn retrieve_checksum_with_expected(
     expected_length: u64,
 ) -> Result<i64, DataIOError> {
     if expected_length < footer_length() as u64 {
-        return Err(DataIOError::illegal_argument("expectedLength cannot be less than the footer length".to_string()));
+        return Err(DataIOError::illegal_argument(
+            "expectedLength cannot be less than the footer length".to_string(),
+        ));
     }
     if input.length() < expected_length {
         return Err(DataIOError::corrupt_index(format!(
@@ -400,8 +400,7 @@ fn validate_footer(input: &mut impl IndexInput) -> Result<(), DataIOError> {
     if algorithm_id != 0 {
         return Err(DataIOError::corrupt_index(format!(
             "codec footer mismatch: unknown algorithmID= {}: {}",
-            algorithm_id,
-            input
+            algorithm_id, input
         )));
     }
     Ok(())
@@ -425,8 +424,7 @@ pub fn read_crc(input: &mut impl IndexInput) -> Result<i64, DataIOError> {
     if value as u64 & 0xFFFFFFFF00000000 != 0 {
         return Err(DataIOError::corrupt_index(format!(
             "Illegal CRC-32 checksum: {}: {}",
-            value,
-            input
+            value, input
         )));
     }
     Ok(value)
@@ -440,8 +438,7 @@ pub fn write_crc(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
     if value as u64 & 0xFFFFFFFF00000000 != 0 {
         return Err(DataIOError::illegal_state(format!(
             "Illegal CRC-32 checksum: {} +  (resource= {})",
-            value,
-            out
+            value, out
         )));
     }
     write_be_long(out, value)
