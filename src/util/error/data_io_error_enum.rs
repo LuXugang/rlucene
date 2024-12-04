@@ -18,11 +18,12 @@ use crate::util::error::corrupt_index::CorruptIndex;
 use crate::util::error::eof::Eof;
 use crate::util::error::illegal_argument::IllegalArgument;
 use crate::util::error::illegal_state::IllegalState;
-use crate::util::error::index_format_too_new::IndexFormat;
+use crate::util::error::index_format_too_new::IndexFormatTooNew;
 use crate::util::error::integer_overflow::IntegerOverflow;
 use std::io::Error;
 use std::string::FromUtf8Error;
 use thiserror::Error;
+use crate::util::error::index_format_too_old::IndexFormatTooOld;
 
 #[derive(Debug, Error)]
 pub enum DataIOError {
@@ -48,7 +49,10 @@ pub enum DataIOError {
     CorruptIndex(#[from] CorruptIndex),
 
     #[error("{0}")]
-    IndexFormat(#[from] IndexFormat),
+    IndexFormatTooNew(#[from] IndexFormatTooNew),
+    
+    #[error("{0}")]
+    IndexFormatTooOld(#[from] IndexFormatTooOld),
 }
 impl DataIOError {
     pub fn io(err: Error) -> Self {
@@ -77,7 +81,10 @@ impl DataIOError {
         DataIOError::CorruptIndex(CorruptIndex::new(msg))
     }
 
-    pub fn index_format(msg: impl Into<String>) -> Self {
-        DataIOError::IndexFormat(IndexFormat::new(msg))
+    pub fn index_format_too_new(msg: impl Into<String>) -> Self {
+        DataIOError::IndexFormatTooNew(IndexFormatTooNew::new(msg))
+    }
+    pub fn index_format_too_old(msg: impl Into<String>) -> Self {
+        DataIOError::IndexFormatTooOld(IndexFormatTooOld::new(msg))
     }
 }

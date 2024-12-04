@@ -32,7 +32,7 @@ fn test_simple() {
     buffered.update(2);
     buffered.update(3);
 
-    assert_eq!(buffered.get_value(), crc.finalize());
+    assert_eq!(buffered.get_value(), crc.finalize() as u64);
 }
 
 #[test]
@@ -66,12 +66,12 @@ fn test_random() {
             }
             3 => {
                 // get_value()
-                assert_eq!(buffered.get_value(), raw_crc.clone().finalize());
+                assert_eq!(buffered.get_value(), raw_crc.clone().finalize() as u64);
             }
             _ => unreachable!(),
         }
     }
 
     // 最终验证两者的值是否一致
-    assert_eq!(buffered.get_value(), raw_crc.finalize());
+    assert_eq!(buffered.get_value(), raw_crc.finalize() as u64);
 }

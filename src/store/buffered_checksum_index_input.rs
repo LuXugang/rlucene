@@ -14,36 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::index_input::IndexInput;
-use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{BufferedChecksum, Checksum, DataInput};
+use crate::store::{BufferedChecksum, ByteBuffersIndexInput, Checksum, DataInput, HasherChecksum};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
 
-struct BufferedChecksumIndexInput<T: IndexInput, C: Checksum> {
+pub struct BufferedChecksumIndexInput<T: IndexInput> {
     main: T,
-    digest: C,
+    digest: BufferedChecksum<HasherChecksum>,
 }
-impl<T, C> BufferedChecksumIndexInput<T, C>
+impl<T> BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
-    C: Checksum,
 {
-    pub fn new(main: T) -> BufferedChecksumIndexInput<T, C> {
-        let digest = BufferedChecksum::new(Hasher::new());
+    pub fn new(main: T) -> BufferedChecksumIndexInput<T> {
+        let digest = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
         BufferedChecksumIndexInput { main, digest }
     }
 }
 
-impl<T, C> IndexInput for BufferedChecksumIndexInput<T, C>
+impl<T> IndexInput for BufferedChecksumIndexInput<T>
 where
-    C: Checksum,
     T: IndexInput,
 {
     fn get_file_pointer(&self) -> u64 {
-        self.main.get_file_pointer();
+        self.main.get_file_pointer()
     }
 
     fn seek(&mut self, pos: u64) -> Result<(), DataIOError> {
@@ -56,10 +54,10 @@ where
 
     fn slice(
         &self,
-        slice_description: &str,
-        offset: u64,
-        length: u64,
-    ) -> Result<impl IndexInput, DataIOError> {
+        _slice_description: &str,
+        _offset: u64,
+        _length: u64,
+    ) -> Result<ByteBuffersIndexInput, DataIOError> {
         unreachable!("unsupported operation")
     }
 
@@ -71,14 +69,13 @@ where
         &self,
         offset: u64,
         length: u64,
-    ) -> Result<impl RandomAccessInput, DataIOError> {
-        self.slice("", offset, length)
+    ) -> Result<ByteBuffersDataInput, DataIOError> {
+        unreachable!()
     }
 }
 
-impl<T, C> DataInput for BufferedChecksumIndexInput<T, C>
+impl<T> DataInput for BufferedChecksumIndexInput<T>
 where
-    C: Checksum,
     T: IndexInput,
 {
     fn read_byte(&mut self) -> Result<u8, DataIOError> {
@@ -98,19 +95,17 @@ where
     }
 }
 
-impl<T, C> Display for BufferedChecksumIndexInput<T, C>
+impl<T> Display for BufferedChecksumIndexInput<T>
 where
-    C: Checksum,
     T: IndexInput,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(f, "BufferedChecksumIndexInput({})", self.main)
     }
 }
 
-impl<T, C> Clone for BufferedChecksumIndexInput<T, C>
+impl<T> Clone for BufferedChecksumIndexInput<T>
 where
-    C: Checksum,
     T: IndexInput,
 {
     fn clone(&self) -> Self {
@@ -118,10 +113,9 @@ where
     }
 }
 
-impl<T, C> ChecksumIndexInput for BufferedChecksumIndexInput<T, C>
+impl<T> ChecksumIndexInput for BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
-    C: Checksum,
 {
     fn get_checksum(&mut self) -> u64 {
         self.digest.get_value()

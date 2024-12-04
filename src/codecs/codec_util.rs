@@ -17,7 +17,9 @@
 use crate::index::BytesRef;
 use crate::store::data_output::DataOutput;
 use crate::store::index_input::IndexInput;
-use crate::store::{DataInput, IndexOutput};
+use crate::store::{BufferedChecksum, DataInput, IndexOutput};
+use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
+use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::version::MIN_SUPPORTED_MAJOR;
 use crate::util::{id_to_string, ID_LENGTH};
@@ -141,10 +143,10 @@ pub fn check_header_no_magic(
     }
     let actual_version = read_be_int(data_input)?;
     if (actual_version as u32) < min_version {
-        return Err(DataIOError::index_format(format!("Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later", data_input, actual_version, min_version, max_version, *MIN_SUPPORTED_MAJOR)));
+        return Err(DataIOError::index_format_too_old(format!("Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later", data_input, actual_version, min_version, max_version, *MIN_SUPPORTED_MAJOR)));
     }
     if (actual_version as u32) > max_version {
-        return Err(DataIOError::index_format(format!(
+        return Err(DataIOError::index_format_too_new(format!(
             "Format version is not supported (resource {}): {} (needs to be between {} and {}) ",
             data_input, actual_version, min_version, max_version
         )));
@@ -247,7 +249,11 @@ pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOEr
         )));
     }
     data_input.seek(data_input.length() - footer_length() as u64)?;
-    todo!()
+    validate_footer(data_input)?;
+    data_input.seek(data_input.length() - footer_length() as u64)?;
+    let mut bytes: Vec<u8> = vec![0u8; footer_length() as usize];
+    data_input.read_bytes(&mut bytes, 0, footer_length() as usize)?;
+    Ok(bytes)
 }
 
 pub fn check_index_header_id(
@@ -305,8 +311,17 @@ pub fn footer_length() -> u32 {
  * Validates the codec footer previously written by {@link #writeFooter}.
  *
  */
-pub fn check_footer() {
-    todo!()
+pub fn check_footer(checksum_in:&mut  impl ChecksumIndexInput) -> Result<u64, DataIOError> {
+    validate_footer(checksum_in)?;
+    let actual_checksum = checksum_in.get_checksum();
+    let expected_checksum = read_crc(checksum_in)?;
+    if actual_checksum != expected_checksum {
+        return Err(DataIOError::corrupt_index(format!(
+            "checksum failed (hardware problem?): expected= {} but got= {}: {}",
+            expected_checksum, actual_checksum, checksum_in
+        )));
+    }
+    Ok(actual_checksum)
 }
 
 /**
@@ -315,17 +330,68 @@ pub fn check_footer() {
  *
  * When a `prior error` is provided, this method will add a suppressed exception
  * indicating whether the checksum for the stream passes, fails, or cannot be computed, and
- * rethrow it. Otherwise it behaves the same as `checkFooter(ChecksumIndexInput)`.
+ * rethrow it. Otherwise, it behaves the same as `checkFooter(ChecksumIndexInput)`.
  *
  */
-pub fn check_footer_with_error() {
-    todo!()
+pub fn check_footer_with_error(checksum_in: &mut impl ChecksumIndexInput, prior_error: &mut DataIOError) -> Result<(), DataIOError> {
+    // If we have evidence of corruption then we return the corruption as the
+    // main exception and the prior exception gets suppressed. Otherwise, we
+    // return the prior exception with a suppressed exception that notifies
+    // the user that checksums matched.
+    let error = prior_error.to_string();
+    let mut error_message:String = "".to_string();
+    let remaining = checksum_in.length() - checksum_in.get_file_pointer();
+    if remaining < footer_length() as u64 {
+        // corruption caused us to read into the checksum footer already: we can't proceed
+        error_message = format!( "checksum status indeterminate: remaining={}, ; please run checkindex for more details: {} {}",
+                                 checksum_in,
+                                 error,
+                                 remaining,
+        );
+    }else {
+        // otherwise, skip any unread bytes.
+        let result = DataInput::skip_bytes(checksum_in,remaining - footer_length() as u64);
+        if result.is_err() {
+            error_message = format!(
+                "checksum status indeterminate: unexpected exception: {} {} {}",
+                checksum_in,
+                result.unwrap_err(),
+                error,
+           );
+        }else {
+            // now check the footer
+            let result = check_footer(checksum_in);
+            if result.is_err() {
+                error_message = format!(
+                    "checksum status indeterminate: unexpected exception: {} {} {}",
+                    checksum_in,
+                    result.unwrap_err(),
+                    error,
+                );
+            }else {
+                let checksum = result?;
+                // If the index format is too old and no corruption, do not add checksums
+                // matching message since this may tend to unnecessarily alarm people who
+                // see "JVM bug" in their logs
+                if matches!(prior_error, DataIOError::IndexFormatTooOld(_) ){
+                    error_message= format!(
+                        "{}, checksum passed ({}). possibly transient resource issue, or a Lucene : {}",
+                        error,
+                        checksum,
+                        checksum_in
+                    );
+                }
+            }
+        }
+    }
+    Err(DataIOError::corrupt_index(error_message))
+    
 }
 
 /**
  * Returns (but does not validate) the checksum previously written by `checkFooter`.
  */
-pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<i64, DataIOError> {
+pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<u64, DataIOError> {
     if input.length() < footer_length() as u64 {
         return Err(DataIOError::corrupt_index(format!(
             "misplaced codec footer (file truncated?): length= {} but footerLength== {}: {}",
@@ -345,7 +411,7 @@ pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<i64, DataIOError
 fn retrieve_checksum_with_expected(
     input: &mut impl IndexInput,
     expected_length: u64,
-) -> Result<i64, DataIOError> {
+) -> Result<u64, DataIOError> {
     if expected_length < footer_length() as u64 {
         return Err(DataIOError::illegal_argument(
             "expectedLength cannot be less than the footer length".to_string(),
@@ -412,16 +478,30 @@ fn validate_footer(input: &mut impl IndexInput) -> Result<(), DataIOError> {
  * Note that this method may be slow, as it must process the entire file. If you just need to
  * extract the checksum value, call `retrieveChecksum`.
 */
-pub fn check_sum_entire_file(input: &mut impl IndexInput) -> Result<i64, DataIOError> {
-    todo!()
+pub fn check_sum_entire_file(input: &mut impl IndexInput) -> Result<u64, DataIOError> {
+    let mut clone = input.clone();
+    clone.seek(0)?;
+    let mut checksum_in = BufferedChecksumIndexInput::new(clone);
+    assert_eq!(checksum_in.get_file_pointer(), 0);
+    if checksum_in.length() < footer_length() as u64 {
+        return Err(DataIOError::corrupt_index(format!(
+            "misplaced codec footer (file truncated?): length={} but footerLength=={}: {}",
+            checksum_in.length(),
+            footer_length(),
+            input
+        )));
+    }
+    let checksum_len = checksum_in.length();
+    IndexInput::seek(&mut checksum_in,checksum_len - footer_length() as u64)?;
+    check_footer(&mut checksum_in)
 }
 
 /**
  * Reads CRC32 value as a 64-bit long from the input.
  */
-pub fn read_crc(input: &mut impl IndexInput) -> Result<i64, DataIOError> {
+pub fn read_crc(input: &mut impl IndexInput) -> Result<u64, DataIOError> {
     let value = read_be_long(input)?;
-    if value as u64 & 0xFFFFFFFF00000000 != 0 {
+    if value & 0xFFFFFFFF00000000 != 0 {
         return Err(DataIOError::corrupt_index(format!(
             "Illegal CRC-32 checksum: {}: {}",
             value, input
@@ -481,22 +561,8 @@ pub fn read_be_int(out: &mut impl DataInput) -> Result<i32, DataIOError> {
 }
 
 /** read long value from header / footer with big endian order */
-pub fn read_be_long(out: &mut impl DataInput) -> Result<i64, DataIOError> {
-    let byte1 = out.read_byte()? as i64;
-    let byte2 = out.read_byte()? as i64;
-    let byte3 = out.read_byte()? as i64;
-    let byte4 = out.read_byte()? as i64;
-    let byte5 = out.read_byte()? as i64;
-    let byte6 = out.read_byte()? as i64;
-    let byte7 = out.read_byte()? as i64;
-    let byte8 = out.read_byte()? as i64;
-
-    Ok((byte1 << 56)
-        | (byte2 << 48)
-        | (byte3 << 40)
-        | (byte4 << 32)
-        | (byte5 << 24)
-        | (byte6 << 16)
-        | (byte7 << 8)
-        | byte8)
+pub fn read_be_long(out: &mut impl DataInput) -> Result<u64, DataIOError> {
+    let mut buffer = [0u8; 8];
+    out.read_bytes(&mut buffer, 0, 8)?;
+    Ok(u64::from_be_bytes(buffer))
 }

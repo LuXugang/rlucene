@@ -17,10 +17,10 @@
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::DataInput;
+use crate::store::{ByteBuffersIndexOutput, DataInput};
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
+use std::fmt::{write, Display, Formatter};
 
 pub struct ByteBuffersIndexInput<'a> {
     data_input: ByteBuffersDataInput<'a>,
@@ -137,14 +137,15 @@ impl RandomAccessInput for ByteBuffersIndexInput<'_> {
 }
 
 impl Display for ByteBuffersIndexInput<'_> {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.resource_description)
     }
 }
 
 impl Clone for ByteBuffersIndexInput<'_> {
     fn clone(&self) -> Self {
-        todo!()
+        let slice = self.data_input.slice(0, self.data_input.length()).unwrap();
+        ByteBuffersIndexInput::new(slice, format!("(clone of) {}", self.to_string()).as_str())
     }
 }
 

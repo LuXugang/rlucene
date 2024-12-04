@@ -19,7 +19,7 @@ use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::error::eof::Eof;
 use rlucene::util::error::illegal_argument::IllegalArgument;
 use rlucene::util::error::illegal_state::IllegalState;
-use rlucene::util::error::index_format_too_new::IndexFormat;
+use rlucene::util::error::index_format_too_new::IndexFormatTooNew;
 use rlucene::util::error::integer_overflow::IntegerOverflow;
 use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::version::VersionError;
@@ -49,7 +49,7 @@ pub enum TestError {
     CorruptIndex(#[from] CorruptIndex),
 
     #[error("{0}")]
-    IndexFormat(#[from] IndexFormat),
+    IndexFormat(#[from] IndexFormatTooNew),
 
     #[error("{0}")]
     IllegalState(#[from] IllegalState),

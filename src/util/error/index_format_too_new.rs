@@ -18,11 +18,11 @@ use std::error::Error;
 use std::fmt::Display;
 
 #[derive(Debug)]
-pub struct IndexFormat {
+pub struct IndexFormatTooNew {
     pub message: String,
 }
 
-impl IndexFormat {
+impl IndexFormatTooNew {
     pub fn new(msg: impl Into<String>) -> Self {
         Self {
             message: msg.into(),
@@ -30,10 +30,10 @@ impl IndexFormat {
     }
 }
 
-impl Display for IndexFormat {
+impl Display for IndexFormatTooNew {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, ": {}", self.message)
     }
 }
 
-impl Error for IndexFormat {}
+impl Error for IndexFormatTooNew {}

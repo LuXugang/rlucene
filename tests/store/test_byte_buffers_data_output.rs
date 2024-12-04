@@ -60,7 +60,7 @@ fn test_constructor_with_expected_size() -> Result<(), TestError> {
     let mut random = my_random("test_constructor_with_expected_size".to_string());
     let mut o = ByteBuffersDataOutput::new_with_expected_size(0)?;
     o.write_byte(0)?;
-    let mut result = o.to_buffer_list();
+    let (_length, mut result) = o.to_buffer_list();
     let capacity = result.get_mut(0).unwrap().get_ref().len();
     assert_eq!(1 << DEFAULT_MIN_BITS_PER_BLOCK, capacity);
 
@@ -68,7 +68,8 @@ fn test_constructor_with_expected_size() -> Result<(), TestError> {
     let expected_size: i64 = random.gen_range(mb..mb * 1024);
     let mut o = ByteBuffersDataOutput::new_with_expected_size(expected_size as u64)?;
     let _ = o.write_byte(0);
-    let cap = o.to_buffer_list().get_mut(0).unwrap().get_ref().len();
+    let (_length, mut result) = o.to_buffer_list();
+    let cap = result.get_mut(0).unwrap().get_ref().len();
     assert!((cap >> 1) * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION < expected_size as usize);
     assert!(cap * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION >= expected_size as usize);
     Ok(())

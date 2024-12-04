@@ -21,19 +21,19 @@ use crc32fast::Hasher;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-pub struct ByteBuffersIndexOutput {
+pub struct ByteBuffersIndexOutput<'a> {
     last_checksum_position: u64,
     last_checksum: i64,
-    delegate: ByteBuffersDataOutput,
+    delegate: &'a mut ByteBuffersDataOutput,
     name: String,
     resource_description: String,
     checksum: Hasher,
 }
-impl ByteBuffersIndexOutput {
+impl<'a> ByteBuffersIndexOutput<'a> {
     pub fn new_with_checksum(
         name: &str,
         resource_description: &str,
-        delegate: ByteBuffersDataOutput,
+        delegate: &'a mut ByteBuffersDataOutput,
         checksum: Hasher,
     ) -> Self {
         Self {
@@ -45,7 +45,11 @@ impl ByteBuffersIndexOutput {
             checksum,
         }
     }
-    pub fn new(name: &str, resource_description: &str, delegate: ByteBuffersDataOutput) -> Self {
+    pub fn new(
+        name: &str,
+        resource_description: &str,
+        delegate: &'a mut ByteBuffersDataOutput,
+    ) -> Self {
         Self::new_with_checksum(name, resource_description, delegate, Hasher::new())
     }
     pub fn get_array_copy(&self) -> Vec<u8> {
@@ -53,7 +57,7 @@ impl ByteBuffersIndexOutput {
     }
 }
 
-impl DataOutput for ByteBuffersIndexOutput {
+impl<'a> DataOutput for ByteBuffersIndexOutput<'a> {
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
         self.delegate.write_byte(b)
     }
@@ -100,13 +104,13 @@ impl DataOutput for ByteBuffersIndexOutput {
     }
 }
 
-impl Display for ByteBuffersIndexOutput {
+impl<'a> Display for ByteBuffersIndexOutput<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.resource_description)
     }
 }
 
-impl IndexOutput for ByteBuffersIndexOutput {
+impl<'a> IndexOutput for ByteBuffersIndexOutput<'a> {
     fn get_file_pointer(&self) -> u64 {
         self.delegate.size()
     }
@@ -115,11 +119,19 @@ impl IndexOutput for ByteBuffersIndexOutput {
         if self.last_checksum_position != self.delegate.size() {
             self.last_checksum_position = self.delegate.size();
             self.checksum.reset();
-            let buffers = self.delegate.to_buffer_list();
-            for cursor in buffers {
-                // 获取当前 Cursor 的内容
-                let data = cursor.get_ref();
-                self.checksum.update(data);
+            let (length, mut data) = self.delegate.to_buffer_list();
+            if let Some(last_block) = data.pop() {
+                //  block length was limited by ByteBuffersDataOutput#LIMIT_MAX_BITS_PER_BLOCK
+                debug_assert!(last_block.get_ref().len() <= u32::MAX as usize);
+                let mut last_block_len = length;
+                for block in data {
+                    //Each block has the same data length except for the last block. 
+                    // Therefore, we need to use last_block_len to get the data length 
+                    // of the last block.
+                    last_block_len -= block.get_ref().len() as u64;
+                    self.checksum.update(block.get_ref());
+                }
+                self.checksum.update(&last_block.get_ref()[0..last_block_len as usize]);
             }
             self.last_checksum = self.checksum.clone().finalize() as i64;
         }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::hash::Hasher;
+use crc32fast::Hasher;
 
 pub trait Checksum {
     fn update(&mut self, b: u8);
@@ -23,33 +23,33 @@ pub trait Checksum {
     fn reset(&mut self);
 }
 
-pub struct HasherChecksum<T: Hasher> {
-    hasher: T,
-    initial_state: T,
+pub struct HasherChecksum {
+    hasher: Hasher,
+    initial_state: Hasher,
 }
 
-impl<T: Hasher + Clone> HasherChecksum<T> {
-    pub fn new(hasher: T) -> Self {
+impl HasherChecksum {
+    pub fn new(hasher: Hasher) -> Self {
         Self {
-            initial_state: hasher.clone(),
-            hasher,
+            hasher: hasher.clone(),
+            initial_state: hasher,
         }
     }
 }
 
-impl<T: Hasher + Clone> Checksum for HasherChecksum<T> {
+impl Checksum for HasherChecksum {
     fn update(&mut self, b: u8) {
-        self.hasher.write(&[b]);
+        self.hasher.update(&[b]);
     }
 
     fn update_bytes(&mut self, bytes: &[u8], offset: u32, len: u32) {
         let offset = offset as usize;
         let len = len as usize;
-        self.hasher.write(&bytes[offset..offset + len]);
+        self.hasher.update(&bytes[offset..offset + len]);
     }
 
     fn get_value(&mut self) -> u64 {
-        self.hasher.finish()
+        self.hasher.clone().finalize() as u64
     }
 
     fn reset(&mut self) {

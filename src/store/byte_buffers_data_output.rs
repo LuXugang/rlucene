@@ -200,8 +200,8 @@ impl ByteBuffersDataOutput {
      * Return a list of read-only view of `ByteBuffer` blocks over the current content written
      * to the output.
      */
-    pub fn to_buffer_list(&self) -> Vec<Cursor<&[u8]>> {
-        self.blocks
+    pub fn to_buffer_list(&self) -> (u64,Vec<Cursor<&[u8]>>){
+        let data = self.blocks
             .iter()
             .map(|cursor| {
                 let slice: &[u8] = cursor.get_ref().as_slice();
@@ -209,7 +209,8 @@ impl ByteBuffersDataOutput {
                 new_cursor.set_position(0);
                 new_cursor
             })
-            .collect()
+            .collect();
+        (self.size(),data)
     }
     pub fn get_writeable_buffer_list(&mut self) -> Vec<&mut Cursor<Vec<u8>>> {
         self.blocks.iter_mut().collect()
@@ -230,8 +231,8 @@ impl ByteBuffersDataOutput {
     }
 
     pub fn get_data_input(&mut self) -> ByteBuffersDataInput {
-        let length = self.size();
-        ByteBuffersDataInput::new(self.to_buffer_list(), length)
+        let (length,data) = self.to_buffer_list();
+        ByteBuffersDataInput::new(data, length)
     }
 
     fn append_block_if_needed(&mut self) -> u64 {

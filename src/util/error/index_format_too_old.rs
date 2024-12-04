@@ -14,13 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod corrupt_index;
-pub mod data_io_error_enum;
-pub mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-pub mod index_format_too_new;
-pub mod integer_overflow;
-pub mod parse;
-pub mod runtime_error;
-pub mod index_format_too_old;
+use std::error::Error;
+use std::fmt::Display;
+
+#[derive(Debug)]
+pub struct IndexFormatTooOld {
+    pub message: String,
+}
+
+impl IndexFormatTooOld {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
+    }
+}
+
+impl Display for IndexFormatTooOld {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ": {}", self.message)
+    }
+}
+
+impl Error for IndexFormatTooOld {}
