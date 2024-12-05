@@ -18,7 +18,6 @@
  * Base class for file system based locking implementation. This class is explicitly checking that
  * the passed `Directory` is an `FSDirectory`.
  */
-pub trait FSLockFactory{
-    
+pub trait FSLockFactory {
     // fn obtain_fs_Lock(dir: &, lock_name: &str) -> impl Lock;
 }

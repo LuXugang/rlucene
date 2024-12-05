@@ -20,7 +20,7 @@ pub mod eof;
 pub mod illegal_argument;
 pub mod illegal_state;
 pub mod index_format_too_new;
+pub mod index_format_too_old;
 pub mod integer_overflow;
 pub mod parse;
 pub mod runtime_error;
-pub mod index_format_too_old;

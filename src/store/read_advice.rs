@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::env;
+
 #[derive(Clone)]
 pub enum ReadAdvice {
     /**
@@ -39,4 +41,22 @@ pub enum ReadAdvice {
      * very small files that can be expected to fit in RAM with very high confidence.
      */
     RandomPreload,
+}
+
+impl ReadAdvice {
+    pub fn from_str(s: &str) -> Option<ReadAdvice> {
+        match s.to_uppercase().as_str() {
+            "Normal" => Some(ReadAdvice::Normal),
+            "Random" => Some(ReadAdvice::Random),
+            "Sequential" => Some(ReadAdvice::Sequential),
+            "RandomPreload" => Some(ReadAdvice::RandomPreload),
+            _ => None,
+        }
+    }
+    pub fn default_read_advice() -> ReadAdvice {
+        env::var("lucene.store.defaultReadAdvice")
+            .ok()
+            .and_then(|value| ReadAdvice::from_str(&value))
+            .unwrap_or(ReadAdvice::Random)
+    }
 }

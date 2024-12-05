@@ -125,13 +125,14 @@ impl<'a> IndexOutput for ByteBuffersIndexOutput<'a> {
                 debug_assert!(last_block.get_ref().len() <= u32::MAX as usize);
                 let mut last_block_len = length;
                 for block in data {
-                    //Each block has the same data length except for the last block. 
-                    // Therefore, we need to use last_block_len to get the data length 
+                    //Each block has the same data length except for the last block.
+                    // Therefore, we need to use last_block_len to get the data length
                     // of the last block.
                     last_block_len -= block.get_ref().len() as u64;
                     self.checksum.update(block.get_ref());
                 }
-                self.checksum.update(&last_block.get_ref()[0..last_block_len as usize]);
+                self.checksum
+                    .update(&last_block.get_ref()[0..last_block_len as usize]);
             }
             self.last_checksum = self.checksum.clone().finalize() as i64;
         }

@@ -35,8 +35,8 @@ use crate::store::lock::Lock;
  */
 pub trait LockFactory {
     /**
-    * Return a new obtained Lock instance identified by lockName.
-    *
-    */
+     * Return a new obtained Lock instance identified by lockName.
+     *
+     */
     fn obtain_lock(&self, lock_name: &str) -> impl Lock;
 }

@@ -17,7 +17,7 @@
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{DataInput};
+use crate::store::DataInput;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};

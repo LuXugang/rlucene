@@ -19,11 +19,12 @@ use crate::util::error::eof::Eof;
 use crate::util::error::illegal_argument::IllegalArgument;
 use crate::util::error::illegal_state::IllegalState;
 use crate::util::error::index_format_too_new::IndexFormatTooNew;
+use crate::util::error::index_format_too_old::IndexFormatTooOld;
 use crate::util::error::integer_overflow::IntegerOverflow;
+use crate::util::error::runtime_error::RuntimeError;
 use std::io::Error;
 use std::string::FromUtf8Error;
 use thiserror::Error;
-use crate::util::error::index_format_too_old::IndexFormatTooOld;
 
 #[derive(Debug, Error)]
 pub enum DataIOError {
@@ -53,6 +54,9 @@ pub enum DataIOError {
 
     #[error("{0}")]
     IndexFormatTooOld(#[from] IndexFormatTooOld),
+
+    #[error("{0}")]
+    RuntimeError(#[from] RuntimeError),
 }
 impl DataIOError {
     pub fn io(err: Error) -> Self {

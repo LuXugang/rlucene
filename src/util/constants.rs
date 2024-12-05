@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 use crate::store::ReadAdvice;
+use std::env;
 
-#[allow(dead_code)]
-pub const DEFAULT_READ_ADVICE: ReadAdvice = ReadAdvice::Random;
-
-#[allow(dead_code)]
 struct Constants;

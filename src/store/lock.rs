@@ -17,11 +17,11 @@
 /**
  * An interprocess mutex lock.
  */
-pub trait Lock{
+pub trait Lock {
     /**
-    * Best effort check that this lock is still valid. Locks could become invalidated externally for
-    * a number of reasons, for example if a user deletes the lock file manually or when a network
-    * filesystem is in use.
-    */
+     * Best effort check that this lock is still valid. Locks could become invalidated externally for
+     * a number of reasons, for example if a user deletes the lock file manually or when a network
+     * filesystem is in use.
+     */
     fn ensure_valid();
 }

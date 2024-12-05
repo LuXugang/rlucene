@@ -30,7 +30,7 @@ use std::fmt::Display;
  * positioned independently.
  *
  */
-pub trait IndexInput: DataInput + Display + Clone {
+pub trait IndexInput: DataInput + Clone {
     /** Returns the current position in this file, where the next read will occur. */
     fn get_file_pointer(&self) -> u64;
 

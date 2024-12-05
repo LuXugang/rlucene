@@ -18,6 +18,7 @@ use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
 use crate::util::error::runtime_error::RuntimeError;
+use lazy_static::lazy_static;
 
 /**
  * IOContext holds additional details on the merge/search context. An IOContext object can never be
@@ -81,7 +82,7 @@ impl IOContext {
     }
     /** Creates a default IOContext for reading/writing with the given `ReadAdvice` */
     fn new_with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, RuntimeError> {
-        Self::new(None, Some(read_advice), None, None)
+        Self::new(Some(Context::Default), Some(read_advice), None, None)
     }
 
     /** Creates an `IOContext` for flushing. */
@@ -110,5 +111,19 @@ impl IOContext {
         } else {
             Ok(self.clone())
         }
+    }
+    /**
+     * A default context for normal reads/writes. Use `withReadAdvice(ReadAdvice)` to specify
+     * another `ReadAdvice`.
+     *
+     * It will use `ReadAdvice#RANDOM` by default, unless set by system property
+     * `lucene.store.defaultReadAdvice`.
+     */
+    pub fn default_io_context() -> Result<IOContext, RuntimeError> {
+        Self::new_with_read_advice(ReadAdvice::default_read_advice())
+    }
+
+    pub fn read_once_io_context() -> Result<IOContext, RuntimeError> {
+        Self::new_with_read_advice(ReadAdvice::Sequential)
     }
 }

@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Write;
 use rand::Rng;
+use std::fmt::Write;
 
 pub const ID_LENGTH: u32 = 16;
 #[allow(dead_code)] // for quick search
@@ -23,7 +23,7 @@ struct StringHelper;
 
 pub fn random_id() -> [u8; 16] {
     let mut rng = rand::thread_rng();
-    rng.gen::<[u8; 16]>() 
+    rng.gen::<[u8; 16]>()
 }
 
 /**
