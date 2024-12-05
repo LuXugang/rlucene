@@ -22,6 +22,7 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::rc::Rc;
+use crate::util::error::runtime_error::RuntimeError;
 
 //TODO
 #[allow(dead_code)]
@@ -55,12 +56,12 @@ impl DocsWithFieldSet<FixedBitSet> {
      *
      * @param docID – document ID to be added
      */
-    pub fn add(&mut self, doc_id: i32) -> Result<(), String> {
+    pub fn add(&mut self, doc_id: i32) -> Result<(), RuntimeError> {
         if doc_id <= self.last_doc_id {
-            return Err(format!(
+            return Err(RuntimeError::illegal_argument( format!(
                 "Out of order doc ids: last= {}, next= {}",
                 self.last_doc_id, doc_id
-            ));
+            )));
         }
         if self.set.length() != 0 {
             FixedBitSet::ensure_capacity(&mut self.set, doc_id);

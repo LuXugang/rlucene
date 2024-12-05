@@ -123,12 +123,12 @@ impl RoaringDocIdSetBuilder {
         }
     }
     /** Add a new doc-id to this builder. NOTE: doc ids must be added in order. */
-    pub fn add(&mut self, doc_id: i32) -> Result<(), String> {
+    pub fn add(&mut self, doc_id: i32) -> Result<(), RuntimeError> {
         if doc_id <= self.last_doc_id {
-            return Err(format!(
+            return Err(RuntimeError::illegal_argument( format!(
                 "Doc ids must be added in-order, got {} which is <= lastDocID=",
                 self.last_doc_id
-            ));
+            )));
         }
         let block = doc_id >> 16;
         if block != self.current_block {

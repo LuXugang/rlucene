@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::runtime_error::RuntimeError;
 
 /// This abstract class defines methods to iterate over a set of non-decreasing document IDs.
 /// Note that this class assumes it iterates on document IDs, and therefore [`NO_MORE_DOCS`]
@@ -169,15 +170,15 @@ pub struct Range {
     max_doc: i32,
 }
 impl Range {
-    pub fn new(min_doc: i32, max_doc: i32) -> Result<Range, String> {
+    pub fn new(min_doc: i32, max_doc: i32) -> Result<Range, RuntimeError> {
         if min_doc >= max_doc {
-            return Err(format!(
+            return Err(RuntimeError::illegal_argument( format!(
                 "minDoc must be < maxDoc but got minDoc= {} maxDoc= {}",
                 min_doc, max_doc
-            ));
+            )));
         }
         if min_doc < 0 {
-            return Err(format!("minDoc must be >= 0 but got minDoc= {}", min_doc));
+            return Err(RuntimeError::illegal_argument( format!("minDoc must be >= 0 but got minDoc= {}", min_doc)));
         }
         Ok(Range {
             doc: -1,
