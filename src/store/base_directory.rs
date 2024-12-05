@@ -20,8 +20,12 @@ use crate::store::lock_factory::LockFactory;
 use crate::util::error::data_io_error_enum::DataIOError;
 
 ///Base implementation for a concrete {@link Directory} that uses a {@link LockFactory} for locking.
-pub trait BaseDirectory: Directory{
-   fn obtain_lock(&mut self, lock_name: &str, lock_factory: &mut impl LockFactory) -> Result<impl Lock, DataIOError>{
-      Ok(lock_factory.obtain_lock(lock_name))
-   }
+pub trait BaseDirectory: Directory {
+    fn obtain_lock(
+        &mut self,
+        lock_name: &str,
+        lock_factory: &mut impl LockFactory,
+    ) -> Result<impl Lock, DataIOError> {
+        Ok(lock_factory.obtain_lock(lock_name))
+    }
 }

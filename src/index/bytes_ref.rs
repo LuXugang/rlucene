@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::runtime_error::RuntimeError;
 use std::cmp::Ordering;
 use std::hash::Hash;
-use crate::util::error::runtime_error::RuntimeError;
-
 
 /// Represents a `&[u8]` as a slice (offset + length) into an existing byte array.
 /// The `bytes` member should never be `None`;
@@ -119,22 +118,22 @@ impl BytesRef {
     }
     /// Performs internal consistency checks. Always returns `true` (or throws `IllegalStateError`).
     pub fn is_valid(&self) -> Result<bool, RuntimeError> {
-        if self.length as usize> self.bytes.len() {
-            return Err(RuntimeError::illegal_state( format!(
+        if self.length as usize > self.bytes.len() {
+            return Err(RuntimeError::illegal_state(format!(
                 "length is out of bounds: {},bytes.length= {}",
                 self.length,
                 self.bytes.len()
             )));
         }
-        if self.offset as usize> self.bytes.len(){
-            return Err(RuntimeError::illegal_state( format!(
+        if self.offset as usize > self.bytes.len() {
+            return Err(RuntimeError::illegal_state(format!(
                 "offset out of bounds: {},bytes.length= {}",
                 self.offset,
                 self.bytes.len()
             )));
         }
-        if (self.offset + self.length) as usize > self.bytes.len(){
-            return Err(RuntimeError::illegal_state( format!(
+        if (self.offset + self.length) as usize > self.bytes.len() {
+            return Err(RuntimeError::illegal_state(format!(
                 "offset+length out of bounds: offset={},length={},bytes.length= {}",
                 self.offset,
                 self.length,

@@ -84,7 +84,7 @@ impl BytesRefComparator for Natural {
         (slice1.len() as i32) - (slice2.len() as i32)
     }
 
-    fn compared_bytes_count(&self) -> u32{
+    fn compared_bytes_count(&self) -> u32 {
         self.compared_bytes_count
     }
 }

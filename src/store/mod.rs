@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+mod base_directory;
 pub mod buffered_checksum;
 pub mod buffered_checksum_index_input;
 pub mod byte_array_data_input;
@@ -30,6 +31,7 @@ pub mod data_input_type;
 pub mod data_output;
 pub mod directory;
 pub mod flush_info;
+mod fs_directory;
 mod fs_lock_factory;
 pub mod index_input;
 pub mod index_output;
@@ -41,8 +43,6 @@ pub mod output_stream_data_output;
 pub mod output_stream_index_output;
 pub mod random_access_input;
 pub mod read_advice;
-mod base_directory;
-mod fs_directory;
 
 pub use buffered_checksum::*;
 pub use byte_array_data_input::*;

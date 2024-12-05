@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
 use crate::store::lock::Lock;
+use std::fmt::Display;
 
 /**
  * Base class for Locking implementation. `Directory` uses instances of this class to
@@ -34,7 +34,7 @@ use crate::store::lock::Lock;
  * environment, you can easily test it by using `VerifyingLockFactory`,`LockVerifyServer` and `LockStressTest`.
  *
  */
-pub trait LockFactory:Display{
+pub trait LockFactory: Display {
     /**
      * Return a new obtained Lock instance identified by lockName.
      *

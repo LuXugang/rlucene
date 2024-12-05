@@ -26,10 +26,8 @@ use std::rc::Rc;
 //TODO
 #[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
-/**
- * Accumulator for documents that have a value for a field. This is optimized for the case that all
- * documents have a value.
- */
+/// Accumulator for documents that have a value for a field.
+/// This is optimized for the case where all documents have a value.
 pub struct DocsWithFieldSet<FixedBitSet> {
     set: FixedBitSet,
     cardinality: i32,
@@ -75,6 +73,10 @@ impl DocsWithFieldSet<FixedBitSet> {
         self.last_doc_id = doc_id;
         self.cardinality += 1;
         Ok(())
+    }
+    /// Returns the number of documents in this set.
+    pub fn cardinality(&self) -> i32 {
+        self.cardinality
     }
 }
 pub enum DocsWithFieldSetEnum<'a, T: BitSet> {

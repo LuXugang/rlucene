@@ -18,7 +18,8 @@ use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, 
 use crate::util::accountable::Accountable;
 use crate::util::bits::{Bits, MatchAllBits, MatchNoBits};
 use std::rc::Rc;
-
+/// A `DocIdSet` contains a set of document IDs.
+/// Implementing types must provide an [`iterator`](DocIdSet::iterator) method to access the set.
 pub trait DocIdSet: Accountable {
     type DISIType<'a>: DocIdSetIterator + 'a
     where
@@ -32,21 +33,25 @@ pub trait DocIdSet: Accountable {
     // this is the opposite of what bits() is for now
     // (down-low filtering using e.g. FixedBitSet)
 
-    /**
-     * Optionally provides a `Bits\ interface for random access to matching documents.
-     *
-     * return `None`, if this `DocIdSet` does not support random access. In contrast to
-     * `iterator()`, a return value of `None` **does not** imply that no documents
-     * match the filter! The default implementation does not provide random access, so you only
-     * need to implement this method if your DocIdSet can guarantee random access to every doc id
-     * in O(1) time without external disk access. This is generally true for bit sets like
-     * `FixedBitSet`, which return itself if they are used as `DocIdSet`.
-     */
+    /// Optionally provides a [`Bits`] interface for random access to matching documents.
+    ///
+    /// # Returns
+    /// * `None` if this `DocIdSet` does not support random access.
+    ///
+    /// Note that, unlike [`iterator`](DocIdSet::iterator), a return value of `None` **does not** imply
+    /// that no documents match the filter!
+    ///
+    /// The default implementation does not provide random access, so you only need to implement this
+    /// method if your [`DocIdSet`] can guarantee random access to every document ID in `O(1)` time
+    /// without external disk access (as the [`Bits`] interface cannot throw an `IOError`).
+    /// This is generally true for bit sets like [`FixedBitSet`](crate::util::fixed_bit_set::FixedBitSet),
+    /// which return themselves if used as a [`DocIdSet`].
 
     type BitType: Bits;
     fn bits(&self) -> Option<Rc<Self::BitType>>;
 }
 
+/// A [`DocIdSet`] that matches all document IDs up to a specified document (exclusive).
 struct All {
     max_doc: i32,
     bits: Option<Rc<MatchAllBits>>,

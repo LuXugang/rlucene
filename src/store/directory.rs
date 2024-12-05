@@ -26,7 +26,7 @@ use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::Display;
 
-/// A `Directory` provides an abstraction layer for storing a list of files. 
+/// A `Directory` provides an abstraction layer for storing a list of files.
 /// A directory contains only files (no sub-folder hierarchy).
 ///
 /// # Requirements

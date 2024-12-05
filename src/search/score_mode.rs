@@ -17,31 +17,26 @@
 
 #[allow(dead_code)]
 pub enum ScoreMode {
-    /** Produced scorers will allow visiting all matches and get their score. */
     Complete {
         is_exhaustive: bool,
         needs_scores: bool,
     },
 
-    /** Produced scorers will allow visiting all matches but scores won't be available. */
     CompleteNoScores {
         is_exhaustive: bool,
         needs_scores: bool,
     },
 
-    /** Produced scorers will optionally allow skipping over non-competitive hits. */
     TopScores {
         is_exhaustive: bool,
         needs_scores: bool,
     },
 
-    /**  ScoreMode for top field collectors that can provide their own iterators. */
     TopDocs {
         is_exhaustive: bool,
         needs_scores: bool,
     },
 
-    /** ScoreMode for top field collectors with a secondary sort by `_score`. */
     TopDocsWithScores {
         is_exhaustive: bool,
         needs_scores: bool,
@@ -49,7 +44,6 @@ pub enum ScoreMode {
 }
 
 impl ScoreMode {
-    /** Whether this `ScoreMode` needs to compute scores. */
     #[allow(dead_code)]
     pub fn needs_scores(&self) -> bool {
         match self {
@@ -61,7 +55,6 @@ impl ScoreMode {
         }
     }
 
-    /** Whether this `ScoreMode` is exhaustive. */
     #[allow(dead_code)]
     pub fn is_exhaustive(&self) -> bool {
         match self {

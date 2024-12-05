@@ -52,6 +52,4 @@
 ///
 /// # See Also
 /// - `Directory`
-pub trait FSDirectory{
-
-}
+pub trait FSDirectory {}

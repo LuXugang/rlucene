@@ -158,9 +158,9 @@ impl IndexFileNames {
         }
     }
 }
-/** Name of the index segment file */
+/// Name of the index segment file
 pub const SEGMENTS: &str = "segments";
-/** Name of pending index segment file */
+/// Name of pending index segment file
 pub const PENDING_SEGMENTS: &str = "pending_segments";
 
 lazy_static::lazy_static! {

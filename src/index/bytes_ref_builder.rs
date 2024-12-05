@@ -39,7 +39,7 @@ impl BytesRefBuilder {
     }
 
     /** Return the number of bytes in this buffer. */
-    pub fn length(&self) -> u32{
+    pub fn length(&self) -> u32 {
         self.bytes_ref.length
     }
 
@@ -59,7 +59,7 @@ impl BytesRefBuilder {
     }
     fn grow(&mut self, capacity: u32) {
         let current_len = self.bytes_ref.bytes.len();
-        if capacity as usize<= current_len {
+        if capacity as usize <= current_len {
             return;
         }
         for _i in 0..(capacity as usize - current_len) {

@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 pub enum IndexOptions {
-    /** Not indexed */
+    /// Not indexed
     NONE,
-    /**
-     * Only documents are indexed: term frequencies and positions are omitted. Phrase and other
-     * positional queries on the field will throw an exception, and scoring will behave as if any term
-     * in the document appears only once.
-     */
+    /// Only documents are indexed: term frequencies and positions are omitted.
+    /// Phrase and other positional queries on the field will throw an exception,
+    /// and scoring will behave as if any term in the document appears only once.
     DOCS,
-    /**
-     * Only documents and term frequencies are indexed: positions are omitted. This enables normal
-     * scoring, except Phrase and other positional queries will throw an exception.
-     */
+    /// Only documents and term frequencies are indexed: positions are omitted.
+    /// This enables normal scoring, but Phrase and other positional queries will throw an Error.
     DocsAndFreqs,
-    /**
-     * Indexes documents, frequencies and positions. This is a typical default for full-text search:
-     * full scoring is enabled and positional queries are supported.
-     */
+    /// Indexes documents, frequencies, and positions.
+    /// This is the typical default for full-text search: full scoring is enabled, and positional queries are supported.
     DocsAndFreqsAndPositions,
-    /**
-     * Indexes documents, frequencies, positions and offsets. Character offsets are encoded alongside
-     * the positions.
-     */
+    /// Indexes documents, frequencies, positions, and offsets.
+    /// Character offsets are encoded alongside the positions.
     DocsAndFreqsAndPositionsAndOffsets,
 }
