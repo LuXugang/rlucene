@@ -48,7 +48,7 @@ pub trait DocIdSetIterator {
     /// # Behavior for `target > current`
     /// When `target > current`, it behaves similarly to:
     ///
-    /// ```rust
+    /// ```text
     /// fn advance(target: i32) -> i32 {
     ///     let mut doc;
     ///     while {
