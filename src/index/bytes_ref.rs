@@ -24,7 +24,7 @@ use crate::util::error::runtime_error::RuntimeError;
 ///
 /// # Important Note
 /// Unless otherwise noted, this struct is used to represent terms encoded as **UTF-8** bytes in the index.
-/// To convert them to a Rust `String` (which is UTF-8), use [`utf8_to_string()`].
+/// To convert them to a Rust `String` (which is UTF-8), use [`utf8_to_string`](#method.utf8_to_string).
 /// Using code like `String::from_utf8_lossy(&bytes[offset..offset+length])` is the correct way to handle this.
 /// Avoid constructing strings incorrectly, as it may result in wrong results.
 ///
@@ -32,6 +32,7 @@ use crate::util::error::runtime_error::RuntimeError;
 /// This struct implements `Ord`. The underlying byte arrays are sorted lexicographically, treating elements as unsigned.
 /// This is identical to Unicode codepoint order.
 pub struct BytesRef {
+    /// The contents of the BytesRef. Should never be `None`.
     pub bytes: Vec<u8>,
     pub offset: u32,
     pub length: u32,
@@ -81,6 +82,13 @@ impl BytesRef {
             length: s.len() as u32,
         }
     }
+    /// Expert: compares the bytes against another BytesRef, returning true if the bytes are equal.
+    ///
+    /// # Arguments
+    /// * `other` - Another BytesRef
+    ///
+    /// # Note
+    /// This is an internal method.
     pub fn bytes_equals(&self, other: &BytesRef) -> bool {
         if self.length == other.length {
             for i in 0..self.length {
@@ -103,9 +111,13 @@ impl BytesRef {
         std::str::from_utf8(&self.bytes[self.offset as usize..(self.offset + self.length) as usize])
             .map(|s| s.to_owned())
     }
+    /// Creates a new `BytesRef` that points to a copy of the bytes from `other`.
+    ///
+    /// The returned `BytesRef` will have a length equal to `other.length` and an offset of zero.
     pub fn deep_copy_of(other: &BytesRef) -> BytesRef {
         Self::new_from_vec(other.bytes.clone(), 0, other.length)
     }
+    /// Performs internal consistency checks. Always returns `true` (or throws `IllegalStateError`).
     pub fn is_valid(&self) -> Result<bool, RuntimeError> {
         if self.length as usize> self.bytes.len() {
             return Err(RuntimeError::illegal_state( format!(
@@ -149,6 +161,7 @@ impl Ord for BytesRef {
 impl Clone for BytesRef {
     fn clone(&self) -> Self {
         BytesRef {
+            //TODO: maybe we should avoid cloning the bytes here
             bytes: self.bytes.clone(),
             offset: self.offset,
             length: self.length,
