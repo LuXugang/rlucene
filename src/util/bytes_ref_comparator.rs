@@ -27,11 +27,11 @@ pub trait BytesRefComparator: Comparator<BytesRef> {
      * that are useful for comparisons are exhausted. This may only be called with a value of i between
      * 0 included and `compared_bytes_count` excluded.
      */
-    fn byte_at(&self, bytes_ref: &BytesRef, i: i32) -> i32;
-    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: i32) -> i32 {
+    fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32;
+    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: u32) -> i32 {
         for i in k..self.compared_bytes_count() {
-            let b1 = self.byte_at(o1, i);
-            let b2 = self.byte_at(o2, i);
+            let b1 = self.byte_at(o1, i as u32);
+            let b2 = self.byte_at(o2, i as u32);
             if b1 != b2 {
                 return b1 - b2;
             } else if b1 == -1 {
@@ -40,16 +40,16 @@ pub trait BytesRefComparator: Comparator<BytesRef> {
         }
         0
     }
-    fn compared_bytes_count(&self) -> i32;
+    fn compared_bytes_count(&self) -> u32;
 }
 
 pub struct Natural {
-    compared_bytes_count: i32,
+    compared_bytes_count: u32,
 }
 impl Default for Natural {
     fn default() -> Self {
         Natural {
-            compared_bytes_count: i32::MAX,
+            compared_bytes_count: u32::MAX,
         }
     }
 }
@@ -61,7 +61,7 @@ impl Comparator<BytesRef> for Natural {
 }
 
 impl BytesRefComparator for Natural {
-    fn byte_at(&self, bytes_ref: &BytesRef, i: i32) -> i32 {
+    fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32 {
         if i < bytes_ref.length {
             bytes_ref.bytes[(i + bytes_ref.offset) as usize] as i32
         } else {
@@ -69,7 +69,7 @@ impl BytesRefComparator for Natural {
         }
     }
 
-    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: i32) -> i32 {
+    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: u32) -> i32 {
         let start1 = (o1.offset + k) as usize;
         let start2 = (o2.offset + k) as usize;
 
@@ -84,7 +84,7 @@ impl BytesRefComparator for Natural {
         (slice1.len() as i32) - (slice2.len() as i32)
     }
 
-    fn compared_bytes_count(&self) -> i32 {
+    fn compared_bytes_count(&self) -> u32{
         self.compared_bytes_count
     }
 }

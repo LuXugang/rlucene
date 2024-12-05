@@ -76,7 +76,7 @@ pub fn write_header(
     version: u32,
 ) -> Result<(), DataIOError> {
     let bytes = BytesRef::new_from_string(codec);
-    if bytes.length != codec.len() as i32 || bytes.length >= 128 {
+    if bytes.length as usize != codec.len() || bytes.length >= 128 {
         return Err(DataIOError::illegal_argument(format!(
             "codec must be simple ASCII, less than 128 characters in length got {}",
             codec

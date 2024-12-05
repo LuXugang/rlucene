@@ -91,6 +91,7 @@ fn test_read_and_write() {
         let mut builder = BytesRefBuilder::new();
         for expected in list.iter() {
             bytes_ref_builder.set_length(expected.length);
+            assert!(bytes_ref_builder.length() <= i32::MAX as u32);
             let bytes_ref_builder_length = bytes_ref_builder.length();
             let value = random.gen_range(0..2);
             match value {
@@ -99,7 +100,7 @@ fn test_read_and_write() {
                         position,
                         &mut bytes_ref_builder.get().bytes,
                         0,
-                        bytes_ref_builder_length,
+                        bytes_ref_builder_length as i32,
                     );
                 }
                 1 => {
@@ -109,7 +110,7 @@ fn test_read_and_write() {
                         &mut builder,
                         &mut scratch,
                         position,
-                        bytes_ref_builder.length(),
+                        bytes_ref_builder.length() as i32,
                     );
                     bytes_ref_builder.get().bytes[0..bytes_ref_builder_length as usize]
                         .copy_from_slice(

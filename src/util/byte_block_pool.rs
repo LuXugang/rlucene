@@ -126,7 +126,7 @@ impl<'a> ByteBlockPool<'a> {
         offset: i64,
         length: i32,
     ) {
-        result.length = length;
+        result.length = length as u32;
         let buffer_index = (offset >> BYTE_BLOCK_SHIFT) as i32;
         let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
         if pos + length <= BYTE_BLOCK_SIZE {
@@ -134,7 +134,7 @@ impl<'a> ByteBlockPool<'a> {
             result
                 .bytes
                 .clone_from(&self.buffers[buffer_index as usize]);
-            result.offset = pos;
+            result.offset = pos as u32;
         } else {
             // builder.grow_no_copy(length);
             result.offset = 0;
@@ -144,7 +144,9 @@ impl<'a> ByteBlockPool<'a> {
     }
     /** Appends the bytes in the provided BytesRef at the current position. */
     pub fn append_bytes_ref(&mut self, bytes: BytesRef) {
-        self.append_range(bytes.bytes, bytes.offset, bytes.length);
+        debug_assert!(bytes.offset <= i32::MAX as u32);
+        debug_assert!(bytes.length <= i32::MAX as u32);
+        self.append_range(bytes.bytes, bytes.offset as i32, bytes.length as i32);
     }
     /**
      * Append the bytes from a source ByteBlockPool at a given offset and length

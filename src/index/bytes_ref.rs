@@ -17,17 +17,22 @@
 use std::cmp::Ordering;
 use std::hash::Hash;
 
-/**
- * Represents `vec<i16>`, as a slice (offset + length) into an existing `vec<i16>`.
- *
- * <p>`BytesRef` implements `Comparable`. The underlying byte arrays are sorted
- * lexicographically, numerically treating elements as unsigned. This is identical to Unicode
- * codepoint order.</p>
-*/
+/// Represents a `&[u8]` as a slice (offset + length) into an existing byte array.  
+/// The `bytes` member should never be `None`;
+///
+/// # Important Note
+/// Unless otherwise noted, this struct is used to represent terms encoded as **UTF-8** bytes in the index.  
+/// To convert them to a Rust `String` (which is UTF-8), use [`utf8_to_string()`].  
+/// Using code like `String::from_utf8_lossy(&bytes[offset..offset+length])` is the correct way to handle this.  
+/// Avoid constructing strings incorrectly, as it may result in wrong results.
+///
+/// # Sorting
+/// This struct implements `Ord`. The underlying byte arrays are sorted lexicographically, treating elements as unsigned.  
+/// This is identical to Unicode codepoint order.
 pub struct BytesRef {
     pub bytes: Vec<u8>,
-    pub offset: i32,
-    pub length: i32,
+    pub offset: u32,
+    pub length: u32,
 }
 impl Default for BytesRef {
     fn default() -> Self {
@@ -43,7 +48,7 @@ impl BytesRef {
             length: 0,
         }
     }
-    pub fn new_from_vec(bytes: Vec<u8>, offset: i32, length: i32) -> BytesRef {
+    pub fn new_from_vec(bytes: Vec<u8>, offset: u32, length: u32) -> BytesRef {
         BytesRef {
             bytes,
             offset,
@@ -51,7 +56,8 @@ impl BytesRef {
         }
     }
     pub fn new_from_bytes(bytes: Vec<u8>) -> BytesRef {
-        let length = bytes.len() as i32;
+        debug_assert!(bytes.len() <= u32::MAX as usize);
+        let length = bytes.len() as u32;
         BytesRef {
             bytes,
             offset: 0,
@@ -66,10 +72,11 @@ impl BytesRef {
         }
     }
     pub fn new_from_string(s: &str) -> BytesRef {
+        debug_assert!(s.len() <= u32::MAX as usize);
         BytesRef {
             bytes: s.as_bytes().to_vec(),
             offset: 0,
-            length: s.len() as i32,
+            length: s.len() as u32,
         }
     }
     pub fn bytes_equals(&self, other: &BytesRef) -> bool {
@@ -85,7 +92,11 @@ impl BytesRef {
         }
         false
     }
-
+    /// Interprets the stored bytes as UTF-8, returning the resulting string.
+    ///
+    /// # Errors
+    /// - May panic with an assertion error if debug assertions are enabled and the data is not well-formed UTF-8.
+    /// - May return an error or panic if the data is not valid UTF-8 during runtime.
     pub fn utf8_to_string(&self) -> Result<String, std::str::Utf8Error> {
         std::str::from_utf8(&self.bytes[self.offset as usize..(self.offset + self.length) as usize])
             .map(|s| s.to_owned())
@@ -97,7 +108,7 @@ impl BytesRef {
         if self.length < 0 {
             return Err(format!("length is negative: {}", self.length));
         }
-        if self.length > self.bytes.len() as i32 {
+        if self.length as usize> self.bytes.len() {
             return Err(format!(
                 "length is out of bounds: {},bytes.length= {}",
                 self.length,
@@ -107,7 +118,7 @@ impl BytesRef {
         if self.offset < 0 {
             return Err(format!("offset is negative: {}", self.offset));
         }
-        if self.offset > self.bytes.len() as i32 {
+        if self.offset as usize> self.bytes.len(){
             return Err(format!(
                 "offset out of bounds: {},bytes.length= {}",
                 self.offset,
@@ -120,7 +131,7 @@ impl BytesRef {
                 self.offset, self.length
             ));
         }
-        if self.offset + self.length > self.bytes.len() as i32 {
+        if (self.offset + self.length) as usize > self.bytes.len(){
             return Err(format!(
                 "offset+length out of bounds: offset={},length={},bytes.length= {}",
                 self.offset,
