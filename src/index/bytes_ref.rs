@@ -16,18 +16,20 @@
  */
 use std::cmp::Ordering;
 use std::hash::Hash;
+use crate::util::error::runtime_error::RuntimeError;
 
-/// Represents a `&[u8]` as a slice (offset + length) into an existing byte array.  
+
+/// Represents a `&[u8]` as a slice (offset + length) into an existing byte array.
 /// The `bytes` member should never be `None`;
 ///
 /// # Important Note
-/// Unless otherwise noted, this struct is used to represent terms encoded as **UTF-8** bytes in the index.  
-/// To convert them to a Rust `String` (which is UTF-8), use [`utf8_to_string()`].  
-/// Using code like `String::from_utf8_lossy(&bytes[offset..offset+length])` is the correct way to handle this.  
+/// Unless otherwise noted, this struct is used to represent terms encoded as **UTF-8** bytes in the index.
+/// To convert them to a Rust `String` (which is UTF-8), use [`utf8_to_string()`].
+/// Using code like `String::from_utf8_lossy(&bytes[offset..offset+length])` is the correct way to handle this.
 /// Avoid constructing strings incorrectly, as it may result in wrong results.
 ///
 /// # Sorting
-/// This struct implements `Ord`. The underlying byte arrays are sorted lexicographically, treating elements as unsigned.  
+/// This struct implements `Ord`. The underlying byte arrays are sorted lexicographically, treating elements as unsigned.
 /// This is identical to Unicode codepoint order.
 pub struct BytesRef {
     pub bytes: Vec<u8>,
@@ -104,40 +106,28 @@ impl BytesRef {
     pub fn deep_copy_of(other: &BytesRef) -> BytesRef {
         Self::new_from_vec(other.bytes.clone(), 0, other.length)
     }
-    pub fn is_valid(&self) -> Result<bool, String> {
-        if self.length < 0 {
-            return Err(format!("length is negative: {}", self.length));
-        }
+    pub fn is_valid(&self) -> Result<bool, RuntimeError> {
         if self.length as usize> self.bytes.len() {
-            return Err(format!(
+            return Err(RuntimeError::illegal_state( format!(
                 "length is out of bounds: {},bytes.length= {}",
                 self.length,
                 self.bytes.len()
-            ));
-        }
-        if self.offset < 0 {
-            return Err(format!("offset is negative: {}", self.offset));
+            )));
         }
         if self.offset as usize> self.bytes.len(){
-            return Err(format!(
+            return Err(RuntimeError::illegal_state( format!(
                 "offset out of bounds: {},bytes.length= {}",
                 self.offset,
                 self.bytes.len()
-            ));
-        }
-        if self.offset + self.length < 0 {
-            return Err(format!(
-                "offset+length is negative: offset={},length={}",
-                self.offset, self.length
-            ));
+            )));
         }
         if (self.offset + self.length) as usize > self.bytes.len(){
-            return Err(format!(
+            return Err(RuntimeError::illegal_state( format!(
                 "offset+length out of bounds: offset={},length={},bytes.length= {}",
                 self.offset,
                 self.length,
                 self.bytes.len()
-            ));
+            )));
         }
         Ok(true)
     }
