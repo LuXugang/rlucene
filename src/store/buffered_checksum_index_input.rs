@@ -91,7 +91,7 @@ where
     }
 
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
-        IndexInput::skip_bytes(&mut self.main, num_bytes)
+        IndexInput::skip_bytes(self, num_bytes)
     }
 }
 

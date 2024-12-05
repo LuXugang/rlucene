@@ -157,11 +157,11 @@ impl DocIdSetBuilder {
         }
         true
     }
-    // only for test
+    #[cfg(feature = "test_only")]
     pub fn get_num_values_per_doc(&self) -> f64 {
         self.num_values_per_doc
     }
-    // only for test
+    #[cfg(feature = "test_only")]
     pub fn get_multi_valued(&self) -> bool {
         self.multi_valued
     }

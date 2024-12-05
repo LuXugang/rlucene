@@ -15,4 +15,3 @@
  * limitations under the License.
  */
 pub mod codec_util;
-use codec_util::*;

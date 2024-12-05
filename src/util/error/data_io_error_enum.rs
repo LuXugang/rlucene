@@ -50,7 +50,7 @@ pub enum DataIOError {
 
     #[error("{0}")]
     IndexFormatTooNew(#[from] IndexFormatTooNew),
-    
+
     #[error("{0}")]
     IndexFormatTooOld(#[from] IndexFormatTooOld),
 }

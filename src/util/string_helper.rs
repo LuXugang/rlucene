@@ -15,8 +15,16 @@
  * limitations under the License.
  */
 use std::fmt::Write;
-pub const ID_LENGTH: u32 = 36;
+use rand::Rng;
+
+pub const ID_LENGTH: u32 = 16;
+#[allow(dead_code)] // for quick search
 struct StringHelper;
+
+pub fn random_id() -> [u8; 16] {
+    let mut rng = rand::thread_rng();
+    rng.gen::<[u8; 16]>() 
+}
 
 /**
  * Helper method to render an ID as a string, for debugging

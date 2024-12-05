@@ -214,7 +214,6 @@ dependencies = [
  "crc32fast",
  "lazy_static",
  "num-bigint",
- "num-traits",
  "rand",
  "rand_xoshiro",
  "regex",
