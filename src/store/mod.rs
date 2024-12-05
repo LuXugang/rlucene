@@ -26,7 +26,6 @@ pub mod byte_buffers_index_output;
 pub mod check_sum_index_input;
 pub mod checksum;
 pub mod data_input;
-pub mod data_input_default_impl;
 pub mod data_input_type;
 pub mod data_output;
 pub mod directory;
@@ -39,6 +38,9 @@ pub mod output_stream_data_output;
 pub mod output_stream_index_output;
 pub mod random_access_input;
 pub mod read_advice;
+mod lock;
+mod lock_factory;
+mod fs_lock_factory;
 
 pub use buffered_checksum::*;
 pub use byte_array_data_input::*;

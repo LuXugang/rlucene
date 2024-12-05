@@ -59,9 +59,6 @@ impl<'a> ByteBuffersDataInput<'a> {
             pos: offset,
         }
     }
-    pub fn new_with_blocks(blocks: Vec<Cursor<&'a [u8]>>) -> Self {
-        todo!()
-    }
     fn block_index(&self, pos: u64) -> usize {
         let value = pos >> self.block_bits;
         debug_assert!(value <= i32::MAX as u64);
@@ -284,8 +281,8 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
-        todo!()
+    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
+        Ok(())
     }
 }
 

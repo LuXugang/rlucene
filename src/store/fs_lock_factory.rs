@@ -14,4 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait DataInputDefaultImpl {}
+/**
+ * Base class for file system based locking implementation. This class is explicitly checking that
+ * the passed `Directory` is an `FSDirectory`.
+ */
+pub trait FSLockFactory{
+    
+    // fn obtain_fs_Lock(dir: &, lock_name: &str) -> impl Lock;
+}
