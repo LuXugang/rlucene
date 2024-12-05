@@ -17,11 +17,11 @@
 use std::fmt;
 
 #[derive(Debug)]
-pub struct IllegalState {
+pub struct IllegalStateError {
     pub message: String,
 }
 
-impl IllegalState {
+impl IllegalStateError {
     pub fn new(msg: impl Into<String>) -> Self {
         Self {
             message: msg.into(),
@@ -35,10 +35,10 @@ impl IllegalState {
     }
 }
 
-impl fmt::Display for IllegalState {
+impl fmt::Display for IllegalStateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Illegal State: {}", self.message)
     }
 }
 
-impl std::error::Error for IllegalState {}
+impl std::error::Error for IllegalStateError {}

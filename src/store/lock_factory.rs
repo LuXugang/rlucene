@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
 use crate::store::lock::Lock;
 
 /**
@@ -33,10 +34,10 @@ use crate::store::lock::Lock;
  * environment, you can easily test it by using `VerifyingLockFactory`,`LockVerifyServer` and `LockStressTest`.
  *
  */
-pub trait LockFactory {
+pub trait LockFactory:Display{
     /**
      * Return a new obtained Lock instance identified by lockName.
      *
      */
-    fn obtain_lock(&self, lock_name: &str) -> impl Lock;
+    fn obtain_lock(&mut self, lock_name: &str) -> impl Lock;
 }

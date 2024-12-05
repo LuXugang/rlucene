@@ -41,6 +41,8 @@ pub mod output_stream_data_output;
 pub mod output_stream_index_output;
 pub mod random_access_input;
 pub mod read_advice;
+mod base_directory;
+mod fs_directory;
 
 pub use buffered_checksum::*;
 pub use byte_array_data_input::*;

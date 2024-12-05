@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 #[derive(Debug)]
-pub struct CorruptIndex {
+pub struct CorruptIndexError {
     pub message: String,
 }
 
-impl CorruptIndex {
+impl CorruptIndexError {
     pub fn new(msg: impl Into<String>) -> Self {
         Self {
             message: msg.into(),
@@ -27,10 +27,10 @@ impl CorruptIndex {
     }
 }
 
-impl std::fmt::Display for CorruptIndex {
+impl std::fmt::Display for CorruptIndexError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "corrupt index: {}", self.message)
     }
 }
 
-impl std::error::Error for CorruptIndex {}
+impl std::error::Error for CorruptIndexError {}

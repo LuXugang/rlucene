@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::illegal_argument::IllegalArgument;
-use crate::util::error::illegal_state::IllegalState;
+use crate::util::error::illegal_argument::IllegalArgumentError;
+use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::parse::Parse;
 use crate::util::StrictStringTokenizer;
 use lazy_static::lazy_static;
@@ -65,7 +65,7 @@ pub struct Version {
     encoded_value: u32,
 }
 impl Version {
-    fn new(major: u32, minor: u32, bug_fix: u32) -> Result<Version, IllegalArgument> {
+    fn new(major: u32, minor: u32, bug_fix: u32) -> Result<Version, IllegalArgumentError> {
         Version::new_with_prerelease(major, minor, bug_fix, 0)
     }
     fn new_with_prerelease(
@@ -73,35 +73,35 @@ impl Version {
         minor: u32,
         bug_fix: u32,
         prerelease: u32,
-    ) -> Result<Version, IllegalArgument> {
+    ) -> Result<Version, IllegalArgumentError> {
         // NOTE: do not enforce major version so we remain future proof, except to
         // make sure it fits in the 8 bits we encode it into:
         if major > 255 {
-            return Err(IllegalArgument::new(format!(
+            return Err(IllegalArgumentError::new(format!(
                 "Illegal major version: {}",
                 major
             )));
         }
         if minor > 255 {
-            return Err(IllegalArgument::new(format!(
+            return Err(IllegalArgumentError::new(format!(
                 "Illegal minor version: {}",
                 minor
             )));
         }
         if bug_fix > 255 {
-            return Err(IllegalArgument::new(format!(
+            return Err(IllegalArgumentError::new(format!(
                 "Illegal bug fix version: {}",
                 bug_fix
             )));
         }
         if prerelease > 2 {
-            return Err(IllegalArgument::new(format!(
+            return Err(IllegalArgumentError::new(format!(
                 "Illegal pre-release version: {}",
                 prerelease
             )));
         }
         if prerelease != 0 && (minor != 0 || bug_fix != 0) {
-            return Err(IllegalArgument::new(format!("Prerelease version only supported with major release (got prerelease: {}, minor: {}, bug_fix: {})",prerelease, minor, bug_fix)));
+            return Err(IllegalArgumentError::new(format!("Prerelease version only supported with major release (got prerelease: {}, minor: {}, bug_fix: {})", prerelease, minor, bug_fix)));
         }
         let encoded_value = (major << 18) | (minor << 10) | (bug_fix << 2) | prerelease;
         debug_assert!(encoded_is_valid(
@@ -276,7 +276,7 @@ pub fn parse_leniently(version: &str) -> Result<Version, VersionError> {
 /**
  * Returns a new version based on raw numbers
  */
-pub fn from_bits(major: u32, minor: u32, bug_fix: u32) -> Result<Version, IllegalArgument> {
+pub fn from_bits(major: u32, minor: u32, bug_fix: u32) -> Result<Version, IllegalArgumentError> {
     Version::new(major, minor, bug_fix)
 }
 
@@ -297,10 +297,10 @@ fn encoded_is_valid(
 #[derive(Debug, Error)]
 pub enum VersionError {
     #[error("{0}")]
-    IllegalState(#[from] IllegalState),
+    IllegalState(#[from] IllegalStateError),
 
     #[error("{0}")]
-    IllegalArgument(#[from] IllegalArgument),
+    IllegalArgument(#[from] IllegalArgumentError),
 
     #[error("{0}")]
     Parse(#[from] Parse),
@@ -317,7 +317,7 @@ impl VersionError {
     pub fn parse_error_with_pos(msg: impl Into<String>, position: u32) -> Self {
         VersionError::Parse(Parse::new(msg, position))
     }
-    pub fn parse_error_with_error(msg: impl Into<String>, error: IllegalArgument) -> Self {
+    pub fn parse_error_with_error(msg: impl Into<String>, error: IllegalArgumentError) -> Self {
         VersionError::Parse(Parse::new_with_error(msg, Option::from(error)))
     }
     pub fn parse_int_error(input: impl Into<String>, source: ParseIntError) -> Self {

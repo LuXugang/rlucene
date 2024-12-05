@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::illegal_state::IllegalState;
+use crate::util::error::illegal_state::IllegalStateError;
 
 pub struct StrictStringTokenizer<'a> {
     s: &'a str,
@@ -31,11 +31,11 @@ impl<'a> StrictStringTokenizer<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Result<&'a str, IllegalState> {
+    pub fn next_token(&mut self) -> Result<&'a str, IllegalStateError> {
         if let Some(start) = self.pos {
             if start >= self.s.len() {
                 self.pos = None;
-                return Err(IllegalState::new("no more tokens"));
+                return Err(IllegalStateError::new("no more tokens"));
             }
 
             if let Some(end) = self.s[start..].find(self.delimiter) {
@@ -48,7 +48,7 @@ impl<'a> StrictStringTokenizer<'a> {
                 Ok(token)
             }
         } else {
-            Err(IllegalState::new("no more tokens"))
+            Err(IllegalStateError::new("no more tokens"))
         }
     }
 

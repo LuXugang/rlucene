@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::corrupt_index::CorruptIndex;
+use crate::util::error::corrupt_index::CorruptIndexError;
 use crate::util::error::eof::Eof;
-use crate::util::error::illegal_argument::IllegalArgument;
-use crate::util::error::illegal_state::IllegalState;
-use crate::util::error::index_format_too_new::IndexFormatTooNew;
-use crate::util::error::index_format_too_old::IndexFormatTooOld;
+use crate::util::error::illegal_argument::IllegalArgumentError;
+use crate::util::error::illegal_state::IllegalStateError;
+use crate::util::error::index_format_too_new::IndexFormatTooNewError;
+use crate::util::error::index_format_too_old::IndexFormatTooOldError;
 use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::runtime_error::RuntimeError;
 use std::io::Error;
@@ -35,10 +35,10 @@ pub enum DataIOError {
     FromUtf8Error(#[from] FromUtf8Error),
 
     #[error("{0}")]
-    IllegalArgument(#[from] IllegalArgument),
+    IllegalArgument(#[from] IllegalArgumentError),
 
     #[error("{0}")]
-    IllegalState(#[from] IllegalState),
+    IllegalState(#[from] IllegalStateError),
 
     #[error("{0}")]
     Eof(#[from] Eof),
@@ -47,13 +47,13 @@ pub enum DataIOError {
     IntegerOverflow(#[from] IntegerOverflow),
 
     #[error("{0}")]
-    CorruptIndex(#[from] CorruptIndex),
+    CorruptIndex(#[from] CorruptIndexError),
 
     #[error("{0}")]
-    IndexFormatTooNew(#[from] IndexFormatTooNew),
+    IndexFormatTooNew(#[from] IndexFormatTooNewError),
 
     #[error("{0}")]
-    IndexFormatTooOld(#[from] IndexFormatTooOld),
+    IndexFormatTooOld(#[from] IndexFormatTooOldError),
 
     #[error("{0}")]
     RuntimeError(#[from] RuntimeError),
@@ -67,10 +67,10 @@ impl DataIOError {
         DataIOError::FromUtf8Error(err)
     }
     pub fn illegal_argument(msg: impl Into<String>) -> Self {
-        DataIOError::IllegalArgument(IllegalArgument::new(msg))
+        DataIOError::IllegalArgument(IllegalArgumentError::new(msg))
     }
     pub fn illegal_state(msg: impl Into<String>) -> Self {
-        DataIOError::IllegalState(IllegalState::new(msg))
+        DataIOError::IllegalState(IllegalStateError::new(msg))
     }
 
     pub fn eof(msg: impl Into<String>) -> Self {
@@ -82,13 +82,13 @@ impl DataIOError {
     }
 
     pub fn corrupt_index(msg: impl Into<String>) -> Self {
-        DataIOError::CorruptIndex(CorruptIndex::new(msg))
+        DataIOError::CorruptIndex(CorruptIndexError::new(msg))
     }
 
     pub fn index_format_too_new(msg: impl Into<String>) -> Self {
-        DataIOError::IndexFormatTooNew(IndexFormatTooNew::new(msg))
+        DataIOError::IndexFormatTooNew(IndexFormatTooNewError::new(msg))
     }
     pub fn index_format_too_old(msg: impl Into<String>) -> Self {
-        DataIOError::IndexFormatTooOld(IndexFormatTooOld::new(msg))
+        DataIOError::IndexFormatTooOld(IndexFormatTooOldError::new(msg))
     }
 }

@@ -14,26 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::error::Error;
-use std::fmt::Display;
+use crate::store::directory::Directory;
+use crate::store::lock::Lock;
+use crate::store::lock_factory::LockFactory;
+use crate::util::error::data_io_error_enum::DataIOError;
 
-#[derive(Debug)]
-pub struct IndexFormatTooNewError {
-    pub message: String,
+///Base implementation for a concrete {@link Directory} that uses a {@link LockFactory} for locking.
+pub trait BaseDirectory: Directory{
+   fn obtain_lock(&mut self, lock_name: &str, lock_factory: &mut impl LockFactory) -> Result<impl Lock, DataIOError>{
+      Ok(lock_factory.obtain_lock(lock_name))
+   }
 }
-
-impl IndexFormatTooNewError {
-    pub fn new(msg: impl Into<String>) -> Self {
-        Self {
-            message: msg.into(),
-        }
-    }
-}
-
-impl Display for IndexFormatTooNewError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, ": {}", self.message)
-    }
-}
-
-impl Error for IndexFormatTooNewError {}

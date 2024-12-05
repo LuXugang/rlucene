@@ -26,23 +26,28 @@ use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::Display;
 
-/**
- * A `Directory` provides an abstraction layer for storing a list of files. A directory
- * contains only files (no sub-folder hierarchy).
- *
- * Implementing classes must comply with the following:
- *
- * A file in a directory can be created `#createOutput`, appended to, then closed.
- * A file open for writing may not be available for read access until the corresponding
- * `IndexOutput` is closed.
- * Once a file is created it must only be opened for input `#openInput`, or deleted
- * `#deleteFile`.
- *
- * NOTE: If your application requires external synchronization, you should `not
- * synchronize on the `Directory` implementation instance as this may cause deadlock; use
- * your own (non-Lucene) objects instead.
- *
- */
+/// A `Directory` provides an abstraction layer for storing a list of files. 
+/// A directory contains only files (no sub-folder hierarchy).
+///
+/// # Requirements
+/// Implementing classes must comply with the following:
+///
+/// - A file in a directory can be created (`create_output`), appended to, then closed.
+/// - A file open for writing may not be available for read access until the corresponding
+///   `IndexOutput` is closed.
+/// - Once a file is created, it must only be opened for input (`open_input`) or deleted
+///   (`delete_file`). Calling `create_output` on an existing file must return an error (e.g.,
+///   `FileAlreadyExists`).
+///
+/// **Note:**  
+/// If your application requires external synchronization, you should **not** synchronize on the
+/// `Directory` implementation instance, as this may cause deadlock. Instead, use your own
+/// synchronization mechanisms.
+///
+/// # See Also
+/// - `FSDirectory`
+/// - `ByteBuffersDirectory`
+/// - `FilterDirectory`
 #[allow(dead_code)]
 pub trait Directory: Display {
     /**

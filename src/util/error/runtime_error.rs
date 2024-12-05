@@ -14,26 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::illegal_argument::IllegalArgument;
-use crate::util::error::illegal_state::IllegalState;
+use crate::util::error::illegal_argument::IllegalArgumentError;
+use crate::util::error::illegal_state::IllegalStateError;
 use std::fmt::Debug;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {
     #[error("{0}")]
-    IllegalArgument(#[from] IllegalArgument),
+    IllegalArgument(#[from] IllegalArgumentError),
 
     #[error("{0}")]
-    IllegalState(#[from] IllegalState),
+    IllegalState(#[from] IllegalStateError),
 }
 
 impl RuntimeError {
     pub fn illegal_argument(msg: impl Into<String>) -> Self {
-        RuntimeError::IllegalArgument(IllegalArgument::new(msg))
+        RuntimeError::IllegalArgument(IllegalArgumentError::new(msg))
     }
 
     pub fn illegal_state(msg: impl Into<String>) -> Self {
-        RuntimeError::IllegalState(IllegalState::new(msg))
+        RuntimeError::IllegalState(IllegalStateError::new(msg))
     }
 }

@@ -16,11 +16,11 @@
  */
 
 #[derive(Debug)]
-pub struct IllegalArgument {
+pub struct IllegalArgumentError {
     pub message: String,
 }
 
-impl IllegalArgument {
+impl IllegalArgumentError {
     pub fn new(msg: impl Into<String>) -> Self {
         Self {
             message: msg.into(),
@@ -28,10 +28,10 @@ impl IllegalArgument {
     }
 }
 
-impl std::fmt::Display for IllegalArgument {
+impl std::fmt::Display for IllegalArgumentError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Illegal Argument: {}", self.message)
     }
 }
 
-impl std::error::Error for IllegalArgument {}
+impl std::error::Error for IllegalArgumentError {}

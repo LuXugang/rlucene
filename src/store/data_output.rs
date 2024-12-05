@@ -27,7 +27,6 @@ use std::collections::{HashMap, HashSet};
  * `DataOutput` may only be used from one thread, because it is not thread safe (it keeps
  * internal state like file position).
 */
-#[allow(dead_code)]
 pub trait DataOutput: Sized {
     /**
      * Writes a single byte.

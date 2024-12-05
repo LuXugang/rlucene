@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::illegal_argument::IllegalArgument;
+use crate::util::error::illegal_argument::IllegalArgumentError;
 
 #[derive(Debug)]
 pub struct Parse {
     pub message: String,
     pub position: u32,
-    pub error: Option<IllegalArgument>,
+    pub error: Option<IllegalArgumentError>,
 }
 
 impl Parse {
@@ -31,7 +31,7 @@ impl Parse {
             error: None,
         }
     }
-    pub fn new_with_error(msg: impl Into<String>, error: Option<IllegalArgument>) -> Self {
+    pub fn new_with_error(msg: impl Into<String>, error: Option<IllegalArgumentError>) -> Self {
         Self {
             message: msg.into(),
             position: 0,

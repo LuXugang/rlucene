@@ -26,23 +26,54 @@ use crate::util::{id_to_string, ID_LENGTH};
 use std::cmp::Ordering;
 
 /** Constant to identify the start of a codec header. */
-pub const CODEC_MAGIC: i32 = 0x3fd76c17;
+pub const CODEC_MAGIC: u32 = 0x3fd76c17;
 /** Constant to identify the start of a codec footer. */
-pub const FOOTER_MAGIC: i32 = !CODEC_MAGIC;
-/**
- * Utility class for reading and writing versioned headers.
- *
- * <p>Writing codec headers is useful to ensure that a file is in the format you think it is.
- *
- * @lucene.experimental
- */
+pub const FOOTER_MAGIC: u32 = !CODEC_MAGIC;
+/// Utility class for reading and writing versioned headers.
+///
+/// Writing codec headers is useful to ensure that a file is in the format you expect it to be.
+///
+/// # Experimental
+/// This is an experimental API and may be subject to change in future versions.
 #[allow(dead_code)] // for quick search
 struct CodecUtil;
-
+/// Writes a codec header, which records both a string to identify the file and a version number.
+/// This header can be parsed and validated with [`check_header`].
+///
+/// # Format
+/// `CodecHeader -> Magic, CodecName, Version`
+///
+/// - **Magic**:  
+///   A `u32` (written using `write_int`). This identifies the start of the header.  
+///   It is always [`CODEC_MAGIC`].
+///
+/// - **CodecName**:  
+///   A string (written using `write_string`). This is a string to identify this file.
+///
+/// - **Version**:  
+///   A `u32` (written using `write_int`). Records the version of the file.
+///
+/// # Notes
+/// The length of a codec header depends only on the name of the codec. This length can be computed
+/// at any time with [`header_length`].
+///
+/// # Parameters
+/// - `out`: The output stream to write to.
+/// - `codec`: A string to identify this file. It should be simple ASCII and less than 128 characters
+///   in length.
+/// - `version`: The version number.
+///
+/// # Errors
+/// - `IoError`: If there is an I/O error writing to the underlying medium.
+/// - `IllegalArgumentError`: If the codec name is not simple ASCII or is more than 127 characters in length.
+///
+/// # See Also
+/// - [`check_header`]
+/// - [`header_length`]
 pub fn write_header(
     out: &mut impl DataOutput,
     codec: &str,
-    version: i32,
+    version: u32,
 ) -> Result<(), DataIOError> {
     let bytes = BytesRef::new_from_string(codec);
     if bytes.length != codec.len() as i32 || bytes.length >= 128 {
@@ -57,15 +88,43 @@ pub fn write_header(
     Ok(())
 }
 
-/**
- * Writes a codec header for an index file, which records both a string to identify the format of
- * the file, a version number, and data to identify the file instance (ID and auxiliary suffix
- * such as generation).
-*/
+/// Writes a codec header, which records both a string to identify the file and a version number.
+/// This header can be parsed and validated with [`check_header`].
+///
+/// # Format
+/// `CodecHeader -> Magic, CodecName, Version`
+///
+/// - **Magic**:  
+///   A `u32` (written using `write_int`). This identifies the start of the header.
+///   It is always [`CODEC_MAGIC`].
+///
+/// - **CodecName**:  
+///   A string (written using `write_string`). This is a string to identify this file.
+///
+/// - **Version**:  
+///   A `u32` (written using `write_int`). Records the version of the file.
+///
+/// # Notes
+/// The length of a codec header depends only on the name of the codec. This length can be computed
+/// at any time with [`header_length`].
+///
+/// # Parameters
+/// - `out`: The output stream.
+/// - `codec`: A string to identify this file. It should be simple ASCII and less than 128 characters
+///   in length.
+/// - `version`: The version number.
+///
+/// # Errors
+/// - Returns an error if there is an I/O error writing to the underlying medium.
+/// - Returns an error if the codec name is not simple ASCII or exceeds 127 characters in length.
+///
+/// # See Also
+/// - [`check_header`]
+/// - [`header_length`]
 pub fn write_index_header(
     out: &mut impl DataOutput,
     codec: &str,
-    version: i32,
+    version: u32,
     id: &[u8],
     suffix: &str,
 ) -> Result<(), DataIOError> {
@@ -92,30 +151,62 @@ pub fn write_index_header(
     )?;
     Ok(())
 }
-/**
- * Computes the length of a codec header.
- *
- */
+/// Computes the length of a codec header.
+///
+/// # Parameters
+/// - `codec`: The codec name.
+///
+/// # Returns
+/// The length of the entire codec header.
+///
+/// # See Also
+/// - [`write_header`]
 pub fn header_length(codec: &str) -> u32 {
     9 + codec.len() as u32
 }
-/**
- * Computes the length of an index header.
- */
+/// Computes the length of an index header.
+///
+/// # Parameters
+/// - `codec`: The codec name.
+///
+/// # Returns
+/// The length of the entire index header.
+///
+/// # See Also
+/// - [`write_index_header`]
 pub fn index_header_length(codec: &str, suffix: &str) -> u32 {
     header_length(codec) + ID_LENGTH + 1 + (suffix.len() as u32)
 }
-/**
- * Reads and validates a header previously written with {@link #writeHeader(DataOutput, &str,
- * i32)}.
- *
- */
+/// Reads and validates a header previously written with [`write_header`].
+///
+/// When reading a file, supply the expected `codec` and an expected version range
+/// (`min_version` to `max_version`).
+///
+/// # Parameters
+/// - `input`: The input stream, positioned at the point where the header was previously written.
+///   Typically, this is located at the beginning of the file.
+/// - `codec`: The expected codec name.
+/// - `min_version`: The minimum supported version number.
+/// - `max_version`: The maximum supported version number.
+///
+/// # Returns
+/// The actual version found if a valid header is found that matches `codec`, with an actual version
+/// satisfying `min_version <= actual <= max_version`. Otherwise, an error is returned.
+///
+/// # Errors
+/// - `CorruptIndexError`: If the first four bytes are not [`CODEC_MAGIC`] or if the codec does not match `codec`.
+/// - `IndexFormatTooOldError`: If the actual version is less than `min_version`.
+/// - `IndexFormatTooNewError`: If the actual version is greater than `max_version`.
+/// - `IoError`: If there is an I/O error reading from the underlying medium.
+///
+/// # See Also
+/// - [`write_header`]
 pub fn check_header(
     data_input: &mut impl DataInput,
     codec: &str,
     min_version: u32,
     max_version: u32,
-) -> Result<i32, DataIOError> {
+) -> Result<u32, DataIOError> {
     let actual_header = read_be_int(data_input)?;
     if actual_header != CODEC_MAGIC {
         return Err(DataIOError::corrupt_index(format!(
@@ -125,16 +216,17 @@ pub fn check_header(
     }
     check_header_no_magic(data_input, codec, min_version, max_version)
 }
-/**
- * Like `checkHeader(DataInput,&str,i32,i32)` except this version assumes the first int
- * has already been read and validated from the input.
- */
+/// Similar to [`check_header`], except this version assumes the first `u32`
+/// has already been read and validated from the input.
+///
+/// # See Also
+/// - [`check_header`]
 pub fn check_header_no_magic(
     data_input: &mut impl DataInput,
     codec: &str,
     min_version: u32,
     max_version: u32,
-) -> Result<i32, DataIOError> {
+) -> Result<u32, DataIOError> {
     let actual_codec = data_input.read_string()?;
     if actual_codec != codec {
         return Err(DataIOError::corrupt_index(format!(
@@ -154,13 +246,33 @@ pub fn check_header_no_magic(
     }
     Ok(actual_version)
 }
-/**
- * Reads and validates a header previously written with `writeIndexHeader(DataOutput,
- * &str, i32, byte[], &str)`.
- * When reading a file, supply the expected `codec`, expected version range (`minVersion` to `maxVersion`), and object ID and suffix.
- */
-
-/** Expert: just reads and verifies the object ID of an index header */
+/// Reads and validates a header previously written with [`write_index_header`].
+///
+/// When reading a file, supply the expected `codec`, expected version range (`min_version` to
+/// `max_version`), object ID, and suffix.
+///
+/// # Parameters
+/// - `input`: The input stream, positioned at the point where the header was previously written.
+///   Typically, this is located at the beginning of the file.
+/// - `codec`: The expected codec name.
+/// - `min_version`: The minimum supported version number.
+/// - `max_version`: The maximum supported version number.
+/// - `expected_id`: The expected object identifier for this file.
+/// - `expected_suffix`: The expected auxiliary suffix for this file.
+///
+/// # Returns
+/// The actual version found, if a valid header is present that matches `codec`, `expected_id`, and
+/// `expected_suffix`, with a version satisfying `min_version <= actual <= max_version`.
+///
+/// # Errors
+/// - `CorruptIndexError`: If the first four bytes are not [`CODEC_MAGIC`], the codec does not match
+///   `codec`, or `expected_id` or `expected_suffix` do not match.
+/// - `IndexFormatTooOldError`: If the actual version is less than `min_version`.
+/// - `IndexFormatTooNewError`: If the actual version is greater than `max_version`.
+/// - `IoError`: If there is an I/O error reading from the underlying medium.
+///
+/// # See Also
+/// - [`write_index_header`]
 
 pub fn check_index_header(
     data_input: &mut impl DataInput,
@@ -169,18 +281,30 @@ pub fn check_index_header(
     max_version: u32,
     expected_id: &[u8],
     expected_suffix: &str,
-) -> Result<i32, DataIOError> {
+) -> Result<u32, DataIOError> {
     let version = check_header(data_input, codec, min_version, max_version)?;
     check_index_header_id(data_input, expected_id)?;
     check_index_header_suffix(data_input, expected_suffix)?;
     Ok(version)
 }
 
-/**
- * Expert: verifies the incoming `IndexInput` has an index header and that its segment ID
- * matches the expected one, and then copies that index header into the provided
- * `DataOutput`. This is useful when building compound files.
- */
+/// Expert: verifies that the incoming [`IndexInput`] has an index header and that its segment ID
+/// matches the expected one, and then copies that index header into the provided [`DataOutput`].
+/// This is useful when building compound files.
+///
+/// # Parameters
+/// - `input`: The input stream, positioned at the point where the index header was previously written.
+///   Typically, this is located at the beginning of the file.
+/// - `output`: The output stream, where the header will be copied to.
+/// - `expected_id`: The expected segment ID.
+///
+/// # Errors
+/// - `CorruptIndexError`: If the first four bytes are not [`CODEC_MAGIC`] or if the `expected_id`
+///   does not match.
+/// - `IoError`: If there is an I/O error reading from the underlying medium.
+///
+/// # Internal
+/// This is an internal API and is intended for use within Lucene-like systems.
 pub fn verify_and_copy_index_header(
     data_in: &mut impl IndexInput,
     data_out: &mut impl DataOutput,
@@ -214,10 +338,10 @@ pub fn verify_and_copy_index_header(
     data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as usize)?;
     Ok(())
 }
-/**
- * Retrieves the full index header from the provided `IndexInput`. This throws
- * `Corrupt Error` if this file does not appear to be an index file.
- */
+/// Retrieves the full index header from the provided [`IndexInput`].
+///
+/// # Errors
+/// - `CorruptIndexError`: If the file does not appear to be a valid index file.
 pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOError> {
     let actual_header = read_be_int(data_input)?;
     if actual_header != CODEC_MAGIC {
@@ -237,9 +361,10 @@ pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>, Da
     Ok(bytes)
 }
 
-/**
- * Retrieves the full footer from the provided `IndexInput`. This throws `Corrupt Error` if this file does not have a valid footer.
- */
+/// Retrieves the full footer from the provided [`IndexInput`].
+///
+/// # Errors
+/// - `CorruptIndexError`: If the file does not have a valid footer.
 pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOError> {
     if data_input.length() < footer_length() as u64 {
         return Err(DataIOError::corrupt_index(format!(
@@ -256,7 +381,7 @@ pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOEr
     data_input.read_bytes(&mut bytes, 0, footer_length() as usize)?;
     Ok(bytes)
 }
-
+/// Expert: reads and verifies the object ID of an index header.
 pub fn check_index_header_id(
     data_input: &mut impl DataInput,
     expected_id: &[u8],
@@ -273,7 +398,7 @@ pub fn check_index_header_id(
     }
     Ok(())
 }
-/** Expert: just reads and verifies the suffix of an index header */
+/// Expert: reads and verifies the suffix of an index header.
 pub fn check_index_header_suffix(
     data_input: &mut impl DataInput,
     expected_suffix: &str,
@@ -290,10 +415,29 @@ pub fn check_index_header_suffix(
     }
     Ok(())
 }
-/**
- * Writes a codec footer, which records both a checksum algorithm ID and a checksum. This footer
- * can be parsed and validated with {@link #checkFooter(ChecksumIndexInput) checkFooter()}.
- */
+/// Writes a codec footer, which records both a checksum algorithm ID and a checksum.
+/// This footer can be parsed and validated with [`check_footer`].
+///
+/// # Format
+/// `CodecFooter -> Magic, AlgorithmID, Checksum`
+///
+/// - **Magic**:  
+///   A `u32` (written using `write_int`). This identifies the start of the footer.  
+///   It is always [`FOOTER_MAGIC`].
+///
+/// - **AlgorithmID**:  
+///   A `u32` (written using `write_int`). This indicates the checksum algorithm used.  
+///   Currently, this is always 0, for zlib-crc32.
+///
+/// - **Checksum**:  
+///   A `u64` (written using `write_long`). The actual checksum value for all previous bytes in the stream,  
+///   including the bytes from Magic and AlgorithmID.
+///
+/// # Parameters
+/// - `out`: The output stream to write to.
+///
+/// # Errors
+/// - `IoError`: If there is an I/O error writing to the underlying medium.
 pub fn write_footer(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
     write_be_int(out, FOOTER_MAGIC)?;
     write_be_int(out, 0)?;
@@ -301,17 +445,25 @@ pub fn write_footer(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
     Ok(())
 }
 
-/**
- * Computes the length of a codec footer.
- */
+/// Computes the length of a codec footer.
+///
+/// # Returns
+/// The length of the entire codec footer.
+///
+/// # See Also
+/// - [`write_footer`]
 pub fn footer_length() -> u32 {
     16
 }
 
-/**
- * Validates the codec footer previously written by {@link #writeFooter}.
- *
- */
+/// Validates the codec footer previously written by [`write_footer`].
+///
+/// # Returns
+/// The actual checksum value.
+///
+/// # Errors
+/// - `IoError`: If the footer is invalid, the checksum does not match, or the input is not properly
+///   positioned before the footer at the end of the stream.
 pub fn check_footer(checksum_in: &mut impl ChecksumIndexInput) -> Result<u64, DataIOError> {
     validate_footer(checksum_in)?;
     let actual_checksum = checksum_in.get_checksum();
@@ -325,15 +477,21 @@ pub fn check_footer(checksum_in: &mut impl ChecksumIndexInput) -> Result<u64, Da
     Ok(actual_checksum)
 }
 
-/**
- * Validates the codec footer previously written by `writeFooter`, optionally passing an
- * unexpected exception that has already occurred.
- *
- * When a `prior error` is provided, this method will add a suppressed exception
- * indicating whether the checksum for the stream passes, fails, or cannot be computed, and
- * rethrow it. Otherwise, it behaves the same as `checkFooter(ChecksumIndexInput)`.
- *
- */
+/// Validates the codec footer previously written by [`write_footer`], optionally handling
+/// an unexpected exception that has already occurred.
+///
+/// When a `prior_exception` is provided, this method will add a suppressed exception indicating
+/// whether the checksum for the stream passes, fails, or cannot be computed, and rethrow it.
+/// Otherwise, it behaves the same as [`check_footer`].
+///
+/// # Parameters
+/// - `input`: The input stream to validate.
+/// - `prior_exception`: An optional previously occurred exception to handle.
+///
+/// # Errors
+/// - `IoError`: If the footer is invalid, the checksum does not match, or the input is not
+///   properly positioned before the footer at the end of the stream.
+/// - `PriorException`: If a prior exception is provided and rethrown after adding supplemental information.
 // TODO:Implemented a naive error propagation mechanism; we may use thiserror#[source] to standardize error nesting.
 pub fn check_footer_with_error(
     checksum_in: &mut impl ChecksumIndexInput,
@@ -392,9 +550,13 @@ pub fn check_footer_with_error(
     Err(DataIOError::corrupt_index(error_message))
 }
 
-/**
- * Returns (but does not validate) the checksum previously written by `checkFooter`.
- */
+/// Returns (but does not validate) the checksum previously written by [`check_footer`].
+///
+/// # Returns
+/// The actual checksum value.
+///
+/// # Errors
+/// - `IoError`: If the footer is invalid.
 pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<u64, DataIOError> {
     if input.length() < footer_length() as u64 {
         return Err(DataIOError::corrupt_index(format!(
@@ -409,9 +571,13 @@ pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<u64, DataIOError
     read_crc(input)
 }
 
-/**
- * Returns (but does not validate) the checksum previously written by `checkFooter`.
- */
+/// Returns (but does not validate) the checksum previously written by [`check_footer`].
+///
+/// # Returns
+/// The actual checksum value.
+///
+/// # Errors
+/// - `IoError`: If the footer is invalid.
 fn retrieve_checksum_with_expected(
     input: &mut impl IndexInput,
     expected_length: u64,
@@ -484,12 +650,11 @@ fn validate_footer(input: &mut impl IndexInput) -> Result<(), DataIOError> {
     Ok(())
 }
 
-/**
- * Clones the provided input, reads all bytes from the file, and calls `checkFooter`
- *
- * Note that this method may be slow, as it must process the entire file. If you just need to
- * extract the checksum value, call `retrieveChecksum`.
-*/
+/// Clones the provided input, reads all bytes from the file, and calls [`check_footer`].
+///
+/// # Notes
+/// This method may be slow, as it must process the entire file.  
+/// If you just need to extract the checksum value, call [`retrieve_checksum`].
 pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<u64, DataIOError> {
     let mut clone = input.clone();
     clone.seek(0)?;
@@ -508,9 +673,11 @@ pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<u64, DataIOEr
     check_footer(&mut checksum_in)
 }
 
-/**
- * Reads CRC32 value as a 64-bit long from the input.
- */
+/// Reads the CRC32 value as a 64-bit integer from the input.
+///
+/// # Errors
+/// - `CorruptIndexError`: If the CRC is formatted incorrectly (wrong bits set).
+/// - `IoError`: If an I/O error occurs.
 pub fn read_crc(input: &mut impl IndexInput) -> Result<u64, DataIOError> {
     let value = read_be_long(input)?;
     if value & 0xFFFFFFFF00000000 != 0 {
@@ -522,9 +689,11 @@ pub fn read_crc(input: &mut impl IndexInput) -> Result<u64, DataIOError> {
     Ok(value)
 }
 
-/**
- * Writes CRC32 value as a 64-bit long to the output.
- */
+/// Writes the CRC32 value as a 64-bit integer to the output.
+///
+/// # Errors
+/// - `IllegalStateError`: If the CRC is formatted incorrectly (wrong bits set).
+/// - `IoError`: If an I/O error occurs.
 pub fn write_crc(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
     let value = out.get_check_sum();
     if value as u64 & 0xFFFFFFFF00000000 != 0 {
@@ -536,8 +705,8 @@ pub fn write_crc(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
     write_be_long(out, value)
 }
 
-/** write int value on header / footer with big endian order */
-pub fn write_be_int(out: &mut impl DataOutput, i: i32) -> Result<(), DataIOError> {
+/// Writes an integer value to the header or footer in big-endian order.
+pub fn write_be_int(out: &mut impl DataOutput, i: u32) -> Result<(), DataIOError> {
     let bytes = [
         ((i >> 24) & 0xFF) as u8,
         ((i >> 16) & 0xFF) as u8,
@@ -547,7 +716,7 @@ pub fn write_be_int(out: &mut impl DataOutput, i: i32) -> Result<(), DataIOError
     out.write_bytes_range(&bytes, 0, 4)?;
     Ok(())
 }
-/** write long value on header / footer with big endian order */
+/// Writes a long value to the header or footer in big-endian order.
 pub fn write_be_long(out: &mut impl DataOutput, i: i64) -> Result<(), DataIOError> {
     let bytes = [
         ((i >> 56) & 0xFF) as u8,
@@ -562,17 +731,17 @@ pub fn write_be_long(out: &mut impl DataOutput, i: i64) -> Result<(), DataIOErro
     out.write_bytes_range(&bytes, 0, 8)?;
     Ok(())
 }
-/** read int value from header / footer with big endian order */
-pub fn read_be_int(out: &mut impl DataInput) -> Result<i32, DataIOError> {
+/// Reads an integer value from the header or footer in big-endian order.
+pub fn read_be_int(out: &mut impl DataInput) -> Result<u32, DataIOError> {
     let byte1 = out.read_byte()? as i32;
     let byte2 = out.read_byte()? as i32;
     let byte3 = out.read_byte()? as i32;
     let byte4 = out.read_byte()? as i32;
 
-    Ok((byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4)
+    Ok(((byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4) as u32)
 }
 
-/** read long value from header / footer with big endian order */
+/// Reads a long value from the header or footer in big-endian order.
 pub fn read_be_long(out: &mut impl DataInput) -> Result<u64, DataIOError> {
     let mut buffer = [0u8; 8];
     out.read_bytes(&mut buffer, 0, 8)?;

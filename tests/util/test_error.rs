@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rlucene::util::error::corrupt_index::CorruptIndex;
+use rlucene::util::error::corrupt_index::CorruptIndexError;
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::error::eof::Eof;
-use rlucene::util::error::illegal_argument::IllegalArgument;
-use rlucene::util::error::illegal_state::IllegalState;
-use rlucene::util::error::index_format_too_new::IndexFormatTooNew;
+use rlucene::util::error::illegal_argument::IllegalArgumentError;
+use rlucene::util::error::illegal_state::IllegalStateError;
+use rlucene::util::error::index_format_too_new::IndexFormatTooNewError;
 use rlucene::util::error::integer_overflow::IntegerOverflow;
 use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::version::VersionError;
@@ -37,7 +37,7 @@ pub enum TestError {
     FromUtf8Error(#[from] FromUtf8Error),
 
     #[error("{0}")]
-    IllegalArgument(#[from] IllegalArgument),
+    IllegalArgument(#[from] IllegalArgumentError),
 
     #[error("{0}")]
     Eof(#[from] Eof),
@@ -46,13 +46,13 @@ pub enum TestError {
     IntegerOverflow(#[from] IntegerOverflow),
 
     #[error("{0}")]
-    CorruptIndex(#[from] CorruptIndex),
+    CorruptIndex(#[from] CorruptIndexError),
 
     #[error("{0}")]
-    IndexFormat(#[from] IndexFormatTooNew),
+    IndexFormat(#[from] IndexFormatTooNewError),
 
     #[error("{0}")]
-    IllegalState(#[from] IllegalState),
+    IllegalState(#[from] IllegalStateError),
 
     // combined errors
     #[error("{0}")]
