@@ -19,7 +19,7 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::sorter::Sorter;
 
-/// An [`IntroSorter`](crate::util::intro_sorter::IntroSorter) for object arrays.
+/// An [`IntroSorter`] for object arrays.
 ///
 /// # Note
 /// This is an internal API.

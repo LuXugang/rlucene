@@ -18,7 +18,7 @@ use crate::store::data_output::DataOutput;
 use crate::util::error::data_io_error_enum::DataIOError;
 use byteorder::WriteBytesExt;
 use std::io::{BufWriter, Write};
-/// A [`DataOutput`](crate::store::data_output::DataOutput) wrapping a plain [`OutputStream`](std::io::Write).
+/// A [`DataOutput`] wrapping a plain [`OutputStream`](Write).
 pub struct OutputStreamDataOutput<W: Write> {
     pub os: BufWriter<W>,
 }

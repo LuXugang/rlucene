@@ -46,7 +46,7 @@ pub trait IndexOutput: DataOutput + Display {
     /// The new file pointer after alignment.
     ///
     /// # See Also
-    /// [`align_offset`](align_offset)
+    /// [`align_offset`]
     fn align_file_pointer(&mut self, alignment_bytes: u32) -> Result<u64, DataIOError> {
         let offset = self.get_file_pointer();
         let aligned_offset = align_offset(offset, alignment_bytes)?;

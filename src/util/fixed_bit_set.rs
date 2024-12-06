@@ -28,7 +28,7 @@ const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 #[derive(Default)]
 /// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`) `long[]`, accessed with
-/// an `int` index, implementing [`Bits`](Bits) and [`DocIdSet`](crate::search::doc_id_set).
+/// an `int` index, implementing [`Bits`] and [`DocIdSet`](crate::search::doc_id_set).
 /// If you need to manage more than 2.1B bits, use [`LongBitSet`](crate::util::LongBitSet).
 ///
 /// # Note
@@ -69,8 +69,8 @@ impl Clone for FixedBitSet {
     }
 }
 
-/// If the given [`LongBitSet`](crate::util::LongBitSet) is large enough to hold `num_bits + 1`,
-/// returns the given bits, otherwise returns a new [`LongBitSet`](crate::util::LongBitSet) that can hold the requested number of bits.
+/// If the given [`LongBitSet`](crate::util::long_bit_set::LongBitSet) is large enough to hold `num_bits + 1`,
+/// returns the given bits, otherwise returns a new [`LongBitSet`](crate::util::long_bit_set::LongBitSet) that can hold the requested number of bits.
 ///
 /// # Note
 /// The returned bitset reuses the underlying `long[]` of the given `bits` if possible.
@@ -450,14 +450,14 @@ impl FixedBitSet {
         todo!()
     }
 
-    /// Converts this instance to a read-only [`Bits`](Bits).
-    /// This is useful in cases where this [`FixedBitSet`](FixedBitSet)
-    /// is returned as a [`Bits`](Bits) instance, to ensure that consumers cannot
-    /// get write access by casting to a [`FixedBitSet`](FixedBitSet).
+    /// Converts this instance to a read-only [`Bits`].
+    /// This is useful in cases where this [`FixedBitSet`]
+    /// is returned as a [`Bits`] instance, to ensure that consumers cannot
+    /// get write access by casting to a [`FixedBitSet`].
     ///
     /// # Note
-    /// Changes to this [`FixedBitSet`](FixedBitSet) will be reflected
-    /// on the returned [`Bits`](Bits).
+    /// Changes to this [`FixedBitSet`] will be reflected
+    /// on the returned [`Bits`].
     pub fn as_read_only_bits(&self) -> Box<dyn Bits> {
         todo!()
     }

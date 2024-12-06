@@ -24,7 +24,7 @@ use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
 use std::io::{BufWriter, Write};
 
-/// Implementation class for buffered [`IndexOutput`](crate::store::index_output::IndexOutput) that writes to an [`OutputStream`](std::io::Write).
+/// Implementation class for buffered [`IndexOutput`] that writes to an [`OutputStream`](Write).
 pub struct OutputStreamIndexOutput<W: Write> {
     os: XBufferedOutputStream<W>,
     bytes_written: u64,
@@ -32,13 +32,13 @@ pub struct OutputStreamIndexOutput<W: Write> {
     resource_description: String,
 }
 impl<W: Write> OutputStreamIndexOutput<W> {
-    /// Creates a new [`OutputStreamIndexOutput`](crate::store::output_stream_index_output::OutputStreamIndexOutput) with the given buffer size.
+    /// Creates a new [`OutputStreamIndexOutput`] with the given buffer size.
     ///
     /// # Arguments
     /// * `buffer_size` - The buffer size in bytes used to buffer writes internally.
     ///
     /// # Errors
-    /// Returns an `IllegalArgumentError` if the given buffer size is less than [`LONG_BYTES`](bit_util::LONG_BYTES).
+    /// Returns an `IllegalArgumentError` if the given buffer size is less than [`LONG_BYTES`].
     ///
     pub fn new(
         resource_description: &str,

@@ -120,15 +120,15 @@ impl IOContext {
         }
     }
     /// A default context for normal reads/writes. Use [`with_read_advice`](#method.with_read_advice) to specify
-    /// another [`ReadAdvice`](ReadAdvice).
+    /// another [`ReadAdvice`].
     ///
     /// # Note
-    /// It will use [`ReadAdvice::Random`](ReadAdvice::Random) by default, unless set by the system property
+    /// It will use [`ReadAdvice::Random`] by default, unless set by the system property
     /// `org.apache.lucene.store.defaultReadAdvice`.
     pub fn default_io_context() -> Result<IOContext, RuntimeError> {
         Self::new_with_read_advice(ReadAdvice::default_read_advice())
     }
-    /// A default context for reads with [`ReadAdvice::Sequential`](ReadAdvice::Sequential).
+    /// A default context for reads with [`ReadAdvice::Sequential`].
     ///
     /// # Note
     /// This context should only be used when the read operations will be performed in the same

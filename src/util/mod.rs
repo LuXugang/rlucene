@@ -38,7 +38,7 @@ pub mod error;
 pub mod fixed_bit_set;
 pub mod group_vint_util;
 pub mod int_array_doc_id_set;
-mod intro_sorter;
+pub mod intro_sorter;
 pub mod io_utils;
 mod most_significant_bit_radix_sort;
 pub mod not_doc_id_set;

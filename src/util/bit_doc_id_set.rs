@@ -24,7 +24,7 @@ use std::rc::Rc;
 //TODO
 const _BASE_RAM_BYTES_USED: i64 = 0;
 
-/// Implementation of the [`DocIdSet`](DocIdSet) interface on top of a [`BitSet`](BitSet).
+/// Implementation of the [`DocIdSet`] interface on top of a [`BitSet`].
 ///
 /// # Note
 /// This is an internal API.
@@ -32,8 +32,8 @@ pub struct BitDocIdSet<T: BitSet> {
     set: Option<Rc<T>>,
     pub(crate) cost: i64,
 }
-/// Wraps the given [`BitSet`](BitSet) as a [`DocIdSet`](DocIdSet).
-/// The provided [`BitSet`](BitSet) must not be modified afterwards.
+/// Wraps the given [`BitSet`] as a [`DocIdSet`].
+/// The provided [`BitSet`] must not be modified afterwards.
 impl<T: BitSet> BitDocIdSet<T> {
     pub fn new_with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, RuntimeError> {
         if cost < 0 {
@@ -47,7 +47,7 @@ impl<T: BitSet> BitDocIdSet<T> {
             cost,
         })
     }
-    /// Same as [`BitDocIdSet`](BitDocIdSet) but uses the set's [`BitSet::approximate_cardinality`](BitSet::approximate_cardinality)
+    /// Same as [`BitDocIdSet`] but uses the set's [`BitSet::approximate_cardinality`]
     /// as a cost.
     pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>, RuntimeError> {
         let cost = set.as_ref().unwrap().approximate_cardinality();

@@ -24,8 +24,8 @@ use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
 /// Base implementation for a bit set.
 pub trait BitSet: Bits + Accountable {
-    /// Builds a [`BitSet`](BitSet) from the content of the provided [`DocIdSetIterator`](DocIdSetIterator).
-    /// **Note**: This will fully consume the [`DocIdSetIterator`](DocIdSetIterator).
+    /// Builds a [`BitSet`] from the content of the provided [`DocIdSetIterator`].
+    /// **Note**: This will fully consume the [`DocIdSetIterator`].
     fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType, RuntimeError> {
         let cost = it.cost();
         let threshold = max_doc >> 7;

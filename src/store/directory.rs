@@ -29,7 +29,7 @@ use std::fmt::Display;
 /// # Implementation Notes
 /// Implementing types must comply with the following:
 /// - A file in a directory can be created (`create_output`), appended to, and then closed.
-/// - A file open for writing may not be available for read access until the corresponding [`IndexOutput`](crate::store::index_output::IndexOutput) is closed.
+/// - A file open for writing may not be available for read access until the corresponding [`IndexOutput`] is closed.
 /// - Once a file is created, it must only be opened for input (`open_input`) or deleted (`delete_file`).
 ///   Calling `create_output` on an existing file must return an error similar to `FileAlreadyExistsError`.
 ///

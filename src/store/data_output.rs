@@ -33,7 +33,7 @@ pub trait DataOutput: Sized {
     /// All other data types are defined as sequences of bytes, making file formats byte-order independent.
     ///
     /// # See Also
-    /// [`IndexInput::read_byte`](crate::store::index_input::IndexInput::read_byte)
+    /// [`IndexInput::read_byte`](crate::store::DataInput::read_byte)
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError>;
 
     /// Writes an array of bytes.
@@ -43,7 +43,7 @@ pub trait DataOutput: Sized {
     /// * `length` - The number of bytes to write.
     ///
     /// # See Also
-    /// [`DataInput::read_bytes`](crate::store::data_input::DataInput::read_bytes)
+    /// [`DataInput::read_bytes`]
     fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<(), DataIOError> {
         self.write_bytes_range(b, 0, len)
     }
@@ -55,7 +55,7 @@ pub trait DataOutput: Sized {
     /// * `length` - The number of bytes to write.
     ///
     /// # See Also
-    /// [`DataInput::read_bytes`](crate::store::data_input::DataInput::read_bytes)
+    /// [`DataInput::read_bytes`].
     fn write_bytes_range(
         &mut self,
         b: &[u8],
@@ -66,7 +66,7 @@ pub trait DataOutput: Sized {
     /// Writes an `int` as four bytes (little-endian byte order).
     ///
     /// # See Also
-    /// [`DataInput::read_int`](crate::store::data_input::DataInput::read_int)
+    /// [`DataInput::read_int`]
     /// [`BitUtil::set_i16_le`](BitUtil::set_i16_le)
     fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
         self.write_byte(i as u8)?;
@@ -79,7 +79,7 @@ pub trait DataOutput: Sized {
     /// Writes a `short` as two bytes (little-endian byte order).
     ///
     /// # See Also
-    /// [`DataInput::read_short`](crate::store::data_input::DataInput::read_short)
+    /// [`DataInput::read_short`]
     /// [`BitUtil::set_i16_le`](BitUtil::set_i16_le)
     fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
         self.write_byte(i as u8)?;
@@ -118,7 +118,7 @@ pub trait DataOutput: Sized {
     /// Returns an `IOError` if there is an error writing to the underlying medium.
     ///
     /// # See Also
-    /// [`DataInput::read_vint`](crate::store::data_input::DataInput::read_vint)
+    /// [`DataInput::read_vint`]
     fn write_vint(&mut self, i: i32) -> Result<(), DataIOError> {
         let mut i = i as u32;
         while (i & !0x7F) != 0 {
@@ -129,13 +129,13 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    /// Writes a [`zig-zag`](crate::util::BitUtil::zig_zag_encode_i32)-encoded
+    /// Writes a [`zig-zag`](crate::util::bit_util::BitUtil::zig_zag_encode_i32)-encoded
     /// [`write_vint`](#method.write_vint) variable-length integer.
     /// This is typically useful for writing small signed integers and is equivalent to calling
     /// `write_vint(BitUtil::zig_zag_encode(i))`.
     ///
     /// # See Also
-    /// [`DataInput::read_zint`](DataInput::read_zint)
+    /// [`DataInput::read_zint`]
     fn write_zint(&mut self, i: i32) -> Result<(), DataIOError> {
         self.write_vint(BitUtil::zig_zag_encode_i32(i))
     }
@@ -143,7 +143,7 @@ pub trait DataOutput: Sized {
     /// Writes a `long` as eight bytes (little-endian byte order).
     ///
     /// # See Also
-    /// [`DataInput::read_long`](DataInput::read_long)
+    /// [`DataInput::read_long`]
     /// [`BitUtil::set_i64_le`](BitUtil::set_i64_le)
     fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
         self.write_int(i as i32)?;
@@ -155,10 +155,10 @@ pub trait DataOutput: Sized {
     /// values taking fewer bytes. Negative numbers are not supported.
     ///
     /// # Format
-    /// The format is described further in [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint).
+    /// The format is described further in [`DataOutput::write_vint`]).
     ///
     /// # See Also
-    /// [`DataInput::read_vlong`](DataInput::read_vlong)
+    /// [`DataInput::read_vlong`]
     fn write_vlong(&mut self, i: i64) -> Result<(), DataIOError> {
         if i < 0 {
             return Err(DataIOError::illegal_argument(
@@ -183,7 +183,7 @@ pub trait DataOutput: Sized {
     /// Writes between one and ten bytes. This is typically useful for writing small signed integers.
     ///
     /// # See Also
-    /// [`DataInput::read_zlong`](DataInput::read_zlong)
+    /// [`DataInput::read_zlong`]
     fn write_zlong(&mut self, i: i64) -> Result<(), DataIOError> {
         self.write_signed_vlong(BitUtil::zig_zag_encode_i64(i))
     }
@@ -193,7 +193,7 @@ pub trait DataOutput: Sized {
     /// Writes between one and ten bytes. This is typically useful for writing small signed integers.
     ///
     /// # See Also
-    /// [`DataInput::read_zlong`](DataInput::read_zlong)
+    /// [`DataInput::read_zlong`]
     fn write_string(&mut self, s: &str) -> Result<(), DataIOError> {
         let utf8_result = BytesRef::new_from_string(s);
         let len = utf8_result.length as usize;

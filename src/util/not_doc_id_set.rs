@@ -22,8 +22,8 @@ use std::rc::Rc;
 
 #[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
-/// This [`DocIdSet`](DocIdSet) encodes the negation of another
-/// [`DocIdSet`](DocIdSet). It is cacheable and supports random-access
+/// This [`DocIdSet`] encodes the negation of another
+/// [`DocIdSet`]. It is cacheable and supports random-access
 /// if the underlying set is cacheable and supports random-access.
 ///
 /// # Note

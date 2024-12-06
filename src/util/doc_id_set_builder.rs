@@ -26,7 +26,7 @@ use crate::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterat
 use std::cmp::min;
 use std::rc::Rc;
 
-/// A builder of [`DocIdSet`](DocIdSet)s. Initially, it uses a sparse structure to gather documents,
+/// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather documents,
 /// and then upgrades to a non-sparse bit set once enough hits match.
 ///
 ///

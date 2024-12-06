@@ -21,7 +21,7 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::cmp::max;
 
-/// A [`DocIdSetIterator`](DocIdSetIterator) like
+/// A [`DocIdSetIterator`] like
 /// [`BitSetIterator`](crate::util::bit_set_iterator::BitSetIterator) but has a doc base in order to avoid
 /// storing previous 0s.
 pub struct DocBaseBitSetIterator {

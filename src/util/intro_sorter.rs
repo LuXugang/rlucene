@@ -19,7 +19,7 @@ use crate::util::sorter::{check_range, Sorter, INSERTION_SORT_THRESHOLD};
 /// Below this size threshold, the partition selection is simplified to a single median.
 const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 
-/// [`Sorter`](Sorter) implementation based on a variant of the quicksort algorithm called
+/// [`Sorter`] implementation based on a variant of the quicksort algorithm called
 /// [introsort](http://en.wikipedia.org/wiki/Introsort): when the recursion level exceeds the
 /// log of the length of the array to sort, it falls back to heapsort. This prevents quicksort from
 /// running into its worst-case quadratic runtime. Selects the pivot using Tukey's ninther

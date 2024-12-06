@@ -41,7 +41,7 @@ pub trait IndexInput: DataInput + Clone {
     /// and the stream will be in an undetermined state.
     ///
     /// # See Also
-    /// [`get_file_pointer`](IndexInput:get_file_pointer)
+    /// [`get_file_pointer`](IndexInput::get_file_pointer)
     fn seek(&mut self, pos: u64) -> Result<(), DataIOError>;
     /// Inherits documentation from the parent implementation.
     ///
@@ -68,9 +68,9 @@ pub trait IndexInput: DataInput + Clone {
         offset: u64,
         length: u64,
     ) -> Result<impl IndexInput, DataIOError>;
-    /// Creates a slice with a specific [`ReadAdvice`](ReadAdvice). This is typically used by
-    /// [`CompoundFormat`](CompoundFormat) implementations to honor
-    /// the [`ReadAdvice`](ReadAdvice) of each file within the compound file.
+    /// Creates a slice with a specific [`ReadAdvice`]. This is typically used by
+    /// [`CompoundFormat`] implementations to honor
+    /// the [`ReadAdvice`] of each file within the compound file.
     ///
     /// # Note
     /// It is only legal to call this method if this `IndexInput` has been opened with

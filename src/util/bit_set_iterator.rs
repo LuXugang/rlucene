@@ -21,7 +21,7 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::any::TypeId;
 
-/// A [`DocIdSetIterator`](crate::search::doc_id_set_iterator::DocIdSetIterator) which iterates over set bits in a bit set.
+/// A [`DocIdSetIterator`] which iterates over set bits in a bit set.
 ///
 /// # Note
 /// This is an internal API.
@@ -81,7 +81,7 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     }
 
     // todo
-    /// If the provided iterator wraps a [`FixedBitSet`](crate::util::fixed_bit_set::FixedBitSet), returns it, otherwise returns `None`.
+    /// If the provided iterator wraps a [`FixedBitSet`], returns it, otherwise returns `None`.
     pub fn get_fixed_bit_set_or_null<B: BitSet>(
         iterator: impl DocIdSetIterator + 'static,
     ) -> Option<FixedBitSet> {
@@ -89,7 +89,7 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     }
 
     // todo
-    /// If the provided iterator wraps a [`SparseFixedBitSet`](crate::util::sparse_fixed_bit_set::SparseFixedBitSet), returns it, otherwise returns `None`.
+    /// If the provided iterator wraps a [`SparseFixedBitSet`] returns it, otherwise returns `None`.
     pub fn get_sparse_fixed_bit_set_or_null<B: BitSet>(
         iterator: impl DocIdSetIterator + 'static,
     ) -> Option<SparseFixedBitSet> {

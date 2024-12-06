@@ -24,7 +24,7 @@ const THRESHOLD: i32 = 64;
 const STACKSIZE: i32 = 49; // depends on MINRUN
 const MIN_GALLOP: i32 = 7;
 
-/// [`Sorter`](Sorter) implementation based on the [TimSort](http://svn.python.org/projects/python/trunk/Objects/listsort.txt) algorithm. It
+/// [`Sorter`] implementation based on the [TimSort](http://svn.python.org/projects/python/trunk/Objects/listsort.txt) algorithm. It
 /// sorts small arrays with a binary sort.
 ///
 /// This algorithm is stable and is especially good at sorting partially-sorted arrays.

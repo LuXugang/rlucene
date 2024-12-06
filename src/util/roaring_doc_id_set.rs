@@ -34,12 +34,12 @@ const MAX_ARRAY_LENGTH: i32 = 1 << 12;
 // todo
 #[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
-/// [`DocIdSet`](DocIdSet) implementation inspired by [roaringbitmap.org](http://roaringbitmap.org/)
+/// [`DocIdSet`] implementation inspired by [roaringbitmap.org](http://roaringbitmap.org/)
 ///
 /// The space is divided into blocks of `2^16` bits, and each block is encoded independently. In each
 /// block, if fewer than `2^12` bits are set, documents are simply stored in a `Vec<i16>`. If more than
 /// `2^16 - 2^12` bits are set, the inverse of the set is encoded in a simple `Vec<i16>`. Otherwise,
-/// a [`FixedBitSet`](FixedBitSet) is used.
+/// a [`FixedBitSet`] is used.
 ///
 /// # Note
 /// This is an internal API.

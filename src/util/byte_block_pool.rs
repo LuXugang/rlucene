@@ -39,7 +39,7 @@ pub const BYTE_BLOCK_SIZE: i32 = 1 << BYTE_BLOCK_SHIFT;
 /// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
 const BYTE_BLOCK_MASK: i32 = BYTE_BLOCK_SIZE - 1;
 /// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
-/// Allocation is done through the use of an [`Allocator`](crate::util::Allocator) which can be customized,
+/// Allocation is done through the use of an [`Allocator`] which can be customized,
 /// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
 /// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.
 ///
@@ -67,7 +67,7 @@ impl<'a> ByteBlockPool<'a> {
         }
     }
     /// Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
-    /// Buffers that are not reused are reclaimed by [`Allocator::recycle_byte_blocks`](crate::util::Allocator::recycle_byte_blocks).
+    /// Buffers that are not reused are reclaimed by [`Allocator::recycle_byte_blocks`].
     /// Buffers can be filled with zeros before recycling them. This is useful if a slice pool works on top
     /// of this byte pool and relies on the buffers being filled with zeros to find the non-zero end of slices.
     ///
@@ -117,9 +117,9 @@ impl<'a> ByteBlockPool<'a> {
         None
     }
 
-    /// Fills the provided [`BytesRef`](BytesRef) with the bytes at the specified offset and length.
+    /// Fills the provided [`BytesRef`] with the bytes at the specified offset and length.
     /// This will avoid copying the bytes if the slice fits into a single block; otherwise, it uses the provided
-    /// [`BytesRefBuilder`](BytesRefBuilder) to copy bytes over.
+    /// [`BytesRefBuilder`] to copy bytes over.
     pub fn set_bytes_ref(
         &self,
         builder: &mut BytesRefBuilder,
@@ -149,7 +149,7 @@ impl<'a> ByteBlockPool<'a> {
         debug_assert!(bytes.length <= i32::MAX as u32);
         self.append_range(bytes.bytes, bytes.offset as i32, bytes.length as i32);
     }
-    /// Appends the bytes from a source [`ByteBlockPool`](ByteBlockPool) at a given offset and length.
+    /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and length.
     ///
     /// # Arguments
     /// * `src_pool` - The source pool to copy from.
@@ -209,7 +209,7 @@ impl<'a> ByteBlockPool<'a> {
         let length = bytes.len() as i32;
         self.append_range(bytes, 0, length);
     }
-    /// Appends the bytes from a source [`ByteBlockPool`](ByteBlockPool) at a given offset and length.
+    /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and length.
     ///
     /// # Arguments
     /// * `src_pool` - The source pool to copy from.

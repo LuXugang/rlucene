@@ -62,7 +62,7 @@ pub trait DataInput: Sized + Display {
         self.read_bytes(b, offset, len)
     }
     /// # See
-    /// [`DataInput::default_read_short`](DataInput::default_read_short)
+    /// [`DataInput::default_read_short`].
     fn read_short(&mut self) -> Result<i16, DataIOError> {
         self.default_read_short()
     }
@@ -77,7 +77,7 @@ pub trait DataInput: Sized + Display {
         Ok(i16::from_le_bytes([b2, b1]))
     }
     /// # See
-    /// [`DataInput::default_read_int`](DataInput::default_read_int)
+    /// [`DataInput::default_read_int`].
     fn read_int(&mut self) -> Result<i32, DataIOError> {
         self.default_read_int()
     }
@@ -135,7 +135,7 @@ pub trait DataInput: Sized + Display {
         Ok(BitUtil::zig_zag_decode_i32(self.read_vint()? as u32))
     }
     /// # See
-    /// [`DataInput::default_read_long`](DataInput::default_read_long)
+    /// [`DataInput::default_read_long`].
     fn read_long(&mut self) -> Result<i64, DataIOError> {
         self.default_read_long()
     }
