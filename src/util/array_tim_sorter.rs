@@ -18,6 +18,10 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::tim_sorter_base::TimSorterBase;
 use crate::util::{Comparator, Sorter};
 
+/// A [`TimSorter`](crate::util::TimSorter) for object arrays.
+///
+/// # Note
+/// This is an internal API.
 pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
 where
     T: Default + Clone,

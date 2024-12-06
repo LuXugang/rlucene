@@ -35,6 +35,16 @@ fn block_count(length: i32) -> i32 {
     block_count
 }
 
+/// A bit set that only stores `i64` values that have at least one bit set. The way it works is
+/// that the space of bits is divided into blocks of 4096 bits, which is 64 `i64`s. Then for each
+/// block, we have:
+///
+/// - A `Vec<i64>` which stores the non-zero `i64`s for that block.
+/// - A `i64` so that bit `i` being set means that the `i-th` `i64` of the block is non-null,
+///   and its offset in the array of `i64`s is the number of one bits on the right of the `i-th` bit.
+///
+/// # Note
+/// This is an internal API.
 #[derive(Default)]
 pub struct SparseFixedBitSet {
     indices: Vec<i64>,
@@ -145,6 +155,8 @@ impl SparseFixedBitSet {
             self.and(i4096, first_long, !mask(from, 63));
         }
     }
+    /// Return the first document that occurs on or after the provided block index.
+
     fn first_doc(&self, mut i4096: i32, i4096_upper: i32) -> i32 {
         debug_assert!(i4096_upper <= self.indices.len() as i32);
         let mut index;
@@ -160,6 +172,8 @@ impl SparseFixedBitSet {
         }
         NO_MORE_DOCS
     }
+    /// Return the last document that occurs on or before the provided block index.
+
     fn last_doc(&self, mut i4096: i32) -> i32 {
         let mut index;
         while i4096 >= 0 {
@@ -278,6 +292,7 @@ impl SparseFixedBitSet {
         self.non_zero_long_count +=
             non_zero_long_count - (current_index & index).count_ones() as i32;
     }
+    /// [`or`](#method.or) implementation that works best when `it` is dense.
     #[allow(dead_code)]
     fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<(), RuntimeError> {
         SparseFixedBitSet::check_unpositioned(&it)?;
@@ -547,6 +562,9 @@ impl BitSet for SparseFixedBitSet {
         self.next_set_bit_in_range_impl(i, self.length)
     }
 
+    /// Returns the next set bit in the specified range, but treats `upper_bound` as a best-effort hint
+    /// rather than a hard requirement. Note that this may return a result that is greater than or equal
+    /// to `upper_bound` in some cases, so callers must add their own check if `upper_bound` is a hard requirement.
     fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {
         let res = self.next_set_bit_in_range_impl(start, upper_bound);
         if res < upper_bound {

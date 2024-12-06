@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::array_index_out_of_bounds::ArrayIndexOutOfBoundsError;
 use crate::util::error::illegal_argument::IllegalArgumentError;
 use crate::util::error::illegal_state::IllegalStateError;
 use std::fmt::Debug;
+use std::io::Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -26,6 +28,12 @@ pub enum RuntimeError {
 
     #[error("{0}")]
     IllegalState(#[from] IllegalStateError),
+
+    #[error("IO error: {0}")]
+    Io(#[from] Error),
+
+    #[error("{0}")]
+    ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
 }
 
 impl RuntimeError {
@@ -35,5 +43,13 @@ impl RuntimeError {
 
     pub fn illegal_state(msg: impl Into<String>) -> Self {
         RuntimeError::IllegalState(IllegalStateError::new(msg))
+    }
+
+    pub fn array_index_out_of_bounds(msg: impl Into<String>) -> Self {
+        RuntimeError::ArrayIndexOutOfBounds(ArrayIndexOutOfBoundsError::new(msg))
+    }
+
+    pub fn io(err: Error) -> Self {
+        RuntimeError::Io(err)
     }
 }

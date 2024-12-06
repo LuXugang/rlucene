@@ -19,8 +19,8 @@ use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
 use crate::util::error::runtime_error::RuntimeError;
 
-/// `IOContext` holds additional details on the merge/search context. An `IOContext` object can never be 
-/// passed as a `None` parameter to either [`Directory::open_input`](crate::store::directory::Directory::open_input) 
+/// `IOContext` holds additional details on the merge/search context. An `IOContext` object can never be
+/// passed as a `None` parameter to either [`Directory::open_input`](crate::store::directory::Directory::open_input)
 /// or [`Directory::create_output`](crate::store::directory::Directory::create_output).
 ///
 /// # Arguments
@@ -84,9 +84,9 @@ impl IOContext {
             flush_info,
         })
     }
-    /// Returns an updated `IOContext` that has the provided [`ReadAdvice`](ReadAdvice) if the 
-    /// `Context` is a `Context::Default` context, otherwise returns the existing instance. This 
-    /// helps preserve a `ReadAdvice::Sequential` advice for merging, which is always the right choice, 
+    /// Returns an updated `IOContext` that has the provided [`ReadAdvice`](ReadAdvice) if the
+    /// `Context` is a `Context::Default` context, otherwise returns the existing instance. This
+    /// helps preserve a `ReadAdvice::Sequential` advice for merging, which is always the right choice,
     /// while allowing `IndexInput`s opened for searching to use arbitrary `ReadAdvice` values.
     fn new_with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, RuntimeError> {
         Self::new(Some(Context::Default), Some(read_advice), None, None)

@@ -24,12 +24,12 @@ use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 
-/// A [`DataInput`] implementing [`RandomAccessInput`] 
+/// A [`DataInput`] implementing [`RandomAccessInput`]
 /// and reading data from a list of [`Cursor<Vec<u8>>`](std::io::Cursor).
 pub struct ByteBuffersDataInput<'a> {
-/// In Java Lucene, hierarchical data is encapsulated using List<`java.nio.ByteBuffer`>,
-/// where each ByteBuffer limits the readable data using the limit parameter.
-/// In Rust Lucene, however, this is managed by controlling the readable data using Cursor#setPosition.
+    /// In Java Lucene, hierarchical data is encapsulated using List<`java.nio.ByteBuffer`>,
+    /// where each ByteBuffer limits the readable data using the limit parameter.
+    /// In Rust Lucene, however, this is managed by controlling the readable data using Cursor#setPosition.
     blocks: Vec<Cursor<&'a [u8]>>,
     block_mask: usize,
     block_bits: usize,

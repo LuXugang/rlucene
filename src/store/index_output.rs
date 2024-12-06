@@ -25,18 +25,18 @@ use std::fmt::Display;
 ///
 /// # See Also
 /// [`Directory`](crate::store::directory::Directory)
-/// 
+///
 /// [`IndexInput`](crate::store::index_input::IndexInput)
 pub trait IndexOutput: DataOutput + Display {
-    /// Returns the current position in this file, where the next write will occur. 
+    /// Returns the current position in this file, where the next write will occur.
     fn get_file_pointer(&self) -> u64;
-    /// Returns the current checksum of bytes written so far. 
+    /// Returns the current checksum of bytes written so far.
     fn get_check_sum(&mut self) -> i64;
-    /// Returns the name used to create this `IndexOutput`. This is especially useful when using 
+    /// Returns the name used to create this `IndexOutput`. This is especially useful when using
     /// [`Directory::create_temp_output`](crate::store::directory::Directory::create_temp_output).
     fn get_name(&self) -> &str;
     /// Aligns the current file pointer to multiples of `alignment_bytes` bytes to improve reads
-    /// with mmap. This will write between 0 and `(alignment_bytes - 1)` zero bytes using 
+    /// with mmap. This will write between 0 and `(alignment_bytes - 1)` zero bytes using
     /// [`write_byte`](DataOutput::write_byte).
     ///
     /// # Arguments
@@ -56,9 +56,8 @@ pub trait IndexOutput: DataOutput + Display {
         }
         Ok(aligned_offset)
     }
-   
 }
-/// Aligns the given `offset` to multiples of `alignment_bytes` bytes by rounding up. 
+/// Aligns the given `offset` to multiples of `alignment_bytes` bytes by rounding up.
 /// The alignment must be a power of 2.
 ///
 /// # Arguments

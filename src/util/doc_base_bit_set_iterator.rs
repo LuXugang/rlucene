@@ -21,6 +21,9 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::cmp::max;
 
+/// A [`DocIdSetIterator`](DocIdSetIterator) like
+/// [`BitSetIterator`](crate::util::bit_set_iterator::BitSetIterator) but has a doc base in order to avoid
+/// storing previous 0s.
 pub struct DocBaseBitSetIterator {
     bits: FixedBitSet,
     length: i32,
@@ -56,22 +59,21 @@ impl DocBaseBitSetIterator {
             doc: -1,
         })
     }
-    /**
-     * Get the {@link FixedBitSet}. A docId will exist in this {@link DocIdSetIterator} if the bitset
-     * contains the (docId - {@link #getDocBase})
-     *
-     * @return the offset docId bitset
-     */
-    fn _get_bit_set(&self) -> &FixedBitSet {
+    /// Gets the [`FixedBitSet`](FixedBitSet). A `docId` will exist in this
+    /// [`DocIdSetIterator`](DocIdSetIterator) if the bitset
+    /// contains `(docId - get_doc_base())`.
+    ///
+    /// # Returns
+    /// The offset `docId` bitset.
+    fn get_bit_set(&self) -> &FixedBitSet {
         &self.bits
     }
 
-    /**
-     * Get the docBase. It is guaranteed that docBase is a multiple of 64.
-     *
-     * @return the docBase
-     */
-    fn _get_doc_base(&self) -> i32 {
+    /// Gets the `docBase`. It is guaranteed that `docBase` is a multiple of 64.
+    ///
+    /// # Returns
+    /// The `docBase`.
+    fn get_doc_base(&self) -> i32 {
         self.doc_base
     }
 }

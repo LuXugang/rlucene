@@ -16,13 +16,13 @@
  */
 use crate::store::data_output::DataOutput;
 use crate::store::index_output::IndexOutput;
+use crate::util::bit_util::LONG_BYTES;
 use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::runtime_error::RuntimeError;
 use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
 use std::io::{BufWriter, Write};
-use crate::util::bit_util::LONG_BYTES;
-use crate::util::error::runtime_error::RuntimeError;
 
 /// Implementation class for buffered [`IndexOutput`](crate::store::index_output::IndexOutput) that writes to an [`OutputStream`](std::io::Write).
 pub struct OutputStreamIndexOutput<W: Write> {
@@ -40,13 +40,20 @@ impl<W: Write> OutputStreamIndexOutput<W> {
     /// # Errors
     /// Returns an `IllegalArgumentError` if the given buffer size is less than [`LONG_BYTES`](bit_util::LONG_BYTES).
     ///
-    pub fn new(resource_description: &str, name: &str, inner: W, buffer_size: usize) -> Result<OutputStreamIndexOutput<W>, RuntimeError>{
+    pub fn new(
+        resource_description: &str,
+        name: &str,
+        inner: W,
+        buffer_size: usize,
+    ) -> Result<OutputStreamIndexOutput<W>, RuntimeError> {
         if buffer_size < LONG_BYTES {
-            return Err(RuntimeError::illegal_argument(format!("Buffer size too small, need: {}, got: {}", LONG_BYTES, buffer_size)));
+            return Err(RuntimeError::illegal_argument(format!(
+                "Buffer size too small, need: {}, got: {}",
+                LONG_BYTES, buffer_size
+            )));
         }
         let os = XBufferedOutputStream::new(inner, buffer_size);
-        Ok(
-        Self {
+        Ok(Self {
             os,
             bytes_written: 0,
             name: name.to_string(),

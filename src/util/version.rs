@@ -26,41 +26,38 @@ use thiserror::Error;
 
 lazy_static! {
 pub static ref LUCENE_10_0_0:Version = Version::new(10, 0, 0).unwrap();
-/**
-* Match settings and bugs in Lucene's 0.2.0 release.
-*
-*/
+/// Match settings and bugs in Lucene's 10.1.0 release.
 pub static ref LUCENE_10_1_0:Version = Version::new(10,1,0).unwrap();
- /**
- * Match settings and bugs in Lucene's 1.0.0 release.
- *
- */
+ /// Match settings and bugs in Lucene's 11.0.0 release.
 pub static ref LUCENE_11_0_0:Version = Version::new(11,0,0).unwrap();
-/**
-* WARNING: if you use this setting, and then upgrade to a newer release of Lucene, sizable
-* changes may happen. If backwards compatibility is important then you should instead explicitly
-* specify an actual version.
-*
-* If you use this constant then you may need to re-index all of your documents when
-* upgrading Lucene, as the way text is indexed may have changed. Additionally, you may need to
-* re-test your entire application to ensure it behaves as expected, as some defaults may
-* have changed and may break functionality in your application.
-*/
+/// # Warning
+/// If you use this setting, and then upgrade to a newer release of Lucene, sizable
+/// changes may happen. If backwards compatibility is important, you should instead explicitly
+/// specify an actual version.
+///
+/// If you use this constant, you may need to **re-index all of your documents** when
+/// upgrading Lucene, as the way text is indexed may have changed. Additionally, you may need to
+/// **re-test your entire application** to ensure it behaves as expected, as some defaults may
+/// have changed and may break functionality in your application.
 pub static ref LATEST:Version = LUCENE_11_0_0.clone();
 pub static ref LUCENE_CURRENT:Version =  LATEST.clone();
 pub static ref MIN_SUPPORTED_MAJOR:u32= LATEST.major - 1;
 }
-
-/**
- * Constant for the minimal supported major version of an index. This version is defined by the
- * version that initially created the index.
- */
-
+/// Used by certain classes to match version compatibility across releases of Lucene.
+///
+/// # Warning
+/// When changing the version parameter that you supply to components in Lucene,
+/// do not simply change the version at search-time, but instead also adjust your indexing code to
+/// match, and re-index.
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Debug, Hash)]
 pub struct Version {
+    /// Major version, the difference between stable and trunk.
     pub major: u32,
+    /// Minor version, incremented within the stable branch.
     minor: u32,
+    /// Bugfix number, incremented on release branches.
     bug_fix: u32,
+    /// Prerelease version, currently 0 (alpha), 1 (beta), or 2 (final).
     prerelease: u32,
     encoded_value: u32,
 }
@@ -119,6 +116,7 @@ impl Version {
             encoded_value,
         })
     }
+    /// Returns true if this version is the same or after the version from the argument.
     pub fn on_or_after(&self, other: Version) -> bool {
         self.encoded_value >= other.encoded_value
     }
@@ -136,12 +134,13 @@ impl Display for Version {
         }
     }
 }
-/**
- * Parse a version number of the form `"major.minor.bugfix.prerelease"`.
- *
- * Part `".bugfix"` and part `".prerelease"` are optional. Note that this is
- * forwards compatible: the parsed version does not have to exist as a constant.
- */
+/// Parses a version number of the form `"major.minor.bugfix.prerelease"`.
+///
+/// The `.bugfix` and `.prerelease` parts are optional. Note that this is
+/// forwards compatible: the parsed version does not have to exist as a constant.
+///
+/// # Note
+/// This is an internal API.
 pub fn parse(version: &str) -> Result<Version, VersionError> {
     let mut tokens = StrictStringTokenizer::new(version, '.');
     if !tokens.has_more_tokens() {
@@ -239,7 +238,13 @@ pub fn parse(version: &str) -> Result<Version, VersionError> {
     debug_assert!(result.is_ok());
     Ok(result?)
 }
-
+/// Parses the given version number as a constant or dot-based version.
+///
+/// This method allows using `"LUCENE_X_Y"` constant names, or version numbers in the
+/// format `"x.y.z"`.
+///
+/// # Note
+/// This is an internal API.
 pub fn parse_leniently(version: &str) -> Result<Version, VersionError> {
     let version_orig = version.to_string();
     let version_upper = version.to_uppercase();
@@ -273,9 +278,10 @@ pub fn parse_leniently(version: &str) -> Result<Version, VersionError> {
         }
     }
 }
-/**
- * Returns a new version based on raw numbers
- */
+/// Returns a new version based on raw numbers.
+///
+/// # Note
+/// This is an internal API.
 pub fn from_bits(major: u32, minor: u32, bug_fix: u32) -> Result<Version, IllegalArgumentError> {
     Version::new(major, minor, bug_fix)
 }

@@ -172,13 +172,16 @@ pub struct Range {
 impl Range {
     pub fn new(min_doc: i32, max_doc: i32) -> Result<Range, RuntimeError> {
         if min_doc >= max_doc {
-            return Err(RuntimeError::illegal_argument( format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "minDoc must be < maxDoc but got minDoc= {} maxDoc= {}",
                 min_doc, max_doc
             )));
         }
         if min_doc < 0 {
-            return Err(RuntimeError::illegal_argument( format!("minDoc must be >= 0 but got minDoc= {}", min_doc)));
+            return Err(RuntimeError::illegal_argument(format!(
+                "minDoc must be >= 0 but got minDoc= {}",
+                min_doc
+            )));
         }
         Ok(Range {
             doc: -1,

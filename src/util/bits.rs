@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
+/// Interface for `BitSet`-like structures.
+///
+/// # Note
+/// This is an experimental API.
 pub trait Bits {
-    /**
-     * Returns the value of the bit with the specified `index`.
-     *
-     * `index` should be non-negative and &lt; `length()`. The result of passing
-     *     negative or out of bounds values is undefined by this interface, **just don't do it!**
-     * return `true` if the bit is set, `false` otherwise.
-     */
+    /// Returns the value of the bit at the specified `index`.
+    ///
+    /// # Arguments
+    /// * `index` - The index should be non-negative and less than the length of the bitset. Passing negative
+    ///   or out-of-bounds values results in undefined behavior—**just don't do it!**
+    ///
+    /// # Returns
+    /// `true` if the bit is set, `false` otherwise.
     fn get(&self, index: i32) -> bool;
 
-    /** Returns the number of bits in this set */
+    /// Returns the number of bits in this set
     fn length(&self) -> i32;
 }
 
-/** Bits impl of the specified length with all bits set. */
+/// Bits impl of the specified length with all bits set.
 pub struct MatchAllBits {
     len: i32,
 }
@@ -48,7 +53,7 @@ impl Bits for MatchAllBits {
     }
 }
 
-/** Bits impl of the specified length with no bits set. */
+/// Bits impl of the specified length with no bits set.
 #[derive(Default)]
 pub struct MatchNoBits {
     len: i32,

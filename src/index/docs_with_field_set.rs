@@ -20,9 +20,9 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::rc::Rc;
-use crate::util::error::runtime_error::RuntimeError;
 
 //TODO
 #[allow(dead_code)]
@@ -58,7 +58,7 @@ impl DocsWithFieldSet<FixedBitSet> {
      */
     pub fn add(&mut self, doc_id: i32) -> Result<(), RuntimeError> {
         if doc_id <= self.last_doc_id {
-            return Err(RuntimeError::illegal_argument( format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "Out of order doc ids: last= {}, next= {}",
                 self.last_doc_id, doc_id
             )));
@@ -68,7 +68,7 @@ impl DocsWithFieldSet<FixedBitSet> {
             self.set.set(doc_id);
         } else if doc_id != self.cardinality {
             self.set = FixedBitSet::new(doc_id + 1);
-            self.set.set_range(0, self.cardinality);
+            self.set.set_with_range(0, self.cardinality);
             self.set.set(doc_id);
         }
         self.last_doc_id = doc_id;

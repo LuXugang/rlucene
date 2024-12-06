@@ -24,16 +24,16 @@ use byteorder::WriteBytesExt;
 use std::collections::VecDeque;
 use std::io::{Cursor, Seek};
 
-/// Smallest `minBitsPerBlock` allowed 
+/// Smallest `minBitsPerBlock` allowed
 pub const LIMIT_MIN_BITS_PER_BLOCK: usize = 1;
-/// Largest `maxBitsPerBlock` allowed 
+/// Largest `maxBitsPerBlock` allowed
 pub const LIMIT_MAX_BITS_PER_BLOCK: usize = 31;
 ///Maximum number of blocks at the current `blockBits` block size before we increase the
 ///block size (and thus decrease the number of blocks).
 pub const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: usize = 100;
-///Default `maxBitsPerBlock` 
+///Default `maxBitsPerBlock`
 pub const DEFAULT_MAX_BITS_PER_BLOCK: usize = 26;
-/// Default `minBitsPerBlock` 
+/// Default `minBitsPerBlock`
 pub const DEFAULT_MIN_BITS_PER_BLOCK: usize = 10;
 
 /// A [`DataOutput`] storing data in a list of [`Cursor<Vec<u8>>`](std::io::Cursor).
@@ -50,7 +50,7 @@ pub struct ByteBuffersDataOutput {
     reuse: bool,
 }
 impl ByteBuffersDataOutput {
-    ///Creates a new output with all defaults. 
+    ///Creates a new output with all defaults.
 
     pub fn new_resettable_instance() -> Result<Self, RuntimeError> {
         Self::new(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK, true)
@@ -173,7 +173,7 @@ impl ByteBuffersDataOutput {
         }
         self.current_block_index = self.blocks.len() - 1;
     }
-    /// Copies the current content of this object into another [`DataOutput`]. 
+    /// Copies the current content of this object into another [`DataOutput`].
     fn copy_to<T: DataInput>(&mut self, _output: T) -> Result<(), DataIOError> {
         unimplemented!("")
     }
@@ -195,11 +195,11 @@ impl ByteBuffersDataOutput {
     fn block_size(&self) -> u64 {
         1 << self.block_bits
     }
-    /// Resets this object to a clean (zero-size) state and publishes any currently allocated buffers 
+    /// Resets this object to a clean (zero-size) state and publishes any currently allocated buffers
     /// for reuse according to the reuse strategy provided in the constructor.
     ///
     /// # Warning
-    /// Sharing byte buffers for reads and writes is dangerous and may lead to hard-to-debug issues. 
+    /// Sharing byte buffers for reads and writes is dangerous and may lead to hard-to-debug issues.
     /// Use with great caution.
     pub fn reset(&mut self) {
         if self.reuse {
@@ -230,7 +230,7 @@ impl ByteBuffersDataOutput {
     pub fn get_writeable_buffer_list(&mut self) -> Vec<&mut Cursor<Vec<u8>>> {
         todo!()
     }
-    /// Returns a contiguous array containing the current content written to the output. 
+    /// Returns a contiguous array containing the current content written to the output.
     /// The returned array is always a copy and can be safely mutated.
     pub fn get_array_copy(&self) -> Vec<u8> {
         let mut buffer = Vec::with_capacity(self.size() as usize);

@@ -30,11 +30,11 @@ use std::fmt::Display;
 /// Implementing types must comply with the following:
 /// - A file in a directory can be created (`create_output`), appended to, and then closed.
 /// - A file open for writing may not be available for read access until the corresponding [`IndexOutput`](crate::store::index_output::IndexOutput) is closed.
-/// - Once a file is created, it must only be opened for input (`open_input`) or deleted (`delete_file`). 
+/// - Once a file is created, it must only be opened for input (`open_input`) or deleted (`delete_file`).
 ///   Calling `create_output` on an existing file must return an error similar to `FileAlreadyExistsError`.
 ///
 /// # Note
-/// If your application requires external synchronization, you should **not** synchronize on the `Directory` implementation instance 
+/// If your application requires external synchronization, you should **not** synchronize on the `Directory` implementation instance
 /// as this may cause deadlock. Instead, use your own synchronization primitives.
 ///
 /// # See Also
@@ -43,7 +43,7 @@ use std::fmt::Display;
 /// [`FilterDirectory`](crate::store::filter_directory::FilterDirectory)
 #[allow(dead_code)]
 pub trait Directory: Display {
-    /// Returns the names of all files stored in this directory. The output must be sorted 
+    /// Returns the names of all files stored in this directory. The output must be sorted
     /// in UTF-8 order (using `str::cmp` for comparison).
     ///
     /// # Errors
@@ -72,7 +72,7 @@ pub trait Directory: Display {
     /// # Arguments
     /// * `name` - The name of an existing file.
     fn file_length(&self, name: &str) -> u64;
-    /// Creates a new, empty file in the directory and returns an `IndexOutput` instance for 
+    /// Creates a new, empty file in the directory and returns an `IndexOutput` instance for
     /// appending data to this file.
     ///
     /// # Errors
@@ -85,10 +85,10 @@ pub trait Directory: Display {
     /// * `name` - The name of the file to create.
     fn create_output(&self, name: &str, context: IOContext) -> impl IndexOutput;
 
-    /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance 
+    /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance
     /// for appending data to this file.
     ///
-    /// The temporary file name (accessible via `IndexOutput::get_name`) will start with `prefix`, 
+    /// The temporary file name (accessible via `IndexOutput::get_name`) will start with `prefix`,
     /// end with `suffix`, and have a reserved file extension `.tmp`.
     ///
     /// # Arguments
@@ -102,7 +102,7 @@ pub trait Directory: Display {
     ) -> Result<impl IndexOutput, DataIOError>;
     /// Ensures that any writes to these files are moved to stable storage (made durable).
     ///
-    /// Lucene uses this to properly commit changes to the index, preventing corruption in case of a 
+    /// Lucene uses this to properly commit changes to the index, preventing corruption in case of a
     /// machine or OS crash.
     ///
     /// # See Also
@@ -115,9 +115,9 @@ pub trait Directory: Display {
     fn sync_metadata(&self);
     /// Renames `source` file to `dest` file where `dest` must not already exist in the directory.
     ///
-    /// It is permitted for this operation to not be truly atomic, meaning both `source` and `dest` 
-    /// could temporarily be visible in the list of files. However, the implementation must ensure that 
-    /// the content of `dest` appears as the entire `source` atomically. Once `dest` is visible for 
+    /// It is permitted for this operation to not be truly atomic, meaning both `source` and `dest`
+    /// could temporarily be visible in the list of files. However, the implementation must ensure that
+    /// the content of `dest` appears as the entire `source` atomically. Once `dest` is visible for
     /// readers, the entire content of the previous `source` must be visible.
     ///
     /// This method is used by `IndexWriter` to publish commits.
@@ -161,7 +161,7 @@ pub trait Directory: Display {
     /// Acquires and returns a `Lock` for a file with the given name.
     ///
     /// # Errors
-    /// - Returns a `LockObtainFailedException` (optional specific exception) if the lock could not be 
+    /// - Returns a `LockObtainFailedException` (optional specific exception) if the lock could not be
     ///   obtained because it is currently held elsewhere.
     /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain the lock.
     ///
@@ -213,7 +213,7 @@ pub trait Directory: Display {
     /// This is an internal API.
     fn get_pending_deletions(&self) -> HashSet<String>;
 
-    /// Creates a file name for a temporary file. The name will start with `prefix`, end with 
+    /// Creates a file name for a temporary file. The name will start with `prefix`, end with
     /// `suffix`, and have a reserved file extension `.tmp`.
     ///
     /// # See Also

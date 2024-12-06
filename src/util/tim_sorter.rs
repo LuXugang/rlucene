@@ -19,28 +19,25 @@ use crate::util::tim_sorter_base::TimSorterBase;
 use crate::util::{sorter, Sorter};
 use std::cmp::{max, min};
 
-/**
- * Sorter implementation based on the
- * href="http://svn.python.org/projects/python/trunk/Objects/listsort.txt">TimSort</a> algorithm. It
- * sorts small arrays with a binary sort.
- *
- * This algorithm is stable. It's especially good at sorting partially-sorted arrays.
- *
- * NOTE:There are a few differences with the original implementation:
- *
- * `maxTempSlots` The extra amount of memory to perform merges is configurable. This
- *       allows small merges to be very fast while large merges will be performed in-place (slightly
- *       slower). You can make sure that the fast merge routine will always be used by having
- *       `maxTempSlots` equal to half of the length of the slice of data to sort.
- *       Only the fast merge routine can gallop (the one that doesn't run in-place) and it only
- *       gallops on the longest slice.
- *
- */
 const MINRUN: i32 = 32;
 const THRESHOLD: i32 = 64;
 const STACKSIZE: i32 = 49; // depends on MINRUN
 const MIN_GALLOP: i32 = 7;
 
+/// [`Sorter`](Sorter) implementation based on the [TimSort](http://svn.python.org/projects/python/trunk/Objects/listsort.txt) algorithm. It
+/// sorts small arrays with a binary sort.
+///
+/// This algorithm is stable and is especially good at sorting partially-sorted arrays.
+///
+/// # Note
+/// There are a few differences with the original implementation:
+/// - The extra amount of memory to perform merges is configurable. This allows small merges to be very fast,
+///   while large merges will be performed in-place (slightly slower). You can ensure that the fast merge routine
+///   will always be used by having `max_temp_slots` equal to half the length of the slice of data to sort.
+/// - Only the fast merge routine can gallop (the one that doesn't run in-place), and it only gallops on the longest slice.
+///
+/// # Note
+/// This is an internal API.
 pub struct TimSorter<T>
 where
     T: Sorter + TimSorterBase,

@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
+/// An object whose RAM usage can be computed.
+///
+/// # Note
+/// This is an internal API.
 pub trait Accountable {
-    /** Return the memory usage of this object in bytes. Negative values are illegal. */
+    /// Return the memory usage of this object in bytes. Negative values are illegal.
     fn ram_bytes_used(&self) -> i64;
 
-    /**
-     * Returns nested resources of this class. The result should be a point-in-time snapshot (to avoid
-     * race conditions).
-     */
+    /// Returns nested resources of this class. The result should be a point-in-time snapshot (to avoid
+    /// race conditions).
     fn get_child_resources<T: Accountable>(&self) -> Vec<T> {
         vec![]
     }

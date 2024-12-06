@@ -40,8 +40,8 @@ pub trait DataInput: Sized + Display {
     /// # See Also
     /// [`DataOutput::write_bytes_range`](crate::store::data_output::DataOutput::write_bytes_range)
     fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<(), DataIOError>;
-    /// Reads a specified number of bytes into an array at the specified offset, with control over 
-    /// whether the read should be buffered. Callers who have their own buffer should pass `false` 
+    /// Reads a specified number of bytes into an array at the specified offset, with control over
+    /// whether the read should be buffered. Callers who have their own buffer should pass `false`
     /// for `use_buffer`. Currently, only `BufferedIndexInput` respects this parameter.
     ///
     /// # Arguments
@@ -93,9 +93,9 @@ pub trait DataInput: Sized + Display {
         let b4 = self.read_byte()?;
         Ok(i32::from_le_bytes([b4, b3, b2, b1]))
     }
-    
-   /// Override if you have an efficient implementation. In general this is when the input supports
-     /// random access.
+
+    /// Override if you have an efficient implementation. In general this is when the input supports
+    /// random access.
     fn read_group_vint(&mut self, dst: &mut [i64], offset: usize) -> Result<(), DataIOError> {
         self.default_read_group_vint(dst, offset)
     }
@@ -106,7 +106,7 @@ pub trait DataInput: Sized + Display {
     ) -> Result<(), DataIOError> {
         GroupVIntUtil::read_group_vint(self, dst, offset)
     }
-    /// Reads an `int` stored in a variable-length format. Reads between one and five bytes, 
+    /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,
     /// with smaller values taking fewer bytes. Negative numbers are supported but should be avoided.
     ///
     /// # Format
@@ -126,7 +126,7 @@ pub trait DataInput: Sized + Display {
         }
         Ok(i)
     }
-    /// Reads a [`zig-zag`](BitUtil::zig_zag_decode_i32)-encoded 
+    /// Reads a [`zig-zag`](BitUtil::zig_zag_decode_i32)-encoded
     /// [`read_vint`](#method.read_vint) variable-length integer.
     ///
     /// # See Also
@@ -201,7 +201,7 @@ pub trait DataInput: Sized + Display {
         Ok(())
     }
 
-    /// Reads a `long` stored in a variable-length format. Reads between one and nine bytes, 
+    /// Reads a `long` stored in a variable-length format. Reads between one and nine bytes,
     /// with smaller values taking fewer bytes. Negative numbers are not supported.
     ///
     /// # Format
@@ -220,7 +220,7 @@ pub trait DataInput: Sized + Display {
         }
         Ok(i)
     }
-    /// Reads a [`zig-zag`](BitUtil::zig_zag_decode_i64)-encoded 
+    /// Reads a [`zig-zag`](BitUtil::zig_zag_decode_i64)-encoded
     /// [`read_vlong`](#method.read_vlong) variable-length integer. Reads between one and ten bytes.
     ///
     /// # See Also
@@ -240,7 +240,7 @@ pub trait DataInput: Sized + Display {
         Ok(String::from_utf8(bytes)?)
     }
 
-    /// Reads a `HashMap<String, String>` previously written with 
+    /// Reads a `HashMap<String, String>` previously written with
     /// [`DataOutput::write_map_of_strings`](crate::store::data_output::DataOutput::write_map_of_strings).
     ///
     /// # Returns
@@ -262,7 +262,7 @@ pub trait DataInput: Sized + Display {
             Ok(map)
         }
     }
-    /// Reads a `HashSet<String>` previously written with 
+    /// Reads a `HashSet<String>` previously written with
     /// [`DataOutput::write_set_of_strings`](crate::store::data_output::DataOutput::write_set_of_strings).
     ///
     /// # Returns
@@ -283,7 +283,7 @@ pub trait DataInput: Sized + Display {
             Ok(set)
         }
     }
-    /// Skips over `num_bytes` bytes. This method may skip bytes in whatever way is most optimal, 
+    /// Skips over `num_bytes` bytes. This method may skip bytes in whatever way is most optimal,
     /// and may not behave the same as reading the skipped bytes.
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError>;
 }

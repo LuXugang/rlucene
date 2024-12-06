@@ -19,6 +19,10 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::sorter::Sorter;
 
+/// An [`IntroSorter`](crate::util::intro_sorter::IntroSorter) for object arrays.
+///
+/// # Note
+/// This is an internal API.
 pub struct ArrayIntroSorter<'a, T, C: Comparator<T>> {
     pub arr: &'a mut Vec<T>,
     comparator: C,

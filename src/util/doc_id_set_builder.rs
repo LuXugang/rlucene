@@ -26,15 +26,12 @@ use crate::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterat
 use std::cmp::min;
 use std::rc::Rc;
 
-/**
- * A builder of link DocIdSet. At first it uses a sparse structure to gather documents, and then
- * upgrades to a non-sparse bit set once enough hits match.
- *
- * To add documents, you first need to call grow in order to reserve space, and then
- * call BulkAdder#add(int) on the returned BulkAdder.
- *
- * @lucene.internal
- */
+/// A builder of [`DocIdSet`](DocIdSet)s. Initially, it uses a sparse structure to gather documents,
+/// and then upgrades to a non-sparse bit set once enough hits match.
+///
+///
+/// # Note
+/// This is an internal API.
 pub struct DocIdSetBuilder {
     max_doc: i32,
     threshold: i32,

@@ -17,16 +17,14 @@
 use crate::index::BytesRef;
 use crate::util::comparator::Comparator;
 
-/**
- * Specialized BytesRef comparator that StringSorter has optimizations for.
- *
- */
+/// Specialized [`BytesRef`](BytesRef) comparator that [`StringSorter`](crate::store::string_sorter::StringSorter) has optimizations for.
+///
+/// # Note
+/// This is an internal API.
 pub trait BytesRefComparator: Comparator<BytesRef> {
-    /**
-     * Return the unsigned byte to use for comparison at index i, or -1 if all bytes
-     * that are useful for comparisons are exhausted. This may only be called with a value of i between
-     * 0 included and `compared_bytes_count` excluded.
-     */
+    /// Returns the unsigned byte to use for comparison at index `i`, or `-1` if all bytes
+    /// that are useful for comparisons are exhausted. This may only be called with a value of `i`
+    /// between `0` (inclusive) and `compared_bytes_count` (exclusive).
     fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32;
     fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: u32) -> i32 {
         for i in k..self.compared_bytes_count() {

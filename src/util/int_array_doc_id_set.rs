@@ -26,21 +26,21 @@ use std::rc::Rc;
 #[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 
-/**
- * A doc id set based on sorted int array.
- */
+/// A doc id set based on a sorted `Vec<i32>`.
+///
+/// # Note
+/// This is an internal API.
 pub struct IntArrayDocIdSet {
     docs: Vec<i32>,
     length: i32,
 }
-/**
- * Build an IntArrayDocIdSet by an int array and len.
- *
- * param docs A docs array whose length need to be greater than the param len. It needs to be
- *     sorted from 0(inclusive) to the len(exclusive), and the len-th doc in docs need to be
- *     DocIdSetIterator#NO_MORE_DOCS.
- * param len The valid docs length in array.
- */
+/// Builds an `IntArrayDocIdSet` from an `i32` array and its length.
+///
+/// # Arguments
+/// * `docs` - A docs array whose length must be greater than the `len` parameter. The array needs to be
+///   sorted from 0 (inclusive) to `len` (exclusive), and the `len`-th doc in `docs` must be
+///   [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS).
+/// * `len` - The valid docs length in the array.
 impl IntArrayDocIdSet {
     pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet, RuntimeError> {
         if docs[length as usize] != NO_MORE_DOCS {

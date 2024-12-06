@@ -18,6 +18,10 @@ use rand::Rng;
 use std::fmt::Write;
 
 pub const ID_LENGTH: u32 = 16;
+/// Methods for manipulating strings.
+///
+/// # Note
+/// This is an internal API.
 #[allow(dead_code)] // for quick search
 struct StringHelper;
 
@@ -26,13 +30,11 @@ pub fn random_id() -> [u8; 16] {
     rng.gen::<[u8; 16]>()
 }
 
-/**
- * Helper method to render an ID as a string, for debugging
- *
- * Returns the string `(null)` if the id is invalid. Otherwise, returns a string
- * representation for debugging. Never throws an exception. The returned string may indicate if
- * the id is definitely invalid.
-*/
+/// Helper method to render an ID as a string for debugging.
+///
+/// Returns the string `"null"` if the ID is `None`. Otherwise, returns a string
+/// representation for debugging. Never throws an exception. The returned string may indicate if
+/// the ID is definitely invalid.
 pub fn id_to_string(id: Option<&[u8]>) -> String {
     if let Some(id) = id {
         let big_int = num_bigint::BigUint::from_bytes_be(id);

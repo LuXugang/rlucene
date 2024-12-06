@@ -24,26 +24,35 @@ const BASE_RAM_BYTES: i64 = 0;
 /**
  * Use this to find the index of the buffer containing a byte, given an offset to that byte.
  *
+ * <p>bufferUpto = globalOffset &gt;&gt; BYTE_BLOCK_SHIFT
+ *
+ * <p>bufferUpto = globalOffset / BYTE_BLOCK_SIZE
 */
 const BYTE_BLOCK_SHIFT: i32 = 15;
-/** The size of each buffer in the pool. */
+/// The size of each buffer in the pool.
 pub const BYTE_BLOCK_SIZE: i32 = 1 << BYTE_BLOCK_SHIFT;
-/** Use this to find the position of a global offset in a particular buffer.*/
+/// Use this to find the position of a global offset in a particular buffer.
+///
+/// # Formula
+/// `position_in_current_buffer = global_offset & BYTE_BLOCK_MASK`
+///
+/// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
 const BYTE_BLOCK_MASK: i32 = BYTE_BLOCK_SIZE - 1;
-/**
- * This class enables the allocation of fixed-size buffers and their management as part of a buffer
- * array. Allocation is done through the use of an `Allocator` which can be customized, e.g.
- * to allow recycling old buffers. There are methods for writing #append(BytesRef) and
- * reading from the buffers (e.g. `read_bytes(i64, vec<i16>, i32, i32)`, which handle
- * read/write operations across buffer boundaries.
- *
- * @lucene.internal
- */
+/// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
+/// Allocation is done through the use of an [`Allocator`](crate::util::Allocator) which can be customized,
+/// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
+/// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.
+///
+/// # Note
+/// This is an internal API.
 pub struct ByteBlockPool<'a> {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
     buffer_upto: i32,
     allocator: AllocatorEnum<'a>,
+    /// Offset from the start of the first buffer to the start of the current buffer, which is
+    /// `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool maintains this offset because it is the first to
+    /// overflow if there are too many allocated blocks.
     byte_offset: i32,
     byte_up_to: i32,
 }
@@ -57,19 +66,15 @@ impl<'a> ByteBlockPool<'a> {
             byte_up_to: BYTE_BLOCK_SIZE,
         }
     }
-    /**
-     * Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
-     * Buffers that are not reused are reclaimed by Allocator#recycleByteBlocks`(vec<vec<u8>>`, i32,
-     * i32). Buffers can be filled with zeros before recycling them. This is useful if a slice pool
-     * works on top of this byte pool and relies on the buffers being filled with zeros to find the
-     * non-zero end of slices.
-     *
-     * @param zeroFillBuffers if true the buffers are filled with 0. This should be
-     *     set to true if this pool is used with slices.
-     * @param reuseFirst if true the first buffer will be reused and calling
-     *     ByteBlockPool#next_buffer() is not needed after reset iff the block pool was used before
-     *     ie. ByteBlockPool#next_Buffer() was called before.
-     */
+    /// Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
+    /// Buffers that are not reused are reclaimed by [`Allocator::recycle_byte_blocks`](crate::util::Allocator::recycle_byte_blocks).
+    /// Buffers can be filled with zeros before recycling them. This is useful if a slice pool works on top
+    /// of this byte pool and relies on the buffers being filled with zeros to find the non-zero end of slices.
+    ///
+    /// # Arguments
+    /// * `zero_fill_buffers` - If `true`, the buffers are filled with `0`. This should be set to `true` if this pool is used with slices.
+    /// * `reuse_first` - If `true`, the first buffer will be reused, and calling [`ByteBlockPool::next_buffer`](#method.next_buffer) is not needed after reset,
+    ///   if the block pool was used before (i.e., [`ByteBlockPool::next_buffer`](#method.next_buffer) was called before).
     pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) {
         if self.buffer_upto != -1 {
             if zero_fill_buffers {
@@ -97,12 +102,10 @@ impl<'a> ByteBlockPool<'a> {
             }
         }
     }
-    /**
-     * Allocates a new buffer and advances the pool to it. This method should be called once after the
-     * constructor to initialize the pool. In contrast to the constructor, a
-     * ByteBlockPool#reset(bool, bool) call will advance the pool to its first buffer
-     * immediately.
-     */
+    /// Allocates a new buffer and advances the pool to it. This method should be called once after the
+    /// constructor to initialize the pool. In contrast to the constructor, a
+    /// [`ByteBlockPool::reset`](#method.reset) call will advance the pool to its first buffer
+    /// immediately.
     pub fn next_buffer(&mut self) -> Option<()> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
             self.buffers.push(self.allocator.get_byte_block());
@@ -114,11 +117,9 @@ impl<'a> ByteBlockPool<'a> {
         None
     }
 
-    /**
-     * Fill the provided BytesRef with the bytes at the specified offset and length. This will
-     * avoid copying the bytes if the slice fits into a single block; otherwise, it uses the provided
-     * BytesRefBuilder to copy bytes over.
-     */
+    /// Fills the provided [`BytesRef`](BytesRef) with the bytes at the specified offset and length.
+    /// This will avoid copying the bytes if the slice fits into a single block; otherwise, it uses the provided
+    /// [`BytesRefBuilder`](BytesRefBuilder) to copy bytes over.
     pub fn set_bytes_ref(
         &self,
         builder: &mut BytesRefBuilder,
@@ -148,13 +149,12 @@ impl<'a> ByteBlockPool<'a> {
         debug_assert!(bytes.length <= i32::MAX as u32);
         self.append_range(bytes.bytes, bytes.offset as i32, bytes.length as i32);
     }
-    /**
-     * Append the bytes from a source ByteBlockPool at a given offset and length
-     *
-     * @param srcPool the source pool to copy from
-     * @param srcOffset the source pool offset
-     * @param length the number of bytes to copy
-     */
+    /// Appends the bytes from a source [`ByteBlockPool`](ByteBlockPool) at a given offset and length.
+    ///
+    /// # Arguments
+    /// * `src_pool` - The source pool to copy from.
+    /// * `src_offset` - The source pool offset.
+    /// * `length` - The number of bytes to copy.
     pub fn append_from_byte_block_pool(
         &mut self,
         src_pool: &ByteBlockPool,
@@ -201,22 +201,20 @@ impl<'a> ByteBlockPool<'a> {
         }
     }
 
-    /**
-     * Append the provided byte array at the current position.
-     *
-     * @param bytes the byte array to write
-     */
+    /// Appends the provided byte array at the current position.
+    ///
+    /// # Arguments
+    /// * `bytes` - The byte array to write.
     pub fn append(&mut self, bytes: Vec<u8>) {
         let length = bytes.len() as i32;
         self.append_range(bytes, 0, length);
     }
-    /**
-     * Append some portion of the provided byte array at the current position.
-     *
-     * @param bytes the byte array to write
-     * @param offset the offset of the byte array
-     * @param length the number of bytes to write
-     */
+    /// Appends the bytes from a source [`ByteBlockPool`](ByteBlockPool) at a given offset and length.
+    ///
+    /// # Arguments
+    /// * `src_pool` - The source pool to copy from.
+    /// * `src_offset` - The source pool offset.
+    /// * `length` - The number of bytes to copy.
     pub fn append_range(&mut self, bytes: Vec<u8>, mut offset: i32, length: i32) {
         let mut bytes_left = length;
         while bytes_left > 0 {
@@ -242,12 +240,11 @@ impl<'a> ByteBlockPool<'a> {
         }
     }
 
-    /**
-     * Reads bytes out of the pool starting at the given offset with the given length into the given
-     * byte array at offset <code>off</code>.
-     *
-     * <p>Note: this method allows to copy across block boundaries.</p>
-     */
+    /// Reads bytes out of the pool starting at the given offset with the given length into the given
+    /// byte array at offset `off`.
+    ///
+    /// # Note
+    /// This method allows copying across block boundaries.
     pub fn read_bytes(
         &self,
         offset: i64,
@@ -269,18 +266,19 @@ impl<'a> ByteBlockPool<'a> {
         }
         None
     }
-    /**
-     * Read a single byte at the given offset
-     *
-     * @param offset the offset to read
-     * @return the byte
-     */
+    /// Reads a single byte at the given offset.
+    ///
+    /// # Arguments
+    /// * `offset` - The offset to read.
+    ///
+    /// # Returns
+    /// The byte at the specified offset.
     pub fn read_byte(&self, offset: i64) -> Option<u8> {
         let buffer_index = (offset >> BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
         let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
         Some(self.buffers[buffer_index][pos as usize])
     }
-    /** the current position (in absolute value) of this byte pool */
+    /// the current position (in absolute value) of this byte pool .
     pub fn get_position(&self) -> i64 {
         (self.buffer_upto * self.allocator.get_block_size() + self.byte_up_to) as i64
     }
@@ -292,7 +290,7 @@ impl<'a> ByteBlockPool<'a> {
     }
 }
 
-/** allocating and freeing byte blocks. */
+/// Abstract trait for allocating and freeing byte blocks.
 pub trait Allocator {
     fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32);
     fn get_byte_block(&mut self) -> Vec<u8>;

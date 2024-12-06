@@ -27,7 +27,7 @@ pub trait ChecksumIndexInput: IndexInput {
     /// Inherits documentation from the parent implementation.
     ///
     /// # Note
-    /// [`ChecksumIndexInput`] can only seek forward, and seeks are expensive because they require 
+    /// [`ChecksumIndexInput`] can only seek forward, and seeks are expensive because they require
     /// reading the bytes between the current position and the target position to update the checksum.
     fn seek(&mut self, pos: u64) -> Result<(), DataIOError> {
         let cur_fp = self.get_file_pointer();
@@ -39,8 +39,8 @@ pub trait ChecksumIndexInput: IndexInput {
         }
         self.skip_by_reading(pos - cur_fp)
     }
-    /// Skips over `num_bytes` bytes. 
-    /// The behavior of this method is equivalent to reading the same number of bytes into a buffer 
+    /// Skips over `num_bytes` bytes.
+    /// The behavior of this method is equivalent to reading the same number of bytes into a buffer
     /// and discarding its content.
     ///
     fn skip_by_reading(&mut self, num_bytes: u64) -> Result<(), DataIOError> {

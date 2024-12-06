@@ -20,29 +20,34 @@ pub const BINARY_SORT_THRESHOLD: i32 = 20;
 /** Below this size threshold, the sub-range is sorted using Insertion sort. */
 pub const INSERTION_SORT_THRESHOLD: i32 = 16;
 
+/// Base class for sorting algorithm implementations.
+///
+/// There are a number of subclasses to choose from that vary in performance and [stability](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability).
+/// We suggest that you pick the first from this ranked list that meets your requirements:
+///
+/// 1. [`MSBRadixSorter`](crate::util::MSBRadixSorter) for strings (array of bytes/chars). Not a stable sort.
+/// 2. [`StableMSBRadixSorter`](crate::util::StableMSBRadixSorter) for strings (array of bytes/chars). Stable sort.
+/// 3. [`IntroSorter`](crate::util::IntroSorter). Not a stable sort.
+/// 4. [`InPlaceMergeSorter`](crate::util::InPlaceMergeSorter). When the data to sort is typically small. Stable sort.
+/// 5. [`TimSorter`](crate::util::TimSorter). Stable sort.
+///
+/// # Note
+/// This is an internal API.
 pub trait Sorter {
-    /**
-     * Compare entries found in slots i and j
-     */
+    /// Compare entries found in slots i and j
     fn compare(&self, i: i32, j: i32) -> i32;
 
-    /** Swap values at slots <code>i</code> and <code>j</code>. */
+    /// Swap values at slots <code>i</code> and `j`.
     fn swap(&mut self, i: i32, j: i32);
 
-    /**
-     * Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
-     */
+    /// Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
     fn set_pivot(&mut self, i: i32);
 
-    /**
-     * Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
-     * compare(i, j).
-     */
+    /// Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
+    /// compare(i, j).
     fn compare_pivot(&self, i: i32) -> i32;
 
-    /**
-     * Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
-     */
+    /// Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
     fn sort(&mut self, from: usize, to: usize) -> Result<(), RuntimeError>;
 
     fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
@@ -207,11 +212,9 @@ pub trait Sorter {
         }
     }
 
-    /**
-     * Sorts between from (inclusive) and to (exclusive) with insertion sort. Runs in `O(n^2)`.
-     * It is typically used by more sophisticated implementations as a fall-back when the number of
-     * items to sort becomes less than #INSERTION_SORT_THRESHOLD. This algorithm is stable.
-     */
+    /// Sorts between `from` (inclusive) and `to` (exclusive) with insertion sort. Runs in `O(n^2)`.
+    /// It is typically used by more sophisticated implementations as a fall-back when the number of
+    /// items to sort becomes less than `INSERTION_SORT_THRESHOLD`. This algorithm is stable.
     fn insertion_sort(&mut self, from: i32, to: i32) {
         let mut i = from + 1;
         while i < to {
@@ -231,11 +234,9 @@ pub trait Sorter {
             }
         }
     }
-    /**
-     * Use heap sort to sort items between `from` inclusive and `to` exclusive. This runs
-     * in `O(n*log(n))` and is used as a fall-back by `IntroSorter`. This algorithm is NOT
-     * stable.
-     */
+    /// Uses heap sort to sort items between `from` (inclusive) and `to` (exclusive). This runs
+    /// in `O(n * log(n))` and is used as a fall-back by [`IntroSorter`](crate::util::intro_sorter).
+    /// This algorithm is NOT stable.
     fn heap_sort(&mut self, from: i32, to: i32) {
         if to - from <= 1 {
             return;

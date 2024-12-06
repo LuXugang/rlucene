@@ -27,6 +27,12 @@ use std::hash::{Hash, Hasher};
 const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 #[derive(Default)]
+/// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`) `long[]`, accessed with
+/// an `int` index, implementing [`Bits`](Bits) and [`DocIdSet`](crate::search::doc_id_set).
+/// If you need to manage more than 2.1B bits, use [`LongBitSet`](crate::util::LongBitSet).
+///
+/// # Note
+/// This is an internal API.
 pub struct FixedBitSet {
     // Array of longs holding the bits
     bits: Vec<u64>,
@@ -63,14 +69,12 @@ impl Clone for FixedBitSet {
     }
 }
 
-/**
- * If the given `FixedBitSet` is large enough to hold `numBits+1`, returns the given
- * bits, otherwise returns a new `FixedBitSet` which can hold the requested number of bits.
- *
- * NOTE: the returned bitset reuses the underlying `Vec<u64>` of the given `bits`
- * if possible. Also, calling `length()` on the returned bits may return a value
- * greater than `numBits`.
- */
+/// If the given [`LongBitSet`](crate::util::LongBitSet) is large enough to hold `num_bits + 1`,
+/// returns the given bits, otherwise returns a new [`LongBitSet`](crate::util::LongBitSet) that can hold the requested number of bits.
+///
+/// # Note
+/// The returned bitset reuses the underlying `long[]` of the given `bits` if possible.
+/// Also, calling `length()` on the returned bits may return a value greater than `num_bits`.
 impl FixedBitSet {
     pub fn ensure_capacity(bits: &mut FixedBitSet, num_bits: i32) {
         if num_bits < bits.num_bits {
@@ -88,15 +92,13 @@ impl FixedBitSet {
         }
     }
 
-    /** returns the number of 64 bit words it would take to hold numBits */
+    /// returns the number of 64 bit words it would take to hold numBits */
     pub fn bits2words(num_bits: i32) -> i32 {
         ((num_bits - 1) >> 6) + 1
     }
 
-    /**
-     * Returns the popcount or cardinality of the intersection of the two sets. Neither set is
-     * modified.
-     */
+    /// Returns the popcount or cardinality of the intersection of the two sets. Neither set is
+    /// modified.
     pub fn intersection_count(a: FixedBitSet, b: FixedBitSet) -> i64 {
         // Depends on the ghost bits being clear!
         let mut tot = 0;
@@ -107,7 +109,7 @@ impl FixedBitSet {
         tot as i64
     }
 
-    /** Returns the popcount or cardinality of the union of the two sets. Neither set is modified. */
+    //// Returns the popcount or cardinality of the union of the two sets. Neither set is modified.
     pub fn union_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         // Depends on the ghost bits being clear!
         let mut tot = 0;
@@ -124,10 +126,8 @@ impl FixedBitSet {
         tot as i64
     }
 
-    /**
-     * Returns the popcount or cardinality of "a and not b" or "intersection(a, not(b))". Neither set
-     * is modified.
-     */
+    /// Returns the popcount or cardinality of "a and not b" or "intersection(a, not(b))". Neither set
+    /// is modified.
     pub fn and_not_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         let mut tot = 0;
         let num_common_words = min(a.num_words, b.num_words);
@@ -139,12 +139,11 @@ impl FixedBitSet {
         }
         tot as i64
     }
-    /**
-     * Creates a new FixedBitSet. The internally allocated long array will be exactly the size needed
-     * to accommodate the numBits specified.
-     *
-     * @param numBits the number of bits needed
-     */
+    /// Creates a new `FixedBitSet`. The internally allocated `Vec<u64>` array will be exactly the size needed
+    /// to accommodate the `num_bits` specified.
+    ///
+    /// # Arguments
+    /// * `num_bits` - The number of bits needed.
     pub fn new(num_bits: i32) -> FixedBitSet {
         let size: usize = Self::bits2words(num_bits) as usize;
         let bits: Vec<u64> = vec![0; size];
@@ -156,14 +155,13 @@ impl FixedBitSet {
             num_words: exact_size as i32,
         }
     }
-    /**
-     * Creates a new FixedBitSet using the provided long[] array as backing store. The storedBits
-     * array must be large enough to accommodate the numBits specified, but may be larger. In that
-     * case the 'extra' or 'ghost' bits must be clear (or they may provoke spurious side-effects)
-     *
-     * @param storedBits the array to use as backing store
-     * @param numBits the number of bits actually needed
-     */
+    /// Creates a new `FixedBitSet` using the provided `Vec<u64>` array as the backing store.
+    /// The `stored_bits` array must be large enough to accommodate the `num_bits` specified,
+    /// but may be larger. In that case, the 'extra' or 'ghost' bits must be clear (or they may provoke spurious side-effects).
+    ///
+    /// # Arguments
+    /// * `stored_bits` - The array to use as the backing store (`Vec<i64>`).
+    /// * `num_bits` - The number of bits actually needed.
     pub fn with_capacity(
         stored_bits: Vec<u64>,
         num_bits: i32,
@@ -184,12 +182,11 @@ impl FixedBitSet {
         Ok(result)
     }
 
-    /**
-     * Checks if the bits past numBits are clear. Some methods rely on this implicit assumption:
-     * search for "Depends on the ghost bits being clear!"
-     *
-     * @return true if the bits past numBits are clear.
-     */
+    /// Checks if the bits past `num_bits` are clear. Some methods rely on this implicit assumption:
+    /// search for "Depends on the ghost bits being clear!"
+    ///
+    /// # Returns
+    /// `true` if the bits past `num_bits` are clear.
     fn verify_ghost_bits_clear(fixed_bit_set: &FixedBitSet) -> bool {
         for i in fixed_bit_set.num_words as usize..fixed_bit_set.bits.len() {
             if fixed_bit_set.bits[i] != 0 {
@@ -323,12 +320,11 @@ impl FixedBitSet {
         }
     }
 
-    /**
-     * Flips a range of bits
-     *
-     * @param startIndex lower index
-     * @param endIndex one-past the last bit to flip
-     */
+    /// Flips a range of bits.
+    ///
+    /// # Arguments
+    /// * `start_index` - The lower index.
+    /// * `end_index` - One-past the last bit to flip.
     pub fn flip_range(&mut self, start_index: i32, end_index: i32) {
         debug_assert!(start_index >= 0 && start_index < self.num_bits);
         debug_assert!(end_index >= 0 && end_index <= self.num_bits);
@@ -355,7 +351,7 @@ impl FixedBitSet {
         self.bits[end_word as usize] ^= end_mask;
     }
 
-    /** Flip the bit at the provided index. */
+    /// Flip the bit at the provided index.
     pub fn flip(&mut self, index: i32) {
         debug_assert!(
             index >= 0 && index < self.num_bits,
@@ -368,13 +364,12 @@ impl FixedBitSet {
         self.bits[word_num as usize] ^= bit_mask;
     }
 
-    /**
-     * Sets a range of bits
-     *
-     * @param startIndex lower index
-     * @param endIndex one-past the last bit to set
-     */
-    pub fn set_range(&mut self, start_index: i32, end_index: i32) {
+    /// Sets a range of bits.
+    ///
+    /// # Arguments
+    /// * `start_index` - The lower index.
+    /// * `end_index` - One-past the last bit to set.
+    pub fn set_with_range(&mut self, start_index: i32, end_index: i32) {
         debug_assert!(
             start_index >= 0 && start_index < self.num_bits,
             "start_index = {}, num_bits = {}",
@@ -455,12 +450,14 @@ impl FixedBitSet {
         todo!()
     }
 
-    /**
-     * Convert this instance to read-only Bits. This is useful in the case that this
-     * FixedBitSet is returned as a Bits instance, to make sure that consumers may not get
-     * write access back by casting to a FixedBitSet. NOTE: Changes to this
-     * FixedBitSet will be reflected on the returned Bits.
-     */
+    /// Converts this instance to a read-only [`Bits`](Bits).
+    /// This is useful in cases where this [`FixedBitSet`](FixedBitSet)
+    /// is returned as a [`Bits`](Bits) instance, to ensure that consumers cannot
+    /// get write access by casting to a [`FixedBitSet`](FixedBitSet).
+    ///
+    /// # Note
+    /// Changes to this [`FixedBitSet`](FixedBitSet) will be reflected
+    /// on the returned [`Bits`](Bits).
     pub fn as_read_only_bits(&self) -> Box<dyn Bits> {
         todo!()
     }
@@ -568,6 +565,10 @@ impl BitSet for FixedBitSet {
         self.bits[end_word as usize] &= end_mask
     }
 
+    /// Returns the number of set bits.
+    ///
+    /// # Note
+    /// This visits every `u64` in the backing bits array, and the result is not internally cached.
     fn cardinality(&self) -> i32 {
         // Depends on the ghost bits being clear!
         let mut tot: i64 = 0;
@@ -634,11 +635,9 @@ impl BitSet for FixedBitSet {
         self.next_set_bit_range(index, self.num_bits)
     }
 
-    /**
-     * Returns the next set bit in the specified range, but treats `upperBound` as a best-effort hint
-     * rather than a hard requirement. Note that this may return a result that is >= upperBound in
-     * some cases, so callers must add their own check if `upperBound` is a hard requirement.
-     */
+    /// Returns the next set bit in the specified range, but treats `upper_bound` as a best-effort hint
+    /// rather than a hard requirement. Note that this may return a result that is greater than or equal
+    /// to `upper_bound` in some cases, so callers must add their own check if `upper_bound` is a hard requirement.
     fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {
         let res = self.next_set_bit_impl(start, upper_bound);
         if res < upper_bound {

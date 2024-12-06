@@ -340,7 +340,7 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
         aa.clone_from(&a);
         set_range(&mut aa, from_index as usize, to_index as usize);
         bb = b.clone();
-        bb.set_range(from_index, to_index);
+        bb.set_with_range(from_index, to_index);
 
         do_next_set_bit(&aa, &bb); // a problem here is from set() or nextSetBit
 
@@ -461,7 +461,7 @@ fn test_small_bitsets() {
         assert_eq!(calculate_hash(&b1), calculate_hash(&b2));
         assert_eq!(0, b1.cardinality());
         if num_bits > 0 {
-            b1.set_range(0, num_bits);
+            b1.set_with_range(0, num_bits);
             assert_eq!(num_bits, b1.cardinality());
             b1.flip_range(0, num_bits);
             assert_eq!(0, b1.cardinality());

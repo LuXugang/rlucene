@@ -16,9 +16,23 @@
  */
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::sorter::{check_range, Sorter, INSERTION_SORT_THRESHOLD};
-/** Below this size threshold, the partition selection is simplified to a single median. */
+/// Below this size threshold, the partition selection is simplified to a single median.
 const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 
+/// [`Sorter`](Sorter) implementation based on a variant of the quicksort algorithm called
+/// [introsort](http://en.wikipedia.org/wiki/Introsort): when the recursion level exceeds the
+/// log of the length of the array to sort, it falls back to heapsort. This prevents quicksort from
+/// running into its worst-case quadratic runtime. Selects the pivot using Tukey's ninther
+/// median-of-medians, and partitions using Bentley-McIlroy 3-way partitioning. Small ranges are
+/// sorted with insertion sort.
+///
+/// # Note
+/// This algorithm is **NOT** stable. It's fast on most data shapes, especially with low
+/// cardinality. If the data to sort is known to be strictly ascending or descending, prefer
+/// [`TimSorter`](crate::util::TimSorter).
+///
+/// # Note
+/// This is an internal API.
 pub trait IntroSorter: Sorter {
     fn sort_range(&mut self, from: usize, to: usize) -> Result<(), RuntimeError> {
         check_range(from, to)?;
@@ -29,13 +43,12 @@ pub trait IntroSorter: Sorter {
         );
         Ok(())
     }
-    /**
-     * Sorts between from (inclusive) and to (exclusive) with intro sort.
-     *
-     * Sorts small ranges with insertion sort. Fallbacks to heap sort to avoid quadratic worst
-     * case. Selects the pivot with medians and partitions with the Bentley-McIlroy fast 3-ways
-     * algorithm (Engineering a Sort Function, Bentley-McIlroy).
-     */
+    /// Sorts between `from` (inclusive) and `to` (exclusive) with introsort.
+    ///
+    /// # Description
+    /// Sorts small ranges with insertion sort. Falls back to heapsort to avoid quadratic worst
+    /// case. Selects the pivot with medians and partitions using the Bentley-McIlroy fast 3-way
+    /// algorithm (Engineering a Sort Function, Bentley-McIlroy).
     fn sort_in_intro(&mut self, mut from: i32, mut to: i32, mut max_depth: usize) {
         while to - from > INSERTION_SORT_THRESHOLD {
             if max_depth == 0 {
@@ -135,7 +148,8 @@ pub trait IntroSorter: Sorter {
 
         self.insertion_sort(from, to);
     }
-    /** Returns the index of the median element among three elements at provided indices. */
+
+    /// Returns the index of the median element among three elements at provided indices.
     fn median(&self, i: i32, j: i32, k: i32) -> i32 {
         if self.compare(i, j) < 0 {
             if self.compare(j, k) <= 0 {

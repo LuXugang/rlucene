@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod array_index_out_of_bounds;
 pub mod corrupt_index;
 pub mod data_io_error_enum;
 pub mod eof;

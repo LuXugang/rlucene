@@ -214,10 +214,10 @@ fn test_add_all_does_not_fit_into_queue() {
         list.push(random.gen());
         pq.add(random.gen());
     }
-    let result = pq.add_all(list).unwrap_err();
+    let result = pq.add_all(list).unwrap_err().to_string();
     assert_eq!(
         result,
-        "Cannot add 11 elements to a queue with remaining capacity: 9"
+        "Array Index out of Bounds: Cannot add 11 elements to a queue with remaining capacity: 9"
     );
 }
 

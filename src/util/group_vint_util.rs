@@ -28,6 +28,15 @@ const MASKS: [u64; 4] = [0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF];
 pub struct GroupVIntUtil;
 
 impl GroupVIntUtil {
+    /// Reads all the group varints, including the tail vints. We need a `Vec<i64>` because this is what
+    /// postings are using, and all longs are actually required to be integers.
+    ///
+    /// # Arguments
+    /// * `dst` - The array to read `i64` values into.
+    /// * `limit` - The number of `i64` values to read.
+    ///
+    /// # Note
+    /// This is an experimental API.
     pub fn read_group_vints<D>(
         mut data_input: D,
         dst: &mut [i64],
@@ -46,10 +55,13 @@ impl GroupVIntUtil {
         }
         Ok(())
     }
-    /**
-     * Default implementation of read single group, for optimal performance, you should use {@link
-     * `GroupVIntUtil#readGroupVInts(DataInput, vec<i64>, i32)` instead.
-     */
+    /// Default implementation of reading a single group. For optimal performance, you should use
+    /// [`GroupVIntUtil::read_group_vints`](GroupVIntUtil::read_group_vints) instead.
+    ///
+    /// # Arguments
+    /// * `in` - The input to use to read data.
+    /// * `dst` - The array to read `i64` values into.
+    /// * `offset` - The offset in the array to start storing `i64` values.
     pub fn read_group_vint<D>(
         data_input: &mut D,
         dst: &mut [i64],
@@ -101,10 +113,19 @@ impl GroupVIntUtil {
             }
         }
     }
-    /**
-     * Faster implementation of read single group, It read values from the buffer that would not cross
-     * boundaries.
-     */
+    /// Faster implementation of reading a single group. It reads values from the buffer that would not cross
+    /// boundaries.
+    ///
+    /// # Arguments
+    /// * `in` - The input to use to read data.
+    /// * `remaining` - The number of remaining bytes allowed to read for the current block/segment.
+    /// * `pos` - The start position to read from the reader.
+    /// * `dst` - The array to read `i64` values into.
+    /// * `offset` - The offset in the array to start storing `i64` values.
+    ///
+    /// # Returns
+    /// The number of bytes read excluding the flag. This indicates the number of positions that should be
+    /// increased for the caller. It is a non-negative number less than `MAX_LENGTH_PER_GROUP`.
     pub fn read_group_vint_with_reader<D>(
         data_input: &mut D,
         remaining: u64,
@@ -165,6 +186,7 @@ impl GroupVIntUtil {
             Ok(value as i32)
         }
     }
+    /// The implementation for group-varint encoding. It uses a maximum of [`MAX_LENGTH_PER_GROUP`](MAX_LENGTH_PER_GROUP) bytes scratch buffer.
     pub fn write_group_vints<D>(
         data_output: &mut D,
         scratch: &mut [u8],

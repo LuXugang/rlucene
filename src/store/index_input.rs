@@ -36,8 +36,8 @@ pub trait IndexInput: DataInput + Clone {
     /// [`seek`](IndexInput::seek)
     fn get_file_pointer(&self) -> u64;
 
-    /// Sets the current position in this file, where the next read will occur. 
-    /// If this position is beyond the end of the file, it will return an `EOFError`, 
+    /// Sets the current position in this file, where the next read will occur.
+    /// If this position is beyond the end of the file, it will return an `EOFError`,
     /// and the stream will be in an undetermined state.
     ///
     /// # See Also
@@ -50,17 +50,17 @@ pub trait IndexInput: DataInput + Clone {
     ///
     /// # See Also
     /// [`get_file_pointer`](IndexInput::get_file_pointer)
-    /// 
+    ///
     /// [`seek`](IndexInput::seek)
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
         let skip_to = self.get_file_pointer() + num_bytes;
         self.seek(skip_to)?;
         Ok(())
     }
-    /// The number of bytes in the file. 
+    /// The number of bytes in the file.
     fn length(&self) -> u64;
 
-    /// Creates a slice of this index input, with the given description, offset, and length. 
+    /// Creates a slice of this index input, with the given description, offset, and length.
     /// The slice is positioned at the beginning.
     fn slice(
         &self,
@@ -68,16 +68,16 @@ pub trait IndexInput: DataInput + Clone {
         offset: u64,
         length: u64,
     ) -> Result<impl IndexInput, DataIOError>;
-    /// Creates a slice with a specific [`ReadAdvice`](ReadAdvice). This is typically used by 
-    /// [`CompoundFormat`](CompoundFormat) implementations to honor 
+    /// Creates a slice with a specific [`ReadAdvice`](ReadAdvice). This is typically used by
+    /// [`CompoundFormat`](CompoundFormat) implementations to honor
     /// the [`ReadAdvice`](ReadAdvice) of each file within the compound file.
     ///
     /// # Note
-    /// It is only legal to call this method if this `IndexInput` has been opened with 
-    /// `ReadAdvice::NORMAL`. However, this method accepts any `ReadAdvice` value except `None` for 
+    /// It is only legal to call this method if this `IndexInput` has been opened with
+    /// `ReadAdvice::NORMAL`. However, this method accepts any `ReadAdvice` value except `None` for
     /// the slice.
     ///
-    /// The default implementation delegates to [`slice`](IndexInput::slice) and ignores the 
+    /// The default implementation delegates to [`slice`](IndexInput::slice) and ignores the
     /// `ReadAdvice`.
     fn slice_with_read_advice(
         &self,
@@ -97,7 +97,7 @@ pub trait IndexInput: DataInput + Clone {
     ) -> Result<impl IndexInput, DataIOError> {
         self.slice_with_read_advice(description, offset, length, read_advice)
     }
-     /// Subclasses call this to get the String for resourceDescription of a slice of this `IndexInput`.
+    /// Subclasses call this to get the String for resourceDescription of a slice of this `IndexInput`.
     fn get_full_slice_description(&self, slice_description: &str) -> String {
         format!(" [slice= {} ", slice_description)
     }
@@ -105,7 +105,7 @@ pub trait IndexInput: DataInput + Clone {
     /// Creates a random-access slice of this index input, with the given offset and length.
     ///
     /// # Note
-    /// The default implementation calls [`slice`](IndexInput::slice), and it doesn't support random access. 
+    /// The default implementation calls [`slice`](IndexInput::slice), and it doesn't support random access.
     /// It implements absolute reads as seek+read.
     fn random_access_slice(
         &self,
@@ -121,8 +121,8 @@ pub trait IndexInput: DataInput + Clone {
     ) -> Result<impl RandomAccessInput, DataIOError> {
         self.get_random_access_slice(offset, length)
     }
-    /// Optional method: Gives a hint to this input that some bytes will be read in the near future. 
-    /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data 
+    /// Optional method: Gives a hint to this input that some bytes will be read in the near future.
+    /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data
     /// immediately from storage.
     ///
     /// # Arguments

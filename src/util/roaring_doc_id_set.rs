@@ -34,16 +34,15 @@ const MAX_ARRAY_LENGTH: i32 = 1 << 12;
 // todo
 #[allow(dead_code)]
 const BASE_RAM_BYTES_USED: i64 = 0;
-/**
- * link DocIdSet implementation inspired from `http://roaringbitmap.org/`
- *
- * The space is divided into blocks of 2^16 bits and each block is encoded independently. In each
- * block, if less than 2^12 bits are set, then documents are simply stored in a i16[]. If more
- * than 2^16-2^12 bits are set, then the inverse of the set is encoded in a simple i16[].
- * Otherwise a FixedBitSet is used.
- *
- * @lucene.internal
- */
+/// [`DocIdSet`](DocIdSet) implementation inspired by [roaringbitmap.org](http://roaringbitmap.org/)
+///
+/// The space is divided into blocks of `2^16` bits, and each block is encoded independently. In each
+/// block, if fewer than `2^12` bits are set, documents are simply stored in a `Vec<i16>`. If more than
+/// `2^16 - 2^12` bits are set, the inverse of the set is encoded in a simple `Vec<i16>`. Otherwise,
+/// a [`FixedBitSet`](FixedBitSet) is used.
+///
+/// # Note
+/// This is an internal API.
 pub struct RoaringDocIdSet {
     doc_id_sets: Option<Vec<Option<DocIdSetEnum>>>,
     cardinality: i32,
@@ -122,10 +121,10 @@ impl RoaringDocIdSetBuilder {
             dense_buffer: FixedBitSet::new(0),
         }
     }
-    /** Add a new doc-id to this builder. NOTE: doc ids must be added in order. */
+    /// Add a new doc-id to this builder. NOTE: doc ids must be added in order.
     pub fn add(&mut self, doc_id: i32) -> Result<(), RuntimeError> {
         if doc_id <= self.last_doc_id {
-            return Err(RuntimeError::illegal_argument( format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "Doc ids must be added in-order, got {} which is <= lastDocID=",
                 self.last_doc_id
             )));
@@ -154,7 +153,7 @@ impl RoaringDocIdSetBuilder {
         self.current_block_cardinality += 1;
         Ok(())
     }
-    /** Add the content of the provided DocIdSetIterator. */
+    /// Add the content of the provided DocIdSetIterator.
     pub fn add_disi<T: DocIdSetIterator>(&mut self, mut disi: T) {
         let mut doc = disi.next_doc();
         while doc != NO_MORE_DOCS {

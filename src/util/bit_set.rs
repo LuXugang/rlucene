@@ -22,14 +22,10 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
-/**
- * Base implementation for a bit set.
- */
+/// Base implementation for a bit set.
 pub trait BitSet: Bits + Accountable {
-    /**
-     * Build a `BitSet` from the content of the provided `DocIdSetIterator`.
-     * NOTE: this will fully consume the `DocIdSetIterator`.
-     */
+    /// Builds a [`BitSet`](BitSet) from the content of the provided [`DocIdSetIterator`](DocIdSetIterator).
+    /// **Note**: This will fully consume the [`DocIdSetIterator`](DocIdSetIterator).
     fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType, RuntimeError> {
         let cost = it.cost();
         let threshold = max_doc >> 7;
@@ -44,59 +40,53 @@ pub trait BitSet: Bits + Accountable {
         Ok(set)
     }
 
-    /**
-     * Clear all the bits of the set.
-     *
-     * Depending on the implementation, this may be significantly faster than clear(0, length).
-     */
+    /// Clears all the bits of the set.
+    ///
+    /// # Note
+    /// Depending on the implementation, this may be significantly faster than `clear(0, length)`.
     fn clear(&mut self) {
         self.clear_range(0, self.length())
     }
 
-    /** Set the bit at <code>i</code>. */
+    /// Sets the bit at `i`.
     fn set(&mut self, i: i32);
-    /** Set the bit at <code>i</code>, returning <code>true</code> if it was previously set. */
+    /// Sets the bit at `i`, returning `true` if it was previously set.
     fn get_and_set(&mut self, i: i32) -> bool;
 
-    /** Clear the bit at <code>i</code>. */
+    /// Clears the bit at `i`.
     fn clear_with_index(&mut self, i: i32);
-    /**
-     * Clears a range of bits.
-     *
-     * startIndex: lower index
-     * endIndex: one-past the last bit to clear
-     */
+    /// Clears a range of bits.
+    ///
+    /// # Arguments
+    /// * `start_index` - The lower index.
+    /// * `end_index` - One-past the last bit to clear.
     fn clear_range(&mut self, start_index: i32, end_index: i32);
 
-    /** Return the number of bits that are set. NOTE: this method is likely to run in linear time */
+    /// Returns the number of bits that are set.
+    ///
+    /// # Note
+    /// This method is likely to run in linear time.
     fn cardinality(&self) -> i32;
-    /**
-     * Return an approximation of the cardinality of this set. Some implementations may trade accuracy
-     * for speed if they have the ability to estimate the cardinality of the set without iterating
-     * over all the data. The default implementation returns `cardinality()`.
-     */
+    /// Returns an approximation of the cardinality of this set. Some implementations may trade accuracy
+    /// for speed if they have the ability to estimate the cardinality of the set without iterating
+    /// over all the data. The default implementation returns [`cardinality`](BitSet::cardinality).
     fn approximate_cardinality(&self) -> i32;
 
-    /**
-     * Returns the index of the last set bit before or on the index specified. -1 is returned if there
-     * are no more set bits.
-     */
+    /// Returns the index of the last set bit before or on the index specified. -1 is returned if there
+    /// are no more set bits.
     fn prev_set_bit(&self, index: i32) -> i32;
 
-    /**
-     * Returns the index of the first set bit starting at the index specified `NO_MORE_DOCS` is returned if there are no more set bits.
-     */
+    /// Returns the index of the first set bit starting at the index specified.
+    /// [`DocIdSetIterator::NO_MORE_DOCS`](crate::search::doc_id_set_iterator::NO_MORE_DOCS) is returned if there are no more set bits.
     fn next_set_bit(&self, index: i32) -> i32 {
         self.next_set_bit_range(index, self.length())
     }
 
-    /**
-     * Returns the index of the first set bit from start (inclusive) until end (exclusive). {@link
-     * DocIdSetIterator#NO_MORE_DOCS} is returned if there are no more set bits.
-     */
+    /// Returns the index of the first set bit from start (inclusive) until end (exclusive).
+    /// [`DocIdSetIterator::NO_MORE_DOCS`](crate::search::doc_id_set_iterator::NO_MORE_DOCS) is returned if there are no more set bits.
     fn next_set_bit_range(&self, start: i32, end: i32) -> i32;
 
-    /** Assert that the current doc is -1. */
+    ///Assert that the current doc is -1.
     fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<(), RuntimeError> {
         if iter.doc_id() != -1 {
             return Err(RuntimeError::illegal_state( format!("This operation only works with an unpositioned iterator, got current position = {}", iter.doc_id())));
@@ -104,9 +94,7 @@ pub trait BitSet: Bits + Accountable {
         Ok(())
     }
 
-    /**
-     * Does in-place OR of the bits provided by the iterator. The state of the iterator after this
-     * operation terminates is undefined.
-     */
+    /// Performs in-place OR of the bits provided by the iterator. The state of the iterator after this
+    /// operation terminates is undefined.
     fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), RuntimeError>;
 }

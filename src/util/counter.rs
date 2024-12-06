@@ -17,21 +17,28 @@
 use std::sync::atomic::AtomicI64;
 
 pub trait Counter {
-    /**
-     * Adds the given delta to the counters current value
-     *
-     * @param delta the delta to add
-     * @return the counters updated value
-     */
+    /// Adds the given delta to the counter's current value.
+    ///
+    /// # Arguments
+    /// * `delta` - The delta to add.
+    ///
+    /// # Returns
+    /// The counter's updated value.
     fn add_and_get(&mut self, delta: i64) -> i64;
-    /**
-     * Returns the counters current value
-     *
-     * @return the counters current value
-     */
+    /// Returns the counter's current value.
+    ///
+    /// # Returns
+    /// The counter's current value.
     fn get(&self) -> i64;
 }
 
+/// Returns a new counter.
+///
+/// # Arguments
+/// * `thread_safe` - `true` if the returned counter can be used by multiple threads concurrently.
+///
+/// # Returns
+/// A new counter.
 pub fn new_counter(thread_safe: bool) -> CounterEnum {
     if thread_safe {
         CounterEnum::A(AtomicCounter::new())

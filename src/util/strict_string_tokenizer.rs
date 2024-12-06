@@ -16,6 +16,8 @@
  */
 use crate::util::error::illegal_state::IllegalStateError;
 
+/// Used for parsing version strings so we don't have to use the overkill of `String.split` or
+/// `StringTokenizer` (which silently skips empty tokens).
 pub struct StrictStringTokenizer<'a> {
     s: &'a str,
     delimiter: char,

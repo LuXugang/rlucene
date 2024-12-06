@@ -20,25 +20,25 @@ use std::fmt::Display;
 /// Base trait for locking implementations. `Directory` uses instances of this trait to implement locking.
 ///
 /// # Default Implementation
-/// Lucene uses [`NativeFSLockFactory`](crate::store::NativeFSLockFactory) by default 
+/// Lucene uses [`NativeFSLockFactory`](crate::store::NativeFSLockFactory) by default
 /// for `FSDirectory`-based index directories.
 ///
 /// # Notes
-/// Special care needs to be taken if you change the locking implementation: First, ensure that no writer 
-/// is actively writing to the index, as doing so could corrupt the index. Be sure to change the `LockFactory` 
-/// on all Lucene instances and clean up any leftover lock files before starting with the new configuration. 
+/// Special care needs to be taken if you change the locking implementation: First, ensure that no writer
+/// is actively writing to the index, as doing so could corrupt the index. Be sure to change the `LockFactory`
+/// on all Lucene instances and clean up any leftover lock files before starting with the new configuration.
 /// Different implementations cannot work together.
 ///
-/// If you suspect that a `LockFactory` implementation is not functioning properly in your environment, 
-/// you can easily test it using [`VerifyingLockFactory`](crate::store::verifying_lock_factory::VerifyingLockFactory), 
-/// [`LockVerifyServer`](crate::store::lock_verify_server::LockVerifyServer), and 
+/// If you suspect that a `LockFactory` implementation is not functioning properly in your environment,
+/// you can easily test it using [`VerifyingLockFactory`](crate::store::verifying_lock_factory::VerifyingLockFactory),
+/// [`LockVerifyServer`](crate::store::lock_verify_server::LockVerifyServer), and
 /// [`LockStressTest`](crate::store::lock_stress_test::LockStressTest).
 ///
 /// # See Also
 /// [`LockVerifyServer`](crate::store::lock_verify_server::LockVerifyServer)
-/// 
+///
 /// [`LockStressTest`](crate::store::lock_stress_test::LockStressTest)
-/// 
+///
 /// [`VerifyingLockFactory`](crate::store::verifying_lock_factory::VerifyingLockFactory)
 pub trait LockFactory: Display {
     /// Returns a new obtained `Lock` instance identified by `lock_name`.
@@ -47,7 +47,7 @@ pub trait LockFactory: Display {
     /// * `lock_name` - The name of the lock to be created.
     ///
     /// # Errors
-    /// - Returns a `LockObtainFailedException` (optional specific exception) if the lock could not be 
+    /// - Returns a `LockObtainFailedException` (optional specific exception) if the lock could not be
     ///   obtained because it is currently held elsewhere.
     /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain the lock.
     fn obtain_lock(&mut self, lock_name: &str) -> impl Lock;
