@@ -37,7 +37,7 @@ fn do_test_data_types(offset: usize) -> Result<(), DataIOError> {
 
     let mut buffer = Vec::new();
     {
-        let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 12);
+        let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 12)?;
         let mut hasher = Hasher::new();
         for i in 0..offset {
             out.write_byte(i as u8)?;
@@ -80,7 +80,7 @@ fn test_write_exceeding_buffer() -> Result<(), DataIOError> {
     let large_data: Vec<u8> = (0..16).collect();
     let mut buffer = Vec::new();
     {
-        let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, buffer_size);
+        let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, buffer_size)?;
 
         let mut hasher = Hasher::new();
 
@@ -106,7 +106,7 @@ fn test_multiple_writes_with_checksum() -> Result<(), DataIOError> {
     let mut buffer = Vec::new();
     let combined_data: Vec<u8>;
     {
-        let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8);
+        let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8)?;
 
         let data1 = b"Hello";
         let data2 = b"World";

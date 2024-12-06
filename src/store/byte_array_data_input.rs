@@ -20,6 +20,13 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::{Display, Formatter};
 
 #[derive(Default)]
+/// `DataInput` backed by a byte array.
+///
+/// # Warning
+/// This class omits all low-level checks.
+///
+/// # Note
+/// This is an experimental API.
 pub struct ByteArrayDataInput {
     bytes: Vec<u8>,
     pos: usize,

@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::store::Checksum;
-
+/// Default buffer size: 1024 
 pub const DEFAULT_BUFFER_SIZE: u32 = 1024;
-/** Wraps another `Checksum` with an internal buffer to speed up checksum calculations. */
+/// Wraps another [`Checksum`] with an internal buffer to speed up checksum calculations.
 pub struct BufferedChecksum<T: Checksum> {
     buffer: Vec<u8>,
     upto: u32,
@@ -32,6 +32,8 @@ impl<T: Checksum> BufferedChecksum<T> {
             checksum,
         }
     }
+    /// Create a new BufferedChecksum with the specified bufferSize 
+
     pub fn new_with_buffer_size(checksum: T, buffer_size: u32) -> Self {
         Self {
             buffer: vec![0; buffer_size as usize],

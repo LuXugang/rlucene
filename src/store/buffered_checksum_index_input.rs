@@ -21,7 +21,7 @@ use crate::store::{BufferedChecksum, ByteBuffersIndexInput, Checksum, DataInput,
 use crate::util::error::data_io_error_enum::DataIOError;
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
-
+/// Simple implementation of [`ChecksumIndexInput`] that wraps another input and delegates calls.
 pub struct BufferedChecksumIndexInput<T: IndexInput> {
     main: T,
     digest: BufferedChecksum<HasherChecksum>,

@@ -43,6 +43,7 @@ pub mod output_stream_data_output;
 pub mod output_stream_index_output;
 pub mod random_access_input;
 pub mod read_advice;
+pub mod native_fs_lock_factory;
 
 pub use buffered_checksum::*;
 pub use byte_array_data_input::*;
@@ -57,3 +58,4 @@ pub use index_output::*;
 pub use io_context::*;
 pub use output_stream_index_output::*;
 pub use read_advice::*;
+pub use native_fs_lock_factory::*;

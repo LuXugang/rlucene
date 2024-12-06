@@ -14,21 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::directory::Directory;
-use crate::store::lock::Lock;
-use crate::store::lock_factory::LockFactory;
-use crate::util::error::data_io_error_enum::DataIOError;
-
-/// Base implementation for a concrete [`Directory`] that uses a [`LockFactory`] for locking.
-///
-/// # Note
-/// This is an experimental API.
-pub trait BaseDirectory: Directory {
-    fn obtain_lock(
-        &mut self,
-        lock_name: &str,
-        lock_factory: &mut impl LockFactory,
-    ) -> Result<impl Lock, DataIOError> {
-        Ok(lock_factory.obtain_lock(lock_name))
-    }
-}
+pub struct NativeFSLockFactory;

@@ -21,8 +21,10 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
 use std::io::{BufWriter, Write};
+use crate::util::bit_util::LONG_BYTES;
+use crate::util::error::runtime_error::RuntimeError;
 
-/** Implementation class for buffered `IndexOutput` that writes to an `OutputStream` */
+/// Implementation class for buffered [`IndexOutput`](crate::store::index_output::IndexOutput) that writes to an [`OutputStream`](std::io::Write).
 pub struct OutputStreamIndexOutput<W: Write> {
     os: XBufferedOutputStream<W>,
     bytes_written: u64,
@@ -30,21 +32,27 @@ pub struct OutputStreamIndexOutput<W: Write> {
     resource_description: String,
 }
 impl<W: Write> OutputStreamIndexOutput<W> {
-    /**
-     * Creates a new `OutputStreamIndexOutput` with the given buffer size.
-     *
-     * bufferSize :recommend value： 8kb
-     */
-    pub fn new(resource_description: &str, name: &str, inner: W, buffer_size: usize) -> Self {
+    /// Creates a new [`OutputStreamIndexOutput`](crate::store::output_stream_index_output::OutputStreamIndexOutput) with the given buffer size.
+    ///
+    /// # Arguments
+    /// * `buffer_size` - The buffer size in bytes used to buffer writes internally.
+    ///
+    /// # Errors
+    /// Returns an `IllegalArgumentError` if the given buffer size is less than [`LONG_BYTES`](bit_util::LONG_BYTES).
+    ///
+    pub fn new(resource_description: &str, name: &str, inner: W, buffer_size: usize) -> Result<OutputStreamIndexOutput<W>, RuntimeError>{
+        if buffer_size < LONG_BYTES {
+            return Err(RuntimeError::illegal_argument(format!("Buffer size too small, need: {}, got: {}", LONG_BYTES, buffer_size)));
+        }
         let os = XBufferedOutputStream::new(inner, buffer_size);
+        Ok(
         Self {
             os,
             bytes_written: 0,
             name: name.to_string(),
             resource_description: resource_description.to_string(),
-        }
+        })
     }
-    pub fn close() {}
 }
 
 impl<W: Write> DataOutput for OutputStreamIndexOutput<W> {

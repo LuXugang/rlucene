@@ -21,32 +21,41 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::{GroupVIntUtil, MAX_LENGTH_PER_GROUP};
 use std::collections::{HashMap, HashSet};
 
-/**
- * Abstract base class for performing write operations of Lucene's low-level data types.
- *
- * `DataOutput` may only be used from one thread, because it is not thread safe (it keeps
- * internal state like file position).
-*/
+/// Abstract base trait for performing write operations on Lucene's low-level data types.
+///
+/// # Note
+/// `DataOutput` is not thread-safe as it maintains internal state (e.g., file position), 
+/// and therefore should only be used from a single thread.
 pub trait DataOutput: Sized {
-    /**
-     * Writes a single byte.
-     *
-     * The most primitive data type is an eight-bit byte. Files are accessed as sequences of bytes.
-     * All other data types are defined as sequences of bytes, so file formats are byte-order
-     * independent.
-     */
+    /// Writes a single byte.
+    ///
+    /// The most primitive data type is an eight-bit byte. Files are accessed as sequences of bytes.
+    /// All other data types are defined as sequences of bytes, making file formats byte-order independent.
+    ///
+    /// # See Also
+    /// [`IndexInput::read_byte`](crate::store::index_input::IndexInput::read_byte)
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError>;
 
-    /**
-     * Writes an array of bytes.
-     */
+    /// Writes an array of bytes.
+    ///
+    /// # Arguments
+    /// * `b` - The bytes to write.
+    /// * `length` - The number of bytes to write.
+    ///
+    /// # See Also
+    /// [`DataInput::read_bytes`](crate::store::data_input::DataInput::read_bytes)
     fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<(), DataIOError> {
         self.write_bytes_range(b, 0, len)
     }
-    /**
-     * Writes an array of bytes.
-     *
-     */
+    /// Writes an array of bytes.
+    ///
+    /// # Arguments
+    /// * `b` - The bytes to write.
+    /// * `offset` - The offset in the byte array.
+    /// * `length` - The number of bytes to write.
+    ///
+    /// # See Also
+    /// [`DataInput::read_bytes`](crate::store::data_input::DataInput::read_bytes)
     fn write_bytes_range(
         &mut self,
         b: &[u8],
@@ -54,9 +63,11 @@ pub trait DataOutput: Sized {
         length: usize,
     ) -> Result<(), DataIOError>;
 
-    /**
-     * Writes an int as four bytes (LE byte order).
-     */
+    /// Writes an `int` as four bytes (little-endian byte order).
+    ///
+    /// # See Also
+    /// [`DataInput::read_int`](crate::store::data_input::DataInput::read_int)
+    /// [`BitUtil::set_i16_le`](BitUtil::set_i16_le)
     fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
         self.write_byte(i as u8)?;
         self.write_byte((i >> 8) as u8)?;
@@ -65,122 +76,49 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    /**
-     * Writes a i16 as two bytes (LE byte order).
-     */
+    /// Writes a `short` as two bytes (little-endian byte order).
+    ///
+    /// # See Also
+    /// [`DataInput::read_short`](crate::store::data_input::DataInput::read_short)
+    /// [`BitUtil::set_i16_le`](BitUtil::set_i16_le)
     fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
         self.write_byte(i as u8)?;
         self.write_byte((i >> 8) as u8)?;
         Ok(())
     }
 
-    /**
-     * Writes an int in a variable-length format. Writes between one and five bytes. Smaller values
-     * take fewer bytes. Negative numbers are supported, but should be avoided.
-     *
-     * VByte is a variable-length format for positive i32s is defined where the high-order bit
-     * of each byte indicates whether more bytes remain to be read. The low-order seven bits are
-     * appended as increasingly more significant bits in the resulting i32 value. Thus values from
-     * zero to 127 may be stored in a single byte, values from 128 to 16,383 may be stored in two
-     * bytes, and so on.
-     *
-     * VByte Encoding Example
-     *
-     * <table class="padding2" style="border-spacing: 0px; border-collapse: separate; border: 0">
-     * <caption>variable length encoding examples</caption>
-     * <tr style="vertical-align: top">
-     *   <th style="text-align:left">Value</th>
-     *   <th style="text-align:left">Byte 1</th>
-     *   <th style="text-align:left">Byte 2</th>
-     *   <th style="text-align:left">Byte 3</th>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>0</td>
-     *   <td><code>00000000</code></td>
-     *   <td></td>
-     *   <td></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>1</td>
-     *   <td><code>00000001</code></td>
-     *   <td></td>
-     *   <td></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>2</td>
-     *   <td><code>00000010</code></td>
-     *   <td></td>
-     *   <td></td>
-     * </tr>
-     * <tr>
-     *   <td style="vertical-align: top">...</td>
-     *   <td></td>
-     *   <td></td>
-     *   <td></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>127</td>
-     *   <td><code>01111111</code></td>
-     *   <td></td>
-     *   <td></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>128</td>
-     *   <td><code>10000000</code></td>
-     *   <td><code>00000001</code></td>
-     *   <td></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>129</td>
-     *   <td><code>10000001</code></td>
-     *   <td><code>00000001</code></td>
-     *   <td></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>130</td>
-     *   <td><code>10000010</code></td>
-     *   <td><code>00000001</code></td>
-     *   <td></td>
-     * </tr>
-     * <tr>
-     *   <td style="vertical-align: top">...</td>
-     *   <td></td>
-     *   <td></td>
-     *   <td></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>16,383</td>
-     *   <td><code>11111111</code></td>
-     *   <td><code>01111111</code></td>
-     *   <td></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>16,384</td>
-     *   <td><code>10000000</code></td>
-     *   <td><code>10000000</code></td>
-     *   <td><code>00000001</code></td>
-     * </tr>
-     * <tr style="vertical-align: bottom">
-     *   <td>16,385</td>
-     *   <td><code>10000001</code></td>
-     *   <td><code>10000000</code></td>
-     *   <td><code>00000001</code></td>
-     * </tr>
-     * <tr>
-     *   <td style="vertical-align: top">...</td>
-     *   <td ></td>
-     *   <td ></td>
-     *   <td ></td>
-     * </tr>
-     * </table>
-     *
-     * <p>This provides compression while still being efficient to decode.
-     *
-     * @param i Smaller values take fewer bytes. Negative numbers are supported, but should be
-     *     avoided.
-     * @throws IOException If there is an I/O error writing to the underlying medium.
-     * @see DataInput#readVInt()
-     */
+    /// Writes an `int` in a variable-length format. Writes between one and five bytes, with smaller 
+    /// values taking fewer bytes. Negative numbers are supported but should be avoided.
+    ///
+    /// # Format
+    /// VByte is a variable-length format for positive integers, where the high-order bit of each byte 
+    /// indicates whether more bytes remain to be read. The low-order seven bits are appended as 
+    /// increasingly more significant bits in the resulting integer value. 
+    /// - Values from 0 to 127 are stored in a single byte.
+    /// - Values from 128 to 16,383 are stored in two bytes, and so on.
+    ///
+    /// # VByte Encoding Example
+    ///
+    /// | Value     | Byte 1      | Byte 2      | Byte 3      |
+    /// |-----------|-------------|-------------|-------------|
+    /// | 0         | `00000000`  |             |             |
+    /// | 1         | `00000001`  |             |             |
+    /// | 127       | `01111111`  |             |             |
+    /// | 128       | `10000000`  | `00000001`  |             |
+    /// | 16,383    | `11111111`  | `01111111`  |             |
+    /// | 16,384    | `10000000`  | `10000000`  | `00000001`  |
+    ///
+    /// This format provides compression while remaining efficient to decode.
+    ///
+    /// # Arguments
+    /// * `i` - The integer to write. Smaller values take fewer bytes. Negative numbers are supported 
+    ///         but should be avoided.
+    ///
+    /// # Errors
+    /// Returns an `IOError` if there is an error writing to the underlying medium.
+    ///
+    /// # See Also
+    /// [`DataInput::read_vint`](crate::store::data_input::DataInput::read_vint)
     fn write_vint(&mut self, i: i32) -> Result<(), DataIOError> {
         let mut i = i as u32;
         while (i & !0x7F) != 0 {
@@ -191,24 +129,36 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    /**
-     * Write a `BitUtil#zig_zag_encode_i32(i32)` zig-zag-encoded `#writeVInt(i32)`
-     * variable-length i32. This is typically useful to write small signed ints and is equivalent
-     * to calling `writeVInt(BitUtil.zig_zag_encode_i32(i))`
-     */
+    /// Writes a [`zig-zag`](crate::util::BitUtil::zig_zag_encode_i32)-encoded 
+    /// [`write_vint`](#method.write_vint) variable-length integer. 
+    /// This is typically useful for writing small signed integers and is equivalent to calling 
+    /// `write_vint(BitUtil::zig_zag_encode(i))`.
+    ///
+    /// # See Also
+    /// [`DataInput::read_zint`](DataInput::read_zint)
     fn write_zint(&mut self, i: i32) -> Result<(), DataIOError> {
         self.write_vint(BitUtil::zig_zag_encode_i32(i))
     }
 
-    /**
-     * Writes a long as eight bytes (LE byte order).
-     */
+    /// Writes a `long` as eight bytes (little-endian byte order).
+    ///
+    /// # See Also
+    /// [`DataInput::read_long`](DataInput::read_long)
+    /// [`BitUtil::set_i64_le`](BitUtil::set_i64_le)
     fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
         self.write_int(i as i32)?;
         self.write_int((i >> 32) as i32)?;
         Ok(())
     }
-    // write a potentially negative vLong
+
+    /// Writes a `long` in a variable-length format. Writes between one and nine bytes, with smaller 
+    /// values taking fewer bytes. Negative numbers are not supported.
+    ///
+    /// # Format
+    /// The format is described further in [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint).
+    ///
+    /// # See Also
+    /// [`DataInput::read_vlong`](DataInput::read_vlong) 
     fn write_vlong(&mut self, i: i64) -> Result<(), DataIOError> {
         if i < 0 {
             return Err(DataIOError::illegal_argument(
@@ -228,22 +178,22 @@ pub trait DataOutput: Sized {
         self.write_byte(i as u8)?;
         Ok(())
     }
-    /**
-     * Write a `BitUtil#zig_zag_encode_i64(i64)` encoded `#writeVLong(i64)`
-     * variable-length long. Writes between one and ten bytes. This is typically useful to write
-     * small signed ints.
-     */
+    /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i64)-encoded 
+    /// [`write_vlong`](#method.write_vlong) variable-length `long`. 
+    /// Writes between one and ten bytes. This is typically useful for writing small signed integers.
+    ///
+    /// # See Also
+    /// [`DataInput::read_zlong`](DataInput::read_zlong)
     fn write_zlong(&mut self, i: i64) -> Result<(), DataIOError> {
         self.write_signed_vlong(BitUtil::zig_zag_encode_i64(i))
     }
 
-    /**
-     * Writes a string.
-     *
-     * <p>Writes strings as UTF-8 encoded bytes. First the length, in bytes, is written as a {@link
-     * #writeVInt VInt}, followed by the bytes.
-     *
-     */
+    /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i64)-encoded 
+    /// [`write_vlong`](#method.write_vlong) variable-length `long`. 
+    /// Writes between one and ten bytes. This is typically useful for writing small signed integers.
+    ///
+    /// # See Also
+    /// [`DataInput::read_zlong`](DataInput::read_zlong)
     fn write_string(&mut self, s: &str) -> Result<(), DataIOError> {
         let utf8_result = BytesRef::new_from_string(s);
         let len = utf8_result.length as usize;
@@ -252,6 +202,7 @@ pub trait DataOutput: Sized {
         self.write_bytes_range(&utf8_result.bytes, offset, len)
     }
 
+    /// Copy numBytes bytes from input to ourself. 
     fn copy_bytes<T: DataInput>(
         &mut self,
         input: &mut T,
@@ -272,13 +223,14 @@ pub trait DataOutput: Sized {
         }
         Ok(())
     }
-    /**
-     * Writes a String map.
-     *
-     * <p>First the size is written as an {@link #writeVInt(int) vInt}, followed by each key-value
-     * pair written as two consecutive {@link #writeString(String) String}s.
-     *
-     */
+    /// Writes a `HashMap<String, String>`.
+    ///
+    /// First, the size is written as a [`write_vint`](#method.write_vint), followed by each key-value 
+    /// pair written as two consecutive [`write_string`](#method.write_string) calls.
+    ///
+    /// # Arguments
+    /// * `map` - The input map.
+  
     fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), DataIOError> {
         self.write_vint(map.len() as i32)?;
         for (key, value) in map.iter() {
@@ -288,12 +240,14 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    /**
-     * Writes a String set.
-     *
-     * <p>First the size is written as an {@link #writeVInt(int) vInt}, followed by each value written
-     * as a {@link #writeString(String) String}.
-     */
+    /// Writes a `HashSet<String>`.
+    ///
+    /// First, the size is written as a [`write_vint`](#method.write_vint), followed by each value 
+    /// written as a [`write_string`](#method.write_string).
+    ///
+    /// # Arguments
+    /// * `set` - The input set.
+    ///
     fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<(), DataIOError> {
         self.write_vint(set.len() as i32)?;
         for value in set.iter() {
@@ -301,12 +255,18 @@ pub trait DataOutput: Sized {
         }
         Ok(())
     }
-
-    /**
-     * Encode i32s using group-varint. It uses `DataOutput#writeVInt` to encode tail
-     * values that are not enough for a group. we need a `vec<i64>` because this is what postings are
-     * using, all longs are actually required to be i32s.
-     */
+    /// Encodes integers using group-varint encoding. Tail values that do not fit into a group 
+    /// are encoded using [`write_vint`](#method.write_vint). 
+    /// Note: A `long[]` is used because it aligns with postings requirements, 
+    /// but all longs are actually expected to be integers.
+    ///
+    /// # Arguments
+    /// * `values` - The values to write.
+    /// * `limit` - The number of values to write.
+    ///
+    /// # Note
+    /// This is an experimental API.
+    
     fn write_group_vints(&mut self, values: &mut [i64], limit: usize) -> Result<(), DataIOError> {
         let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];
         GroupVIntUtil::write_group_vints(self, &mut group_vint_bytes, values, limit)?;

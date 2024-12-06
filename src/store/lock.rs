@@ -14,14 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * An interprocess mutex lock.
- */
+/// An interprocess mutex lock.
+///
+/// # Example
+/// Typical use might look like:
+///
+/// ```text
+/// let lock = directory.obtain_lock("my.lock")?;
+/// // ... code to execute while locked ...
+/// ```
+///
+/// # See Also
+/// [`Directory::obtain_lock`](crate::store::directory::Directory::obtain_lock)
+///
+/// # Note
+/// This is an internal API.
 pub trait Lock {
-    /**
-     * Best effort check that this lock is still valid. Locks could become invalidated externally for
-     * a number of reasons, for example if a user deletes the lock file manually or when a network
-     * filesystem is in use.
-     */
+    /// Best effort check that this lock is still valid. Locks could become invalidated externally for
+    /// a number of reasons, such as if a user deletes the lock file manually or when a network 
+    /// filesystem is in use.
+    ///
+    /// # Errors
+    /// Returns an `std::io::Error` if the lock is no longer valid.
     fn ensure_valid();
 }

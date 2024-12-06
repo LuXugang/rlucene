@@ -24,13 +24,12 @@ use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 
-/**
- * A `DataInput` implementing `RandomAccessInput` and reading data from a list of `Vec<Cursor<&[u8]>>`.
- */
+/// A [`DataInput`] implementing [`RandomAccessInput`] 
+/// and reading data from a list of [`Cursor<Vec<u8>>`](std::io::Cursor).
 pub struct ByteBuffersDataInput<'a> {
-    // In Java Lucene, hierarchical data is encapsulated using List<`java.nio.ByteBuffer`>,
-    // where each ByteBuffer limits the readable data using the limit parameter.
-    // In Rust Lucene, however, this is managed by controlling the readable data using Cursor#setPosition.
+/// In Java Lucene, hierarchical data is encapsulated using List<`java.nio.ByteBuffer`>,
+/// where each ByteBuffer limits the readable data using the limit parameter.
+/// In Rust Lucene, however, this is managed by controlling the readable data using Cursor#setPosition.
     blocks: Vec<Cursor<&'a [u8]>>,
     block_mask: usize,
     block_bits: usize,
@@ -38,6 +37,9 @@ pub struct ByteBuffersDataInput<'a> {
     offset: u64,
     pos: u64,
 }
+/// Reads data from a set of contiguous buffers.
+/// All data buffers except for the last one must have an identical number of remaining bytes (which must be a power of two).
+/// The last buffer can have an arbitrary remaining length.
 impl<'a> ByteBuffersDataInput<'a> {
     pub fn new(blocks: Vec<Cursor<&'a [u8]>>, length: u64) -> Self {
         let (block_bits, block_mask) = if blocks.is_empty() {

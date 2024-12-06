@@ -17,7 +17,6 @@
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, ReadAdvice};
 use crate::util::error::data_io_error_enum::DataIOError;
-use std::fmt::Display;
 
 /**
  * Abstract base class for input from a file in a `Directory`. A random-access input stream.
@@ -31,44 +30,55 @@ use std::fmt::Display;
  *
  */
 pub trait IndexInput: DataInput + Clone {
-    /** Returns the current position in this file, where the next read will occur. */
+    /// Returns the current position in this file, where the next read will occur.
+    ///
+    /// # See Also
+    /// [`seek`](IndexInput::seek)
     fn get_file_pointer(&self) -> u64;
 
-    /**
-     * Sets current position in this file, where the next read will occur. If this is beyond the end
-     * of the file then this will throw `EOF Error` and then the stream is in an undetermined
-     * state.
-     */
+    /// Sets the current position in this file, where the next read will occur. 
+    /// If this position is beyond the end of the file, it will return an `EOFError`, 
+    /// and the stream will be in an undetermined state.
+    ///
+    /// # See Also
+    /// [`get_file_pointer`](IndexInput:get_file_pointer)
     fn seek(&mut self, pos: u64) -> Result<(), DataIOError>;
-
+    /// Inherits documentation from the parent implementation.
+    ///
+    /// # Behavior
+    /// This is functionally equivalent to seeking to `get_file_pointer() + num_bytes`.
+    ///
+    /// # See Also
+    /// [`get_file_pointer`](IndexInput::get_file_pointer)
+    /// 
+    /// [`seek`](IndexInput::seek)
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
         let skip_to = self.get_file_pointer() + num_bytes;
         self.seek(skip_to)?;
         Ok(())
     }
-    /** The number of bytes in the file. */
+    /// The number of bytes in the file. 
     fn length(&self) -> u64;
 
-    /**
-     * Creates a slice of this index input, with the given description, offset, and length. The slice
-     * is sought to the beginning.
-     */
+    /// Creates a slice of this index input, with the given description, offset, and length. 
+    /// The slice is positioned at the beginning.
     fn slice(
         &self,
         slice_description: &str,
         offset: u64,
         length: u64,
     ) -> Result<impl IndexInput, DataIOError>;
-    /**
-     * Create a slice with a specific `ReadAdvice`. This is typically used by
-     * `CompoundFormat` implementations to honor the `ReadAdvice` of each file within the
-     * compound file.
-     *
-     * NOTE: it is only legal to call this method if this `IndexInput` has been open
-     * with `ReadAdvice#NORMAL`.
-     * The default implementation delegates to `#slice(&str, u64, u64) and ignores the
-     * `ReadAdvice`.
-     */
+    /// Creates a slice with a specific [`ReadAdvice`](ReadAdvice). This is typically used by 
+    /// [`CompoundFormat`](CompoundFormat) implementations to honor 
+    /// the [`ReadAdvice`](ReadAdvice) of each file within the compound file.
+    ///
+    /// # Note
+    /// It is only legal to call this method if this `IndexInput` has been opened with 
+    /// `ReadAdvice::NORMAL`. However, this method accepts any `ReadAdvice` value except `None` for 
+    /// the slice.
+    ///
+    /// The default implementation delegates to [`slice`](IndexInput::slice) and ignores the 
+    /// `ReadAdvice`.
     fn slice_with_read_advice(
         &self,
         description: &str,
@@ -87,18 +97,16 @@ pub trait IndexInput: DataInput + Clone {
     ) -> Result<impl IndexInput, DataIOError> {
         self.slice_with_read_advice(description, offset, length, read_advice)
     }
-    /**
-     * Subclasses call this to get the String for resourceDescription of a slice of this `IndexInput`.
-     */
+     /// Subclasses call this to get the String for resourceDescription of a slice of this `IndexInput`.
     fn get_full_slice_description(&self, slice_description: &str) -> String {
         format!(" [slice= {} ", slice_description)
     }
 
-    /**
-     * Creates a random-access slice of this index input, with the given offset and length.
-     * The default implementation calls `#slice`, and it doesn't support random access, it
-     * implements absolute reads as seek+read.
-     */
+    /// Creates a random-access slice of this index input, with the given offset and length.
+    ///
+    /// # Note
+    /// The default implementation calls [`slice`](IndexInput::slice), and it doesn't support random access. 
+    /// It implements absolute reads as seek+read.
     fn random_access_slice(
         &self,
         offset: u64,
@@ -113,6 +121,16 @@ pub trait IndexInput: DataInput + Clone {
     ) -> Result<impl RandomAccessInput, DataIOError> {
         self.get_random_access_slice(offset, length)
     }
+    /// Optional method: Gives a hint to this input that some bytes will be read in the near future. 
+    /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data 
+    /// immediately from storage.
+    ///
+    /// # Arguments
+    /// * `offset` - The starting offset.
+    /// * `length` - The number of bytes to prefetch.
+    ///
+    /// # Note
+    /// The default implementation is a no-op.
     fn prefetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
         self.default_prefetch(pos, len)
     }

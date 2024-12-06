@@ -21,6 +21,7 @@ use crc32fast::Hasher;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+/// An [`IndexOutput`] writing to a [`ByteBuffersDataOutput`]
 pub struct ByteBuffersIndexOutput<'a> {
     last_checksum_position: u64,
     last_checksum: i64,

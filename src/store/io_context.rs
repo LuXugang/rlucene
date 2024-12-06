@@ -18,12 +18,16 @@ use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
 use crate::util::error::runtime_error::RuntimeError;
-use lazy_static::lazy_static;
 
-/**
- * IOContext holds additional details on the merge/search context. An IOContext object can never be
- * passed as a `NONE` parameter to either `Directory#openInput` or `Directory#createOutput`
- */
+/// `IOContext` holds additional details on the merge/search context. An `IOContext` object can never be 
+/// passed as a `None` parameter to either [`Directory::open_input`](crate::store::directory::Directory::open_input) 
+/// or [`Directory::create_output`](crate::store::directory::Directory::create_output).
+///
+/// # Arguments
+/// * `context` - An object of an enumerator `Context` type.
+/// * `merge_info` - Must be provided when `context == MERGE`.
+/// * `flush_info` - Must be provided when `context == FLUSH`.
+/// * `read_advice` - Advice regarding the read access pattern.
 #[derive(Clone)]
 pub struct IOContext {
     context: Context,
@@ -34,11 +38,11 @@ pub struct IOContext {
 
 #[derive(Clone)]
 pub enum Context {
-    /** Context for reads and writes that are associated with a merge. */
+    /// Context for reads and writes that are associated with a merge. */
     Merge,
-    /** Context for writes that are associated with a segment flush. */
+    /// Context for writes that are associated with a segment flush. */
     Flush,
-    /** Default context, can be used for reading or writing. */
+    /// Default context, can be used for reading or writing. */
     Default,
 }
 
@@ -80,7 +84,10 @@ impl IOContext {
             flush_info,
         })
     }
-    /** Creates a default IOContext for reading/writing with the given `ReadAdvice` */
+    /// Returns an updated `IOContext` that has the provided [`ReadAdvice`](ReadAdvice) if the 
+    /// `Context` is a `Context::Default` context, otherwise returns the existing instance. This 
+    /// helps preserve a `ReadAdvice::Sequential` advice for merging, which is always the right choice, 
+    /// while allowing `IndexInput`s opened for searching to use arbitrary `ReadAdvice` values.
     fn new_with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, RuntimeError> {
         Self::new(Some(Context::Default), Some(read_advice), None, None)
     }
@@ -112,17 +119,20 @@ impl IOContext {
             Ok(self.clone())
         }
     }
-    /**
-     * A default context for normal reads/writes. Use `withReadAdvice(ReadAdvice)` to specify
-     * another `ReadAdvice`.
-     *
-     * It will use `ReadAdvice#RANDOM` by default, unless set by system property
-     * `lucene.store.defaultReadAdvice`.
-     */
+    /// A default context for normal reads/writes. Use [`with_read_advice`](#method.with_read_advice) to specify
+    /// another [`ReadAdvice`](ReadAdvice).
+    ///
+    /// # Note
+    /// It will use [`ReadAdvice::Random`](ReadAdvice::Random) by default, unless set by the system property
+    /// `org.apache.lucene.store.defaultReadAdvice`.
     pub fn default_io_context() -> Result<IOContext, RuntimeError> {
         Self::new_with_read_advice(ReadAdvice::default_read_advice())
     }
-
+    /// A default context for reads with [`ReadAdvice::Sequential`](ReadAdvice::Sequential).
+    ///
+    /// # Note
+    /// This context should only be used when the read operations will be performed in the same
+    /// thread as the thread that opens the underlying storage.
     pub fn read_once_io_context() -> Result<IOContext, RuntimeError> {
         Self::new_with_read_advice(ReadAdvice::Sequential)
     }

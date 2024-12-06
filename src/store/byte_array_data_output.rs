@@ -14,14 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * DataOutput backed by a byte array. WARNING: This class omits most low-level checks, so be
- * sure to test heavily with assertions enabled.
- */
+
 use crate::store::data_output::DataOutput;
 use crate::util::bit_util::{BitUtil, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
-
+/// `DataOutput` backed by a byte array.
+///
+/// # Warning
+/// This class omits most low-level checks, so be sure to test thoroughly with assertions enabled.
+///
+/// # Note
+/// This is an experimental API.
 pub struct ByteArrayDataOutput<'a> {
     bytes: &'a mut [u8],
     pos: usize,

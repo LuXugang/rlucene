@@ -74,7 +74,7 @@ fn test_output_alignment() -> Result<(), DataIOError> {
 pub fn run_test_output_alignment(alignment: u32) -> Result<(), DataIOError> {
     let mut random = my_random("test_output_alignment".to_string());
     let mut buffer = Vec::new();
-    let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192);
+    let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;
 
     for _ in 0..(10 * get_random_multiplier()) {
         let length: usize = random.gen_range(0..32);

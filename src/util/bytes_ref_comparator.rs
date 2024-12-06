@@ -30,8 +30,8 @@ pub trait BytesRefComparator: Comparator<BytesRef> {
     fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32;
     fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: u32) -> i32 {
         for i in k..self.compared_bytes_count() {
-            let b1 = self.byte_at(o1, i as u32);
-            let b2 = self.byte_at(o2, i as u32);
+            let b1 = self.byte_at(o1, i);
+            let b2 = self.byte_at(o2, i);
             if b1 != b2 {
                 return b1 - b2;
             } else if b1 == -1 {

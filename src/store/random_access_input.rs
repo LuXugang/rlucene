@@ -18,21 +18,14 @@ use crate::store::index_input::IndexInput;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::{Display, Formatter};
 
-/**
- * Random Access Index API. Unlike `IndexInput`, this has no concept of file position, all
- * reads are absolute. However, like `IndexInput`, it is only intended for use by a single thread.
- */
+/// Random Access Index API. Unlike [`IndexInput`](crate::store::index_input::IndexInput), this has no concept of file position; all
+/// reads are absolute. However, like `IndexInput`, it is only intended for use by a single thread.
 pub trait RandomAccessInput {
-    /** The number of bytes in the file. */
+    /// The number of bytes in the file. 
     fn length(&self) -> u64;
-    /**
-     * Reads a byte at the given position in the file
-     */
+     /// Reads a byte at the given position in the file
     fn read_byte(&mut self, pos: u64) -> Result<u8, DataIOError>;
-    /**
-     * Reads a specified number of bytes starting at a given position into an array at the specified
-     * offset.
-     */
+     /// Reads a specified number of bytes starting at a given position into an array at the specified offset.
     fn read_bytes(
         &mut self,
         pos: u64,
@@ -45,22 +38,13 @@ pub trait RandomAccessInput {
         }
         Ok(())
     }
-    /**
-     * Reads a i16 (LE byte order) at the given position in the file
-     */
+    ///  Reads a i16 (LE byte order) at the given position in the file.
     fn read_short(&mut self, pos: u64) -> Result<i16, DataIOError>;
-    /**
-     * Reads an i32 (LE byte order) at the given position in the file
-     */
+     /// Reads an i32 (LE byte order) at the given position in the file.
     fn read_int(&mut self, pos: u64) -> Result<i32, DataIOError>;
-    /**
-     * Reads a long (LE byte order) at the given position in the file
-     */
+     /// Reads a long (LE byte order) at the given position in the file.
     fn read_long(&mut self, pos: u64) -> Result<i64, DataIOError>;
-    /**
-     * Prefetch data in the background.
-     *
-     */
+    ///  Prefetch data in the background.
     fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError>;
 }
 pub struct DefaultRandomAccessInput<T: IndexInput> {
