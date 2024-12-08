@@ -42,7 +42,7 @@ use std::fmt::Display;
 /// [`ByteBuffersDirectory`](crate::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::store::filter_directory::FilterDirectory)
 #[allow(dead_code)]
-pub trait Directory: Display {
+pub trait Directory: Display + Sized {
     /// Returns the names of all files stored in this directory. The output must be sorted
     /// in UTF-8 order (using `str::cmp` for comparison).
     ///

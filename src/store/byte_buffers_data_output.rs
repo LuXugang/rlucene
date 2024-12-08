@@ -16,7 +16,7 @@
  */
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::data_output::DataOutput;
-use crate::store::DataInput;
+use crate::store::{CursorExt, DataInput};
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
@@ -356,24 +356,6 @@ impl Accountable for ByteBuffersDataOutput {
     }
 }
 
-trait CursorExt {
-    fn remain(&self) -> u64;
-}
-
-impl CursorExt for Cursor<Vec<u8>> {
-    fn remain(&self) -> u64 {
-        let position = self.position();
-        let total = self.get_ref().len() as u64;
-        // set_position seems not check bound
-        debug_assert!(
-            position <= total,
-            "Position ({}) exceeds total ({})",
-            position,
-            total
-        );
-        total.saturating_sub(position)
-    }
-}
 fn compute_block_size_bits_for(bytes: u64) -> usize {
     let avg_block_size = bytes / MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as u64;
     let power_of_two = avg_block_size.next_power_of_two();

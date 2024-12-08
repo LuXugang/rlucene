@@ -30,7 +30,7 @@ use crate::util::error::runtime_error::RuntimeError;
 /// * `read_advice` - Advice regarding the read access pattern.
 #[derive(Clone)]
 pub struct IOContext {
-    context: Context,
+    pub(crate) context: Context,
     read_advice: ReadAdvice,
     merge_info: Option<MergeInfo>,
     flush_info: Option<FlushInfo>,

@@ -14,32 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
-use std::fmt::Display;
-
-#[derive(Debug)]
-pub struct ArrayIndexOutOfBoundsError {
-    pub message: String,
-}
-
-impl ArrayIndexOutOfBoundsError {
-    pub fn new(msg: impl Into<String>) -> Self {
-        Self {
-            message: msg.into(),
-        }
-    }
-
-    pub fn with_format(args: impl fmt::Display) -> Self {
-        Self {
-            message: args.to_string(),
-        }
-    }
-}
-
-impl Display for ArrayIndexOutOfBoundsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Array Index out of Bounds: {}", self.message)
-    }
-}
-
-impl std::error::Error for ArrayIndexOutOfBoundsError {}
+struct SimpleFSLockFactory;

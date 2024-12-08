@@ -17,10 +17,10 @@
 use regex::Regex;
 
 /// This class contains useful constants representing filenames and extensions used by Lucene, as
-/// well as convenience methods for querying whether a file name matches an extension 
+/// well as convenience methods for querying whether a file name matches an extension
 /// ([`matches_extension`](IndexFileNames::matches_extension)), as well as generating file names from a
-/// segment name, generation, and extension 
-/// ([`file_name_from_generation`](IndexFileNames::file_name_from_generation), 
+/// segment name, generation, and extension
+/// ([`file_name_from_generation`](IndexFileNames::file_name_from_generation),
 /// [`segment_file_name`](IndexFileNames::segment_file_name)).
 ///
 /// # Note
@@ -31,8 +31,8 @@ use regex::Regex;
 pub struct IndexFileNames;
 
 impl IndexFileNames {
-    /// Computes the full file name from `base`, `extension`, and `generation`. 
-    /// If the generation is `-1`, the file name is `None`. If it's `0`, the file name is `<base>.<ext>`. 
+    /// Computes the full file name from `base`, `extension`, and `generation`.
+    /// If the generation is `-1`, the file name is `None`. If it's `0`, the file name is `<base>.<ext>`.
     /// If it's greater than `0`, the file name is `<base>_<gen>.<ext>`.
     ///
     /// # Note

@@ -14,32 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
-use std::fmt::Display;
+use std::io::Cursor;
 
-#[derive(Debug)]
-pub struct ArrayIndexOutOfBoundsError {
-    pub message: String,
+
+pub trait CursorExt {
+    fn remain(&self) -> u64;
 }
 
-impl ArrayIndexOutOfBoundsError {
-    pub fn new(msg: impl Into<String>) -> Self {
-        Self {
-            message: msg.into(),
-        }
-    }
-
-    pub fn with_format(args: impl fmt::Display) -> Self {
-        Self {
-            message: args.to_string(),
-        }
-    }
-}
-
-impl Display for ArrayIndexOutOfBoundsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Array Index out of Bounds: {}", self.message)
+impl CursorExt for Cursor<Vec<u8>> {
+    fn remain(&self) -> u64 {
+        let position = self.position();
+        let total = self.get_ref().len() as u64;
+        // set_position seems not check bound
+        debug_assert!(
+            position <= total,
+            "Position ({}) exceeds total ({})",
+            position,
+            total
+        );
+        total.saturating_sub(position)
     }
 }
-
-impl std::error::Error for ArrayIndexOutOfBoundsError {}

@@ -14,6 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+use std::fs;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, AtomicU64};
+use crate::store::directory::Directory;
+use crate::store::{fs_lock_factory, NativeFSLock, NativeFSLockFactory};
+use crate::store::lock_factory::LockFactory;
+use crate::store::fs_lock_factory::FSLockFactory;
+use crate::util::error::data_io_error_enum::DataIOError;
+
 /// Base trait for `Directory` implementations that store index files in the file system.
 /// There are currently two core implementations:
 ///
@@ -36,5 +46,37 @@
 /// but it can be replaced with a custom `LockFactory`.
 ///
 /// # See Also
-/// [`Directory`](crate::store::directory::Directory)
-pub trait FSDirectory {}
+/// [`Directory`](Directory)
+pub struct FSDirectory<D:LockFactory>{
+    directory: PathBuf,
+    /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
+    /// delete that key.
+    pending_deletes: HashSet<String>,
+    ops_since_last_delete: AtomicU32,
+    /** Used to generate temp file names in [`createTempOutput`](Directory::create_temp_output). */
+    next_temp_file_counter: AtomicU64,
+    lock_factory: D
+}
+impl <D:LockFactory>FSDirectory<D>{
+   
+    pub fn new_with_lock_factory(directory: PathBuf,lock_factory:D) -> Result<FSDirectory<D>, DataIOError>{
+        if !directory.is_dir(){
+            fs::create_dir(&directory)?;// create directory, if it doesn't exist
+        }
+        Ok(FSDirectory {
+            directory,
+            pending_deletes: HashSet::new(),
+            ops_since_last_delete: AtomicU32::new(0),
+            next_temp_file_counter: AtomicU64::new(0),
+            lock_factory,
+        })
+    }
+    
+}
+impl FSDirectory<NativeFSLockFactory> {
+    pub fn new(directory: PathBuf) -> Result<FSDirectory<NativeFSLockFactory>, DataIOError> {
+        Self::new_with_lock_factory(directory, NativeFSLockFactory::new())
+    }
+}
+
+

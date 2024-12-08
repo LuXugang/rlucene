@@ -95,7 +95,7 @@ pub trait IndexInput: DataInput + Clone {
         length: u64,
         read_advice: ReadAdvice,
     ) -> Result<impl IndexInput, DataIOError> {
-        self.slice_with_read_advice(description, offset, length, read_advice)
+        self.slice(description, offset, length)
     }
     /// Subclasses call this to get the String for resourceDescription of a slice of this `IndexInput`.
     fn get_full_slice_description(&self, slice_description: &str) -> String {

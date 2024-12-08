@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::NativeFSLock;
+use crate::store::simple_fs_lock::SimpleFSLock;
+
 /// An interprocess mutex lock.
 ///
 /// # Example
@@ -37,4 +40,9 @@ pub trait Lock {
     /// # Errors
     /// Returns an `std::io::Error` if the lock is no longer valid.
     fn ensure_valid();
+}
+
+pub enum FSLockEnum{
+    Native(NativeFSLock), 
+    Simple(SimpleFSLock)
 }

@@ -25,6 +25,7 @@ use crate::util::error::runtime_error::RuntimeError;
 use std::io::Error;
 use std::string::FromUtf8Error;
 use thiserror::Error;
+use crate::util::error::UnsupportedOperation::UnsupportedOperationError;
 
 #[derive(Debug, Error)]
 pub enum DataIOError {
@@ -56,7 +57,11 @@ pub enum DataIOError {
     IndexFormatTooOld(#[from] IndexFormatTooOldError),
 
     #[error("{0}")]
+    UnsupportedOperation(#[from] UnsupportedOperationError),
+
+    #[error("{0}")]
     RuntimeError(#[from] RuntimeError),
+    
 }
 impl DataIOError {
     pub fn io(err: Error) -> Self {
@@ -90,5 +95,9 @@ impl DataIOError {
     }
     pub fn index_format_too_old(msg: impl Into<String>) -> Self {
         DataIOError::IndexFormatTooOld(IndexFormatTooOldError::new(msg))
+    }
+    
+    pub fn unsupported_operation(msg: impl Into<String>) -> Self {
+        DataIOError::UnsupportedOperation(UnsupportedOperationError::new(msg))
     }
 }

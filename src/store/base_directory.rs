@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
-use crate::store::lock::Lock;
+use crate::store::lock::{FSLockEnum, Lock};
 use crate::store::lock_factory::LockFactory;
 use crate::util::error::data_io_error_enum::DataIOError;
 
@@ -28,7 +28,7 @@ pub trait BaseDirectory: Directory {
         &mut self,
         lock_name: &str,
         lock_factory: &mut impl LockFactory,
-    ) -> Result<impl Lock, DataIOError> {
-        Ok(lock_factory.obtain_lock(lock_name))
+    ) -> Result<FSLockEnum, DataIOError> {
+        lock_factory.obtain_lock(self, lock_name)
     }
 }

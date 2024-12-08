@@ -38,7 +38,7 @@ pub trait RandomAccessInput {
         }
         Ok(())
     }
-    ///  Reads a i16 (LE byte order) at the given position in the file.
+    ///  Reads an i16 (LE byte order) at the given position in the file.
     fn read_short(&mut self, pos: u64) -> Result<i16, DataIOError>;
     /// Reads an i32 (LE byte order) at the given position in the file.
     fn read_int(&mut self, pos: u64) -> Result<i32, DataIOError>;

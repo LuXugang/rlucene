@@ -25,3 +25,4 @@ pub mod index_format_too_old;
 pub mod integer_overflow;
 pub mod parse;
 pub mod runtime_error;
+mod UnsupportedOperation;
