@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::bytes_ref::BytesRef;
-use crate::util::BufferOps;
+use crate::util::VecCopyOps;
 
 /**
  * A builder for {@link BytesRef} instances.

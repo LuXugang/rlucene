@@ -30,7 +30,7 @@ pub mod bit_set_iterator;
 pub mod bit_set_type;
 pub mod bit_util;
 pub mod bits;
-pub mod buffer_ops;
+pub mod vec_copy_ops;
 pub mod constants;
 pub mod counter;
 pub mod cursor_ext;
@@ -60,7 +60,7 @@ pub use tim_sorter::*;
 
 pub use sorter::*;
 
-pub use buffer_ops::*;
+pub use vec_copy_ops::*;
 pub use counter::*;
 pub use cursor_ext::*;
 pub use io_utils::*;

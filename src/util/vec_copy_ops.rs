@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait BufferOps<T: Copy> {
+pub trait VecCopyOps<T: Copy> {
     /// Copies data from the source slice into the buffer at a specified offset.
     ///
     /// # Arguments
@@ -36,7 +36,7 @@ pub trait BufferOps<T: Copy> {
     fn copy_to(&self, dest: &mut [T], offset: usize);
 }
 
-impl<T: Copy> BufferOps<T> for Vec<T> {
+impl<T: Copy> VecCopyOps<T> for Vec<T> {
     fn copy_from(&mut self, src: &[T], offset: usize) {
         debug_assert!(
             offset + src.len() <= self.len(),

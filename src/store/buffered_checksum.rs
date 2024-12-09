@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::Checksum;
-use crate::util::BufferOps;
+use crate::util::VecCopyOps;
 
 /// Default buffer size: 1024
 pub const DEFAULT_BUFFER_SIZE: u32 = 1024;

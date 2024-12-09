@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::{BufferOps, Counter, CounterEnum};
+use crate::util::{VecCopyOps, Counter, CounterEnum};
 use std::cmp::min;
 
 //TODO

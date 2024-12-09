@@ -19,7 +19,7 @@ use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::{
-    new_counter, AllocatorEnum, BufferOps, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
+    new_counter, AllocatorEnum, VecCopyOps, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
     BYTE_BLOCK_SIZE,
 };
 
