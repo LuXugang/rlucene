@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{DataInput, ReadableCursorExt};
+use crate::store::DataInput;
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
+use crate::util::ReadableCursorExt;
 use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;

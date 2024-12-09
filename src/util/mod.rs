@@ -32,6 +32,7 @@ pub mod bit_util;
 pub mod bits;
 pub mod constants;
 pub mod counter;
+pub mod cursor_ext;
 pub mod doc_base_bit_set_iterator;
 pub mod doc_id_set_builder;
 pub mod error;
@@ -59,6 +60,7 @@ pub use tim_sorter::*;
 pub use sorter::*;
 
 pub use counter::*;
+pub use cursor_ext::*;
 pub use io_utils::*;
 pub use strict_string_tokenizer::*;
 pub use string_helper::*;

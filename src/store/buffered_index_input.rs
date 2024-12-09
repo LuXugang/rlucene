@@ -17,11 +17,10 @@
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{
-    BufferedIndexInputBase, ByteBuffersIndexInput, Context, DataInput, IOContext, ReadableCursorExt,
-};
+use crate::store::{BufferedIndexInputBase, ByteBuffersIndexInput, Context, DataInput, IOContext};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
+use crate::util::ReadableCursorExt;
 use std::fmt::{format, Display, Formatter};
 use std::io::{Cursor, Read};
 
