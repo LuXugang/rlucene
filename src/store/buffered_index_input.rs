@@ -18,12 +18,12 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{
-    BufferedIndexInputBase, ByteBuffersIndexInput, Context, DataInput, IOContext,
+    BufferedIndexInputBase, ByteBuffersIndexInput, Context, DataInput, IOContext, ReadableCursorExt,
 };
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
-use std::fmt::{Display, Formatter};
-use std::io::Cursor;
+use std::fmt::{format, Display, Formatter};
+use std::io::{Cursor, Read};
 
 /// Default buffer size set to `BUFFER_SIZE`.
 pub const BUFFER_SIZE: u32 = 1024;
@@ -123,64 +123,64 @@ where
         b: &mut [u8],
         offset: u32,
         len: u32,
-        _use_buffer: bool,
+        use_buffer: bool,
     ) -> Result<(), DataIOError> {
-        // let mut current_offset = offset;
-        //
-        // let mut available = self.buffer.remain();
-        //
-        // // 如果缓冲区中有足够数据满足请求
-        // if len <= available {
-        //     if len > 0 {
-        //         self.buffer
-        //             .read_exact(&mut b[current_offset..current_offset + len])
-        //             .map_err(DataIOError::io)?;
-        //     }
-        // } else {
-        //     // 缓冲区数据不足，先读取缓冲区中的所有数据
-        //     if available > 0 {
-        //         self.buffer
-        //             .read_exact(&mut b[current_offset..current_offset + available])
-        //             .map_err(DataIOError::io)?;
-        //         current_offset += available;
-        //         len -= available;
-        //     }
-        //
-        //     // 如果允许使用缓冲区且剩余数据量小于缓冲区大小
-        //     if use_buffer && len < self.buffer_size {
-        //         self.refill()?;
-        //
-        //         available = self.buffer_remain() as usize;
-        //         if available < len {
-        //             // 如果缓冲区填充后仍然不足，抛出 EOF 错误
-        //             self.buffer
-        //                 .read_exact(&mut b[current_offset..current_offset + available])
-        //                 .map_err(DataIOError::io)?;
-        //             return Err(DataIOError::eof("read past EOF"));
-        //         } else {
-        //             self.buffer
-        //                 .read_exact(&mut b[current_offset..current_offset + len])
-        //                 .map_err(DataIOError::io)?;
-        //         }
-        //     } else {
-        //         // 剩余数据量大于缓冲区大小或不允许使用缓冲区，直接从底层读取
-        //         let after = self.buffer_start + self.buffer.position() as u64 + len as u64;
-        //         if after > self.length() {
-        //             return Err(DataIOError::eof("read past EOF"));
-        //         }
-        //
-        //         // 调用底层的 `read_internal` 方法直接读取数据
-        //         let mut temp_cursor = Cursor::new(vec![0; len]);
-        //         self.sub_index_input.read_internal(&mut temp_cursor)?;
-        //
-        //         b[current_offset..current_offset + len]
-        //             .copy_from_slice(temp_cursor.get_ref());
-        //         self.buffer_start = after;
-        //         self.buffer.set_position(0);
-        //         self.buffer.get_mut().clear(); // 清空缓冲区以触发下一次 refill
-        //     }
-        // }
-        //
+        let mut current_offset = offset;
+        let mut current_len = len;
+
+        let mut available = self.buffer.remain();
+        debug_assert!(available <= u32::MAX as u64);
+        if current_len as u64 <= available {
+            // the buffer contains enough data to satisfy this request
+            if current_len > 0 {
+                self.buffer.read_to(b, current_offset, current_len)?;
+            }
+        } else {
+            // the buffer does not have enough data. First serve all we've got.
+            if available > 0 {
+                self.buffer.read_to(b, current_offset, available as u32)?;
+                debug_assert!(self.buffer.remain() == 0);
+                current_offset += available as u32;
+                current_len -= available as u32;
+            }
+            // and now, read the remaining 'len' bytes:
+            if use_buffer && current_len < self.buffer_size {
+                // If the amount left to read is small enough, and
+                // we are allowed to use our buffer, do it in the usual
+                // buffered way: fill the buffer and read slice from it:
+                self.refill()?;
+
+                available = self.buffer.remain();
+                let start = self.buffer.position() as usize;
+                if available < current_len as u64 {
+                    // Throw an error when refill() could not read len bytes:
+                    self.buffer.read_to(b, current_offset, available as u32)?;
+                    debug_assert!(self.buffer.remain() == 0);
+                    return Err(DataIOError::eof(format!("read past EOF: {}", self)));
+                } else {
+                    self.buffer.read_to(b, current_offset, current_len)?;
+                }
+            } else {
+                debug_assert!(self.buffer.remain() == 0);
+                // The amount left to read is larger than the buffer
+                // or we've been asked to not use our buffer -
+                // there's no performance reason not to read it all
+                // at once. Note that unlike the previous code of
+                // this function, there is no need to do a seek
+                // here, because there's no need to reread what we
+                // had in the buffer.
+                let after = self.buffer_start + self.buffer.position() as u64 + current_len as u64;
+                if after > self.sub_index_input.length() {
+                    return Err(DataIOError::eof(format!("read past EOF: {}", self)));
+                }
+                let mut temp_cursor = Cursor::new(vec![0; current_len as usize]);
+                self.sub_index_input.read_internal(&mut temp_cursor)?;
+                temp_cursor.read_to(b, current_offset as u32, current_len as u32)?;
+                self.buffer_start = after;
+                self.buffer.set_position(0);
+                self.buffer.get_mut().clear();
+            }
+        }
         Ok(())
     }
 

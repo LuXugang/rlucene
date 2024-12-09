@@ -16,7 +16,7 @@
  */
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::data_output::DataOutput;
-use crate::store::{CursorExt, DataInput};
+use crate::store::{DataInput, ReadableCursorExt, WritableCursorExt};
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
@@ -156,13 +156,15 @@ impl ByteBuffersDataOutput {
                 }
                 let bytes_to_copy = available_space.min(old_block.remain()) as usize;
                 let old_position = old_block.position() as usize;
-                let new_position = new_block.position() as usize;
                 let old_data = &old_block.get_ref()[old_position..old_position + bytes_to_copy];
-                // TODO: maybe we should use `memcpy` to improve performance
-                new_block.get_mut()[new_position..new_position + bytes_to_copy]
-                    .copy_from_slice(old_data);
+                debug_assert!(
+                    new_block.remain() as usize >= bytes_to_copy,
+                    "Insufficient space in new_block: remaining={}, required={}",
+                    new_block.remain(),
+                    bytes_to_copy
+                );
+                new_block.write_from_slice(old_data).unwrap();
                 old_block.set_position((old_position + bytes_to_copy) as u64);
-                new_block.set_position((new_position + bytes_to_copy) as u64);
             }
             old_block_count -= 1;
             if old_block_count == 0 {
@@ -309,11 +311,7 @@ impl DataOutput for ByteBuffersDataOutput {
                 .unwrap();
             let chunk = available_space.min(length as u64);
             debug_assert!(chunk <= u32::MAX as u64);
-            let mut block_position = last_block.position() as usize;
-            last_block.get_mut()[block_position..block_position + chunk as usize]
-                .copy_from_slice(&b[offset as usize..(offset as u64 + chunk) as usize]);
-            block_position += chunk as usize;
-            last_block.set_position(block_position as u64);
+            last_block.write_from(b, offset, chunk as u32)?;
             length -= chunk as u32;
             offset += chunk as u32;
         }

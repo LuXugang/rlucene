@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
-use crate::store::lock::{FSLockEnum};
+use crate::store::lock::FSLockEnum;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::Display;
 

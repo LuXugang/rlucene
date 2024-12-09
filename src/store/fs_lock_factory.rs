@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
-use crate::store::lock::{FSLockEnum};
+use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
-use crate::store::{
-    NativeFSLockFactory,
-};
+use crate::store::NativeFSLockFactory;
 use crate::util::error::data_io_error_enum::DataIOError;
 
 /// Base class for file system based locking implementation. This class is explicitly checking that

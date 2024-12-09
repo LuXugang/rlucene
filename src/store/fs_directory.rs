@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::lock_factory::LockFactory;
-use crate::store::{NativeFSLockFactory};
+use crate::store::NativeFSLockFactory;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::collections::HashSet;
 use std::fs;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::DataInput;
+use crate::store::{DataInput, ReadableCursorExt};
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
@@ -97,17 +97,18 @@ impl<'a> ByteBuffersDataInput<'a> {
             }
 
             let block = self.blocks.get_mut(block_index as usize).unwrap();
-            let block_vec = block.get_ref();
-            let available = block.remain(block_offset as u64);
+            let available = block.remain_with_pos(block_offset as u64);
 
             debug_assert!(available <= u32::MAX as u64);
 
             debug_assert!(available > 0);
             let chunk = bytes_read.min(available as u32);
-            bytes[bytes_offset as usize..(bytes_offset + chunk) as usize].copy_from_slice(
-                &block_vec[block_offset as usize..(block_offset + chunk) as usize],
-            );
-            // block.set_position((block_offset + chunk) as u64);
+            block.read_to_buffer(
+                &mut bytes,
+                bytes_offset as usize,
+                block_offset as u64,
+                chunk as usize,
+            )?;
             bytes_offset += chunk;
             pos += chunk as u64;
             bytes_read -= chunk;
@@ -205,7 +206,7 @@ impl DataInput for ByteBuffersDataInput<'_> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
         let block = self.blocks.get_mut(block_index as usize).unwrap();
-        let remain = block.remain(block_offset as u64) as usize;
+        let remain = block.remain_with_pos(block_offset as u64) as usize;
         let len = GroupVIntUtil::read_group_vint_with_reader(
             self,
             remain as u64,
@@ -289,26 +290,6 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
 impl Accountable for ByteBuffersDataInput<'_> {
     fn ram_bytes_used(&self) -> i64 {
         unimplemented!()
-    }
-}
-
-trait CursorExt {
-    fn remain(&self, position: u64) -> u64;
-}
-
-impl CursorExt for Cursor<&[u8]> {
-    // In Rust Lucene, every piece of data within a block is considered valid, unlike in Java Lucene,
-    // where the valid data is restricted using the limit parameter.
-    fn remain(&self, position: u64) -> u64 {
-        let total = self.get_ref().len() as u64;
-        // set_position seems not check bound
-        debug_assert!(
-            position <= total,
-            "Position ({}) exceeds total ({})",
-            position,
-            total
-        );
-        total.saturating_sub(position)
     }
 }
 
