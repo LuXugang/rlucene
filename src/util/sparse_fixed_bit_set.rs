@@ -19,6 +19,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 use crate::util::error::runtime_error::RuntimeError;
+use crate::util::BufferOps;
 use std::cmp::min;
 
 // todo
@@ -104,9 +105,9 @@ impl SparseFixedBitSet {
         } else {
             let new_size = oversize(bit_array.len() as i32 + 1);
             let mut new_bit_array = vec![0; new_size as usize];
-            new_bit_array[..o].copy_from_slice(&bit_array[..o]);
+            new_bit_array.copy_from(&bit_array[..o], 0);
             new_bit_array[o] = 1_u64 << (i % 64);
-            new_bit_array[o + 1..o + 1 + (bit_array.len() - o)].copy_from_slice(&bit_array[o..]);
+            new_bit_array.copy_from(&bit_array[o..], o + 1);
             self.bits[i4096 as usize] = Some(new_bit_array);
             //TODO
             self.ram_bytes_used = 0;

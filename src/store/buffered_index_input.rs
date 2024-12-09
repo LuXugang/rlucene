@@ -21,8 +21,8 @@ use crate::store::{BufferedIndexInputBase, ByteBuffersIndexInput, Context, DataI
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::ReadableCursorExt;
-use std::fmt::{format, Display, Formatter};
-use std::io::{Cursor, Read};
+use std::fmt::{Display, Formatter};
+use std::io::{Cursor};
 
 /// Default buffer size set to `BUFFER_SIZE`.
 pub const BUFFER_SIZE: u32 = 1024;
@@ -168,13 +168,13 @@ where
                 // this function, there is no need to do a seek
                 // here, because there's no need to reread what we
                 // had in the buffer.
-                let after = self.buffer_start + self.buffer.position() as u64 + current_len as u64;
+                let after = self.buffer_start + self.buffer.position() + current_len as u64;
                 if after > self.sub_index_input.length() {
                     return Err(DataIOError::eof(format!("read past EOF: {}", self)));
                 }
                 let mut temp_cursor = Cursor::new(vec![0; current_len as usize]);
                 self.sub_index_input.read_internal(&mut temp_cursor)?;
-                temp_cursor.read_to(b, current_offset as u32, current_len as u32)?;
+                temp_cursor.read_to(b, current_offset, current_len)?;
                 self.buffer_start = after;
                 self.buffer.set_position(0);
                 self.buffer.get_mut().clear();

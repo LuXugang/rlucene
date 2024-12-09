@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::index::bytes_ref::BytesRef;
+use crate::util::BufferOps;
+
 /**
  * A builder for {@link BytesRef} instances.
  */
@@ -108,8 +110,9 @@ impl BytesRefBuilder {
         assert_eq!(self.bytes_ref.offset, 0);
         self.bytes_ref.length = len;
         self.grow_no_copy(len);
-        self.bytes_ref.bytes[0..len as usize]
-            .copy_from_slice(&b[off as usize..(off + len) as usize]);
+        self.bytes_ref
+            .bytes
+            .copy_from(&b[off as usize..(off + len) as usize], 0);
     }
     pub fn copy_bytes_with_ref(&mut self, b: &BytesRef) {
         self.copy_bytes_with_vec(&b.bytes, b.offset, b.length);
@@ -128,8 +131,9 @@ impl BytesRefBuilder {
     }
     pub fn copy_chars_with_vec(&mut self, s: &[u8], off: u32, len: u32) {
         self.grow(len);
-        self.bytes_ref.bytes[off as usize..(off + len) as usize]
-            .copy_from_slice(&s[off as usize..(off + len) as usize]);
+        self.bytes_ref
+            .bytes
+            .copy_from(&s[off as usize..(off + len) as usize], off as usize);
         self.bytes_ref.length = len;
         self.bytes_ref.offset = 0;
     }

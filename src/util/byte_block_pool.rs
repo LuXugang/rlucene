@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::{Counter, CounterEnum};
+use crate::util::{BufferOps, Counter, CounterEnum};
 use std::cmp::min;
 
 //TODO
@@ -189,12 +189,12 @@ impl<'a> ByteBlockPool<'a> {
         while length > 0 {
             let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
             let bytes_to_copy = min(BYTE_BLOCK_SIZE - src_pos as i32, length);
-            self.buffers[self.buffer_upto as usize]
-                [self.byte_up_to as usize..(self.byte_up_to + bytes_to_copy) as usize]
-                .copy_from_slice(
-                    &src_pool.buffers[(src_offset >> BYTE_BLOCK_SHIFT) as usize]
-                        [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
-                );
+            self.buffers[self.buffer_upto as usize].copy_from(
+                &src_pool.buffers[(src_offset >> BYTE_BLOCK_SHIFT) as usize]
+                    [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
+                self.byte_up_to as usize,
+            );
+
             length -= bytes_to_copy;
             src_offset += bytes_to_copy as i64;
             self.byte_up_to += bytes_to_copy;
@@ -221,17 +221,19 @@ impl<'a> ByteBlockPool<'a> {
             let buffer_left = BYTE_BLOCK_SIZE - self.byte_up_to;
             if bytes_left < buffer_left {
                 // fits within current buffer
-                self.buffers[self.buffer_upto as usize]
-                    [self.byte_up_to as usize..(self.byte_up_to + bytes_left) as usize]
-                    .copy_from_slice(&bytes[offset as usize..(offset + bytes_left) as usize]);
+                self.buffers[self.buffer_upto as usize].copy_from(
+                    &bytes[offset as usize..(offset + bytes_left) as usize],
+                    self.byte_up_to as usize,
+                );
                 self.byte_up_to += bytes_left;
                 break;
             } else {
                 // fill up this buffer and move to next one
                 if buffer_left > 0 {
-                    self.buffers[self.buffer_upto as usize]
-                        [self.byte_up_to as usize..(self.byte_up_to + buffer_left) as usize]
-                        .copy_from_slice(&bytes[offset as usize..(offset + buffer_left) as usize]);
+                    self.buffers[self.buffer_upto as usize].copy_from(
+                        &bytes[offset as usize..(offset + buffer_left) as usize],
+                        self.byte_up_to as usize,
+                    );
                 }
                 self.next_buffer();
                 bytes_left -= buffer_left;
@@ -257,8 +259,11 @@ impl<'a> ByteBlockPool<'a> {
         let mut pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
         while bytes_left > 0 {
             let chunk = min(BYTE_BLOCK_SIZE - pos, bytes_left);
-            bytes[bytes_offset as usize..(bytes_offset + chunk) as usize]
-                .copy_from_slice(&self.buffers[buffer_index][pos as usize..(pos + chunk) as usize]);
+            self.buffers[buffer_index].copy_to(
+                &mut bytes[bytes_offset as usize..(bytes_offset + chunk) as usize],
+                pos as usize,
+            );
+
             bytes_offset += chunk;
             bytes_left -= chunk;
             buffer_index += 1;

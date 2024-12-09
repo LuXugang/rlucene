@@ -19,7 +19,7 @@ use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::{
-    new_counter, AllocatorEnum, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
+    new_counter, AllocatorEnum, BufferOps, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
     BYTE_BLOCK_SIZE,
 };
 
@@ -112,11 +112,11 @@ fn test_read_and_write() {
                         position,
                         bytes_ref_builder.length() as i32,
                     );
-                    bytes_ref_builder.get().bytes[0..bytes_ref_builder_length as usize]
-                        .copy_from_slice(
-                            &scratch.bytes[scratch.offset as usize
-                                ..(scratch.offset + bytes_ref_builder_length) as usize],
-                        );
+                    bytes_ref_builder.get().bytes.copy_from(
+                        &scratch.bytes[scratch.offset as usize
+                            ..(scratch.offset + bytes_ref_builder_length) as usize],
+                        0,
+                    );
                 }
                 _ => {
                     unreachable!()

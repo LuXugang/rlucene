@@ -71,7 +71,7 @@ where
             position,
             len as usize,
         )?;
-        self.set_position((position + len as u64) as u64);
+        self.set_position(position + len as u64);
         Ok(())
     }
 

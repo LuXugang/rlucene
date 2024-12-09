@@ -20,7 +20,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
-use crate::util::ReadableCursorExt;
+use crate::util::{BufferOps, ReadableCursorExt};
 use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
@@ -120,7 +120,7 @@ impl<'a> ByteBuffersDataInput<'a> {
             let output_bytes = unsafe {
                 std::slice::from_raw_parts_mut(output.as_mut_ptr() as *mut u8, output.len())
             };
-            output_bytes.copy_from_slice(&bytes);
+            bytes.copy_to(output_bytes, 0);
         } else {
             output
                 .iter_mut()

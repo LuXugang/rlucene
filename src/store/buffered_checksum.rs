@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::store::Checksum;
+use crate::util::BufferOps;
+
 /// Default buffer size: 1024
 pub const DEFAULT_BUFFER_SIZE: u32 = 1024;
 /// Wraps another [`Checksum`] with an internal buffer to speed up checksum calculations.
@@ -70,8 +72,8 @@ impl<T: Checksum> Checksum for BufferedChecksum<T> {
             if self.upto as usize + len > self.buffer.len() {
                 self.flush();
             }
-            self.buffer[self.upto as usize..self.upto as usize + len]
-                .copy_from_slice(&bytes[offset..offset + len]);
+            self.buffer
+                .copy_from(&bytes[offset..offset + len], self.upto as usize);
             self.upto += len as u32;
         }
     }
