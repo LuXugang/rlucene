@@ -29,8 +29,8 @@ use std::fmt::{Display, Formatter};
 /// This is an experimental API.
 pub struct ByteArrayDataInput {
     bytes: Vec<u8>,
-    pos: usize,
-    limit: usize,
+    pos: u32,
+    limit: u32,
 }
 impl ByteArrayDataInput {
     pub fn new() -> Self {
@@ -39,9 +39,10 @@ impl ByteArrayDataInput {
 
     pub fn new_with_bytes(bytes: Vec<u8>) -> Self {
         let len = bytes.len();
-        Self::new_with_range(bytes, 0, len)
+        debug_assert!(len <= u32::MAX as usize, "bytes length exceeds u32 range");
+        Self::new_with_range(bytes, 0, len as u32)
     }
-    pub fn new_with_range(bytes: Vec<u8>, offset: usize, length: usize) -> Self {
+    pub fn new_with_range(bytes: Vec<u8>, offset: u32, length: u32) -> Self {
         let mut data_input = Self::new();
         data_input.reset_with_range(bytes, offset, length);
         data_input
@@ -49,9 +50,10 @@ impl ByteArrayDataInput {
 
     pub fn reset(&mut self, bytes: Vec<u8>) {
         let len = bytes.len();
-        self.reset_with_range(bytes, 0, len);
+        debug_assert!(len <= u32::MAX as usize, "bytes length exceeds u32 range");
+        self.reset_with_range(bytes, 0, len as u32);
     }
-    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: usize, length: usize) {
+    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: u32, length: u32) {
         self.bytes = bytes;
         self.pos = offset;
         self.limit = offset + length;
@@ -62,13 +64,13 @@ impl ByteArrayDataInput {
         self.pos = 0;
     }
 
-    pub fn get_position(&self) -> usize {
+    pub fn get_position(&self) -> u32 {
         self.pos
     }
-    pub fn set_position(&mut self, pos: usize) {
+    pub fn set_position(&mut self, pos: u32) {
         self.pos = pos;
     }
-    pub fn length(&self) -> usize {
+    pub fn length(&self) -> u32 {
         self.limit
     }
     pub fn eof(&self) -> bool {
@@ -84,50 +86,50 @@ impl Display for ByteArrayDataInput {
 
 impl DataInput for ByteArrayDataInput {
     fn read_byte(&mut self) -> Result<u8, DataIOError> {
-        let value = self.bytes[self.pos];
+        let value = self.bytes[self.pos as usize];
         self.pos += 1;
         Ok(value)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {
         debug_assert!(
-            (offset + len) <= b.len(),
+            (offset + len) as usize <= b.len(),
             "Offset and length exceed the destination buffer size"
         );
         debug_assert!(
-            (self.pos + len) <= self.bytes.len(),
+            (self.pos + len) as usize <= self.bytes.len(),
             "Read range exceeds the source buffer size"
         );
         unsafe {
-            let src = self.bytes.as_ptr().add(self.pos);
-            let dst = b.as_mut_ptr().add(offset);
-            std::ptr::copy_nonoverlapping(src, dst, len);
+            let src = self.bytes.as_ptr().add(self.pos as usize);
+            let dst = b.as_mut_ptr().add(offset as usize);
+            std::ptr::copy_nonoverlapping(src, dst, len as usize);
         }
         self.pos += len;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16, DataIOError> {
-        let result = BitUtil::get_i16_le(&self.bytes, self.pos);
+        let result = BitUtil::get_i16_le(&self.bytes, self.pos as usize);
         self.pos += 2;
         Ok(result)
     }
 
     fn read_int(&mut self) -> Result<i32, DataIOError> {
-        let value = BitUtil::get_i32_le(&self.bytes, self.pos);
+        let value = BitUtil::get_i32_le(&self.bytes, self.pos as usize);
         self.pos += 4;
         Ok(value)
     }
 
     fn read_long(&mut self) -> Result<i64, DataIOError> {
-        let value = BitUtil::get_i64_le(&self.bytes, self.pos);
+        let value = BitUtil::get_i64_le(&self.bytes, self.pos as usize);
         self.pos += 8;
         Ok(value)
     }
 
     fn skip_bytes(&mut self, count: u64) -> Result<(), DataIOError> {
-        debug_assert!(count <= usize::MAX as u64, "count exceeds usize range");
-        self.pos += count as usize;
+        debug_assert!(count <= u32::MAX as u64, "count exceeds usize range");
+        self.pos += count as u32;
         Ok(())
     }
 }

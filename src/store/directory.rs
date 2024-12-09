@@ -188,7 +188,7 @@ pub trait Directory: Display + Sized {
         let result = (|| -> Result<(), DataIOError> {
             let mut is = from.open_input(src, IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context);
-            let length = is.length() as i64;
+            let length = is.length();
             os.copy_bytes(&mut is, length)?;
             success = true;
             Ok(())

@@ -84,7 +84,7 @@ fn test_write_exceeding_buffer() -> Result<(), DataIOError> {
 
         let mut hasher = Hasher::new();
 
-        out.write_bytes_range(&large_data, 0, large_data.len())?;
+        out.write_bytes_range(&large_data, 0, large_data.len() as u32)?;
         hasher.update(&large_data);
 
         assert_eq!(out.get_file_pointer(), large_data.len() as u64);
@@ -112,10 +112,10 @@ fn test_multiple_writes_with_checksum() -> Result<(), DataIOError> {
         let data2 = b"World";
         let mut hasher = Hasher::new();
 
-        out.write_bytes_range(data1, 0, data1.len())?;
+        out.write_bytes_range(data1, 0, data1.len() as u32)?;
         hasher.update(data1);
         let sum1 = out.get_check_sum();
-        out.write_bytes_range(data2, 0, data2.len())?;
+        out.write_bytes_range(data2, 0, data2.len() as u32)?;
         hasher.update(data2);
         let sum2 = out.get_check_sum();
         assert_ne!(sum1, sum2, "Checksum mismatch");

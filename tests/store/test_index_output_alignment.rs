@@ -77,9 +77,9 @@ pub fn run_test_output_alignment(alignment: u32) -> Result<(), DataIOError> {
     let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;
 
     for _ in 0..(10 * get_random_multiplier()) {
-        let length: usize = random.gen_range(0..32);
+        let length = random.gen_range(0..32);
         let data = vec![0; length];
-        out.write_bytes_with_len(&data, length)?;
+        out.write_bytes_with_len(&data, length as u32)?;
 
         let orig_pos = out.get_file_pointer();
         // align to next boundary

@@ -84,9 +84,9 @@ where
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {
         self.main.read_bytes(b, offset, len)?;
-        self.digest.update_bytes(b, offset as u32, len as u32);
+        self.digest.update_bytes(b, offset, len);
         Ok(())
     }
 

@@ -44,7 +44,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_bytes`]
-    fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<(), DataIOError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), DataIOError> {
         self.write_bytes_range(b, 0, len)
     }
     /// Writes an array of bytes.
@@ -56,12 +56,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_bytes`].
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: usize,
-        length: usize,
-    ) -> Result<(), DataIOError>;
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), DataIOError>;
 
     /// Writes an `int` as four bytes (little-endian byte order).
     ///
@@ -196,8 +191,8 @@ pub trait DataOutput: Sized {
     /// [`DataInput::read_zlong`]
     fn write_string(&mut self, s: &str) -> Result<(), DataIOError> {
         let utf8_result = BytesRef::new_from_string(s);
-        let len = utf8_result.length as usize;
-        let offset = utf8_result.offset as usize;
+        let len = utf8_result.length;
+        let offset = utf8_result.offset;
         self.write_vint(len as i32)?;
         self.write_bytes_range(&utf8_result.bytes, offset, len)
     }
@@ -206,19 +201,20 @@ pub trait DataOutput: Sized {
     fn copy_bytes<T: DataInput>(
         &mut self,
         input: &mut T,
-        num_bytes: i64,
+        num_bytes: u64,
     ) -> Result<(), DataIOError> {
         debug_assert!(num_bytes >= 0, "num_bytes = {}", num_bytes);
-        let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
+        let mut buffer = vec![0u8; COPY_BUFFER_SIZE as usize];
         let mut left = num_bytes;
         while left > 0 {
-            let to_copy = if left > COPY_BUFFER_SIZE as i64 {
-                COPY_BUFFER_SIZE as i64
+            let to_copy = if left > COPY_BUFFER_SIZE as u64 {
+                COPY_BUFFER_SIZE as u64
             } else {
                 left
             };
-            input.read_bytes(&mut buffer, 0, to_copy as usize)?;
-            self.write_bytes_with_len(&buffer, to_copy as usize)?;
+            debug_assert!(to_copy <= u32::MAX as u64, "to_copy = {}", to_copy);
+            input.read_bytes(&mut buffer, 0, to_copy as u32)?;
+            self.write_bytes_with_len(&buffer, to_copy as u32)?;
             left -= to_copy;
         }
         Ok(())
@@ -267,10 +263,10 @@ pub trait DataOutput: Sized {
     /// # Note
     /// This is an experimental API.
 
-    fn write_group_vints(&mut self, values: &mut [i64], limit: usize) -> Result<(), DataIOError> {
+    fn write_group_vints(&mut self, values: &mut [i64], limit: u32) -> Result<(), DataIOError> {
         let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];
         GroupVIntUtil::write_group_vints(self, &mut group_vint_bytes, values, limit)?;
         Ok(())
     }
 }
-const COPY_BUFFER_SIZE: usize = 16384;
+const COPY_BUFFER_SIZE: u32 = 16384;

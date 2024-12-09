@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{write, Display, Formatter};
-use crate::store::base_directory::BaseDirectory;
 use crate::store::directory::Directory;
-use crate::store::fs_directory::FSDirectory;
-use crate::store::fs_lock_factory::{FSLockFactory};
+use crate::store::fs_lock_factory::FSLockFactory;
 use crate::store::lock::{FSLockEnum, Lock};
 use crate::store::lock_factory::LockFactory;
 use crate::util::error::data_io_error_enum::DataIOError;
+use std::fmt::{Display, Formatter};
 
 /// Implements [`lock_factory`](crate::store::lock_factory) using native OS file locks.
 ///
@@ -61,6 +59,12 @@ use crate::util::error::data_io_error_enum::DataIOError;
 
 pub struct NativeFSLockFactory;
 
+impl Default for NativeFSLockFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NativeFSLockFactory {
     /// Creates a new instance.
     pub fn new() -> Self {
@@ -68,8 +72,11 @@ impl NativeFSLockFactory {
     }
 }
 impl LockFactory for NativeFSLockFactory {
-
-    fn obtain_lock(&mut self, dir: &mut impl Directory, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
+    fn obtain_lock(
+        &mut self,
+        dir: &mut impl Directory,
+        lock_name: &str,
+    ) -> Result<FSLockEnum, DataIOError> {
         FSLockFactory::obtain_lock(self, dir, lock_name)
     }
 }
@@ -80,13 +87,15 @@ impl Display for NativeFSLockFactory {
     }
 }
 
-impl FSLockFactory for NativeFSLockFactory{
-    fn obtain_fs_lock(&self, dir: &mut impl Directory, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
+impl FSLockFactory for NativeFSLockFactory {
+    fn obtain_fs_lock(
+        &self,
+        dir: &mut impl Directory,
+        lock_name: &str,
+    ) -> Result<FSLockEnum, DataIOError> {
         todo!()
     }
- 
 }
-
 
 pub struct NativeFSLock;
 

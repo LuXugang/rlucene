@@ -30,11 +30,11 @@ pub trait RandomAccessInput {
         &mut self,
         pos: u64,
         buf: &mut [u8],
-        offset: usize,
-        len: usize,
+        offset: u32,
+        len: u32,
     ) -> Result<(), DataIOError> {
         for i in 0..len {
-            buf[offset + i] = self.read_byte(pos + i as u64)?;
+            buf[(offset + i) as usize] = self.read_byte(pos + i as u64)?;
         }
         Ok(())
     }
@@ -71,8 +71,8 @@ impl<T: IndexInput> RandomAccessInput for DefaultRandomAccessInput<T> {
         &mut self,
         pos: u64,
         buf: &mut [u8],
-        offset: usize,
-        len: usize,
+        offset: u32,
+        len: u32,
     ) -> Result<(), DataIOError> {
         self.slice.seek(pos)?;
         self.slice.read_bytes(buf, offset, len)

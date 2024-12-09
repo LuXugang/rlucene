@@ -49,7 +49,7 @@ pub trait ChecksumIndexInput: IndexInput {
         while skipped < num_bytes {
             debug_assert!((num_bytes - skipped) <= u32::MAX as u64);
             let step = SKIP_BUFFER_SIZE.min((num_bytes - skipped) as u32);
-            self.read_bytes_with_buffer(&mut skip_buffer, 0, step as usize, false)?;
+            self.read_bytes_with_buffer(&mut skip_buffer, 0, step, false)?;
             skipped += step as u64;
         }
         Ok(())

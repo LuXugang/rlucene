@@ -70,8 +70,8 @@ fn test_constructor_with_expected_size() -> Result<(), TestError> {
     let _ = o.write_byte(0);
     let (_length, mut result) = o.to_buffer_list();
     let cap = result.get_mut(0).unwrap().get_ref().len();
-    assert!((cap >> 1) * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION < expected_size as usize);
-    assert!(cap * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION >= expected_size as usize);
+    assert!(((cap >> 1) * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize) < expected_size as usize);
+    assert!(cap * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize >= expected_size as usize);
     Ok(())
 }
 
@@ -143,7 +143,7 @@ fn test_large_array_add() -> Result<(), TestError> {
     bytes.iter_mut().for_each(|byte| *byte = random.gen());
     let offset = random.gen_range(0..=100);
     let len = bytes.len() - offset;
-    o.write_bytes_range(&bytes, offset, len)?;
+    o.write_bytes_range(&bytes, offset as u32, len as u32)?;
     assert_eq!(len as u64, o.size());
     let expected = bytes[offset..offset + len].to_vec();
     assert_eq!(expected, o.get_array_copy());
@@ -157,14 +157,14 @@ fn test_copy_bytes_on_heap() -> Result<(), TestError> {
     let offset = random.gen_range(0..=100);
     let len = bytes.len() - offset;
     let bytes_clone = bytes.clone();
-    let mut input = ByteArrayDataInput::new_with_range(bytes, offset, len);
+    let mut input = ByteArrayDataInput::new_with_range(bytes, offset as u32, len as u32);
 
     let mut o = ByteBuffersDataOutput::new(
         DEFAULT_MIN_BITS_PER_BLOCK,
         DEFAULT_MAX_BITS_PER_BLOCK,
         false,
     )?;
-    o.copy_bytes(&mut input, len as i64)?;
+    o.copy_bytes(&mut input, len as u64)?;
     let expected = bytes_clone[offset..offset + len].to_vec();
     assert_eq!(o.get_array_copy(), expected);
     Ok(())
@@ -177,13 +177,13 @@ fn test_copy_bytes_on_direct_byte_buffer() -> Result<(), TestError> {
     let offset = random.gen_range(0..=100);
     let len = bytes.len() - offset;
     let bytes_clone = bytes.clone();
-    let mut input = ByteArrayDataInput::new_with_range(bytes, offset, len);
+    let mut input = ByteArrayDataInput::new_with_range(bytes, offset as u32, len as u32);
     let mut o = ByteBuffersDataOutput::new(
         DEFAULT_MIN_BITS_PER_BLOCK,
         DEFAULT_MAX_BITS_PER_BLOCK,
         false,
     )?;
-    o.copy_bytes(&mut input, len as i64)?;
+    o.copy_bytes(&mut input, len as u64)?;
     let expected = bytes_clone[offset..offset + len].to_vec();
     assert_eq!(o.get_array_copy(), expected);
     Ok(())

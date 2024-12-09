@@ -44,12 +44,7 @@ impl DataInput for DataInputType<'_> {
         }
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: usize,
-        length: usize,
-    ) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, length: u32) -> Result<(), DataIOError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_bytes(b, offset, length),
             DataInputType::ByteBuffers(data_input) => data_input.read_bytes(b, offset, length),

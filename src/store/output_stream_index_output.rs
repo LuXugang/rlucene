@@ -44,9 +44,9 @@ impl<W: Write> OutputStreamIndexOutput<W> {
         resource_description: &str,
         name: &str,
         inner: W,
-        buffer_size: usize,
+        buffer_size: u32,
     ) -> Result<OutputStreamIndexOutput<W>, RuntimeError> {
-        if buffer_size < LONG_BYTES {
+        if (buffer_size as usize) < LONG_BYTES {
             return Err(RuntimeError::illegal_argument(format!(
                 "Buffer size too small, need: {}, got: {}",
                 LONG_BYTES, buffer_size
@@ -68,15 +68,10 @@ impl<W: Write> DataOutput for OutputStreamIndexOutput<W> {
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: usize,
-        length: usize,
-    ) -> Result<(), DataIOError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), DataIOError> {
         let end = offset + length;
         self.bytes_written += length as u64;
-        self.os.write_bytes(&b[offset..end])
+        self.os.write_bytes(&b[offset as usize..end as usize])
     }
 
     fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
@@ -123,9 +118,9 @@ pub struct XBufferedOutputStream<W: Write> {
 }
 
 impl<W: Write> XBufferedOutputStream<W> {
-    pub fn new(inner: W, buffer_size: usize) -> Self {
+    pub fn new(inner: W, buffer_size: u32) -> Self {
         Self {
-            inner: BufWriter::with_capacity(buffer_size, inner),
+            inner: BufWriter::with_capacity(buffer_size as usize, inner),
             hasher: Hasher::new(),
             checksum: 0,
         }
@@ -148,7 +143,8 @@ impl<W: Write> XBufferedOutputStream<W> {
     }
 
     pub fn write_bytes(&mut self, buf: &[u8]) -> Result<(), DataIOError> {
-        self.flush_if_needed(buf.len())?;
+        debug_assert!(buf.len() <= u32::MAX as usize);
+        self.flush_if_needed(buf.len() as u32)?;
         if buf.len() > self.inner.capacity() {
             self.inner.get_mut().write_all(buf)?;
         } else {
@@ -176,8 +172,8 @@ impl<W: Write> XBufferedOutputStream<W> {
         Ok(())
     }
 
-    pub fn flush_if_needed(&mut self, len: usize) -> Result<(), DataIOError> {
-        if len + self.inner.buffer().len() > self.inner.capacity() {
+    pub fn flush_if_needed(&mut self, len: u32) -> Result<(), DataIOError> {
+        if len as usize + self.inner.buffer().len() > self.inner.capacity() {
             self.inner.flush()?;
         }
         Ok(())

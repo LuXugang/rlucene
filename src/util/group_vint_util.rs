@@ -40,7 +40,7 @@ impl GroupVIntUtil {
     pub fn read_group_vints<D>(
         mut data_input: D,
         dst: &mut [i64],
-        limit: usize,
+        limit: u32,
     ) -> Result<(), DataIOError>
     where
         D: DataInput,
@@ -51,7 +51,7 @@ impl GroupVIntUtil {
             i += 4;
         }
         for j in 0..limit {
-            dst[j] = data_input.read_vint()? as i64;
+            dst[j as usize] = data_input.read_vint()? as i64;
         }
         Ok(())
     }
@@ -65,7 +65,7 @@ impl GroupVIntUtil {
     pub fn read_group_vint<D>(
         data_input: &mut D,
         dst: &mut [i64],
-        offset: usize,
+        offset: u32,
     ) -> Result<(), DataIOError>
     where
         D: DataInput,
@@ -78,10 +78,10 @@ impl GroupVIntUtil {
             let n3_minus1 = (flag >> 2) & 0x03;
             let n4_minus1 = flag & 0x03;
 
-            dst[offset] = Self::read_long_in_group(data_input, n1_minus1)?;
-            dst[offset + 1] = Self::read_long_in_group(data_input, n2_minus1)?;
-            dst[offset + 2] = Self::read_long_in_group(data_input, n3_minus1)?;
-            dst[offset + 3] = Self::read_long_in_group(data_input, n4_minus1)?;
+            dst[offset as usize] = Self::read_long_in_group(data_input, n1_minus1)?;
+            dst[offset as usize + 1] = Self::read_long_in_group(data_input, n2_minus1)?;
+            dst[offset as usize + 2] = Self::read_long_in_group(data_input, n3_minus1)?;
+            dst[offset as usize + 3] = Self::read_long_in_group(data_input, n4_minus1)?;
 
             Ok(())
         }
@@ -131,7 +131,7 @@ impl GroupVIntUtil {
         remaining: u64,
         mut pos: u64,
         dst: &mut [i64],
-        offset: usize,
+        offset: u32,
     ) -> Result<i32, DataIOError>
     where
         D: DataInput + RandomAccessInput,
@@ -150,19 +150,19 @@ impl GroupVIntUtil {
         let n4_minus1 = flag & 0x03;
         // This code path has fewer conditionals and tends to be significantly faster in benchmarks
 
-        dst[offset] =
+        dst[offset as usize] =
             (RandomAccessInput::read_int(data_input, pos)? as u64 & MASKS[n1_minus1]) as i64;
         pos += 1 + n1_minus1 as u64;
 
-        dst[offset + 1] =
+        dst[offset as usize + 1] =
             (RandomAccessInput::read_int(data_input, pos)? as u64 & MASKS[n2_minus1]) as i64;
         pos += 1 + n2_minus1 as u64;
 
-        dst[offset + 2] =
+        dst[offset as usize + 2] =
             (RandomAccessInput::read_int(data_input, pos)? as u64 & MASKS[n3_minus1]) as i64;
         pos += 1 + n3_minus1 as u64;
 
-        dst[offset + 3] =
+        dst[offset as usize + 3] =
             (RandomAccessInput::read_int(data_input, pos)? as u64 & MASKS[n4_minus1]) as i64;
         pos += 1 + n4_minus1 as u64;
         let result = pos - pos_start;
@@ -191,16 +191,16 @@ impl GroupVIntUtil {
         data_output: &mut D,
         scratch: &mut [u8],
         values: &mut [i64],
-        limit: usize,
+        limit: u32,
     ) -> Result<(), DataIOError>
     where
         D: DataOutput,
     {
-        let mut read_pos = 0;
+        let mut read_pos: usize = 0;
 
         // encode each group
-        while (limit - read_pos) >= 4 {
-            let mut write_pos = 0;
+        while (limit as usize - read_pos) >= 4 {
+            let mut write_pos: usize = 0;
             let n1_minus1 = Self::num_bytes(Self::get_int(values[read_pos])?) - 1;
             let n2_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 1])?) - 1;
             let n3_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 2])?) - 1;
@@ -238,12 +238,13 @@ impl GroupVIntUtil {
             );
             write_pos += (n4_minus1 + 1) as usize;
 
-            data_output.write_bytes_with_len(scratch, write_pos)?;
+            debug_assert!(write_pos <= u32::MAX as usize, "write_pos exceeds u32::MAX");
+            data_output.write_bytes_with_len(scratch, write_pos as u32)?;
             read_pos += 4;
         }
 
         // tail vints
-        while read_pos < limit {
+        while read_pos < limit as usize {
             data_output.write_vint(Self::get_int(values[read_pos])?)?;
             read_pos += 1;
         }

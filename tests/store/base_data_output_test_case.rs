@@ -79,10 +79,10 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
             let len = rnd.gen_range(0..100);
             let bytes: Vec<u8> = (0..len).map(|_| rnd.gen()).collect();
             let bytes_len = bytes.len();
-            let _ = dst.write_bytes_with_len(&bytes, bytes_len);
+            let _ = dst.write_bytes_with_len(&bytes, bytes_len as u32);
             Box::new(move |src: &mut DI| {
                 let mut buffer = vec![0u8; bytes_len];
-                let _ = src.read_bytes(&mut buffer, 0, bytes_len);
+                let _ = src.read_bytes(&mut buffer, 0, bytes_len as u32);
                 assert_eq!(buffer, bytes, "Condition failed for DI")
             })
         },
@@ -101,10 +101,10 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
             } else {
                 rnd.gen_range(0..(bytes_len - off))
             };
-            let _ = dst.write_bytes_range(&bytes, off, length);
+            let _ = dst.write_bytes_range(&bytes, off as u32, length as u32);
             Box::new(move |src: &mut DI| {
                 let mut read: Vec<u8> = vec![0u8; bytes.len() + off];
-                src.read_bytes(&mut read, off, length);
+                src.read_bytes(&mut read, off as u32, length as u32);
                 assert_eq!(
                     read[off..off + length],
                     bytes[off..off + length],

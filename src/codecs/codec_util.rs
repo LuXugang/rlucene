@@ -135,7 +135,7 @@ pub fn write_index_header(
         )));
     }
     write_header(out, codec, version)?;
-    out.write_bytes_range(id, 0, ID_LENGTH as usize)?;
+    out.write_bytes_range(id, 0, ID_LENGTH)?;
     let suffix_bytes = BytesRef::new_from_string(suffix);
     if !suffix.chars().all(|c| c.is_ascii()) || suffix_bytes.length >= 256 {
         return Err(DataIOError::illegal_argument(format!(
@@ -146,8 +146,8 @@ pub fn write_index_header(
     out.write_byte(suffix_bytes.length as u8)?;
     out.write_bytes_range(
         &suffix_bytes.bytes,
-        suffix_bytes.offset as usize,
-        suffix_bytes.length as usize,
+        suffix_bytes.offset,
+        suffix_bytes.length,
     )?;
     Ok(())
 }
@@ -329,13 +329,13 @@ pub fn verify_and_copy_index_header(
     check_index_header_id(data_in, expected_id)?;
     let suffix_length = data_in.read_byte()?;
     let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_length as usize];
-    data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as usize)?;
+    data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as u32)?;
     write_be_int(data_out, CODEC_MAGIC)?;
     data_out.write_string(&codec)?;
     write_be_int(data_out, version)?;
-    data_out.write_bytes_range(expected_id, 0, ID_LENGTH as usize)?;
+    data_out.write_bytes_range(expected_id, 0, ID_LENGTH)?;
     data_out.write_byte(suffix_length)?;
-    data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as usize)?;
+    data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as u32)?;
     Ok(())
 }
 /// Retrieves the full index header from the provided [`IndexInput`].
@@ -357,7 +357,7 @@ pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>, Da
     let bytes_len = (header_length(&codec) + ID_LENGTH + 1 + suffix_length as u32) as usize;
     let mut bytes: Vec<u8> = vec![0u8; bytes_len];
     data_input.seek(0)?;
-    data_input.read_bytes(&mut bytes, 0, bytes_len)?;
+    data_input.read_bytes(&mut bytes, 0, bytes_len as u32)?;
     Ok(bytes)
 }
 
@@ -378,7 +378,7 @@ pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOEr
     validate_footer(data_input)?;
     data_input.seek(data_input.length() - footer_length() as u64)?;
     let mut bytes: Vec<u8> = vec![0u8; footer_length() as usize];
-    data_input.read_bytes(&mut bytes, 0, footer_length() as usize)?;
+    data_input.read_bytes(&mut bytes, 0, footer_length())?;
     Ok(bytes)
 }
 /// Expert: reads and verifies the object ID of an index header.
@@ -387,7 +387,7 @@ pub fn check_index_header_id(
     expected_id: &[u8],
 ) -> Result<(), DataIOError> {
     let mut id: Vec<u8> = vec![0u8; ID_LENGTH as usize];
-    data_input.read_bytes(&mut id, 0, ID_LENGTH as usize)?;
+    data_input.read_bytes(&mut id, 0, ID_LENGTH)?;
     if id != expected_id {
         return Err(DataIOError::corrupt_index(format!(
             "file mismatch, expected id={}, got={} (resource={})",
@@ -405,7 +405,7 @@ pub fn check_index_header_suffix(
 ) -> Result<(), DataIOError> {
     let suffix_length = data_input.read_byte()?;
     let mut suffix: Vec<u8> = vec![0u8; suffix_length as usize];
-    data_input.read_bytes(&mut suffix, 0, suffix_length as usize)?;
+    data_input.read_bytes(&mut suffix, 0, suffix_length as u32)?;
     let actual_suffix = String::from_utf8(suffix)?;
     if actual_suffix != expected_suffix {
         return Err(DataIOError::corrupt_index(format!(

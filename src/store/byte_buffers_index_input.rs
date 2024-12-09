@@ -42,15 +42,15 @@ impl DataInput for ByteBuffersIndexInput<'_> {
         DataInput::read_byte(&mut self.data_input)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {
         DataInput::read_bytes(&mut self.data_input, b, offset, len)
     }
 
     fn read_bytes_with_buffer(
         &mut self,
         b: &mut [u8],
-        offset: usize,
-        len: usize,
+        offset: u32,
+        len: u32,
         _use_buffer: bool,
     ) -> Result<(), DataIOError> {
         self.data_input
@@ -65,7 +65,7 @@ impl DataInput for ByteBuffersIndexInput<'_> {
         DataInput::read_int(&mut self.data_input)
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: usize) -> Result<(), DataIOError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
         self.data_input.read_group_vint(dst, offset)
     }
 
@@ -81,21 +81,11 @@ impl DataInput for ByteBuffersIndexInput<'_> {
         DataInput::read_long(&mut self.data_input)
     }
 
-    fn read_longs(
-        &mut self,
-        dst: &mut [i64],
-        offset: usize,
-        len: usize,
-    ) -> Result<(), DataIOError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), DataIOError> {
         self.data_input.read_longs(dst, offset, len)
     }
 
-    fn read_floats(
-        &mut self,
-        dst: &mut [f32],
-        offset: usize,
-        len: usize,
-    ) -> Result<(), DataIOError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), DataIOError> {
         self.data_input.read_floats(dst, offset, len)
     }
 

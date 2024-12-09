@@ -39,7 +39,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_bytes_range`](crate::store::data_output::DataOutput::write_bytes_range)
-    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<(), DataIOError>;
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError>;
     /// Reads a specified number of bytes into an array at the specified offset, with control over
     /// whether the read should be buffered. Callers who have their own buffer should pass `false`
     /// for `use_buffer`. Currently, only `BufferedIndexInput` respects this parameter.
@@ -55,8 +55,8 @@ pub trait DataInput: Sized + Display {
     fn read_bytes_with_buffer(
         &mut self,
         b: &mut [u8],
-        offset: usize,
-        len: usize,
+        offset: u32,
+        len: u32,
         _use_buffer: bool,
     ) -> Result<(), DataIOError> {
         self.read_bytes(b, offset, len)
@@ -96,14 +96,10 @@ pub trait DataInput: Sized + Display {
 
     /// Override if you have an efficient implementation. In general this is when the input supports
     /// random access.
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: usize) -> Result<(), DataIOError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
         self.default_read_group_vint(dst, offset)
     }
-    fn default_read_group_vint(
-        &mut self,
-        dst: &mut [i64],
-        offset: usize,
-    ) -> Result<(), DataIOError> {
+    fn default_read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
         GroupVIntUtil::read_group_vint(self, dst, offset)
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,
@@ -153,15 +149,10 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Note
     /// This is an experimental API.
-    fn read_longs(
-        &mut self,
-        dst: &mut [i64],
-        offset: usize,
-        len: usize,
-    ) -> Result<(), DataIOError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), DataIOError> {
         let mut i = 0;
         while i < len {
-            dst[i + offset] = self.read_long()?;
+            dst[(i + offset) as usize] = self.read_long()?;
             i += 1;
         }
         Ok(())
@@ -172,10 +163,10 @@ pub trait DataInput: Sized + Display {
     /// * `dst` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `int` values.
     /// * `length` - The number of `int` values to read.
-    fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<(), DataIOError> {
+    fn read_ints(&mut self, dst: &mut [i32], offset: u32, len: u32) -> Result<(), DataIOError> {
         let mut i = 0;
         while i < len {
-            dst[i + offset] = self.read_int()?;
+            dst[(i + offset) as usize] = self.read_int()?;
             i += 1;
         }
         Ok(())
@@ -187,15 +178,10 @@ pub trait DataInput: Sized + Display {
     /// * `floats` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `float` values.
     /// * `len` - The number of `float` values to read.
-    fn read_floats(
-        &mut self,
-        dst: &mut [f32],
-        offset: usize,
-        len: usize,
-    ) -> Result<(), DataIOError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), DataIOError> {
         let mut i = 0;
         while i < len {
-            dst[i + offset] = f32::from_bits(self.read_int()? as u32);
+            dst[(i + offset) as usize] = f32::from_bits(self.read_int()? as u32);
             i += 1;
         }
         Ok(())
@@ -236,7 +222,7 @@ pub trait DataInput: Sized + Display {
         let length = self.read_vint()?;
         debug_assert!(length >= 0, "Length must be positive: {}", length);
         let mut bytes = vec![0u8; length as usize];
-        self.read_bytes(&mut bytes, 0, length as usize)?;
+        self.read_bytes(&mut bytes, 0, length as u32)?;
         Ok(String::from_utf8(bytes)?)
     }
 

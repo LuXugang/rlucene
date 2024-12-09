@@ -16,7 +16,6 @@
  */
 use std::io::Cursor;
 
-
 pub trait CursorExt {
     fn remain(&self) -> u64;
 }

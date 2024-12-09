@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::lock_factory::LockFactory;
+use crate::store::{NativeFSLockFactory};
+use crate::util::error::data_io_error_enum::DataIOError;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, AtomicU64};
-use crate::store::directory::Directory;
-use crate::store::{fs_lock_factory, NativeFSLock, NativeFSLockFactory};
-use crate::store::lock_factory::LockFactory;
-use crate::store::fs_lock_factory::FSLockFactory;
-use crate::util::error::data_io_error_enum::DataIOError;
 
 /// Base trait for `Directory` implementations that store index files in the file system.
 /// There are currently two core implementations:
@@ -47,7 +45,7 @@ use crate::util::error::data_io_error_enum::DataIOError;
 ///
 /// # See Also
 /// [`Directory`](Directory)
-pub struct FSDirectory<D:LockFactory>{
+pub struct FSDirectory<D: LockFactory> {
     directory: PathBuf,
     /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
     /// delete that key.
@@ -55,13 +53,15 @@ pub struct FSDirectory<D:LockFactory>{
     ops_since_last_delete: AtomicU32,
     /** Used to generate temp file names in [`createTempOutput`](Directory::create_temp_output). */
     next_temp_file_counter: AtomicU64,
-    lock_factory: D
+    lock_factory: D,
 }
-impl <D:LockFactory>FSDirectory<D>{
-   
-    pub fn new_with_lock_factory(directory: PathBuf,lock_factory:D) -> Result<FSDirectory<D>, DataIOError>{
-        if !directory.is_dir(){
-            fs::create_dir(&directory)?;// create directory, if it doesn't exist
+impl<D: LockFactory> FSDirectory<D> {
+    pub fn new_with_lock_factory(
+        directory: PathBuf,
+        lock_factory: D,
+    ) -> Result<FSDirectory<D>, DataIOError> {
+        if !directory.is_dir() {
+            fs::create_dir(&directory)?; // create directory, if it doesn't exist
         }
         Ok(FSDirectory {
             directory,
@@ -71,12 +71,9 @@ impl <D:LockFactory>FSDirectory<D>{
             lock_factory,
         })
     }
-    
 }
 impl FSDirectory<NativeFSLockFactory> {
     pub fn new(directory: PathBuf) -> Result<FSDirectory<NativeFSLockFactory>, DataIOError> {
         Self::new_with_lock_factory(directory, NativeFSLockFactory::new())
     }
 }
-
-

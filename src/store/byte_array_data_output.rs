@@ -27,8 +27,8 @@ use crate::util::error::data_io_error_enum::DataIOError;
 /// This is an experimental API.
 pub struct ByteArrayDataOutput<'a> {
     bytes: &'a mut [u8],
-    pos: usize,
-    limit: usize,
+    pos: u32,
+    limit: u32,
 }
 
 impl<'a> ByteArrayDataOutput<'a> {
@@ -42,9 +42,10 @@ impl<'a> ByteArrayDataOutput<'a> {
 
     pub fn new_with_bytes(bytes: &'a mut [u8]) -> Self {
         let len = bytes.len();
-        Self::new_with_range(bytes, 0, len)
+        debug_assert!(len <= u32::MAX as usize, "bytes length exceeds u32 range");
+        Self::new_with_range(bytes, 0, len as u32)
     }
-    pub fn new_with_range(bytes: &'a mut [u8], offset: usize, length: usize) -> Self {
+    pub fn new_with_range(bytes: &'a mut [u8], offset: u32, length: u32) -> Self {
         let mut data_input = Self::new(bytes);
         data_input.reset_with_range(offset, length);
         data_input
@@ -52,14 +53,15 @@ impl<'a> ByteArrayDataOutput<'a> {
     pub fn reset(&mut self, bytes: &'a mut [u8]) {
         let len = bytes.len();
         self.bytes = bytes;
-        self.reset_with_range(0, len);
+        debug_assert!(len <= u32::MAX as usize, "bytes length exceeds u32 range");
+        self.reset_with_range(0, len as u32);
     }
-    pub fn reset_with_range(&mut self, offset: usize, length: usize) {
+    pub fn reset_with_range(&mut self, offset: u32, length: u32) {
         self.pos = offset;
         self.limit = offset + length;
     }
 
-    pub fn get_position(&self) -> usize {
+    pub fn get_position(&self) -> u32 {
         self.pos
     }
 }
@@ -75,18 +77,13 @@ impl DataOutput for ByteArrayDataOutput<'_> {
         );
 
         unsafe {
-            *self.bytes.as_mut_ptr().add(self.pos) = b;
+            *self.bytes.as_mut_ptr().add(self.pos as usize) = b;
         }
         self.pos += 1;
         Ok(())
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: usize,
-        length: usize,
-    ) -> Result<(), DataIOError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), DataIOError> {
         debug_assert!(
             self.pos + length <= self.limit,
             "Write exceeds the allowed limit: pos={}, length={}, limit={}",
@@ -95,14 +92,14 @@ impl DataOutput for ByteArrayDataOutput<'_> {
             self.limit
         );
         debug_assert!(
-            offset + length <= b.len(),
+            (offset + length) as usize <= b.len(),
             "Source slice out of bounds: offset={}, length={}, source_len={}",
             offset,
             length,
             b.len()
         );
         debug_assert!(
-            self.pos + length <= self.bytes.len(),
+            (self.pos + length) as usize <= self.bytes.len(),
             "Destination slice out of bounds: pos={}, length={}, dest_len={}",
             self.pos,
             length,
@@ -111,19 +108,19 @@ impl DataOutput for ByteArrayDataOutput<'_> {
 
         debug_assert!(
             {
-                let dst_start = self.bytes.as_mut_ptr() as usize + self.pos;
-                let dst_end = dst_start + length;
-                let src_start = b.as_ptr() as usize + offset;
-                let src_end = src_start + length;
+                let dst_start = self.bytes.as_mut_ptr() as usize + self.pos as usize;
+                let dst_end = dst_start + length as usize;
+                let src_start = b.as_ptr() as usize + offset as usize;
+                let src_end = src_start + length as usize;
                 dst_start >= src_end || src_start >= dst_end
             },
             "Source and destination memory regions overlap"
         );
 
         unsafe {
-            let dst = self.bytes.as_mut_ptr().add(self.pos);
-            let src = b.as_ptr().add(offset);
-            std::ptr::copy_nonoverlapping(src, dst, length);
+            let dst = self.bytes.as_mut_ptr().add(self.pos as usize);
+            let src = b.as_ptr().add(offset as usize);
+            std::ptr::copy_nonoverlapping(src, dst, length as usize);
         }
 
         self.pos += length;
@@ -132,31 +129,31 @@ impl DataOutput for ByteArrayDataOutput<'_> {
 
     fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + INT_BYTES <= self.limit,
+            self.pos + INT_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_i32_le(self.bytes, self.pos, i);
-        self.pos += INT_BYTES;
+        BitUtil::set_i32_le(self.bytes, self.pos as usize, i);
+        self.pos += INT_BYTES as u32;
         Ok(())
     }
 
     fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + SHORT_BYTES <= self.limit,
+            self.pos + SHORT_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_i16_le(self.bytes, self.pos, i);
-        self.pos += SHORT_BYTES;
+        BitUtil::set_i16_le(self.bytes, self.pos as usize, i);
+        self.pos += SHORT_BYTES as u32;
         Ok(())
     }
 
     fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + LONG_BYTES <= self.limit,
+            self.pos + LONG_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_i64_le(self.bytes, self.pos, i);
-        self.pos += LONG_BYTES;
+        BitUtil::set_i64_le(self.bytes, self.pos as usize, i);
+        self.pos += LONG_BYTES as u32;
         Ok(())
     }
 }

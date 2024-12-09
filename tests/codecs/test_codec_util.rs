@@ -362,12 +362,7 @@ impl<'a> DataOutput for FakeOutput<'a> {
         self.output.write_byte(b)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: usize,
-        length: usize,
-    ) -> Result<(), DataIOError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), DataIOError> {
         self.output.write_bytes_range(b, offset, length)
     }
 }

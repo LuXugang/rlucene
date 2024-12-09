@@ -14,19 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::io::Cursor;
 use crate::util::error::data_io_error_enum::DataIOError;
+use std::io::Cursor;
 
-pub trait BufferedIndexInputBase{
+pub trait BufferedIndexInputBase {
     /// Expert: Implements seek functionality. Sets the current position in this file,
     /// where the next call to [`read_internal`](BufferedIndexInputBase::read_internal) will occur.
     ///
     /// # See Also
     /// [`read_internal`](BufferedIndexInputBase::read_internal)
-   fn seek_internal(pos: u64) -> Result<(), DataIOError>;
+    fn seek_internal(&self, pos: u64) -> Result<(), DataIOError>;
     /// Expert: Implements buffer refill. Reads bytes from the current position in the input.
     ///
     /// # Arguments
-    /// * `b` - The buffer to read bytes into. 
+    /// * `b` - The buffer to read bytes into.
     fn read_internal(&mut self, b: &mut Cursor<Vec<u8>>) -> Result<(), DataIOError>;
 }

@@ -31,8 +31,8 @@ pub struct ByteBuffersDataInput<'a> {
     /// where each ByteBuffer limits the readable data using the limit parameter.
     /// In Rust Lucene, however, this is managed by controlling the readable data using Cursor#setPosition.
     blocks: Vec<Cursor<&'a [u8]>>,
-    block_mask: usize,
-    block_bits: usize,
+    block_mask: u32,
+    block_bits: u32,
     length: u64,
     offset: u64,
     pos: u64,
@@ -46,7 +46,7 @@ impl<'a> ByteBuffersDataInput<'a> {
             (32, !0)
         } else {
             let block_bytes = blocks[0].get_ref().len() as u64;
-            let block_bits = block_bytes.trailing_zeros() as usize;
+            let block_bits = block_bytes.trailing_zeros();
             (block_bits, (1 << block_bits) - 1)
         };
         // The initial "position" of this stream is shifted by the position of the first block.
@@ -61,22 +61,22 @@ impl<'a> ByteBuffersDataInput<'a> {
             pos: offset,
         }
     }
-    fn block_index(&self, pos: u64) -> usize {
+    fn block_index(&self, pos: u64) -> u32 {
         let value = pos >> self.block_bits;
-        debug_assert!(value <= i32::MAX as u64);
-        value as usize
+        debug_assert!(value <= u32::MAX as u64);
+        value as u32
     }
-    fn block_offset(&self, pos: u64) -> usize {
+    fn block_offset(&self, pos: u64) -> u32 {
         let value = pos & (self.block_mask as u64);
         debug_assert!(value <= i32::MAX as u64,);
-        value as usize
+        value as u32
     }
     fn read_buffer<T, C>(
         &mut self,
         mut pos: u64,
-        len: usize,
+        len: u32,
         output: &mut [T],
-        type_size: usize,
+        type_size: u32,
         converter: C,
     ) -> Result<(), DataIOError>
     where
@@ -84,36 +84,36 @@ impl<'a> ByteBuffersDataInput<'a> {
         T: Copy,
     {
         let mut bytes_read = len * type_size;
-        let mut bytes = vec![0; bytes_read];
+        let mut bytes = vec![0; bytes_read as usize];
         let mut bytes_offset = 0;
         while bytes_read > 0 {
             let block_index = self.block_index(pos);
             let block_offset = self.block_offset(pos);
 
-            if block_index >= self.blocks.len()
+            if block_index as usize >= self.blocks.len()
                 || pos + bytes_read as u64 > self.length + self.offset
             {
                 return Err(DataIOError::eof(format!("{}", pos)));
             }
 
-            let block = self.blocks.get_mut(block_index).unwrap();
+            let block = self.blocks.get_mut(block_index as usize).unwrap();
             let block_vec = block.get_ref();
             let available = block.remain(block_offset as u64);
 
             debug_assert!(available <= u32::MAX as u64);
 
             debug_assert!(available > 0);
-
-            let chunk = bytes_read.min(available as usize);
-            bytes[bytes_offset..bytes_offset + chunk]
-                .copy_from_slice(&block_vec[block_offset..block_offset + chunk]);
+            let chunk = bytes_read.min(available as u32);
+            bytes[bytes_offset as usize..(bytes_offset + chunk) as usize].copy_from_slice(
+                &block_vec[block_offset as usize..(block_offset + chunk) as usize],
+            );
             // block.set_position((block_offset + chunk) as u64);
             bytes_offset += chunk;
             pos += chunk as u64;
             bytes_read -= chunk;
         }
 
-        debug_assert!(bytes.len() % type_size == 0);
+        debug_assert!(bytes.len() % type_size as usize == 0);
         if type_size == 1 {
             let output_bytes = unsafe {
                 std::slice::from_raw_parts_mut(output.as_mut_ptr() as *mut u8, output.len())
@@ -122,27 +122,27 @@ impl<'a> ByteBuffersDataInput<'a> {
         } else {
             output
                 .iter_mut()
-                .zip(bytes.chunks_exact(type_size).map(converter))
+                .zip(bytes.chunks_exact(type_size as usize).map(converter))
                 .for_each(|(out, value)| *out = value);
         }
 
         Ok(())
     }
-    fn read_longs(&mut self, pos: u64, len: usize, output: &mut [i64]) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, LONG_BYTES, LE::read_i64)
+    fn read_longs(&mut self, pos: u64, len: u32, output: &mut [i64]) -> Result<(), DataIOError> {
+        self.read_buffer(pos, len, output, LONG_BYTES as u32, LE::read_i64)
     }
-    fn read_bytes(&mut self, pos: u64, len: usize, output: &mut [u8]) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, pos: u64, len: u32, output: &mut [u8]) -> Result<(), DataIOError> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
-    fn read_ints(&mut self, pos: u64, len: usize, output: &mut [i32]) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, INT_BYTES, LE::read_i32)
+    fn read_ints(&mut self, pos: u64, len: u32, output: &mut [i32]) -> Result<(), DataIOError> {
+        self.read_buffer(pos, len, output, INT_BYTES as u32, LE::read_i32)
     }
-    fn read_shorts(&mut self, pos: u64, len: usize, output: &mut [i16]) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, SHORT_BYTES, LE::read_i16)
+    fn read_shorts(&mut self, pos: u64, len: u32, output: &mut [i16]) -> Result<(), DataIOError> {
+        self.read_buffer(pos, len, output, SHORT_BYTES as u32, LE::read_i16)
     }
-    fn read_floats(&mut self, pos: u64, len: usize, output: &mut [f32]) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, FLOAT_BYTES, LE::read_f32)
+    fn read_floats(&mut self, pos: u64, len: u32, output: &mut [f32]) -> Result<(), DataIOError> {
+        self.read_buffer(pos, len, output, FLOAT_BYTES as u32, LE::read_f32)
     }
 
     pub fn seek(&mut self, position: u64) -> Result<(), DataIOError> {
@@ -181,8 +181,8 @@ impl DataInput for ByteBuffersDataInput<'_> {
         self.pos += 1;
         Ok(bytes[0])
     }
-    fn read_bytes(&mut self, arr: &mut [u8], off: usize, len: usize) -> Result<(), DataIOError> {
-        self.read_bytes(self.pos, len, &mut arr[off..off + len])?;
+    fn read_bytes(&mut self, arr: &mut [u8], off: u32, len: u32) -> Result<(), DataIOError> {
+        self.read_bytes(self.pos, len, &mut arr[off as usize..(off + len) as usize])?;
         self.pos += len as u64;
         Ok(())
     }
@@ -201,10 +201,10 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: usize) -> Result<(), DataIOError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
-        let block = self.blocks.get_mut(block_index).unwrap();
+        let block = self.blocks.get_mut(block_index as usize).unwrap();
         let remain = block.remain(block_offset as u64) as usize;
         let len = GroupVIntUtil::read_group_vint_with_reader(
             self,
@@ -223,24 +223,22 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(output[0])
     }
 
-    fn read_longs(
-        &mut self,
-        dst: &mut [i64],
-        offset: usize,
-        len: usize,
-    ) -> Result<(), DataIOError> {
-        self.read_longs(self.pos, len, &mut dst[offset..offset + len])?;
+    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), DataIOError> {
+        self.read_longs(
+            self.pos,
+            len,
+            &mut dst[offset as usize..(offset + len) as usize],
+        )?;
         self.pos += len as u64;
         Ok(())
     }
 
-    fn read_floats(
-        &mut self,
-        dst: &mut [f32],
-        offset: usize,
-        len: usize,
-    ) -> Result<(), DataIOError> {
-        self.read_floats(self.pos, len, &mut dst[offset..offset + len])?;
+    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), DataIOError> {
+        self.read_floats(
+            self.pos,
+            len,
+            &mut dst[offset as usize..(offset + len) as usize],
+        )?;
         self.pos += len as u64;
         Ok(())
     }

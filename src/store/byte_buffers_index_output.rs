@@ -63,16 +63,11 @@ impl<'a> DataOutput for ByteBuffersIndexOutput<'a> {
         self.delegate.write_byte(b)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<(), DataIOError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), DataIOError> {
         self.delegate.write_bytes_with_len(b, len)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: usize,
-        length: usize,
-    ) -> Result<(), DataIOError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), DataIOError> {
         self.delegate.write_bytes_range(b, offset, length)
     }
 
@@ -95,7 +90,7 @@ impl<'a> DataOutput for ByteBuffersIndexOutput<'a> {
     fn copy_bytes<T: DataInput>(
         &mut self,
         input: &mut T,
-        num_bytes: i64,
+        num_bytes: u64,
     ) -> Result<(), DataIOError> {
         self.delegate.copy_bytes(input, num_bytes)
     }
