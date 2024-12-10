@@ -54,7 +54,7 @@ where
     /// global pos in the file, used for sequential read
     pos: u64,
     /// valid data length in the buffer
-    length: u64
+    length: u32,
 }
 impl<T> BufferedIndexInput<T>
 where
@@ -109,8 +109,7 @@ where
         Ok(())
     }
 
-    fn refill(&mut self, remain_unaligned_bytes: u32) -> Result<(), DataIOError> {
-        let start = self.buffer_start;
+    fn refill(&mut self, remain_unaligned_bytes: u32, start: u64) -> Result<(), DataIOError> {
         // After the last read, some unaligned bytes remain in the buffer.
         let mut end = start + (self.buffer_size - remain_unaligned_bytes) as u64;
 
@@ -126,12 +125,14 @@ where
         }
 
         // valid data length in buffer
-        self.length = new_length + remain_unaligned_bytes as u64;
+        debug_assert!(new_length <= u32::MAX as u64);
+        self.length = new_length as u32 + remain_unaligned_bytes;
         // Set the buffer position to the remaining unaligned bytes
         // so that the next write within `read_internal` starts from remaining unaligned bytes
         self.buffer.set_position(remain_unaligned_bytes as u64);
-        self.sub_index_input.read_internal(&mut self.buffer)?;
-        self.buffer_start += new_length;
+        self.sub_index_input
+            .read_internal(&mut self.buffer, new_length)?;
+        self.buffer_start = start;
         Ok(())
     }
     fn read_longs(
@@ -158,6 +159,7 @@ where
         use_buffer: bool,
     ) -> Result<(), DataIOError> {
         // This closure is not expected to be called under any circumstances.
+
         self.read_buffer(pos, len, output, 1, |_| unreachable!(), use_buffer)
     }
     fn read_ints(
@@ -244,7 +246,7 @@ where
     ///   Such small amounts of data copying have negligible performance impact.
     fn read_buffer<D, F>(
         &mut self,
-        mut pos: u64,
+        pos: u64,
         len: u32,
         target: &mut [D],
         type_size: u32,
@@ -257,17 +259,24 @@ where
     {
         let total_bytes = len * type_size;
         let mut elements_read = 0;
+        let mut unaligned_bytes = 0;
 
-        if pos >= self.buffer_start && pos < self.buffer_start + self.length  {
+        if pos >= self.buffer_start && pos < self.buffer_start + self.length as u64 {
             let buffer_offset = (pos - self.buffer_start) as u32;
             let available = self
                 .buffer
-                .remain_between(buffer_offset as u64, self.length);
+                .remain_between(buffer_offset as u64, self.length as u64);
 
             if available >= total_bytes as u64 {
                 let src = &self.buffer.get_ref()
-                    [buffer_offset as usize .. (buffer_offset as usize + total_bytes as usize)];
-                Self::process_data(src, &mut target[0..len as usize], len as usize, type_size, &converter);
+                    [buffer_offset as usize..(buffer_offset as usize + total_bytes as usize)];
+                Self::process_data(
+                    src,
+                    &mut target[0..len as usize],
+                    len as usize,
+                    type_size,
+                    &converter,
+                );
                 return Ok(());
             }
 
@@ -276,10 +285,11 @@ where
 
             if aligned_elements > 0 {
                 let src = &self.buffer.get_ref()
-                    [buffer_offset as usize .. (buffer_offset + aligned_bytes) as usize];
+                    [buffer_offset as usize..(buffer_offset + aligned_bytes) as usize];
                 Self::process_data(
                     src,
-                    &mut target[elements_read as usize .. elements_read as usize + aligned_elements as usize],
+                    &mut target[elements_read as usize
+                        ..elements_read as usize + aligned_elements as usize],
                     aligned_elements as usize,
                     type_size,
                     &converter,
@@ -287,53 +297,68 @@ where
                 elements_read += aligned_elements;
             }
 
-            let unaligned_bytes = available as u32 - aligned_bytes;
+            unaligned_bytes = available as u32 - aligned_bytes;
             if unaligned_bytes > 0 {
                 let buffer = self.buffer.get_mut();
                 let unaligned_start = (buffer_offset + aligned_bytes) as usize;
                 buffer.copy_within(
-                    unaligned_start .. unaligned_start + unaligned_bytes as usize,
+                    unaligned_start..unaligned_start + unaligned_bytes as usize,
                     0,
                 );
-
-                pos = self.buffer_start +  self.length - unaligned_bytes as u64;
-                self.length = unaligned_bytes as u64;
-
+                self.length = unaligned_bytes;
             }
         }
 
         debug_assert!(self.buffer.position() <= u32::MAX as u64);
         let remaining_len = len - elements_read;
-        let remaining_bytes = remaining_len * type_size ;
+        let remaining_bytes = remaining_len * type_size;
 
         if use_buffer && remaining_bytes < self.buffer_size {
-            self.refill(remaining_bytes)?;
+            let start = self.buffer_start + self.length as u64;
+            self.refill(unaligned_bytes, start)?;
 
-            let src = &self.buffer.get_ref()[0 .. remaining_len as usize * type_size as usize];
-            Self::process_data(
-                src,
-                &mut target[elements_read as usize .. elements_read as usize + remaining_len as usize],
-                remaining_len as usize,
-                type_size,
-                &converter,
-            );
+            let available = self.length;
+            let readable_elements = (available / type_size).min(remaining_len);
+
+            if readable_elements > 0 {
+                let src =
+                    &self.buffer.get_ref()[0..readable_elements as usize * type_size as usize];
+                Self::process_data(
+                    src,
+                    &mut target[elements_read as usize
+                        ..elements_read as usize + readable_elements as usize],
+                    readable_elements as usize,
+                    type_size,
+                    &converter,
+                );
+            }
+
+            let remaining_elements = remaining_len - readable_elements;
+            if remaining_elements > 0 {
+                return Err(DataIOError::eof(format!(
+                    "read past EOF: expected {}, got {}",
+                    remaining_len, readable_elements
+                )));
+            }
+
             return Ok(());
         }
 
-        // 当缓冲不可用或剩余数据大于缓冲区大小时，直接从底层输入读取
-        let after = self.buffer_start + self.buffer.position() + remaining_len as u64 * type_size as u64;
+        let after =
+            self.buffer_start + self.buffer.position() + remaining_len as u64 * type_size as u64;
         if after > self.sub_index_input.length() {
             return Err(DataIOError::eof(format!("read past EOF: {}", self)));
         }
 
         let mut temp_cursor = Cursor::new(vec![0; remaining_len as usize * type_size as usize]);
         self.sub_index_input.seek(self.buffer_start)?;
-        self.sub_index_input.read_internal(&mut temp_cursor)?;
+        self.sub_index_input
+            .read_internal(&mut temp_cursor, remaining_len as u64)?;
 
         let src = temp_cursor.get_ref();
         Self::process_data(
             src,
-            &mut target[elements_read as usize .. elements_read as usize + remaining_len as usize],
+            &mut target[elements_read as usize..elements_read as usize + remaining_len as usize],
             remaining_len as usize,
             type_size,
             &converter,
@@ -357,6 +382,35 @@ where
                 dst[i] = converter(&src[chunk_start..chunk_start + type_size as usize]);
             }
         }
+    }
+
+    fn resolve_position_in_buffer(&mut self, pos: u64, width: u32) -> Result<u64, DataIOError> {
+        let index: i64 = pos as i64 - self.buffer_start as i64;
+        if index >= 0 && index <= (self.length as i64 - width as i64) {
+            return Ok(pos);
+        }
+        if index < 0 {
+            // if we're moving backwards, then try and fill up the previous page rather than
+            // starting again at the current pos, to avoid successive backwards reads reloading
+            // the same data over and over again.  We also check that we can read `width`
+            // bytes without going over the end of the buffer
+            let temp_buffer_start = (self.buffer_start as i64 - self.buffer_size as i64)
+                .max(pos as i64 + width as i64 - self.buffer_size as i64);
+            self.buffer_start = temp_buffer_start.max(0) as u64;
+            self.buffer_start = self.buffer_start.min(pos);
+            self.pos = self.buffer_start;
+        } else {
+            self.buffer_start = pos;
+            self.pos = pos;
+        }
+        self.length = 0;
+        self.sub_index_input.seek_internal(self.buffer_start)?;
+        self.refill(0, self.buffer_start)?;
+        Ok(pos)
+    }
+    #[cfg(feature = "test_only")]
+    pub fn get_sub_index_input(&self) -> &T {
+        &self.sub_index_input
     }
 }
 
@@ -407,9 +461,9 @@ where
     }
 
     fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
-        let remain = self
-            .buffer
-            .remain_between(self.buffer.position(), self.length) as usize;
+        let remain =
+            self.buffer
+                .remain_between(self.buffer.position(), self.length as u64) as usize;
         let len = GroupVIntUtil::read_group_vint_with_reader(
             self,
             remain as u64,
@@ -555,7 +609,7 @@ where
     }
 
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
-        IndexInput::skip_bytes(&mut self.sub_index_input, num_bytes)
+        IndexInput::skip_bytes(self, num_bytes)
     }
 }
 
@@ -586,10 +640,7 @@ where
     }
 
     fn seek(&mut self, pos: u64) -> Result<(), DataIOError> {
-        let buffer_limit = self.length as u64;
-        if pos >= self.buffer_start && pos < (self.buffer_start + buffer_limit) {
-            // Seek within the buffer
-            self.buffer.set_position(pos - self.buffer_start );
+        if pos >= self.buffer_start && pos < (self.buffer_start + self.length as u64) {
             self.pos = pos;
         } else {
             self.pos = pos;
@@ -636,6 +687,7 @@ where
 
     fn read_byte(&mut self, pos: u64) -> Result<u8, DataIOError> {
         let mut bytes = [0; 1];
+        let pos = self.resolve_position_in_buffer(pos, 1)?;
         self.read_bytes(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
@@ -647,6 +699,7 @@ where
         offset: u32,
         len: u32,
     ) -> Result<(), DataIOError> {
+        let pos = self.resolve_position_in_buffer(pos, len)?;
         self.read_bytes(
             pos,
             len,
@@ -658,18 +711,21 @@ where
 
     fn read_short(&mut self, pos: u64) -> Result<i16, DataIOError> {
         let mut bytes = [0; SHORT_BYTES];
+        let pos = self.resolve_position_in_buffer(pos, SHORT_BYTES as u32)?;
         self.read_shorts(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
     fn read_int(&mut self, pos: u64) -> Result<i32, DataIOError> {
         let mut bytes = [0; INT_BYTES];
+        let pos = self.resolve_position_in_buffer(pos, INT_BYTES as u32)?;
         self.read_ints(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
     fn read_long(&mut self, pos: u64) -> Result<i64, DataIOError> {
         let mut bytes = [0; LONG_BYTES];
+        let pos = self.resolve_position_in_buffer(pos, LONG_BYTES as u32)?;
         self.read_longs(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }

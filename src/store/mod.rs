@@ -54,6 +54,7 @@ mod simple_fs_lock_factory;
 mod verifying_lock_factory;
 
 pub use buffered_checksum::*;
+pub use buffered_index_input::*;
 pub use buffered_index_input_base::*;
 pub use byte_array_data_input::*;
 pub use byte_array_data_output::*;
@@ -69,4 +70,3 @@ pub use io_context::*;
 pub use native_fs_lock_factory::*;
 pub use output_stream_index_output::*;
 pub use read_advice::*;
-pub use buffered_index_input::*;
