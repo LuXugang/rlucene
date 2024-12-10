@@ -20,8 +20,15 @@ pub trait ReadableCursorExt {
     /// Returns the remaining bytes in the buffer from the current position.
     fn remain(&self) -> u64;
 
-    /// Returns the remaining bytes in the buffer from a specific position.
-    fn remain_with_pos(&self, position: u64) -> u64;
+    /// Returns the remaining bytes between a specified position and a limit.
+    ///
+    /// # Arguments
+    /// * `position` - The current position in the buffer.
+    /// * `limit` - The effective limit up to which remaining bytes are calculated.
+    ///
+    /// # Panics
+    /// if `position` is greater than `limit`.
+    fn remain_between(&self, position: u64, limit: u64) -> u64;
 
     /// Reads data from the cursor's buffer to the destination slice, starting at the current position.
     fn read_to(&mut self, dest: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError>;
@@ -48,18 +55,20 @@ where
     T: AsRef<[u8]>,
 {
     fn remain(&self) -> u64 {
-        self.remain_with_pos(self.position())
+        self.remain_between(self.position(), self.get_ref().as_ref().len() as u64)
     }
 
-    fn remain_with_pos(&self, position: u64) -> u64 {
-        let total = self.get_ref().as_ref().len() as u64;
+    fn remain_between(&self, position: u64, limit: u64) -> u64 {
+        if limit == 0 {
+            return 0;
+        }
         debug_assert!(
-            position <= total,
-            "Position ({}) exceeds total ({})",
+            position <= limit,
+            "Position ({}) exceeds specified limit ({})",
             position,
-            total
+            limit
         );
-        total.saturating_sub(position)
+        limit.saturating_sub(position)
     }
 
     fn read_to(&mut self, dest: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {

@@ -20,7 +20,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
-use crate::util::{VecCopyOps, ReadableCursorExt};
+use crate::util::{ReadableCursorExt, VecCopyOps};
 use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
@@ -85,6 +85,8 @@ impl<'a> ByteBuffersDataInput<'a> {
         T: Copy,
     {
         let mut bytes_read = len * type_size;
+        // TODO: use This bytes would made additional data copy
+        // TODO: we should convert directly from block
         let mut bytes = vec![0; bytes_read as usize];
         let mut bytes_offset = 0;
         while bytes_read > 0 {
@@ -98,7 +100,7 @@ impl<'a> ByteBuffersDataInput<'a> {
             }
 
             let block = self.blocks.get_mut(block_index as usize).unwrap();
-            let available = block.remain_with_pos(block_offset as u64);
+            let available = block.remain_between(block_offset as u64, block.get_ref().len() as u64);
 
             debug_assert!(available <= u32::MAX as u64);
 
@@ -207,7 +209,8 @@ impl DataInput for ByteBuffersDataInput<'_> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
         let block = self.blocks.get_mut(block_index as usize).unwrap();
-        let remain = block.remain_with_pos(block_offset as u64) as usize;
+        let remain =
+            block.remain_between(block_offset as u64, block.get_ref().len() as u64) as usize;
         let len = GroupVIntUtil::read_group_vint_with_reader(
             self,
             remain as u64,
@@ -250,6 +253,8 @@ impl DataInput for ByteBuffersDataInput<'_> {
         self.seek(skip_to)
     }
 }
+// TODO: In the current implementation, after performing a random read of a specific value, it is not possible to use sequential reads to access the next value at the subsequent position.
+// TODO: should we support this feature?
 impl RandomAccessInput for ByteBuffersDataInput<'_> {
     fn length(&self) -> u64 {
         self.length

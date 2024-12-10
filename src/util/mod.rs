@@ -30,7 +30,6 @@ pub mod bit_set_iterator;
 pub mod bit_set_type;
 pub mod bit_util;
 pub mod bits;
-pub mod vec_copy_ops;
 pub mod constants;
 pub mod counter;
 pub mod cursor_ext;
@@ -53,6 +52,7 @@ pub mod strict_string_tokenizer;
 pub mod string_helper;
 pub mod tim_sorter;
 mod tim_sorter_base;
+pub mod vec_copy_ops;
 pub mod version;
 
 pub use array_tim_sorter::*;
@@ -60,9 +60,9 @@ pub use tim_sorter::*;
 
 pub use sorter::*;
 
-pub use vec_copy_ops::*;
 pub use counter::*;
 pub use cursor_ext::*;
 pub use io_utils::*;
 pub use strict_string_tokenizer::*;
 pub use string_helper::*;
+pub use vec_copy_ops::*;

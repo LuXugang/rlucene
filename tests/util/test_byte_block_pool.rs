@@ -19,8 +19,8 @@ use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::{
-    new_counter, AllocatorEnum, VecCopyOps, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
-    BYTE_BLOCK_SIZE,
+    new_counter, AllocatorEnum, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
+    VecCopyOps, BYTE_BLOCK_SIZE,
 };
 
 #[allow(dead_code)] // for quick search
