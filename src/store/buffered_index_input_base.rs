@@ -23,7 +23,7 @@ pub trait BufferedIndexInputBase {
     ///
     /// # See Also
     /// [`read_internal`](BufferedIndexInputBase::read_internal)
-    fn seek_internal(&self, pos: u64) -> Result<(), DataIOError>;
+    fn seek_internal(&mut self, pos: u64) -> Result<(), DataIOError>;
     /// Expert: Implements buffer refill. Reads bytes from the current position in the input.
     ///
     /// # Arguments

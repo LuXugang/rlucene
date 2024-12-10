@@ -18,7 +18,7 @@
 mod base_directory;
 pub mod buffered_checksum;
 pub mod buffered_checksum_index_input;
-mod buffered_index_input;
+pub mod buffered_index_input;
 pub mod buffered_index_input_base;
 pub mod byte_array_data_input;
 pub mod byte_array_data_output;
@@ -69,3 +69,4 @@ pub use io_context::*;
 pub use native_fs_lock_factory::*;
 pub use output_stream_index_output::*;
 pub use read_advice::*;
+pub use buffered_index_input::*;
