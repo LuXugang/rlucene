@@ -18,6 +18,7 @@ use crate::store::directory::Directory;
 use crate::store::lock::FSLockEnum;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::Display;
+use std::path::PathBuf;
 
 /// Base trait for locking implementations. `Directory` uses instances of this trait to implement locking.
 ///
@@ -41,9 +42,5 @@ pub trait LockFactory: Display {
     /// - Returns a `LockObtainFailedException` (optional specific exception) if the lock could not be
     ///   obtained because it is currently held elsewhere.
     /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain the lock.
-    fn obtain_lock(
-        &mut self,
-        dir: &mut impl Directory,
-        lock_name: &str,
-    ) -> Result<FSLockEnum, DataIOError>;
+    fn obtain_lock(&self, dir: &PathBuf, lock_name: &str) -> Result<FSLockEnum, DataIOError>;
 }

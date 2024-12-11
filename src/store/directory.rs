@@ -167,7 +167,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the lock file.
-    fn obtain_lock(&self, name: &str) -> Result<impl Lock, DataIOError>;
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, DataIOError>;
     /// Copies an existing `src` file from directory `from` to a non-existent file `dest` in this directory.
     /// The given `IOContext` is only used for opening the destination file.
     ///

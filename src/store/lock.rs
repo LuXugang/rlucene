@@ -46,3 +46,9 @@ pub enum FSLockEnum {
     Native(NativeFSLock),
     Simple(SimpleFSLock),
 }
+
+impl Lock for FSLockEnum {
+    fn ensure_valid() {
+        todo!()
+    }
+}

@@ -16,3 +16,9 @@
  */
 
 pub struct NIOFSDirectory;
+
+impl NIOFSDirectory {
+    pub fn new() -> Self {
+        Self
+    }
+}
