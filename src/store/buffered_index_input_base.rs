@@ -16,8 +16,9 @@
  */
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::io::Cursor;
+use crate::store::index_input::IndexInput;
 
-pub trait BufferedIndexInputBase {
+pub trait BufferedIndexInputBase:Clone{
     /// Expert: Implements seek functionality. Sets the current position in this file,
     /// where the next call to [`read_internal`](BufferedIndexInputBase::read_internal) will occur.
     ///
@@ -34,4 +35,16 @@ pub trait BufferedIndexInputBase {
         len: u64,
         file_pointer: u64,
     ) -> Result<(), DataIOError>;
+
+    /// Creates a slice of this index input, with the given description, offset, and length.
+    /// The slice is positioned at the beginning.
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: u64,
+        length: u64,
+    ) -> Result<impl BufferedIndexInputBase, DataIOError>;
+
+    /// The number of bytes in the file.
+    fn length(&self) -> u64;
 }

@@ -515,6 +515,12 @@ fn byten(n: u64) -> u8 {
     ((n * n) % 256) as u8
 }
 
+impl Clone for MyBufferedIndexInput {
+    fn clone(&self) -> Self {
+        MyBufferedIndexInput::new_with_len(self.len)
+    }
+}
+
 impl BufferedIndexInputBase for MyBufferedIndexInput {
     fn seek_internal(&mut self, pos: u64) -> Result<(), DataIOError> {
         self.pos = pos;
@@ -536,46 +542,6 @@ impl BufferedIndexInputBase for MyBufferedIndexInput {
         }
         Ok(())
     }
-}
-
-impl DataInput for MyBufferedIndexInput {
-    fn read_byte(&mut self) -> Result<u8, DataIOError> {
-        Ok(0)
-    }
-
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: u32, _len: u32) -> Result<(), DataIOError> {
-        Ok(())
-    }
-
-    fn skip_bytes(&mut self, _num_bytes: u64) -> Result<(), DataIOError> {
-        Ok(())
-    }
-}
-
-impl Display for MyBufferedIndexInput {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        Ok(())
-    }
-}
-
-impl Clone for MyBufferedIndexInput {
-    fn clone(&self) -> Self {
-        MyBufferedIndexInput::new_with_len(self.len)
-    }
-}
-
-impl IndexInput for MyBufferedIndexInput {
-    fn get_file_pointer(&self) -> u64 {
-        0
-    }
-
-    fn seek(&mut self, _pos: u64) -> Result<(), DataIOError> {
-        Ok(())
-    }
-
-    fn length(&self) -> u64 {
-        self.len
-    }
 
     fn slice(
         &self,
@@ -586,40 +552,7 @@ impl IndexInput for MyBufferedIndexInput {
         unreachable!("MyBufferedIndexInput does not support slicing")
     }
 
-    fn is_random_access(&self) -> bool {
-        false
-    }
-
-    fn get_random_access_slice(
-        &self,
-        _offset: u64,
-        _length: u64,
-    ) -> Result<MyBufferedIndexInput, DataIOError> {
-        Ok(MyBufferedIndexInput::new())
-    }
-}
-impl RandomAccessInput for MyBufferedIndexInput {
     fn length(&self) -> u64 {
-        0
-    }
-
-    fn read_byte(&mut self, _pos: u64) -> Result<u8, DataIOError> {
-        Ok(0)
-    }
-
-    fn read_short(&mut self, _pos: u64) -> Result<i16, DataIOError> {
-        Ok(0)
-    }
-
-    fn read_int(&mut self, _pos: u64) -> Result<i32, DataIOError> {
-        Ok(0)
-    }
-
-    fn read_long(&mut self, _pos: u64) -> Result<i64, DataIOError> {
-        Ok(0)
-    }
-
-    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
-        Ok(())
+        self.len
     }
 }

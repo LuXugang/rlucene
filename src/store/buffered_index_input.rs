@@ -44,7 +44,7 @@ pub const MERGE_BUFFER_SIZE: u32 = 4096;
 /// Base implementation class for buffered [`IndexInput`]. */
 pub struct BufferedIndexInput<T>
 where
-    T: IndexInput + BufferedIndexInputBase,
+    T: BufferedIndexInputBase,
 {
     buffer_size: u32,
     resource_desc: String,
@@ -58,7 +58,7 @@ where
 }
 impl<T> BufferedIndexInput<T>
 where
-    T: IndexInput + BufferedIndexInputBase,
+    T: BufferedIndexInputBase,
 {
     pub fn new_with_buffer_size(
         sub_index_input: T,
@@ -479,7 +479,7 @@ where
 
 impl<T> DataInput for BufferedIndexInput<T>
 where
-    T: IndexInput + BufferedIndexInputBase,
+    T: BufferedIndexInputBase,
 {
     fn read_byte(&mut self) -> Result<u8, DataIOError> {
         let mut bytes = [0; 1];
@@ -678,7 +678,7 @@ where
 
 impl<T> Display for BufferedIndexInput<T>
 where
-    T: IndexInput + BufferedIndexInputBase,
+    T: BufferedIndexInputBase,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BufferedIndexInput({})", self.resource_desc)
@@ -687,7 +687,7 @@ where
 
 impl<T> Clone for BufferedIndexInput<T>
 where
-    T: IndexInput + BufferedIndexInputBase,
+    T: BufferedIndexInputBase,
 {
     fn clone(&self) -> Self {
         todo!()
@@ -696,7 +696,7 @@ where
 
 impl<T> IndexInput for BufferedIndexInput<T>
 where
-    T: IndexInput + BufferedIndexInputBase,
+    T: BufferedIndexInputBase,
 {
     fn get_file_pointer(&self) -> u64 {
         self.pos
@@ -742,7 +742,7 @@ where
 
 impl<T> RandomAccessInput for BufferedIndexInput<T>
 where
-    T: IndexInput + BufferedIndexInputBase,
+    T: BufferedIndexInputBase,
 {
     fn length(&self) -> u64 {
         todo!()

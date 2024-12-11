@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::store::index_input::{get_full_slice_description, IndexInput};
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInputBase, DataInput, BUFFER_SIZE};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::ReadableCursorExt;
@@ -62,12 +61,6 @@ impl NIOFSIndexInput {
             buffer_size,
         }
     }
-    fn unreachable_method<T>(&self) -> T {
-        unreachable!(
-            "This method must not be called directly. You can use BufferedIndexInput to wrap \
-             NIOFSIndexInput and invoke the logic defined in BufferedIndexInput instead."
-        );
-    }
     pub fn get_buffer_size(&self) -> u32 {
         self.buffer_size
     }
@@ -75,16 +68,17 @@ impl NIOFSIndexInput {
 
 impl BufferedIndexInputBase for NIOFSIndexInput {
     fn seek_internal(&mut self, pos: u64) -> Result<(), DataIOError> {
-        if pos > IndexInput::length(self) {
+        if pos > self.length() {
             return Err(DataIOError::illegal_argument(format!(
                 "read past EOF: pos={} vs length={} in {}",
                 pos,
-                IndexInput::length(self),
+                self.length(),
                 self,
             )));
         }
         Ok(())
     }
+
     /// Reads data from the file into the provided buffer, ensuring that the data is read
     /// in chunks of a configurable size and does not exceed the file's defined bounds.
     ///
@@ -174,63 +168,19 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         );
         Ok(())
     }
-}
-
-impl DataInput for NIOFSIndexInput {
-    #[allow(dead_code)]
-    fn read_byte(&mut self) -> Result<u8, DataIOError> {
-        self.unreachable_method()
-    }
-    #[allow(dead_code)]
-    fn read_bytes(&mut self, b: &mut [u8], _offset: u32, _len: u32) -> Result<(), DataIOError> {
-        self.unreachable_method()
-    }
-    #[allow(dead_code)]
-    fn skip_bytes(&mut self, _num_bytes: u64) -> Result<(), DataIOError> {
-        self.unreachable_method()
-    }
-}
-
-impl Display for NIOFSIndexInput {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.resource_desc)
-    }
-}
-
-impl Clone for NIOFSIndexInput {
-    fn clone(&self) -> Self {
-        todo!()
-    }
-}
-
-impl IndexInput for NIOFSIndexInput {
-    #[allow(dead_code)]
-    fn get_file_pointer(&self) -> u64 {
-        self.unreachable_method()
-    }
-
-    #[allow(dead_code)]
-    fn seek(&mut self, _pos: u64) -> Result<(), DataIOError> {
-        self.unreachable_method()
-    }
-
-    fn length(&self) -> u64 {
-        self.end - self.off
-    }
-
     fn slice(
         &self,
         slice_description: &str,
         offset: u64,
         length: u64,
     ) -> Result<NIOFSIndexInput, DataIOError> {
-        if offset + length > IndexInput::length(self) {
+        if offset + length > self.length() {
             return Err(DataIOError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",
                 slice_description,
                 offset,
                 length,
-                IndexInput::length(self),
+                self.length(),
                 self
             )));
         }
@@ -246,43 +196,20 @@ impl IndexInput for NIOFSIndexInput {
         );
         Ok(a)
     }
-    #[allow(dead_code)]
-    fn is_random_access(&self) -> bool {
-        self.unreachable_method()
-    }
-    #[allow(dead_code)]
-    fn get_random_access_slice(
-        &self,
-        _offset: u64,
-        _length: u64,
-    ) -> Result<NIOFSIndexInput, DataIOError> {
-        self.unreachable_method()
+    fn length(&self) -> u64 {
+        self.end - self.off
     }
 }
 
-impl RandomAccessInput for NIOFSIndexInput {
-    #[allow(dead_code)]
-    fn length(&self) -> u64 {
-        self.unreachable_method()
+
+impl Display for NIOFSIndexInput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.resource_desc)
     }
-    #[allow(dead_code)]
-    fn read_byte(&mut self, _pos: u64) -> Result<u8, DataIOError> {
-        self.unreachable_method()
-    }
-    #[allow(dead_code)]
-    fn read_short(&mut self, _pos: u64) -> Result<i16, DataIOError> {
-        self.unreachable_method()
-    }
-    #[allow(dead_code)]
-    fn read_int(&mut self, _pos: u64) -> Result<i32, DataIOError> {
-        self.unreachable_method()
-    }
-    #[allow(dead_code)]
-    fn read_long(&mut self, _pos: u64) -> Result<i64, DataIOError> {
-        self.unreachable_method()
-    }
-    #[allow(dead_code)]
-    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
-        self.unreachable_method()
+}
+
+impl Clone for NIOFSIndexInput {
+    fn clone(&self) -> Self {
+        todo!()
     }
 }
