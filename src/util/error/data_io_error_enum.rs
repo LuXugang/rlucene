@@ -21,8 +21,9 @@ use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::index_format_too_new::IndexFormatTooNewError;
 use crate::util::error::index_format_too_old::IndexFormatTooOldError;
 use crate::util::error::integer_overflow::IntegerOverflow;
+use crate::util::error::not_found::NotFoundError;
 use crate::util::error::runtime_error::RuntimeError;
-use crate::util::error::UnsupportedOperation::UnsupportedOperationError;
+use crate::util::error::unsupported_operation::UnsupportedOperationError;
 use std::io::Error;
 use std::string::FromUtf8Error;
 use thiserror::Error;
@@ -61,6 +62,9 @@ pub enum DataIOError {
 
     #[error("{0}")]
     RuntimeError(#[from] RuntimeError),
+
+    #[error("{0}")]
+    NotFound(#[from] NotFoundError),
 }
 impl DataIOError {
     pub fn io(err: Error) -> Self {
@@ -98,5 +102,8 @@ impl DataIOError {
 
     pub fn unsupported_operation(msg: impl Into<String>) -> Self {
         DataIOError::UnsupportedOperation(UnsupportedOperationError::new(msg))
+    }
+    pub fn not_found(msg: impl Into<String>) -> Self {
+        DataIOError::NotFound(NotFoundError::new(msg))
     }
 }

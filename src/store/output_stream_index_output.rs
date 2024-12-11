@@ -144,12 +144,7 @@ impl<W: Write> XBufferedOutputStream<W> {
 
     pub fn write_bytes(&mut self, buf: &[u8]) -> Result<(), DataIOError> {
         debug_assert!(buf.len() <= u32::MAX as usize);
-        self.flush_if_needed(buf.len() as u32)?;
-        if buf.len() > self.inner.capacity() {
-            self.inner.get_mut().write_all(buf)?;
-        } else {
-            self.inner.write_all(buf)?;
-        }
+        self.inner.write_all(buf)?;
         self.update_checksum(buf);
         Ok(())
     }
@@ -172,10 +167,10 @@ impl<W: Write> XBufferedOutputStream<W> {
         Ok(())
     }
 
-    pub fn flush_if_needed(&mut self, len: u32) -> Result<(), DataIOError> {
-        if len as usize + self.inner.buffer().len() > self.inner.capacity() {
-            self.inner.flush()?;
-        }
-        Ok(())
-    }
+    // pub fn flush_if_needed(&mut self, len: u32) -> Result<(), DataIOError> {
+    //     if len as usize + self.inner.buffer().len() > self.inner.capacity() {
+    //         self.inner.flush()?;
+    //     }
+    //     Ok(())
+    // }
 }

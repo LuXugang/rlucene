@@ -14,16 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod array_index_out_of_bounds;
-pub mod corrupt_index;
-pub mod data_io_error_enum;
-pub mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-pub mod index_format_too_new;
-pub mod index_format_too_old;
-pub mod integer_overflow;
-mod not_found;
-pub mod parse;
-pub mod runtime_error;
-mod unsupported_operation;
+use thiserror::Error;
+
+#[derive(Debug)]
+pub struct NotFoundError {
+    pub message: String,
+}
+
+impl NotFoundError {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for NotFoundError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Not Found: {}", self.message)
+    }
+}
+
+impl std::error::Error for NotFoundError {}

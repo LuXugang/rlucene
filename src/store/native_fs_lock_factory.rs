@@ -20,7 +20,7 @@ use crate::store::lock::{FSLockEnum, Lock};
 use crate::store::lock_factory::LockFactory;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
+use std::path::Path;
 
 /// Implements [`lock_factory`](crate::store::lock_factory) using native OS file locks.
 ///
@@ -73,7 +73,7 @@ impl NativeFSLockFactory {
     }
 }
 impl LockFactory for NativeFSLockFactory {
-    fn obtain_lock(&self, dir: &PathBuf, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
+    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
         FSLockFactory::obtain_lock(self, dir, lock_name)
     }
 }
@@ -85,7 +85,7 @@ impl Display for NativeFSLockFactory {
 }
 
 impl FSLockFactory for NativeFSLockFactory {
-    fn obtain_fs_lock(&self, dir: &PathBuf, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
+    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
         todo!()
     }
 }

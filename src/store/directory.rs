@@ -71,7 +71,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file.
-    fn file_length(&self, name: &str) -> u64;
+    fn file_length(&self, name: &str) -> Result<u64, DataIOError>;
     /// Creates a new, empty file in the directory and returns an `IndexOutput` instance for
     /// appending data to this file.
     ///
@@ -83,7 +83,11 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the file to create.
-    fn create_output(&self, name: &str, context: IOContext) -> impl IndexOutput;
+    fn create_output(
+        &mut self,
+        name: &str,
+        context: IOContext,
+    ) -> Result<impl IndexOutput, DataIOError>;
 
     /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance
     /// for appending data to this file.
@@ -95,7 +99,7 @@ pub trait Directory: Display + Sized {
     /// * `prefix` - The prefix for the temporary file name.
     /// * `suffix` - The suffix for the temporary file name.
     fn create_temp_output(
-        &self,
+        &mut self,
         prefix: &str,
         suffix: &str,
         context: IOContext,
@@ -107,7 +111,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # See Also
     /// [`sync_metadata`](Directory::sync_metadata)
-    fn sync(&self, names: Vec<&str>);
+    fn sync(&mut self, names: &[&str]) -> Result<(), DataIOError>;
     /// Ensures that directory metadata, such as recent file renames, are moved to stable storage.
     ///
     /// # See Also
@@ -177,7 +181,7 @@ pub trait Directory: Display + Sized {
     /// * `dest` - The destination file in this directory.
     /// * `io_context` - The I/O context used for opening the destination file.
     fn copy_from(
-        &self,
+        &mut self,
         from: &impl Directory,
         src: &str,
         dest: &str,
@@ -187,7 +191,7 @@ pub trait Directory: Display + Sized {
 
         let result = (|| -> Result<(), DataIOError> {
             let mut is = from.open_input(src, IOContext::read_once_io_context()?)?;
-            let mut os = self.create_output(dest, context);
+            let mut os = self.create_output(dest, context)?;
             let length = is.length();
             os.copy_bytes(&mut is, length)?;
             success = true;
@@ -212,16 +216,16 @@ pub trait Directory: Display + Sized {
     /// # Note
     /// This is an internal API.
     fn get_pending_deletions(&self) -> HashSet<String>;
+}
 
-    /// Creates a file name for a temporary file. The name will start with `prefix`, end with
-    /// `suffix`, and have a reserved file extension `.tmp`.
-    ///
-    /// # See Also
-    /// [`create_temp_output`](Directory::create_temp_output)
-    fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
-        //base-36
-        let counter_str = format!("{:x}", counter);
-        let full_suffix = format!("{}_{}", suffix, counter_str);
-        IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
-    }
+/// Creates a file name for a temporary file. The name will start with `prefix`, end with
+/// `suffix`, and have a reserved file extension `.tmp`.
+///
+/// # See Also
+/// [`create_temp_output`](Directory)
+pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
+    //base-36
+    let counter_str = format!("{:x}", counter);
+    let full_suffix = format!("{}_{}", suffix, counter_str);
+    IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
 }
