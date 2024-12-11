@@ -18,8 +18,15 @@ use crate::store::fs_lock_factory::FSLockFactory;
 use crate::store::lock::{FSLockEnum, Lock};
 use crate::store::lock_factory::LockFactory;
 use crate::util::error::data_io_error_enum::DataIOError;
+use chrono::{DateTime, Utc};
+use fs2::FileExt;
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::fs::{File, Metadata, OpenOptions};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::SystemTime;
+use std::{fs};
 
 /// Implements [`lock_factory`](crate::store::lock_factory) using native OS file locks.
 ///
@@ -51,13 +58,12 @@ use std::path::Path;
 ///
 /// Different locking implementations are not compatible and cannot work together.
 ///
-/// # Singleton Instance
-/// This implementation is designed as a singleton. Use [`INSTANCE`](Self::INSTANCE).
-///
 /// # See Also
 /// - [`lock_factory`](crate::store::lock_factory)
 
-pub struct NativeFSLockFactory;
+pub struct NativeFSLockFactory {
+    lock_held: Arc<Mutex<HashSet<String>>>,
+}
 
 impl Default for NativeFSLockFactory {
     fn default() -> Self {
@@ -68,7 +74,9 @@ impl Default for NativeFSLockFactory {
 impl NativeFSLockFactory {
     /// Creates a new instance.
     pub fn new() -> Self {
-        NativeFSLockFactory
+        Self {
+            lock_held: get_lock_held(),
+        }
     }
 }
 impl LockFactory for NativeFSLockFactory {
@@ -79,20 +87,151 @@ impl LockFactory for NativeFSLockFactory {
 
 impl Display for NativeFSLockFactory {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(f, "NativeFSLockFactory")
     }
 }
 
 impl FSLockFactory for NativeFSLockFactory {
     fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
-        todo!()
+        fs::create_dir_all(dir).map_err(DataIOError::io)?;
+
+        let lock_file = dir.join(lock_name);
+
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&lock_file)
+            .map_err(DataIOError::io)?;
+
+        let real_path = lock_file.canonicalize().map_err(DataIOError::io)?;
+        let real_path_str = real_path.to_string_lossy().to_string();
+
+        let mut lock_held = self.lock_held.lock().unwrap();
+        if !lock_held.insert(real_path_str.clone()) {
+            return Err(DataIOError::lock_already_held(format!(
+                "Lock held by another program: {}",
+                real_path_str
+            )));
+        }
+
+        match file.try_lock_exclusive() {
+            Ok(_) => {
+                let metadata = file.metadata()?;
+                let lock = NativeFSLock {
+                    file,
+                    path: real_path,
+                    metadata,
+                };
+                Ok(FSLockEnum::Native(lock))
+            }
+            Err(_) => {
+                lock_held.remove(&real_path_str);
+                Err(DataIOError::lock_held_by_other(format!(
+                    "Lock held by this virtual machine: {}",
+                    real_path_str
+                )))
+            }
+        }
     }
 }
 
-pub struct NativeFSLock;
+impl Drop for NativeFSLock {
+    fn drop(&mut self) {
+        let real_path_str = self.path.to_string_lossy().to_string();
+        let locks = get_lock_held();
+        let mut lock_held = locks.lock().unwrap();
+        lock_held.remove(&real_path_str);
+    }
+}
+
+static LOCK_HELD: OnceLock<Arc<Mutex<HashSet<String>>>> = OnceLock::new();
+
+fn get_lock_held() -> Arc<Mutex<HashSet<String>>> {
+    LOCK_HELD
+        .get_or_init(|| Arc::new(Mutex::new(HashSet::new())))
+        .clone()
+}
+
+pub struct NativeFSLock {
+    file: File,
+    path: PathBuf,
+    metadata: Metadata,
+}
+
+impl NativeFSLock {
+    fn format_metadata(&self) -> String {
+        let size = self.metadata.len();
+        let permissions = self.metadata.permissions();
+        let modified_time = self.metadata.modified().ok().map_or_else(
+            || "unknown".to_string(),
+            |time| match time.duration_since(SystemTime::UNIX_EPOCH) {
+                Ok(duration) => {
+                    let datetime = DateTime::<Utc>::from(SystemTime::UNIX_EPOCH + duration);
+                    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+                }
+                Err(_) => "invalid time".to_string(),
+            },
+        );
+        format!(
+            "size: {} bytes, permissions: {:?}, modified: {}",
+            size, permissions, modified_time
+        )
+    }
+}
+
+impl Display for NativeFSLock {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "NativeFSLock(path= {}, file_metadata= {})",
+            self.path.display(),
+            self.format_metadata()
+        )
+    }
+}
 
 impl Lock for NativeFSLock {
-    fn ensure_valid() {
-        todo!()
+    /// Ensures the validity of the current lock.
+    ///
+    /// # Errors
+    /// - Returns `DataIOError::illegal_state` if:
+    ///   - The lock file is no longer in the global lock map.
+    ///   - The file lock is no longer valid.
+    ///   - The lock file size is not 0.
+    ///   - The lock file has been deleted or is inaccessible.
+    fn ensure_valid(&self) -> Result<(), DataIOError> {
+        let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
+        let lock_held = lock_held.lock().unwrap();
+        if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
+            return Err(DataIOError::illegal_state(format!(
+                "Lock path unexpectedly cleared from map: {:?}",
+                self.path
+            )));
+        }
+
+        if self.file.try_lock_exclusive().is_ok() {
+            return Err(DataIOError::illegal_state(format!(
+                "File lock invalidated by an external force: {:?}",
+                self.path
+            )));
+        }
+
+        let metadata = self.file.metadata().map_err(DataIOError::io)?;
+        if metadata.len() != 0 {
+            return Err(DataIOError::illegal_state(format!(
+                "Unexpected lock file size: {}, (lock: {:?})",
+                metadata.len(),
+                self.path
+            )));
+        }
+
+        if !self.path.exists() {
+            return Err(DataIOError::illegal_state(format!(
+                "Lock file deleted or inaccessible: {:?}",
+                self.path
+            )));
+        }
+
+        Ok(())
     }
 }

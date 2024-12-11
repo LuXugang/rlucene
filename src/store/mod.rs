@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-mod base_directory;
+pub mod base_directory;
 pub mod buffered_checksum;
 pub mod buffered_checksum_index_input;
 pub mod buffered_index_input;
@@ -34,14 +34,14 @@ pub mod data_output;
 pub mod directory;
 pub mod flush_info;
 pub mod fs_directory;
-mod fs_directory_base;
+pub mod fs_directory_base;
 mod fs_index_output;
 pub mod fs_lock_factory;
 pub mod index_input;
 pub mod index_output;
 pub mod io_context;
-mod lock;
-mod lock_factory;
+pub mod lock;
+pub mod lock_factory;
 pub mod merge_info;
 pub mod mmap_directory;
 pub mod native_fs_lock_factory;

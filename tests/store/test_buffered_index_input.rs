@@ -24,7 +24,6 @@ use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput, BUFF
 use rlucene::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES};
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::ReadableCursorExt;
-use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 
 #[allow(dead_code)] // for quick search

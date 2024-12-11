@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod base_bit_set_test_case;
-mod base_directory_test_case;
-mod base_doc_id_set_test_case;
-mod base_sort_test_case;
-mod id_set_common;
-mod test_byte_block_pool;
-pub mod test_bytes_ref;
-mod test_doc_id_set_builder;
-mod test_doc_id_set_iterator;
-mod test_docs_with_field_set;
-pub mod test_error;
-mod test_fixed_bit_doc_id_set;
-mod test_fixed_bit_set;
-mod test_int_array_doc_id_set;
-mod test_intro_sorter;
-mod test_not_doc_id_set;
-mod test_priority_queue;
-mod test_roaring_doc_id_set;
-mod test_sparse_fixed_bit_set;
-mod test_tim_sorter;
-mod test_version;
+#[derive(Debug)]
+pub struct LockHeldByOtherError {
+    pub path: String,
+}
+
+impl LockHeldByOtherError {
+    pub fn new(path: impl Into<String>) -> Self {
+        Self { path: path.into() }
+    }
+}
+
+impl std::fmt::Display for LockHeldByOtherError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.path)
+    }
+}
+
+impl std::error::Error for LockHeldByOtherError {}

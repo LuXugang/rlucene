@@ -12,10 +12,13 @@ num-bigint = "0.4"
 regex = "1.11.1"
 lazy_static = "1.5.0"
 rand = "0.8.5"
+fs2 = "0.4.3"
+chrono = "0.4.39"
 
 [dev-dependencies]
 bit-set = "0.5.3"
 rand_xoshiro = "0.6.0"
+tempfile = "3.14.0"
 
 [profile.dev]
 overflow-checks = false

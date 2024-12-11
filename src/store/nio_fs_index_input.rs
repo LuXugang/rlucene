@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::index_input::{get_full_slice_description, IndexInput};
-use crate::store::{BufferedIndexInputBase, DataInput, BUFFER_SIZE};
+use crate::store::{BufferedIndexInputBase, BUFFER_SIZE};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
@@ -200,7 +200,6 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         self.end - self.off
     }
 }
-
 
 impl Display for NIOFSIndexInput {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

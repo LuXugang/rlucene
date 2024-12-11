@@ -16,9 +16,7 @@
  */
 use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::nio_fs_index_input::NIOFSIndexInput;
-use crate::store::{
-    BufferedIndexInput, IOContext,
-};
+use crate::store::{BufferedIndexInput, IOContext};
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::{Display, Formatter};
 use std::fs::File;

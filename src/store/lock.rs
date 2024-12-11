@@ -16,6 +16,8 @@
  */
 use crate::store::simple_fs_lock::SimpleFSLock;
 use crate::store::NativeFSLock;
+use crate::util::error::data_io_error_enum::DataIOError;
+use std::fmt::{Display, Formatter};
 
 /// An interprocess mutex lock.
 ///
@@ -32,14 +34,14 @@ use crate::store::NativeFSLock;
 ///
 /// # Note
 /// This is an internal API.
-pub trait Lock {
+pub trait Lock: Display {
     /// Best effort check that this lock is still valid. Locks could become invalidated externally for
     /// a number of reasons, such as if a user deletes the lock file manually or when a network
     /// filesystem is in use.
     ///
     /// # Errors
-    /// Returns an `std::io::Error` if the lock is no longer valid.
-    fn ensure_valid();
+    /// Returns an `DataIOError` if the lock is no longer valid.
+    fn ensure_valid(&self) -> Result<(), DataIOError>;
 }
 
 pub enum FSLockEnum {
@@ -47,8 +49,20 @@ pub enum FSLockEnum {
     Simple(SimpleFSLock),
 }
 
+impl Display for FSLockEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FSLockEnum::Native(native_lock) => write!(f, "{}", native_lock),
+            FSLockEnum::Simple(simple_lock) => write!(f, "{}", simple_lock),
+        }
+    }
+}
+
 impl Lock for FSLockEnum {
-    fn ensure_valid() {
-        todo!()
+    fn ensure_valid(&self) -> Result<(), DataIOError> {
+        match self {
+            FSLockEnum::Native(native_lock) => native_lock.ensure_valid(),
+            FSLockEnum::Simple(simple_lock) => simple_lock.ensure_valid(),
+        }
     }
 }

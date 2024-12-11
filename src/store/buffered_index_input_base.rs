@@ -16,9 +16,8 @@
  */
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::io::Cursor;
-use crate::store::index_input::IndexInput;
 
-pub trait BufferedIndexInputBase:Clone{
+pub trait BufferedIndexInputBase: Clone {
     /// Expert: Implements seek functionality. Sets the current position in this file,
     /// where the next call to [`read_internal`](BufferedIndexInputBase::read_internal) will occur.
     ///

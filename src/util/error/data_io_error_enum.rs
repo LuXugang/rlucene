@@ -21,6 +21,8 @@ use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::index_format_too_new::IndexFormatTooNewError;
 use crate::util::error::index_format_too_old::IndexFormatTooOldError;
 use crate::util::error::integer_overflow::IntegerOverflow;
+use crate::util::error::lock_already_held::LockAlreadyHeldError;
+use crate::util::error::lock_held_by_other::LockHeldByOtherError;
 use crate::util::error::not_found::NotFoundError;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::error::unsupported_operation::UnsupportedOperationError;
@@ -65,6 +67,12 @@ pub enum DataIOError {
 
     #[error("{0}")]
     NotFound(#[from] NotFoundError),
+
+    #[error("{0}")]
+    LockAlreadyHeld(#[from] LockAlreadyHeldError),
+
+    #[error("{0}")]
+    LockHeldByOther(#[from] LockHeldByOtherError),
 }
 impl DataIOError {
     pub fn io(err: Error) -> Self {
@@ -105,5 +113,11 @@ impl DataIOError {
     }
     pub fn not_found(msg: impl Into<String>) -> Self {
         DataIOError::NotFound(NotFoundError::new(msg))
+    }
+    pub fn lock_already_held(msg: impl Into<String>) -> Self {
+        DataIOError::LockAlreadyHeld(LockAlreadyHeldError::new(msg))
+    }
+    pub fn lock_held_by_other(msg: impl Into<String>) -> Self {
+        DataIOError::LockHeldByOther(LockHeldByOtherError::new(msg))
     }
 }
