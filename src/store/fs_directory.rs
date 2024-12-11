@@ -16,6 +16,7 @@
  */
 use crate::store::base_directory::BaseDirectory;
 use crate::store::directory::{get_temp_file_name, Directory};
+use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::index_input::IndexInput;
 use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
@@ -28,9 +29,8 @@ use std::fs::File;
 use std::path::Path;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::{fs, io};
-use crate::store::fs_directory_base::FSDirectoryBase;
 
 /// Base trait for `Directory` implementations that store index files in the file system.
 /// There are currently two core implementations:
@@ -396,7 +396,8 @@ where
     }
 
     fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError> {
-        self.sub_fs_directory.open_input(name, context)
+        self.sub_fs_directory
+            .open_input(name, context, self.directory)
     }
     #[allow(refining_impl_trait)]
     fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError> {

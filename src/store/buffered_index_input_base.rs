@@ -28,5 +28,10 @@ pub trait BufferedIndexInputBase {
     ///
     /// # Arguments
     /// * `b` - The buffer to read bytes into.
-    fn read_internal(&mut self, b: &mut Cursor<Vec<u8>>, len: u64, file_pointer:u64) -> Result<(), DataIOError>;
+    fn read_internal(
+        &mut self,
+        b: &mut Cursor<Vec<u8>>,
+        len: u64,
+        file_pointer: u64,
+    ) -> Result<(), DataIOError>;
 }

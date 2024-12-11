@@ -521,7 +521,12 @@ impl BufferedIndexInputBase for MyBufferedIndexInput {
         Ok(())
     }
 
-    fn read_internal(&mut self, b: &mut Cursor<Vec<u8>>, len: u64, _file_pointer:u64) -> Result<(), DataIOError> {
+    fn read_internal(
+        &mut self,
+        b: &mut Cursor<Vec<u8>>,
+        len: u64,
+        _file_pointer: u64,
+    ) -> Result<(), DataIOError> {
         let mut i = 0;
         self.read_count += 1;
         while b.remain() > 0 && i < len {

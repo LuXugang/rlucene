@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::directory::Directory;
 use crate::store::fs_lock_factory::FSLockFactory;
 use crate::store::lock::{FSLockEnum, Lock};
 use crate::store::lock_factory::LockFactory;

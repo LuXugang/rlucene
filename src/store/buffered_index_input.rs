@@ -83,7 +83,7 @@ where
         Self::new_with_buffer_size(sub_index_input, resource_desc, BUFFER_SIZE)
     }
 
-    pub fn new_io_context(
+    pub fn new_with_io_context(
         sub_index_input: T,
         resource_desc: &str,
         context: IOContext,
@@ -158,7 +158,7 @@ where
         self.buffer.set_position(remain_unaligned_bytes as u64);
         let file_pointer = self.get_file_pointer();
         self.sub_index_input
-            .read_internal(&mut self.buffer, new_length,file_pointer)?;
+            .read_internal(&mut self.buffer, new_length, file_pointer)?;
         // Adjust buffer_start to include unaligned bytes
         self.buffer_start = start - remain_unaligned_bytes as u64;
         Ok(())
@@ -381,8 +381,11 @@ where
 
         let mut temp_cursor = Cursor::new(vec![0; (remaining_len * type_size) as usize]);
         let file_pointer = self.get_file_pointer();
-        self.sub_index_input
-            .read_internal(&mut temp_cursor, (remaining_len * type_size) as u64, file_pointer)?;
+        self.sub_index_input.read_internal(
+            &mut temp_cursor,
+            (remaining_len * type_size) as u64,
+            file_pointer,
+        )?;
 
         let src = temp_cursor.get_ref();
         Self::process_data(

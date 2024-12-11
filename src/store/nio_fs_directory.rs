@@ -14,17 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
+use crate::store::fs_directory_base::FSDirectoryBase;
+use crate::store::nio_fs_index_input::NIOFSIndexInput;
+use crate::store::{
+    BufferedIndexInput, IOContext,
+};
+use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use crate::store::base_directory::BaseDirectory;
-use crate::store::directory::Directory;
-use crate::store::{IOContext, IndexOutput, NativeFSLock, OutputStreamIndexOutput};
-use crate::store::fs_directory_base::FSDirectoryBase;
-use crate::store::index_input::IndexInput;
-use crate::store::lock::{FSLockEnum, Lock};
-use crate::store::nio_fs_index_input::NIOFSIndexInput;
-use crate::util::error::data_io_error_enum::DataIOError;
+use std::path::Path;
 
 /// An implementation of [`FSDirectory`](crate::store::fs_directory::FSDirectory)that uses `std::fs::File` for positional reads,
 /// allowing multiple threads to read from the same file without synchronization.
@@ -46,7 +44,6 @@ impl NIOFSDirectory {
     pub fn new() -> Self {
         Self
     }
-   
 }
 
 impl Display for NIOFSDirectory {
@@ -55,9 +52,27 @@ impl Display for NIOFSDirectory {
     }
 }
 
+/// this method should only be called in [`FSDirectory::open_input`], which will first check whether file could be read
 impl FSDirectoryBase for NIOFSDirectory {
-    fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError> {
-        let file = File::open(name)?;
-        Ok(NIOFSIndexInput::new(file, name.to_string()))
+    fn open_input(
+        &self,
+        name: &str,
+        context: IOContext,
+        path: &Path,
+    ) -> Result<BufferedIndexInput<NIOFSIndexInput>, DataIOError> {
+        let file = match File::open(path) {
+            Ok(file) => file,
+            Err(err) => {
+                return Err(DataIOError::io(err));
+            }
+        };
+        let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());
+        // let resource_desc_string = resource_desc.to_string();
+        let index_input = NIOFSIndexInput::new(file, &resource_desc);
+        Ok(BufferedIndexInput::new_with_io_context(
+            index_input,
+            &resource_desc,
+            context,
+        ))
     }
 }

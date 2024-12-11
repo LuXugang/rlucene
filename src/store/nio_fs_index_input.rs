@@ -14,47 +14,52 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::index_input::{get_full_slice_description, IndexInput};
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{BufferedIndexInputBase, DataInput, BUFFER_SIZE};
+use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
-use crate::store::{BufferedIndexInputBase, DataInput, BUFFER_SIZE};
-use crate::store::index_input::{get_full_slice_description, IndexInput};
-use crate::store::random_access_input::RandomAccessInput;
-use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::ReadableCursorExt;
 
 const CHUNK_SIZE: usize = 16384;
 pub struct NIOFSIndexInput {
     /// the file we will read from
     file: File,
-    /// start offset: non-zero in the slice case 
+    /// start offset: non-zero in the slice case
     off: u64,
-    /// end offset (start+length) 
+    /// end offset (start+length)
     end: u64,
     resource_desc: String,
     buffer_size: u32,
 }
 
 impl NIOFSIndexInput {
-
-    pub fn new(file: File, resource_desc:String) -> Self {
+    pub fn new(file: File, resource_desc: &str) -> Self {
         let metadata = file.metadata().unwrap();
         let len = metadata.len();
         Self {
             file,
             off: 0,
             end: len,
-            resource_desc,
-            buffer_size: BUFFER_SIZE
+            resource_desc: resource_desc.to_string(),
+            buffer_size: BUFFER_SIZE,
         }
     }
-    pub fn new_with_range(file: File, off: u64, length: u64, resource_desc:String, buffer_size:u32) -> Self {
+    pub fn new_with_range(
+        file: File,
+        off: u64,
+        length: u64,
+        resource_desc: &str,
+        buffer_size: u32,
+    ) -> Self {
         Self {
             file,
             off,
             end: off + length,
-            resource_desc,
-            buffer_size
+            resource_desc: resource_desc.to_string(),
+            buffer_size,
         }
     }
     fn unreachable_method<T>(&self) -> T {
@@ -112,12 +117,17 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
     ///
     /// The file pointer (`pos`) is adjusted dynamically during the read process, and the method uses
     /// `seek` to position the file pointer correctly for each chunk.
-    fn read_internal(&mut self, buffer: &mut Cursor<Vec<u8>>, len: u64, file_pointer: u64) -> Result<(), DataIOError> {
+    fn read_internal(
+        &mut self,
+        buffer: &mut Cursor<Vec<u8>>,
+        len: u64,
+        file_pointer: u64,
+    ) -> Result<(), DataIOError> {
         debug_assert!(buffer.remain() >= len, "buffer overflow");
         let mut pos = file_pointer + self.off;
 
         // Check if the requested read exceeds the file's end
-        if pos + len> self.end {
+        if pos + len > self.end {
             return Err(DataIOError::eof(format!(
                 "read past EOF: position={} len={} end={}",
                 pos, len, self.end
@@ -140,10 +150,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             let buffer_slice = &mut buffer.get_mut()[buffer_start..buffer_end];
 
             // Perform the read
-            let bytes_read = self
-                .file
-                .read(buffer_slice)
-                .map_err(DataIOError::io)?;
+            let bytes_read = self.file.read(buffer_slice).map_err(DataIOError::io)?;
 
             if bytes_read == 0 {
                 return Err(DataIOError::eof(format!(
@@ -167,7 +174,6 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         );
         Ok(())
     }
-
 }
 
 impl DataInput for NIOFSIndexInput {
@@ -212,7 +218,12 @@ impl IndexInput for NIOFSIndexInput {
         self.end - self.off
     }
 
-    fn slice(&self, slice_description: &str, offset: u64, length: u64) -> Result<NIOFSIndexInput, DataIOError> {
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: u64,
+        length: u64,
+    ) -> Result<NIOFSIndexInput, DataIOError> {
         if offset + length > IndexInput::length(self) {
             return Err(DataIOError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",
@@ -224,12 +235,13 @@ impl IndexInput for NIOFSIndexInput {
             )));
         }
 
+        let resource_desc = get_full_slice_description(slice_description);
         let a = NIOFSIndexInput::new_with_range(
             // Clone the file handle to create a new `File` instance pointing to the same file resource.
             self.file.try_clone().map_err(DataIOError::io)?,
             self.off + offset,
             length,
-            get_full_slice_description(slice_description),
+            &resource_desc,
             self.buffer_size,
         );
         Ok(a)
@@ -239,7 +251,11 @@ impl IndexInput for NIOFSIndexInput {
         self.unreachable_method()
     }
     #[allow(dead_code)]
-    fn get_random_access_slice(&self, _offset: u64, _length: u64) -> Result<NIOFSIndexInput, DataIOError> {
+    fn get_random_access_slice(
+        &self,
+        _offset: u64,
+        _length: u64,
+    ) -> Result<NIOFSIndexInput, DataIOError> {
         self.unreachable_method()
     }
 }
