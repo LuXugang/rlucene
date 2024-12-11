@@ -108,7 +108,33 @@ where
         }
         Ok(())
     }
-
+    /// Refills the buffer with data from the underlying input, preserving unaligned bytes.
+    ///
+    /// This method handles cases where a previous read left some unaligned bytes in the buffer.
+    /// It copies these unaligned bytes to the start of the buffer and refills the remaining space
+    /// with new data from the underlying input.
+    ///
+    /// # Arguments
+    /// * `remain_unaligned_bytes` - The number of unaligned bytes remaining in the buffer from the previous read.
+    /// * `start` - The starting position in the underlying input to begin reading data.
+    ///
+    /// # Returns
+    /// * `Ok(())` - If the buffer is successfully refilled.
+    /// * `Err(DataIOError)` - If an error occurs during the refill operation, such as reaching EOF.
+    ///
+    /// # Behavior
+    /// 1. Calculates the range `[start, end)` for data to be read from the underlying input.
+    /// 2. Ensures that the read operation does not exceed the end of the file (EOF).
+    /// 3. Copies the unaligned bytes to the start of the buffer.
+    /// 4. Reads new data into the remaining space in the buffer.
+    /// 5. Updates the buffer's position and the valid data length (`self.length`).
+    ///
+    /// # Notes
+    /// - The `buffer_start` is adjusted to include the unaligned bytes.
+    /// - The new valid data length is the sum of the unaligned bytes and the newly read bytes.
+    ///
+    /// # Errors
+    /// * Returns `DataIOError::eof` if no new data can be read from the underlying input.
     fn refill(&mut self, remain_unaligned_bytes: u32, start: u64) -> Result<(), DataIOError> {
         // After the last read, some unaligned bytes remain in the buffer.
         let mut end = start + (self.buffer_size - remain_unaligned_bytes) as u64;
@@ -132,6 +158,7 @@ where
         self.buffer.set_position(remain_unaligned_bytes as u64);
         self.sub_index_input
             .read_internal(&mut self.buffer, new_length)?;
+        // Adjust buffer_start to include unaligned bytes
         self.buffer_start = start - remain_unaligned_bytes as u64;
         Ok(())
     }
@@ -260,13 +287,13 @@ where
         let total_bytes = len * type_size;
         let mut elements_read = 0;
         let mut unaligned_bytes = 0;
-
+        // Check if the position is within the current buffer range
         if pos >= self.buffer_start && pos < self.buffer_start + self.length as u64 {
             let buffer_offset = (pos - self.buffer_start) as u32;
             let available = self
                 .buffer
                 .remain_between(buffer_offset as u64, self.length as u64);
-
+            // If the buffer contains enough data to satisfy the request
             if available >= total_bytes as u64 {
                 let src = &self.buffer.get_ref()
                     [buffer_offset as usize..(buffer_offset as usize + total_bytes as usize)];
@@ -296,11 +323,12 @@ where
                 );
                 elements_read += aligned_elements;
             }
-
+            // Handle unaligned bytes that can't form a complete element
             unaligned_bytes = available as u32 - aligned_bytes;
             if unaligned_bytes > 0 {
                 let buffer = self.buffer.get_mut();
                 let unaligned_start = (buffer_offset + aligned_bytes) as usize;
+                // Copy unaligned bytes to the start of the buffer, we would read these bytes later when buffer was refilled again
                 buffer.copy_within(
                     unaligned_start..unaligned_start + unaligned_bytes as usize,
                     0,
@@ -331,7 +359,7 @@ where
                     &converter,
                 );
             }
-
+            // If there are still remaining elements, report EOF
             let remaining_elements = remaining_len - readable_elements;
             if remaining_elements > 0 {
                 return Err(DataIOError::eof(format!(
@@ -342,17 +370,17 @@ where
 
             return Ok(());
         }
-
+        // If the buffer is not used or the remaining data exceeds the buffer size,
+        // read directly from the underlying input
         let after =
-            self.buffer_start + self.buffer.position() + remaining_len as u64 * type_size as u64;
+            self.buffer_start + self.length as u64 + remaining_len as u64 * type_size as u64;
         if after > self.sub_index_input.length() {
             return Err(DataIOError::eof(format!("read past EOF: {}", self)));
         }
 
-        let mut temp_cursor = Cursor::new(vec![0; remaining_len as usize * type_size as usize]);
-        self.sub_index_input.seek(self.buffer_start)?;
+        let mut temp_cursor = Cursor::new(vec![0; (remaining_len * type_size) as usize]);
         self.sub_index_input
-            .read_internal(&mut temp_cursor, remaining_len as u64)?;
+            .read_internal(&mut temp_cursor, (remaining_len * type_size) as u64)?;
 
         let src = temp_cursor.get_ref();
         Self::process_data(
@@ -382,7 +410,38 @@ where
             }
         }
     }
-
+    /// Resolves the position within the buffer, optimizing for backward random reads.
+    ///
+    /// When performing random reads at position `pos`, this function checks if the requested position
+    /// can be directly resolved within the current buffer. If not, it adjusts the buffer range
+    /// dynamically to optimize subsequent backward reads:
+    ///
+    /// - For backward random reads, instead of always starting the buffer from `pos`, the buffer is
+    ///   adjusted to include the range `[pos + width - buffer_size, pos + width]`, if possible. This
+    ///   approach minimizes redundant loading of the same data when successive backward reads occur.
+    ///
+    /// - For forward random reads, the buffer starts directly at `pos` to ensure data availability.
+    ///
+    /// # Arguments
+    /// * `pos` - The target position to resolve.
+    /// * `width` - The number of bytes needed for the read operation.
+    ///
+    /// # Returns
+    /// * `Ok(pos)` - If the position is resolved successfully.
+    /// * `Err(DataIOError)` - If an error occurs while seeking or refilling the buffer.
+    ///
+    /// # Behavior
+    /// - If the position `pos` is within the current buffer and there is enough data for `width` bytes,
+    ///   the function returns `pos` directly.
+    /// - If the position is outside the current buffer, it dynamically adjusts `buffer_start`:
+    ///   - For backward reads, it calculates a new `buffer_start` such that the buffer includes the
+    ///     desired position and minimizes redundant reloading of the same data.
+    ///   - For forward reads, it directly sets `buffer_start` to `pos`.
+    /// - The buffer is refilled as needed to ensure the requested data is available.
+    ///
+    /// # Efficiency
+    /// This method is particularly efficient for scenarios involving frequent backward random reads,
+    /// as it reduces redundant I/O operations by aligning the buffer with anticipated access patterns.
     fn resolve_position_in_buffer(&mut self, pos: u64, width: u32) -> Result<u64, DataIOError> {
         let index: i64 = pos as i64 - self.buffer_start as i64;
         if index >= 0 && index <= (self.length as i64 - width as i64) {

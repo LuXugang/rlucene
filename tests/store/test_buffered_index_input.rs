@@ -21,11 +21,11 @@ use rand::Rng;
 use rlucene::store::index_input::IndexInput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput, BUFFER_SIZE};
+use rlucene::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES};
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
-use rlucene::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES};
 
 #[allow(dead_code)] // for quick search
 struct TestBufferedIndexInput;
@@ -342,8 +342,8 @@ fn test_read_floats() -> Result<(), TestError> {
         let bulk_reads = length / (buffer_length * FLOAT_BYTES) - 1;
         for i in 0..bulk_reads {
             let pos = alignment + i * buffer_length * FLOAT_BYTES;
-            let float_offset:usize = random.gen_range(0..3);
-            DataInput::skip_bytes(&mut input, (float_offset * FLOAT_BYTES )as u64)?;
+            let float_offset: usize = random.gen_range(0..3);
+            DataInput::skip_bytes(&mut input, (float_offset * FLOAT_BYTES) as u64)?;
 
             input.read_floats(
                 &mut float_buffer[float_offset..],
