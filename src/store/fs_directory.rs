@@ -17,16 +17,18 @@
 use crate::store::base_directory::BaseDirectory;
 use crate::store::directory::{get_temp_file_name, Directory};
 use crate::store::index_input::IndexInput;
-use crate::store::lock::{FSLockEnum, Lock};
+use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
-use crate::store::{IOContext, IndexOutput, NativeFSLockFactory, OutputStreamIndexOutput};
+use crate::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
 use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::path::Path;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::{fs, io};
 
 /// Base trait for `Directory` implementations that store index files in the file system.
@@ -60,7 +62,7 @@ where
     directory: &'a Path,
     /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
     /// delete that key.
-    pending_deletes: HashSet<String>,
+    pending_deletes: Arc<Mutex<HashSet<String>>>, // 用 Mutex 保护
     ops_since_last_delete: AtomicU32,
     /** Used to generate temp file names in [`createTempOutput`](Directory::create_temp_output). */
     next_temp_file_counter: AtomicU64,
@@ -82,7 +84,7 @@ where
         }
         Ok(FSDirectory {
             directory,
-            pending_deletes: HashSet::new(),
+            pending_deletes: Arc::new(Mutex::new(HashSet::new())),
             ops_since_last_delete: AtomicU32::new(0),
             next_temp_file_counter: AtomicU64::new(0),
             sub_fs_directory,
@@ -112,52 +114,70 @@ where
         entries.sort();
         Ok(entries)
     }
-    pub fn maybe_delete_pending_files(&mut self) -> Result<(), DataIOError> {
-        if !self.pending_deletes.is_empty() {
-            let count = self
-                .ops_since_last_delete
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-                + 1;
+    pub fn maybe_delete_pending_files(
+        directory: &Path,
+        pending_deletes: &mut HashSet<String>,
+        ops_since_last_delete: &mut AtomicU32,
+    ) -> Result<(), DataIOError> {
+        if !pending_deletes.is_empty() {
+            let count = ops_since_last_delete.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
 
-            if count as usize >= self.pending_deletes.len() {
-                self.ops_since_last_delete
-                    .fetch_sub(count, std::sync::atomic::Ordering::SeqCst);
-                self.delete_pending_files()?;
+            if count as usize >= pending_deletes.len() {
+                ops_since_last_delete.fetch_sub(count, std::sync::atomic::Ordering::SeqCst);
+                Self::delete_pending_files(directory, pending_deletes)?;
             }
         }
         Ok(())
     }
+
+    /// Ensure that the given file is synchronized to the storage device.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the file to sync.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `DataIOError` if the file cannot be found or synchronized.
+    pub fn fsync(&self, name: &str) -> Result<(), DataIOError> {
+        IOUtils::fsync(&self.directory.join(name), false)
+    }
+
     /// Try to delete any pending files that we had previously tried to delete but failed because we
     /// are on Windows and the files were still held open.
-    pub fn delete_pending_files(&mut self) -> Result<(), DataIOError> {
-        if !self.pending_deletes.is_empty() {
+    pub fn delete_pending_files(
+        directory: &Path,
+        pending_deletes: &mut HashSet<String>,
+    ) -> Result<(), DataIOError> {
+        if !pending_deletes.is_empty() {
             // TODO: we could fix IndexInputs from FSDirectory subclasses to call this when they are
             // closed?
 
             // Clone the set since we mutate it in privateDeleteFile:
-            let files_to_delete: Vec<String> = self.pending_deletes.clone().into_iter().collect();
+            let files_to_delete: Vec<String> = pending_deletes.clone().into_iter().collect();
 
             for name in files_to_delete {
-                self.private_delete_file(&name, true)?;
+                Self::private_delete_file(directory, &name, true, pending_deletes)?;
             }
         }
         Ok(())
     }
 
     fn private_delete_file(
-        &mut self,
+        directory: &Path,
         name: &str,
         is_pending_delete: bool,
+        pending_deletes: &mut HashSet<String>,
     ) -> Result<(), DataIOError> {
-        let file_path = self.directory.join(name);
+        let file_path = directory.join(name);
 
         match fs::remove_file(file_path) {
             Ok(_) => {
-                self.pending_deletes.remove(name);
+                pending_deletes.remove(name);
                 Ok(())
             }
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                self.pending_deletes.remove(name);
+                pending_deletes.remove(name);
 
                 if is_pending_delete && cfg!(windows) {
                     // TODO: can we remove this OS-specific hacky logic?  If windows deleteFile is buggy, we
@@ -184,7 +204,7 @@ where
                 // TODO: can/should we do if (Constants.WINDOWS) here, else throw the exc?
                 // but what about a Linux box with a CIFS mount?
                 if cfg!(windows) {
-                    self.pending_deletes.insert(name.to_string());
+                    pending_deletes.insert(name.to_string());
                     Ok(())
                 } else {
                     Err(DataIOError::io(e))
@@ -211,15 +231,32 @@ where
     T: BaseDirectory,
 {
     fn list_all(&self) -> Vec<String> {
-        Self::list_all(self.directory, Some(&self.pending_deletes)).unwrap()
+        let pending_deletes = self.pending_deletes.lock().unwrap();
+        Self::list_all(self.directory, Some(&pending_deletes)).unwrap()
     }
 
-    fn delete_file(&self, name: &str) -> Result<(), DataIOError> {
-        todo!()
+    fn delete_file(&mut self, name: &str) -> Result<(), DataIOError> {
+        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        if pending_deletes.contains(name) {
+            return Err(DataIOError::not_found(format!(
+                "file \"{}\" is already pending delete",
+                name
+            )));
+        }
+
+        Self::private_delete_file(self.directory, name, false, &mut pending_deletes)?;
+
+        Self::maybe_delete_pending_files(
+            self.directory,
+            &mut pending_deletes,
+            &mut self.ops_since_last_delete,
+        )?;
+
+        Ok(())
     }
 
     fn file_length(&self, name: &str) -> Result<u64, DataIOError> {
-        if self.pending_deletes.contains(name) {
+        if self.pending_deletes.lock().unwrap().contains(name) {
             return Err(DataIOError::not_found(format!(
                 "file \"{}\" is pending delete",
                 name
@@ -236,11 +273,16 @@ where
         name: &str,
         _context: IOContext,
     ) -> Result<OutputStreamIndexOutput<File>, DataIOError> {
-        self.maybe_delete_pending_files()?;
+        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        Self::maybe_delete_pending_files(
+            self.directory,
+            &mut pending_deletes,
+            &mut self.ops_since_last_delete,
+        )?;
 
-        if self.pending_deletes.remove(name) {
-            self.private_delete_file(name, true)?;
-            self.pending_deletes.remove(name);
+        if pending_deletes.remove(name) {
+            Self::private_delete_file(self.directory, name, true, &mut pending_deletes)?;
+            pending_deletes.remove(name);
         }
 
         let file_path = self.directory.join(name);
@@ -263,13 +305,18 @@ where
         suffix: &str,
         _context: IOContext,
     ) -> Result<OutputStreamIndexOutput<File>, DataIOError> {
-        self.maybe_delete_pending_files()?;
+        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        Self::maybe_delete_pending_files(
+            self.directory,
+            &mut pending_deletes,
+            &mut self.ops_since_last_delete,
+        )?;
 
         loop {
             let counter = self.next_temp_file_counter.fetch_add(1, SeqCst);
             let name = get_temp_file_name(prefix, suffix, counter);
 
-            if self.pending_deletes.contains(&name) {
+            if pending_deletes.contains(&name) {
                 continue;
             }
 
@@ -299,19 +346,52 @@ where
 
     fn sync(&mut self, names: &[&str]) -> Result<(), DataIOError> {
         for &name in names {
-            // self.fsync(name)?;
+            self.fsync(name)?;
         }
-
-        self.maybe_delete_pending_files()?;
+        Self::maybe_delete_pending_files(
+            self.directory,
+            &mut self.pending_deletes.lock().unwrap(),
+            &mut self.ops_since_last_delete,
+        )?;
         Ok(())
     }
 
-    fn sync_metadata(&self) {
-        todo!()
+    fn sync_metadata(&mut self) -> Result<(), DataIOError> {
+        // TODO: to improve listCommits(), IndexFileDeleter could call this after deleting segments_Ns
+        IOUtils::fsync(self.directory, true)?;
+        Self::maybe_delete_pending_files(
+            self.directory,
+            &mut self.pending_deletes.lock().unwrap(),
+            &mut self.ops_since_last_delete,
+        )?;
+        Ok(())
     }
 
-    fn rename(&self, source: &str, dest: &str) -> Result<(), DataIOError> {
-        todo!()
+    fn rename(&mut self, source: &str, dest: &str) -> Result<(), DataIOError> {
+        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        if pending_deletes.contains(source) {
+            return Err(DataIOError::not_found(format!(
+                "File \"{}\" is pending delete and cannot be moved",
+                source
+            )));
+        }
+        Self::maybe_delete_pending_files(
+            self.directory,
+            &mut self.pending_deletes.lock().unwrap(),
+            &mut self.ops_since_last_delete,
+        )?;
+
+        if pending_deletes.remove(dest) {
+            Self::private_delete_file(self.directory, dest, true, &mut pending_deletes)?; // try again to delete it - this is the best effort
+            pending_deletes.remove(dest); // watch out if the delete fails, it's back in here
+        }
+
+        let source_path = self.directory.join(source);
+        let dest_path = self.directory.join(dest);
+
+        fs::rename(source_path, dest_path).map_err(DataIOError::io)?;
+
+        Ok(())
     }
 
     fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError> {
@@ -322,8 +402,14 @@ where
         self.lock_factory.obtain_lock(self.directory, name)
     }
 
-    fn get_pending_deletions(&self) -> HashSet<String> {
-        todo!()
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, DataIOError> {
+        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        Self::delete_pending_files(self.directory, &mut pending_deletes)?;
+        if pending_deletes.is_empty() {
+            Ok(HashSet::new())
+        } else {
+            Ok(pending_deletes.clone())
+        }
     }
 }
 
@@ -333,7 +419,13 @@ where
     T: BaseDirectory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(
+            f,
+            "{}@{} lockFactory={}",
+            self.sub_fs_directory,
+            self.directory.display(),
+            self.lock_factory
+        )
     }
 }
 
@@ -344,6 +436,25 @@ where
 {
     fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError> {
         Directory::obtain_lock(self, name)
+    }
+}
+impl<D, T> Drop for FSDirectory<'_, D, T>
+where
+    D: LockFactory,
+    T: BaseDirectory,
+{
+    fn drop(&mut self) {
+        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        if let Err(e) = Self::maybe_delete_pending_files(
+            self.directory,
+            &mut pending_deletes,
+            &mut self.ops_since_last_delete,
+        ) {
+            eprintln!(
+                "Error while deleting pending files during drop, ignoring: {:?}",
+                e
+            );
+        }
     }
 }
 /// The maximum chunk size is 8192 bytes in the original Java implementation because:

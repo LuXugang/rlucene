@@ -15,5 +15,73 @@
  * limitations under the License.
  */
 
+use crate::util::error::data_io_error_enum::DataIOError;
+use std::fs::File;
+use std::io;
+use std::path::Path;
+
 pub struct IOUtils;
-impl IOUtils {}
+impl IOUtils {
+    /// Ensure that any writes to the given file are written to the storage device.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_to_sync` - The path to the file or directory to sync.
+    /// * `is_dir` - If `true`, the given path is a directory. On platforms where directory syncing
+    ///   is unsupported (like Windows), this will be ignored for directories.
+    pub fn fsync(file_to_sync: &Path, is_dir: bool) -> Result<(), DataIOError> {
+        if is_dir {
+            if cfg!(windows) {
+                if !file_to_sync.exists() {
+                    return Err(DataIOError::not_found(format!(
+                        "Directory not found: {}",
+                        file_to_sync.display()
+                    )));
+                }
+                return Ok(());
+            }
+
+            let dir_file =
+                File::options()
+                    .read(true)
+                    .open(file_to_sync)
+                    .map_err(|e| match e.kind() {
+                        io::ErrorKind::NotFound => DataIOError::not_found(format!(
+                            "Directory not found: {}",
+                            file_to_sync.display()
+                        )),
+                        _ => DataIOError::io(e),
+                    })?;
+
+            if let Err(e) = dir_file.sync_all() {
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
+                debug_assert!(
+                    false,
+                    "On Linux and macOS, syncing a directory should not throw an error. Got: {}",
+                    e
+                );
+                return Ok(());
+            }
+        } else {
+            let file = File::options()
+                .write(true)
+                .open(file_to_sync)
+                .map_err(|e| match e.kind() {
+                    io::ErrorKind::NotFound => DataIOError::not_found(format!(
+                        "File not found: {}",
+                        file_to_sync.display()
+                    )),
+                    _ => DataIOError::io(e),
+                })?;
+
+            file.sync_all().map_err(|e| {
+                DataIOError::io(io::Error::new(
+                    e.kind(),
+                    format!("Failed to sync file: {}", e),
+                ))
+            })?;
+        }
+
+        Ok(())
+    }
+}

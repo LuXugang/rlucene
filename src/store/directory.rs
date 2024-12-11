@@ -59,7 +59,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file to be removed.
-    fn delete_file(&self, name: &str) -> Result<(), DataIOError>;
+    fn delete_file(&mut self, name: &str) -> Result<(), DataIOError>;
 
     /// Returns the byte length of a file in the directory.
     ///
@@ -116,7 +116,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # See Also
     /// [`sync`](Directory::sync)
-    fn sync_metadata(&self);
+    fn sync_metadata(&mut self) -> Result<(), DataIOError>;
     /// Renames `source` file to `dest` file where `dest` must not already exist in the directory.
     ///
     /// It is permitted for this operation to not be truly atomic, meaning both `source` and `dest`
@@ -129,7 +129,7 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `source` - The file to rename.
     /// * `dest` - The new name for the file.
-    fn rename(&self, source: &str, dest: &str) -> Result<(), DataIOError>;
+    fn rename(&mut self, source: &str, dest: &str) -> Result<(), DataIOError>;
 
     /// Opens a stream for reading an existing file.
     ///
@@ -204,7 +204,7 @@ pub trait Directory: Display + Sized {
 
         result
     }
-    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
+    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
         for name in files {
             if self.delete_file(name).is_err() {
                 // ignore
@@ -215,7 +215,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Note
     /// This is an internal API.
-    fn get_pending_deletions(&self) -> HashSet<String>;
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, DataIOError>;
 }
 
 /// Creates a file name for a temporary file. The name will start with `prefix`, end with
