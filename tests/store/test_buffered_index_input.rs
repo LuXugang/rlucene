@@ -25,6 +25,7 @@ use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
+use rlucene::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES};
 
 #[allow(dead_code)] // for quick search
 struct TestBufferedIndexInput;
@@ -317,61 +318,172 @@ fn test_backwards_long_reads() -> Result<(), TestError> {
 
     Ok(())
 }
-// #[test]
-// fn test_read_floats() -> Result<(), TestError> {
-//     let length: usize = 1024 * 8;
-//     let buffer_length: usize = 128;
-//     let mut random = my_random("test_read_floats".to_string());
-//     let sub_index_input = MyBufferedIndexInput::new_with_len(length as u64);
-//     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-//     let mut input = BufferedIndexInput::new_with_buffer_size(
-//         sub_index_input.clone(),
-//         &resource_description,
-//         BUFFER_SIZE,
-//     );
-//     let mut bb = vec![0u8; FLOAT_BYTES as usize];
-//     let mut float_buffer = vec![0f32; buffer_length];
-//
-//     for alignment in 0..FLOAT_BYTES as usize {
-//         input.seek(0)?;
-//         for _ in 0..alignment {
-//             DataInput::read_byte(&mut input)?;
-//         }
-//
-//         let bulk_reads = length / (buffer_length * FLOAT_BYTES as usize) - 1;
-//         for i in 0..bulk_reads {
-//             let pos = alignment + i * buffer_length * FLOAT_BYTES as usize;
-//             let float_offset:usize = random.gen_range(0..3);
-//             DataInput::skip_bytes(&mut input, (float_offset * FLOAT_BYTES )as u64)?;
-//
-//             input.read_floats(
-//                 &mut float_buffer[float_offset..],
-//                 0,
-//                 (buffer_length - float_offset) as u32,
-//             )?;
-//
-//             for idx in float_offset as usize..buffer_length {
-//                 let offset = pos + idx * FLOAT_BYTES as usize;
-//                 bb[0] = byten(offset as u64);
-//                 bb[1] = byten(offset as u64 + 1);
-//                 bb[2] = byten(offset as u64 + 2);
-//                 bb[3] = byten(offset as u64 + 3);
-//
-//                 let bb_clone = bb.clone();
-//                 let expected_bits = f32::from_le_bytes(bb_clone.try_into().unwrap()).to_bits();
-//                 let actual_bits = float_buffer[idx].to_bits();
-//                 assert_eq!(
-//                     expected_bits, actual_bits,
-//                     "Mismatch at alignment={}, bulk_read={}, idx={}",
-//                     alignment, i, idx
-//                 );
-//             }
-//         }
-//     }
-//
-//     Ok(())
-// }
+#[test]
+fn test_read_floats() -> Result<(), TestError> {
+    let length: usize = 1024 * 8;
+    let buffer_length: usize = 128;
+    let mut random = my_random("test_read_floats".to_string());
+    let sub_index_input = MyBufferedIndexInput::new_with_len(length as u64);
+    let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
+    let mut input = BufferedIndexInput::new_with_buffer_size(
+        sub_index_input.clone(),
+        &resource_description,
+        BUFFER_SIZE,
+    );
+    let mut bb = vec![0u8; FLOAT_BYTES];
+    let mut float_buffer = vec![0f32; buffer_length];
 
+    for alignment in 0..FLOAT_BYTES {
+        input.seek(0)?;
+        for _ in 0..alignment {
+            DataInput::read_byte(&mut input)?;
+        }
+
+        let bulk_reads = length / (buffer_length * FLOAT_BYTES) - 1;
+        for i in 0..bulk_reads {
+            let pos = alignment + i * buffer_length * FLOAT_BYTES;
+            let float_offset:usize = random.gen_range(0..3);
+            DataInput::skip_bytes(&mut input, (float_offset * FLOAT_BYTES )as u64)?;
+
+            input.read_floats(
+                &mut float_buffer[float_offset..],
+                0,
+                (buffer_length - float_offset) as u32,
+            )?;
+
+            for idx in float_offset as usize..buffer_length {
+                let offset = pos + idx * FLOAT_BYTES;
+                bb[0] = byten(offset as u64);
+                bb[1] = byten(offset as u64 + 1);
+                bb[2] = byten(offset as u64 + 2);
+                bb[3] = byten(offset as u64 + 3);
+
+                let bb_clone = bb.clone();
+                let expected_bits = f32::from_le_bytes(bb_clone.try_into().unwrap()).to_bits();
+                let actual_bits = float_buffer[idx].to_bits();
+                assert_eq!(
+                    expected_bits, actual_bits,
+                    "Mismatch at alignment={}, bulk_read={}, idx={}",
+                    alignment, i, idx
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+#[test]
+fn test_read_ints() -> Result<(), TestError> {
+    let length: usize = 1024 * 8;
+    let buffer_length: usize = 128;
+    let mut random = my_random("test_read_ints".to_string());
+    let sub_index_input = MyBufferedIndexInput::new_with_len(length as u64);
+    let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
+    let mut input = BufferedIndexInput::new_with_buffer_size(
+        sub_index_input.clone(),
+        &resource_description,
+        BUFFER_SIZE,
+    );
+    let mut bb = vec![0u8; INT_BYTES];
+    let mut int_buffer = vec![0i32; buffer_length];
+
+    for alignment in 0..INT_BYTES {
+        input.seek(0)?;
+        for _ in 0..alignment {
+            DataInput::read_byte(&mut input)?;
+        }
+
+        let bulk_reads = length / (buffer_length * INT_BYTES) - 1;
+        for i in 0..bulk_reads {
+            let pos = alignment + i * buffer_length * INT_BYTES;
+            let int_offset: usize = random.gen_range(0..3);
+            DataInput::skip_bytes(&mut input, (int_offset * INT_BYTES) as u64)?;
+
+            input.read_ints(
+                &mut int_buffer[int_offset..],
+                0,
+                (buffer_length - int_offset) as u32,
+            )?;
+
+            for idx in int_offset..buffer_length {
+                let offset = pos + idx * INT_BYTES;
+                bb[0] = byten(offset as u64);
+                bb[1] = byten(offset as u64 + 1);
+                bb[2] = byten(offset as u64 + 2);
+                bb[3] = byten(offset as u64 + 3);
+
+                let bb_clone = bb.clone();
+                let expected_value = i32::from_le_bytes(bb_clone.try_into().unwrap());
+                let actual_value = int_buffer[idx];
+                assert_eq!(
+                    expected_value, actual_value,
+                    "Mismatch at alignment={}, bulk_read={}, idx={}",
+                    alignment, i, idx
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+#[test]
+fn test_read_longs() -> Result<(), TestError> {
+    let length: usize = 1024 * 8;
+    let buffer_length: usize = 128;
+    let mut random = my_random("test_read_longs".to_string());
+    let sub_index_input = MyBufferedIndexInput::new_with_len(length as u64);
+    let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
+    let mut input = BufferedIndexInput::new_with_buffer_size(
+        sub_index_input.clone(),
+        &resource_description,
+        BUFFER_SIZE,
+    );
+    let mut bb = vec![0u8; LONG_BYTES];
+    let mut long_buffer = vec![0i64; buffer_length];
+
+    for alignment in 0..LONG_BYTES {
+        input.seek(0)?;
+        for _ in 0..alignment {
+            DataInput::read_byte(&mut input)?;
+        }
+
+        let bulk_reads = length / (buffer_length * LONG_BYTES) - 1;
+        for i in 0..bulk_reads {
+            let pos = alignment + i * buffer_length * LONG_BYTES;
+            let long_offset: usize = random.gen_range(0..3);
+            DataInput::skip_bytes(&mut input, (long_offset * LONG_BYTES) as u64)?;
+
+            input.read_longs(
+                &mut long_buffer[long_offset..],
+                0,
+                (buffer_length - long_offset) as u32,
+            )?;
+
+            for idx in long_offset..buffer_length {
+                let offset = pos + idx * LONG_BYTES;
+                bb[0] = byten(offset as u64);
+                bb[1] = byten(offset as u64 + 1);
+                bb[2] = byten(offset as u64 + 2);
+                bb[3] = byten(offset as u64 + 3);
+                bb[4] = byten(offset as u64 + 4);
+                bb[5] = byten(offset as u64 + 5);
+                bb[6] = byten(offset as u64 + 6);
+                bb[7] = byten(offset as u64 + 7);
+
+                let bb_clone = bb.clone();
+                let expected_value = i64::from_le_bytes(bb_clone.try_into().unwrap());
+                let actual_value = long_buffer[idx];
+                assert_eq!(
+                    expected_value, actual_value,
+                    "Mismatch at alignment={}, bulk_read={}, idx={}",
+                    alignment, i, idx
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
 struct MyBufferedIndexInput {
     pos: u64,
     len: u64,

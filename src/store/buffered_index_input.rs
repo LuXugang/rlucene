@@ -132,7 +132,7 @@ where
         self.buffer.set_position(remain_unaligned_bytes as u64);
         self.sub_index_input
             .read_internal(&mut self.buffer, new_length)?;
-        self.buffer_start = start;
+        self.buffer_start = start - remain_unaligned_bytes as u64;
         Ok(())
     }
     fn read_longs(
@@ -305,7 +305,6 @@ where
                     unaligned_start..unaligned_start + unaligned_bytes as usize,
                     0,
                 );
-                self.length = unaligned_bytes;
             }
         }
 
