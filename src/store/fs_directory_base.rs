@@ -14,19 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
+use crate::store::index_input::IndexInput;
+use crate::store::IOContext;
 use crate::util::error::data_io_error_enum::DataIOError;
-use std::io::Cursor;
 
-pub trait BufferedIndexInputBase {
-    /// Expert: Implements seek functionality. Sets the current position in this file,
-    /// where the next call to [`read_internal`](BufferedIndexInputBase::read_internal) will occur.
-    ///
-    /// # See Also
-    /// [`read_internal`](BufferedIndexInputBase::read_internal)
-    fn seek_internal(&mut self, pos: u64) -> Result<(), DataIOError>;
-    /// Expert: Implements buffer refill. Reads bytes from the current position in the input.
-    ///
-    /// # Arguments
-    /// * `b` - The buffer to read bytes into.
-    fn read_internal(&mut self, b: &mut Cursor<Vec<u8>>, len: u64, file_pointer:u64) -> Result<(), DataIOError>;
+pub trait FSDirectoryBase :Display{
+    fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError>;
 }

@@ -156,8 +156,9 @@ where
         // Set the buffer position to the remaining unaligned bytes
         // so that the next write within `read_internal` starts from remaining unaligned bytes
         self.buffer.set_position(remain_unaligned_bytes as u64);
+        let file_pointer = self.get_file_pointer();
         self.sub_index_input
-            .read_internal(&mut self.buffer, new_length)?;
+            .read_internal(&mut self.buffer, new_length,file_pointer)?;
         // Adjust buffer_start to include unaligned bytes
         self.buffer_start = start - remain_unaligned_bytes as u64;
         Ok(())
@@ -379,8 +380,9 @@ where
         }
 
         let mut temp_cursor = Cursor::new(vec![0; (remaining_len * type_size) as usize]);
+        let file_pointer = self.get_file_pointer();
         self.sub_index_input
-            .read_internal(&mut temp_cursor, (remaining_len * type_size) as u64)?;
+            .read_internal(&mut temp_cursor, (remaining_len * type_size) as u64, file_pointer)?;
 
         let src = temp_cursor.get_ref();
         Self::process_data(

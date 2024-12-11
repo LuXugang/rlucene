@@ -97,11 +97,6 @@ pub trait IndexInput: DataInput + Clone {
     ) -> Result<impl IndexInput, DataIOError> {
         self.slice(description, offset, length)
     }
-    /// Subclasses call this to get the String for resourceDescription of a slice of this `IndexInput`.
-    fn get_full_slice_description(&self, slice_description: &str) -> String {
-        format!(" [slice= {} ", slice_description)
-    }
-
     /// Creates a random-access slice of this index input, with the given offset and length.
     ///
     /// # Note
@@ -148,4 +143,8 @@ pub trait IndexInput: DataInput + Clone {
         offset: u64,
         length: u64,
     ) -> Result<impl RandomAccessInput, DataIOError>;
+}
+/// Subclasses call this to get the String for resourceDescription of a slice of this `IndexInput`.
+pub fn get_full_slice_description(slice_description: &str) -> String {
+    format!(" [slice= {} ", slice_description)
 }

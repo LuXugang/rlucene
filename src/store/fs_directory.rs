@@ -30,6 +30,7 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::{fs, io};
+use crate::store::fs_directory_base::FSDirectoryBase;
 
 /// Base trait for `Directory` implementations that store index files in the file system.
 /// There are currently two core implementations:
@@ -57,7 +58,7 @@ use std::{fs, io};
 pub struct FSDirectory<'a, D, T>
 where
     D: LockFactory,
-    T: BaseDirectory,
+    T: FSDirectoryBase,
 {
     directory: &'a Path,
     /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
@@ -72,7 +73,7 @@ where
 impl<D, T> FSDirectory<'_, D, T>
 where
     D: LockFactory,
-    T: BaseDirectory,
+    T: FSDirectoryBase,
 {
     pub fn new_with_lock_factory(
         directory: &Path,
@@ -215,7 +216,7 @@ where
 }
 impl<'a, T> FSDirectory<'_, NativeFSLockFactory, T>
 where
-    T: BaseDirectory,
+    T: FSDirectoryBase,
 {
     pub fn new(
         directory: &'a Path,
@@ -228,7 +229,7 @@ where
 impl<D, T> Directory for FSDirectory<'_, D, T>
 where
     D: LockFactory,
-    T: BaseDirectory,
+    T: FSDirectoryBase,
 {
     fn list_all(&self) -> Vec<String> {
         let pending_deletes = self.pending_deletes.lock().unwrap();
@@ -416,7 +417,7 @@ where
 impl<D, T> Display for FSDirectory<'_, D, T>
 where
     D: LockFactory,
-    T: BaseDirectory,
+    T: FSDirectoryBase,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -432,7 +433,7 @@ where
 impl<D, T> BaseDirectory for FSDirectory<'_, D, T>
 where
     D: LockFactory,
-    T: BaseDirectory,
+    T: FSDirectoryBase,
 {
     fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError> {
         Directory::obtain_lock(self, name)
@@ -441,7 +442,7 @@ where
 impl<D, T> Drop for FSDirectory<'_, D, T>
 where
     D: LockFactory,
-    T: BaseDirectory,
+    T: FSDirectoryBase,
 {
     fn drop(&mut self) {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();

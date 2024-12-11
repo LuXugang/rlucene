@@ -53,6 +53,8 @@ pub mod read_advice;
 pub mod simple_fs_lock;
 mod simple_fs_lock_factory;
 mod verifying_lock_factory;
+mod nio_fs_index_input;
+mod fs_directory_base;
 
 pub use buffered_checksum::*;
 pub use buffered_index_input::*;
