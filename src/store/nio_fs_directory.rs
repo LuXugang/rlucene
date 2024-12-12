@@ -58,10 +58,12 @@ impl FSDirectoryBase for NIOFSDirectory {
         context: IOContext,
         path: &PathBuf,
     ) -> Result<BufferedIndexInput<NIOFSIndexInput>, DataIOError> {
-        let file = match File::open(path) {
+        let file_path = path.join(name);
+        let file_name = file_path.to_string_lossy().to_string();
+        let file = match File::open(file_path) {
             Ok(file) => file,
             Err(err) => {
-                return Err(DataIOError::io_with_path(path.to_string_lossy().to_string(),err));
+                return Err(DataIOError::io_with_path(file_name, err));
             }
         };
         let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());

@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::Rng;
+use rlucene::store::directory::Directory;
 use rlucene::store::flush_info::FlushInfo;
 use rlucene::store::fs_directory::FSDirectory;
 use rlucene::store::fs_directory_base::FSDirectoryBase;
@@ -24,8 +26,6 @@ use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
 use rlucene::store::{IOContext, NativeFSLockFactory};
 use tempfile::TempDir;
-use rlucene::store::directory::Directory;
-use crate::util::test_error::TestError;
 
 pub struct LuceneTestCase;
 
@@ -87,7 +87,7 @@ pub fn new_io_context_with_default(
         }
     }
 }
-pub fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestError >{
+pub fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestError> {
     let result = dir.open_input(name, IOContext::default_io_context()?);
     match result {
         Ok(_) => Ok(true),

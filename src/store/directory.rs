@@ -48,7 +48,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Errors
     /// Returns an `std::io::Error` in case of an I/O error.
-    fn list_all(&self) -> Vec<String>;
+    fn list_all(&self) -> Result<Vec<String>, DataIOError>;
     /// Removes an existing file in the directory.
     ///
     /// # Errors

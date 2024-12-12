@@ -93,8 +93,8 @@ impl Display for NativeFSLockFactory {
 
 impl FSLockFactory for NativeFSLockFactory {
     fn obtain_fs_lock(&self, dir: &PathBuf, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
-        let dir_name = dir.to_string_lossy().to_string();
-        fs::create_dir_all(dir).map_err(|e|DataIOError::io_with_path(dir_name,e))?;
+        fs::create_dir_all(dir)
+            .map_err(|e| DataIOError::io_with_path(dir.to_string_lossy().to_string(), e))?;
 
         let lock_file = dir.join(lock_name);
 
@@ -102,9 +102,11 @@ impl FSLockFactory for NativeFSLockFactory {
             .write(true)
             .create(true)
             .open(&lock_file)
-            .map_err(|e|DataIOError::io_with_path(lock_file.to_string_lossy().to_string(),e))?;
+            .map_err(|e| DataIOError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
 
-        let real_path = lock_file.canonicalize().map_err(|e|DataIOError::io_with_path(lock_file.to_string_lossy().to_string(),e))?;
+        let real_path = lock_file
+            .canonicalize()
+            .map_err(|e| DataIOError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
         let real_path_str = real_path.to_string_lossy().to_string();
 
         let mut lock_held = self.lock_held.lock().unwrap();

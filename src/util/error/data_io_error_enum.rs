@@ -34,12 +34,9 @@ use thiserror::Error;
 pub enum DataIOError {
     #[error("IO error: {0}")]
     Io(#[from] Error),
-    
+
     #[error("IO error on {path}: {source}")]
-    IoWithPath {
-        source: Error,
-        path: String   
-    },
+    IoWithPath { source: Error, path: String },
 
     #[error("UTF-8 conversion error: {0}")]
     FromUtf8Error(#[from] FromUtf8Error),

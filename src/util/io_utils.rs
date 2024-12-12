@@ -30,7 +30,6 @@ impl IOUtils {
     /// * `is_dir` - If `true`, the given path is a directory. On platforms where directory syncing
     ///   is unsupported (like Windows), this will be ignored for directories.
     pub fn fsync(file_to_sync: &PathBuf, is_dir: bool) -> Result<(), DataIOError> {
-        let file_name = file_to_sync.to_string_lossy().to_string();
         if is_dir {
             if cfg!(windows) {
                 if !file_to_sync.exists() {
@@ -51,7 +50,9 @@ impl IOUtils {
                             "Directory not found: {}",
                             file_to_sync.display()
                         )),
-                        _ => DataIOError::io_with_path(&file_name,e),
+                        _ => {
+                            DataIOError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
+                        }
                     })?;
 
             if let Err(e) = dir_file.sync_all() {
@@ -72,14 +73,14 @@ impl IOUtils {
                         "File not found: {}",
                         file_to_sync.display()
                     )),
-                    _ => DataIOError::io_with_path(&file_name,e),
+                    _ => DataIOError::io_with_path(file_to_sync.to_string_lossy().to_string(), e),
                 })?;
 
             file.sync_all().map_err(|e| {
-                DataIOError::io_with_path(&file_name, io::Error::new(
-                    e.kind(),
-                    format!("Failed to sync file: {}", e),
-                ))
+                DataIOError::io_with_path(
+                    file_to_sync.to_string_lossy().to_string(),
+                    io::Error::new(e.kind(), format!("Failed to sync file: {}", e)),
+                )
             })?;
         }
 

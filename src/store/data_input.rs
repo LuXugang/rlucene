@@ -231,6 +231,22 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Returns
     /// An immutable map containing the written contents.
+    /// Reads a set of strings from the input. The set is immutable in the context of the caller.
+    ///
+    /// # Behavior in Rust
+    ///
+    /// Rust does not have built-in "unmodifiable" collections like Java's `Collections.unmodifiableSet()`.
+    /// Instead, the immutability of a collection is enforced through ownership and borrowing rules:
+    ///
+    /// - By returning an immutable reference to the collection, it cannot be modified by the caller.
+    /// - To ensure the collection is truly immutable, it is typically wrapped in an `Arc` or `Rc`
+    ///   if shared ownership is required, preventing mutation while still allowing access.
+    ///
+    /// In this implementation:
+    /// - For a count of `0`, an empty `HashSet` is returned.
+    /// - For a count of `1`, a singleton `HashSet` is created.
+    /// - For larger sets, a `HashSet` is created and populated.
+    /// - Ownership is transferred to the caller, and immutability is guaranteed by not exposing mutable references.
     fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>, DataIOError> {
         let count = self.read_vint()?;
 
@@ -251,8 +267,22 @@ pub trait DataInput: Sized + Display {
     /// Reads a `HashSet<String>` previously written with
     /// [`DataOutput::write_set_of_strings`](crate::store::data_output::DataOutput::write_set_of_strings).
     ///
-    /// # Returns
-    /// An immutable set containing the written contents.
+    /// Reads a set of strings from the input. The set is immutable in the context of the caller.
+    ///
+    /// # Behavior in Rust
+    ///
+    /// Rust does not have built-in "unmodifiable" collections like Java's `Collections.unmodifiableSet()`.
+    /// Instead, the immutability of a collection is enforced through ownership and borrowing rules:
+    ///
+    /// - By returning an immutable reference to the collection, it cannot be modified by the caller.
+    /// - To ensure the collection is truly immutable, it is typically wrapped in an `Arc` or `Rc`
+    ///   if shared ownership is required, preventing mutation while still allowing access.
+    ///
+    /// In this implementation:
+    /// - For a count of `0`, an empty `HashSet` is returned.
+    /// - For a count of `1`, a singleton `HashSet` is created.
+    /// - For larger sets, a `HashSet` is created and populated.
+    /// - Ownership is transferred to the caller, and immutability is guaranteed by not exposing mutable references.
     fn read_set_of_strings(&mut self) -> Result<HashSet<String>, DataIOError> {
         let count = self.read_vint()?;
         if count == 0 {

@@ -14,20 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::path::PathBuf;
-use tempfile::TempDir;
-use rlucene::store::directory::Directory;
-use rlucene::store::fs_directory::FSDirectory;
-use rlucene::store::nio_fs_directory::NIOFSDirectory;
 use crate::common::my_random;
 use crate::store::base_directory_test_case::BaseDirectoryTestCase;
 use crate::util::test_error::TestError;
+use rlucene::store::directory::Directory;
+use rlucene::store::fs_directory::FSDirectory;
+use rlucene::store::nio_fs_directory::NIOFSDirectory;
+use std::path::PathBuf;
 
 #[allow(dead_code)] // for quick search
 struct TestNIOFSDirectory;
 
-impl BaseDirectoryTestCase for TestNIOFSDirectory{
-    fn get_directory(&self, path: PathBuf) ->Result<impl Directory,TestError> {
+impl BaseDirectoryTestCase for TestNIOFSDirectory {
+    fn get_directory(&self, path: PathBuf) -> Result<impl Directory, TestError> {
         let sub_directory = NIOFSDirectory::new();
         Ok(FSDirectory::new(path, sub_directory)?)
     }
@@ -39,4 +38,140 @@ fn test_copy_from() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_copy_from(&mut random)
 }
-
+#[test]
+fn test_rename() -> Result<(), TestError> {
+    let mut random = my_random("test_test_rename".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_rename(&mut random)
+}
+#[test]
+fn test_delete_file() -> Result<(), TestError> {
+    let test = TestNIOFSDirectory;
+    test.test_delete_file()
+}
+#[test]
+fn test_byte() -> Result<(), TestError> {
+    let mut random = my_random("test_byte".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_byte(&mut random)
+}
+#[test]
+fn test_short() -> Result<(), TestError> {
+    let mut random = my_random("test_short".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_short(&mut random)
+}
+#[test]
+fn test_int() -> Result<(), TestError> {
+    let mut random = my_random("test_int".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_int(&mut random)
+}
+#[test]
+fn test_long() -> Result<(), TestError> {
+    let mut random = my_random("test_long".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_long(&mut random)
+}
+#[test]
+fn test_aligned_little_endian_longs() -> Result<(), TestError> {
+    let mut random = my_random("test_aligned_little_endian_longs".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_aligned_little_endian_longs(&mut random)
+}
+#[test]
+fn test_unaligned_little_endian_longs() -> Result<(), TestError> {
+    let mut random = my_random("test_unaligned_little_endian_longs".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_unaligned_little_endian_longs(&mut random)
+}
+#[test]
+fn test_little_endian_longs_underflow() -> Result<(), TestError> {
+    let mut random = my_random("test_little_endian_longs_underflow".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_little_endian_longs_underflow(&mut random)
+}
+#[test]
+fn test_aligned_ints() -> Result<(), TestError> {
+    let mut random = my_random("test_aligned_ints".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_aligned_ints(&mut random)
+}
+#[test]
+fn test_unaligned_ints() -> Result<(), TestError> {
+    let mut random = my_random("test_unaligned_ints".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_unaligned_ints(&mut random)
+}
+#[test]
+fn test_ints_underflow() -> Result<(), TestError> {
+    let mut random = my_random("test_ints_underflow".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_ints_underflow(&mut random)
+}
+#[test]
+fn test_aligned_floats() -> Result<(), TestError> {
+    let mut random = my_random("test_aligned_floats".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_aligned_floats(&mut random)
+}
+#[test]
+fn test_unaligned_floats() -> Result<(), TestError> {
+    let mut random = my_random("test_unaligned_floats".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_unaligned_floats(&mut random)
+}
+#[test]
+fn test_floats_underflow() -> Result<(), TestError> {
+    let mut random = my_random("test_floats_underflow".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_floats_underflow(&mut random)
+}
+#[test]
+fn test_string() -> Result<(), TestError> {
+    let mut random = my_random("test_string".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_string(&mut random)
+}
+#[test]
+fn test_vint() -> Result<(), TestError> {
+    let mut random = my_random("test_vint".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_vint(&mut random)
+}
+#[test]
+fn test_vlong() -> Result<(), TestError> {
+    let mut random = my_random("test_vlong".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_vlong(&mut random)
+}
+#[test]
+fn test_zint() -> Result<(), TestError> {
+    let mut random = my_random("test_zint".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_zint(&mut random)
+}
+#[test]
+fn test_zlong() -> Result<(), TestError> {
+    let mut random = my_random("test_zlong".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_zlong(&mut random)
+}
+#[test]
+fn test_set_of_strings() -> Result<(), TestError> {
+    let mut random = my_random("test_set_of_strings".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_set_of_strings(&mut random)
+}
+#[test]
+fn test_map_of_strings() -> Result<(), TestError> {
+    let mut random = my_random("test_map_of_strings".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_map_of_strings(&mut random)
+}
+#[test]
+fn test_checksum() -> Result<(), TestError> {
+    let mut random = my_random("test_checksum".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_checksum(&mut random)
+}

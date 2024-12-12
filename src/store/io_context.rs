@@ -36,7 +36,6 @@ pub struct IOContext {
     pub flush_info: Option<FlushInfo>,
 }
 
-
 impl IOContext {
     pub fn new(
         context: Option<Context>,

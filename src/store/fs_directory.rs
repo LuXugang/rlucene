@@ -20,7 +20,10 @@ use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::index_input::IndexInput;
 use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
-use crate::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
+use crate::store::{
+    BufferedIndexInput, BufferedIndexInputBase, IOContext, NativeFSLockFactory,
+    OutputStreamIndexOutput,
+};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::IOUtils;
 use std::collections::HashSet;
@@ -70,7 +73,7 @@ where
     lock_factory: D,
     sub_fs_directory: T,
 }
-impl<D, T> FSDirectory< D, T>
+impl<D, T> FSDirectory<D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
@@ -213,7 +216,7 @@ where
             }
         }
     }
-    fn ensure_can_read(&self, name:&str) -> Result<(), DataIOError>{
+    fn ensure_can_read(&self, name: &str) -> Result<(), DataIOError> {
         let pending_deletes = self.pending_deletes.lock().unwrap();
         if pending_deletes.contains(name) {
             return Err(DataIOError::not_found(format!(
@@ -224,7 +227,7 @@ where
         Ok(())
     }
 }
-impl<T> FSDirectory< NativeFSLockFactory, T>
+impl<T> FSDirectory<NativeFSLockFactory, T>
 where
     T: FSDirectoryBase,
 {
@@ -236,16 +239,15 @@ where
     }
 }
 
-impl<D, T> Directory for FSDirectory< D, T>
+impl<D, T> Directory for FSDirectory<D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
 {
-    fn list_all(&self) -> Vec<String> {
+    fn list_all(&self) -> Result<Vec<String>, DataIOError> {
         let pending_deletes = self.pending_deletes.lock().unwrap();
-        Self::list_all(&self.directory, Some(&pending_deletes)).unwrap()
+        Self::list_all(&self.directory, Some(&pending_deletes))
     }
-
 
     fn delete_file(&mut self, name: &str) -> Result<(), DataIOError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
@@ -277,7 +279,8 @@ where
 
         let file_path = self.directory.join(name);
         let file_name = file_path.to_string_lossy().to_string();
-        let metadata = fs::metadata(file_path).map_err(|e| DataIOError::io_with_path(file_name, e))?;
+        let metadata =
+            fs::metadata(file_path).map_err(|e| DataIOError::io_with_path(file_name, e))?;
         Ok(metadata.len())
     }
     #[allow(refining_impl_trait)]
@@ -351,13 +354,14 @@ where
                     continue;
                 }
                 Err(e) => {
-                    return Err(DataIOError::io_with_path(file_path.to_string_lossy().to_string(), e));
+                    return Err(DataIOError::io_with_path(
+                        file_path.to_string_lossy().to_string(),
+                        e,
+                    ));
                 }
             }
         }
     }
-    
-    
 
     fn sync(&mut self, names: &[&str]) -> Result<(), DataIOError> {
         for &name in names {
@@ -392,7 +396,7 @@ where
         }
         Self::maybe_delete_pending_files(
             &self.directory,
-            &mut self.pending_deletes.lock().unwrap(),
+            &mut pending_deletes,
             &mut self.ops_since_last_delete,
         )?;
 
@@ -410,10 +414,11 @@ where
     }
 
     fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError> {
-       self.ensure_can_read(name)?;
+        self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)
     }
+
     #[allow(refining_impl_trait)]
     fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError> {
         self.lock_factory.obtain_lock(&self.directory, name)
@@ -430,12 +435,12 @@ where
     }
 }
 
-impl<D, T> Display for FSDirectory< D, T>
+impl<D, T> Display for FSDirectory<D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
 {
-    fn fmt(&self, f: &mut Formatter<>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
             "{}@{} lockFactory={}",
@@ -446,7 +451,7 @@ where
     }
 }
 
-impl<D, T> BaseDirectory for FSDirectory< D, T>
+impl<D, T> BaseDirectory for FSDirectory<D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
@@ -455,7 +460,7 @@ where
         Directory::obtain_lock(self, name)
     }
 }
-impl<D, T> Drop for FSDirectory< D, T>
+impl<D, T> Drop for FSDirectory<D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,

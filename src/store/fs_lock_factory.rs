@@ -38,7 +38,11 @@ pub trait FSLockFactory: LockFactory {
     ///
     /// # Note
     /// Implement this method to define how the lock should be acquired.
-    fn obtain_fs_lock(&self, directory: &PathBuf, lock_name: &str) -> Result<FSLockEnum, DataIOError>;
+    fn obtain_fs_lock(
+        &self,
+        directory: &PathBuf,
+        lock_name: &str,
+    ) -> Result<FSLockEnum, DataIOError>;
 }
 pub(crate) fn get_default() -> impl FSLockFactory {
     NativeFSLockFactory::new()
