@@ -61,7 +61,7 @@ impl FSDirectoryBase for NIOFSDirectory {
         let file = match File::open(path) {
             Ok(file) => file,
             Err(err) => {
-                return Err(DataIOError::io_with_path(name,err));
+                return Err(DataIOError::io_with_path(path.to_string_lossy().to_string(),err));
             }
         };
         let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());
