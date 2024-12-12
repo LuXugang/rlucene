@@ -143,7 +143,6 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             let buffer_end = buffer_start + to_read;
             let buffer_slice = &mut buffer.get_mut()[buffer_start..buffer_end];
 
-            // Perform the read
             let bytes_read = self.file.read(buffer_slice).map_err(DataIOError::io)?;
 
             if bytes_read == 0 {

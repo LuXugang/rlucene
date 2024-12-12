@@ -17,6 +17,5 @@
 pub mod codecs;
 pub mod common;
 pub mod index;
-pub mod lucene_test_case;
 pub mod store;
 pub mod util;

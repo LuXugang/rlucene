@@ -14,23 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::test_error::TestError;
-use rlucene::store::directory::Directory;
-use std::path::Path;
+use std::path::PathBuf;
 use tempfile::TempDir;
+use rlucene::store::directory::Directory;
+use rlucene::store::fs_directory::FSDirectory;
+use rlucene::store::nio_fs_directory::NIOFSDirectory;
+use crate::common::my_random;
+use crate::store::base_directory_test_case::BaseDirectoryTestCase;
+use crate::util::test_error::TestError;
 
-trait BaseDirectoryTestCase {
-    fn get_directory(&self, path: &Path) -> impl Directory;
+#[allow(dead_code)] // for quick search
+struct TestNIOFSDirectory;
 
-    fn test_copy_from(&self) -> Result<(), TestError> {
-        let temp_dir = TempDir::new()?;
-        let source = self.get_directory(temp_dir.path());
-        Ok(())
+impl BaseDirectoryTestCase for TestNIOFSDirectory{
+    fn get_directory(&self, path: PathBuf) ->Result<impl Directory,TestError> {
+        let sub_directory = NIOFSDirectory::new();
+        Ok(FSDirectory::new(path, sub_directory)?)
     }
-    fn run_copy_from(&self, source: &mut impl Directory, dest: &mut impl Directory) -> Result<(), TestError> {
-        // let output = source.create_output("foobar", )
-        Ok(())
-    }
+}
 
+#[test]
+fn test_copy_from() -> Result<(), TestError> {
+    let mut random = my_random("test_copy_from".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_copy_from(&mut random)
 }
 

@@ -61,7 +61,7 @@ impl IOContext {
             ));
         }
         if (matches!(context, Context::Flush) || matches!(context, Context::Merge))
-            && matches!(read_advice, ReadAdvice::Sequential)
+            && !matches!(read_advice, ReadAdvice::Sequential)
         {
             return Err(RuntimeError::illegal_argument(
                 "The FLUSH and MERGE contexts must use the SEQUENTIAL read access advice"

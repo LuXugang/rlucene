@@ -171,7 +171,7 @@ where
         pending_deletes: &mut HashSet<String>,
     ) -> Result<(), DataIOError> {
         let file_path = directory.join(name);
-
+        let file_name = file_path.to_string_lossy().to_string();
         match fs::remove_file(file_path) {
             Ok(_) => {
                 pending_deletes.remove(name);
@@ -190,7 +190,7 @@ where
                     // delete it again, with NSFE/FNFE
                     Ok(())
                 } else {
-                    Err(DataIOError::io(e))
+                    Err(DataIOError::io_with_path(file_name, e))
                 }
             }
             Err(e) => {
@@ -208,10 +208,20 @@ where
                     pending_deletes.insert(name.to_string());
                     Ok(())
                 } else {
-                    Err(DataIOError::io(e))
+                    Err(DataIOError::io_with_path(file_name, e))
                 }
             }
         }
+    }
+    fn ensure_can_read(&self, name:&str) -> Result<(), DataIOError>{
+        let pending_deletes = self.pending_deletes.lock().unwrap();
+        if pending_deletes.contains(name) {
+            return Err(DataIOError::not_found(format!(
+                "file \"{}\" is pending delete and cannot be opened for read",
+                name
+            )));
+        }
+        Ok(())
     }
 }
 impl<T> FSDirectory< NativeFSLockFactory, T>
@@ -235,6 +245,7 @@ where
         let pending_deletes = self.pending_deletes.lock().unwrap();
         Self::list_all(&self.directory, Some(&pending_deletes)).unwrap()
     }
+
 
     fn delete_file(&mut self, name: &str) -> Result<(), DataIOError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
@@ -265,7 +276,8 @@ where
         }
 
         let file_path = self.directory.join(name);
-        let metadata = fs::metadata(file_path).map_err(DataIOError::io)?;
+        let file_name = file_path.to_string_lossy().to_string();
+        let metadata = fs::metadata(file_path).map_err(|e| DataIOError::io_with_path(file_name, e))?;
         Ok(metadata.len())
     }
     #[allow(refining_impl_trait)]
@@ -339,11 +351,13 @@ where
                     continue;
                 }
                 Err(e) => {
-                    return Err(DataIOError::io(e));
+                    return Err(DataIOError::io_with_path(file_path.to_string_lossy().to_string(), e));
                 }
             }
         }
     }
+    
+    
 
     fn sync(&mut self, names: &[&str]) -> Result<(), DataIOError> {
         for &name in names {
@@ -396,6 +410,7 @@ where
     }
 
     fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError> {
+       self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)
     }

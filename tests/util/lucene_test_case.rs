@@ -22,25 +22,25 @@ use rlucene::store::fs_directory_base::FSDirectoryBase;
 use rlucene::store::lock_factory::LockFactory;
 use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
-use rlucene::store::{IOContext, NativeFSLock, NativeFSLockFactory};
+use rlucene::store::{IOContext, NativeFSLockFactory};
 use tempfile::TempDir;
+use rlucene::store::directory::Directory;
 use crate::util::test_error::TestError;
 
 pub struct LuceneTestCase;
 
 // TODO: When we have implemented multiple directories, we need to select one randomly. Currently, we choose NIOFSDirectory.
-pub fn new_directory<'a, T, D>() -> Result<FSDirectory<'a, NativeFSLockFactory, NIOFSDirectory>, TestError>
-where
-    T: LockFactory,
-    D: FSDirectoryBase,
-{
+pub fn new_directory(_random: &mut StdRng) -> Result<impl Directory, TestError> {
     let temp_dir = TempDir::new()?;
-    let path = temp_dir.path().clone();
     let sub_directory = NIOFSDirectory::new();
-    Ok(FSDirectory::new(&path, sub_directory)?)
+    Ok(FSDirectory::new(temp_dir.into_path(), sub_directory)?)
 }
 
-pub fn new_io_context(
+pub fn new_io_context(random: &mut StdRng) -> Result<IOContext, TestError> {
+    new_io_context_with_default(random, &IOContext::default_io_context()?)
+}
+
+pub fn new_io_context_with_default(
     random: &mut StdRng,
     old_context: &IOContext,
 ) -> Result<IOContext, TestError> {
@@ -85,5 +85,12 @@ pub fn new_io_context(
             ))?),
             _ => Ok(IOContext::default_io_context()?),
         }
+    }
+}
+pub fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestError >{
+    let result = dir.open_input(name, IOContext::default_io_context()?);
+    match result {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
     }
 }

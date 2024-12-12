@@ -73,3 +73,4 @@ pub use io_context::*;
 pub use native_fs_lock_factory::*;
 pub use output_stream_index_output::*;
 pub use read_advice::*;
+pub use data_output::*;

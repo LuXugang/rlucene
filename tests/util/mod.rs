@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 mod base_bit_set_test_case;
-mod base_directory_test_case;
 mod base_doc_id_set_test_case;
 mod base_sort_test_case;
 mod id_set_common;
@@ -35,3 +34,4 @@ mod test_roaring_doc_id_set;
 mod test_sparse_fixed_bit_set;
 mod test_tim_sorter;
 mod test_version;
+pub(crate) mod lucene_test_case;

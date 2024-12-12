@@ -203,7 +203,6 @@ pub trait DataOutput: Sized {
         input: &mut T,
         num_bytes: u64,
     ) -> Result<(), DataIOError> {
-        debug_assert!(num_bytes >= 0, "num_bytes = {}", num_bytes);
         let mut buffer = vec![0u8; COPY_BUFFER_SIZE as usize];
         let mut left = num_bytes;
         while left > 0 {
