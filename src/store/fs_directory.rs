@@ -17,7 +17,6 @@
 use crate::store::base_directory::BaseDirectory;
 use crate::store::directory::{get_temp_file_name, Directory};
 use crate::store::fs_directory_base::FSDirectoryBase;
-use crate::store::index_input::IndexInput;
 use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
 use crate::store::{
@@ -29,7 +28,7 @@ use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex};
@@ -58,10 +57,11 @@ use std::{fs, io};
 ///
 /// # See Also
 /// [`Directory`](Directory)
-pub struct FSDirectory<D, T>
+pub struct FSDirectory<D, T, B>
 where
     D: LockFactory,
-    T: FSDirectoryBase,
+    B: BufferedIndexInputBase,
+    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     directory: PathBuf,
     /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
@@ -73,16 +73,17 @@ where
     lock_factory: D,
     sub_fs_directory: T,
 }
-impl<D, T> FSDirectory<D, T>
+impl<D, T, B> FSDirectory<D, T, B>
 where
     D: LockFactory,
-    T: FSDirectoryBase,
+    B: BufferedIndexInputBase,
+    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     pub fn new_with_lock_factory(
         directory: PathBuf,
         lock_factory: D,
         sub_fs_directory: T,
-    ) -> Result<FSDirectory<D, T>, DataIOError> {
+    ) -> Result<FSDirectory<D, T, B>, DataIOError> {
         if !directory.is_dir() {
             fs::create_dir(&directory)?;
         }
@@ -227,22 +228,24 @@ where
         Ok(())
     }
 }
-impl<T> FSDirectory<NativeFSLockFactory, T>
+impl<T, B> FSDirectory<NativeFSLockFactory, T, B>
 where
-    T: FSDirectoryBase,
+    B: BufferedIndexInputBase,
+    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     pub fn new(
         directory: PathBuf,
         sub_fs_directory: T,
-    ) -> Result<FSDirectory<NativeFSLockFactory, T>, DataIOError> {
+    ) -> Result<FSDirectory<NativeFSLockFactory, T, B>, DataIOError> {
         Self::new_with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
     }
 }
 
-impl<D, T> Directory for FSDirectory<D, T>
+impl<D, T, B> Directory for FSDirectory<D, T, B>
 where
     D: LockFactory,
-    T: FSDirectoryBase,
+    B: BufferedIndexInputBase,
+    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     fn list_all(&self) -> Result<Vec<String>, DataIOError> {
         let pending_deletes = self.pending_deletes.lock().unwrap();
@@ -413,7 +416,8 @@ where
         Ok(())
     }
 
-    fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError> {
+    type Output = BufferedIndexInput<B>;
+    fn open_input(&self, name: &str, context: IOContext) -> Result<Self::Output, DataIOError> {
         self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)
@@ -435,10 +439,11 @@ where
     }
 }
 
-impl<D, T> Display for FSDirectory<D, T>
+impl<D, T, B> Display for FSDirectory<D, T, B>
 where
     D: LockFactory,
-    T: FSDirectoryBase,
+    B: BufferedIndexInputBase,
+    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
@@ -451,19 +456,21 @@ where
     }
 }
 
-impl<D, T> BaseDirectory for FSDirectory<D, T>
+impl<D, T, B> BaseDirectory for FSDirectory<D, T, B>
 where
     D: LockFactory,
-    T: FSDirectoryBase,
+    B: BufferedIndexInputBase,
+    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError> {
         Directory::obtain_lock(self, name)
     }
 }
-impl<D, T> Drop for FSDirectory<D, T>
+impl<D, T, B> Drop for FSDirectory<D, T, B>
 where
     D: LockFactory,
-    T: FSDirectoryBase,
+    B: BufferedIndexInputBase,
+    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     fn drop(&mut self) {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();

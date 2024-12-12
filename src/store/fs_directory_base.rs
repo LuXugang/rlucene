@@ -15,16 +15,18 @@
  * limitations under the License.
  */
 use crate::store::index_input::IndexInput;
+use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IOContext;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::Display;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub trait FSDirectoryBase: Display {
+    type Output: IndexInput + RandomAccessInput;
     fn open_input(
         &self,
         name: &str,
         context: IOContext,
         path: &PathBuf,
-    ) -> Result<impl IndexInput, DataIOError>;
+    ) -> Result<Self::Output, DataIOError>;
 }

@@ -24,7 +24,7 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, Metadata, OpenOptions};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
 

@@ -18,13 +18,10 @@ use crate::util::lucene_test_case::{new_directory, new_io_context, slow_file_exi
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::Rng;
-use rlucene::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use rlucene::store::check_sum_index_input::ChecksumIndexInput;
 use rlucene::store::directory::Directory;
-use rlucene::store::fs_directory::FSDirectory;
-use rlucene::store::nio_fs_index_input::NIOFSIndexInput;
+use rlucene::store::DataInput;
 use rlucene::store::IndexInput;
-use rlucene::store::{BufferedIndexInput, DataInput};
 use rlucene::store::{DataOutput, IOContext};
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use std::collections::{HashMap, HashSet};
@@ -73,7 +70,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     fn test_rename(&self, random: &mut StdRng) -> Result<(), TestError> {
-        let mut temp_dir = Builder::new().prefix("testRename").tempdir()?;
+        let temp_dir = Builder::new().prefix("testRename").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let num_bytes = random.gen_range(0..20000);
         let mut bytes = vec![0u8; num_bytes];
@@ -680,7 +677,6 @@ pub trait BaseDirectoryTestCase {
             // let mut input = dir.open_checksum_input("checksum")?;
             // IndexInput::skip_bytes(&mut input,num_bytes as u64)?;
             // let actual_checksum = input.get_checksum();
-            //
             // assert_eq!(expected_checksum as u64, actual_checksum);
         }
 

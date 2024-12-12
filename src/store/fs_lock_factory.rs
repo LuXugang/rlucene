@@ -18,7 +18,7 @@ use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
 use crate::store::NativeFSLockFactory;
 use crate::util::error::data_io_error_enum::DataIOError;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Base class for file system based locking implementation. This class is explicitly checking that
 /// the passed [`Directory`](crate::store::directory::Directory) is an [`FSDirectory`](crate::store::fs_directory::FSDirectory).

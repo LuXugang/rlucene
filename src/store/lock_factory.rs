@@ -17,7 +17,7 @@
 use crate::store::lock::FSLockEnum;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::Display;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Base trait for locking implementations. `Directory` uses instances of this trait to implement locking.
 ///

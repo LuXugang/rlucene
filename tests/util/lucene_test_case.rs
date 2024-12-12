@@ -21,10 +21,9 @@ use rlucene::store::directory::Directory;
 use rlucene::store::flush_info::FlushInfo;
 use rlucene::store::fs_directory::FSDirectory;
 use rlucene::store::fs_directory_base::FSDirectoryBase;
-use rlucene::store::lock_factory::LockFactory;
 use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
-use rlucene::store::{IOContext, NativeFSLockFactory};
+use rlucene::store::IOContext;
 use tempfile::TempDir;
 
 pub struct LuceneTestCase;
@@ -56,14 +55,14 @@ pub fn new_io_context_with_default(
 
     if let Some(flush_info) = &old_context.flush_info {
         // Always return at least the estimatedSegmentSize of the incoming IOContext
-        return Ok(IOContext::new_with_flush(FlushInfo::new(
+        Ok(IOContext::new_with_flush(FlushInfo::new(
             random_num_docs,
             size.max(flush_info.estimated_segment_size),
-        ))?);
+        ))?)
     } else if let Some(merge_info) = &old_context.merge_info {
         // Always return at least the estimatedMergeBytes of the incoming IOContext
         return Ok(IOContext::new_with_merge(MergeInfo::new(
-            random_num_docs as u32,
+            random_num_docs,
             size.max(merge_info.estimated_merge_bytes),
             random.gen_bool(0.5), // Randomly decide if it's an external merge
             random.gen_range(1..=100),
@@ -74,7 +73,7 @@ pub fn new_io_context_with_default(
         match context_type {
             0 => Ok(IOContext::default_io_context()?),
             1 => Ok(IOContext::new_with_merge(MergeInfo::new(
-                random_num_docs as u32,
+                random_num_docs,
                 size,
                 true,
                 -1,

@@ -19,6 +19,7 @@ use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::store::data_output::DataOutput;
 use crate::store::index_input::IndexInput;
 use crate::store::lock::Lock;
+use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexOutput};
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::collections::HashSet;
@@ -141,7 +142,8 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file.
-    fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError>;
+    type Output: IndexInput + RandomAccessInput;
+    fn open_input(&self, name: &str, context: IOContext) -> Result<Self::Output, DataIOError>;
 
     /// Opens a checksum-computing stream for reading an existing file.
     ///
@@ -153,10 +155,10 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file.
-    fn open_checksum_input<T: IndexInput>(
+    fn open_checksum_input(
         &self,
         name: &str,
-    ) -> Result<BufferedChecksumIndexInput<impl IndexInput + Sized>, DataIOError> {
+    ) -> Result<BufferedChecksumIndexInput<Self::Output>, DataIOError> {
         Ok(BufferedChecksumIndexInput::new(
             self.open_input(name, IOContext::read_once_io_context()?)?,
         ))
@@ -192,7 +194,7 @@ pub trait Directory: Display + Sized {
         let result = (|| -> Result<(), DataIOError> {
             let mut is = from.open_input(src, IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context)?;
-            let length = is.length();
+            let length = IndexInput::length(&is);
             os.copy_bytes(&mut is, length)?;
             success = true;
             Ok(())

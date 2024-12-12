@@ -20,7 +20,7 @@ use crate::store::{BufferedIndexInput, IOContext};
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// An implementation of [`FSDirectory`](crate::store::fs_directory::FSDirectory)that uses `std::fs::File` for positional reads,
 /// allowing multiple threads to read from the same file without synchronization.
@@ -52,12 +52,13 @@ impl Display for NIOFSDirectory {
 
 /// this method should only be called in [`FSDirectory::open_input`], which will first check whether file could be read
 impl FSDirectoryBase for NIOFSDirectory {
+    type Output = BufferedIndexInput<NIOFSIndexInput>;
     fn open_input(
         &self,
         name: &str,
         context: IOContext,
         path: &PathBuf,
-    ) -> Result<BufferedIndexInput<NIOFSIndexInput>, DataIOError> {
+    ) -> Result<Self::Output, DataIOError> {
         let file_path = path.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         let file = match File::open(file_path) {
