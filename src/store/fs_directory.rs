@@ -26,7 +26,7 @@ use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex};
@@ -55,12 +55,12 @@ use std::{fs, io};
 ///
 /// # See Also
 /// [`Directory`](Directory)
-pub struct FSDirectory<'a, D, T>
+pub struct FSDirectory<D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
 {
-    directory: &'a Path,
+    directory: PathBuf,
     /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
     /// delete that key.
     pending_deletes: Arc<Mutex<HashSet<String>>>, // 用 Mutex 保护
@@ -70,18 +70,18 @@ where
     lock_factory: D,
     sub_fs_directory: T,
 }
-impl<D, T> FSDirectory<'_, D, T>
+impl<D, T> FSDirectory< D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
 {
     pub fn new_with_lock_factory(
-        directory: &Path,
+        directory: PathBuf,
         lock_factory: D,
         sub_fs_directory: T,
     ) -> Result<FSDirectory<D, T>, DataIOError> {
         if !directory.is_dir() {
-            fs::create_dir(directory)?;
+            fs::create_dir(&directory)?;
         }
         Ok(FSDirectory {
             directory,
@@ -94,7 +94,7 @@ where
     }
 
     fn list_all(
-        dir: &Path,
+        dir: &PathBuf,
         skip_names: Option<&HashSet<String>>,
     ) -> Result<Vec<String>, DataIOError> {
         let mut entries = Vec::new();
@@ -116,7 +116,7 @@ where
         Ok(entries)
     }
     pub fn maybe_delete_pending_files(
-        directory: &Path,
+        directory: &PathBuf,
         pending_deletes: &mut HashSet<String>,
         ops_since_last_delete: &mut AtomicU32,
     ) -> Result<(), DataIOError> {
@@ -147,7 +147,7 @@ where
     /// Try to delete any pending files that we had previously tried to delete but failed because we
     /// are on Windows and the files were still held open.
     pub fn delete_pending_files(
-        directory: &Path,
+        directory: &PathBuf,
         pending_deletes: &mut HashSet<String>,
     ) -> Result<(), DataIOError> {
         if !pending_deletes.is_empty() {
@@ -165,7 +165,7 @@ where
     }
 
     fn private_delete_file(
-        directory: &Path,
+        directory: &PathBuf,
         name: &str,
         is_pending_delete: bool,
         pending_deletes: &mut HashSet<String>,
@@ -214,26 +214,26 @@ where
         }
     }
 }
-impl<'a, T> FSDirectory<'_, NativeFSLockFactory, T>
+impl<T> FSDirectory< NativeFSLockFactory, T>
 where
     T: FSDirectoryBase,
 {
     pub fn new(
-        directory: &'a Path,
+        directory: PathBuf,
         sub_fs_directory: T,
     ) -> Result<FSDirectory<NativeFSLockFactory, T>, DataIOError> {
         Self::new_with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
     }
 }
 
-impl<D, T> Directory for FSDirectory<'_, D, T>
+impl<D, T> Directory for FSDirectory< D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
 {
     fn list_all(&self) -> Vec<String> {
         let pending_deletes = self.pending_deletes.lock().unwrap();
-        Self::list_all(self.directory, Some(&pending_deletes)).unwrap()
+        Self::list_all(&self.directory, Some(&pending_deletes)).unwrap()
     }
 
     fn delete_file(&mut self, name: &str) -> Result<(), DataIOError> {
@@ -245,10 +245,10 @@ where
             )));
         }
 
-        Self::private_delete_file(self.directory, name, false, &mut pending_deletes)?;
+        Self::private_delete_file(&self.directory, name, false, &mut pending_deletes)?;
 
         Self::maybe_delete_pending_files(
-            self.directory,
+            &self.directory,
             &mut pending_deletes,
             &mut self.ops_since_last_delete,
         )?;
@@ -276,13 +276,13 @@ where
     ) -> Result<OutputStreamIndexOutput<File>, DataIOError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         Self::maybe_delete_pending_files(
-            self.directory,
+            &self.directory,
             &mut pending_deletes,
             &mut self.ops_since_last_delete,
         )?;
 
         if pending_deletes.remove(name) {
-            Self::private_delete_file(self.directory, name, true, &mut pending_deletes)?;
+            Self::private_delete_file(&self.directory, name, true, &mut pending_deletes)?;
             pending_deletes.remove(name);
         }
 
@@ -308,7 +308,7 @@ where
     ) -> Result<OutputStreamIndexOutput<File>, DataIOError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         Self::maybe_delete_pending_files(
-            self.directory,
+            &self.directory,
             &mut pending_deletes,
             &mut self.ops_since_last_delete,
         )?;
@@ -350,7 +350,7 @@ where
             self.fsync(name)?;
         }
         Self::maybe_delete_pending_files(
-            self.directory,
+            &self.directory,
             &mut self.pending_deletes.lock().unwrap(),
             &mut self.ops_since_last_delete,
         )?;
@@ -359,9 +359,9 @@ where
 
     fn sync_metadata(&mut self) -> Result<(), DataIOError> {
         // TODO: to improve listCommits(), IndexFileDeleter could call this after deleting segments_Ns
-        IOUtils::fsync(self.directory, true)?;
+        IOUtils::fsync(&self.directory, true)?;
         Self::maybe_delete_pending_files(
-            self.directory,
+            &self.directory,
             &mut self.pending_deletes.lock().unwrap(),
             &mut self.ops_since_last_delete,
         )?;
@@ -377,13 +377,13 @@ where
             )));
         }
         Self::maybe_delete_pending_files(
-            self.directory,
+            &self.directory,
             &mut self.pending_deletes.lock().unwrap(),
             &mut self.ops_since_last_delete,
         )?;
 
         if pending_deletes.remove(dest) {
-            Self::private_delete_file(self.directory, dest, true, &mut pending_deletes)?; // try again to delete it - this is the best effort
+            Self::private_delete_file(&self.directory, dest, true, &mut pending_deletes)?; // try again to delete it - this is the best effort
             pending_deletes.remove(dest); // watch out if the delete fails, it's back in here
         }
 
@@ -397,16 +397,16 @@ where
 
     fn open_input(&self, name: &str, context: IOContext) -> Result<impl IndexInput, DataIOError> {
         self.sub_fs_directory
-            .open_input(name, context, self.directory)
+            .open_input(name, context, &self.directory)
     }
     #[allow(refining_impl_trait)]
     fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError> {
-        self.lock_factory.obtain_lock(self.directory, name)
+        self.lock_factory.obtain_lock(&self.directory, name)
     }
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>, DataIOError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
-        Self::delete_pending_files(self.directory, &mut pending_deletes)?;
+        Self::delete_pending_files(&self.directory, &mut pending_deletes)?;
         if pending_deletes.is_empty() {
             Ok(HashSet::new())
         } else {
@@ -415,12 +415,12 @@ where
     }
 }
 
-impl<D, T> Display for FSDirectory<'_, D, T>
+impl<D, T> Display for FSDirectory< D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<>) -> std::fmt::Result {
         write!(
             f,
             "{}@{} lockFactory={}",
@@ -431,7 +431,7 @@ where
     }
 }
 
-impl<D, T> BaseDirectory for FSDirectory<'_, D, T>
+impl<D, T> BaseDirectory for FSDirectory< D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
@@ -440,7 +440,7 @@ where
         Directory::obtain_lock(self, name)
     }
 }
-impl<D, T> Drop for FSDirectory<'_, D, T>
+impl<D, T> Drop for FSDirectory< D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
@@ -448,7 +448,7 @@ where
     fn drop(&mut self) {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         if let Err(e) = Self::maybe_delete_pending_files(
-            self.directory,
+            &self.directory,
             &mut pending_deletes,
             &mut self.ops_since_last_delete,
         ) {

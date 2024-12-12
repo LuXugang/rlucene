@@ -18,7 +18,7 @@
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fs::File;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct IOUtils;
 impl IOUtils {
@@ -29,7 +29,7 @@ impl IOUtils {
     /// * `file_to_sync` - The path to the file or directory to sync.
     /// * `is_dir` - If `true`, the given path is a directory. On platforms where directory syncing
     ///   is unsupported (like Windows), this will be ignored for directories.
-    pub fn fsync(file_to_sync: &Path, is_dir: bool) -> Result<(), DataIOError> {
+    pub fn fsync(file_to_sync: &PathBuf, is_dir: bool) -> Result<(), DataIOError> {
         if is_dir {
             if cfg!(windows) {
                 if !file_to_sync.exists() {

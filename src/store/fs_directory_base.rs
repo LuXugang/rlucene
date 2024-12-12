@@ -18,13 +18,13 @@ use crate::store::index_input::IndexInput;
 use crate::store::IOContext;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::Display;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub trait FSDirectoryBase: Display {
     fn open_input(
         &self,
         name: &str,
         context: IOContext,
-        path: &Path,
+        path: &PathBuf,
     ) -> Result<impl IndexInput, DataIOError>;
 }
