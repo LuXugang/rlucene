@@ -27,4 +27,10 @@ trait BaseDirectoryTestCase {
         let source = self.get_directory(temp_dir.path());
         Ok(())
     }
+    fn run_copy_from(&self, source: &mut impl Directory, dest: &mut impl Directory) -> Result<(), TestError> {
+        // let output = source.create_output("foobar", )
+        Ok(())
+    }
+
 }
+

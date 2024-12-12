@@ -14,8 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FlushInfo {
-    num_docs: i32,
-    estimated_segment_size: i64,
+    num_docs: u32,
+    pub estimated_segment_size: u64,
+}
+
+impl FlushInfo {
+    pub fn new(num_docs: u32, estimated_segment_size: u64) -> FlushInfo {
+        Self {
+            num_docs,
+            estimated_segment_size,
+        }
+    }
 }

@@ -16,7 +16,7 @@
  */
 use std::env;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReadAdvice {
     ///  Normal behavior. Data is expected to be read mostly sequentially. The system is expected to
     /// cache the hottest pages.

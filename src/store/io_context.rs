@@ -28,23 +28,14 @@ use crate::util::error::runtime_error::RuntimeError;
 /// * `merge_info` - Must be provided when `context == MERGE`.
 /// * `flush_info` - Must be provided when `context == FLUSH`.
 /// * `read_advice` - Advice regarding the read access pattern.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IOContext {
     pub(crate) context: Context,
     read_advice: ReadAdvice,
-    merge_info: Option<MergeInfo>,
-    flush_info: Option<FlushInfo>,
+    pub merge_info: Option<MergeInfo>,
+    pub flush_info: Option<FlushInfo>,
 }
 
-#[derive(Clone)]
-pub enum Context {
-    /// Context for reads and writes that are associated with a merge. */
-    Merge,
-    /// Context for writes that are associated with a segment flush. */
-    Flush,
-    /// Default context, can be used for reading or writing. */
-    Default,
-}
 
 impl IOContext {
     pub fn new(
@@ -93,7 +84,7 @@ impl IOContext {
     }
 
     /** Creates an `IOContext` for flushing. */
-    fn new_with_flush(flush_info: FlushInfo) -> Result<IOContext, RuntimeError> {
+    pub fn new_with_flush(flush_info: FlushInfo) -> Result<IOContext, RuntimeError> {
         Self::new(
             Some(Context::Flush),
             Some(ReadAdvice::Sequential),
@@ -102,7 +93,7 @@ impl IOContext {
         )
     }
     /** Creates an `IOContext` for merging. */
-    fn new_with_merge(merge_info: MergeInfo) -> Result<IOContext, RuntimeError> {
+    pub fn new_with_merge(merge_info: MergeInfo) -> Result<IOContext, RuntimeError> {
         Self::new(
             Some(Context::Merge),
             Some(ReadAdvice::Sequential),
@@ -136,4 +127,14 @@ impl IOContext {
     pub fn read_once_io_context() -> Result<IOContext, RuntimeError> {
         Self::new_with_read_advice(ReadAdvice::Sequential)
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Context {
+    /// Context for reads and writes that are associated with a merge. */
+    Merge,
+    /// Context for writes that are associated with a segment flush. */
+    Flush,
+    /// Default context, can be used for reading or writing. */
+    Default,
 }

@@ -22,11 +22,11 @@ use chrono::{DateTime, Utc};
 use fs2::FileExt;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+use std::fs;
 use std::fs::{File, Metadata, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
-use std::{fs};
 
 /// Implements [`lock_factory`](crate::store::lock_factory) using native OS file locks.
 ///
