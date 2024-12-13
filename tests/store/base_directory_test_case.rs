@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use rlucene::store::IndexOutput;
 use crate::util::lucene_test_case::{new_directory, new_io_context, slow_file_exists};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
@@ -791,5 +792,118 @@ pub trait BaseDirectoryTestCase {
         ));
 
         Ok(())
+    }
+    fn test_slice_out_of_bounds(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testSliceOutOfBounds")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let len = random.gen_range(8..2048);
+        let buffer = vec![0u8; len];
+        {
+            let mut output = dir.create_output("out", IOContext::default_io_context()?)?;
+            output.write_bytes_range(&buffer, 0, len as u32)?;
+        }
+
+        let input = dir.open_input("out", IOContext::default_io_context()?)?;
+
+        assert!(matches!(
+        input.slice("slice1", 0, len as u64 + 1),
+        Err(DataIOError::IllegalArgument(_))
+    ));
+
+       
+        let slice = input.slice("slice3", 4, (len / 2) as u64)?;
+
+        // Attempting to create a nested slice that goes out of bounds
+        assert!(matches!(
+        slice.slice("slice3sub", 1, (len / 2) as u64),
+        Err(DataIOError::IllegalArgument(_))
+    ));
+
+        Ok(())
+    }
+    fn test_no_dir(&self) -> Result<(), TestError> {
+        unimplemented!("DirectoryReader not Implemented")
+    }
+    fn test_copy_bytes(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testCopyBytes")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+
+        let bytes_len = random.gen_range(1..=77777);
+        let mut bytes = vec![0u8; bytes_len];
+
+        let size = random.gen_range(1..=1777777);
+        let mut upto = 0;
+        let mut byte_upto = 0;
+        {
+            let mut output = dir.create_output("test", new_io_context(random)?)?;
+
+            while upto < size {
+                bytes[byte_upto] = Self::value(upto);
+                byte_upto += 1;
+                upto += 1;
+
+                if byte_upto == bytes.len() {
+                    output.write_bytes_range(&bytes, 0, bytes.len() as u32)?;
+                    byte_upto = 0;
+                }
+            }
+
+            output.write_bytes_range(&bytes, 0, byte_upto as u32)?;
+            assert_eq!(size as u64, output.get_file_pointer());
+        }
+        assert_eq!(size as u64, dir.file_length("test")?);
+
+
+        {
+            let mut input = dir.open_input("test", new_io_context(random)?)?;
+            let mut output = dir.create_output("test2", new_io_context(random)?)?;
+
+            upto = 0;
+            while upto < size {
+                // if random.gen_bool(0.5) {
+                    output.write_byte(input.read_byte()?)?;
+                    upto += 1;
+                // } else {
+                //     let chunk = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
+                //     output.copy_bytes(&mut input, chunk as u64)?;
+                //     upto += chunk;
+                // }
+            }
+            assert_eq!(size, upto); 
+        }
+
+        {
+            let mut input2 = dir.open_input("test2", new_io_context(random)?)?;
+            upto = 0;
+            while upto < size {
+                // if random.gen_bool(0.5) {
+                //     let v = input2.read_byte()?;
+                //     assert_eq!(Self::value(upto), v);
+                //     upto += 1;
+                // } else {
+                    let limit = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
+                    input2.read_bytes(&mut bytes, 0, limit as u32)?;
+                    for byte_idx in 0..limit {
+                        assert_eq!(Self::value(upto), bytes[byte_idx]);
+                        upto += 1;
+                    }
+                // }
+            } 
+        } 
+
+        dir.delete_file("test")?;
+        dir.delete_file("test2")?;
+
+        Ok(())
+    }
+
+    fn value(idx: usize) -> u8 {
+        ((idx % 256) * (1 + (idx / 256))) as u8
     }
 }

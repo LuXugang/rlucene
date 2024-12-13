@@ -547,7 +547,7 @@ impl BufferedIndexInputBase for MyBufferedIndexInput {
         _slice_description: &str,
         _offset: u64,
         _length: u64,
-    ) -> Result<MyBufferedIndexInput, DataIOError> {
+    ) -> Result<BufferedIndexInput<MyBufferedIndexInput>, DataIOError> {
         unreachable!("MyBufferedIndexInput does not support slicing")
     }
 

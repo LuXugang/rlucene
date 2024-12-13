@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::index_input::{get_full_slice_description, IndexInput};
-use crate::store::{BufferedIndexInputBase, BUFFER_SIZE};
+use crate::store::{BufferedIndexInput, BufferedIndexInputBase, BUFFER_SIZE};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
@@ -172,7 +172,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<NIOFSIndexInput, DataIOError> {
+    ) -> Result<impl IndexInput, DataIOError> {
         if offset + length > self.length() {
             return Err(DataIOError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",
@@ -185,7 +185,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         }
 
         let resource_desc = get_full_slice_description(slice_description);
-        let a = NIOFSIndexInput::new_with_range(
+        let sub_index_input = NIOFSIndexInput::new_with_range(
             // Clone the file handle to create a new `File` instance pointing to the same file resource.
             self.file.try_clone().map_err(DataIOError::io)?,
             self.off + offset,
@@ -193,7 +193,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             &resource_desc,
             self.buffer_size,
         );
-        Ok(a)
+        Ok(BufferedIndexInput::new_with_buffer_size(sub_index_input, &resource_desc,self.buffer_size))
     }
     fn length(&self) -> u64 {
         self.end - self.off

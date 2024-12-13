@@ -57,11 +57,11 @@ use std::{fs, io};
 ///
 /// # See Also
 /// [`Directory`](Directory)
-pub struct FSDirectory<D, T, B>
+pub struct FSDirectory<L, F, B>
 where
-    D: LockFactory,
+    L: LockFactory,
     B: BufferedIndexInputBase,
-    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
+    F: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     directory: PathBuf,
     /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
@@ -70,8 +70,8 @@ where
     ops_since_last_delete: AtomicU32,
     /** Used to generate temp file names in [`createTempOutput`](Directory::create_temp_output). */
     next_temp_file_counter: AtomicU64,
-    lock_factory: D,
-    sub_fs_directory: T,
+    lock_factory: L,
+    sub_fs_directory: F,
 }
 impl<D, T, B> FSDirectory<D, T, B>
 where

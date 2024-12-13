@@ -188,7 +188,7 @@ where
     ) -> Result<(), DataIOError> {
         // This closure is not expected to be called under any circumstances.
 
-        self.read_buffer(pos, len, output, 1, |_| unreachable!(), use_buffer)
+    self.read_buffer(pos, len, output, 1, |_| unreachable!(), use_buffer)
     }
     fn read_ints(
         &mut self,
@@ -508,7 +508,7 @@ where
     }
 
     fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {
-        self.read_bytes_with_buffer(b, offset, len, true)
+       self.read_bytes_with_buffer(b, offset, len, true)
     }
 
     fn read_bytes_with_buffer(
@@ -739,17 +739,18 @@ where
 
     fn slice(
         &self,
-        _slice_description: &str,
-        _offset: u64,
-        _length: u64,
-    ) -> Result<ByteBuffersIndexInput, DataIOError> {
-        unreachable!()
+        slice_description: &str,
+        offset: u64,
+        length: u64,
+    ) -> Result<impl IndexInput, DataIOError> {
+        self.sub_index_input.slice(slice_description, offset, length)
     }
 
     fn is_random_access(&self) -> bool {
         false
     }
 
+    #[allow(refining_impl_trait)]
     fn get_random_access_slice(
         &self,
         _offset: u64,
@@ -817,60 +818,6 @@ where
     }
 }
 
-// struct SlicedIndexInput {
-//     file_offset: u64,
-//     length: u64,
-// }
-//
-// impl DataInput for SlicedIndexInput {
-//     fn read_byte(&mut self) -> Result<u8, DataIOError> {
-//         todo!()
-//     }
-//
-//     fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {
-//         todo!()
-//     }
-//
-//     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
-//         todo!()
-//     }
-// }
-//
-// impl Display for SlicedIndexInput {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         todo!()
-//     }
-// }
-//
-// impl Clone for SlicedIndexInput
-// {
-//     fn clone(&self) -> Self {
-//         todo!()
-//     }
-// }
-//
-// impl IndexInput for SlicedIndexInput{
-//     fn get_file_pointer(&self) -> u64 {
-//         todo!()
-//     }
-//
-//     fn seek(&mut self, pos: u64) -> Result<(), DataIOError> {
-//         todo!()
-//     }
-//
-//     fn length(&self) -> u64 {
-//         todo!()
-//     }
-//
-//     fn slice(&self, slice_description: &str, offset: u64, length: u64) -> Result<impl IndexInput, DataIOError> {
-//         todo!()
-//     }
-//
-//     fn is_random_access(&self) -> bool {
-//         todo!()
-//     }
-//
-//     fn get_random_access_slice(&self, offset: u64, length: u64) -> Result<impl RandomAccessInput, DataIOError> {
-//         todo!()
-//     }
-// }
+struct SlicedIndexInput {
+
+}

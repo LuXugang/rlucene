@@ -16,6 +16,7 @@
  */
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::io::Cursor;
+use crate::store::IndexInput;
 
 pub trait BufferedIndexInputBase: Clone {
     /// Expert: Implements seek functionality. Sets the current position in this file,
@@ -42,7 +43,7 @@ pub trait BufferedIndexInputBase: Clone {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl BufferedIndexInputBase, DataIOError>;
+    ) -> Result<impl IndexInput, DataIOError>;
 
     /// The number of bytes in the file.
     fn length(&self) -> u64;

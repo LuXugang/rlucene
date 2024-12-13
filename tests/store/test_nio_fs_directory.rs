@@ -202,3 +202,22 @@ fn test_seek_past_eof() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_seek_past_eof(&mut random)
 }
+#[test]
+fn test_slice_out_of_bounds() -> Result<(), TestError> {
+    let mut random = my_random("test_slice_out_of_bounds".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_slice_out_of_bounds(&mut random)
+}
+#[test]
+fn test_no_dir() -> Result<(), TestError> {
+    //TODO
+    Ok(())
+}
+
+#[test]
+fn test_copy_bytes() -> Result<(), TestError> {
+    // let mut random = my_random("test_copy_bytes".to_string());
+    // let test = TestNIOFSDirectory;
+    // test.test_copy_bytes(&mut random)
+    Ok(())
+}
