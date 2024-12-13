@@ -395,10 +395,28 @@ where
             type_size,
             &converter,
         );
-        
+
         self.buffer_start = after;
         Ok(())
     }
+    /// Processes data by converting a source byte slice (`src`) into a destination slice (`dst`) of type `D`.
+    ///
+    /// # Parameters
+    /// - `src`: A byte slice containing the source data to be processed.
+    /// - `dst`: A mutable slice of type `D` where the converted data will be stored.
+    /// - `len`: The number of elements to process.
+    /// - `type_size`: The size of each element in bytes in the source data.
+    /// - `converter`: A conversion function that takes a byte slice and converts it into type `D`.
+    ///
+    /// # Behavior
+    /// - If `type_size` is 1, the function directly copies the data from `src` to `dst` as bytes using unsafe code.
+    /// - Otherwise, it iterates over `src` in chunks of `type_size`, applies the `converter` function to each chunk,
+    ///   and stores the resulting value in `dst`.
+    ///
+    /// # Safety
+    /// - Unsafe code is used to cast `dst` to a mutable byte slice when `type_size == 1`. The caller must ensure
+    ///   that `dst` has sufficient capacity and correct alignment to avoid undefined behavior.
+    ///
     fn process_data<D, F>(src: &[u8], dst: &mut [D], len: usize, type_size: u32, converter: &F)
     where
         D: Copy,

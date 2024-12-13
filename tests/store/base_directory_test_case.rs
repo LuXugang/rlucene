@@ -17,7 +17,7 @@
 use crate::util::lucene_test_case::{new_directory, new_io_context, slow_file_exists};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
-use rand::Rng;
+use rand::{Rng};
 use rlucene::store::check_sum_index_input::ChecksumIndexInput;
 use rlucene::store::directory::Directory;
 use rlucene::store::DataInput;
@@ -675,10 +675,120 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_checksum_input("checksum")?;
-            IndexInput::skip_bytes(&mut input,num_bytes as u64)?;
+            IndexInput::skip_bytes(&mut input, num_bytes as u64)?;
             let actual_checksum = input.get_checksum();
             assert_eq!(expected_checksum as u64, actual_checksum);
         }
+
+        Ok(())
+    }
+    #[allow(unused)]
+    fn test_detect_close(&self) -> Result<(), TestError> {
+        //in Rust, it is not necessary to explicitly call close.
+        // Resources are automatically closed when they go out of scope,
+        // and the drop method is invoked.
+        Ok(())
+    }
+    fn test_thread_safety_in_list_all(&self, random: &mut StdRng) -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    fn test_file_exists_in_list_after_created(&self) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testFileExistsInListAfterCreated")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let name = "file";
+
+        {
+            let _output = dir.create_output(name, IOContext::default_io_context()?)?;
+        }
+
+        assert!(slow_file_exists(&dir, name)?);
+
+        let files: HashSet<String> = dir.list_all()?.into_iter().collect();
+        assert!(files.contains(name));
+
+        Ok(())
+    }
+
+    fn test_seek_to_eof_then_back(&self) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testSeekToEOFThenBack")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let buffer_length = 1024;
+        let total_length = 3 * buffer_length;
+        let bytes = vec![0u8; total_length];
+
+        {
+            let mut output = dir.create_output("out", IOContext::default_io_context()?)?;
+            output.write_bytes_range(&bytes, 0, total_length as u32)?;
+        }
+
+        {
+            let mut input = dir.open_input("out", IOContext::default_io_context()?)?;
+            input.seek((2 * buffer_length - 1) as u64)?;
+            input.seek((3 * buffer_length) as u64)?;
+            input.seek(buffer_length as u64)?;
+
+            let mut read_bytes = vec![0u8; 2 * buffer_length];
+            input.read_bytes(&mut read_bytes, 0, (2 * buffer_length) as u32)?;
+            assert_eq!(&read_bytes, &bytes[buffer_length..3 * buffer_length]);
+        }
+
+        Ok(())
+    }
+
+    fn test_illegal_eof(&self) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testIllegalEOF")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let buffer = vec![0u8; 1024];
+        {
+            let mut output = dir.create_output("out", IOContext::default_io_context()?)?;
+            output.write_bytes_range(&buffer, 0, buffer.len() as u32)?;
+        }
+
+        {
+            let mut input = dir.open_input("out", IOContext::default_io_context()?)?;
+            input.seek(1024)?;
+        }
+
+        Ok(())
+    }
+    fn test_seek_past_eof(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testSeekPastEOF")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let len = random.gen_range(0..2048);
+        let buffer = vec![0u8; len];
+        {
+            let mut output = dir.create_output("out", IOContext::default_io_context()?)?;
+            output.write_bytes_range(&buffer, 0, len as u32)?;
+        }
+
+        let mut input = dir.open_input("out", IOContext::default_io_context()?)?;
+
+        // Seeking past EOF should always return an error
+        assert!(matches!(
+            input.seek(len as u64 + random.gen_range(1..2048) as u64),
+            Err(DataIOError::Eof(_))
+        ));
+
+        input.seek(len as u64)?;
+
+        assert!(matches!(input.read_byte(), Err(DataIOError::Eof(_))));
+        assert!(matches!(
+            input.read_bytes(&mut [0u8; 1], 0, 1),
+            Err(DataIOError::Eof(_))
+        ));
 
         Ok(())
     }

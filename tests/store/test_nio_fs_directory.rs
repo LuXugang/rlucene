@@ -175,3 +175,30 @@ fn test_checksum() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_checksum(&mut random)
 }
+#[test]
+fn test_thread_safety_in_list_all() -> Result<(), TestError> {
+    let mut random = my_random("test_thread_safety_in_list_all".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_thread_safety_in_list_all(&mut random)
+}
+#[test]
+fn test_file_exists_in_list_after_created() -> Result<(), TestError> {
+    let test = TestNIOFSDirectory;
+    test.test_file_exists_in_list_after_created()
+}
+#[test]
+fn test_seek_to_eof_then_back() -> Result<(), TestError> {
+    let test = TestNIOFSDirectory;
+    test.test_seek_to_eof_then_back()
+}
+#[test]
+fn test_illegal_eof() -> Result<(), TestError> {
+    let test = TestNIOFSDirectory;
+    test.test_illegal_eof()
+}
+#[test]
+fn test_seek_past_eof() -> Result<(), TestError> {
+    let mut random = my_random("test_seek_past_eof".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_seek_past_eof(&mut random)
+}

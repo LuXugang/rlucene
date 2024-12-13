@@ -69,7 +69,7 @@ impl NIOFSIndexInput {
 impl BufferedIndexInputBase for NIOFSIndexInput {
     fn seek_internal(&mut self, pos: u64) -> Result<(), DataIOError> {
         if pos > self.length() {
-            return Err(DataIOError::illegal_argument(format!(
+            return Err(DataIOError::eof(format!(
                 "read past EOF: pos={} vs length={} in {}",
                 pos,
                 self.length(),
