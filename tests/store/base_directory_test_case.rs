@@ -674,10 +674,10 @@ pub trait BaseDirectoryTestCase {
         }
 
         {
-            // let mut input = dir.open_checksum_input("checksum")?;
-            // IndexInput::skip_bytes(&mut input,num_bytes as u64)?;
-            // let actual_checksum = input.get_checksum();
-            // assert_eq!(expected_checksum as u64, actual_checksum);
+            let mut input = dir.open_checksum_input("checksum")?;
+            IndexInput::skip_bytes(&mut input,num_bytes as u64)?;
+            let actual_checksum = input.get_checksum();
+            assert_eq!(expected_checksum as u64, actual_checksum);
         }
 
         Ok(())

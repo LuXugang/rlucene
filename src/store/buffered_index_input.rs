@@ -395,7 +395,8 @@ where
             type_size,
             &converter,
         );
-
+        
+        self.buffer_start = after;
         Ok(())
     }
     fn process_data<D, F>(src: &[u8], dst: &mut [D], len: usize, type_size: u32, converter: &F)
