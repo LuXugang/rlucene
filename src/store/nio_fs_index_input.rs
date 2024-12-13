@@ -47,17 +47,17 @@ impl NIOFSIndexInput {
         }
     }
     pub fn new_with_range(
-        resource_desc: &str,
         file: File,
         off: u64,
         length: u64,
+        resource_desc: &str,
         buffer_size: u32,
     ) -> Self {
         Self {
-            resource_desc: resource_desc.to_string(),
             file,
             off,
             end: off + length,
+            resource_desc: resource_desc.to_string(),
             buffer_size,
         }
     }
@@ -187,10 +187,10 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         let resource_desc = get_full_slice_description(slice_description);
         let a = NIOFSIndexInput::new_with_range(
             // Clone the file handle to create a new `File` instance pointing to the same file resource.
-            &resource_desc,
             self.file.try_clone().map_err(DataIOError::io)?,
             self.off + offset,
             length,
+            &resource_desc,
             self.buffer_size,
         );
         Ok(a)

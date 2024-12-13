@@ -117,7 +117,6 @@ where
     /// # Arguments
     /// * `remain_unaligned_bytes` - The number of unaligned bytes remaining in the buffer from the previous read.
     /// * `start` - The starting position in the underlying input to begin reading data.
-    /// * `len` - Length of data to be read.
     ///
     /// # Returns
     /// * `Ok(())` - If the buffer is successfully refilled.
@@ -136,9 +135,9 @@ where
     ///
     /// # Errors
     /// * Returns `DataIOError::eof` if no new data can be read from the underlying input.
-    fn refill(&mut self, remain_unaligned_bytes: u32, start: u64, len: u32) -> Result<(), DataIOError> {
+    fn refill(&mut self, remain_unaligned_bytes: u32, start: u64) -> Result<(), DataIOError> {
         // After the last read, some unaligned bytes remain in the buffer.
-        let mut end = start + len as u64;
+        let mut end = start + (self.buffer_size - remain_unaligned_bytes) as u64;
 
         // Don't read past EOF
         let length = self.sub_index_input.length();
@@ -153,8 +152,6 @@ where
 
         // valid data length in buffer
         debug_assert!(new_length <= u32::MAX as u64);
-        //The length in the buffer size is the sum of the new data length and the remaining unaligned bytes.
-        debug_assert!(new_length + remain_unaligned_bytes as u64 <= self.buffer_size as u64);
         self.length = new_length as u32 + remain_unaligned_bytes;
         // Set the buffer position to the remaining unaligned bytes
         // so that the next write within `read_internal` starts from remaining unaligned bytes
@@ -346,7 +343,7 @@ where
 
         if use_buffer && remaining_bytes < self.buffer_size {
             let start = self.buffer_start + self.length as u64;
-            self.refill(unaligned_bytes, start, remaining_bytes)?;
+            self.refill(unaligned_bytes, start)?;
 
             let available = self.length;
             let readable_elements = (available / type_size).min(remaining_len);
@@ -471,7 +468,7 @@ where
         }
         self.length = 0;
         self.sub_index_input.seek_internal(self.buffer_start)?;
-        self.refill(0, self.buffer_start, self.buffer_size)?;
+        self.refill(0, self.buffer_start)?;
         Ok(pos)
     }
     #[cfg(feature = "test_only")]
