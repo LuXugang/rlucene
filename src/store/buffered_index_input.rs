@@ -584,22 +584,12 @@ where
     /// - It updates the global position (`self.pos`) after reading all requested elements.
     ///
     fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), DataIOError> {
-        let mut remaining = len;
-        let mut current_offset = offset;
-
-        while remaining > 0 {
-            // The maximum number of elements to read in each iteration, ensuring the total byte size does not exceed buffer_size
-            let chunk_len = (self.buffer_size / LONG_BYTES as u32).min(remaining);
-            self.read_longs(
-                self.pos,
-                chunk_len,
-                &mut dst[current_offset as usize..(current_offset + chunk_len) as usize],
-                true,
-            )?;
-
-            remaining -= chunk_len;
-            current_offset += chunk_len;
-        }
+        self.read_longs(
+            self.pos,
+            len,
+            &mut dst[offset as usize..(offset + len) as usize],
+            true,
+        )?;
         self.pos += len as u64 * LONG_BYTES as u64;
         Ok(())
     }
@@ -623,25 +613,12 @@ where
     /// - It updates the global position (`self.pos`) after reading all requested elements.
     ///
     fn read_ints(&mut self, dst: &mut [i32], offset: u32, len: u32) -> Result<(), DataIOError> {
-        let mut remaining = len;
-        let mut current_offset = offset;
-
-        while remaining > 0 {
-            // Calculate the maximum number of elements to read in one iteration
-            let chunk_len = (self.buffer_size / INT_BYTES as u32).min(remaining);
-
-            let pos = self.pos + (current_offset as u64 - offset as u64) * INT_BYTES as u64;
-
-            self.read_ints(
-                pos,
-                chunk_len,
-                &mut dst[current_offset as usize..(current_offset + chunk_len) as usize],
-                true,
-            )?;
-
-            remaining -= chunk_len;
-            current_offset += chunk_len;
-        }
+        self.read_ints(
+            self.pos,
+            len,
+            &mut dst[offset as usize..(offset + len) as usize],
+            true,
+        )?;
 
         self.pos += len as u64 * INT_BYTES as u64;
         Ok(())
