@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IndexInput;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::io::Cursor;
@@ -43,7 +44,7 @@ pub trait BufferedIndexInputBase: Clone {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput, DataIOError>;
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError>;
 
     /// The number of bytes in the file.
     fn length(&self) -> u64;

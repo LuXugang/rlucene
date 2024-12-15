@@ -58,19 +58,19 @@ where
         _offset: u64,
         _length: u64,
     ) -> Result<ByteBuffersIndexInput, DataIOError> {
-        unreachable!("unsupported operation")
+        Err(DataIOError::unsupported_operation(
+            "BufferedChecksumIndexInput does not support slicing",
+        ))
     }
 
-    fn is_random_access(&self) -> bool {
-        false
-    }
-
-    fn get_random_access_slice(
+    fn random_access_slice(
         &self,
         offset: u64,
         length: u64,
-    ) -> Result<ByteBuffersDataInput, DataIOError> {
-        unreachable!()
+    ) -> Result<ByteBuffersIndexInput, DataIOError> {
+        Err(DataIOError::unsupported_operation(
+            "BufferedChecksumIndexInput does not support random access slicing",
+        ))
     }
 }
 

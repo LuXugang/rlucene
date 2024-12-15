@@ -230,9 +230,9 @@ fn test_fsync_doesnt_create_new_files() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_fsync_doesnt_create_new_files()
 }
-// #[test]
-// fn test_random_long() -> Result<(), TestError> {
-//     let mut random = my_random("test_random_long".to_string());
-//     let test = TestNIOFSDirectory;
-//     test.test_random_long(&mut random)
-// }
+#[test]
+fn test_random_long() -> Result<(), TestError> {
+    let mut random = my_random("test_random_long".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_random_long(&mut random)
+}

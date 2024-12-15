@@ -17,7 +17,7 @@
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
+use crate::store::{BufferedIndexInputBase, ByteBuffersIndexInput, Context, DataInput, IOContext};
 use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
@@ -644,22 +644,17 @@ where
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
         self.sub_index_input
             .slice(slice_description, offset, length)
     }
 
-    fn is_random_access(&self) -> bool {
-        false
-    }
-
-    #[allow(refining_impl_trait)]
-    fn get_random_access_slice(
+    fn random_access_slice(
         &self,
-        _offset: u64,
-        _length: u64,
-    ) -> Result<ByteBuffersDataInput, DataIOError> {
-        unreachable!()
+        offset: u64,
+        length: u64,
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+        self.slice("random_access_slice", offset, length)
     }
 }
 

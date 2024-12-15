@@ -67,7 +67,7 @@ pub trait IndexInput: DataInput + Clone {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput, DataIOError>;
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used by
     /// [`CompoundFormat`] implementations to honor
     /// the [`ReadAdvice`] of each file within the compound file.
@@ -106,16 +106,8 @@ pub trait IndexInput: DataInput + Clone {
         &self,
         offset: u64,
         length: u64,
-    ) -> Result<impl RandomAccessInput, DataIOError> {
-        self.default_random_access_slice(offset, length)
-    }
-    fn default_random_access_slice(
-        &self,
-        offset: u64,
-        length: u64,
-    ) -> Result<impl RandomAccessInput, DataIOError> {
-        self.get_random_access_slice(offset, length)
-    }
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError>;
+
     /// Optional method: Gives a hint to this input that some bytes will be read in the near future.
     /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data
     /// immediately from storage.
@@ -133,16 +125,6 @@ pub trait IndexInput: DataInput + Clone {
     fn default_prefetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
         Ok(())
     }
-    /**
-     * whether `IndexInput` implementation supports random access
-     */
-    fn is_random_access(&self) -> bool;
-
-    fn get_random_access_slice(
-        &self,
-        offset: u64,
-        length: u64,
-    ) -> Result<impl RandomAccessInput, DataIOError>;
 }
 /// Subclasses call this to get the String for resourceDescription of a slice of this `IndexInput`.
 pub fn get_full_slice_description(slice_description: &str) -> String {

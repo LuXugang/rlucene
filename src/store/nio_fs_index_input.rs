@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::store::index_input::{get_full_slice_description, IndexInput};
+use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInput, BufferedIndexInputBase, BUFFER_SIZE};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::ReadableCursorExt;
@@ -172,7 +173,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
         if offset + length > self.length() {
             return Err(DataIOError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",

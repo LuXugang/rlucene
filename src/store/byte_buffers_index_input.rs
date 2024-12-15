@@ -170,7 +170,7 @@ impl IndexInput for ByteBuffersIndexInput<'_> {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
         Ok(ByteBuffersIndexInput::new(
             self.data_input.slice(offset, length)?,
             slice_description,
@@ -181,19 +181,7 @@ impl IndexInput for ByteBuffersIndexInput<'_> {
         &self,
         offset: u64,
         length: u64,
-    ) -> Result<ByteBuffersIndexInput, DataIOError> {
-        todo!()
-    }
-
-    fn is_random_access(&self) -> bool {
-        true
-    }
-
-    fn get_random_access_slice(
-        &self,
-        offset: u64,
-        length: u64,
-    ) -> Result<ByteBuffersIndexInput, DataIOError> {
-        todo!()
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+        self.slice("", offset, length)
     }
 }
