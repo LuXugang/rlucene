@@ -308,7 +308,10 @@ where
         let file = File::options()
             .write(true)
             .create_new(true)
-            .open(&file_path)?;
+            .open(&file_path)
+            .map_err(|err| {
+                DataIOError::io_with_path(file_path.to_string_lossy().to_string(), err)
+            })?;
 
         Ok(OutputStreamIndexOutput::new(
             format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),

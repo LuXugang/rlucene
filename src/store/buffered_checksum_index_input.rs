@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::index_input::IndexInput;
 use crate::store::{BufferedChecksum, ByteBuffersIndexInput, Checksum, DataInput, HasherChecksum};

@@ -183,18 +183,21 @@ fn test_thread_safety_in_list_all() -> Result<(), TestError> {
 }
 #[test]
 fn test_file_exists_in_list_after_created() -> Result<(), TestError> {
+    let mut random = my_random("test_file_exists_in_list_after_created".to_string());
     let test = TestNIOFSDirectory;
-    test.test_file_exists_in_list_after_created()
+    test.test_file_exists_in_list_after_created(&mut random)
 }
 #[test]
 fn test_seek_to_eof_then_back() -> Result<(), TestError> {
+    let mut random = my_random("test_seek_to_eof_then_back".to_string());
     let test = TestNIOFSDirectory;
-    test.test_seek_to_eof_then_back()
+    test.test_seek_to_eof_then_back(&mut random)
 }
 #[test]
 fn test_illegal_eof() -> Result<(), TestError> {
+    let mut random = my_random("test_illegal_eof".to_string());
     let test = TestNIOFSDirectory;
-    test.test_illegal_eof()
+    test.test_illegal_eof(&mut random)
 }
 #[test]
 fn test_seek_past_eof() -> Result<(), TestError> {
@@ -227,8 +230,9 @@ fn test_copy_bytes_with_threads() -> Result<(), TestError> {
 }
 #[test]
 fn test_fsync_doesnt_create_new_files() -> Result<(), TestError> {
+    let mut random = my_random("test_fsync_doesnt_create_new_files".to_string());
     let test = TestNIOFSDirectory;
-    test.test_fsync_doesnt_create_new_files()
+    test.test_fsync_doesnt_create_new_files(&mut random)
 }
 #[test]
 fn test_random_long() -> Result<(), TestError> {
@@ -236,3 +240,66 @@ fn test_random_long() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_random_long(&mut random)
 }
+#[test]
+fn test_random_int() -> Result<(), TestError> {
+    let mut random = my_random("test_random_int".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_random_int(&mut random)
+}
+#[test]
+fn test_random_short() -> Result<(), TestError> {
+    let mut random = my_random("test_random_short".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_random_short(&mut random)
+}
+#[test]
+fn test_random_byte() -> Result<(), TestError> {
+    let mut random = my_random("test_random_byte".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_random_byte(&mut random)
+}
+#[test]
+fn test_slice_of_slice() -> Result<(), TestError> {
+    let mut random = my_random("test_slice_of_slice".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_slice_of_slice(&mut random)
+}
+#[test]
+fn test_large_writes() -> Result<(), TestError> {
+    let mut random = my_random("test_large_writes".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_large_writes(&mut random)
+}
+#[test]
+fn test_index_output_to_string() -> Result<(), TestError> {
+    let mut random = my_random("test_index_output_to_string".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_index_output_to_string(&mut random)
+}
+#[test]
+fn test_create_temp_output() -> Result<(), TestError> {
+    let mut random = my_random("test_create_temp_output".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_create_temp_output(&mut random)
+}
+#[test]
+fn test_create_output_for_existing_file() -> Result<(), TestError> {
+    let test = TestNIOFSDirectory;
+    test.test_create_output_for_existing_file()
+}
+#[test]
+fn test_seek_to_end_of_file() -> Result<(), TestError> {
+    let test = TestNIOFSDirectory;
+    test.test_seek_to_end_of_file()
+}
+#[test]
+fn test_seek_beyond_end_of_file() -> Result<(), TestError> {
+    let test = TestNIOFSDirectory;
+    test.test_seek_beyond_end_of_file()
+}
+// #[test]
+// fn test_pending_deletions() -> Result<(), TestError> {
+//     let mut random = my_random("test_pending_deletions".to_string());
+//     let test = TestNIOFSDirectory;
+//     test.test_pending_deletions(&mut random)
+// }

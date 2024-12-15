@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{BufferedIndexInputBase, ByteBuffersIndexInput, Context, DataInput, IOContext};
+use crate::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
 use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;

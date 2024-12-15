@@ -14,26 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod base_bit_set_test_case;
-mod base_doc_id_set_test_case;
-mod base_sort_test_case;
-mod id_set_common;
-pub(crate) mod lucene_test_case;
-mod test_byte_block_pool;
-pub mod test_bytes_ref;
-mod test_doc_id_set_builder;
-mod test_doc_id_set_iterator;
-mod test_docs_with_field_set;
-pub mod test_error;
-mod test_fixed_bit_doc_id_set;
-mod test_fixed_bit_set;
-mod test_int_array_doc_id_set;
-mod test_intro_sorter;
-mod test_not_doc_id_set;
-mod test_priority_queue;
-mod test_roaring_doc_id_set;
-mod test_sparse_fixed_bit_set;
-mod test_tim_sorter;
-mod test_util;
-mod test_version;
-pub use test_util::*;
+use rand::rngs::StdRng;
+use rand::Rng;
+
+pub struct TestUtil;
+
+impl TestUtil {
+    pub fn random_simple_string_with_length(
+        random: &mut StdRng,
+        min_length: usize,
+        max_length: usize,
+    ) -> String {
+        let end = random.gen_range(min_length..=max_length);
+        if end == 0 {
+            // Allow 0 length
+            return String::new();
+        }
+        (0..end)
+            .map(|_| random.gen_range(b'a'..=b'z') as char)
+            .collect()
+    }
+
+    pub fn random_simple_string(random: &mut StdRng) -> String {
+        Self::random_simple_string_with_length(random, 0, 10)
+    }
+}

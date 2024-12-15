@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::common::is_night_mode;
 use crate::util::lucene_test_case::{new_directory, new_io_context, slow_file_exists};
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::rngs::StdRng;
-use rand::Rng;
+use rand::{Rng, RngCore};
 use rlucene::store::check_sum_index_input::ChecksumIndexInput;
 use rlucene::store::directory::Directory;
 use rlucene::store::random_access_input::RandomAccessInput;
@@ -30,6 +32,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use tempfile::Builder;
 
+pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {
     fn get_directory(&self, path: PathBuf) -> Result<impl Directory, TestError>;
 
@@ -695,7 +698,7 @@ pub trait BaseDirectoryTestCase {
         // TODO
         Ok(())
     }
-    fn test_file_exists_in_list_after_created(&self) -> Result<(), TestError> {
+    fn test_file_exists_in_list_after_created(&self, random: &mut StdRng) -> Result<(), TestError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testFileExistsInListAfterCreated")
             .tempdir()?;
@@ -704,7 +707,7 @@ pub trait BaseDirectoryTestCase {
         let name = "file";
 
         {
-            let _output = dir.create_output(name, IOContext::default_io_context()?)?;
+            let _output = dir.create_output(name, new_io_context(random)?)?;
         }
 
         assert!(slow_file_exists(&dir, name)?);
@@ -715,7 +718,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_seek_to_eof_then_back(&self) -> Result<(), TestError> {
+    fn test_seek_to_eof_then_back(&self, random: &mut StdRng) -> Result<(), TestError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testSeekToEOFThenBack")
             .tempdir()?;
@@ -726,12 +729,12 @@ pub trait BaseDirectoryTestCase {
         let bytes = vec![0u8; total_length];
 
         {
-            let mut output = dir.create_output("out", IOContext::default_io_context()?)?;
+            let mut output = dir.create_output("out", new_io_context(random)?)?;
             output.write_bytes_range(&bytes, 0, total_length as u32)?;
         }
 
         {
-            let mut input = dir.open_input("out", IOContext::default_io_context()?)?;
+            let mut input = dir.open_input("out", new_io_context(random)?)?;
             input.seek((2 * buffer_length - 1) as u64)?;
             input.seek((3 * buffer_length) as u64)?;
             input.seek(buffer_length as u64)?;
@@ -744,7 +747,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_illegal_eof(&self) -> Result<(), TestError> {
+    fn test_illegal_eof(&self, random: &mut StdRng) -> Result<(), TestError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testIllegalEOF")
             .tempdir()?;
@@ -752,12 +755,12 @@ pub trait BaseDirectoryTestCase {
 
         let buffer = vec![0u8; 1024];
         {
-            let mut output = dir.create_output("out", IOContext::default_io_context()?)?;
+            let mut output = dir.create_output("out", new_io_context(random)?)?;
             output.write_bytes_range(&buffer, 0, buffer.len() as u32)?;
         }
 
         {
-            let mut input = dir.open_input("out", IOContext::default_io_context()?)?;
+            let mut input = dir.open_input("out", new_io_context(random)?)?;
             input.seek(1024)?;
         }
 
@@ -772,11 +775,11 @@ pub trait BaseDirectoryTestCase {
         let len = random.gen_range(0..2048);
         let buffer = vec![0u8; len];
         {
-            let mut output = dir.create_output("out", IOContext::default_io_context()?)?;
+            let mut output = dir.create_output("out", new_io_context(random)?)?;
             output.write_bytes_range(&buffer, 0, len as u32)?;
         }
 
-        let mut input = dir.open_input("out", IOContext::default_io_context()?)?;
+        let mut input = dir.open_input("out", new_io_context(random)?)?;
 
         // Seeking past EOF should always return an error
         assert!(matches!(
@@ -806,11 +809,11 @@ pub trait BaseDirectoryTestCase {
         let len = random.gen_range(8..2048);
         let buffer = vec![0u8; len];
         {
-            let mut output = dir.create_output("out", IOContext::default_io_context()?)?;
+            let mut output = dir.create_output("out", new_io_context(random)?)?;
             output.write_bytes_range(&buffer, 0, len as u32)?;
         }
 
-        let input = dir.open_input("out", IOContext::default_io_context()?)?;
+        let input = dir.open_input("out", new_io_context(random)?)?;
 
         assert!(matches!(
             input.slice("slice1", 0, len as u64 + 1),
@@ -909,7 +912,7 @@ pub trait BaseDirectoryTestCase {
     fn test_copy_bytes_with_threads(&self) {
         //TODO
     }
-    fn test_fsync_doesnt_create_new_files(&self) -> Result<(), TestError> {
+    fn test_fsync_doesnt_create_new_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         let temp_dir = tempfile::Builder::new().prefix("nocreate").tempdir()?;
         let path = temp_dir.path().to_path_buf();
 
@@ -922,7 +925,7 @@ pub trait BaseDirectoryTestCase {
         }
 
         {
-            let mut out = fsdir.create_output("afile", IOContext::default_io_context()?)?;
+            let mut out = fsdir.create_output("afile", new_io_context(random)?)?;
             out.write_string("boo")?;
         }
 
@@ -951,7 +954,7 @@ pub trait BaseDirectoryTestCase {
         let num = random.gen_range(50..=3000);
         let mut longs = vec![0i64; num];
         {
-            let mut output = dir.create_output("longs", IOContext::default_io_context()?)?;
+            let mut output = dir.create_output("longs", new_io_context(random)?)?;
             for value in &mut longs {
                 *value = random.gen_range(i64::MIN..=i64::MAX);
                 output.write_long(*value)?;
@@ -960,46 +963,576 @@ pub trait BaseDirectoryTestCase {
 
         // Slice
         {
-            let mut input = dir.open_input("longs", IOContext::default_io_context()?)?;
-            let mut slice = input.random_access_slice(0, IndexInput::length(&input))?;
-            assert_eq!(
-                IndexInput::length(&input),
-                RandomAccessInput::length(&slice)
-            );
-            for (i, &expected) in longs.iter().enumerate() {
-                assert_eq!(
-                    expected,
-                    RandomAccessInput::read_long(&mut slice, i as u64 * 8)?
-                );
+            let mut input = dir.open_input("longs", new_io_context(random)?)?;
+            let length = IndexInput::length(&input);
+            {
+                let mut slice = input.random_access_slice(0, length)?;
+                assert_eq!(length, RandomAccessInput::length(&slice));
+                for (i, &expected) in longs.iter().enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_long(&mut slice, i as u64 * 8)?
+                    );
+                }
             }
 
             // Subslices
-            // for i in 1..longs.len() {
-            //     let offset = i as u64 * 8;
-            //     let mut subslice =
-            //         input.random_access_slice(offset, IndexInput::length(&input) - offset)?;
-            //     assert_eq!(IndexInput::length(&input) - offset, subslice.length());
-            //     for (j, &expected) in longs.iter().skip(i).enumerate() {
-            //         assert_eq!(expected, subslice.read_long(j as u64 * 8)?);
-            //     }
-            // }
+            for i in 1..longs.len() {
+                let offset = i as u64 * 8;
+                let mut subslice = input.random_access_slice(offset, length - offset)?;
+                assert_eq!(length - offset, RandomAccessInput::length(&subslice));
+                for (j, &expected) in longs.iter().skip(i).enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_long(&mut subslice, j as u64 * 8)?
+                    );
+                }
+            }
 
             // With padding
-            // for i in 0..7 {
-            //     let name = format!("longs-{}", i);
-            //     let mut o = dir.create_output(&name, IOContext::default_io_context()?)?;
-            //     let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
-            //     o.write_bytes(&junk)?;
-            //     input.seek(0)?;
-            //     o.copy_bytes(&mut input, IndexInput::length(&input)?)?;
-            //     let mut padded = dir.open_input(&name, IOContext::default_io_context()?)?;
-            //     let whole = padded.random_access_slice(i as u64, padded.length()? - i as u64)?;
-            //     assert_eq!(padded.length()? - i as u64, whole.length()?);
-            //     for (j, &expected) in longs.iter().enumerate() {
-            //         assert_eq!(expected, whole.read_long(j as u64 * 8)?);
-            //     }
-            // }
+            for i in 0..7 {
+                let name = format!("longs-{}", i);
+                {
+                    let mut o = dir.create_output(&name, new_io_context(random)?)?;
+                    let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+                    o.write_bytes_with_len(&junk, junk.len() as u32)?;
+                    input.seek(0)?;
+                    let length = IndexInput::length(&input);
+                    o.copy_bytes(&mut input, length)?;
+                }
+
+                let padded = dir.open_input(&name, new_io_context(random)?)?;
+                let mut whole =
+                    padded.random_access_slice(i as u64, IndexInput::length(&padded) - i as u64)?;
+                assert_eq!(
+                    IndexInput::length(&padded) - i as u64,
+                    RandomAccessInput::length(&whole)
+                );
+                for (j, &expected) in longs.iter().enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_long(&mut whole, j as u64 * 8)?
+                    );
+                }
+            }
         }
+
+        Ok(())
+    }
+    fn test_random_int(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().prefix("testInts").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let num = random.gen_range(50..=3000);
+        let mut ints = vec![0i32; num];
+        {
+            let mut output = dir.create_output("ints", new_io_context(random)?)?;
+            for value in &mut ints {
+                *value = random.gen_range(i32::MIN..=i32::MAX);
+                output.write_int(*value)?;
+            }
+        }
+
+        // Slice
+        {
+            let mut input = dir.open_input("ints", new_io_context(random)?)?;
+            let length = IndexInput::length(&input);
+            {
+                let mut slice = input.random_access_slice(0, length)?;
+                assert_eq!(length, RandomAccessInput::length(&slice));
+                for (i, &expected) in ints.iter().enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_int(&mut slice, i as u64 * 4)?
+                    );
+                }
+            }
+
+            // Subslices
+            for i in 1..ints.len() {
+                let offset = i as u64 * 4;
+                let mut subslice = input.random_access_slice(offset, length - offset)?;
+                assert_eq!(length - offset, RandomAccessInput::length(&subslice));
+                for (j, &expected) in ints.iter().skip(i).enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_int(&mut subslice, j as u64 * 4)?
+                    );
+                }
+            }
+
+            // With padding
+            for i in 0..7 {
+                let name = format!("ints-{}", i);
+                {
+                    let mut o = dir.create_output(&name, new_io_context(random)?)?;
+                    let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+                    o.write_bytes_with_len(&junk, junk.len() as u32)?;
+                    input.seek(0)?;
+                    let length = IndexInput::length(&input);
+                    o.copy_bytes(&mut input, length)?;
+                }
+
+                let padded = dir.open_input(&name, new_io_context(random)?)?;
+                let mut whole =
+                    padded.random_access_slice(i as u64, IndexInput::length(&padded) - i as u64)?;
+                assert_eq!(
+                    IndexInput::length(&padded) - i as u64,
+                    RandomAccessInput::length(&whole)
+                );
+                for (j, &expected) in ints.iter().enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_int(&mut whole, j as u64 * 4)?
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn test_random_short(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().prefix("testShorts").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let num = random.gen_range(50..=3000);
+        let mut shorts = vec![0i16; num];
+        {
+            let mut output = dir.create_output("shorts", new_io_context(random)?)?;
+            for value in &mut shorts {
+                *value = random.gen_range(i16::MIN..=i16::MAX);
+                output.write_short(*value)?;
+            }
+        }
+
+        // Slice
+        {
+            let mut input = dir.open_input("shorts", new_io_context(random)?)?;
+            let length = IndexInput::length(&input);
+            {
+                let mut slice = input.random_access_slice(0, length)?;
+                assert_eq!(length, RandomAccessInput::length(&slice));
+                for (i, &expected) in shorts.iter().enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_short(&mut slice, i as u64 * 2)?
+                    );
+                }
+            }
+
+            // Subslices
+            for i in 1..shorts.len() {
+                let offset = i as u64 * 2;
+                let mut subslice = input.random_access_slice(offset, length - offset)?;
+                assert_eq!(length - offset, RandomAccessInput::length(&subslice));
+                for (j, &expected) in shorts.iter().skip(i).enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_short(&mut subslice, j as u64 * 2)?
+                    );
+                }
+            }
+
+            // With padding
+            for i in 0..7 {
+                let name = format!("shorts-{}", i);
+                {
+                    let mut o = dir.create_output(&name, new_io_context(random)?)?;
+                    let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+                    o.write_bytes_with_len(&junk, junk.len() as u32)?;
+                    input.seek(0)?;
+                    let length = IndexInput::length(&input);
+                    o.copy_bytes(&mut input, length)?;
+                }
+
+                let padded = dir.open_input(&name, new_io_context(random)?)?;
+                let mut whole =
+                    padded.random_access_slice(i as u64, IndexInput::length(&padded) - i as u64)?;
+                assert_eq!(
+                    IndexInput::length(&padded) - i as u64,
+                    RandomAccessInput::length(&whole)
+                );
+                for (j, &expected) in shorts.iter().enumerate() {
+                    assert_eq!(
+                        expected,
+                        RandomAccessInput::read_short(&mut whole, j as u64 * 2)?
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+    fn test_random_byte(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().prefix("testBytes").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let num = if cfg!(test_nightly) {
+            random.gen_range(1000..=3000)
+        } else {
+            random.gen_range(50..=1000)
+        };
+        let mut bytes = vec![0u8; num];
+        random.fill_bytes(&mut bytes);
+
+        {
+            let mut output = dir.create_output("bytes", new_io_context(random)?)?;
+            for &byte in &bytes {
+                output.write_byte(byte)?;
+            }
+        }
+
+        // Slice
+
+        let mut input = dir.open_input("bytes", new_io_context(random)?)?;
+        let length = IndexInput::length(&input);
+        {
+            let mut slice = input.random_access_slice(0, length)?;
+            assert_eq!(length, RandomAccessInput::length(&slice));
+            Self::assert_bytes(&mut slice, &bytes, 0, random)?;
+        }
+
+        // Subslices
+        let length = IndexInput::length(&input);
+        for offset in 1..bytes.len() {
+            let mut subslice = input.random_access_slice(offset as u64, length - offset as u64)?;
+            assert_eq!(length - offset as u64, RandomAccessInput::length(&subslice));
+            Self::assert_bytes(&mut subslice, &bytes, offset, random)?;
+        }
+
+        // With padding
+        {
+            for i in 1..7 {
+                let name = format!("bytes-{}", i);
+                {
+                    let mut output = dir.create_output(&name, new_io_context(random)?)?;
+                    let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+                    output.write_bytes_with_len(&junk, junk.len() as u32)?;
+                    let length = IndexInput::length(&input);
+                    input.seek(0)?;
+                    output.copy_bytes(&mut input, length)?;
+                }
+
+                let padded = dir.open_input(&name, new_io_context(random)?)?;
+                let length = IndexInput::length(&padded);
+                let mut whole = padded.random_access_slice(i as u64, length - i as u64)?;
+                assert_eq!(length - i as u64, RandomAccessInput::length(&whole));
+                Self::assert_bytes(&mut whole, &bytes, 0, random)?;
+            }
+        }
+
+        Ok(())
+    }
+    fn assert_bytes(
+        slice: &mut impl RandomAccessInput,
+        bytes: &[u8],
+        bytes_offset: usize,
+        random: &mut StdRng,
+    ) -> Result<(), TestError> {
+        let to_read = bytes.len() - bytes_offset;
+
+        for i in 0..to_read {
+            assert_eq!(bytes[bytes_offset + i], slice.read_byte(i as u64)?);
+
+            let offset = random.gen_range(0..1000);
+
+            let mut sub1 = vec![0u8; offset + i];
+            slice.read_bytes(0, &mut sub1, offset as u32, i as u32)?;
+            assert_eq!(
+                &bytes[bytes_offset..bytes_offset + i],
+                &sub1[offset..offset + i]
+            );
+
+            let mut sub2 = vec![0u8; offset + to_read - i];
+            slice.read_bytes(i as u64, &mut sub2, offset as u32, (to_read - i) as u32)?;
+            assert_eq!(
+                &bytes[bytes_offset + i..],
+                &sub2[offset..offset + to_read - i]
+            );
+        }
+
+        Ok(())
+    }
+    fn test_slice_of_slice(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().prefix("sliceOfSlice").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let num = if is_night_mode() {
+            random.gen_range(250..=2500)
+        } else {
+            random.gen_range(50..=250)
+        };
+
+        let mut bytes = vec![0u8; num];
+        random.fill_bytes(&mut bytes);
+
+        {
+            let mut output = dir.create_output("bytes", new_io_context(random)?)?;
+            for &byte in &bytes {
+                output.write_byte(byte)?;
+            }
+        }
+
+        let mut input = dir.open_input("bytes", new_io_context(random)?)?;
+
+        // Seek to a random spot to ensure it doesn't affect slicing
+        input.seek(random.gen_range(0..=IndexInput::length(&input)))?;
+
+        for i in (0..num).step_by(16) {
+            let mut slice1 = input.slice("slice1", i as u64, (num - i) as u64)?;
+            assert_eq!(0, slice1.get_file_pointer());
+            assert_eq!((num - i) as u64, RandomAccessInput::length(&slice1));
+
+            // Seek to a random spot to ensure it doesn't affect slicing
+            slice1.seek(random.gen_range(0..=RandomAccessInput::length(&slice1)))?;
+
+            for j in (0..RandomAccessInput::length(&slice1)).step_by(16) {
+                let mut slice2 = slice1.slice("slice2", j, (num - i) as u64 - j)?;
+                assert_eq!(0, slice2.get_file_pointer());
+                assert_eq!((num - i) as u64 - j, RandomAccessInput::length(&slice2));
+
+                let mut data = vec![0u8; num];
+                data[..i + j as usize].copy_from_slice(&bytes[..i + j as usize]);
+
+                if random.gen_bool(0.5) {
+                    // Read the bytes for this slice-of-slice
+                    DataInput::read_bytes(
+                        &mut slice2,
+                        &mut data[i + j as usize..],
+                        0,
+                        (num - i - j as usize) as u32,
+                    )?;
+                } else {
+                    // Seek to a random spot in between, read some, seek back, and read the rest
+                    let seek = random.gen_range(0..RandomAccessInput::length(&slice2));
+                    slice2.seek(seek)?;
+                    DataInput::read_bytes(
+                        &mut slice2,
+                        &mut data[(i + j as usize + seek as usize)..],
+                        0,
+                        (num - i - j as usize - seek as usize) as u32,
+                    )?;
+                    slice2.seek(0)?;
+                    DataInput::read_bytes(
+                        &mut slice2,
+                        &mut data[i + j as usize..(i + j as usize + seek as usize)],
+                        0,
+                        seek as u32,
+                    )?;
+                }
+
+                assert_eq!(bytes, data);
+            }
+        }
+
+        Ok(())
+    }
+    /// This test verifies that writes larger than the size of the buffer output will correctly
+    /// increment the file pointer.
+    fn test_large_writes(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().prefix("largeWrites").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let mut output = dir.create_output("testBufferStart.txt", new_io_context(random)?)?;
+
+        let mut large_buf = vec![0u8; 2048];
+        random.fill_bytes(&mut large_buf);
+
+        let current_pos = output.get_file_pointer();
+        let large_buf_len = large_buf.len();
+        output.write_bytes_with_len(&large_buf, large_buf_len as u32)?;
+
+        assert_eq!(
+            current_pos + large_buf.len() as u64,
+            output.get_file_pointer()
+        );
+        Ok(())
+    }
+    /// This test verifies that the `to_string` implementation of `IndexOutput` contains the file name.
+    fn test_index_output_to_string(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let output = dir.create_output("camelCase.txt", new_io_context(random)?)?;
+        let output_description = output.to_string();
+        assert!(
+            output_description.contains("camelCase.txt"),
+            "Expected `to_string` to contain 'camelCase.txt', but got: {}",
+            output_description
+        );
+        Ok(())
+    }
+    /// This test ensures that double-closing an `IndexOutput` does not cause any issues.
+    /// Rust Lucene automatically closes resources when they go out of scope, so this test is not applicable.
+    fn test_double_close_output(&self, _random: &mut StdRng) -> Result<(), TestError> {
+        Ok(())
+    }
+    /// Rust Lucene automatically closes resources when they go out of scope, so this test is not applicable.
+    fn test_double_close_input(&self, random: &mut StdRng) -> Result<(), TestError> {
+        Ok(())
+    }
+    /// This test ensures that `create_temp_output` generates unique files and writes/reads data correctly.
+    fn test_create_temp_output(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let mut names = Vec::new();
+        let iterations = random.gen_range(50..10000);
+
+        for iter in 0..iterations {
+            let mut output = dir.create_temp_output("foo", "bar", new_io_context(random)?)?;
+            names.push(output.get_name().to_string());
+            output.write_vint(iter)?;
+        }
+
+        for iter in 0..iterations {
+            let mut input = dir.open_input(&names[iter as usize], new_io_context(random)?)?;
+            assert_eq!({ iter }, input.read_vint()?);
+        }
+
+        // List all files in the directory, excluding files named "extra0"
+        let files: HashSet<String> = dir
+            .list_all()?
+            .into_iter()
+            .filter(|file| file != "extra0")
+            .collect();
+
+        // Verify that all created temp files exist in the directory
+        assert_eq!(names.into_iter().collect::<HashSet<_>>(), files);
+
+        Ok(())
+    }
+    /// This test ensures that attempting to create an output for an existing file results in an error,
+    /// and after deleting the file, it can be created again.
+    fn test_create_output_for_existing_file(&self) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let name = "file";
+
+        {
+            let output = dir.create_output(name, IOContext::default_io_context()?)?;
+            assert_eq!(output.get_name(), name);
+        }
+
+        {
+            // Attempt to create the same file again, which should fail
+            let result = dir.create_output(name, IOContext::default_io_context()?);
+            assert!(
+                matches!(result, Err(DataIOError::IoWithPath { source, .. }) if source.kind() == std::io::ErrorKind::AlreadyExists)
+            );
+        }
+
+        // Delete the file and attempt to recreate it
+        dir.delete_file(name)?;
+        dir.create_output(name, IOContext::default_io_context()?)?;
+
+        Ok(())
+    }
+
+    fn test_seek_to_end_of_file(&self) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        {
+            let mut out = dir.create_output("a", IOContext::default_io_context()?)?;
+            for _ in 0..1024 {
+                out.write_byte(0)?;
+            }
+        }
+
+        {
+            let mut input = dir.open_input("a", IOContext::default_io_context()?)?;
+            input.seek(100)?;
+            assert_eq!(100, input.get_file_pointer());
+
+            input.seek(1024)?;
+            assert_eq!(1024, input.get_file_pointer());
+        }
+
+        Ok(())
+    }
+    fn test_seek_beyond_end_of_file(&self) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        // Write a file with 1024 bytes
+        {
+            let mut out = dir.create_output("a", IOContext::default_io_context()?)?;
+            for _ in 0..1024 {
+                out.write_byte(0)?;
+            }
+        }
+
+        // Test seeking within and beyond the file's end
+        {
+            let mut input = dir.open_input("a", IOContext::default_io_context()?)?;
+            input.seek(100)?;
+            assert_eq!(100, input.get_file_pointer());
+
+            // Attempting to seek beyond the end of the file should return an EOF error
+            assert!(matches!(input.seek(1025), Err(DataIOError::Eof(_))));
+        }
+
+        Ok(())
+    }
+    fn test_pending_deletions(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().prefix("virusChecker").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        // This test applies only to FSDirectory
+        if !dir.is_fs_directory() {
+            return Ok(());
+        }
+
+        let file_name: String;
+        loop {
+            // Generate a random file name
+            let candidate = format!(
+                "{}.{}",
+                TestUtil::random_simple_string_with_length(random, 1, 6),
+                TestUtil::random_simple_string(random)
+            );
+            {
+                let out = dir.create_output(&candidate, IOContext::default_io_context()?)?;
+                out.get_file_pointer(); // Just to mimic some usage
+            }
+            dir.delete_file(&candidate)?;
+            if !dir.get_pending_deletions()?.is_empty() {
+                // If the file couldn't be deleted due to "virus checker"
+                file_name = candidate;
+                break;
+            }
+        }
+
+        // Ensure `list_all` does not include the file
+        let files: HashSet<String> = dir.list_all()?.into_iter().collect();
+        assert!(!files.contains(&file_name));
+
+        // Ensure `file_length` claims it's deleted
+        assert!(matches!(
+            dir.file_length(&file_name),
+            Err(DataIOError::IoWithPath { .. })
+        ));
+
+        // Ensure `rename` fails
+        assert!(matches!(
+            dir.rename(&file_name, "file2"),
+            Err(DataIOError::IoWithPath { .. })
+        ));
+
+        // Ensure `delete_file` fails
+        assert!(matches!(
+            dir.delete_file(&file_name),
+            Err(DataIOError::IoWithPath { .. })
+        ));
+
+        // Ensure we cannot open it for reading
+        assert!(matches!(
+            dir.open_input(&file_name, IOContext::default_io_context()?),
+            Err(DataIOError::IoWithPath { .. })
+        ));
 
         Ok(())
     }
