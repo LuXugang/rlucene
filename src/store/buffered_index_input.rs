@@ -156,9 +156,8 @@ where
         // Set the buffer position to the remaining unaligned bytes
         // so that the next write within `read_internal` starts from remaining unaligned bytes
         self.buffer.set_position(remain_unaligned_bytes as u64);
-        let file_pointer = self.get_file_pointer();
         self.sub_index_input
-            .read_internal(&mut self.buffer, new_length, file_pointer)?;
+            .read_internal(&mut self.buffer, new_length, start)?;
         // Adjust buffer_start to include unaligned bytes
         self.buffer_start = start - remain_unaligned_bytes as u64;
         Ok(())
@@ -374,17 +373,16 @@ where
         // If the buffer is not used or the remaining data exceeds the buffer size,
         // read directly from the underlying input
         let after =
-            self.buffer_start + self.length as u64 + remaining_len as u64 * type_size as u64;
+            self.buffer_start + (remaining_len * type_size) as u64 ;
         if after > self.sub_index_input.length() {
             return Err(DataIOError::eof(format!("read past EOF: {}", self)));
         }
 
         let mut temp_cursor = Cursor::new(vec![0; (remaining_len * type_size) as usize]);
-        let file_pointer = self.get_file_pointer();
         self.sub_index_input.read_internal(
             &mut temp_cursor,
             (remaining_len * type_size) as u64,
-            file_pointer,
+            self.buffer_start + self.length as u64,
         )?;
 
         let src = temp_cursor.get_ref();
@@ -466,10 +464,10 @@ where
     /// # Efficiency
     /// This method is particularly efficient for scenarios involving frequent backward random reads,
     /// as it reduces redundant I/O operations by aligning the buffer with anticipated access patterns.
-    fn resolve_position_in_buffer(&mut self, pos: u64, width: u32) -> Result<u64, DataIOError> {
+    fn resolve_position_in_buffer(&mut self, pos: u64, width: u32) -> Result<(), DataIOError> {
         let index: i64 = pos as i64 - self.buffer_start as i64;
         if index >= 0 && index <= (self.length as i64 - width as i64) {
-            return Ok(pos);
+            return Ok(());
         }
         if index < 0 {
             // if we're moving backwards, then try and fill up the previous page rather than
@@ -488,7 +486,7 @@ where
         self.length = 0;
         self.sub_index_input.seek_internal(self.buffer_start)?;
         self.refill(0, self.buffer_start)?;
-        Ok(pos)
+        Ok(())
     }
     #[cfg(feature = "test_only")]
     pub fn get_sub_index_input(&self) -> &T {
@@ -747,7 +745,7 @@ where
 
     fn read_byte(&mut self, pos: u64) -> Result<u8, DataIOError> {
         let mut bytes = [0; 1];
-        let pos = self.resolve_position_in_buffer(pos, 1)?;
+        self.resolve_position_in_buffer(pos, 1)?;
         self.read_bytes(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
@@ -759,7 +757,7 @@ where
         offset: u32,
         len: u32,
     ) -> Result<(), DataIOError> {
-        let pos = self.resolve_position_in_buffer(pos, len)?;
+        self.resolve_position_in_buffer(pos, len)?;
         self.read_bytes(
             pos,
             len,
@@ -771,21 +769,21 @@ where
 
     fn read_short(&mut self, pos: u64) -> Result<i16, DataIOError> {
         let mut bytes = [0; SHORT_BYTES];
-        let pos = self.resolve_position_in_buffer(pos, SHORT_BYTES as u32)?;
+        self.resolve_position_in_buffer(pos, SHORT_BYTES as u32)?;
         self.read_shorts(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
     fn read_int(&mut self, pos: u64) -> Result<i32, DataIOError> {
         let mut bytes = [0; INT_BYTES];
-        let pos = self.resolve_position_in_buffer(pos, INT_BYTES as u32)?;
+        self.resolve_position_in_buffer(pos, INT_BYTES as u32)?;
         self.read_ints(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
     fn read_long(&mut self, pos: u64) -> Result<i64, DataIOError> {
         let mut bytes = [0; LONG_BYTES];
-        let pos = self.resolve_position_in_buffer(pos, LONG_BYTES as u32)?;
+        self.resolve_position_in_buffer(pos, LONG_BYTES as u32)?;
         self.read_longs(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }

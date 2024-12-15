@@ -866,14 +866,14 @@ pub trait BaseDirectoryTestCase {
 
             upto = 0;
             while upto < size {
-                // if random.gen_bool(0.5) {
+                if random.gen_bool(0.5) {
                     output.write_byte(input.read_byte()?)?;
                     upto += 1;
-                // } else {
-                //     let chunk = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
-                //     output.copy_bytes(&mut input, chunk as u64)?;
-                //     upto += chunk;
-                // }
+                } else {
+                    let chunk = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
+                    output.copy_bytes(&mut input, chunk as u64)?;
+                    upto += chunk;
+                }
             }
             assert_eq!(size, upto); 
         }
@@ -882,18 +882,18 @@ pub trait BaseDirectoryTestCase {
             let mut input2 = dir.open_input("test2", new_io_context(random)?)?;
             upto = 0;
             while upto < size {
-                // if random.gen_bool(0.5) {
-                //     let v = input2.read_byte()?;
-                //     assert_eq!(Self::value(upto), v);
-                //     upto += 1;
-                // } else {
+                if random.gen_bool(0.5) {
+                    let v = input2.read_byte()?;
+                    assert_eq!(Self::value(upto), v);
+                    upto += 1;
+                } else {
                     let limit = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
                     input2.read_bytes(&mut bytes, 0, limit as u32)?;
                     for byte_idx in 0..limit {
                         assert_eq!(Self::value(upto), bytes[byte_idx]);
                         upto += 1;
                     }
-                // }
+                }
             } 
         } 
 

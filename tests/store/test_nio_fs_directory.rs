@@ -216,8 +216,7 @@ fn test_no_dir() -> Result<(), TestError> {
 
 #[test]
 fn test_copy_bytes() -> Result<(), TestError> {
-    // let mut random = my_random("test_copy_bytes".to_string());
-    // let test = TestNIOFSDirectory;
-    // test.test_copy_bytes(&mut random)
-    Ok(())
+    let mut random = my_random("test_copy_bytes".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_copy_bytes(&mut random)
 }
