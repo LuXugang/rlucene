@@ -100,7 +100,7 @@ impl<'a> IntArrayDocIdSetIterator<'a> {
         }
     }
 }
-impl<'a> DocIdSetIterator for IntArrayDocIdSetIterator<'a> {
+impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
     fn doc_id(&self) -> i32 {
         self.doc
     }

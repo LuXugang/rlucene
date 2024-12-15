@@ -84,7 +84,7 @@ pub enum DocsWithFieldSetEnum<'a, T: BitSet> {
     Dense(AllDocIdSetIterator),
     Sparse(BitSetIterator<'a, T>),
 }
-impl<'a, T: BitSet> DocIdSetIterator for DocsWithFieldSetEnum<'a, T> {
+impl<T: BitSet> DocIdSetIterator for DocsWithFieldSetEnum<'_, T> {
     fn doc_id(&self) -> i32 {
         match self {
             DocsWithFieldSetEnum::Dense(d) => d.doc_id(),

@@ -97,7 +97,7 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     }
 }
 
-impl<'a, T: BitSet> DocIdSetIterator for BitSetIterator<'a, T> {
+impl<T: BitSet> DocIdSetIterator for BitSetIterator<'_, T> {
     fn doc_id(&self) -> i32 {
         self.doc
     }

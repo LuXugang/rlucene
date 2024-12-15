@@ -275,7 +275,7 @@ impl<'a> ShortArrayDISI<'a> {
         self.doc_ids[i as usize] as i32 & 0xFFFF
     }
 }
-impl<'a> DocIdSetIterator for ShortArrayDISI<'a> {
+impl DocIdSetIterator for ShortArrayDISI<'_> {
     fn doc_id(&self) -> i32 {
         self.doc
     }
@@ -434,7 +434,7 @@ enum DocIdSetIteratorEnum<'a> {
     Dense(NotDocDocIdSetIterator<ShortArrayDISI<'a>>),
     Empty(EmptyDISI),
 }
-impl<'a> DocIdSetIterator for DocIdSetIteratorEnum<'a> {
+impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
     fn doc_id(&self) -> i32 {
         match self {
             DocIdSetIteratorEnum::Sparse(s) => s.doc_id(),

@@ -357,7 +357,7 @@ impl<'a> FakeOutput<'a> {
     }
 }
 
-impl<'a> DataOutput for FakeOutput<'a> {
+impl DataOutput for FakeOutput<'_> {
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
         self.output.write_byte(b)
     }
@@ -367,13 +367,13 @@ impl<'a> DataOutput for FakeOutput<'a> {
     }
 }
 
-impl<'a> Display for FakeOutput<'a> {
+impl Display for FakeOutput<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "FakeOutput({})", self.output)
     }
 }
 
-impl<'a> IndexOutput for FakeOutput<'a> {
+impl IndexOutput for FakeOutput<'_> {
     fn get_file_pointer(&self) -> u64 {
         self.output.get_file_pointer()
     }

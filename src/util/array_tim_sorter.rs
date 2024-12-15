@@ -49,7 +49,7 @@ where
         }
     }
 }
-impl<'a, T, C: Comparator<T>> Sorter for ArrayTimSorter<'a, T, C>
+impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
     T: Default + Clone,
 {
@@ -74,7 +74,7 @@ where
         unimplemented!()
     }
 }
-impl<'a, T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'a, T, C>
+impl<T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'_, T, C>
 where
     T: Default + Clone + PartialEq,
 {

@@ -58,7 +58,7 @@ impl<'a> ByteBuffersIndexOutput<'a> {
     }
 }
 
-impl<'a> DataOutput for ByteBuffersIndexOutput<'a> {
+impl DataOutput for ByteBuffersIndexOutput<'_> {
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
         self.delegate.write_byte(b)
     }
@@ -106,7 +106,7 @@ impl<'a> Display for ByteBuffersIndexOutput<'_> {
     }
 }
 
-impl<'a> IndexOutput for ByteBuffersIndexOutput<'a> {
+impl IndexOutput for ByteBuffersIndexOutput<'_> {
     fn get_file_pointer(&self) -> u64 {
         self.delegate.size()
     }

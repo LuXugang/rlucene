@@ -39,7 +39,7 @@ impl<'a, T, C: Comparator<T>> ArrayIntroSorter<'a, T, C> {
     }
 }
 
-impl<'a, T, C: Comparator<T>> Sorter for ArrayIntroSorter<'a, T, C>
+impl<T, C: Comparator<T>> Sorter for ArrayIntroSorter<'_, T, C>
 where
     T: Ord,
 {
@@ -73,4 +73,4 @@ where
     }
 }
 
-impl<'a, T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'a, T, C> where T: Ord {}
+impl<T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'_, T, C> where T: Ord {}

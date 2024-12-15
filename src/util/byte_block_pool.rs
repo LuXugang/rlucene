@@ -361,7 +361,7 @@ pub enum AllocatorEnum<'a> {
     DA(DirectAllocator),
     DTA(DirectTrackingAllocator<'a>),
 }
-impl<'a> AllocatorEnum<'a> {
+impl AllocatorEnum<'_> {
     fn get_used(&self) -> i64 {
         match self {
             AllocatorEnum::DA(_da) => 0,

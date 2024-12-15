@@ -137,7 +137,7 @@ pub fn write_index_header(
     write_header(out, codec, version)?;
     out.write_bytes_range(id, 0, ID_LENGTH)?;
     let suffix_bytes = BytesRef::new_from_string(suffix);
-    if !suffix.chars().all(|c| c.is_ascii()) || suffix_bytes.length >= 256 {
+    if !suffix.is_ascii() || suffix_bytes.length >= 256 {
         return Err(DataIOError::illegal_argument(format!(
             "suffix must be simple ASCII, less than 256 characters in length got {}",
             suffix
