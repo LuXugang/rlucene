@@ -187,7 +187,7 @@ where
     ) -> Result<(), DataIOError> {
         // This closure is not expected to be called under any circumstances.
 
-    self.read_buffer(pos, len, output, 1, |_| unreachable!(), use_buffer)
+        self.read_buffer(pos, len, output, 1, |_| unreachable!(), use_buffer)
     }
     fn read_ints(
         &mut self,
@@ -372,8 +372,7 @@ where
         }
         // If the buffer is not used or the remaining data exceeds the buffer size,
         // read directly from the underlying input
-        let after =
-            self.buffer_start + (remaining_len * type_size) as u64 ;
+        let after = self.buffer_start + (remaining_len * type_size) as u64;
         if after > self.sub_index_input.length() {
             return Err(DataIOError::eof(format!("read past EOF: {}", self)));
         }
@@ -506,7 +505,7 @@ where
     }
 
     fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {
-       self.read_bytes_with_buffer(b, offset, len, true)
+        self.read_bytes_with_buffer(b, offset, len, true)
     }
 
     fn read_bytes_with_buffer(
@@ -561,26 +560,6 @@ where
         self.pos += LONG_BYTES as u64;
         Ok(output[0])
     }
-
-    /// Reads multiple `i64` values into the destination buffer.
-    ///
-    /// This method reads `len` `i64` elements into the `dst` buffer starting at the specified `offset`.
-    /// The reading is performed in chunks, where each chunk size is determined by the internal
-    /// buffer size (`buffer_size`) divided by the size of an `i64` element.
-    ///
-    /// # Arguments
-    /// * `dst` - The destination buffer to store the `i64` values.
-    /// * `offset` - The offset within the destination buffer to start writing the data.
-    /// * `len` - The number of `i64` elements to read.
-    ///
-    /// # Returns
-    /// * `Ok(())` - If the requested number of elements is successfully read.
-    /// * `Err(DataIOError)` - If an error occurs during reading.
-    ///
-    /// # Behavior
-    /// - The method ensures the data is read in chunks that fit within the buffer size.
-    /// - It updates the global position (`self.pos`) after reading all requested elements.
-    ///
     fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), DataIOError> {
         self.read_longs(
             self.pos,
@@ -591,25 +570,6 @@ where
         self.pos += len as u64 * LONG_BYTES as u64;
         Ok(())
     }
-    /// Reads multiple `i32` values into the destination buffer.
-    ///
-    /// This method reads `len` `i32` elements into the `dst` buffer starting at the specified `offset`.
-    /// The reading is performed in chunks, where each chunk size is determined by the internal
-    /// buffer size (`buffer_size`) divided by the size of an `i32` element.
-    ///
-    /// # Arguments
-    /// * `dst` - The destination buffer to store the `i32` values.
-    /// * `offset` - The offset within the destination buffer to start writing the data.
-    /// * `len` - The number of `i32` elements to read.
-    ///
-    /// # Returns
-    /// * `Ok(())` - If the requested number of elements is successfully read.
-    /// * `Err(DataIOError)` - If an error occurs during reading.
-    ///
-    /// # Behavior
-    /// - The method ensures the data is read in chunks that fit within the buffer size.
-    /// - It updates the global position (`self.pos`) after reading all requested elements.
-    ///
     fn read_ints(&mut self, dst: &mut [i32], offset: u32, len: u32) -> Result<(), DataIOError> {
         self.read_ints(
             self.pos,
@@ -621,46 +581,13 @@ where
         self.pos += len as u64 * INT_BYTES as u64;
         Ok(())
     }
-    /// Reads multiple `f32` values into the destination buffer.
-    ///
-    /// This method reads `len` `f32` elements into the `dst` buffer starting at the specified `offset`.
-    /// The reading is performed in chunks, where each chunk size is determined by the internal
-    /// buffer size (`buffer_size`) divided by the size of an `f32` element.
-    ///
-    /// # Arguments
-    /// * `dst` - The destination buffer to store the `f32` values.
-    /// * `offset` - The offset within the destination buffer to start writing the data.
-    /// * `len` - The number of `f32` elements to read.
-    ///
-    /// # Returns
-    /// * `Ok(())` - If the requested number of elements is successfully read.
-    /// * `Err(DataIOError)` - If an error occurs during reading.
-    ///
-    /// # Behavior
-    /// - The method ensures the data is read in chunks that fit within the buffer size.
-    /// - It updates the global position (`self.pos`) after reading all requested elements.
-    ///
     fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), DataIOError> {
-        let mut remaining = len;
-        let mut current_offset = offset;
-
-        while remaining > 0 {
-            // Calculate the maximum number of elements to read in one iteration
-            let chunk_len = (self.buffer_size / FLOAT_BYTES as u32).min(remaining);
-
-            let pos = self.pos + (current_offset as u64 - offset as u64) * FLOAT_BYTES as u64;
-
-            self.read_floats(
-                pos,
-                chunk_len,
-                &mut dst[current_offset as usize..(current_offset + chunk_len) as usize],
-                true, // Use buffer
-            )?;
-
-            remaining -= chunk_len;
-            current_offset += chunk_len;
-        }
-
+        self.read_floats(
+            self.pos,
+            len,
+            &mut dst[offset as usize..(offset + len) as usize],
+            true,
+        )?;
         self.pos += len as u64 * FLOAT_BYTES as u64;
         Ok(())
     }
@@ -718,7 +645,8 @@ where
         offset: u64,
         length: u64,
     ) -> Result<impl IndexInput, DataIOError> {
-        self.sub_index_input.slice(slice_description, offset, length)
+        self.sub_index_input
+            .slice(slice_description, offset, length)
     }
 
     fn is_random_access(&self) -> bool {
@@ -740,7 +668,7 @@ where
     T: BufferedIndexInputBase,
 {
     fn length(&self) -> u64 {
-        todo!()
+        self.sub_index_input.length()
     }
 
     fn read_byte(&mut self, pos: u64) -> Result<u8, DataIOError> {
@@ -793,6 +721,4 @@ where
     }
 }
 
-struct SlicedIndexInput {
-
-}
+struct SlicedIndexInput {}

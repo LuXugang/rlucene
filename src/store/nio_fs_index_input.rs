@@ -193,7 +193,11 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             &resource_desc,
             self.buffer_size,
         );
-        Ok(BufferedIndexInput::new_with_buffer_size(sub_index_input, &resource_desc,self.buffer_size))
+        Ok(BufferedIndexInput::new_with_buffer_size(
+            sub_index_input,
+            &resource_desc,
+            self.buffer_size,
+        ))
     }
     fn length(&self) -> u64 {
         self.end - self.off

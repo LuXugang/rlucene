@@ -184,7 +184,6 @@ impl IndexInput for ByteBuffersIndexInput<'_> {
     ) -> Result<ByteBuffersIndexInput, DataIOError> {
         todo!()
     }
-    
 
     fn is_random_access(&self) -> bool {
         true

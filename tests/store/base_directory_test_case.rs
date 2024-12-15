@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rlucene::store::IndexOutput;
 use crate::util::lucene_test_case::{new_directory, new_io_context, slow_file_exists};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
-use rand::{Rng};
+use rand::Rng;
 use rlucene::store::check_sum_index_input::ChecksumIndexInput;
 use rlucene::store::directory::Directory;
+use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::DataInput;
 use rlucene::store::IndexInput;
+use rlucene::store::IndexOutput;
 use rlucene::store::{DataOutput, IOContext};
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use std::collections::{HashMap, HashSet};
@@ -63,7 +64,7 @@ pub trait BaseDirectoryTestCase {
         let mut bytes2 = vec![0u8; bytes2_len];
         {
             let mut input = dest.open_input("foobaz", new_io_context(random)?)?;
-            input.read_bytes(&mut bytes2, 0, bytes2_len as u32)?;
+            DataInput::read_bytes(&mut input, &mut bytes2, 0, bytes2_len as u32)?;
         }
 
         assert_eq!(bytes, bytes2);
@@ -86,8 +87,8 @@ pub trait BaseDirectoryTestCase {
         let mut bytes2 = vec![0u8; num_bytes];
         {
             let mut input = dir.open_input("foobaz", new_io_context(random)?)?;
-            input.read_bytes(&mut bytes2, 0, num_bytes as u32)?;
-            assert_eq!(input.length(), num_bytes as u64);
+            DataInput::read_bytes(&mut input, &mut bytes2, 0, num_bytes as u32)?;
+            assert_eq!(IndexInput::length(&input), num_bytes as u64);
         }
 
         assert_eq!(bytes, bytes2);
@@ -131,8 +132,8 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("byte", new_io_context(random)?)?;
-            assert_eq!(1, input.length());
-            assert_eq!(128, input.read_byte()?);
+            assert_eq!(1, IndexInput::length(&input));
+            assert_eq!(128u8, DataInput::read_byte(&mut input)?);
         }
 
         Ok(())
@@ -148,8 +149,8 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("short", new_io_context(random)?)?;
-            assert_eq!(2, input.length());
-            assert_eq!(-20, input.read_short()?);
+            assert_eq!(2, IndexInput::length(&input));
+            assert_eq!(-20i16, DataInput::read_short(&mut input)?);
         }
 
         Ok(())
@@ -165,8 +166,8 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("int", new_io_context(random)?)?;
-            assert_eq!(4, input.length());
-            assert_eq!(-500, input.read_int()?);
+            assert_eq!(4, IndexInput::length(&input));
+            assert_eq!(-500, DataInput::read_int(&mut input)?);
         }
 
         Ok(())
@@ -182,8 +183,8 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("long", new_io_context(random)?)?;
-            assert_eq!(8, input.length());
-            assert_eq!(-5000, input.read_long()?);
+            assert_eq!(8, IndexInput::length(&input));
+            assert_eq!(-5000, DataInput::read_long(&mut input)?);
         }
 
         Ok(())
@@ -203,7 +204,7 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("littleEndianLongs", new_io_context(random)?)?;
-            assert_eq!(24, input.length());
+            assert_eq!(24, IndexInput::length(&input));
 
             let mut l = vec![0; 4];
             input.read_longs(&mut l, 1, 3)?;
@@ -230,8 +231,8 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("littleEndianLongs", new_io_context(random)?)?;
-            assert_eq!(25, input.length());
-            assert_eq!(2, input.read_byte()?);
+            assert_eq!(25, IndexInput::length(&input));
+            assert_eq!(2u8, DataInput::read_byte(&mut input)?);
             let mut longs = vec![0; 4];
             input.read_longs(&mut longs, 1, 3)?;
             assert_eq!(vec![0, 3, i64::MAX, -3], longs);
@@ -281,7 +282,7 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("Ints", new_io_context(random)?)?;
-            assert_eq!(12, input.length());
+            assert_eq!(12, IndexInput::length(&input));
             let mut ints = vec![0; 4];
             input.read_ints(&mut ints, 1, 3)?;
             assert_eq!(vec![0, 3, i32::MAX, -3], ints);
@@ -307,9 +308,9 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("Ints", new_io_context(random)?)?;
-            assert_eq!(12 + padding, input.length());
+            assert_eq!(12 + padding, IndexInput::length(&input));
             for _ in 0..padding {
-                assert_eq!(2, input.read_byte()?);
+                assert_eq!(2u8, DataInput::read_byte(&mut input)?);
             }
             let mut ints = vec![0; 4];
             input.read_ints(&mut ints, 1, 3)?;
@@ -360,7 +361,7 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("Floats", new_io_context(random)?)?;
-            assert_eq!(12, input.length());
+            assert_eq!(12, IndexInput::length(&input));
             let mut floats = vec![0.0f32; 4];
             input.read_floats(&mut floats, 1, 3)?;
             assert_eq!(vec![0.0, 3.0, f32::MAX, -3.0], floats);
@@ -386,9 +387,9 @@ pub trait BaseDirectoryTestCase {
         }
 
         let mut input = dir.open_input("Floats", new_io_context(random)?)?;
-        assert_eq!(12 + padding as u64, input.length());
+        assert_eq!(12 + padding as u64, IndexInput::length(&input));
         for _ in 0..padding {
-            assert_eq!(2, input.read_byte()?);
+            assert_eq!(2u8, DataInput::read_byte(&mut input)?);
         }
 
         let mut ff = vec![0f32; 4];
@@ -433,7 +434,7 @@ pub trait BaseDirectoryTestCase {
         {
             let mut input = dir.open_input("string", new_io_context(random)?)?;
             assert_eq!("hello!", input.read_string()?);
-            assert_eq!(7, input.length());
+            assert_eq!(7, IndexInput::length(&input));
         }
 
         Ok(())
@@ -449,7 +450,7 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("vint", new_io_context(random)?)?;
-            assert_eq!(2, input.length());
+            assert_eq!(2, IndexInput::length(&input));
             assert_eq!(500, input.read_vint()?);
         }
 
@@ -466,7 +467,7 @@ pub trait BaseDirectoryTestCase {
 
         {
             let mut input = dir.open_input("vlong", new_io_context(random)?)?;
-            assert_eq!(9, input.length());
+            assert_eq!(9, IndexInput::length(&input));
             assert_eq!(i64::MAX, input.read_vlong()?);
         }
 
@@ -510,7 +511,7 @@ pub trait BaseDirectoryTestCase {
             for &i in &ints {
                 assert_eq!(i, input.read_zint()?);
             }
-            assert_eq!(input.length(), input.get_file_pointer());
+            assert_eq!(IndexInput::length(&input), input.get_file_pointer());
         }
 
         Ok(())
@@ -554,7 +555,7 @@ pub trait BaseDirectoryTestCase {
             for &l in &longs {
                 assert_eq!(l, input.read_zlong()?);
             }
-            assert_eq!(input.length(), input.get_file_pointer());
+            assert_eq!(IndexInput::length(&input), input.get_file_pointer());
         }
 
         Ok(())
@@ -599,7 +600,7 @@ pub trait BaseDirectoryTestCase {
                     .collect::<HashSet<_>>()
             );
 
-            assert_eq!(input.length(), input.get_file_pointer());
+            assert_eq!(IndexInput::length(&input), input.get_file_pointer());
         }
 
         Ok(())
@@ -650,7 +651,7 @@ pub trait BaseDirectoryTestCase {
             let mut map3_clone = map3.clone();
             map3_clone.insert("bogus1".to_string(), "bogus2".to_string()); // This will not affect the original `map3`
 
-            assert_eq!(input.length(), input.get_file_pointer());
+            assert_eq!(IndexInput::length(&input), input.get_file_pointer());
         }
 
         Ok(())
@@ -736,7 +737,7 @@ pub trait BaseDirectoryTestCase {
             input.seek(buffer_length as u64)?;
 
             let mut read_bytes = vec![0u8; 2 * buffer_length];
-            input.read_bytes(&mut read_bytes, 0, (2 * buffer_length) as u32)?;
+            DataInput::read_bytes(&mut input, &mut read_bytes, 0, (2 * buffer_length) as u32)?;
             assert_eq!(&read_bytes, &bytes[buffer_length..3 * buffer_length]);
         }
 
@@ -785,9 +786,12 @@ pub trait BaseDirectoryTestCase {
 
         input.seek(len as u64)?;
 
-        assert!(matches!(input.read_byte(), Err(DataIOError::Eof(_))));
         assert!(matches!(
-            input.read_bytes(&mut [0u8; 1], 0, 1),
+            DataInput::read_byte(&mut input),
+            Err(DataIOError::Eof(_))
+        ));
+        assert!(matches!(
+            DataInput::read_bytes(&mut input, &mut [0u8; 1], 0, 1),
             Err(DataIOError::Eof(_))
         ));
 
@@ -809,18 +813,17 @@ pub trait BaseDirectoryTestCase {
         let input = dir.open_input("out", IOContext::default_io_context()?)?;
 
         assert!(matches!(
-        input.slice("slice1", 0, len as u64 + 1),
-        Err(DataIOError::IllegalArgument(_))
-    ));
+            input.slice("slice1", 0, len as u64 + 1),
+            Err(DataIOError::IllegalArgument(_))
+        ));
 
-       
         let slice = input.slice("slice3", 4, (len / 2) as u64)?;
 
         // Attempting to create a nested slice that goes out of bounds
         assert!(matches!(
-        slice.slice("slice3sub", 1, (len / 2) as u64),
-        Err(DataIOError::IllegalArgument(_))
-    ));
+            slice.slice("slice3sub", 1, (len / 2) as u64),
+            Err(DataIOError::IllegalArgument(_))
+        ));
 
         Ok(())
     }
@@ -828,11 +831,8 @@ pub trait BaseDirectoryTestCase {
         unimplemented!("DirectoryReader not Implemented")
     }
     fn test_copy_bytes(&self, random: &mut StdRng) -> Result<(), TestError> {
-        let temp_dir = tempfile::Builder::new()
-            .prefix("testCopyBytes")
-            .tempdir()?;
+        let temp_dir = tempfile::Builder::new().prefix("testCopyBytes").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
-
 
         let bytes_len = random.gen_range(1..=77777);
         let mut bytes = vec![0u8; bytes_len];
@@ -859,7 +859,6 @@ pub trait BaseDirectoryTestCase {
         }
         assert_eq!(size as u64, dir.file_length("test")?);
 
-
         {
             let mut input = dir.open_input("test", new_io_context(random)?)?;
             let mut output = dir.create_output("test2", new_io_context(random)?)?;
@@ -867,7 +866,7 @@ pub trait BaseDirectoryTestCase {
             upto = 0;
             while upto < size {
                 if random.gen_bool(0.5) {
-                    output.write_byte(input.read_byte()?)?;
+                    output.write_byte(DataInput::read_byte(&mut input)?)?;
                     upto += 1;
                 } else {
                     let chunk = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
@@ -875,7 +874,7 @@ pub trait BaseDirectoryTestCase {
                     upto += chunk;
                 }
             }
-            assert_eq!(size, upto); 
+            assert_eq!(size, upto);
         }
 
         {
@@ -883,19 +882,19 @@ pub trait BaseDirectoryTestCase {
             upto = 0;
             while upto < size {
                 if random.gen_bool(0.5) {
-                    let v = input2.read_byte()?;
+                    let v = DataInput::read_byte(&mut input2)?;
                     assert_eq!(Self::value(upto), v);
                     upto += 1;
                 } else {
                     let limit = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
-                    input2.read_bytes(&mut bytes, 0, limit as u32)?;
+                    DataInput::read_bytes(&mut input2, &mut bytes, 0, limit as u32)?;
                     for byte_idx in 0..limit {
                         assert_eq!(Self::value(upto), bytes[byte_idx]);
                         upto += 1;
                     }
                 }
-            } 
-        } 
+            }
+        }
 
         dir.delete_file("test")?;
         dir.delete_file("test2")?;
@@ -905,5 +904,97 @@ pub trait BaseDirectoryTestCase {
 
     fn value(idx: usize) -> u8 {
         ((idx % 256) * (1 + (idx / 256))) as u8
+    }
+
+    fn test_copy_bytes_with_threads(&self) {
+        //TODO
+    }
+    fn test_fsync_doesnt_create_new_files(&self) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().prefix("nocreate").tempdir()?;
+        let path = temp_dir.path().to_path_buf();
+
+        let mut fsdir = self.get_directory(path.clone())?;
+
+        // Ensure the directory is an FSDirectory subclass
+        if !fsdir.is_fs_directory() {
+            // This test only applies to FSDirectory-like implementations
+            return Ok(());
+        }
+
+        {
+            let mut out = fsdir.create_output("afile", IOContext::default_io_context()?)?;
+            out.write_string("boo")?;
+        }
+
+        // Delete the file directly via the filesystem
+        std::fs::remove_file(path.join("afile"))?;
+
+        let file_count_before = fsdir.list_all()?.len();
+
+        let result = fsdir.sync(&["afile"]);
+        assert!(matches!(
+            result,
+            Err(DataIOError::IoWithPath { source, .. })
+                if source.kind() == std::io::ErrorKind::NotFound
+        ));
+
+        // Ensure no new files were created
+        let file_count_after = fsdir.list_all()?.len();
+        assert_eq!(file_count_before, file_count_after);
+
+        Ok(())
+    }
+    fn test_random_long(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new().prefix("testLongs").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let num = random.gen_range(50..=3000);
+        let mut longs = vec![0i64; num];
+        {
+            let mut output = dir.create_output("longs", IOContext::default_io_context()?)?;
+            for value in &mut longs {
+                *value = random.gen_range(i64::MIN..=i64::MAX);
+                output.write_long(*value)?;
+            }
+        }
+
+        // Slice
+        {
+            let mut input = dir.open_input("longs", IOContext::default_io_context()?)?;
+            let mut slice = input.random_access_slice(0, IndexInput::length(&input))?;
+            assert_eq!(IndexInput::length(&input), slice.length());
+            for (i, &expected) in longs.iter().enumerate() {
+                assert_eq!(expected, slice.read_long(i as u64 * 8)?);
+            }
+
+            // Subslices
+            for i in 1..longs.len() {
+                let offset = i as u64 * 8;
+                let mut subslice =
+                    input.random_access_slice(offset, IndexInput::length(&input) - offset)?;
+                assert_eq!(IndexInput::length(&input) - offset, subslice.length());
+                for (j, &expected) in longs.iter().skip(i).enumerate() {
+                    assert_eq!(expected, subslice.read_long(j as u64 * 8)?);
+                }
+            }
+
+            // With padding
+            // for i in 0..7 {
+            //     let name = format!("longs-{}", i);
+            //     let mut o = dir.create_output(&name, IOContext::default_io_context()?)?;
+            //     let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+            //     o.write_bytes(&junk)?;
+            //     input.seek(0)?;
+            //     o.copy_bytes(&mut input, IndexInput::length(&input)?)?;
+            //     let mut padded = dir.open_input(&name, IOContext::default_io_context()?)?;
+            //     let whole = padded.random_access_slice(i as u64, padded.length()? - i as u64)?;
+            //     assert_eq!(padded.length()? - i as u64, whole.length()?);
+            //     for (j, &expected) in longs.iter().enumerate() {
+            //         assert_eq!(expected, whole.read_long(j as u64 * 8)?);
+            //     }
+            // }
+        }
+
+        Ok(())
     }
 }

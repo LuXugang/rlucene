@@ -437,6 +437,11 @@ where
             Ok(pending_deletes.clone())
         }
     }
+
+    #[cfg(feature = "test_only")]
+    fn is_fs_directory(&self) -> bool {
+        true
+    }
 }
 
 impl<D, T, B> Display for FSDirectory<D, T, B>

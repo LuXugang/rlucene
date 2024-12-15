@@ -58,7 +58,10 @@ impl<T> DocIdSet for NotDocIdSet<T>
 where
     T: DocIdSet,
 {
-    type DISIType<'a> = NotDocDocIdSetIterator<T::DISIType<'a>> where Self: 'a;
+    type DISIType<'a>
+        = NotDocDocIdSetIterator<T::DISIType<'a>>
+    where
+        Self: 'a;
 
     type BitType = NotDocIdBits<T::BitType>;
 

@@ -68,12 +68,8 @@ impl IOUtils {
             let file = File::options()
                 .write(true)
                 .open(file_to_sync)
-                .map_err(|e| match e.kind() {
-                    io::ErrorKind::NotFound => DataIOError::not_found(format!(
-                        "File not found: {}",
-                        file_to_sync.display()
-                    )),
-                    _ => DataIOError::io_with_path(file_to_sync.to_string_lossy().to_string(), e),
+                .map_err(|e| {
+                    DataIOError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
                 })?;
 
             file.sync_all().map_err(|e| {

@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::IndexInput;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::io::Cursor;
-use crate::store::IndexInput;
 
 pub trait BufferedIndexInputBase: Clone {
     /// Expert: Implements seek functionality. Sets the current position in this file,

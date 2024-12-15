@@ -411,7 +411,10 @@ impl Accountable for DocIdSetEnum {
 }
 
 impl DocIdSet for DocIdSetEnum {
-    type DISIType<'a> = DocIdSetIteratorEnum<'a> where Self: 'a;
+    type DISIType<'a>
+        = DocIdSetIteratorEnum<'a>
+    where
+        Self: 'a;
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
         match self {

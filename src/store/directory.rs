@@ -218,6 +218,11 @@ pub trait Directory: Display + Sized {
     /// # Note
     /// This is an internal API.
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>, DataIOError>;
+
+    #[cfg(feature = "test_only")]
+    fn is_fs_directory(&self) -> bool {
+        false
+    }
 }
 
 /// Creates a file name for a temporary file. The name will start with `prefix`, end with

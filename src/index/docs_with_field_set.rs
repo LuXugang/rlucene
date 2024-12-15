@@ -121,7 +121,10 @@ impl<T: BitSet> Accountable for DocsWithFieldSet<T> {
 }
 
 impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
-    type DISIType<'b> = DocsWithFieldSetEnum<'b, T> where T: 'b;
+    type DISIType<'b>
+        = DocsWithFieldSetEnum<'b, T>
+    where
+        T: 'b;
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
         if self.set.length() != 0 {
