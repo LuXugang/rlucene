@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#[allow(dead_code)]
+#[allow(unused)]
 pub enum ScoreMode {
     Complete {
         is_exhaustive: bool,
@@ -44,7 +44,7 @@ pub enum ScoreMode {
 }
 
 impl ScoreMode {
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn needs_scores(&self) -> bool {
         match self {
             ScoreMode::Complete { needs_scores, .. }
@@ -55,7 +55,7 @@ impl ScoreMode {
         }
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn is_exhaustive(&self) -> bool {
         match self {
             ScoreMode::Complete { is_exhaustive, .. }

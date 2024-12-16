@@ -178,7 +178,7 @@ fn test_approximate_cardinality_on_dense_set() {
     assert_eq!(num_docs, set.approximate_cardinality());
 }
 #[test]
-#[allow(dead_code)]
+#[allow(unused)]
 fn test_ram_bytes_used() {
     // todo
 }

@@ -28,7 +28,7 @@ use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex};
@@ -68,7 +68,7 @@ where
     /// delete that key.
     pending_deletes: Arc<Mutex<HashSet<String>>>,
     ops_since_last_delete: AtomicU32,
-    /** Used to generate temp file names in [`createTempOutput`](Directory::create_temp_output). */
+    /// Used to generate temp file names in [`createTempOutput`](Directory::create_temp_output).
     next_temp_file_counter: AtomicU64,
     lock_factory: D,
     sub_fs_directory: T,
@@ -98,7 +98,7 @@ where
     }
 
     fn list_all(
-        dir: &PathBuf,
+        dir: &Path,
         skip_names: Option<&HashSet<String>>,
     ) -> Result<Vec<String>, DataIOError> {
         let mut entries = Vec::new();
@@ -169,7 +169,7 @@ where
     }
 
     fn private_delete_file(
-        directory: &PathBuf,
+        directory: &Path,
         name: &str,
         is_pending_delete: bool,
         pending_deletes: &mut HashSet<String>,

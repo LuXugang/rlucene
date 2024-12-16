@@ -25,7 +25,7 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use std::rc::Rc;
 
 //TODO
-#[allow(dead_code)]
+#[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 /// Accumulator for documents that have a value for a field.
 /// This is optimized for the case where all documents have a value.
@@ -51,11 +51,10 @@ impl DocsWithFieldSet<FixedBitSet> {
             _marker: Default::default(),
         }
     }
-    /**
-     * Add a document to the set
-     *
-     * @param docID – document ID to be added
-     */
+    /// Adds a document to the set.
+    ///
+    /// # Parameters
+    /// - `doc_id`: The document ID to be added.
     pub fn add(&mut self, doc_id: i32) -> Result<(), RuntimeError> {
         if doc_id <= self.last_doc_id {
             return Err(RuntimeError::illegal_argument(format!(

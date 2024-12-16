@@ -22,6 +22,7 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, VecCopyOps};
 use byteorder::{ByteOrder, LE};
+use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 
@@ -173,8 +174,23 @@ impl<'a> ByteBuffersDataInput<'a> {
 }
 
 impl Display for ByteBuffersDataInput<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let blocks_len = self.blocks.len();
+        let offset_str = if self.offset == 0 {
+            String::new()
+        } else {
+            format!(" [offset: {}]", self.offset)
+        };
+
+        write!(
+            f,
+            "{} bytes, block size: {}, blocks: {}, position: {}{}",
+            self.length,
+            1u64 << self.block_bits,
+            blocks_len,
+            self.position(),
+            offset_str
+        )
     }
 }
 

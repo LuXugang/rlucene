@@ -17,6 +17,7 @@
 use crate::index::BytesRef;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
+#[allow(unused)]
 pub trait SortableBytesRefArray {
     /// Append a new value
     fn append(&self, bytes: BytesRef);

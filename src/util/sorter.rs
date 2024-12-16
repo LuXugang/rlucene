@@ -17,7 +17,7 @@
 use crate::util::error::runtime_error::RuntimeError;
 
 pub const BINARY_SORT_THRESHOLD: i32 = 20;
-/** Below this size threshold, the sub-range is sorted using Insertion sort. */
+// Below this size threshold, the sub-range is sorted using Insertion sort.
 pub const INSERTION_SORT_THRESHOLD: i32 = 16;
 
 /// Base class for sorting algorithm implementations.
@@ -179,12 +179,13 @@ pub trait Sorter {
         }
     }
 
-    /**
-     * A binary sort implementation. This performs `O(n*log(n))` comparisons and `O(n^2)`
-     * swaps. It is typically used by more sophisticated implementations as a fall-back when the
-     * number of items to sort has become less than #BINARY_SORT_THRESHOLD. This algorithm is
-     * stable.
-     */
+    /// A binary sort implementation.
+    ///
+    /// This sorting algorithm performs `O(n * log(n))` comparisons and `O(n^2)` swaps.  
+    /// It is typically used as a fallback by more sophisticated sorting implementations
+    /// when the number of items to sort becomes smaller than `BINARY_SORT_THRESHOLD`.
+    ///
+    /// This algorithm is **stable**.
     fn binary_sort(&mut self, from: i32, to: i32) {
         self.binary_sort_with_start(from, to, from + 1);
     }

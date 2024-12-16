@@ -28,7 +28,7 @@ pub trait BytesRefIterator {
     ///
     /// # Errors
     /// Returns an `std::io::Error` if there is a low-level I/O error.
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn next(&self) -> Result<Option<BytesRef>, RuntimeError>;
 }
 
@@ -41,6 +41,6 @@ impl BytesRefIterator for EmptyBytesRefIterator {
 }
 
 impl EmptyBytesRefIterator {
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub const EMPTY: Self = EmptyBytesRefIterator;
 }

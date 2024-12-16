@@ -35,7 +35,6 @@ pub mod directory;
 pub mod flush_info;
 pub mod fs_directory;
 pub mod fs_directory_base;
-mod fs_index_output;
 pub mod fs_lock_factory;
 pub mod index_input;
 pub mod index_output;

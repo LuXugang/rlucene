@@ -157,7 +157,6 @@ impl SparseFixedBitSet {
         }
     }
     /// Return the first document that occurs on or after the provided block index.
-
     fn first_doc(&self, mut i4096: i32, i4096_upper: i32) -> i32 {
         debug_assert!(i4096_upper <= self.indices.len() as i32);
         let mut index;
@@ -174,7 +173,6 @@ impl SparseFixedBitSet {
         NO_MORE_DOCS
     }
     /// Return the last document that occurs on or before the provided block index.
-
     fn last_doc(&self, mut i4096: i32) -> i32 {
         let mut index;
         while i4096 >= 0 {
@@ -294,7 +292,7 @@ impl SparseFixedBitSet {
             non_zero_long_count - (current_index & index).count_ones() as i32;
     }
     /// [`or`](#method.or) implementation that works best when `it` is dense.
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<(), RuntimeError> {
         SparseFixedBitSet::check_unpositioned(&it)?;
         // The goal here is to try to take advantage of the ordering of documents
@@ -372,7 +370,7 @@ fn oversize(s: i32) -> i32 {
     }
     new_size
 }
-#[allow(dead_code)]
+#[allow(unused)]
 fn long_bits(index: i64, bits: &[u64], i64: i32) -> i64 {
     if ((index as u64) & (1_u64 << (i64 % 64))) == 0 {
         0

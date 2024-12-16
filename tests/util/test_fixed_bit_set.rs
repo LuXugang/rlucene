@@ -39,7 +39,7 @@ impl BaseBitSetTestCase for TestFixedBitSet {
         &self,
         bs: &RustUtilBitSet,
         length: i32,
-    ) -> (FixedBitSet, Option<SparseFixedBitSet>) {
+    ) -> (impl BitSet, Option<SparseFixedBitSet>) {
         let mut set = FixedBitSet::new(length);
         let mut doc = bs.next_set_bit(0);
         while doc != NO_MORE_DOCS {

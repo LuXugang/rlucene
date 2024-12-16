@@ -21,7 +21,6 @@ use crate::util::error::runtime_error::RuntimeError;
 /// is set to its constant value to be used as a sentinel object.
 ///
 /// Implementations of this class are expected to treat `i32::MAX` as an invalid value.
-
 pub trait DocIdSetIterator {
     /// Returns the following:
     ///
@@ -160,10 +159,15 @@ impl DocIdSetIterator for AllDocIdSetIterator {
     }
 }
 
-/**
- * A [`DocIdSetIterator`] that matches a range documents from minDocID (inclusive) to maxDocID
- * (exclusive).
- */
+/// A [`DocIdSetIterator`] that matches a range of documents from `min_doc_id` (inclusive)
+/// to `max_doc_id` (exclusive).
+///
+/// # Parameters
+/// - `min_doc_id`: The minimum document ID to match (inclusive).
+/// - `max_doc_id`: The maximum document ID to match (exclusive).
+///
+/// # See Also
+/// - [`DocIdSetIterator`]
 pub struct Range {
     doc: i32,
     min_doc: i32,

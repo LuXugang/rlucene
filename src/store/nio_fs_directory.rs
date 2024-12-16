@@ -20,7 +20,7 @@ use crate::store::{BufferedIndexInput, IOContext};
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::Path;
 
 /// An implementation of [`FSDirectory`](crate::store::fs_directory::FSDirectory)that uses `std::fs::File` for positional reads,
 /// allowing multiple threads to read from the same file without synchronization.
@@ -29,7 +29,6 @@ use std::path::PathBuf;
 ///
 /// This class uses `std::fs::File` for reading, enabling thread-safe concurrent reads. Writing
 /// is achieved using [`OutputStreamIndexOutput`](crate::store::output_stream_index_output).
-
 pub struct NIOFSDirectory;
 
 impl Default for NIOFSDirectory {
@@ -46,7 +45,7 @@ impl NIOFSDirectory {
 
 impl Display for NIOFSDirectory {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(f, "NIOFSDirectory")
     }
 }
 
@@ -57,7 +56,7 @@ impl FSDirectoryBase for NIOFSDirectory {
         &self,
         name: &str,
         context: IOContext,
-        path: &PathBuf,
+        path: &Path,
     ) -> Result<Self::Output, DataIOError> {
         let file_path = path.join(name);
         let file_name = file_path.to_string_lossy().to_string();
@@ -70,10 +69,6 @@ impl FSDirectoryBase for NIOFSDirectory {
         let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());
         // let resource_desc_string = resource_desc.to_string();
         let index_input = NIOFSIndexInput::new(file, &resource_desc);
-        Ok(BufferedIndexInput::new_with_io_context(
-            index_input,
-            &resource_desc,
-            context,
-        ))
+        BufferedIndexInput::new_with_io_context(index_input, &resource_desc, context)
     }
 }

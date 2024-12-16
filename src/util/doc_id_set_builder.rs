@@ -44,7 +44,7 @@ pub struct DocIdSetBuilder {
     counter: i64,
 }
 impl DocIdSetBuilder {
-    /** Create a builder that can contain doc IDs between  0 and maxDoc. */
+    /// Create a builder that can contain doc IDs between  0 and maxDoc.
     pub fn new(max_doc: i32) -> DocIdSetBuilder {
         Self::new_with_count(max_doc, -1, -1)
     }

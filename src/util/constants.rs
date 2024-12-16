@@ -15,4 +15,5 @@
  * limitations under the License.
  */
 
+#[allow(unused)]
 struct Constants;

@@ -21,7 +21,6 @@ use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoroshiro128Plus;
 use rlucene::store::byte_buffers_data_input::ByteBuffersDataInput;
-use rlucene::store::data_output::DataOutput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{ByteBuffersDataOutput, DataInput};
 
@@ -123,14 +122,14 @@ fn test_seek_and_skip() -> Result<(), TestError> {
     let reps = random.gen_range(1..=20);
     for _i in 0..reps {
         let mut dst = ByteBuffersDataOutput::new_resettable_instance()?;
-        let mut prefix: Vec<u8> = vec![];
+        let prefix: Vec<u8>;
         let mut prefix_len: u64 = 0;
-        // if random.gen_bool(0.5){
-        let len = random.gen_range(0..=1024 * 8);
-        prefix = vec![0; len];
-        prefix_len = prefix.len() as u64;
-        dst.write_bytes(prefix)?;
-        // }
+        if random.gen_bool(0.5) {
+            let len = random.gen_range(1..=1024 * 8);
+            prefix = vec![0; len];
+            prefix_len = prefix.len() as u64;
+            dst.write_bytes(prefix)?;
+        }
         let seed: u64 = random.gen();
         let max = 1000;
         let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
@@ -179,7 +178,7 @@ fn test_slicing_window() -> Result<(), TestError> {
     let mut dst = ByteBuffersDataOutput::new_resettable_instance()?;
     assert_eq!(0, dst.get_data_input().slice(0, 0)?.length());
     let random_bytes: Vec<u8> = vec![0; random.gen_range(0..=1024 * 8)];
-    dst.write_bytes(random_bytes);
+    dst.write_bytes(random_bytes)?;
     let max = dst.size();
     let data_input = dst.get_data_input();
     let mut offset = 0;

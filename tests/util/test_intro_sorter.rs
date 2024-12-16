@@ -17,7 +17,7 @@
 use crate::common::my_random;
 use crate::util::base_sort_test_case::{BaseSortTestCase, Entry};
 use rand::rngs::StdRng;
-use rlucene::util::{ArrayIntroSorter, Comparator, NaturalOrder};
+use rlucene::util::{ArrayIntroSorter, Comparator, NaturalOrder, Sorter};
 
 const STABLE: bool = false;
 
@@ -39,11 +39,7 @@ impl<T, C: Comparator<T>> BaseSortTestCase for TestIntroSorter<T, C>
 where
     T: Ord,
 {
-    fn new_sorter<'a>(
-        &self,
-        _random: &mut StdRng,
-        arr: &'a mut Vec<Entry>,
-    ) -> ArrayIntroSorter<'a, Entry, NaturalOrder<Entry>> {
+    fn new_sorter<'a>(&self, _random: &mut StdRng, arr: &'a mut Vec<Entry>) -> impl Sorter {
         ArrayIntroSorter::new(arr, NaturalOrder::new())
     }
 

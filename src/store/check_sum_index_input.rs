@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 use crate::store::index_input::IndexInput;
-use crate::store::DataInput;
 use crate::util::error::data_io_error_enum::DataIOError;
 
 const SKIP_BUFFER_SIZE: u32 = 1024;
 /// An extension of [`IndexInput`] that computes a checksum as it reads data.
 /// Callers can retrieve the checksum using the `get_checksum` method from the implemented trait.
 pub trait ChecksumIndexInput: IndexInput {
-    /** Returns the current checksum value */
+    /// Returns the current checksum value .
     fn get_checksum(&mut self) -> u64;
     /// Inherits documentation from the parent implementation.
     ///

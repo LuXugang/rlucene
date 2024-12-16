@@ -32,7 +32,10 @@ impl DataInputType<'_> {
 
 impl Display for DataInputType<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        match self {
+            DataInputType::ByteArray(input) => write!(f, "{}", input),
+            DataInputType::ByteBuffers(input) => write!(f, "{}", input),
+        }
     }
 }
 

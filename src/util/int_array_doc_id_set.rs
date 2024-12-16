@@ -23,7 +23,7 @@ use std::cmp::min;
 use std::rc::Rc;
 
 // TODO
-#[allow(dead_code)]
+#[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 
 /// A doc id set based on a sorted `Vec<i32>`.
@@ -91,7 +91,7 @@ pub struct IntArrayDocIdSetIterator<'a> {
     doc: i32,
 }
 impl<'a> IntArrayDocIdSetIterator<'a> {
-    pub fn new(docs: &'a Vec<i32>, length: i32) -> IntArrayDocIdSetIterator {
+    pub fn new(docs: &'a Vec<i32>, length: i32) -> IntArrayDocIdSetIterator<'a> {
         IntArrayDocIdSetIterator {
             docs,
             length,

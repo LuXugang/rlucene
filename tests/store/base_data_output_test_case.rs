@@ -104,7 +104,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
             let _ = dst.write_bytes_range(&bytes, off as u32, length as u32);
             Box::new(move |src: &mut DI| {
                 let mut read: Vec<u8> = vec![0u8; bytes.len() + off];
-                src.read_bytes(&mut read, off as u32, length as u32);
+                let _ = src.read_bytes(&mut read, off as u32, length as u32);
                 assert_eq!(
                     read[off..off + length],
                     bytes[off..off + length],

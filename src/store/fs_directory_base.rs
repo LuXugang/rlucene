@@ -19,7 +19,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IOContext;
 use crate::util::error::data_io_error_enum::DataIOError;
 use std::fmt::Display;
-use std::path::PathBuf;
+use std::path::Path;
 
 pub trait FSDirectoryBase: Display {
     type Output: IndexInput + RandomAccessInput;
@@ -27,6 +27,6 @@ pub trait FSDirectoryBase: Display {
         &self,
         name: &str,
         context: IOContext,
-        path: &PathBuf,
+        path: &Path,
     ) -> Result<Self::Output, DataIOError>;
 }

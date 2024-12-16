@@ -55,12 +55,12 @@ impl IOUtils {
                         }
                     })?;
 
-            if let Err(e) = dir_file.sync_all() {
+            if let Err(_e) = dir_file.sync_all() {
                 #[cfg(any(target_os = "linux", target_os = "macos"))]
                 debug_assert!(
                     false,
                     "On Linux and macOS, syncing a directory should not throw an error. Got: {}",
-                    e
+                    _e
                 );
                 return Ok(());
             }

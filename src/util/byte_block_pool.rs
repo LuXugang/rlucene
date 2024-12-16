@@ -19,15 +19,17 @@ use crate::util::{Counter, CounterEnum, VecCopyOps};
 use std::cmp::min;
 
 //TODO
-#[allow(dead_code)]
+#[allow(unused)]
 const BASE_RAM_BYTES: i64 = 0;
-/**
- * Use this to find the index of the buffer containing a byte, given an offset to that byte.
- *
- * <p>bufferUpto = globalOffset &gt;&gt; BYTE_BLOCK_SHIFT
- *
- * <p>bufferUpto = globalOffset / BYTE_BLOCK_SIZE
-*/
+/// Finds the index of the buffer containing a byte, given an offset to that byte.
+///
+/// The calculation for `buffer_upto` is as follows:
+///
+/// - `buffer_upto = global_offset >> BYTE_BLOCK_SHIFT`
+/// - `buffer_upto = global_offset / BYTE_BLOCK_SIZE`
+///
+/// # Parameters
+/// - `global_offset`: The offset to the target byte.
 const BYTE_BLOCK_SHIFT: i32 = 15;
 /// The size of each buffer in the pool.
 pub const BYTE_BLOCK_SIZE: i32 = 1 << BYTE_BLOCK_SHIFT;
@@ -143,7 +145,7 @@ impl<'a> ByteBlockPool<'a> {
             builder.get().bytes.clone_from(&result.bytes);
         }
     }
-    /** Appends the bytes in the provided BytesRef at the current position. */
+    /// Appends the bytes in the provided BytesRef at the current position.
     pub fn append_bytes_ref(&mut self, bytes: BytesRef) {
         debug_assert!(bytes.offset <= i32::MAX as u32);
         debug_assert!(bytes.length <= i32::MAX as u32);

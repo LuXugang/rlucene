@@ -24,7 +24,7 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, Metadata, OpenOptions};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
 
@@ -80,7 +80,7 @@ impl NativeFSLockFactory {
     }
 }
 impl LockFactory for NativeFSLockFactory {
-    fn obtain_lock(&self, dir: &PathBuf, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
+    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
         FSLockFactory::obtain_lock(self, dir, lock_name)
     }
 }
@@ -92,7 +92,7 @@ impl Display for NativeFSLockFactory {
 }
 
 impl FSLockFactory for NativeFSLockFactory {
-    fn obtain_fs_lock(&self, dir: &PathBuf, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
+    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
         fs::create_dir_all(dir)
             .map_err(|e| DataIOError::io_with_path(dir.to_string_lossy().to_string(), e))?;
 

@@ -17,6 +17,7 @@
 use crate::store::data_input::DataInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
+use std::any::type_name;
 use std::fmt::{Display, Formatter};
 
 #[derive(Default)]
@@ -76,11 +77,15 @@ impl ByteArrayDataInput {
     pub fn eof(&self) -> bool {
         self.pos == self.limit
     }
+    fn type_name(&self) -> &'static str {
+        type_name::<Self>()
+    }
 }
 
 impl Display for ByteArrayDataInput {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        let address = self as *const Self as usize;
+        write!(f, "{}@{:x}", self.type_name(), address)
     }
 }
 

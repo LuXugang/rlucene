@@ -20,12 +20,12 @@ use rand::Rng;
 use rlucene::store::directory::Directory;
 use rlucene::store::flush_info::FlushInfo;
 use rlucene::store::fs_directory::FSDirectory;
-use rlucene::store::fs_directory_base::FSDirectoryBase;
 use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
 use rlucene::store::IOContext;
 use tempfile::TempDir;
 
+#[allow(dead_code)] // for quick serach
 pub struct LuceneTestCase;
 
 // TODO: When we have implemented multiple directories, we need to select one randomly. Currently, we choose NIOFSDirectory.

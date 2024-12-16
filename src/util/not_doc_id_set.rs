@@ -20,7 +20,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
 use std::rc::Rc;
 
-#[allow(dead_code)]
+#[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 /// This [`DocIdSet`] encodes the negation of another
 /// [`DocIdSet`]. It is cacheable and supports random-access

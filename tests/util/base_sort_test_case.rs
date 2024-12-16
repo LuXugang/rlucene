@@ -98,13 +98,13 @@ pub trait BaseSortTestCase {
 pub enum Strategy {
     Random(),
     RandomLowCardinality(),
-    #[allow(dead_code)]
+    #[allow(unused)]
     RandomMediumCardinality(),
     Ascending(),
     Descending(),
     StrictlyDescending(),
     AscendingSequences(),
-    #[allow(dead_code)]
+    #[allow(unused)]
     MostlyAscending(),
 }
 impl Strategy {

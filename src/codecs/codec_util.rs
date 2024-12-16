@@ -25,9 +25,9 @@ use crate::util::version::MIN_SUPPORTED_MAJOR;
 use crate::util::{id_to_string, ID_LENGTH};
 use std::cmp::Ordering;
 
-/** Constant to identify the start of a codec header. */
+/// Constant to identify the start of a codec header.
 pub const CODEC_MAGIC: u32 = 0x3fd76c17;
-/** Constant to identify the start of a codec footer. */
+/// Constant to identify the start of a codec footer.
 pub const FOOTER_MAGIC: u32 = !CODEC_MAGIC;
 /// Utility class for reading and writing versioned headers.
 ///
@@ -578,6 +578,7 @@ pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<u64, DataIOError
 ///
 /// # Errors
 /// - `IoError`: If the footer is invalid.
+#[allow(unused)]
 fn retrieve_checksum_with_expected(
     input: &mut impl IndexInput,
     expected_length: u64,

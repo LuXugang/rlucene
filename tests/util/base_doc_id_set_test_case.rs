@@ -26,13 +26,13 @@ use std::cmp::max;
 
 pub trait BaseDocIdSetTestCase {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet;
-    /** Test length=0. */
+    /// Test length=0.
     fn test_bit_0(&self, random: &mut StdRng) {
         let bs = bit_set::BitSet::with_capacity(1);
         let copy = self.copy_of(&bs, 1);
         self.assert_equals(random, 1, &bs, copy);
     }
-    /** Test length=1. */
+    /// Test length=1.
     fn test_bit_1(&self, random: &mut StdRng) {
         let mut bs = bit_set::BitSet::with_capacity(1);
         if random.gen_bool(0.5) {
@@ -41,7 +41,7 @@ pub trait BaseDocIdSetTestCase {
         let copy = self.copy_of(&bs, 1);
         self.assert_equals(random, 1, &bs, copy);
     }
-    /** Test length=2. */
+    /// Test length=2.
     fn test_bit_2(&self, random: &mut StdRng) {
         let mut bs = bit_set::BitSet::with_capacity(2);
         if random.gen_bool(0.5) {
@@ -53,7 +53,7 @@ pub trait BaseDocIdSetTestCase {
         let copy = self.copy_of(&bs, 2);
         self.assert_equals(random, 2, &bs, copy);
     }
-    /** Compare the content of the set against a {@link BitSet}. */
+    /// Compare the content of the set against a {@link BitSet}.
     fn test_against_bit_set(&self, random: &mut StdRng) {
         let num_bits = random.gen_range(100..1 << 20);
         let random_float: f32 = random.gen();
@@ -93,7 +93,7 @@ pub trait BaseDocIdSetTestCase {
         }
     }
     //TODO
-    /** Test ram usage estimation. */
+    /// Test ram usage estimation.
     fn test_ram_bytes_used(&self, _random: &mut StdRng) {}
     fn assert_equals<T: DocIdSet>(
         &self,
@@ -104,7 +104,7 @@ pub trait BaseDocIdSetTestCase {
     );
 }
 // todo
-#[allow(dead_code)]
+#[allow(unused)]
 fn ram_bytes_used(_set: impl DocIdSet, _length: i32) -> i64 {
     0
 }

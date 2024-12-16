@@ -225,7 +225,6 @@ pub trait DataOutput: Sized {
     ///
     /// # Arguments
     /// * `map` - The input map.
-
     fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), DataIOError> {
         self.write_vint(map.len() as i32)?;
         for (key, value) in map.iter() {
@@ -261,7 +260,6 @@ pub trait DataOutput: Sized {
     ///
     /// # Note
     /// This is an experimental API.
-
     fn write_group_vints(&mut self, values: &mut [i64], limit: u32) -> Result<(), DataIOError> {
         let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];
         GroupVIntUtil::write_group_vints(self, &mut group_vint_bytes, values, limit)?;

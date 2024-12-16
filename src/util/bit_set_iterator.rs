@@ -33,7 +33,7 @@ pub struct BitSetIterator<'a, T: BitSet> {
 }
 
 impl<'a, T: BitSet> BitSetIterator<'a, T> {
-    pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<T>, RuntimeError> {
+    pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<'a, T>, RuntimeError> {
         if cost < 0 {
             return Err(RuntimeError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
@@ -53,19 +53,19 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
         self.bits
     }
 
-    /** Set the current doc id that this iterator is on. */
-    #[allow(dead_code)]
+    // Set the current doc id that this iterator is on.
+    #[allow(unused)]
     fn set_doc_id(&mut self, doc_id: i32) {
         self.doc = doc_id;
     }
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
         _it1: &T1,
         _it2: &T2,
     ) -> bool {
         TypeId::of::<T1>() == TypeId::of::<T2>()
     }
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(
         _it1: &T1,
         _it2: &T2,

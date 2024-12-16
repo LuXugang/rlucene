@@ -64,8 +64,8 @@ where
 
     fn random_access_slice(
         &self,
-        offset: u64,
-        length: u64,
+        _offset: u64,
+        _length: u64,
     ) -> Result<ByteBuffersIndexInput, DataIOError> {
         Err(DataIOError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",

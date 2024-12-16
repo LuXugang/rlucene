@@ -76,11 +76,11 @@ fn test_constructor_with_expected_size() -> Result<(), TestError> {
 }
 
 #[test]
-fn test_randomized_writes() {
+fn test_randomized_writes() -> Result<(), TestError> {
     let mut test = TestByteBuffersDataOutput;
     let mut random = my_random("test_randomized_writes".to_string());
     // here could use any DataInput impl because this test does not test ByteArrayDataInput
-    test.test_randomized_writes::<ByteArrayDataInput>(&mut random);
+    test.test_randomized_writes::<ByteArrayDataInput>(&mut random)
 }
 
 #[test]

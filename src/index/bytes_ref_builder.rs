@@ -17,9 +17,7 @@
 use crate::index::bytes_ref::BytesRef;
 use crate::util::VecCopyOps;
 
-/**
- * A builder for {@link BytesRef} instances.
- */
+/// A builder for {@link BytesRef} instances.
 pub struct BytesRefBuilder {
     bytes_ref: BytesRef,
 }
@@ -35,27 +33,27 @@ impl BytesRefBuilder {
             bytes_ref: BytesRef::new(),
         }
     }
-    /** Return a reference to the bytes of this builder. */
+    /// Return a reference to the bytes of this builder.
     pub fn bytes_ref(&self) -> &BytesRef {
         &self.bytes_ref
     }
 
-    /** Return the number of bytes in this buffer. */
+    /// Return the number of bytes in this buffer.
     pub fn length(&self) -> u32 {
         self.bytes_ref.length
     }
 
-    /** Set the length. */
+    /// Set the length.
     pub fn set_length(&mut self, length: u32) {
         self.bytes_ref.length = length;
     }
 
-    /** Return the byte at the given offset. */
+    /// Return the byte at the given offset.
     pub fn byte_at(&self, index: u32) -> u8 {
         self.bytes_ref.bytes[(index) as usize]
     }
 
-    /** Set a byte. */
+    /// Set a byte.
     pub fn set_byte_at(&mut self, offset: u32, value: u8) {
         self.bytes_ref.bytes[offset as usize] = value;
     }
@@ -72,13 +70,13 @@ impl BytesRefBuilder {
         self.grow(capacity);
     }
 
-    /** Append a single byte to this builder. */
+    /// Append a single byte to this builder.
     pub fn append_byte(&mut self, b: u8) {
         self.bytes_ref.bytes.push(b);
         self.bytes_ref.length += 1;
     }
 
-    /** Append the provided bytes to this builder. */
+    /// Append the provided bytes to this builder.
     pub fn append(&mut self, b: &[u8], off: u32, len: u32) {
         self.bytes_ref
             .bytes
@@ -86,12 +84,12 @@ impl BytesRefBuilder {
         self.bytes_ref.length += len;
     }
 
-    /** Append the provided bytes to this builder. */
+    /// Append the provided bytes to this builder.
     pub fn append_ref(&mut self, b: &BytesRef) {
         self.append(&b.bytes, b.offset, b.length);
     }
 
-    /** Reset this builder to the empty state. */
+    /// Reset this builder to the empty state.
     pub fn append_builder(&mut self, b: &mut BytesRefBuilder) {
         self.append_ref(b.get())
     }
@@ -101,10 +99,19 @@ impl BytesRefBuilder {
         self.bytes_ref.offset = 0;
     }
 
-    /**
-     * Replace the content of this builder with the provided bytes. Equivalent to calling
-     * clear() and then `#append(vec<u8>, int, int)}`.
-     */
+    /// Replaces the content of this builder with the provided bytes.
+    ///
+    /// This is equivalent to calling [`clear`](BytesRefBuilder::clear) and then [`append`](BytesRefBuilder::append) with the specified `Vec<u8>`
+    /// and range parameters (`start` and `end`).
+    ///
+    /// # Parameters
+    /// - `bytes`: The byte vector to replace the current content.
+    /// - `start`: The starting index of the byte slice to append.
+    /// - `end`: The ending index of the byte slice to append.
+    ///
+    /// # See Also
+    /// - [`clear`](BytesRefBuilder::clear)
+    /// - [`append`](BytesRefBuilder::append)
     pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: u32, len: u32) {
         self.grow(len);
         assert_eq!(self.bytes_ref.offset, 0);
@@ -138,10 +145,8 @@ impl BytesRefBuilder {
         self.bytes_ref.offset = 0;
     }
 
-    /**
-     * Return a BytesRef that points to the internal content of this builder. Any update to
-     * the content of this builder might invalidate the provided bytes_ref and vice-versa.
-     */
+    /// Return a BytesRef that points to the internal content of this builder. Any update to
+    ///  the content of this builder might invalidate the provided bytes_ref and vice-versa.
     pub fn get(&mut self) -> &mut BytesRef {
         assert_eq!(
             self.bytes_ref.offset, 0,
@@ -149,7 +154,7 @@ impl BytesRefBuilder {
         );
         &mut self.bytes_ref
     }
-    /** Build a new BytesRef that has the same content as this buffer. */
+    /// Build a new BytesRef that has the same content as this buffer.
     pub fn to_bytes_ref(&self) -> BytesRef {
         self.bytes_ref.clone()
     }

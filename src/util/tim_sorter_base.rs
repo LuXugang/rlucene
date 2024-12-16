@@ -27,6 +27,5 @@ pub trait TimSorterBase {
 
     /// Compare element `i` from the temporary storage with element `j` from the
     /// slice to sort, similarly to #compare(i32, i32).
-
     fn compare_saved(&self, i: i32, j: i32) -> i32;
 }

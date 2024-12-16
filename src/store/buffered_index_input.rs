@@ -19,7 +19,6 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
 use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::error::runtime_error::RuntimeError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, VecCopyOps};
 use byteorder::{ByteOrder, LE};
@@ -63,9 +62,10 @@ where
         sub_index_input: T,
         resource_desc: &str,
         buffer_size: u32,
-    ) -> BufferedIndexInput<T> {
+    ) -> Result<BufferedIndexInput<T>, DataIOError> {
         let buffer = Cursor::new(vec![0u8; buffer_size as usize]);
-        BufferedIndexInput {
+        Self::check_buffer_size(buffer_size)?;
+        Ok(BufferedIndexInput {
             buffer_size,
             resource_desc: resource_desc.to_string(),
             buffer,
@@ -73,12 +73,12 @@ where
             buffer_start: 0,
             pos: 0,
             length: 0,
-        }
+        })
     }
     pub fn new_with_resource_desc(
         sub_index_input: T,
         resource_desc: &str,
-    ) -> BufferedIndexInput<T> {
+    ) -> Result<BufferedIndexInput<T>, DataIOError> {
         Self::new_with_buffer_size(sub_index_input, resource_desc, BUFFER_SIZE)
     }
 
@@ -86,7 +86,7 @@ where
         sub_index_input: T,
         resource_desc: &str,
         context: IOContext,
-    ) -> BufferedIndexInput<T> {
+    ) -> Result<BufferedIndexInput<T>, DataIOError> {
         Self::new_with_buffer_size(sub_index_input, resource_desc, Self::buffer_size(context))
     }
 
@@ -98,9 +98,9 @@ where
         }
     }
 
-    fn check_buffer_size(buffer_size: u32) -> Result<(), RuntimeError> {
+    fn check_buffer_size(buffer_size: u32) -> Result<(), DataIOError> {
         if buffer_size < MIN_BUFFER_SIZE {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "bufferSize must be at least MIN_BUFFER_SIZE (got {})",
                 buffer_size
             )));
@@ -743,9 +743,10 @@ where
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
+    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
         Ok(())
     }
 }
 
+#[allow(unused)]
 struct SlicedIndexInput {}

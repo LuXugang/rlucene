@@ -22,7 +22,7 @@ pub const ID_LENGTH: u32 = 16;
 ///
 /// # Note
 /// This is an internal API.
-#[allow(dead_code)] // for quick search
+#[allow(unused)] // for quick search
 struct StringHelper;
 
 pub fn random_id() -> [u8; 16] {

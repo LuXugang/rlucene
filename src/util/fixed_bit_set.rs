@@ -23,7 +23,7 @@ use std::cmp::min;
 use std::hash::{Hash, Hasher};
 
 // todo
-#[allow(dead_code)]
+#[allow(unused)]
 const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 #[derive(Default)]
@@ -92,7 +92,7 @@ impl FixedBitSet {
         }
     }
 
-    /// returns the number of 64 bit words it would take to hold numBits */
+    /// returns the number of 64 bit words it would take to hold numBits
     pub fn bits2words(num_bits: i32) -> i32 {
         ((num_bits - 1) >> 6) + 1
     }
@@ -201,12 +201,12 @@ impl FixedBitSet {
         (fixed_bit_set.bits[(fixed_bit_set.num_words as usize) - 1] & mask) == 0
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn get_bits(&self) -> &Vec<u64> {
         &self.bits
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn get_and_clear(&mut self, index: i32) -> bool {
         debug_assert!(
             index >= 0 && index < self.num_bits,
@@ -221,12 +221,12 @@ impl FixedBitSet {
         val
     }
 
-    /** this = this OR other */
+    /// this = this OR other
     pub fn or(&mut self, other: &FixedBitSet) {
         self.or_impl(0, &other.bits, other.num_words);
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn or_offset(&mut self, other_offset_words: i32, other: &FixedBitSet) {
         self.or_impl(other_offset_words, &other.bits, other.num_words);
     }
@@ -244,11 +244,11 @@ impl FixedBitSet {
         }
     }
 
-    /** this = this XOR other */
+    /// this = this XOR other
     pub fn xor(&mut self, other: &FixedBitSet) {
         self.xor_impl(&other.bits, other.num_words);
     }
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn xor_disi(&self, _iter: impl DocIdSetIterator) {
         // not used in Java Lucene, so we did not impl it
         todo!()
@@ -277,7 +277,7 @@ impl FixedBitSet {
         false
     }
 
-    /** this = this AND other */
+    /// this = this AND other
     pub fn and(&mut self, other: &FixedBitSet) {
         self.and_self(&other.bits, other.num_words);
     }
@@ -303,12 +303,12 @@ impl FixedBitSet {
         }
     }
 
-    /** this = this AND NOT other */
+    /// this = this AND NOT other
     pub fn and_not_fixed_bit_set(&mut self, other: &FixedBitSet) {
         self.and_not_impl(0, &other.bits, other.num_words)
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn and_not_offset(&mut self, other_offset_words: i32, other: &FixedBitSet) {
         self.and_not_impl(other_offset_words, &other.bits, other.num_words);
     }

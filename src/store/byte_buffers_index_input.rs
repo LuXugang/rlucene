@@ -134,7 +134,7 @@ impl RandomAccessInput for ByteBuffersIndexInput<'_> {
         RandomAccessInput::read_long(&mut self.data_input, pos)
     }
 
-    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
+    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
         Ok(())
     }
 }

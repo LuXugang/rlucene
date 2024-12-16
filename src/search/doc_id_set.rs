@@ -46,7 +46,6 @@ pub trait DocIdSet: Accountable {
     /// without external disk access (as the [`Bits`] interface cannot throw an `IOError`).
     /// This is generally true for bit sets like [`FixedBitSet`](crate::util::fixed_bit_set::FixedBitSet),
     /// which return themselves if used as a [`DocIdSet`].
-
     type BitType: Bits;
     fn bits(&self) -> Option<Rc<Self::BitType>>;
 }
@@ -57,13 +56,13 @@ struct All {
     bits: Option<Rc<MatchAllBits>>,
 }
 impl All {
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn new(max_doc: i32) -> Self {
         let bits = Some(Rc::new(MatchAllBits::new(max_doc)));
         All { max_doc, bits }
     }
 }
-/** A `DocIdSet` that matches all doc ids up to a specified doc (exclusive). */
+/// A `DocIdSet` that matches all doc ids up to a specified doc (exclusive).
 impl DocIdSet for All {
     type DISIType<'a> = AllDocIdSetIterator;
 

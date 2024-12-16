@@ -18,17 +18,20 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, ReadAdvice};
 use crate::util::error::data_io_error_enum::DataIOError;
 
-/**
- * Abstract base class for input from a file in a `Directory`. A random-access input stream.
- * Used for all Lucene index input operations.
- *
- * `IndexInput` may only be used from one thread, because it is not thread safe (it keeps
- * internal state like file position). To allow multithreaded use, every `IndexInput` instance
- * must be cloned before it is used in another thread. Subclasses must therefore implement
- * `clone()`, returning a new `IndexInput` which operates on the same underlying resource, but
- * positioned independently.
- *
- */
+/// Provides random-access input operations for files within a [`Directory`].
+///
+/// `IndexInput` supports reading data from a file and maintains its own internal state,
+/// such as the current file position.
+///
+/// # Thread Safety
+///
+/// `IndexInput` is **not thread-safe**. If you need to use it in multiple threads, you must
+/// **clone** the `IndexInput` instance. Each clone operates on the same underlying resource
+/// but maintains an independent position.
+///
+///
+/// # See Also
+/// - [`Directory`](crate::store::directory::Directory) for file-based operations.
 pub trait IndexInput: DataInput + Clone {
     /// Returns the current position in this file, where the next read will occur.
     ///
@@ -93,7 +96,7 @@ pub trait IndexInput: DataInput + Clone {
         description: &str,
         offset: u64,
         length: u64,
-        read_advice: ReadAdvice,
+        _read_advice: ReadAdvice,
     ) -> Result<impl IndexInput, DataIOError> {
         self.slice(description, offset, length)
     }
@@ -122,7 +125,7 @@ pub trait IndexInput: DataInput + Clone {
         self.default_prefetch(pos, len)
     }
 
-    fn default_prefetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
+    fn default_prefetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
         Ok(())
     }
 }

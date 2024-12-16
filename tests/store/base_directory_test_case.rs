@@ -33,7 +33,6 @@ use rlucene::util::error::illegal_state::IllegalStateError;
 use rlucene::util::group_vint_util::GroupVIntUtil;
 use rlucene::util::packed::PackedInts;
 use std::collections::{HashMap, HashSet};
-use std::io::ErrorKind::PermissionDenied;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -959,6 +958,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     fn test_no_dir(&self) -> Result<(), TestError> {
+        // TODO
         unimplemented!("DirectoryReader not Implemented")
     }
     fn test_copy_bytes(&self, random: &mut StdRng) -> Result<(), TestError> {
@@ -1370,7 +1370,7 @@ pub trait BaseDirectoryTestCase {
         let temp_dir = tempfile::Builder::new().prefix("testBytes").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
-        let num = if cfg!(test_nightly) {
+        let num = if is_night_mode() {
             random.gen_range(1000..=3000)
         } else {
             random.gen_range(50..=1000)
@@ -1571,7 +1571,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     /// Rust Lucene automatically closes resources when they go out of scope, so this test is not applicable.
-    fn test_double_close_input(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_double_close_input(&self) -> Result<(), TestError> {
         Ok(())
     }
     /// This test ensures that `create_temp_output` generates unique files and writes/reads data correctly.
@@ -1679,7 +1679,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_pending_deletions(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_pending_deletions(&self, _random: &mut StdRng) -> Result<(), TestError> {
         // TODO: does not implemented "VirusCheckingFS" yet, so this test is not applicable
         // let temp_dir = tempfile::Builder::new().prefix("virusChecker").tempdir()?;
         // let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;

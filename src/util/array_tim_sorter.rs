@@ -35,7 +35,11 @@ impl<'a, T, C: Comparator<T>> ArrayTimSorter<'a, T, C>
 where
     T: Default + Clone,
 {
-    pub fn new(arr: &'a mut Vec<T>, comparator: C, max_temp_slots: i32) -> ArrayTimSorter<T, C> {
+    pub fn new(
+        arr: &'a mut Vec<T>,
+        comparator: C,
+        max_temp_slots: i32,
+    ) -> ArrayTimSorter<'a, T, C> {
         let tmp = if max_temp_slots > 0 {
             vec![T::default(); max_temp_slots as usize]
         } else {

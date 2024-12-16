@@ -32,7 +32,7 @@ const BLOCK_SIZE: i32 = 1 << 16;
 // The maximum length for an array, beyond that point we switch to a bitset
 const MAX_ARRAY_LENGTH: i32 = 1 << 12;
 // todo
-#[allow(dead_code)]
+#[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 /// [`DocIdSet`] implementation inspired by [roaringbitmap.org](http://roaringbitmap.org/)
 ///
@@ -46,7 +46,7 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 pub struct RoaringDocIdSet {
     doc_id_sets: Option<Vec<Option<DocIdSetEnum>>>,
     cardinality: i32,
-    #[allow(dead_code)]
+    #[allow(unused)]
     ram_bytes_used: i64,
 }
 impl RoaringDocIdSet {
@@ -60,7 +60,7 @@ impl RoaringDocIdSet {
         }
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn cardinality(&self) -> i32 {
         self.cardinality
     }
@@ -226,7 +226,7 @@ impl RoaringDocIdSetBuilder {
 }
 
 // todo
-#[allow(dead_code)]
+#[allow(unused)]
 const SHORT_ARRAY_DOC_ID_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 pub struct ShortArrayDocIdSet {

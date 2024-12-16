@@ -237,7 +237,6 @@ where
     ///
     /// # Returns
     /// The new 'top' element.
-
     pub fn update_top(&mut self) -> &T {
         self.down_heap(1);
         &self.heap[1]
@@ -311,7 +310,7 @@ where
     ///
     /// # Note
     /// This is an internal API.
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn get_heap_array(&self) -> &Vec<T> {
         &self.heap
     }

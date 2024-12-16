@@ -43,7 +43,7 @@ fn test_read_byte() -> Result<(), TestError> {
         sub_index_input,
         &resource_description,
         BUFFER_SIZE,
-    );
+    )?;
     for i in 0..BUFFER_SIZE * 10 {
         assert_eq!(byten(i as u64), DataInput::read_byte(&mut input)?);
     }
@@ -60,7 +60,7 @@ fn test_read_bytes() -> Result<(), TestError> {
         sub_index_input,
         &resource_description,
         BUFFER_SIZE,
-    );
+    )?;
 
     let mut pos = 0;
 
@@ -164,14 +164,13 @@ fn check_read_bytes(
 
 #[test]
 fn test_eof() -> Result<(), TestError> {
-    let random = my_random("test_read_bytes".to_string());
     let sub_index_input = MyBufferedIndexInput::new_with_len(1024);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input,
         &resource_description,
         BUFFER_SIZE,
-    );
+    )?;
     let mut buffer = vec![];
 
     // Verify we can read all bytes in one go
@@ -216,9 +215,7 @@ fn test_backwards_byte_reads() -> Result<(), TestError> {
         sub_index_input,
         &resource_description,
         BUFFER_SIZE,
-    );
-
-    let mut read_count = 0;
+    )?;
 
     let mut i: i64 = 2048;
     while i > 0 {
@@ -226,7 +223,6 @@ fn test_backwards_byte_reads() -> Result<(), TestError> {
             byten(i as u64),
             RandomAccessInput::read_byte(&mut input, i as u64)?
         );
-        read_count += 1;
         i -= random.gen_range(1..16);
     }
 
@@ -244,9 +240,7 @@ fn test_backwards_int_reads() -> Result<(), TestError> {
         sub_index_input,
         &resource_description,
         BUFFER_SIZE,
-    );
-
-    let mut read_count = 0;
+    )?;
 
     let mut i = 2048;
     while i > 0 {
@@ -261,8 +255,6 @@ fn test_backwards_int_reads() -> Result<(), TestError> {
             expected_value,
             RandomAccessInput::read_int(&mut input, i as u64)?
         );
-
-        read_count += 1;
         i -= random.gen_range(3..19);
     }
 
@@ -285,7 +277,7 @@ fn test_backwards_long_reads() -> Result<(), TestError> {
         sub_index_input,
         &resource_description,
         BUFFER_SIZE,
-    );
+    )?;
 
     let mut i = 2048;
     while i > 0 {
@@ -328,7 +320,7 @@ fn test_read_floats() -> Result<(), TestError> {
         sub_index_input.clone(),
         &resource_description,
         BUFFER_SIZE,
-    );
+    )?;
     let mut bb = vec![0u8; FLOAT_BYTES];
     let mut float_buffer = vec![0f32; buffer_length];
 
@@ -383,7 +375,7 @@ fn test_read_ints() -> Result<(), TestError> {
         sub_index_input.clone(),
         &resource_description,
         BUFFER_SIZE,
-    );
+    )?;
     let mut bb = vec![0u8; INT_BYTES];
     let mut int_buffer = vec![0i32; buffer_length];
 
@@ -437,7 +429,7 @@ fn test_read_longs() -> Result<(), TestError> {
         sub_index_input.clone(),
         &resource_description,
         BUFFER_SIZE,
-    );
+    )?;
     let mut bb = vec![0u8; LONG_BYTES];
     let mut long_buffer = vec![0i64; buffer_length];
 

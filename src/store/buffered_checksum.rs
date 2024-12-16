@@ -35,7 +35,6 @@ impl<T: Checksum> BufferedChecksum<T> {
         }
     }
     /// Create a new BufferedChecksum with the specified bufferSize
-
     pub fn new_with_buffer_size(checksum: T, buffer_size: u32) -> Self {
         Self {
             buffer: vec![0; buffer_size as usize],

@@ -24,7 +24,6 @@ use crate::util::{ReadableCursorExt, WritableCursorExt};
 use byteorder::WriteBytesExt;
 use std::collections::VecDeque;
 use std::io::{Cursor, Seek};
-use std::usize;
 
 /// Smallest `minBitsPerBlock` allowed
 pub const LIMIT_MIN_BITS_PER_BLOCK: u32 = 1;
@@ -53,7 +52,6 @@ pub struct ByteBuffersDataOutput {
 }
 impl ByteBuffersDataOutput {
     ///Creates a new output with all defaults.
-
     pub fn new_resettable_instance() -> Result<Self, RuntimeError> {
         Self::new(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK, true)
     }
@@ -179,6 +177,7 @@ impl ByteBuffersDataOutput {
         self.current_block_index = (self.blocks.len() - 1) as u32;
     }
     /// Copies the current content of this object into another [`DataOutput`].
+    #[allow(unused)]
     fn copy_to<T: DataInput>(&mut self, _output: T) -> Result<(), DataIOError> {
         unimplemented!("")
     }
@@ -231,7 +230,7 @@ impl ByteBuffersDataOutput {
             .collect();
         (self.size(), data)
     }
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn get_writeable_buffer_list(&mut self) -> Vec<&mut Cursor<Vec<u8>>> {
         todo!()
     }
@@ -386,7 +385,7 @@ fn compute_block_size_bits_for(bytes: u64) -> u32 {
 }
 
 #[cfg(feature = "not_required_in_rlucene")]
-#[allow(dead_code)]
+#[allow(unused)]
 fn write_long_string(_byte_len: usize, _s: String) {
     unimplemented!()
 }

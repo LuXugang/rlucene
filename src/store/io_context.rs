@@ -82,7 +82,7 @@ impl IOContext {
         Self::new(Some(Context::Default), Some(read_advice), None, None)
     }
 
-    /** Creates an `IOContext` for flushing. */
+    ///  Creates an `IOContext` for flushing.
     pub fn new_with_flush(flush_info: FlushInfo) -> Result<IOContext, RuntimeError> {
         Self::new(
             Some(Context::Flush),
@@ -91,7 +91,7 @@ impl IOContext {
             Some(flush_info),
         )
     }
-    /** Creates an `IOContext` for merging. */
+    ///  Creates an `IOContext` for merging.
     pub fn new_with_merge(merge_info: MergeInfo) -> Result<IOContext, RuntimeError> {
         Self::new(
             Some(Context::Merge),
@@ -101,6 +101,7 @@ impl IOContext {
         )
     }
 
+    #[allow(unused)]
     fn with_read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext, RuntimeError> {
         if matches!(self.context, Context::Default) {
             // TODO: maybe should statically define all types of context

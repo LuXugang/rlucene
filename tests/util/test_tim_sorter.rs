@@ -18,7 +18,7 @@ use crate::common::my_random;
 use crate::util::base_sort_test_case::{BaseSortTestCase, Entry};
 use rand::rngs::StdRng;
 use rand::Rng;
-use rlucene::util::{ArrayTimSorter, Comparator, NaturalOrder, TimSorter};
+use rlucene::util::{ArrayTimSorter, Comparator, NaturalOrder, Sorter, TimSorter};
 
 struct TestTimSorter<T, C> {
     _marker: std::marker::PhantomData<(T, C)>,
@@ -33,11 +33,7 @@ impl TestTimSorter<Entry, NaturalOrder<Entry>> {
 }
 
 impl<T: Default + Clone, C: Comparator<T>> BaseSortTestCase for TestTimSorter<T, C> {
-    fn new_sorter<'a>(
-        &self,
-        random: &mut StdRng,
-        arr: &'a mut Vec<Entry>,
-    ) -> TimSorter<ArrayTimSorter<'a, Entry, NaturalOrder<Entry>>> {
+    fn new_sorter<'a>(&self, random: &mut StdRng, arr: &'a mut Vec<Entry>) -> impl Sorter {
         let arr_len = arr.len();
         let max_temp_slots = random.gen_range(0..=arr_len);
         let array_tim_sorter = ArrayTimSorter::new(arr, NaturalOrder::new(), arr_len as i32);
