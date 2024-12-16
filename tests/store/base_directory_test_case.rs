@@ -1616,4 +1616,48 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
+    fn test_group_vint_overflow(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testGroupVIntOverflow")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let size = 32;
+        let mut values = vec![0i64; size];
+        let mut restore = vec![0i64; size];
+        values[0] = 1i64 << 31; // values[0] = 2147483648 as long, but as int it is -2147483648
+
+        for i in 0..size {
+            if random.gen_bool(0.5) {
+                values[i] = values[0];
+            }
+        }
+
+        // a smaller limit value covers the default implementation of read_group_vints,
+        // and a bigger limit value covers the faster implementation.
+        let values_len = values.len();
+        let limit = random.gen_range(1..size);
+        {
+            let mut out = dir.create_output("test", IOContext::default_io_context()?)?;
+            out.write_group_vints(&mut values[..values_len], limit as u32)?;
+        }
+        {
+            let mut input = dir.open_input("test", IOContext::default_io_context()?)?;
+            GroupVIntUtil::read_group_vints(&mut input, &mut restore, limit as u32)?;
+            for i in 0..limit {
+                assert_eq!(values[i], restore[i]);
+            }
+        }
+
+        values[0] = (0xFFFFFFFF_u64 + 1) as i64;
+        {
+            let file_path = temp_dir.into_path();
+            std::fs::remove_file(file_path.join("test"))?;
+            let mut out = dir.create_output("test", IOContext::default_io_context()?)?;
+            let result = out.write_group_vints(&mut values[..values_len], 4);
+            assert!(matches!(result, Err(DataIOError::IntegerOverflow(_))));
+        }
+
+        Ok(())
+    }
 }

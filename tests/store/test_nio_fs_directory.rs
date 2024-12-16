@@ -314,3 +314,9 @@ fn test_data_types() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_data_types()
 }
+#[test]
+fn test_group_vint_overflow() -> Result<(), TestError> {
+    let mut random = my_random("test_group_vint_overflow".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_group_vint_overflow(&mut random)
+}

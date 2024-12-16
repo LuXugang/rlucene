@@ -166,11 +166,4 @@ impl<W: Write> XBufferedOutputStream<W> {
         self.update_checksum(&value.to_le_bytes());
         Ok(())
     }
-
-    // pub fn flush_if_needed(&mut self, len: u32) -> Result<(), DataIOError> {
-    //     if len as usize + self.inner.buffer().len() > self.inner.capacity() {
-    //         self.inner.flush()?;
-    //     }
-    //     Ok(())
-    // }
 }

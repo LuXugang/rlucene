@@ -51,7 +51,7 @@ impl GroupVIntUtil {
             i += 4;
         }
         while i < limit {
-            dst[i as usize] = data_input.read_vint()? as i64;
+            dst[i as usize] = data_input.read_vint()? as i64 & 0xFFFFFFFF;
             i += 1;
         }
         Ok(())
@@ -96,11 +96,11 @@ impl GroupVIntUtil {
     {
         match num_bytes_minus1 {
             0 => {
-                let value = data_input.read_byte()? as u64;
+                let value = data_input.read_byte()? as u64 & 0xFF;
                 Ok(value as i64)
             }
             1 => {
-                let value = data_input.read_short()? as u64;
+                let value = data_input.read_short()? as u64 & 0xFFFF;
                 Ok(value as i64)
             }
             2 => {
@@ -109,7 +109,7 @@ impl GroupVIntUtil {
                 Ok((short_part | byte_part) as i64)
             }
             _ => {
-                let value = data_input.read_int()? as u64;
+                let value = data_input.read_int()? as u64 & 0xFFFFFFFF;
                 Ok(value as i64)
             }
         }
@@ -178,8 +178,10 @@ impl GroupVIntUtil {
         // | 1 ensures it returns 1 when v = 0
         INT_BYTES as u32 - ((v | 1).leading_zeros() / 8)
     }
+    /// Converts an i64 value to an i32, ensuring it fits within the valid range.
+    /// Throws an error if the value is not within 0 to 0xFFFFFFFF.
     fn get_int(value: i64) -> Result<i32, DataIOError> {
-        if value > u32::MAX as i64 {
+        if value > 0xFFFFFFFF {
             Err(DataIOError::integer_overflow(format!(
                 "value: {} is too large to be converted to i32",
                 value
