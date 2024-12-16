@@ -283,16 +283,18 @@ where
         D: Copy,
         F: Fn(&[u8]) -> D,
     {
+        // Calculate the total bytes to read based on the number of elements and the type size.
         let total_bytes = len * type_size;
-        let mut elements_read = 0;
-        let mut unaligned_bytes = 0;
+        let mut elements_read = 0;// Tracks the number of elements read so far.
+        let mut unaligned_bytes = 0;// Tracks bytes that cannot form a complete element.
         // Check if the position is within the current buffer range
         if pos >= self.buffer_start && pos < self.buffer_start + self.length as u64 {
             let buffer_offset = (pos - self.buffer_start) as u32;
+            // Determine the number of bytes available in the buffer from the requested position.
             let available = self
                 .buffer
                 .remain_between(buffer_offset as u64, self.length as u64);
-            // If the buffer contains enough data to satisfy the request
+            // If the buffer contains all the data required for the request:
             if available >= total_bytes as u64 {
                 let src = &self.buffer.get_ref()
                     [buffer_offset as usize..(buffer_offset as usize + total_bytes as usize)];
@@ -305,10 +307,10 @@ where
                 );
                 return Ok(());
             }
-
+            // Calculate the number of aligned bytes and elements that can be fully read.
             let aligned_bytes = (available as u32 / type_size) * type_size;
             let aligned_elements = aligned_bytes / type_size;
-
+            // Process aligned elements from the buffer.
             if aligned_elements > 0 {
                 let src = &self.buffer.get_ref()
                     [buffer_offset as usize..(buffer_offset + aligned_bytes) as usize];
@@ -322,13 +324,12 @@ where
                 );
                 elements_read += aligned_elements;
             }
-            // Handle unaligned bytes that can't form a complete element
+            // Handle unaligned bytes that cannot form a complete element.
             unaligned_bytes = available as u32 - aligned_bytes;
-            // TODO: 如果unaligned_bytes>0 并且 len大于buffer_size，这里会有问题
             if unaligned_bytes > 0 {
                 let buffer = self.buffer.get_mut();
                 let unaligned_start = (buffer_offset + aligned_bytes) as usize;
-                // Copy unaligned bytes to the start of the buffer, we would read these bytes later when buffer was refilled again
+                // Copy unaligned bytes to the start of the buffer, we would read these bytes later when buffer/temp_buffer was refilled again
                 buffer.copy_within(
                     unaligned_start..unaligned_start + unaligned_bytes as usize,
                     0,
@@ -337,9 +338,10 @@ where
         }
 
         debug_assert!(self.buffer.position() <= u32::MAX as u64);
+        // Calculate the remaining elements and bytes to read.
         let remaining_len = len - elements_read;
         let remaining_bytes = remaining_len * type_size;
-
+        // If the buffer is used and the remaining bytes are less than the buffer size, refill the buffer.
         if use_buffer && remaining_bytes < self.buffer_size {
             let start = self.buffer_start + self.length as u64;
             self.refill(unaligned_bytes, start)?;
@@ -376,21 +378,32 @@ where
         if after > self.sub_index_input.length() {
             return Err(DataIOError::eof(format!("read past EOF: {}", self)));
         }
-
+        // Prepare a temporary buffer to handle unaligned and remaining bytes.
         let mut temp_vec = vec![0; (remaining_bytes + unaligned_bytes) as usize];
         if unaligned_bytes > 0 {
+            // If there are unaligned bytes left from the previous buffer,
+            // copy them into the beginning of the temporary vector (`temp_vec`).
+            //
+            // These unaligned bytes are those that could not form a complete element
+            // (e.g., a full integer or floating-point value) in the previous buffer.
+            // They were left unprocessed and must be handled before reading new data
+            // from the underlying input.
+            //
+            // The unaligned bytes are located at the end of the current buffer.
+            // We copy them into the start of the temporary vector to ensure they
+            // are preserved when the buffer is refilled with new data.
             temp_vec.copy_from(&self.buffer.get_ref()[(self.buffer_size - unaligned_bytes) as usize..],0);
         }
-        let mut temp_cursor = Cursor::new(temp_vec);
-        temp_cursor.set_position(unaligned_bytes as u64);
+        let mut temp_buffer = Cursor::new(temp_vec);
+        temp_buffer.set_position(unaligned_bytes as u64);
         self.sub_index_input.read_internal(
-            &mut temp_cursor,
+            &mut temp_buffer,
             (remaining_bytes - unaligned_bytes) as u64,
             self.buffer_start + self.length as u64,
         )?;
 
-        debug_assert!(temp_cursor.position() == remaining_bytes as u64);
-        let src = temp_cursor.get_ref();
+        debug_assert!(temp_buffer.position() == remaining_bytes as u64);
+        let src = temp_buffer.get_ref();
         Self::process_data(
             src,
             &mut target[elements_read as usize..elements_read as usize + remaining_len as usize],
@@ -400,6 +413,7 @@ where
         );
 
         self.buffer_start = after;
+        // we use temp_buffer to read underling data, so self.buffer is empty
         self.length = 0;
         Ok(())
     }
