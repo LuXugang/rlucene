@@ -213,6 +213,12 @@ impl Display for NIOFSIndexInput {
 
 impl Clone for NIOFSIndexInput {
     fn clone(&self) -> Self {
-        todo!()
+        Self {
+            file: self.file.try_clone().unwrap(),
+            off: self.off,
+            end: self.end,
+            resource_desc: self.resource_desc.clone(),
+            buffer_size: self.buffer_size,
+        }
     }
 }

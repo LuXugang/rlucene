@@ -43,6 +43,7 @@ pub mod intro_sorter;
 pub mod io_utils;
 mod most_significant_bit_radix_sort;
 pub mod not_doc_id_set;
+pub mod packed;
 pub mod priority_queue;
 pub mod roaring_doc_id_set;
 mod sortable_bytes_ref_array;

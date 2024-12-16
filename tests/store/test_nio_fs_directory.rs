@@ -320,3 +320,21 @@ fn test_group_vint_overflow() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_group_vint_overflow(&mut random)
 }
+#[test]
+fn test_group_vint() -> Result<(), TestError> {
+    let mut random = my_random("test_group_vint".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_group_vint(&mut random)
+}
+#[test]
+fn test_prefetch() -> Result<(), TestError> {
+    let mut random = my_random("test_prefetch_read".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_prefetch(&mut random)
+}
+#[test]
+fn test_prefetch_on_slice() -> Result<(), TestError> {
+    let mut random = my_random("test_prefetch_on_slice".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_prefetch_on_slice(&mut random)
+}

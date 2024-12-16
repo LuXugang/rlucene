@@ -40,14 +40,15 @@ impl GroupVIntUtil {
     pub fn read_group_vints<D>(
         data_input: &mut D,
         dst: &mut [i64],
-        limit: u32,
+        limit: i32,
     ) -> Result<(), DataIOError>
     where
         D: DataInput,
     {
+        debug_assert!(limit >= 0);
         let mut i = 0;
         while i <= limit - 4 {
-            data_input.read_group_vint(dst, i)?;
+            data_input.read_group_vint(dst, i as u32)?;
             i += 4;
         }
         while i < limit {

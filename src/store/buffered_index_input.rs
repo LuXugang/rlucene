@@ -324,6 +324,7 @@ where
             }
             // Handle unaligned bytes that can't form a complete element
             unaligned_bytes = available as u32 - aligned_bytes;
+            // TODO: 如果unaligned_bytes>0 并且 len大于buffer_size，这里会有问题
             if unaligned_bytes > 0 {
                 let buffer = self.buffer.get_mut();
                 let unaligned_start = (buffer_offset + aligned_bytes) as usize;
@@ -369,9 +370,12 @@ where
 
             return Ok(());
         }
+        if(unaligned_bytes >0){
+            println!("abc")
+        }
         // If the buffer is not used or the remaining data exceeds the buffer size,
         // read directly from the underlying input
-        let after = self.buffer_start + (remaining_len * type_size) as u64;
+        let after = self.buffer_start + self.length as u64 + (remaining_len * type_size) as u64;
         if after > self.sub_index_input.length() {
             return Err(DataIOError::eof(format!("read past EOF: {}", self)));
         }
@@ -393,6 +397,7 @@ where
         );
 
         self.buffer_start = after;
+        self.length = 0;
         Ok(())
     }
     /// Processes data by converting a source byte slice (`src`) into a destination slice (`dst`) of type `D`.
@@ -610,7 +615,15 @@ where
     T: BufferedIndexInputBase,
 {
     fn clone(&self) -> Self {
-        todo!()
+        Self {
+            buffer_size: self.buffer_size,
+            resource_desc: self.resource_desc.clone(),
+            buffer: self.buffer.clone(),
+            sub_index_input: self.sub_index_input.clone(),
+            buffer_start: self.buffer_start,
+            pos: self.pos,
+            length: self.length,
+        }
     }
 }
 

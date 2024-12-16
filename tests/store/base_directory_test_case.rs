@@ -30,6 +30,7 @@ use rlucene::store::IndexOutput;
 use rlucene::store::{DataOutput, IOContext};
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::group_vint_util::GroupVIntUtil;
+use rlucene::util::packed::PackedInts;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use tempfile::Builder;
@@ -1608,8 +1609,8 @@ pub trait BaseDirectoryTestCase {
             assert_eq!(43, DataInput::read_byte(&mut input)? as i32);
             assert_eq!(12345, DataInput::read_short(&mut input)? as i32);
             assert_eq!(1234567890, DataInput::read_int(&mut input)?);
-            let restored_len = restored.len() as u32;
-            GroupVIntUtil::read_group_vints(&mut input, &mut restored, restored_len)?;
+            let restored_len = restored.len();
+            GroupVIntUtil::read_group_vints(&mut input, &mut restored, restored_len as i32)?;
             assert_eq!(values, restored);
             assert_eq!(1234567890123456789, DataInput::read_long(&mut input)?);
         }
@@ -1643,7 +1644,7 @@ pub trait BaseDirectoryTestCase {
         }
         {
             let mut input = dir.open_input("test", IOContext::default_io_context()?)?;
-            GroupVIntUtil::read_group_vints(&mut input, &mut restore, limit as u32)?;
+            GroupVIntUtil::read_group_vints(&mut input, &mut restore, limit as i32)?;
             for i in 0..limit {
                 assert_eq!(values[i], restore[i]);
             }
@@ -1658,6 +1659,227 @@ pub trait BaseDirectoryTestCase {
             assert!(matches!(result, Err(DataIOError::IntegerOverflow(_))));
         }
 
+        Ok(())
+    }
+    fn test_group_vint(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir1 = tempfile::Builder::new()
+            .prefix("testGroupVInt1")
+            .tempdir()?;
+        let temp_dir2 = tempfile::Builder::new()
+            .prefix("testGroupVInt2")
+            .tempdir()?;
+        let mut dir1 = self.get_directory(temp_dir1.path().to_path_buf())?;
+        let mut dir2 = self.get_directory(temp_dir2.path().to_path_buf())?;
+
+        // Test fallback to default implementation of readGroupVInt
+        Self::do_test_group_vint(&mut dir1, &mut dir2, random, 5, 1, 6, 8)?;
+
+        // Use more iterations to cover all bpv
+        let iterations = random.gen_range(100..200); // Simulate `atLeast(100)`
+        Self::do_test_group_vint(&mut dir1, &mut dir2, random, iterations, 1, 31, 128)?;
+
+        // BaseChunkedDirectoryTestCase#testGroupVIntMultiBlocks covers multiple blocks
+        // This part might be covered in another test or implementation
+        Ok(())
+    }
+    fn do_test_group_vint(
+        dir1: &mut impl Directory,
+        dir2: &mut impl Directory,
+        random: &mut StdRng,
+        iterations: usize,
+        min_bpv: usize,
+        max_bpv: usize,
+        max_num_values: usize,
+    ) -> Result<(), TestError> {
+        let mut values = vec![0i64; max_num_values];
+        let mut num_values_array = vec![0usize; iterations];
+
+        // Create output files
+        {
+            let mut group_vint_out =
+                dir1.create_output("group-varint", IOContext::default_io_context()?)?;
+            let mut vint_out = dir2.create_output("vint", IOContext::default_io_context()?)?;
+
+            // Encode
+            for iter in 0..iterations {
+                let bpv = random.gen_range(min_bpv..=max_bpv);
+                num_values_array[iter] = random.gen_range(1..=max_num_values);
+                for j in 0..num_values_array[iter] {
+                    let upper = PackedInts::max_value(bpv as u32) as i32;
+                    values[j] = if upper == 0 {
+                        0
+                    } else {
+                        random.gen_range(0..=upper) as i64
+                    };
+                    vint_out.write_vint(values[j] as i32)?;
+                }
+                group_vint_out.write_group_vints(&mut values, num_values_array[iter] as u32)?;
+            }
+        }
+
+        // Decode
+        {
+            let mut group_vint_in =
+                dir1.open_input("group-varint", IOContext::default_io_context()?)?;
+            let mut vint_in = dir2.open_input("vint", IOContext::default_io_context()?)?;
+            for iter in 0..iterations {
+                GroupVIntUtil::read_group_vints(
+                    &mut group_vint_in,
+                    &mut values,
+                    num_values_array[iter] as i32,
+                )?;
+                for j in 0..num_values_array[iter] {
+                    let vint_value = vint_in.read_vint()?;
+                    assert_eq!(vint_value as i64, values[j]);
+                }
+            }
+        }
+        dir1.delete_file("group-varint")?;
+        dir2.delete_file("vint")?;
+
+        Ok(())
+    }
+    fn test_prefetch(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let start_offset = 0;
+        let temp_dir = tempfile::Builder::new().prefix("test_prefetch").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let total_length = start_offset + random.gen_range(16384..=65536);
+        // let mut arr = vec![0u8; total_length];
+        let mut arr = vec![0u8; total_length];
+        random.fill_bytes(&mut arr[..]);
+
+        {
+            let mut out = dir.create_output("temp.bin", IOContext::default_io_context()?)?;
+            out.write_bytes_with_len(&arr, total_length as u32)?;
+        }
+
+        let mut temp = vec![0u8; 2048];
+
+        let orig = dir.open_input("temp.bin", IOContext::default_io_context()?)?;
+        let mut input = orig.clone();
+
+        for _ in 0..10_000 {
+            let offset = random.gen_range(0..(IndexInput::length(&input) as usize - 1)) as u64;
+
+            if random.gen_bool(0.5) {
+                let prefetch_length = random.gen_range(1..=(IndexInput::length(&input) - offset));
+                input.prefetch(offset, prefetch_length)?;
+            }
+
+            input.seek(offset)?;
+            assert_eq!(offset, input.get_file_pointer());
+
+            match random.gen_range(3..100) {
+                0 => {
+                    let read_byte = DataInput::read_byte(&mut input)?;
+                    assert_eq!(arr[start_offset + offset as usize], read_byte);
+                }
+                1 => {
+                    if (IndexInput::length(&input) - offset) >= 8 {
+                        let expected = i64::from_le_bytes(
+                            arr[start_offset + offset as usize..start_offset + offset as usize + 8]
+                                .try_into()
+                                .unwrap(),
+                        );
+                        let read_long = DataInput::read_long(&mut input)?;
+                        assert_eq!(expected, read_long);
+                    }
+                }
+                _ => {
+                    let read_length = random.gen_range(
+                        1..=temp
+                            .len()
+                            .min((IndexInput::length(&input) - offset) as usize),
+                    );
+                    DataInput::read_bytes(
+                        &mut input,
+                        &mut temp[..read_length],
+                        0,
+                        read_length as u32,
+                    )?;
+                    assert_eq!(
+                        &arr[start_offset + offset as usize
+                            ..start_offset + offset as usize + read_length],
+                        &temp[..read_length]
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn test_prefetch_on_slice(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let start_offset = random.gen_range(1..1024);
+        let temp_dir = tempfile::Builder::new().prefix("test_prefetch").tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+
+        let total_length = start_offset + random.gen_range(16384..=65536);
+        // let mut arr = vec![0u8; total_length];
+        let mut arr = vec![0u8; total_length];
+        random.fill_bytes(&mut arr[..]);
+
+        {
+            let mut out = dir.create_output("temp.bin", IOContext::default_io_context()?)?;
+            out.write_bytes_with_len(&arr, total_length as u32)?;
+        }
+
+        let mut temp = vec![0u8; 2048];
+
+        let orig = dir.open_input("temp.bin", IOContext::default_io_context()?)?;
+        let mut input = orig.slice(
+            "slice",
+            start_offset as u64,
+            total_length as u64 - start_offset as u64,
+        )?;
+
+        for _ in 0..10_000 {
+            let offset = random.gen_range(0..(IndexInput::length(&input) as usize - 1)) as u64;
+
+            if random.gen_bool(0.5) {
+                let prefetch_length = random.gen_range(1..=(IndexInput::length(&input) - offset));
+                input.prefetch(offset, prefetch_length)?;
+            }
+
+            input.seek(offset)?;
+            assert_eq!(offset, input.get_file_pointer());
+
+            match random.gen_range(3..100) {
+                0 => {
+                    let read_byte = DataInput::read_byte(&mut input)?;
+                    assert_eq!(arr[start_offset + offset as usize], read_byte);
+                }
+                1 => {
+                    if (IndexInput::length(&input) - offset) >= 8 {
+                        let expected = i64::from_le_bytes(
+                            arr[start_offset + offset as usize..start_offset + offset as usize + 8]
+                                .try_into()
+                                .unwrap(),
+                        );
+                        let read_long = DataInput::read_long(&mut input)?;
+                        assert_eq!(expected, read_long);
+                    }
+                }
+                _ => {
+                    let read_length = random.gen_range(
+                        1..=temp
+                            .len()
+                            .min((IndexInput::length(&input) - offset) as usize),
+                    );
+                    DataInput::read_bytes(
+                        &mut input,
+                        &mut temp[..read_length],
+                        0,
+                        read_length as u32,
+                    )?;
+                    assert_eq!(
+                        &arr[start_offset + offset as usize
+                            ..start_offset + offset as usize + read_length],
+                        &temp[..read_length]
+                    );
+                }
+            }
+        }
         Ok(())
     }
 }
