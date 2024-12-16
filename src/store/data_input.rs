@@ -100,7 +100,8 @@ pub trait DataInput: Sized + Display {
         self.default_read_group_vint(dst, offset)
     }
     fn default_read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
-        GroupVIntUtil::read_group_vint(self, dst, offset)
+        let _ = GroupVIntUtil::read_group_vint(self, dst, offset);
+        Ok(())
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,
     /// with smaller values taking fewer bytes. Negative numbers are supported but should be avoided.

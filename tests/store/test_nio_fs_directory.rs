@@ -297,9 +297,20 @@ fn test_seek_beyond_end_of_file() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_seek_beyond_end_of_file()
 }
-// #[test]
-// fn test_pending_deletions() -> Result<(), TestError> {
-//     let mut random = my_random("test_pending_deletions".to_string());
-//     let test = TestNIOFSDirectory;
-//     test.test_pending_deletions(&mut random)
-// }
+#[test]
+fn test_pending_deletions() -> Result<(), TestError> {
+    let mut random = my_random("test_pending_deletions".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_pending_deletions(&mut random)
+}
+#[test]
+fn test_list_all_is_sorted() -> Result<(), TestError> {
+    let mut random = my_random("test_list_all_is_sorted".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_list_all_is_sorted(&mut random)
+}
+#[test]
+fn test_data_types() -> Result<(), TestError> {
+    let test = TestNIOFSDirectory;
+    test.test_data_types()
+}

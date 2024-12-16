@@ -38,7 +38,7 @@ impl GroupVIntUtil {
     /// # Note
     /// This is an experimental API.
     pub fn read_group_vints<D>(
-        mut data_input: D,
+        data_input: &mut D,
         dst: &mut [i64],
         limit: u32,
     ) -> Result<(), DataIOError>
@@ -50,8 +50,9 @@ impl GroupVIntUtil {
             data_input.read_group_vint(dst, i)?;
             i += 4;
         }
-        for j in 0..limit {
-            dst[j as usize] = data_input.read_vint()? as i64;
+        while i < limit {
+            dst[i as usize] = data_input.read_vint()? as i64;
+            i += 1;
         }
         Ok(())
     }
@@ -103,9 +104,9 @@ impl GroupVIntUtil {
                 Ok(value as i64)
             }
             2 => {
-                let lower = data_input.read_short()? as u64;
-                let higher = (data_input.read_byte()? as u64) << 16;
-                Ok((lower | higher) as i64)
+                let short_part = data_input.read_short()? as u64 & 0xFFFF;
+                let byte_part = (data_input.read_byte()? as u64 & 0xFF) << 16;
+                Ok((short_part | byte_part) as i64)
             }
             _ => {
                 let value = data_input.read_int()? as u64;
@@ -173,8 +174,9 @@ impl GroupVIntUtil {
         );
         Ok(result as i32)
     }
-    fn num_bytes(v: i32) -> i32 {
-        (INT_BYTES - ((v as usize | 1).leading_zeros() >> 3) as usize) as i32
+    fn num_bytes(v: i32) -> u32 {
+        // | 1 ensures it returns 1 when v = 0
+        INT_BYTES as u32 - ((v | 1).leading_zeros() / 8)
     }
     fn get_int(value: i64) -> Result<i32, DataIOError> {
         if value > u32::MAX as i64 {
@@ -201,42 +203,49 @@ impl GroupVIntUtil {
         // encode each group
         while (limit as usize - read_pos) >= 4 {
             let mut write_pos: usize = 0;
-            let n1_minus1 = Self::num_bytes(Self::get_int(values[read_pos])?) - 1;
-            let n2_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 1])?) - 1;
-            let n3_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 2])?) - 1;
-            let n4_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 3])?) - 1;
+            let n1_minus1 = Self::num_bytes(Self::get_int(values[read_pos])?);
+            let n2_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 1])?);
+            let n3_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 2])?);
+            let n4_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 3])?);
 
-            let flag = (n1_minus1 << 6) | (n2_minus1 << 4) | (n3_minus1 << 2) | n4_minus1;
+            let flag = ((n1_minus1 - 1) << 6)
+                | ((n2_minus1 - 1) << 4)
+                | ((n3_minus1 - 1) << 2)
+                | (n4_minus1 - 1);
             scratch[write_pos] = flag as u8;
             write_pos += 1;
 
-            BitUtil::set_i32_le(
+            BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
-                Self::get_int(values[read_pos])? as usize,
-                n1_minus1,
+                0,
+                Self::get_int(values[read_pos])?,
+                n1_minus1 as usize,
             );
-            write_pos += (n1_minus1 + 1) as usize;
+            write_pos += (n1_minus1) as usize;
 
-            BitUtil::set_i32_le(
+            BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
-                Self::get_int(values[read_pos + 1])? as usize,
-                n2_minus1,
+                0,
+                Self::get_int(values[read_pos + 1])?,
+                n2_minus1 as usize,
             );
-            write_pos += (n2_minus1 + 1) as usize;
+            write_pos += (n2_minus1) as usize;
 
-            BitUtil::set_i32_le(
+            BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
-                Self::get_int(values[read_pos + 2])? as usize,
-                n3_minus1,
+                0,
+                Self::get_int(values[read_pos + 2])?,
+                n3_minus1 as usize,
             );
-            write_pos += (n3_minus1 + 1) as usize;
+            write_pos += (n3_minus1) as usize;
 
-            BitUtil::set_i32_le(
+            BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
-                Self::get_int(values[read_pos + 3])? as usize,
-                n4_minus1,
+                0,
+                Self::get_int(values[read_pos + 3])?,
+                n4_minus1 as usize,
             );
-            write_pos += (n4_minus1 + 1) as usize;
+            write_pos += (n4_minus1) as usize;
 
             debug_assert!(write_pos <= u32::MAX as usize, "write_pos exceeds u32::MAX");
             data_output.write_bytes_with_len(scratch, write_pos as u32)?;

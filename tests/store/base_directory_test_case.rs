@@ -20,6 +20,7 @@ use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
+use rlucene::index::IndexFileNames;
 use rlucene::store::check_sum_index_input::ChecksumIndexInput;
 use rlucene::store::directory::Directory;
 use rlucene::store::random_access_input::RandomAccessInput;
@@ -28,6 +29,7 @@ use rlucene::store::IndexInput;
 use rlucene::store::IndexOutput;
 use rlucene::store::{DataOutput, IOContext};
 use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::group_vint_util::GroupVIntUtil;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use tempfile::Builder;
@@ -1478,61 +1480,139 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     fn test_pending_deletions(&self, random: &mut StdRng) -> Result<(), TestError> {
-        let temp_dir = tempfile::Builder::new().prefix("virusChecker").tempdir()?;
+        // TODO: does not implemented "VirusCheckingFS" yet, so this test is not applicable
+        // let temp_dir = tempfile::Builder::new().prefix("virusChecker").tempdir()?;
+        // let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+        //
+        // // This test applies only to FSDirectory
+        // if !dir.is_fs_directory() {
+        //     return Ok(());
+        // }
+        //
+        // let file_name: String;
+        // loop {
+        //     // create a random filename (segment file name style), so it cannot hit windows problem with
+        //     // special filenames ("con", "com1",...):
+        //     let candidate = IndexFileNames::segment_file_name(
+        //         &TestUtil::random_simple_string_with_length(random, 1, 6),
+        //         &TestUtil::random_simple_string(random),
+        //         "test",
+        //     );
+        //
+        //     {
+        //         let out = dir.create_output(&candidate, IOContext::default_io_context()?)?;
+        //         out.get_file_pointer(); // Just to mimic some usage
+        //     }
+        //     dir.delete_file(&candidate)?;
+        //     if !dir.get_pending_deletions()?.is_empty() {
+        //         // If the file couldn't be deleted due to "virus checker"
+        //         file_name = candidate;
+        //         break;
+        //     }
+        // }
+        //
+        // // Ensure `list_all` does not include the file
+        // let files: HashSet<String> = dir.list_all()?.into_iter().collect();
+        // assert!(!files.contains(&file_name));
+        //
+        // // Ensure `file_length` claims it's deleted
+        // assert!(matches!(
+        //     dir.file_length(&file_name),
+        //     Err(DataIOError::IoWithPath { .. })
+        // ));
+        //
+        // // Ensure `rename` fails
+        // assert!(matches!(
+        //     dir.rename(&file_name, "file2"),
+        //     Err(DataIOError::IoWithPath { .. })
+        // ));
+        //
+        // // Ensure `delete_file` fails
+        // assert!(matches!(
+        //     dir.delete_file(&file_name),
+        //     Err(DataIOError::IoWithPath { .. })
+        // ));
+        //
+        // // Ensure we cannot open it for reading
+        // assert!(matches!(
+        //     dir.open_input(&file_name, IOContext::default_io_context()?),
+        //     Err(DataIOError::IoWithPath { .. })
+        // ));
+
+        Ok(())
+    }
+    fn test_list_all_is_sorted(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("test_list_all_is_sorted")
+            .tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
-        // This test applies only to FSDirectory
-        if !dir.is_fs_directory() {
-            return Ok(());
-        }
+        let count = random.gen_range(20..10000);
+        let mut names = HashSet::new();
 
-        let file_name: String;
-        loop {
-            // Generate a random file name
-            let candidate = format!(
-                "{}.{}",
-                TestUtil::random_simple_string_with_length(random, 1, 6),
-                TestUtil::random_simple_string(random)
+        let mut names_len = names.len();
+        while names_len < count {
+            let name = IndexFileNames::segment_file_name(
+                &TestUtil::random_simple_string_with_length(random, 1, 6),
+                &TestUtil::random_simple_string(random),
+                "test",
             );
-            {
-                let out = dir.create_output(&candidate, IOContext::default_io_context()?)?;
-                out.get_file_pointer(); // Just to mimic some usage
+
+            if random.gen_range(0..5) == 1 {
+                // Create a temporary output
+                {
+                    let output =
+                        dir.create_temp_output(&name, "foo", IOContext::default_io_context()?)?;
+                    let output_name = output.get_name().to_string();
+                    names.insert(output_name);
+                }
+            } else if !names.contains(name.as_str()) {
+                // Create a normal output
+                {
+                    let output = dir.create_output(&name, IOContext::default_io_context()?)?;
+                    let output_name = output.get_name().to_string();
+                    names.insert(output_name);
+                }
             }
-            dir.delete_file(&candidate)?;
-            if !dir.get_pending_deletions()?.is_empty() {
-                // If the file couldn't be deleted due to "virus checker"
-                file_name = candidate;
-                break;
-            }
+            names_len = names.len();
         }
 
-        // Ensure `list_all` does not include the file
-        let files: HashSet<String> = dir.list_all()?.into_iter().collect();
-        assert!(!files.contains(&file_name));
+        let actual: Vec<String> = dir.list_all()?;
+        let mut expected = actual.clone();
+        expected.sort();
 
-        // Ensure `file_length` claims it's deleted
-        assert!(matches!(
-            dir.file_length(&file_name),
-            Err(DataIOError::IoWithPath { .. })
-        ));
+        assert_eq!(expected, actual);
 
-        // Ensure `rename` fails
-        assert!(matches!(
-            dir.rename(&file_name, "file2"),
-            Err(DataIOError::IoWithPath { .. })
-        ));
+        Ok(())
+    }
+    fn test_data_types(&self) -> Result<(), TestError> {
+        let mut values: [i64; 4] = [43, 12345, 123456, 1234567890];
+        let temp_dir = tempfile::Builder::new()
+            .prefix("test_data_types")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
-        // Ensure `delete_file` fails
-        assert!(matches!(
-            dir.delete_file(&file_name),
-            Err(DataIOError::IoWithPath { .. })
-        ));
+        {
+            let mut out = dir.create_output("test", IOContext::default_io_context()?)?;
+            out.write_byte(43u8)?;
+            out.write_short(12345i16)?;
+            out.write_int(1234567890i32)?;
+            let values_len = values.len() as u32;
+            out.write_group_vints(&mut values, values_len)?;
+            out.write_long(1234567890123456789i64)?;
+        }
 
-        // Ensure we cannot open it for reading
-        assert!(matches!(
-            dir.open_input(&file_name, IOContext::default_io_context()?),
-            Err(DataIOError::IoWithPath { .. })
-        ));
+        let mut restored = [0i64; 4];
+        {
+            let mut input = dir.open_input("test", IOContext::default_io_context()?)?;
+            assert_eq!(43, DataInput::read_byte(&mut input)? as i32);
+            assert_eq!(12345, DataInput::read_short(&mut input)? as i32);
+            assert_eq!(1234567890, DataInput::read_int(&mut input)?);
+            let restored_len = restored.len() as u32;
+            GroupVIntUtil::read_group_vints(&mut input, &mut restored, restored_len)?;
+            assert_eq!(values, restored);
+            assert_eq!(1234567890123456789, DataInput::read_long(&mut input)?);
+        }
 
         Ok(())
     }

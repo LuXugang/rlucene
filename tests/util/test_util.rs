@@ -27,7 +27,6 @@ impl TestUtil {
     ) -> String {
         let end = random.gen_range(min_length..=max_length);
         if end == 0 {
-            // Allow 0 length
             return String::new();
         }
         (0..end)

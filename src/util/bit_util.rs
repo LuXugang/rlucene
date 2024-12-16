@@ -20,43 +20,114 @@ pub struct BitUtil {}
 impl BitUtil {
     #[cfg(target_endian = "little")]
     pub fn get_i16_le(bytes: &[u8], pos: usize) -> i16 {
-        debug_assert!(pos + 2 <= bytes.len(), "Index out of bounds");
+        debug_assert!(pos + SHORT_BYTES <= bytes.len(), "Index out of bounds");
         unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i16) }
     }
     #[cfg(target_endian = "little")]
     pub fn set_i16_le(bytes: &mut [u8], pos: usize, value: i16) {
-        debug_assert!(pos + 2 <= bytes.len(), "Index out of bounds");
-        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut i16, value) }
+        // Call the more flexible implementation with len = 2 (write all bytes)
+        Self::set_i16_le_with_len(bytes, pos, value, SHORT_BYTES);
     }
+
+    #[cfg(target_endian = "little")]
+    pub fn set_i16_le_with_len(bytes: &mut [u8], pos: usize, value: i16, len: usize) {
+        debug_assert!(
+            pos + len <= bytes.len(),
+            "Index out of bounds: pos={} len={} bytes.len()={}",
+            pos,
+            len,
+            bytes.len()
+        );
+        debug_assert!(
+            (0..=SHORT_BYTES).contains(&len),
+            "Invalid length: len={} (must be <= {})",
+            len,
+            SHORT_BYTES
+        );
+
+        let value_le = value.to_le();
+
+        unsafe {
+            let value_ptr = &value_le as *const i16 as *const u8;
+            let dest_ptr = bytes.as_mut_ptr().add(pos);
+            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+        }
+    }
+
     #[cfg(target_endian = "little")]
     pub fn get_i32_le(bytes: &[u8], pos: usize) -> i32 {
-        debug_assert!(pos + 4 <= bytes.len(), "Index out of bounds");
+        debug_assert!(pos + INT_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32) }
     }
 
     #[cfg(target_endian = "little")]
     pub fn set_i32_le(bytes: &mut [u8], pos: usize, value: i32) {
-        debug_assert!(pos + 4 <= bytes.len(), "Index out of bounds");
+        // Call the more flexible implementation with len = 4 (write all bytes)
+        Self::set_i32_le_with_len(bytes, pos, value, INT_BYTES);
+    }
+    #[cfg(target_endian = "little")]
+    pub fn set_i32_le_with_len(bytes: &mut [u8], pos: usize, value: i32, len: usize) {
+        debug_assert!(
+            pos + len <= bytes.len(),
+            "Index out of bounds: pos={} len={} bytes.len()={}",
+            pos,
+            len,
+            bytes.len()
+        );
+        debug_assert!(
+            (0..=INT_BYTES).contains(&len),
+            "Invalid length: len={} (must be <= 4)",
+            len
+        );
 
-        let value = value.to_le();
-        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut i32, value) }
+        let value_le = value.to_le();
+
+        unsafe {
+            let value_ptr = &value_le as *const i32 as *const u8;
+            let dest_ptr = bytes.as_mut_ptr().add(pos);
+            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+        }
     }
 
     #[cfg(target_endian = "little")]
     pub fn get_i64_le(bytes: &[u8], pos: usize) -> i64 {
-        debug_assert!(pos + 8 <= bytes.len(), "Index out of bounds");
+        debug_assert!(pos + LONG_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i64) }
     }
 
     #[cfg(target_endian = "little")]
     pub fn set_i64_le(bytes: &mut [u8], pos: usize, value: i64) {
-        debug_assert!(pos + 8 <= bytes.len(), "Index out of bounds");
-
-        let value = value.to_le();
-        unsafe { ptr::write_unaligned(bytes.as_mut_ptr().add(pos) as *mut i64, value) }
+        // Call the more flexible implementation with len = 8 (write all bytes)
+        Self::set_i64_le_with_len(bytes, pos, value, LONG_BYTES);
     }
+
+    #[cfg(target_endian = "little")]
+    pub fn set_i64_le_with_len(bytes: &mut [u8], pos: usize, value: i64, len: usize) {
+        debug_assert!(
+            pos + len <= bytes.len(),
+            "Index out of bounds: pos={} len={} bytes.len()={}",
+            pos,
+            len,
+            bytes.len()
+        );
+        debug_assert!(
+            (0..=LONG_BYTES).contains(&len),
+            "Invalid length: len={} (must be <= {})",
+            len,
+            LONG_BYTES
+        );
+
+        let value_le = value.to_le();
+
+        unsafe {
+            let value_ptr = &value_le as *const i64 as *const u8;
+            let dest_ptr = bytes.as_mut_ptr().add(pos);
+            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+        }
+    }
+
     pub fn zig_zag_decode_i32(i: u32) -> i32 {
         ((i >> 1) as i32) ^ -((i & 1) as i32)
     }
