@@ -21,7 +21,7 @@ use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::group_vint_util::GroupVIntUtil;
-use crate::util::ReadableCursorExt;
+use crate::util::{ReadableCursorExt, VecCopyOps};
 use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
@@ -370,23 +370,26 @@ where
 
             return Ok(());
         }
-        if(unaligned_bytes >0){
-            println!("abc")
-        }
         // If the buffer is not used or the remaining data exceeds the buffer size,
         // read directly from the underlying input
-        let after = self.buffer_start + self.length as u64 + (remaining_len * type_size) as u64;
+        let after = self.buffer_start + self.length as u64 + remaining_bytes as u64;
         if after > self.sub_index_input.length() {
             return Err(DataIOError::eof(format!("read past EOF: {}", self)));
         }
 
-        let mut temp_cursor = Cursor::new(vec![0; (remaining_len * type_size) as usize]);
+        let mut temp_vec = vec![0; (remaining_bytes + unaligned_bytes) as usize];
+        if unaligned_bytes > 0 {
+            temp_vec.copy_from(&self.buffer.get_ref()[(self.buffer_size - unaligned_bytes) as usize..],0);
+        }
+        let mut temp_cursor = Cursor::new(temp_vec);
+        temp_cursor.set_position(unaligned_bytes as u64);
         self.sub_index_input.read_internal(
             &mut temp_cursor,
-            (remaining_len * type_size) as u64,
+            (remaining_bytes - unaligned_bytes) as u64,
             self.buffer_start + self.length as u64,
         )?;
 
+        debug_assert!(temp_cursor.position() == remaining_bytes as u64);
         let src = temp_cursor.get_ref();
         Self::process_data(
             src,

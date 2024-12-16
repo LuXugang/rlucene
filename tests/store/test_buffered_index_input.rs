@@ -319,9 +319,9 @@ fn test_backwards_long_reads() -> Result<(), TestError> {
 }
 #[test]
 fn test_read_floats() -> Result<(), TestError> {
+    let mut random = my_random("test_read_ints".to_string());
     let length: usize = 1024 * 8;
-    let buffer_length: usize = 128;
-    let mut random = my_random("test_read_floats".to_string());
+    let buffer_length: usize = random.gen_range(128..length/8);
     let sub_index_input = MyBufferedIndexInput::new_with_len(length as u64);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
     let mut input = BufferedIndexInput::new_with_buffer_size(
@@ -373,8 +373,9 @@ fn test_read_floats() -> Result<(), TestError> {
 }
 #[test]
 fn test_read_ints() -> Result<(), TestError> {
+    let mut random = my_random("test_read_ints".to_string());
     let length: usize = 1024 * 8;
-    let buffer_length: usize = 128;
+    let buffer_length: usize = random.gen_range(128..length/8);
     let mut random = my_random("test_read_ints".to_string());
     let sub_index_input = MyBufferedIndexInput::new_with_len(length as u64);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -427,9 +428,9 @@ fn test_read_ints() -> Result<(), TestError> {
 }
 #[test]
 fn test_read_longs() -> Result<(), TestError> {
-    let length: usize = 1024 * 8;
-    let buffer_length: usize = 128;
     let mut random = my_random("test_read_longs".to_string());
+    let length: usize = 1024 * 8;
+    let buffer_length: usize = random.gen_range(128..length/8);
     let sub_index_input = MyBufferedIndexInput::new_with_len(length as u64);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
     let mut input = BufferedIndexInput::new_with_buffer_size(
