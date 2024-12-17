@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::is_night_mode;
+use crate::common::{is_night_mode, my_random_with_seed};
 use crate::util::lucene_test_case::{new_directory, new_io_context, slow_file_exists};
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
@@ -29,12 +29,17 @@ use rlucene::store::IndexInput;
 use rlucene::store::IndexOutput;
 use rlucene::store::{DataOutput, IOContext};
 use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::illegal_state::IllegalStateError;
 use rlucene::util::group_vint_util::GroupVIntUtil;
 use rlucene::util::packed::PackedInts;
 use std::collections::{HashMap, HashSet};
+use std::io::ErrorKind::PermissionDenied;
+use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
+use std::time::Duration;
 use tempfile::Builder;
 
 pub const EXTRA_FILE_NAME: &str = "extra0";
@@ -702,9 +707,117 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     fn test_thread_safety_in_list_all(&self, random: &mut StdRng) -> Result<(), TestError> {
-        // TODO
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testThreadSafety")
+            .tempdir()?;
+        let dir = Arc::new(Mutex::new(
+            self.get_directory(temp_dir.path().to_path_buf())?,
+        ));
+
+        let stop = Arc::new(AtomicBool::new(false));
+
+        // Writer thread
+        let dir_writer = Arc::clone(&dir);
+        let stop_writer = Arc::clone(&stop);
+        let seed: u64 = random.gen();
+        let writer = thread::spawn(move || -> Result<(), TestError> {
+            let mut rng = my_random_with_seed(seed);
+            let file_count = rng.gen_range(500..=1000);
+
+            for i in 0..file_count {
+                let file_name = format!("file-{}", i);
+                if let Ok(mut dir) = dir_writer.lock() {
+                    if let Ok(_output) =
+                        dir.create_output(&file_name, IOContext::default_io_context()?)
+                    {
+                        thread::yield_now();
+                    }
+                    assert!(slow_file_exists(&*dir, &file_name)?);
+                } else {
+                    return Err(TestError::IllegalState(IllegalStateError::new(
+                        "Failed to acquire lock in writer",
+                    )));
+                }
+            }
+
+            stop_writer.store(true, Ordering::SeqCst);
+            Ok(())
+        });
+
+        // Reader thread
+        let dir_reader = Arc::clone(&dir);
+        let stop_reader = Arc::clone(&stop);
+        let reader = thread::spawn(move || -> Result<(), TestError> {
+            let mut rng = my_random_with_seed(seed);
+
+            while !stop_reader.load(Ordering::SeqCst) {
+                let files: Vec<String> = {
+                    let dir = dir_reader.lock().unwrap();
+                    dir.list_all()?
+                        .into_iter()
+                        .filter(|name| !name.eq(EXTRA_FILE_NAME))
+                        .collect()
+                };
+
+                if !files.is_empty() {
+                    loop {
+                        let file = files[rng.gen_range(0..files.len())].as_str();
+                        match dir_reader
+                            .lock()
+                            .unwrap()
+                            .open_input(file, new_io_context(&mut rng)?)
+                        {
+                            Ok(_input) => {
+                                thread::sleep(Duration::from_millis(1));
+                            }
+                            Err(DataIOError::IoWithPath { source, .. })
+                                if source.kind() == ErrorKind::PermissionDenied =>
+                            {
+                                // 忽略 AccessDenied 错误
+                            }
+                            Err(e) => {
+                                return Err(TestError::DataIOError(DataIOError::IoWithPath {
+                                    path: file.to_string(),
+                                    source: Error::new(ErrorKind::Other, format!("{:?}", e)),
+                                }));
+                            }
+                        }
+                        if rng.gen_range(0..3) == 0 {
+                            break;
+                        }
+                    }
+                }
+            }
+            Ok(())
+        });
+
+        match writer.join() {
+            Ok(Ok(())) => (),
+            Ok(Err(e)) => {
+                eprintln!("Writer thread error: {:?}", e);
+                return Err(e);
+            }
+            Err(_) => {
+                eprintln!("Writer thread panicked!");
+                assert!(false);
+            }
+        }
+
+        match reader.join() {
+            Ok(Ok(())) => (),
+            Ok(Err(e)) => {
+                eprintln!("Reader thread error: {:?}", e);
+                return Err(e);
+            }
+            Err(_) => {
+                eprintln!("Reader thread panicked!");
+                assert!(false);
+            }
+        }
+
         Ok(())
     }
+
     fn test_file_exists_in_list_after_created(&self, random: &mut StdRng) -> Result<(), TestError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testFileExistsInListAfterCreated")
@@ -717,10 +830,18 @@ pub trait BaseDirectoryTestCase {
             let _output = dir.create_output(name, new_io_context(random)?)?;
         }
 
-        assert!(slow_file_exists(&dir, name)?);
+        assert!(
+            slow_file_exists(&dir, name)?,
+            "File '{}' should exist after creation.",
+            name
+        );
 
         let files: HashSet<String> = dir.list_all()?.into_iter().collect();
-        assert!(files.contains(name));
+        assert!(
+            files.contains(name),
+            "File '{}' should be present in the directory listing.",
+            name
+        );
 
         Ok(())
     }
