@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
-use crate::store::lock::FSLockEnum;
+use crate::store::lock::Lock;
 use crate::util::error::data_io_error_enum::DataIOError;
 
 /// Base implementation for a concrete [`Directory`] that uses a [`LockFactory`] for locking.
@@ -27,5 +27,5 @@ use crate::util::error::data_io_error_enum::DataIOError;
 /// This trait could actually be removed because `LockFactory` has been moved to the implementation of `Directory`,
 /// such as [`FSDirectory`](crate::store::fs_directory::FSDirectory). However, it is temporarily retained to maintain consistency with the structure of Java Lucene.
 pub trait BaseDirectory: Directory {
-    fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError>;
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, DataIOError>;
 }

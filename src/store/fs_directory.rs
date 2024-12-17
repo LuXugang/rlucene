@@ -17,10 +17,10 @@
 use crate::store::base_directory::BaseDirectory;
 use crate::store::directory::{get_temp_file_name, Directory};
 use crate::store::fs_directory_base::FSDirectoryBase;
-use crate::store::lock::FSLockEnum;
+use crate::store::lock::Lock;
 use crate::store::lock_factory::LockFactory;
 use crate::store::{
-    BufferedIndexInput, BufferedIndexInputBase, IOContext, NativeFSLockFactory,
+    BufferedIndexInput, BufferedIndexInputBase, IOContext, IndexOutput, NativeFSLockFactory,
     OutputStreamIndexOutput,
 };
 use crate::util::error::data_io_error_enum::DataIOError;
@@ -286,12 +286,11 @@ where
             fs::metadata(file_path).map_err(|e| DataIOError::io_with_path(file_name, e))?;
         Ok(metadata.len())
     }
-    #[allow(refining_impl_trait)]
     fn create_output(
         &mut self,
         name: &str,
         _context: IOContext,
-    ) -> Result<OutputStreamIndexOutput<File>, DataIOError> {
+    ) -> Result<impl IndexOutput, DataIOError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         Self::maybe_delete_pending_files(
             &self.directory,
@@ -320,13 +319,12 @@ where
             CHUNK_SIZE,
         )?)
     }
-    #[allow(refining_impl_trait)]
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         _context: IOContext,
-    ) -> Result<OutputStreamIndexOutput<File>, DataIOError> {
+    ) -> Result<impl IndexOutput, DataIOError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         Self::maybe_delete_pending_files(
             &self.directory,
@@ -426,8 +424,7 @@ where
             .open_input(name, context, &self.directory)
     }
 
-    #[allow(refining_impl_trait)]
-    fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError> {
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, DataIOError> {
         self.lock_factory.obtain_lock(&self.directory, name)
     }
 
@@ -470,7 +467,7 @@ where
     B: BufferedIndexInputBase,
     T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
-    fn obtain_lock(&mut self, name: &str) -> Result<FSLockEnum, DataIOError> {
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, DataIOError> {
         Directory::obtain_lock(self, name)
     }
 }

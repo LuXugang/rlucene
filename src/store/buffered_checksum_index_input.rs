@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 use crate::store::check_sum_index_input::ChecksumIndexInput;
+use crate::store::dummy_index_input::DummyIndexInput;
 use crate::store::index_input::IndexInput;
-use crate::store::{BufferedChecksum, ByteBuffersIndexInput, Checksum, DataInput, HasherChecksum};
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{BufferedChecksum, Checksum, DataInput, HasherChecksum};
 use crate::util::error::data_io_error_enum::DataIOError;
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
+
 /// Simple implementation of [`ChecksumIndexInput`] that wraps another input and delegates calls.
 pub struct BufferedChecksumIndexInput<T: IndexInput> {
     main: T,
@@ -51,22 +54,32 @@ where
         self.main.length()
     }
 
+    #[allow(unreachable_code)]
     fn slice(
         &self,
         _slice_description: &str,
         _offset: u64,
         _length: u64,
-    ) -> Result<ByteBuffersIndexInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+        // Used by the compiler to infer the returned type
+        if false {
+            return Ok(DummyIndexInput);
+        }
         Err(DataIOError::unsupported_operation(
             "BufferedChecksumIndexInput does not support slicing",
         ))
     }
 
+    #[allow(unreachable_code)]
     fn random_access_slice(
         &self,
         _offset: u64,
         _length: u64,
-    ) -> Result<ByteBuffersIndexInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+        // Used by the compiler to infer the returned type
+        if false {
+            return Ok(DummyIndexInput);
+        }
         Err(DataIOError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",
         ))

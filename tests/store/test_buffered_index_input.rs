@@ -18,6 +18,7 @@ use crate::common::my_random;
 use crate::util::test_error::TestError;
 use byteorder::WriteBytesExt;
 use rand::Rng;
+use rlucene::store::dummy_index_input::DummyIndexInput;
 use rlucene::store::index_input::IndexInput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput, BUFFER_SIZE};
@@ -534,14 +535,20 @@ impl BufferedIndexInputBase for MyBufferedIndexInput {
         }
         Ok(())
     }
-
+    #[allow(unreachable_code)]
     fn slice(
         &self,
         _slice_description: &str,
         _offset: u64,
         _length: u64,
-    ) -> Result<BufferedIndexInput<MyBufferedIndexInput>, DataIOError> {
-        unreachable!("MyBufferedIndexInput does not support slicing")
+    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+        // Used by the compiler to infer the returned type
+        if false {
+            return Ok(DummyIndexInput);
+        }
+        Err(DataIOError::unsupported_operation(
+            "MyBufferedIndexInput method is not supported".to_string(),
+        ))
     }
 
     fn length(&self) -> u64 {

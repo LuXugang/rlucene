@@ -957,6 +957,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
+    #[allow(unused)]
     fn test_no_dir(&self) -> Result<(), TestError> {
         // TODO
         unimplemented!("DirectoryReader not Implemented")
@@ -1567,10 +1568,12 @@ pub trait BaseDirectoryTestCase {
     }
     /// This test ensures that double-closing an `IndexOutput` does not cause any issues.
     /// Rust Lucene automatically closes resources when they go out of scope, so this test is not applicable.
+    #[allow(unused)]
     fn test_double_close_output(&self, _random: &mut StdRng) -> Result<(), TestError> {
         Ok(())
     }
     /// Rust Lucene automatically closes resources when they go out of scope, so this test is not applicable.
+    #[allow(unused)]
     fn test_double_close_input(&self) -> Result<(), TestError> {
         Ok(())
     }
