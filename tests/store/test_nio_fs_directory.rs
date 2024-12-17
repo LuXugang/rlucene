@@ -17,16 +17,19 @@
 use crate::common::my_random;
 use crate::store::base_directory_test_case::BaseDirectoryTestCase;
 use crate::util::test_error::TestError;
-use rlucene::store::directory::Directory;
 use rlucene::store::fs_directory::FSDirectory;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
+use rlucene::store::nio_fs_index_input::NIOFSIndexInput;
+use rlucene::store::{BufferedIndexInput, NativeFSLockFactory};
 use std::path::PathBuf;
 
 #[allow(dead_code)] // for quick search
 struct TestNIOFSDirectory;
 
 impl BaseDirectoryTestCase for TestNIOFSDirectory {
-    fn get_directory(&self, path: PathBuf) -> Result<impl Directory, TestError> {
+    type Directory = FSDirectory<NativeFSLockFactory, NIOFSDirectory, NIOFSIndexInput>;
+    type Output = BufferedIndexInput<NIOFSIndexInput>;
+    fn get_directory(&self, path: PathBuf) -> Result<Self::Directory, TestError> {
         let sub_directory = NIOFSDirectory::new();
         Ok(FSDirectory::new(path, sub_directory)?)
     }
@@ -225,8 +228,9 @@ fn test_copy_bytes() -> Result<(), TestError> {
 }
 #[test]
 fn test_copy_bytes_with_threads() -> Result<(), TestError> {
-    //TODO
-    Ok(())
+    let mut random = my_random("test_copy_bytes_with_threads".to_string());
+    let test = TestNIOFSDirectory;
+    test.test_copy_bytes_with_threads(&mut random)
 }
 #[test]
 fn test_fsync_doesnt_create_new_files() -> Result<(), TestError> {

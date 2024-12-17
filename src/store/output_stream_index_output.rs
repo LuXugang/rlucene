@@ -25,13 +25,19 @@ use std::fmt::{Display, Formatter};
 use std::io::{BufWriter, Write};
 
 /// Implementation class for buffered [`IndexOutput`] that writes to an [`OutputStream`](Write).
-pub struct OutputStreamIndexOutput<W: Write> {
+pub struct OutputStreamIndexOutput<W>
+where
+    W: Write,
+{
     os: XBufferedOutputStream<W>,
     bytes_written: u64,
     name: String,
     resource_description: String,
 }
-impl<W: Write> OutputStreamIndexOutput<W> {
+impl<W: Write> OutputStreamIndexOutput<W>
+where
+    W: Write,
+{
     /// Creates a new [`OutputStreamIndexOutput`] with the given buffer size.
     ///
     /// # Arguments
@@ -62,7 +68,10 @@ impl<W: Write> OutputStreamIndexOutput<W> {
     }
 }
 
-impl<W: Write> DataOutput for OutputStreamIndexOutput<W> {
+impl<W: Write> DataOutput for OutputStreamIndexOutput<W>
+where
+    W: Write,
+{
     fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
         self.bytes_written += 1;
         self.os.write_u8(b)
@@ -90,13 +99,19 @@ impl<W: Write> DataOutput for OutputStreamIndexOutput<W> {
     }
 }
 
-impl<W: Write> Display for OutputStreamIndexOutput<W> {
+impl<W: Write> Display for OutputStreamIndexOutput<W>
+where
+    W: Write,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.resource_description)
     }
 }
 
-impl<W: Write> IndexOutput for OutputStreamIndexOutput<W> {
+impl<W: Write> IndexOutput for OutputStreamIndexOutput<W>
+where
+    W: Write,
+{
     fn get_file_pointer(&self) -> u64 {
         self.bytes_written
     }

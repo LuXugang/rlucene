@@ -285,9 +285,9 @@ where
     {
         // Calculate the total bytes to read based on the number of elements and the type size.
         let total_bytes = len * type_size;
-        let mut elements_read = 0;// Tracks the number of elements read so far.
-        let mut unaligned_bytes = 0;// Tracks bytes that cannot form a complete element.
-        // Check if the position is within the current buffer range
+        let mut elements_read = 0; // Tracks the number of elements read so far.
+        let mut unaligned_bytes = 0; // Tracks bytes that cannot form a complete element.
+                                     // Check if the position is within the current buffer range
         if pos >= self.buffer_start && pos < self.buffer_start + self.length as u64 {
             let buffer_offset = (pos - self.buffer_start) as u32;
             // Determine the number of bytes available in the buffer from the requested position.
@@ -392,7 +392,10 @@ where
             // The unaligned bytes are located at the end of the current buffer.
             // We copy them into the start of the temporary vector to ensure they
             // are preserved when the buffer is refilled with new data.
-            temp_vec.copy_from(&self.buffer.get_ref()[(self.buffer_size - unaligned_bytes) as usize..],0);
+            temp_vec.copy_from(
+                &self.buffer.get_ref()[(self.buffer_size - unaligned_bytes) as usize..],
+                0,
+            );
         }
         let mut temp_buffer = Cursor::new(temp_vec);
         temp_buffer.set_position(unaligned_bytes as u64);

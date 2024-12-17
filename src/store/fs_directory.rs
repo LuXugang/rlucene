@@ -57,21 +57,21 @@ use std::{fs, io};
 ///
 /// # See Also
 /// [`Directory`](Directory)
-pub struct FSDirectory<L, F, B>
+pub struct FSDirectory<D, T, B>
 where
-    L: LockFactory,
+    D: LockFactory,
     B: BufferedIndexInputBase,
-    F: FSDirectoryBase<Output = BufferedIndexInput<B>>,
+    T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     directory: PathBuf,
     /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
     /// delete that key.
-    pending_deletes: Arc<Mutex<HashSet<String>>>, // 用 Mutex 保护
+    pending_deletes: Arc<Mutex<HashSet<String>>>,
     ops_since_last_delete: AtomicU32,
     /** Used to generate temp file names in [`createTempOutput`](Directory::create_temp_output). */
     next_temp_file_counter: AtomicU64,
-    lock_factory: L,
-    sub_fs_directory: F,
+    lock_factory: D,
+    sub_fs_directory: T,
 }
 impl<D, T, B> FSDirectory<D, T, B>
 where

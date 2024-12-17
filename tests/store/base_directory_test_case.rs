@@ -33,11 +33,15 @@ use rlucene::util::group_vint_util::GroupVIntUtil;
 use rlucene::util::packed::PackedInts;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::sync::{Arc, Barrier, Mutex};
+use std::thread;
 use tempfile::Builder;
 
 pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {
-    fn get_directory(&self, path: PathBuf) -> Result<impl Directory, TestError>;
+    type Directory: Directory<Output = Self::Output> + Send + Sync + 'static;
+    type Output: IndexInput + RandomAccessInput + Send + Sync + 'static;
+    fn get_directory(&self, path: PathBuf) -> Result<Self::Directory, TestError>;
 
     fn test_copy_from(&self, random: &mut StdRng) -> Result<(), TestError> {
         let mut temp_dir = Builder::new().prefix("testCopy").tempdir()?;
@@ -912,8 +916,82 @@ pub trait BaseDirectoryTestCase {
         ((idx % 256) * (1 + (idx / 256))) as u8
     }
 
-    fn test_copy_bytes_with_threads(&self) {
-        //TODO
+    fn test_copy_bytes_with_threads(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let temp_dir = tempfile::Builder::new()
+            .prefix("testCopyBytesWithThreads")
+            .tempdir()?;
+        let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
+        let dir_new = Arc::new(Mutex::new(
+            self.get_directory(temp_dir.path().to_path_buf())?,
+        ));
+
+        let header_len = 3;
+        let data_len = random.gen_range(header_len + 1..10000);
+        let mut data = vec![0u8; data_len];
+        random.fill_bytes(&mut data);
+        let data_clone = data.clone();
+
+        {
+            let mut output = dir.create_output("data", IOContext::default_io_context()?)?;
+            output.write_bytes_with_len(&data, data_len as u32)?;
+        }
+
+        let mut input = dir.open_input("data", IOContext::default_io_context()?)?;
+
+        {
+            let mut output_header =
+                dir.create_output("header", IOContext::default_io_context()?)?;
+            output_header.copy_bytes(&mut input, header_len as u64)?;
+        }
+
+        let threads = 10;
+        {
+            let barrier = Arc::new(Barrier::new(threads));
+            let mut handles = vec![];
+
+            for i in 0..threads {
+                let dir_clone = Arc::clone(&dir_new);
+                let mut src = input.clone();
+                let barrier_clone = Arc::clone(&barrier);
+                let handle = thread::spawn(move || {
+                    barrier_clone.wait();
+                    let file_name = format!("copy{}", i);
+                    let mut dir_guard = dir_clone.lock().unwrap();
+                    let mut dst = dir_guard
+                        .create_output(&file_name, IOContext::default_io_context().unwrap())
+                        .unwrap();
+                    let src_length = IndexInput::length(&src);
+                    dst.copy_bytes(&mut src, src_length - header_len as u64)
+                        .unwrap();
+                });
+                handles.push(handle);
+            }
+
+            for handle in handles {
+                handle.join().unwrap();
+            }
+        }
+
+        let new_dir = self.get_directory(temp_dir.path().to_path_buf())?;
+        for i in 0..threads {
+            let file_name = format!("copy{}", i);
+            let mut data_copy = vec![0u8; data_len];
+            let mut input_copy =
+                new_dir.open_input(&file_name, IOContext::default_io_context()?)?;
+
+            data_copy[..header_len].copy_from_slice(&data_clone[..header_len]);
+
+            DataInput::read_bytes(
+                &mut input_copy,
+                &mut data_copy[header_len..],
+                0,
+                (data_len - header_len) as u32,
+            )?;
+
+            assert_eq!(data_clone, data_copy, "Data mismatch in copy{}", i);
+        }
+
+        Ok(())
     }
     fn test_fsync_doesnt_create_new_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         let temp_dir = tempfile::Builder::new().prefix("nocreate").tempdir()?;
