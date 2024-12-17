@@ -322,7 +322,6 @@ fn test_read_floats() -> Result<(), TestError> {
         &resource_description,
         BUFFER_SIZE,
     )?;
-    let mut bb = vec![0u8; FLOAT_BYTES];
     let mut float_buffer = vec![0f32; buffer_length];
 
     for alignment in 0..FLOAT_BYTES {
@@ -343,16 +342,24 @@ fn test_read_floats() -> Result<(), TestError> {
                 (buffer_length - float_offset) as u32,
             )?;
 
-            for idx in float_offset as usize..buffer_length {
+            for (idx, &actual_float) in float_buffer
+                .iter()
+                .enumerate()
+                .skip(float_offset)
+                .take(buffer_length - float_offset)
+            {
                 let offset = pos + idx * FLOAT_BYTES;
-                bb[0] = byten(offset as u64);
-                bb[1] = byten(offset as u64 + 1);
-                bb[2] = byten(offset as u64 + 2);
-                bb[3] = byten(offset as u64 + 3);
 
-                let bb_clone = bb.clone();
-                let expected_bits = f32::from_le_bytes(bb_clone.try_into().unwrap()).to_bits();
-                let actual_bits = float_buffer[idx].to_bits();
+                let bb = [
+                    byten(offset as u64),
+                    byten(offset as u64 + 1),
+                    byten(offset as u64 + 2),
+                    byten(offset as u64 + 3),
+                ];
+
+                let expected_bits = f32::from_le_bytes(bb).to_bits();
+                let actual_bits = actual_float.to_bits();
+
                 assert_eq!(
                     expected_bits, actual_bits,
                     "Mismatch at alignment={}, bulk_read={}, idx={}",
@@ -377,7 +384,6 @@ fn test_read_ints() -> Result<(), TestError> {
         &resource_description,
         BUFFER_SIZE,
     )?;
-    let mut bb = vec![0u8; INT_BYTES];
     let mut int_buffer = vec![0i32; buffer_length];
 
     for alignment in 0..INT_BYTES {
@@ -398,16 +404,22 @@ fn test_read_ints() -> Result<(), TestError> {
                 (buffer_length - int_offset) as u32,
             )?;
 
-            for idx in int_offset..buffer_length {
+            for (idx, &actual_value) in int_buffer
+                .iter()
+                .enumerate()
+                .skip(int_offset)
+                .take(buffer_length - int_offset)
+            {
                 let offset = pos + idx * INT_BYTES;
-                bb[0] = byten(offset as u64);
-                bb[1] = byten(offset as u64 + 1);
-                bb[2] = byten(offset as u64 + 2);
-                bb[3] = byten(offset as u64 + 3);
 
-                let bb_clone = bb.clone();
-                let expected_value = i32::from_le_bytes(bb_clone.try_into().unwrap());
-                let actual_value = int_buffer[idx];
+                let bb = [
+                    byten(offset as u64),
+                    byten(offset as u64 + 1),
+                    byten(offset as u64 + 2),
+                    byten(offset as u64 + 3),
+                ];
+
+                let expected_value = i32::from_le_bytes(bb);
                 assert_eq!(
                     expected_value, actual_value,
                     "Mismatch at alignment={}, bulk_read={}, idx={}",
@@ -452,7 +464,12 @@ fn test_read_longs() -> Result<(), TestError> {
                 (buffer_length - long_offset) as u32,
             )?;
 
-            for idx in long_offset..buffer_length {
+            for (idx, actual_value) in long_buffer
+                .iter()
+                .enumerate()
+                .take(buffer_length)
+                .skip(long_offset)
+            {
                 let offset = pos + idx * LONG_BYTES;
                 bb[0] = byten(offset as u64);
                 bb[1] = byten(offset as u64 + 1);
@@ -463,11 +480,9 @@ fn test_read_longs() -> Result<(), TestError> {
                 bb[6] = byten(offset as u64 + 6);
                 bb[7] = byten(offset as u64 + 7);
 
-                let bb_clone = bb.clone();
-                let expected_value = i64::from_le_bytes(bb_clone.try_into().unwrap());
-                let actual_value = long_buffer[idx];
+                let expected_value = i64::from_le_bytes(bb.clone().try_into().unwrap());
                 assert_eq!(
-                    expected_value, actual_value,
+                    expected_value, *actual_value,
                     "Mismatch at alignment={}, bulk_read={}, idx={}",
                     alignment, i, idx
                 );

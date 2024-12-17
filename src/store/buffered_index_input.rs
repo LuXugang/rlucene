@@ -449,9 +449,9 @@ where
                 dst_u8.copy_from_slice(src);
             }
         } else {
-            for i in 0..len {
+            for (i, dst_item) in dst.iter_mut().enumerate().take(len) {
                 let chunk_start = i * type_size as usize;
-                dst[i] = converter(&src[chunk_start..chunk_start + type_size as usize]);
+                *dst_item = converter(&src[chunk_start..chunk_start + type_size as usize]);
             }
         }
     }

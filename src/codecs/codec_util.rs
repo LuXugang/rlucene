@@ -273,7 +273,6 @@ pub fn check_header_no_magic(
 ///
 /// # See Also
 /// - [`write_index_header`]
-
 pub fn check_index_header(
     data_input: &mut impl DataInput,
     codec: &str,

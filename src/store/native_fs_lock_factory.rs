@@ -60,7 +60,6 @@ use std::time::SystemTime;
 ///
 /// # See Also
 /// - [`lock_factory`](crate::store::lock_factory)
-
 pub struct NativeFSLockFactory {
     lock_held: Arc<Mutex<HashSet<String>>>,
 }
@@ -98,11 +97,23 @@ impl FSLockFactory for NativeFSLockFactory {
 
         let lock_file = dir.join(lock_name);
 
+        // we must create the file to have a truly canonical path.
+        // if it's already created, we don't care. if it cant be created, it will fail below.
         let file = OpenOptions::new()
             .write(true)
-            .create(true)
+            .create_new(true)
+            .truncate(true)
             .open(&lock_file)
-            .map_err(|e| DataIOError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
+            .or_else(|e| {
+                if e.kind() == std::io::ErrorKind::AlreadyExists {
+                    Ok(File::open(&lock_file)?)
+                } else {
+                    Err(DataIOError::io_with_path(
+                        lock_file.to_string_lossy().to_string(),
+                        e,
+                    ))
+                }
+            })?;
 
         let real_path = lock_file
             .canonicalize()

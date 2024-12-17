@@ -120,7 +120,7 @@ where
         Ok(entries)
     }
     pub fn maybe_delete_pending_files(
-        directory: &PathBuf,
+        directory: &Path,
         pending_deletes: &mut HashSet<String>,
         ops_since_last_delete: &mut AtomicU32,
     ) -> Result<(), DataIOError> {
@@ -151,7 +151,7 @@ where
     /// Try to delete any pending files that we had previously tried to delete but failed because we
     /// are on Windows and the files were still held open.
     pub fn delete_pending_files(
-        directory: &PathBuf,
+        directory: &Path,
         pending_deletes: &mut HashSet<String>,
     ) -> Result<(), DataIOError> {
         if !pending_deletes.is_empty() {

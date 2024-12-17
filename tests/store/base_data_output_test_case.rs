@@ -48,17 +48,18 @@ pub trait BaseDataOutputTestCase {
     }
 }
 
+type DataInputProcessor<DI> = Box<dyn FnMut(&mut DI)>;
+
 pub fn add_random_data<DI: DataInput>(
     dst: &mut impl DataOutput,
     rnd: &mut impl RngCore,
     max_add_calls: i32,
-) -> Vec<Box<dyn FnMut(&mut DI)>> {
+) -> Vec<DataInputProcessor<DI>> {
     let cg = create_generators();
-    let mut vec: Vec<Box<dyn FnMut(&mut DI)>> = Vec::new();
+    let mut vec: Vec<DataInputProcessor<DI>> = Vec::new();
     for _i in 0..max_add_calls {
         let random_generator = rnd.gen_range(0..cg.len());
         vec.push(cg[random_generator](dst, rnd));
-        // vec.push(cg[0](dst, rnd));
     }
     vec
 }

@@ -798,7 +798,7 @@ pub trait BaseDirectoryTestCase {
             }
             Err(_) => {
                 eprintln!("Writer thread panicked!");
-                assert!(false);
+                unreachable!()
             }
         }
 
@@ -810,7 +810,7 @@ pub trait BaseDirectoryTestCase {
             }
             Err(_) => {
                 eprintln!("Reader thread panicked!");
-                assert!(false);
+                unreachable!()
             }
         }
 
@@ -1020,8 +1020,8 @@ pub trait BaseDirectoryTestCase {
                 } else {
                     let limit = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
                     DataInput::read_bytes(&mut input2, &mut bytes, 0, limit as u32)?;
-                    for byte_idx in 0..limit {
-                        assert_eq!(Self::value(upto), bytes[byte_idx]);
+                    for &byte in bytes.iter().take(limit) {
+                        assert_eq!(Self::value(upto), byte);
                         upto += 1;
                     }
                 }
@@ -1903,19 +1903,21 @@ pub trait BaseDirectoryTestCase {
             let mut vint_out = dir2.create_output("vint", IOContext::default_io_context()?)?;
 
             // Encode
-            for iter in 0..iterations {
+            for num_values in num_values_array.iter_mut().take(iterations) {
                 let bpv = random.gen_range(min_bpv..=max_bpv);
-                num_values_array[iter] = random.gen_range(1..=max_num_values);
-                for j in 0..num_values_array[iter] {
+                *num_values = random.gen_range(1..=max_num_values);
+
+                for value in values.iter_mut().take(*num_values) {
                     let upper = PackedInts::max_value(bpv as u32) as i32;
-                    values[j] = if upper == 0 {
+                    *value = if upper == 0 {
                         0
                     } else {
                         random.gen_range(0..=upper) as i64
                     };
-                    vint_out.write_vint(values[j] as i32)?;
+                    vint_out.write_vint(*value as i32)?;
                 }
-                group_vint_out.write_group_vints(&mut values, num_values_array[iter] as u32)?;
+
+                group_vint_out.write_group_vints(&mut values, *num_values as u32)?;
             }
         }
 
@@ -1924,15 +1926,22 @@ pub trait BaseDirectoryTestCase {
             let mut group_vint_in =
                 dir1.open_input("group-varint", IOContext::default_io_context()?)?;
             let mut vint_in = dir2.open_input("vint", IOContext::default_io_context()?)?;
-            for iter in 0..iterations {
+            for &num_values in num_values_array.iter().take(iterations) {
+                // 读取组 VInts
                 GroupVIntUtil::read_group_vints(
                     &mut group_vint_in,
                     &mut values,
-                    num_values_array[iter] as i32,
+                    num_values as i32,
                 )?;
-                for j in 0..num_values_array[iter] {
+
+                // 遍历 values 并比较
+                for (j, &expected_value) in values.iter().take(num_values).enumerate() {
                     let vint_value = vint_in.read_vint()?;
-                    assert_eq!(vint_value as i64, values[j]);
+                    assert_eq!(
+                        vint_value as i64, expected_value,
+                        "Mismatch at index {}: expected {}, got {}",
+                        j, expected_value, vint_value
+                    );
                 }
             }
         }

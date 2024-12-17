@@ -100,7 +100,7 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
     }
 }
 
-impl<'a> Display for ByteBuffersIndexOutput<'_> {
+impl Display for ByteBuffersIndexOutput<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.resource_description)
     }
