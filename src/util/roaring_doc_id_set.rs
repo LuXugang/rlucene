@@ -190,10 +190,10 @@ impl RoaringDocIdSetBuilder {
                 let mut excluded_docs: Vec<i16> = vec![0; capacity];
                 self.dense_buffer.flip_range(0, self.dense_buffer.length());
                 let mut excluded_doc = -1;
-                for _i in 0..excluded_docs.len() {
+                for excluded_doc_ref in excluded_docs.iter_mut() {
                     excluded_doc = self.dense_buffer.next_set_bit(excluded_doc + 1);
                     assert_ne!(excluded_doc, NO_MORE_DOCS);
-                    excluded_docs.push(excluded_doc as i16);
+                    *excluded_doc_ref = excluded_doc as i16;
                 }
 
                 debug_assert!(
