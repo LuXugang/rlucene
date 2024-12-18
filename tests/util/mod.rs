@@ -36,4 +36,6 @@ mod test_sparse_fixed_bit_set;
 mod test_tim_sorter;
 mod test_util;
 mod test_version;
+mod test_most_significant_bit_radix_sort;
+
 pub use test_util::*;

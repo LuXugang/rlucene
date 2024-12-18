@@ -368,26 +368,26 @@ where
         self.sub_sorter.compare_pivot(i)
     }
 
-    fn sort(&mut self, from: usize, to: usize) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         sorter::check_range(from, to)?;
         if to - from <= 1 {
             return Ok(());
         }
 
-        self.reset(from as i32, to as i32);
+        self.reset(from, to);
 
         loop {
             self.ensure_invariants();
             let run_length = self.next_run();
             self.push_run_len(run_length);
 
-            if self.run_end(0) >= to as i32 {
+            if self.run_end(0) >= to {
                 break;
             }
         }
         self.exhaust_stack();
 
-        assert_eq!(self.run_end(0), to as i32);
+        assert_eq!(self.run_end(0), to);
         Ok(())
     }
 

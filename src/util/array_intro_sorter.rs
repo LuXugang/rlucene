@@ -67,7 +67,7 @@ where
             .compare(&self.arr[self.pivot as usize], &self.arr[i as usize])
     }
 
-    fn sort(&mut self, from: usize, to: usize) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }

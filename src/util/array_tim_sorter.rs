@@ -74,8 +74,8 @@ where
         self.compare(self.pivot_index, j)
     }
 
-    fn sort(&mut self, _from: usize, _to: usize) -> Result<(), RuntimeError> {
-        unimplemented!()
+    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
+        unreachable!("You need to use TimSorter to wrap ArrayTimSorter in order to enable sorting functionality.")
     }
 }
 impl<T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'_, T, C>

@@ -34,13 +34,9 @@ const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 /// # Note
 /// This is an internal API.
 pub trait IntroSorter: Sorter {
-    fn sort_range(&mut self, from: usize, to: usize) -> Result<(), RuntimeError> {
+    fn sort_range(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         check_range(from, to)?;
-        self.sort_in_intro(
-            from as i32,
-            to as i32,
-            (2.0 * ((to - from) as f64).log2()) as usize,
-        );
+        self.sort_in_intro(from, to, (2.0 * ((to - from) as f64).log2()) as usize);
         Ok(())
     }
     /// Sorts between `from` (inclusive) and `to` (exclusive) with introsort.

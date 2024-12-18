@@ -48,7 +48,7 @@ pub trait Sorter {
     fn compare_pivot(&self, i: i32) -> i32;
 
     /// Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
-    fn sort(&mut self, from: usize, to: usize) -> Result<(), RuntimeError>;
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError>;
 
     fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
         if from == mid || mid == to || self.compare(mid - 1, mid) <= 0 {
@@ -288,7 +288,7 @@ pub trait Sorter {
         ((i - from) << 1) + 1 + from
     }
 }
-pub fn check_range(from: usize, to: usize) -> Result<(), RuntimeError> {
+pub fn check_range(from: i32, to: i32) -> Result<(), RuntimeError> {
     if to < from {
         return Err(RuntimeError::illegal_argument(format!(
             "'to' must be >= 'from', got from= {} and to= {}",

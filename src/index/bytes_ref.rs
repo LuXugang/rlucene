@@ -30,6 +30,7 @@ use std::hash::Hash;
 /// # Sorting
 /// This struct implements `Ord`. The underlying byte arrays are sorted lexicographically, treating elements as unsigned.
 /// This is identical to Unicode codepoint order.
+#[derive(Debug)]
 pub struct BytesRef {
     /// The contents of the BytesRef. Should never be `None`.
     pub bytes: Vec<u8>,
@@ -160,7 +161,6 @@ impl Ord for BytesRef {
 impl Clone for BytesRef {
     fn clone(&self) -> Self {
         BytesRef {
-            //TODO: maybe we should avoid cloning the bytes here
             bytes: self.bytes.clone(),
             offset: self.offset,
             length: self.length,
