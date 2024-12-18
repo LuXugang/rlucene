@@ -18,7 +18,7 @@ use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
@@ -69,19 +69,19 @@ where
         NotDocDocIdSetIterator::new(self.set.iterator(), self.max_doc)
     }
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         self.set
             .bits()
-            .map(|in_bit_rc| Rc::new(NotDocIdBits::new(in_bit_rc)))
+            .map(|in_bit_rc| Arc::new(NotDocIdBits::new(in_bit_rc)))
     }
 }
 
 pub struct NotDocIdBits<B: Bits> {
-    in_bit: Rc<B>,
+    in_bit: Arc<B>,
 }
 
 impl<B: Bits> NotDocIdBits<B> {
-    pub fn new(in_bits: Rc<B>) -> NotDocIdBits<B> {
+    pub fn new(in_bits: Arc<B>) -> NotDocIdBits<B> {
         NotDocIdBits { in_bit: in_bits }
     }
 }

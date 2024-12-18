@@ -19,17 +19,18 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::error::runtime_error::RuntimeError;
-use std::rc::Rc;
+use std::sync::Arc;
 
 //TODO
-const _BASE_RAM_BYTES_USED: i64 = 0;
+#[allow(unused)]
+const BASE_RAM_BYTES_USED: i64 = 0;
 
 /// Implementation of the [`DocIdSet`] interface on top of a [`BitSet`].
 ///
 /// # Note
 /// This is an internal API.
 pub struct BitDocIdSet<T: BitSet> {
-    set: Option<Rc<T>>,
+    set: Option<Arc<T>>,
     pub(crate) cost: i64,
 }
 /// Wraps the given [`BitSet`] as a [`DocIdSet`].
@@ -43,7 +44,7 @@ impl<T: BitSet> BitDocIdSet<T> {
             )));
         }
         Ok(BitDocIdSet {
-            set: Some(Rc::new(set.unwrap())),
+            set: Some(Arc::new(set.unwrap())),
             cost,
         })
     }
@@ -78,7 +79,7 @@ where
 
     type BitType = T;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         self.set.clone()
     }
 }

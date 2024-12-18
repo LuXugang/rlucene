@@ -22,7 +22,7 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::fixed_bit_set::FixedBitSet;
-use std::rc::Rc;
+use std::sync::Arc;
 
 //TODO
 #[allow(unused)]
@@ -140,7 +140,7 @@ impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         None
     }
 }

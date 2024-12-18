@@ -22,9 +22,11 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::VecCopyOps;
 use std::cmp::min;
 
-// todo
-const _SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
-const _SINGLE_ELEMENT_ARRAY_BYTES_USED: i64 = 0;
+// TODO
+#[allow(unused)]
+const SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
+#[allow(unused)]
+const SINGLE_ELEMENT_ARRAY_BYTES_USED: i64 = 0;
 const MASK_4096: i32 = (1 << 12) - 1;
 
 fn block_count(length: i32) -> i32 {
