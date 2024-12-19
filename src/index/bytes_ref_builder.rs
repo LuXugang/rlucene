@@ -46,7 +46,7 @@ impl BytesRefBuilder {
     /// Set the length.
     pub fn set_length(&mut self, length: u32) {
         self.bytes_ref.length = length;
-        self.bytes_ref.bytes.clear();
+        self.bytes_ref.bytes.truncate(length as usize);
     }
 
     /// Return the byte at the given offset.
