@@ -275,8 +275,8 @@ where
         Ok(())
     }
 
-    fn get_fallback_sorter(&mut self, k: i32) -> IntroSorterImpl<T> {
-        IntroSorterImpl::new(self.max_length, k, &mut self.sub_sorter)
+    fn get_fallback_sorter(&mut self, k: i32) -> MSBRadixIntroSorterImpl<T> {
+        MSBRadixIntroSorterImpl::new(self.max_length, k, &mut self.sub_sorter)
     }
 
     /// Always returns `true` if the assertions pass.
@@ -327,7 +327,7 @@ where
     }
 }
 
-struct IntroSorterImpl<'a, T>
+struct MSBRadixIntroSorterImpl<'a, T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
@@ -336,7 +336,7 @@ where
     k: i32,
     sub_sorter: &'a mut T,
 }
-impl<'a, T> IntroSorterImpl<'a, T>
+impl<'a, T> MSBRadixIntroSorterImpl<'a, T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
@@ -350,7 +350,7 @@ where
     }
 }
 
-impl<T> Sorter for IntroSorterImpl<'_, T>
+impl<T> Sorter for MSBRadixIntroSorterImpl<'_, T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
@@ -408,7 +408,7 @@ where
     }
 }
 
-impl<T> IntroSorter for IntroSorterImpl<'_, T> where T: Sorter + MSBRadixSorterBase {}
+impl<T> IntroSorter for MSBRadixIntroSorterImpl<'_, T> where T: Sorter + MSBRadixSorterBase {}
 
 pub trait MSBRadixSorterBase {
     /// Returns the k-th byte of the entry at the given index `i`, or `-1` if its length is less than
