@@ -276,7 +276,7 @@ where
     }
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter + use<'_, T> {
-      self.sub_sorter.get_fallback_sorter(k) 
+        self.sub_sorter.get_fallback_sorter(k)
     }
 
     /// Always returns `true` if the assertions pass.
@@ -414,12 +414,18 @@ pub trait MSBRadixSorterBase {
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter;
 }
-pub fn get_fallback_sorter_default<T>(max_length:i32, sub_sorter: &mut T, k:i32) -> MSBRadixIntroSorterImpl<T>
-where T: Sorter + MSBRadixSorterBase{
-    MSBRadixIntroSorterImpl{
+pub fn get_fallback_sorter_default<T>(
+    max_length: i32,
+    sub_sorter: &mut T,
+    k: i32,
+) -> MSBRadixIntroSorterImpl<T>
+where
+    T: Sorter + MSBRadixSorterBase,
+{
+    MSBRadixIntroSorterImpl {
         pivot: BytesRefBuilder::new(),
         max_length,
         k,
-        sub_sorter
+        sub_sorter,
     }
 }

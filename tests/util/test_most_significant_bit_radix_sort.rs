@@ -215,7 +215,6 @@ impl MSBRadixSorterImpl {
 }
 
 impl MSBRadixSorterBase for MSBRadixSorterImpl {
-    
     fn byte_at(&self, i: i32, k: i32) -> i32 {
         assert!(
             k < self.final_max_length,

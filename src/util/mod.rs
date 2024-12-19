@@ -51,10 +51,10 @@ pub mod sorter;
 pub mod sparse_fixed_bit_set;
 pub mod strict_string_tokenizer;
 pub mod string_helper;
+mod string_sorter;
 pub mod tim_sorter;
 pub mod vec_copy_ops;
 pub mod version;
-mod string_sorter;
 
 pub use array_tim_sorter::*;
 pub use tim_sorter::*;

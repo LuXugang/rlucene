@@ -29,7 +29,10 @@ pub struct ArrayIntroSorter<'a, T, C: Comparator<T>> {
     pivot: i32,
 }
 
-impl<'a, T, C> ArrayIntroSorter<'a, T, C> where C: Comparator<T> {
+impl<'a, T, C> ArrayIntroSorter<'a, T, C>
+where
+    C: Comparator<T>,
+{
     pub fn new(arr: &'a mut Vec<T>, comparator: C) -> ArrayIntroSorter<'a, T, C> {
         ArrayIntroSorter {
             arr,

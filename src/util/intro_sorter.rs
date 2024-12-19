@@ -162,7 +162,7 @@ pub trait IntroSorter: Sorter {
             k
         }
     }
-    
+
     #[allow(unused)]
     fn compare_default(&mut self, i: i32, j: i32) -> i32 {
         self.set_pivot(i);
