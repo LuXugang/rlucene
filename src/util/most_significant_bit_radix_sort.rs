@@ -275,8 +275,8 @@ where
         Ok(())
     }
 
-    fn get_fallback_sorter(&mut self, k: i32) -> MSBRadixIntroSorterImpl<T> {
-        MSBRadixIntroSorterImpl::new(self.max_length, k, &mut self.sub_sorter)
+    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter + use<'_, T> {
+      self.sub_sorter.get_fallback_sorter(k) 
     }
 
     /// Always returns `true` if the assertions pass.
@@ -305,7 +305,7 @@ impl<T> Sorter for MSBRadixSorter<T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    fn compare(&self, _i: i32, _j: i32) -> i32 {
+    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
         unreachable!("unused: not a comparison-based sort")
     }
 
@@ -317,7 +317,7 @@ where
         self.sub_sorter.set_pivot(i);
     }
 
-    fn compare_pivot(&self, i: i32) -> i32 {
+    fn compare_pivot(&mut self, i: i32) -> i32 {
         self.sub_sorter.compare_pivot(i)
     }
 
@@ -327,7 +327,7 @@ where
     }
 }
 
-struct MSBRadixIntroSorterImpl<'a, T>
+pub struct MSBRadixIntroSorterImpl<'a, T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
@@ -336,25 +336,12 @@ where
     k: i32,
     sub_sorter: &'a mut T,
 }
-impl<'a, T> MSBRadixIntroSorterImpl<'a, T>
-where
-    T: Sorter + MSBRadixSorterBase,
-{
-    fn new(max_length: i32, k: i32, sub_sorter: &'a mut T) -> Self {
-        Self {
-            pivot: BytesRefBuilder::new(),
-            max_length,
-            k,
-            sub_sorter,
-        }
-    }
-}
 
 impl<T> Sorter for MSBRadixIntroSorterImpl<'_, T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    fn compare(&self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> i32 {
         for o in self.k..self.max_length {
             let b1 = self.sub_sorter.byte_at(i, o);
             let b2 = self.sub_sorter.byte_at(j, o);
@@ -384,7 +371,7 @@ where
         }
     }
 
-    fn compare_pivot(&self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> i32 {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
             let b2 = self.sub_sorter.byte_at(j, self.k + o as i32);
@@ -424,4 +411,15 @@ pub trait MSBRadixSorterBase {
     /// # Note
     /// In Rust, this method might return a signed integer (`i32`) to accommodate the `-1` case, which differs from Java's default integer handling.
     fn byte_at(&self, i: i32, k: i32) -> i32;
+
+    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter;
+}
+pub fn get_fallback_sorter_default<T>(max_length:i32, sub_sorter: &mut T, k:i32) -> MSBRadixIntroSorterImpl<T>
+where T: Sorter + MSBRadixSorterBase{
+    MSBRadixIntroSorterImpl{
+        pivot: BytesRefBuilder::new(),
+        max_length,
+        k,
+        sub_sorter
+    }
 }

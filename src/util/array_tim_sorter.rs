@@ -56,7 +56,7 @@ impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
     T: Default + Clone,
 {
-    fn compare(&self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> i32 {
         self.comparator
             .compare(&self.arr[i as usize], &self.arr[j as usize])
     }
@@ -69,7 +69,7 @@ where
         self.pivot_index = i;
     }
 
-    fn compare_pivot(&self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> i32 {
         self.compare(self.pivot_index, j)
     }
 

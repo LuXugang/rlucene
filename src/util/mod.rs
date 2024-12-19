@@ -54,6 +54,7 @@ pub mod string_helper;
 pub mod tim_sorter;
 pub mod vec_copy_ops;
 pub mod version;
+mod string_sorter;
 
 pub use array_tim_sorter::*;
 pub use tim_sorter::*;

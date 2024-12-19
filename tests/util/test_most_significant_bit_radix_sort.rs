@@ -21,7 +21,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::error::runtime_error::RuntimeError;
-use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use rlucene::util::{get_fallback_sorter_default, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 use std::collections::{BTreeSet, HashSet};
 
 #[allow(dead_code)] // for quick search
@@ -200,7 +200,7 @@ fn test_random2() -> Result<(), TestError> {
     test(&mut strings.clone(), strings.len(), &mut random)
 }
 
-struct MSBRadixSorterImpl {
+pub struct MSBRadixSorterImpl {
     final_max_length: i32,
     refs: Vec<BytesRef>,
 }
@@ -215,6 +215,7 @@ impl MSBRadixSorterImpl {
 }
 
 impl MSBRadixSorterBase for MSBRadixSorterImpl {
+    
     fn byte_at(&self, i: i32, k: i32) -> i32 {
         assert!(
             k < self.final_max_length,
@@ -230,9 +231,13 @@ impl MSBRadixSorterBase for MSBRadixSorterImpl {
             ref_item.bytes[ref_item.offset as usize + k as usize] as i32
         }
     }
+
+    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
+        get_fallback_sorter_default(self.final_max_length, self, k)
+    }
 }
 impl Sorter for MSBRadixSorterImpl {
-    fn compare(&self, _i: i32, _j: i32) -> i32 {
+    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
         unreachable!()
     }
 
@@ -244,7 +249,7 @@ impl Sorter for MSBRadixSorterImpl {
         unreachable!()
     }
 
-    fn compare_pivot(&self, _i: i32) -> i32 {
+    fn compare_pivot(&mut self, _i: i32) -> i32 {
         unreachable!()
     }
 

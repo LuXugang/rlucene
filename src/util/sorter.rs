@@ -35,7 +35,7 @@ pub const INSERTION_SORT_THRESHOLD: i32 = 16;
 /// This is an internal API.
 pub trait Sorter {
     /// Compare entries found in slots i and j
-    fn compare(&self, i: i32, j: i32) -> i32;
+    fn compare(&mut self, i: i32, j: i32) -> i32;
 
     /// Swap values at slots <code>i</code> and `j`.
     fn swap(&mut self, i: i32, j: i32);
@@ -45,7 +45,7 @@ pub trait Sorter {
 
     /// Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
     /// compare(i, j).
-    fn compare_pivot(&self, i: i32) -> i32;
+    fn compare_pivot(&mut self, i: i32) -> i32;
 
     /// Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError>;
@@ -85,7 +85,7 @@ pub trait Sorter {
         self.merge_in_place(new_mid, second_cut, to);
     }
 
-    fn lower(&self, mut from: i32, to: i32, val: i32) -> i32 {
+    fn lower(&mut self, mut from: i32, to: i32, val: i32) -> i32 {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 1;
@@ -100,7 +100,7 @@ pub trait Sorter {
         from
     }
 
-    fn upper(&self, mut from: i32, to: i32, val: i32) -> i32 {
+    fn upper(&mut self, mut from: i32, to: i32, val: i32) -> i32 {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 1;
@@ -115,7 +115,7 @@ pub trait Sorter {
         from
     }
     // faster than lower when val is at the end of [from:to[
-    fn lower2(&self, from: i32, to: i32, val: i32) -> i32 {
+    fn lower2(&mut self, from: i32, to: i32, val: i32) -> i32 {
         let mut f = to - 1;
         let mut t = to;
 
@@ -132,7 +132,7 @@ pub trait Sorter {
     }
 
     // faster than upper when val is at the beginning of [from:to[
-    fn upper2(&self, from: i32, to: i32, val: i32) -> i32 {
+    fn upper2(&mut self, from: i32, to: i32, val: i32) -> i32 {
         let mut f = from;
         let mut t = f + 1;
 

@@ -351,7 +351,7 @@ impl<T> Sorter for TimSorter<T>
 where
     T: Sorter + TimSorterBase,
 {
-    fn compare(&self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> i32 {
         self.sub_sorter.compare(i, j)
     }
 
@@ -363,7 +363,7 @@ where
         self.sub_sorter.set_pivot(i);
     }
 
-    fn compare_pivot(&self, i: i32) -> i32 {
+    fn compare_pivot(&mut self, i: i32) -> i32 {
         self.sub_sorter.compare_pivot(i)
     }
 

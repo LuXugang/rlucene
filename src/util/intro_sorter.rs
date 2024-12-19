@@ -146,7 +146,7 @@ pub trait IntroSorter: Sorter {
     }
 
     /// Returns the index of the median element among three elements at provided indices.
-    fn median(&self, i: i32, j: i32, k: i32) -> i32 {
+    fn median(&mut self, i: i32, j: i32, k: i32) -> i32 {
         if self.compare(i, j) < 0 {
             if self.compare(j, k) <= 0 {
                 return j;
@@ -162,10 +162,9 @@ pub trait IntroSorter: Sorter {
             k
         }
     }
-    // Don't rely on the slow default impl of setPivot/comparePivot since
-    // quicksort relies on these methods to be fast for good performance
+    
     #[allow(unused)]
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare_default(&mut self, i: i32, j: i32) -> i32 {
         self.set_pivot(i);
         self.compare_pivot(j)
     }

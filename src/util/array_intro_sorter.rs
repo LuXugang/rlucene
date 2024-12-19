@@ -29,7 +29,7 @@ pub struct ArrayIntroSorter<'a, T, C: Comparator<T>> {
     pivot: i32,
 }
 
-impl<'a, T, C: Comparator<T>> ArrayIntroSorter<'a, T, C> {
+impl<'a, T, C> ArrayIntroSorter<'a, T, C> where C: Comparator<T> {
     pub fn new(arr: &'a mut Vec<T>, comparator: C) -> ArrayIntroSorter<'a, T, C> {
         ArrayIntroSorter {
             arr,
@@ -39,11 +39,12 @@ impl<'a, T, C: Comparator<T>> ArrayIntroSorter<'a, T, C> {
     }
 }
 
-impl<T, C: Comparator<T>> Sorter for ArrayIntroSorter<'_, T, C>
+impl<T, C> Sorter for ArrayIntroSorter<'_, T, C>
 where
     T: Ord,
+    C: Comparator<T>,
 {
-    fn compare(&self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> i32 {
         self.comparator
             .compare(&self.arr[i as usize], &self.arr[j as usize])
     }
@@ -62,7 +63,7 @@ where
         self.pivot = i;
     }
 
-    fn compare_pivot(&self, i: i32) -> i32 {
+    fn compare_pivot(&mut self, i: i32) -> i32 {
         self.comparator
             .compare(&self.arr[self.pivot as usize], &self.arr[i as usize])
     }
