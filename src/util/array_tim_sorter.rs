@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::runtime_error::RuntimeError;
-use crate::util::tim_sorter_base::TimSorterBase;
-use crate::util::{Comparator, Sorter};
+use crate::util::{Comparator, Sorter, TimSorterBase};
 
 /// A [`TimSorter`](crate::util::TimSorter) for object arrays.
 ///

@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cmp::min;
 use crate::index::BytesRefBuilder;
 use crate::util::error::runtime_error::RuntimeError;
-use crate::util::most_significant_bit_radix_sort_base::MSBRadixSorterBase;
-use crate::util::{check_range, Sorter};
 use crate::util::intro_sorter::IntroSorter;
+use crate::util::{check_range, Sorter};
+use std::cmp::min;
 
 /// After this many levels of recursion, we fall back to introsort.
 /// This protects against poor performance when there are long common prefixes,
@@ -61,10 +60,10 @@ where
             sub_sorter,
         }
     }
-    pub fn sort_impl(&mut self, from: i32, to: i32, k: i32, l: i32)  -> Result<(), RuntimeError>{
+    pub fn sort_impl(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<(), RuntimeError> {
         if self.should_fallback(from, to, l) {
             self.get_fallback_sorter(k).sort(from, to)
-        }else { 
+        } else {
             self.radix_sort(from, to, k, l)
         }
     }
@@ -77,8 +76,7 @@ where
     ///
     fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> i32 {
         let common_prefix = &mut self.common_prefix;
-        let mut common_prefix_length =
-            min(common_prefix.len(), (self.max_length - k) as usize);
+        let mut common_prefix_length = min(common_prefix.len(), (self.max_length - k) as usize);
 
         for (j, slot) in common_prefix
             .iter_mut()
@@ -99,7 +97,7 @@ where
         from: i32,
         to: i32,
         k: i32,
-        l:i32,
+        l: i32,
         common_prefix_length: i32,
         i: i32,
     ) -> i32 {
@@ -122,7 +120,7 @@ where
         from: i32,
         to: i32,
         k: i32,
-        l:i32
+        l: i32,
     ) {
         self.histograms[l as usize][prefix_common_bucket as usize] = prefix_common_len;
 
@@ -139,7 +137,7 @@ where
         from: i32,
         to: i32,
         k: i32,
-        l:i32,
+        l: i32,
         mut common_prefix_length: i32,
     ) -> i32 {
         let mut i = from + 1;
@@ -203,13 +201,7 @@ where
     /// - `start_offsets`: Start offsets per bucket.
     /// - `end_offsets`: End offsets per bucket.
     /// - `k`: The current position offset.
-    fn reorder(
-        &mut self,
-        from: i32,
-        _to: i32,
-        l:i32,
-        k: i32,
-    ) {
+    fn reorder(&mut self, from: i32, _to: i32, l: i32, k: i32) {
         // Reorder in place, similar to the Dutch national flag problem
         for i in 0..HISTOGRAM_SIZE {
             let limit = self.end_offsets[i];
@@ -229,7 +221,7 @@ where
     /// - `to`: End index (exclusive).
     /// - `k`: The character number to compare.
     /// - `l`: The level of recursion.
-    fn radix_sort(&mut self, from: i32 , to: i32, k: i32, l: i32) -> Result<(), RuntimeError>{
+    fn radix_sort(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<(), RuntimeError> {
         // Access or initialize the histogram for this level
         if self.histograms[l as usize].is_empty() {
             self.histograms[l as usize] = vec![0; HISTOGRAM_SIZE];
@@ -238,13 +230,8 @@ where
         }
 
         // Compute the common prefix length and build the histogram
-            let common_prefix_length = self.compute_common_prefix_length_and_build_histogram(
-                from,
-                to,
-                k,
-                l,
-            ); 
-       
+        let common_prefix_length =
+            self.compute_common_prefix_length_and_build_histogram(from, to, k, l);
 
         if common_prefix_length > 0 {
             // if there are no more chars to compare or if all entries fell into the
@@ -259,13 +246,16 @@ where
         }
 
         // Assert histogram correctness (can be implemented as a debug check)
-        debug_assert!(Self::assert_histogram(common_prefix_length, &self.histograms[l as usize]));
+        debug_assert!(Self::assert_histogram(
+            common_prefix_length,
+            &self.histograms[l as usize]
+        ));
 
         // Prepare start and end offsets
         Self::sum_histogram(&mut self.histograms[l as usize], &mut self.end_offsets);
 
         // Reorder the range
-        self.reorder(from, to, l, k );
+        self.reorder(from, to, l, k);
 
         // Update end offsets
         self.histograms[l as usize] = self.end_offsets.clone();
@@ -274,7 +264,7 @@ where
         if k + 1 < self.max_length {
             let mut prev = self.histograms[l as usize][0];
             for i in 1..HISTOGRAM_SIZE {
-                let h = self.histograms[l as usize][i] ;
+                let h = self.histograms[l as usize][i];
                 let bucket_len = h - prev;
                 if bucket_len > 1 {
                     self.sort_impl(from + prev, from + h, k + 1, l + 1)?;
@@ -284,11 +274,11 @@ where
         }
         Ok(())
     }
-    
-    fn get_fallback_sorter(&mut self, k:i32) -> IntroSorterImpl<T>{
+
+    fn get_fallback_sorter(&mut self, k: i32) -> IntroSorterImpl<T> {
         IntroSorterImpl::new(self.max_length, k, &mut self.sub_sorter)
     }
-    
+
     /// Always returns `true` if the assertions pass.
     #[cfg(debug_assertions)]
     fn assert_histogram(common_prefix_length: i32, histogram: &[i32]) -> bool {
@@ -309,7 +299,6 @@ where
     pub fn get_sub_sorter(&self) -> &T {
         &self.sub_sorter
     }
-
 }
 
 impl<T> Sorter for MSBRadixSorter<T>
@@ -338,24 +327,33 @@ where
     }
 }
 
-struct IntroSorterImpl<'a, T> where  T: Sorter + MSBRadixSorterBase{
+struct IntroSorterImpl<'a, T>
+where
+    T: Sorter + MSBRadixSorterBase,
+{
     pivot: BytesRefBuilder,
     max_length: i32,
-    k:i32,
-    sub_sorter:&'a mut T
+    k: i32,
+    sub_sorter: &'a mut T,
 }
-impl <'a, T>IntroSorterImpl<'a, T>where  T: Sorter + MSBRadixSorterBase{
-    fn new(max_length:i32, k:i32, sub_sorter:&'a mut T) -> Self{
-        Self{
+impl<'a, T> IntroSorterImpl<'a, T>
+where
+    T: Sorter + MSBRadixSorterBase,
+{
+    fn new(max_length: i32, k: i32, sub_sorter: &'a mut T) -> Self {
+        Self {
             pivot: BytesRefBuilder::new(),
             max_length,
             k,
-            sub_sorter
+            sub_sorter,
         }
     }
 }
 
-impl <T>Sorter for IntroSorterImpl<'_,T> where T : Sorter + MSBRadixSorterBase{
+impl<T> Sorter for IntroSorterImpl<'_, T>
+where
+    T: Sorter + MSBRadixSorterBase,
+{
     fn compare(&self, i: i32, j: i32) -> i32 {
         for o in self.k..self.max_length {
             let b1 = self.sub_sorter.byte_at(i, o);
@@ -388,17 +386,19 @@ impl <T>Sorter for IntroSorterImpl<'_,T> where T : Sorter + MSBRadixSorterBase{
 
     fn compare_pivot(&self, j: i32) -> i32 {
         for o in 0..self.pivot.length() {
-            let b1 = self.pivot.byte_at(o) as i32; 
+            let b1 = self.pivot.byte_at(o) as i32;
             let b2 = self.sub_sorter.byte_at(j, self.k + o as i32);
             if b1 != b2 {
-                return b1 - b2; 
+                return b1 - b2;
             }
         }
 
         if self.k + self.pivot.length() as i32 == self.max_length {
-            0 
+            0
         } else {
-            -1 - self.sub_sorter.byte_at(j, self.k + self.pivot.length() as i32) 
+            -1 - self
+                .sub_sorter
+                .byte_at(j, self.k + self.pivot.length() as i32)
         }
     }
 
@@ -408,4 +408,20 @@ impl <T>Sorter for IntroSorterImpl<'_,T> where T : Sorter + MSBRadixSorterBase{
     }
 }
 
-impl <T>IntroSorter for IntroSorterImpl<'_, T> where T: Sorter + MSBRadixSorterBase {}
+impl<T> IntroSorter for IntroSorterImpl<'_, T> where T: Sorter + MSBRadixSorterBase {}
+
+pub trait MSBRadixSorterBase {
+    /// Returns the k-th byte of the entry at the given index `i`, or `-1` if its length is less than
+    /// or equal to `k`.
+    ///
+    /// # Parameters
+    /// - `i`: The index of the entry, which must be between `0` (inclusive) and `max_length` (exclusive).
+    /// - `k`: The position of the byte to retrieve within the entry.
+    ///
+    /// # Returns
+    /// The k-th byte of the entry at index `i` as an `i32`, or `-1` if the entry's length is less than or equal to `k`.
+    ///
+    /// # Note
+    /// In Rust, this method might return a signed integer (`i32`) to accommodate the `-1` case, which differs from Java's default integer handling.
+    fn byte_at(&self, i: i32, k: i32) -> i32;
+}

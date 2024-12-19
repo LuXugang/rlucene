@@ -14,25 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::{BTreeSet, HashSet};
-use rand::{Rng, RngCore};
-use rand::rngs::StdRng;
-use rlucene::index::{BytesRef, BytesRefBuilder};
-use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
-use rlucene::util::error::runtime_error::RuntimeError;
 use crate::common::my_random;
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
+use rand::rngs::StdRng;
+use rand::{Rng, RngCore};
+use rlucene::index::{BytesRef, BytesRefBuilder};
+use rlucene::util::error::runtime_error::RuntimeError;
+use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use std::collections::{BTreeSet, HashSet};
 
 #[allow(dead_code)] // for quick search
 struct TestMSBRadixSorter;
 
-
-fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), TestError>{
+fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), TestError> {
     let mut expected: Vec<BytesRef> = refs[..len].to_vec();
     expected.sort();
 
-    let mut max_length:i32 = 0;
+    let mut max_length: i32 = 0;
     for ref_item in &refs[..len] {
         max_length = max_length.max(ref_item.length as i32);
     }
@@ -52,11 +51,11 @@ fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), Te
     Ok(())
 }
 #[test]
-fn test_empty() -> Result<(), TestError>{
-   let mut random = my_random("test_empty".to_string());
+fn test_empty() -> Result<(), TestError> {
+    let mut random = my_random("test_empty".to_string());
     let mut refs: Vec<BytesRef> = vec![BytesRef::default(); random.gen_range(0..5)];
     assert!(test(&mut refs, 0, &mut random).is_ok());
-   test(&mut refs, 0, &mut random) 
+    test(&mut refs, 0, &mut random)
 }
 #[test]
 fn test_one_value() -> Result<(), TestError> {
@@ -77,7 +76,11 @@ fn test_two_values() -> Result<(), TestError> {
     test(&mut refs, 2, &mut random)
 }
 
-fn test_random_impl(common_prefix_len: usize, max_len: i32, random: &mut StdRng) -> Result<(), TestError> {
+fn test_random_impl(
+    common_prefix_len: usize,
+    max_len: i32,
+    random: &mut StdRng,
+) -> Result<(), TestError> {
     let mut common_prefix = vec![0u8; common_prefix_len];
     random.fill_bytes(&mut common_prefix);
     let len = random.gen_range(0..10000);
@@ -182,7 +185,7 @@ fn test_random2() -> Result<(), TestError> {
             for (j, substring) in substrings.iter().enumerate() {
                 accum += chance[j];
                 if accum >= v {
-                    builder.append_ref(substring); 
+                    builder.append_ref(substring);
                     break;
                 }
             }
@@ -197,21 +200,21 @@ fn test_random2() -> Result<(), TestError> {
     test(&mut strings.clone(), strings.len(), &mut random)
 }
 
-struct MSBRadixSorterImpl{
+struct MSBRadixSorterImpl {
     final_max_length: i32,
-    refs: Vec<BytesRef>
+    refs: Vec<BytesRef>,
 }
 
-impl MSBRadixSorterImpl{
+impl MSBRadixSorterImpl {
     fn new(final_max_length: i32, refs: Vec<BytesRef>) -> Self {
         Self {
             final_max_length,
-            refs
+            refs,
         }
     }
 }
 
-impl MSBRadixSorterBase for MSBRadixSorterImpl{
+impl MSBRadixSorterBase for MSBRadixSorterImpl {
     fn byte_at(&self, i: i32, k: i32) -> i32 {
         assert!(
             k < self.final_max_length,
@@ -224,11 +227,11 @@ impl MSBRadixSorterBase for MSBRadixSorterImpl{
         if ref_item.length as i32 <= k {
             -1
         } else {
-            ref_item.bytes[ref_item.offset as usize + k as usize] as i32 
+            ref_item.bytes[ref_item.offset as usize + k as usize] as i32
         }
     }
 }
-impl Sorter for MSBRadixSorterImpl{
+impl Sorter for MSBRadixSorterImpl {
     fn compare(&self, _i: i32, _j: i32) -> i32 {
         unreachable!()
     }
