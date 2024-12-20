@@ -68,7 +68,7 @@ where
         }
     }
     fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
-        (to - from) <= LENGTH_THRESHOLD as i32 || l >= LEVEL_THRESHOLD as i32
+        self.delegate_sorter.should_fallback(from, to, l)
     }
     /// Computes the initial common prefix length for the given range.
     ///
@@ -122,15 +122,17 @@ where
         k: i32,
         l: i32,
     ) {
-        self.histograms[l as usize][prefix_common_bucket as usize] = prefix_common_len;
-
-        for i in from..to {
-            let b = self.get_bucket(i, k) as usize;
-            self.histograms[l as usize][b] += 1;
-        }
+        self.delegate_sorter.build_histogram(
+            prefix_common_bucket,
+            prefix_common_len,
+            from,
+            to,
+            k,
+            &mut self.histograms[l as usize],
+        );
     }
     fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
-        self.delegate_sorter.byte_at(i, k) + 1
+        self.delegate_sorter.get_bucket(i, k)
     }
     fn compute_common_prefix_length_and_build_histogram_part1(
         &mut self,
@@ -201,18 +203,14 @@ where
     /// - `start_offsets`: Start offsets per bucket.
     /// - `end_offsets`: End offsets per bucket.
     /// - `k`: The current position offset.
-    fn reorder(&mut self, from: i32, _to: i32, l: i32, k: i32) {
-        // Reorder in place, similar to the Dutch national flag problem
-        for i in 0..HISTOGRAM_SIZE {
-            let limit = self.end_offsets[i];
-            while self.histograms[l as usize][i] < limit {
-                let h1 = self.histograms[l as usize][i];
-                let b = self.get_bucket(from + h1, k);
-                let h2 = self.histograms[l as usize][b as usize];
-                self.histograms[l as usize][b as usize] += 1;
-                self.swap(from + h1, from + h2);
-            }
-        }
+    fn reorder(&mut self, from: i32, to: i32, l: i32, k: i32) {
+        self.delegate_sorter.reorder(
+            from,
+            to,
+            &mut self.histograms[l as usize],
+            &mut self.end_offsets,
+            k,
+        );
     }
     /// Performs radix sort on the specified range and recursion level.
     ///
@@ -413,8 +411,40 @@ pub trait MSBRadixSorterBase {
     fn byte_at(&mut self, i: i32, k: i32) -> i32;
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter;
+
+    /// Reorder based on start/end offsets for each bucket. When this method returns, `start_offsets`
+    /// and `end_offsets` are equal.
+    ///
+    /// # Parameters
+    /// - `from`: The starting index (inclusive).
+    /// - `to`: The ending index (exclusive).
+    /// - `start_offsets`: Start offsets per bucket.
+    /// - `end_offsets`: End offsets per bucket.
+    /// - `k`: The current position offset.
+    fn reorder(
+        &mut self,
+        from: i32,
+        to: i32,
+        start_offsets: &mut [i32],
+        end_offsets: &mut [i32],
+        k: i32,
+    );
+
+    fn get_bucket(&mut self, i: i32, k: i32) -> i32;
+
+    fn build_histogram(
+        &mut self,
+        prefix_common_bucket: i32,
+        prefix_common_len: i32,
+        from: i32,
+        to: i32,
+        k: i32,
+        histogram: &mut [i32],
+    );
+
+    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool;
 }
-pub fn get_fallback_sorter_default<T>(
+pub fn default_get_fallback_sorter<T>(
     max_length: i32,
     delegate_sorter: &mut T,
     k: i32,
@@ -428,4 +458,55 @@ where
         k,
         delegate_sorter,
     }
+}
+pub fn default_reorder<T>(
+    delegate_sorter: &mut T,
+    from: i32,
+    _to: i32,
+    start_offsets: &mut [i32],
+    end_offsets: &mut [i32],
+    k: i32,
+) where
+    T: Sorter + MSBRadixSorterBase,
+{
+    // Reorder in place, similar to the Dutch national flag problem
+    for i in 0..HISTOGRAM_SIZE {
+        let limit = end_offsets[i];
+        while start_offsets[i] < limit {
+            let h1 = start_offsets[i];
+            let b = delegate_sorter.get_bucket(from + h1, k);
+            let h2 = start_offsets[b as usize];
+            start_offsets[b as usize] += 1;
+            delegate_sorter.swap(from + h1, from + h2);
+        }
+    }
+}
+
+pub fn default_get_get_bucket<T>(delegate_sorter: &mut T, i: i32, k: i32) -> i32
+where
+    T: Sorter + MSBRadixSorterBase,
+{
+    delegate_sorter.byte_at(i, k) + 1
+}
+
+pub fn default_build_histogram<T>(
+    delegate_sorter: &mut T,
+    prefix_common_bucket: i32,
+    prefix_common_len: i32,
+    from: i32,
+    to: i32,
+    k: i32,
+    histograms: &mut [i32],
+) where
+    T: Sorter + MSBRadixSorterBase,
+{
+    histograms[prefix_common_bucket as usize] = prefix_common_len;
+
+    for i in from..to {
+        let b = delegate_sorter.get_bucket(i, k) as usize;
+        histograms[b] += 1;
+    }
+}
+pub fn default_should_fallback(from: i32, to: i32, l: i32) -> bool {
+    (to - from) <= LENGTH_THRESHOLD as i32 || l >= LEVEL_THRESHOLD as i32
 }

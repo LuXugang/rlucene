@@ -21,7 +21,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::error::runtime_error::RuntimeError;
-use rlucene::util::{get_fallback_sorter_default, MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use rlucene::util::{
+    default_build_histogram, default_get_fallback_sorter, default_get_get_bucket, default_reorder,
+    default_should_fallback, MSBRadixSorter, MSBRadixSorterBase, Sorter,
+};
 use std::collections::{BTreeSet, HashSet};
 
 #[allow(dead_code)] // for quick search
@@ -232,7 +235,46 @@ impl MSBRadixSorterBase for MSBRadixSorterImpl {
     }
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        get_fallback_sorter_default(self.final_max_length, self, k)
+        default_get_fallback_sorter(self.final_max_length, self, k)
+    }
+
+    fn reorder(
+        &mut self,
+        from: i32,
+        to: i32,
+        start_offsets: &mut [i32],
+        end_offsets: &mut [i32],
+        k: i32,
+    ) {
+        default_reorder(self, from, to, start_offsets, end_offsets, k)
+    }
+
+    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
+        default_get_get_bucket(self, i, k)
+    }
+
+    fn build_histogram(
+        &mut self,
+        prefix_common_bucket: i32,
+        prefix_common_len: i32,
+        from: i32,
+        to: i32,
+        k: i32,
+        histogram: &mut [i32],
+    ) {
+        default_build_histogram(
+            self,
+            prefix_common_bucket,
+            prefix_common_len,
+            from,
+            to,
+            k,
+            histogram,
+        )
+    }
+
+    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
+        default_should_fallback(from, to, l)
     }
 }
 impl Sorter for MSBRadixSorterImpl {

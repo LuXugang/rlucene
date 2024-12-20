@@ -18,7 +18,10 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::bytes_ref_comparator::{BytesRefComparator, BYTES_REF_COMPARATOR_TYPE};
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
-use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use crate::util::{
+    default_build_histogram, default_get_get_bucket, default_reorder, default_should_fallback,
+    Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter,
+};
 
 pub struct StringSorter<T, C>
 where
@@ -159,6 +162,45 @@ where
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
         self.delegate_sorter
             .fall_back_sorter::<T, C>(self.cmp, Some(k))
+    }
+
+    fn reorder(
+        &mut self,
+        from: i32,
+        to: i32,
+        start_offsets: &mut [i32],
+        end_offsets: &mut [i32],
+        k: i32,
+    ) {
+        default_reorder(self, from, to, start_offsets, end_offsets, k)
+    }
+
+    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
+        default_get_get_bucket(self, i, k)
+    }
+
+    fn build_histogram(
+        &mut self,
+        prefix_common_bucket: i32,
+        prefix_common_len: i32,
+        from: i32,
+        to: i32,
+        k: i32,
+        histogram: &mut [i32],
+    ) {
+        default_build_histogram(
+            self,
+            prefix_common_bucket,
+            prefix_common_len,
+            from,
+            to,
+            k,
+            histogram,
+        )
+    }
+
+    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
+        default_should_fallback(from, to, l)
     }
 }
 
