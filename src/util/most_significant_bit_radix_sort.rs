@@ -131,9 +131,6 @@ where
             &mut self.histograms[l as usize],
         );
     }
-    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
-        self.delegate_sorter.get_bucket(i, k)
-    }
     fn compute_common_prefix_length_and_build_histogram_part1(
         &mut self,
         from: i32,

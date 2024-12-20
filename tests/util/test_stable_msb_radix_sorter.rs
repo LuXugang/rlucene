@@ -22,7 +22,10 @@ use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::stable_msb_radix_sorter::{StableMSBRadixSorter, StableMSBRadixSorterBase};
-use rlucene::util::{default_build_histogram, default_get_fallback_sorter_stable, default_get_get_bucket, default_reorder, default_should_fallback, MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use rlucene::util::{
+    default_build_histogram, default_get_fallback_sorter_stable, default_get_get_bucket,
+    default_reorder, default_should_fallback, MSBRadixSorter, MSBRadixSorterBase, Sorter,
+};
 use std::collections::HashSet;
 
 #[allow(dead_code)] // for quick search
@@ -218,7 +221,7 @@ impl<'a> StableMSBRadixSorterImpl<'a> {
 }
 
 impl Sorter for StableMSBRadixSorterImpl<'_> {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
         unreachable!()
     }
 
@@ -226,15 +229,15 @@ impl Sorter for StableMSBRadixSorterImpl<'_> {
         self.refs.swap(i as usize, j as usize);
     }
 
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, _i: i32) {
         unreachable!()
     }
 
-    fn compare_pivot(&mut self, i: i32) -> i32 {
+    fn compare_pivot(&mut self, _i: i32) -> i32 {
         unreachable!()
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
         unreachable!()
     }
 }

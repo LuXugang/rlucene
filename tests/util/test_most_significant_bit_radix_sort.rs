@@ -21,7 +21,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::error::runtime_error::RuntimeError;
-use rlucene::util::{default_build_histogram, default_get_fallback_sorter, default_get_get_bucket, default_reorder, default_should_fallback, MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use rlucene::util::{
+    default_build_histogram, default_get_fallback_sorter, default_get_get_bucket, default_reorder,
+    default_should_fallback, MSBRadixSorter, MSBRadixSorterBase, Sorter,
+};
 use std::collections::{BTreeSet, HashSet};
 
 #[allow(dead_code)] // for quick search
