@@ -27,7 +27,7 @@ pub trait BytesRefComparator {
     /// between `0` (inclusive) and `compared_bytes_count` (exclusive).
     fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32;
     fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: u32) -> i32 {
-        for i in k..self.compared_bytes_count() {
+        for i in k..self.compared_bytes_count() as u32 {
             let b1 = self.byte_at(o1, i);
             let b2 = self.byte_at(o2, i);
             if b1 != b2 {
@@ -38,16 +38,16 @@ pub trait BytesRefComparator {
         }
         0
     }
-    fn compared_bytes_count(&self) -> u32;
+    fn compared_bytes_count(&self) -> i32;
 }
 
 pub struct Natural {
-    compared_bytes_count: u32,
+    compared_bytes_count: i32,
 }
 impl Default for Natural {
     fn default() -> Self {
         Natural {
-            compared_bytes_count: u32::MAX,
+            compared_bytes_count: i32::MAX,
         }
     }
 }
@@ -63,8 +63,8 @@ impl Comparator<BytesRef> for Natural {
 impl BytesRefComparator for Natural {
     fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32 {
         if bytes_ref.length <= i {
-           -1 
-        }else {
+            -1
+        } else {
             bytes_ref.bytes[(i + bytes_ref.offset) as usize] as i32
         }
     }
@@ -84,7 +84,7 @@ impl BytesRefComparator for Natural {
         (slice1.len() as i32) - (slice2.len() as i32)
     }
 
-    fn compared_bytes_count(&self) -> u32 {
+    fn compared_bytes_count(&self) -> i32 {
         self.compared_bytes_count
     }
 }

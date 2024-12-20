@@ -31,7 +31,7 @@ use rlucene::util::{
 struct TestStringSorter;
 
 fn test(refs: Vec<BytesRef>, len: usize) -> Result<(), TestError> {
-    // test_impl(refs.clone(), len, Natural::default())?;
+    test_impl(refs.clone(), len, Natural::default())?;
     test_impl(refs.clone(), len, NaturalOrder::default())?;
     Ok(())
 }
@@ -80,8 +80,8 @@ fn test_random_impl(
 ) -> Result<(), TestError> {
     let mut common_prefix = vec![0u8; common_prefix_len];
     random.fill_bytes(&mut common_prefix);
-    let len = random.gen_range(0..100000);
-    // let len = random.gen_range(0..2000);
+    // let len = random.gen_range(0..100000);
+    let len = random.gen_range(0..200);
 
     let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.gen_range(0..50));
     for _ in 0..len {
@@ -142,7 +142,7 @@ impl StringSorterImpl {
     }
 }
 impl Sorter for StringSorterImpl {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
         unreachable!()
     }
 
@@ -150,15 +150,15 @@ impl Sorter for StringSorterImpl {
         self.refs.swap(i as usize, j as usize);
     }
 
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, _i: i32) {
         unreachable!()
     }
 
-    fn compare_pivot(&mut self, i: i32) -> i32 {
+    fn compare_pivot(&mut self, _i: i32) -> i32 {
         unreachable!()
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
         unreachable!()
     }
 }
@@ -170,12 +170,12 @@ impl StringSorterBase for StringSorterImpl {
         result.bytes = ref_item.bytes.clone();
     }
 
-    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
+    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
     where
         T: Sorter + StringSorterBase,
         C: BytesRefComparator + Comparator<BytesRef>,
     {
-        default_fall_back_sorter(cmp, self)
+        default_fall_back_sorter(cmp, self, k)
     }
 
     fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a

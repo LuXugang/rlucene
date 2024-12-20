@@ -47,7 +47,7 @@ fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), Te
     let mut msb_radix_sorter = MSBRadixSorter::new(max_length, sub_sorter);
     msb_radix_sorter.sort(0, len as i32)?;
 
-    assert_vecs_equal(&expected, &msb_radix_sorter.get_sub_sorter().refs); 
+    assert_vecs_equal(&expected, &msb_radix_sorter.get_sub_sorter().refs);
     Ok(())
 }
 #[test]

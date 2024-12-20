@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::util::{BytesRefComparator, Natural};
+use crate::util::BytesRefComparator;
 
 pub trait Comparator<T> {
     const TYPE: &'static str;
@@ -72,7 +72,7 @@ impl BytesRefComparator for NaturalOrder<BytesRef> {
         unreachable!()
     }
 
-    fn compared_bytes_count(&self) -> u32 {
+    fn compared_bytes_count(&self) -> i32 {
         unreachable!()
     }
 }

@@ -28,10 +28,8 @@ where
     sub_sorter: T,
     scratch1: BytesRefBuilder,
     scratch2: BytesRefBuilder,
-    pivot_builder: BytesRefBuilder,
     scratch_bytes1: BytesRef,
     scratch_bytes2: BytesRef,
-    pivot: BytesRef,
     cmp: C,
 }
 
@@ -45,27 +43,10 @@ where
             sub_sorter,
             scratch1: BytesRefBuilder::default(),
             scratch2: BytesRefBuilder::default(),
-            pivot_builder: BytesRefBuilder::default(),
             scratch_bytes1: BytesRef::default(),
             scratch_bytes2: BytesRef::default(),
-            pivot: BytesRef::default(),
             cmp,
         }
-    }
-
-    fn radix_sorter(
-        &mut self,
-        cmp: impl BytesRefComparator,
-    ) -> MSBRadixSorter<MSBStringRadixSorter<T, C>> {
-        {
-            let max_length = cmp.compared_bytes_count();
-            let sub_sorter = MSBStringRadixSorter::new(&mut self.cmp, &mut self.sub_sorter);
-            MSBRadixSorter::new(max_length as i32, sub_sorter)
-        }
-    }
-
-    fn fall_back_sorter<'a>(&'a mut self, cmp: &'a mut C) -> StringIntroSorter<'a, T, C> {
-        StringIntroSorter::new(cmp, &mut self.sub_sorter)
     }
     #[cfg(feature = "test_only")]
     pub fn get_sub_sorter(&self) -> &T {
@@ -90,12 +71,12 @@ where
         self.sub_sorter.swap(i, j);
     }
 
-    fn set_pivot(&mut self, i: i32) {
-        unreachable!()
+    fn set_pivot(&mut self, _i: i32) {
+        unreachable!("Implemented polymorphism through its sub_sorters")
     }
 
-    fn compare_pivot(&mut self, i: i32) -> i32 {
-        unreachable!()
+    fn compare_pivot(&mut self, _i: i32) -> i32 {
+        unreachable!("Implemented polymorphism through its sub_sorters")
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
@@ -105,7 +86,7 @@ where
             self.sub_sorter.radix_sorter(&mut self.cmp).sort(from, to)
         } else {
             self.sub_sorter
-                .fall_back_sorter::<T, C>(&mut self.cmp)
+                .fall_back_sorter::<T, C>(&mut self.cmp, None)
                 .sort(from, to)
         }
     }
@@ -149,16 +130,16 @@ where
         self.sub_sorter.swap(i, j);
     }
 
-    fn set_pivot(&mut self, i: i32) {
-        unreachable!()
+    fn set_pivot(&mut self, _i: i32) {
+        unreachable!("Implemented polymorphism through its sub_sorters")
     }
 
-    fn compare_pivot(&mut self, j: i32) -> i32 {
-        unreachable!()
+    fn compare_pivot(&mut self, _j: i32) -> i32 {
+        unreachable!("Implemented polymorphism through its sub_sorters")
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
-        unreachable!("You need to use MSBRadixSorter to wrap MSBStringRadixSorter in order to enable sorting functionality.")
+    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
+        unreachable!("Implemented polymorphism through its sub_sorters")
     }
 }
 
@@ -174,7 +155,7 @@ where
     }
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        self.sub_sorter.fall_back_sorter::<T, C>(self.cmp)
+        self.sub_sorter.fall_back_sorter::<T, C>(self.cmp, Some(k))
     }
 }
 
@@ -191,13 +172,18 @@ where
     scratch_bytes2: BytesRef,
     cmp: &'a mut C,
     sub_sorter: &'a mut T,
+    k: Option<i32>,
 }
 impl<'a, T, C> StringIntroSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    pub fn new(cmp: &'a mut C, sub_sorter: &'a mut T) -> StringIntroSorter<'a, T, C> {
+    pub fn new(
+        cmp: &'a mut C,
+        sub_sorter: &'a mut T,
+        k: Option<i32>,
+    ) -> StringIntroSorter<'a, T, C> {
         StringIntroSorter {
             pivot: BytesRef::default(),
             pivot_builder: BytesRefBuilder::default(),
@@ -207,6 +193,7 @@ where
             scratch_bytes2: BytesRef::default(),
             cmp,
             sub_sorter,
+            k,
         }
     }
 }
@@ -220,7 +207,15 @@ where
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i);
         self.sub_sorter
             .get(&mut self.scratch2, &mut self.scratch_bytes2, j);
-        self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
+        if self.k.is_some() {
+            self.cmp.compare_with_offset(
+                &self.scratch_bytes1,
+                &self.scratch_bytes2,
+                self.k.unwrap() as u32,
+            )
+        } else {
+            self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
+        }
     }
 
     fn swap(&mut self, i: i32, j: i32) {
@@ -235,7 +230,12 @@ where
     fn compare_pivot(&mut self, j: i32) -> i32 {
         self.sub_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, j);
-        self.cmp.compare(&self.pivot, &self.scratch_bytes1)
+        if self.k.is_some() {
+            self.cmp
+                .compare_with_offset(&self.pivot, &self.scratch_bytes1, self.k.unwrap() as u32)
+        } else {
+            self.cmp.compare(&self.pivot, &self.scratch_bytes1)
+        }
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
@@ -253,7 +253,7 @@ where
 
 pub trait StringSorterBase {
     fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32);
-    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
+    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
     where
         T: Sorter + StringSorterBase,
         C: BytesRefComparator + Comparator<BytesRef>;
@@ -264,12 +264,13 @@ pub trait StringSorterBase {
 pub fn default_fall_back_sorter<'a, T, C>(
     cmp: &'a mut C,
     sub_sorter: &'a mut T,
+    k: Option<i32>,
 ) -> StringIntroSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    StringIntroSorter::new(cmp, sub_sorter)
+    StringIntroSorter::new(cmp, sub_sorter, k)
 }
 
 pub fn default_radix_sorter<'a, T, C>(
@@ -282,5 +283,5 @@ where
 {
     let length = cmp.compared_bytes_count();
     let msb_radix_sorter_sub_sorter = MSBStringRadixSorter::new(cmp, string_sorter_sub_sorter);
-    MSBRadixSorter::new(length as i32, msb_radix_sorter_sub_sorter)
+    MSBRadixSorter::new(length, msb_radix_sorter_sub_sorter)
 }
