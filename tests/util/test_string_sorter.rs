@@ -43,11 +43,11 @@ fn test_impl(
 ) -> Result<(), TestError> {
     let mut expected: Vec<BytesRef> = refs.clone();
     expected.sort();
-    let sub_sorter = StringSorterImpl::new(refs.clone());
-    let mut string_sorter = StringSorter::new(sub_sorter, comparator);
+    let delegate_sorter = StringSorterImpl::new(refs.clone());
+    let mut string_sorter = StringSorter::new(delegate_sorter, comparator);
     string_sorter.sort(0, len as i32)?;
 
-    assert_vecs_equal(&expected, &string_sorter.get_sub_sorter().refs);
+    assert_vecs_equal(&expected, &string_sorter.get_delegate_sorter().refs);
     Ok(())
 }
 #[test]

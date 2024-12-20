@@ -43,11 +43,11 @@ fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), Te
     }
 
     let final_max_length = max_length;
-    let sub_sorter = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
-    let mut msb_radix_sorter = MSBRadixSorter::new(max_length, sub_sorter);
+    let delegate_sorter = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
+    let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate_sorter);
     msb_radix_sorter.sort(0, len as i32)?;
 
-    assert_vecs_equal(&expected, &msb_radix_sorter.get_sub_sorter().refs);
+    assert_vecs_equal(&expected, &msb_radix_sorter.get_delegate_sorter().refs);
     Ok(())
 }
 #[test]
