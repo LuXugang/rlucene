@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::BytesRef;
+use crate::util::{BytesRefComparator, Natural};
 
 pub trait Comparator<T> {
+    const TYPE: &'static str;
     fn compare(&self, a: &T, b: &T) -> i32;
 }
 
@@ -49,6 +52,8 @@ impl<T> Comparator<T> for NaturalOrder<T>
 where
     T: Ord,
 {
+    const TYPE: &'static str = COMPARATOR_TYPE;
+
     fn compare(&self, a: &T, b: &T) -> i32 {
         let result = a.cmp(b);
         match result {
@@ -58,3 +63,18 @@ where
         }
     }
 }
+/// # NOTE
+/// The purpose of implementing BytesRefComparator is to
+/// allow it to be passed as the same parameter alongside other types
+/// that also implement BytesRefComparator, distinguishing its type by the TYPE constant.
+impl BytesRefComparator for NaturalOrder<BytesRef> {
+    fn byte_at(&self, _bytes_ref: &BytesRef, _i: u32) -> i32 {
+        unreachable!()
+    }
+
+    fn compared_bytes_count(&self) -> u32 {
+        unreachable!()
+    }
+}
+
+pub const COMPARATOR_TYPE: &str = "Comparator";

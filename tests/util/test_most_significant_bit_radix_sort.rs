@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::common::{assert_vecs_equal, my_random};
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::rngs::StdRng;
@@ -47,7 +47,7 @@ fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), Te
     let mut msb_radix_sorter = MSBRadixSorter::new(max_length, sub_sorter);
     msb_radix_sorter.sort(0, len as i32)?;
 
-    assert_eq!(expected, msb_radix_sorter.get_sub_sorter().refs);
+    assert_vecs_equal(&expected, &msb_radix_sorter.get_sub_sorter().refs); 
     Ok(())
 }
 #[test]
@@ -215,7 +215,7 @@ impl MSBRadixSorterImpl {
 }
 
 impl MSBRadixSorterBase for MSBRadixSorterImpl {
-    fn byte_at(&self, i: i32, k: i32) -> i32 {
+    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
         assert!(
             k < self.final_max_length,
             "Index out of bounds: k={} exceeds final_max_length={}",

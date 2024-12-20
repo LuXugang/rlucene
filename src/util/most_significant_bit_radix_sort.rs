@@ -129,7 +129,7 @@ where
             self.histograms[l as usize][b] += 1;
         }
     }
-    fn get_bucket(&self, i: i32, k: i32) -> i32 {
+    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
         self.sub_sorter.byte_at(i, k) + 1
     }
     fn compute_common_prefix_length_and_build_histogram_part1(
@@ -410,7 +410,7 @@ pub trait MSBRadixSorterBase {
     ///
     /// # Note
     /// In Rust, this method might return a signed integer (`i32`) to accommodate the `-1` case, which differs from Java's default integer handling.
-    fn byte_at(&self, i: i32, k: i32) -> i32;
+    fn byte_at(&mut self, i: i32, k: i32) -> i32;
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter;
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::bytes_ref_comparator::BytesRefComparator;
+use crate::util::bytes_ref_comparator::{BytesRefComparator, BYTES_REF_COMPARATOR_TYPE};
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
@@ -23,7 +23,7 @@ use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 pub struct StringSorter<T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
     sub_sorter: T,
     scratch1: BytesRefBuilder,
@@ -38,17 +38,17 @@ where
 impl<T, C> StringSorter<T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn new(sub_sorter: T, cmp: C) -> StringSorter<T, C> {
+    pub fn new(sub_sorter: T, cmp: C) -> StringSorter<T, C> {
         StringSorter {
             sub_sorter,
-            scratch1: BytesRefBuilder::new(),
-            scratch2: BytesRefBuilder::new(),
-            pivot_builder: BytesRefBuilder::new(),
-            scratch_bytes1: BytesRef::new(),
-            scratch_bytes2: BytesRef::new(),
-            pivot: BytesRef::new(),
+            scratch1: BytesRefBuilder::default(),
+            scratch2: BytesRefBuilder::default(),
+            pivot_builder: BytesRefBuilder::default(),
+            scratch_bytes1: BytesRef::default(),
+            scratch_bytes2: BytesRef::default(),
+            pivot: BytesRef::default(),
             cmp,
         }
     }
@@ -59,34 +59,24 @@ where
     ) -> MSBRadixSorter<MSBStringRadixSorter<T, C>> {
         {
             let max_length = cmp.compared_bytes_count();
-            let sub_sorter = MSBStringRadixSorter {
-                scratch1: &mut self.scratch1,
-                scratch_bytes1: &mut self.scratch_bytes1,
-                cmp: &mut self.cmp,
-                sub_sorter: &mut self.sub_sorter,
-            };
+            let sub_sorter = MSBStringRadixSorter::new(&mut self.cmp, &mut self.sub_sorter);
             MSBRadixSorter::new(max_length as i32, sub_sorter)
         }
     }
 
     fn fall_back_sorter<'a>(&'a mut self, cmp: &'a mut C) -> StringIntroSorter<'a, T, C> {
-        StringIntroSorter {
-            pivot: &mut self.pivot,
-            pivot_builder: &mut self.pivot_builder,
-            scratch1: &mut self.scratch1,
-            scratch2: &mut self.scratch2,
-            scratch_bytes1: &mut self.scratch_bytes1,
-            scratch_bytes2: &mut self.scratch_bytes2,
-            cmp,
-            sub_sorter: &mut self.sub_sorter,
-        }
+        StringIntroSorter::new(cmp, &mut self.sub_sorter)
+    }
+    #[cfg(feature = "test_only")]
+    pub fn get_sub_sorter(&self) -> &T {
+        &self.sub_sorter
     }
 }
 
 impl<T, C> Sorter for StringSorter<T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
     fn compare(&mut self, i: i32, j: i32) -> i32 {
         self.sub_sorter
@@ -97,36 +87,59 @@ where
     }
 
     fn swap(&mut self, i: i32, j: i32) {
-        todo!()
+        self.sub_sorter.swap(i, j);
     }
 
     fn set_pivot(&mut self, i: i32) {
-        todo!()
+        unreachable!()
     }
 
     fn compare_pivot(&mut self, i: i32) -> i32 {
-        todo!()
+        unreachable!()
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
-        todo!()
+        // In fact, it is necessary to provide an instance that implements BytesRefComparator to simplify the code.
+        // However, the TYPE of this instance cannot be specified as "BytesRefComparator".
+        if C::TYPE.eq(BYTES_REF_COMPARATOR_TYPE) {
+            self.sub_sorter.radix_sorter(&mut self.cmp).sort(from, to)
+        } else {
+            self.sub_sorter
+                .fall_back_sorter::<T, C>(&mut self.cmp)
+                .sort(from, to)
+        }
     }
 }
 
-struct MSBStringRadixSorter<'a, T, C>
+pub struct MSBStringRadixSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
-    scratch1: &'a mut BytesRefBuilder,
-    scratch_bytes1: &'a mut BytesRef,
+    scratch1: BytesRefBuilder,
+    scratch_bytes1: BytesRef,
     cmp: &'a mut C,
     sub_sorter: &'a mut T,
 }
+impl<'a, T, C> MSBStringRadixSorter<'a, T, C>
+where
+    T: Sorter + StringSorterBase,
+    C: BytesRefComparator + Comparator<BytesRef>,
+{
+    pub fn new(cmp: &'a mut C, sub_sorter: &'a mut T) -> MSBStringRadixSorter<'a, T, C> {
+        MSBStringRadixSorter {
+            scratch1: BytesRefBuilder::default(),
+            scratch_bytes1: BytesRef::default(),
+            cmp,
+            sub_sorter,
+        }
+    }
+}
+
 impl<T, C> Sorter for MSBStringRadixSorter<'_, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
     fn compare(&mut self, _i: i32, _j: i32) -> i32 {
         unreachable!("unused: not a comparison-based sort")
@@ -137,11 +150,11 @@ where
     }
 
     fn set_pivot(&mut self, i: i32) {
-        todo!()
+        unreachable!()
     }
 
     fn compare_pivot(&mut self, j: i32) -> i32 {
-        todo!()
+        unreachable!()
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
@@ -152,40 +165,62 @@ where
 impl<T, C> MSBRadixSorterBase for MSBStringRadixSorter<'_, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn byte_at(&self, i: i32, k: i32) -> i32 {
-        todo!()
+    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
+        self.sub_sorter
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, i);
+        self.cmp.byte_at(&self.scratch_bytes1, k as u32)
     }
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        self.sub_sorter.fall_back_sorter(self.cmp)
+        self.sub_sorter.fall_back_sorter::<T, C>(self.cmp)
     }
 }
 
-struct StringIntroSorter<'a, T, C>
+pub struct StringIntroSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
-    pivot: &'a mut BytesRef,
-    pivot_builder: &'a mut BytesRefBuilder,
-    scratch1: &'a mut BytesRefBuilder,
-    scratch2: &'a mut BytesRefBuilder,
-    scratch_bytes1: &'a mut BytesRef,
-    scratch_bytes2: &'a mut BytesRef,
+    pivot: BytesRef,
+    pivot_builder: BytesRefBuilder,
+    scratch1: BytesRefBuilder,
+    scratch2: BytesRefBuilder,
+    scratch_bytes1: BytesRef,
+    scratch_bytes2: BytesRef,
     cmp: &'a mut C,
     sub_sorter: &'a mut T,
+}
+impl<'a, T, C> StringIntroSorter<'a, T, C>
+where
+    T: Sorter + StringSorterBase,
+    C: BytesRefComparator + Comparator<BytesRef>,
+{
+    pub fn new(cmp: &'a mut C, sub_sorter: &'a mut T) -> StringIntroSorter<'a, T, C> {
+        StringIntroSorter {
+            pivot: BytesRef::default(),
+            pivot_builder: BytesRefBuilder::default(),
+            scratch1: BytesRefBuilder::default(),
+            scratch2: BytesRefBuilder::default(),
+            scratch_bytes1: BytesRef::default(),
+            scratch_bytes2: BytesRef::default(),
+            cmp,
+            sub_sorter,
+        }
+    }
 }
 impl<T, C> Sorter for StringIntroSorter<'_, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
     fn compare(&mut self, i: i32, j: i32) -> i32 {
-        self.sub_sorter.get(self.scratch1, self.scratch_bytes1, i);
-        self.sub_sorter.get(self.scratch2, self.scratch_bytes2, j);
-        self.cmp.compare(self.scratch_bytes1, self.scratch_bytes2)
+        self.sub_sorter
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, i);
+        self.sub_sorter
+            .get(&mut self.scratch2, &mut self.scratch_bytes2, j);
+        self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
     }
 
     fn swap(&mut self, i: i32, j: i32) {
@@ -193,12 +228,14 @@ where
     }
 
     fn set_pivot(&mut self, i: i32) {
-        self.sub_sorter.get(self.pivot_builder, self.pivot, i);
+        self.sub_sorter
+            .get(&mut self.pivot_builder, &mut self.pivot, i);
     }
 
     fn compare_pivot(&mut self, j: i32) -> i32 {
-        self.sub_sorter.get(self.scratch1, self.scratch_bytes1, j);
-        self.cmp.compare(self.pivot, self.scratch_bytes1)
+        self.sub_sorter
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, j);
+        self.cmp.compare(&self.pivot, &self.scratch_bytes1)
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
@@ -210,13 +247,40 @@ where
 impl<T, C> IntroSorter for StringIntroSorter<'_, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef>,
 {
 }
 
 pub trait StringSorterBase {
-    fn get(&self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32);
-    fn fall_back_sorter<C>(&self, cmp: &C) -> impl Sorter
+    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32);
+    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
     where
-        C: Comparator<BytesRef>;
+        T: Sorter + StringSorterBase,
+        C: BytesRefComparator + Comparator<BytesRef>;
+    fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
+    where
+        C: BytesRefComparator + Comparator<BytesRef>;
+}
+pub fn default_fall_back_sorter<'a, T, C>(
+    cmp: &'a mut C,
+    sub_sorter: &'a mut T,
+) -> StringIntroSorter<'a, T, C>
+where
+    T: Sorter + StringSorterBase,
+    C: BytesRefComparator + Comparator<BytesRef>,
+{
+    StringIntroSorter::new(cmp, sub_sorter)
+}
+
+pub fn default_radix_sorter<'a, T, C>(
+    cmp: &'a mut C,
+    string_sorter_sub_sorter: &'a mut T,
+) -> MSBRadixSorter<MSBStringRadixSorter<'a, T, C>>
+where
+    T: Sorter + StringSorterBase,
+    C: BytesRefComparator + Comparator<BytesRef>,
+{
+    let length = cmp.compared_bytes_count();
+    let msb_radix_sorter_sub_sorter = MSBStringRadixSorter::new(cmp, string_sorter_sub_sorter);
+    MSBRadixSorter::new(length as i32, msb_radix_sorter_sub_sorter)
 }

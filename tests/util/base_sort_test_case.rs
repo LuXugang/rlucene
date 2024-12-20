@@ -20,7 +20,7 @@ use crate::util::base_sort_test_case::Strategy::{
 };
 use rand::prelude::StdRng;
 use rand::Rng;
-use rlucene::util::{Comparator, Sorter};
+use rlucene::util::{Comparator, Sorter, COMPARATOR_TYPE};
 use std::cmp::Ordering;
 
 pub trait BaseSortTestCase {
@@ -175,6 +175,8 @@ impl Entry {
     }
 }
 impl Comparator<Entry> for Entry {
+    const TYPE: &'static str = COMPARATOR_TYPE;
+
     fn compare(&self, a: &Entry, b: &Entry) -> i32 {
         match a.value.cmp(&b.value) {
             Ordering::Less => -1,

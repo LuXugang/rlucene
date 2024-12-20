@@ -21,7 +21,7 @@ use crate::util::comparator::Comparator;
 ///
 /// # Note
 /// This is an internal API.
-pub trait BytesRefComparator: Comparator<BytesRef> {
+pub trait BytesRefComparator {
     /// Returns the unsigned byte to use for comparison at index `i`, or `-1` if all bytes
     /// that are useful for comparisons are exhausted. This may only be called with a value of `i`
     /// between `0` (inclusive) and `compared_bytes_count` (exclusive).
@@ -53,6 +53,8 @@ impl Default for Natural {
 }
 
 impl Comparator<BytesRef> for Natural {
+    const TYPE: &'static str = BYTES_REF_COMPARATOR_TYPE;
+
     fn compare(&self, a: &BytesRef, b: &BytesRef) -> i32 {
         self.compare_with_offset(a, b, 0)
     }
@@ -60,10 +62,10 @@ impl Comparator<BytesRef> for Natural {
 
 impl BytesRefComparator for Natural {
     fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32 {
-        if i < bytes_ref.length {
+        if bytes_ref.length <= i {
+           -1 
+        }else {
             bytes_ref.bytes[(i + bytes_ref.offset) as usize] as i32
-        } else {
-            -1
         }
     }
 
@@ -76,7 +78,7 @@ impl BytesRefComparator for Natural {
 
         for (byte_a, byte_b) in slice1.iter().zip(slice2.iter()) {
             if byte_a != byte_b {
-                return (*byte_a - *byte_b) as i32;
+                return *byte_a as i32 - *byte_b as i32;
             }
         }
         (slice1.len() as i32) - (slice2.len() as i32)
@@ -86,3 +88,5 @@ impl BytesRefComparator for Natural {
         self.compared_bytes_count
     }
 }
+
+pub const BYTES_REF_COMPARATOR_TYPE: &str = "BytesRefComparator";

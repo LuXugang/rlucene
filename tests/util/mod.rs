@@ -34,6 +34,7 @@ mod test_not_doc_id_set;
 mod test_priority_queue;
 mod test_roaring_doc_id_set;
 mod test_sparse_fixed_bit_set;
+mod test_string_sorter;
 mod test_tim_sorter;
 mod test_util;
 mod test_version;
