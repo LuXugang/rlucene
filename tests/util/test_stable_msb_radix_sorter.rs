@@ -48,7 +48,7 @@ fn test(refs: &[BytesRef], len: usize, random: &mut StdRng) -> Result<(), TestEr
 
     let final_max_length = max_length;
     let mut actual = refs[..len].to_vec();
-    let delegate_sorter = StableMSBRadixSorterImpl::new(final_max_length, &mut actual);
+    let delegate_sorter = StableMSBRadixSorterTestImpl::new(final_max_length, &mut actual);
     let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter);
     let mut msb_radix_sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
     msb_radix_sorter.sort(0, len as i32)?;
@@ -205,14 +205,14 @@ fn test_random2() -> Result<(), TestError> {
     test(&strings_vec, strings_vec.len(), &mut random)
 }
 
-struct StableMSBRadixSorterImpl<'a> {
+struct StableMSBRadixSorterTestImpl<'a> {
     temp: Vec<BytesRef>,
     final_max_length: i32,
     refs: &'a mut [BytesRef],
 }
-impl<'a> StableMSBRadixSorterImpl<'a> {
+impl<'a> StableMSBRadixSorterTestImpl<'a> {
     fn new(final_max_length: i32, refs: &'a mut Vec<BytesRef>) -> Self {
-        StableMSBRadixSorterImpl {
+        StableMSBRadixSorterTestImpl {
             temp: vec![BytesRef::default(); refs.len()],
             final_max_length,
             refs,
@@ -220,7 +220,7 @@ impl<'a> StableMSBRadixSorterImpl<'a> {
     }
 }
 
-impl Sorter for StableMSBRadixSorterImpl<'_> {
+impl Sorter for StableMSBRadixSorterTestImpl<'_> {
     fn compare(&mut self, _i: i32, _j: i32) -> i32 {
         unreachable!()
     }
@@ -242,7 +242,7 @@ impl Sorter for StableMSBRadixSorterImpl<'_> {
     }
 }
 
-impl<'a> MSBRadixSorterBase for StableMSBRadixSorterImpl<'a> {
+impl<'a> MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'a> {
     fn byte_at(&mut self, i: i32, k: i32) -> i32 {
         assert!(k < self.final_max_length, "k is out of bounds");
         let ref_item = &self.refs[i as usize];
@@ -297,7 +297,7 @@ impl<'a> MSBRadixSorterBase for StableMSBRadixSorterImpl<'a> {
         default_should_fallback(from, to, l)
     }
 }
-impl StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
+impl StableMSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
     fn save(&mut self, i: i32, j: i32) {
         self.temp[j as usize] = self.refs[i as usize].clone();
     }

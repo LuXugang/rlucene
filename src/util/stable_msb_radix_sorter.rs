@@ -58,7 +58,7 @@ where
     }
 
     fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
-        unreachable!()
+        unreachable!("You need to use MSBRadixSorter to wrap StableMSBRadixSorter in order to enable sorting functionality.")
     }
 }
 
@@ -138,8 +138,8 @@ pub struct MergeSorter<T>
 where
     T: Sorter + StableMSBRadixSorterBase,
 {
-    delegate_sorter: T,
-    pivot_index: i32,
+    pub(crate) delegate_sorter: T,
+    pub(crate) pivot_index: i32,
 }
 
 impl<T> MergeSorter<T>

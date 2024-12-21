@@ -22,9 +22,14 @@ use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
 use rlucene::util::error::runtime_error::RuntimeError;
+use rlucene::util::stable_string_sorter::{
+    default_fall_back_sorter_stable, default_radix_sorter_stable, StableStringSorter,
+    StableStringSorterBase,
+};
 use rlucene::util::{
-    default_fall_back_sorter, default_radix_sorter, Comparator, NaturalOrder, Sorter, StringSorter,
-    StringSorterBase,
+    default_build_histogram, default_fall_back_sorter, default_get_fallback_sorter,
+    default_get_get_bucket, default_radix_sorter, default_reorder, default_should_fallback,
+    Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
 };
 
 #[allow(dead_code)] // for quick search
@@ -33,6 +38,8 @@ struct TestStringSorter;
 fn test(refs: Vec<BytesRef>, len: usize) -> Result<(), TestError> {
     test_impl(refs.clone(), len, Natural::default())?;
     test_impl(refs.clone(), len, NaturalOrder::default())?;
+    test_stable(refs.clone(), len, Natural::default())?;
+    test_stable(refs.clone(), len, NaturalOrder::default())?;
     Ok(())
 }
 
@@ -43,13 +50,53 @@ fn test_impl(
 ) -> Result<(), TestError> {
     let mut expected: Vec<BytesRef> = refs.clone();
     expected.sort();
-    let delegate_sorter = StringSorterImpl::new(refs.clone());
+    let delegate_sorter = StringSorterTestImpl::new(refs.clone());
     let mut string_sorter = StringSorter::new(delegate_sorter, comparator);
     string_sorter.sort(0, len as i32)?;
 
     assert_vecs_equal(&expected, &string_sorter.get_delegate_sorter().refs);
     Ok(())
 }
+
+fn test_stable(
+    refs: Vec<BytesRef>,
+    len: usize,
+    comparator: impl BytesRefComparator + Comparator<BytesRef>,
+) -> Result<(), TestError> {
+    let mut expected: Vec<BytesRef> = refs[..len].to_vec();
+    let mut actual = refs[..len].to_vec();
+    expected.sort();
+
+    let mut ord: Vec<i32> = (0..len).map(|i| i as i32).collect();
+    let ord_len = ord.len();
+    let delegate_sorter = StableStringSorterTestImpl {
+        tmp: vec![0; ord_len],
+        ord: &mut ord,
+        refs: &mut actual,
+    };
+    let string_sorter = StableStringSorter::new(delegate_sorter);
+    let mut stable_string_sorter = StringSorter::new(string_sorter, comparator);
+    stable_string_sorter.sort(0, len as i32)?;
+    for i in 0..len {
+        assert_eq!(
+            &expected[i], &refs[ord[i] as usize],
+            "Mismatch at index {}: expected {:?}, found {:?}",
+            i, &expected[i], &refs[ord[i] as usize]
+        );
+
+        if i > 0 && expected[i] == expected[i - 1] {
+            assert!(
+                ord[i] > ord[i - 1],
+                "Not stable: ord[{}] <= ord[{}]",
+                i,
+                i - 1
+            );
+        }
+    }
+
+    Ok(())
+}
+
 #[test]
 fn test_empty() -> Result<(), TestError> {
     let mut random = my_random("test_empty".to_string());
@@ -80,8 +127,7 @@ fn test_random_impl(
 ) -> Result<(), TestError> {
     let mut common_prefix = vec![0u8; common_prefix_len];
     random.fill_bytes(&mut common_prefix);
-    // let len = random.gen_range(0..100000);
-    let len = random.gen_range(0..200);
+    let len = random.gen_range(0..100000);
 
     let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.gen_range(0..50));
     for _ in 0..len {
@@ -132,16 +178,16 @@ fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestErr
     Ok(())
 }
 
-struct StringSorterImpl {
+struct StringSorterTestImpl {
     refs: Vec<BytesRef>,
 }
 
-impl StringSorterImpl {
+impl StringSorterTestImpl {
     fn new(refs: Vec<BytesRef>) -> Self {
         Self { refs }
     }
 }
-impl Sorter for StringSorterImpl {
+impl Sorter for StringSorterTestImpl {
     fn compare(&mut self, _i: i32, _j: i32) -> i32 {
         unreachable!()
     }
@@ -162,7 +208,7 @@ impl Sorter for StringSorterImpl {
         unreachable!()
     }
 }
-impl StringSorterBase for StringSorterImpl {
+impl StringSorterBase for StringSorterTestImpl {
     fn get(&mut self, _builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) {
         let ref_item = &self.refs[i as usize];
         result.offset = ref_item.offset;
@@ -183,5 +229,116 @@ impl StringSorterBase for StringSorterImpl {
         C: BytesRefComparator + Comparator<BytesRef>,
     {
         default_radix_sorter(cmp, self)
+    }
+}
+
+struct StableStringSorterTestImpl<'a> {
+    tmp: Vec<i32>,
+    ord: &'a mut Vec<i32>,
+    refs: &'a mut [BytesRef],
+}
+
+impl StringSorterBase for StableStringSorterTestImpl<'_> {
+    fn get(&mut self, _builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) {
+        let ref_item = &self.refs[self.ord[i as usize] as usize];
+        result.offset = ref_item.offset;
+        result.length = ref_item.length;
+        result.bytes = ref_item.bytes.clone();
+    }
+
+    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
+    where
+        T: Sorter + StringSorterBase,
+        C: BytesRefComparator + Comparator<BytesRef>,
+    {
+        default_fall_back_sorter_stable(cmp, self, k)
+    }
+
+    fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
+    where
+        C: BytesRefComparator + Comparator<BytesRef>,
+    {
+        default_radix_sorter_stable(cmp, self)
+    }
+}
+
+impl StableStringSorterBase for StableStringSorterTestImpl<'_> {
+    fn save(&mut self, i: i32, j: i32) {
+        self.tmp[j as usize] = self.ord[i as usize];
+    }
+
+    fn restore(&mut self, i: i32, j: i32) {
+        for idx in i..j {
+            self.ord[idx as usize] = self.tmp[idx as usize];
+        }
+    }
+}
+impl Sorter for StableStringSorterTestImpl<'_> {
+    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
+        unreachable!()
+    }
+
+    fn swap(&mut self, i: i32, j: i32) {
+        self.ord.swap(i as usize, j as usize);
+    }
+
+    fn set_pivot(&mut self, _i: i32) {
+        unreachable!()
+    }
+
+    fn compare_pivot(&mut self, _j: i32) -> i32 {
+        unreachable!()
+    }
+
+    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
+        unreachable!()
+    }
+}
+impl MSBRadixSorterBase for StableStringSorterTestImpl<'_> {
+    fn byte_at(&mut self, _i: i32, _k: i32) -> i32 {
+        unreachable!()
+    }
+
+    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
+        default_get_fallback_sorter(i32::MAX, self, k)
+    }
+
+    fn reorder(
+        &mut self,
+        from: i32,
+        to: i32,
+        start_offsets: &mut [i32],
+        end_offsets: &mut [i32],
+        k: i32,
+    ) {
+        default_reorder(self, from, to, start_offsets, end_offsets, k)
+    }
+
+    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
+        default_get_get_bucket(self, i, k)
+    }
+
+    fn build_histogram(
+        &mut self,
+        prefix_common_bucket: i32,
+        prefix_common_len: i32,
+        from: i32,
+        to: i32,
+        k: i32,
+        histogram: &mut [i32],
+    ) {
+        default_build_histogram(
+            self,
+            prefix_common_bucket,
+            prefix_common_len,
+            from,
+            to,
+            k,
+            histogram,
+        )
+    }
+
+    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
+        default_should_fallback(from, to, l)
     }
 }
