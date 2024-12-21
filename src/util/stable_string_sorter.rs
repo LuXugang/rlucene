@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::{
     BytesRefComparator, Comparator, MSBRadixSorter, MSBRadixSorterBase, MergeSorter, Sorter,
     StableMSBRadixSorter, StableMSBRadixSorterBase, StringSorterBase,
@@ -41,7 +42,12 @@ impl<T> StringSorterBase for StableStringSorter<T>
 where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
 {
-    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) {
+    fn get(
+        &mut self,
+        builder: &mut BytesRefBuilder,
+        result: &mut BytesRef,
+        i: i32,
+    ) -> Result<(), RuntimeError> {
         self.delegate_sorter.get(builder, result, i)
     }
 
@@ -166,7 +172,12 @@ where
     C: BytesRefComparator + Comparator<BytesRef>,
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
 {
-    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) {
+    fn get(
+        &mut self,
+        builder: &mut BytesRefBuilder,
+        result: &mut BytesRef,
+        i: i32,
+    ) -> Result<(), RuntimeError> {
         self.delegate_sorter.get(builder, result, i)
     }
 }

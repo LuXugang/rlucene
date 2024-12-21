@@ -21,7 +21,9 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
-    AllocatorEnum, ByteBlockPool, Comparator, Counter, CounterEnum, DirectTrackingAllocator,
+    AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
+    DirectTrackingAllocator, MSBRadixSorterBase, Sorter, StableStringSorter,
+    StableStringSorterBase, StringSorter, StringSorterBase,
 };
 use std::sync::{Arc, Mutex};
 
@@ -50,7 +52,7 @@ impl BytesRefArray {
         BytesRefArray {
             pool,
             offsets,
-            last_element: -1,
+            last_element: 0,
             current_offset: 0,
             byte_used,
         }
@@ -72,7 +74,7 @@ impl BytesRefArray {
     /// However, in Rust Lucene, due to language constraints and complexity,
     /// we modify the `BytesRefBuilder` directly. The caller retrieves the updated `BytesRef`
     /// by accessing the modified `BytesRefBuilder`.
-    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<(), RuntimeError> {
+    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef, RuntimeError> {
         if index < 0 || index >= self.last_element {
             return Err(RuntimeError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
@@ -96,7 +98,8 @@ impl BytesRefArray {
             0,
             length,
         );
-        Ok(())
+        // TODO: should we avoid Clone here?
+        Ok(spare.get().clone())
     }
 
     /// Used only by the sorting function below to set a [`BytesRef`] with the specified slice,
@@ -127,14 +130,38 @@ impl BytesRefArray {
         Ok(())
     }
 
-    pub fn sort(comp: impl Comparator<BytesRef>, stable: bool) -> SortState {
-        todo!()
+    pub fn sort(
+        &mut self,
+        comp: impl BytesRefComparator + Comparator<BytesRef>,
+        stable: bool,
+    ) -> Result<SortState, RuntimeError> {
+        let size = self.size();
+        let mut ordered_entries: Vec<i32> = (0..size).collect();
+        if stable {
+            let delegate_sorter = StableStringSorterImpl {
+                tmp: vec![0; size as usize],
+                ordered_entries: ordered_entries.as_mut_slice(),
+                bytes_ref_array: self,
+            };
+            let stable_string_sorter = StableStringSorter::new(delegate_sorter);
+            let mut string_sorter = StringSorter::new(stable_string_sorter, comp);
+            string_sorter.sort(0, size)?;
+        } else {
+            let delegate_sorter = StringSorterImpl {
+                tmp: vec![0; size as usize],
+                ordered_entries: ordered_entries.as_mut_slice(),
+                bytes_ref_array: self,
+            };
+            let mut string_sorter = StringSorter::new(delegate_sorter, comp);
+            string_sorter.sort(0, size)?;
+        }
+        Ok(SortState::new(Some(ordered_entries)))
     }
 }
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     fn append(&mut self, bytes: &BytesRef) -> i32 {
         self.pool.append_bytes_ref(bytes);
-        self.offsets[self.last_element as usize] = self.current_offset;
+        self.offsets.push(self.current_offset);
         self.last_element += 1;
         self.current_offset += bytes.length;
         self.byte_used.lock().unwrap().add_and_get(INT_BYTES as i64);
@@ -144,7 +171,6 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     fn clear(&mut self) {
         self.last_element = 0;
         self.current_offset = 0;
-        // TODO: it's trappy that this does not return storage held by int[] offsets array!
         self.offsets.clear();
         self.pool.reset(false, true); // no need to 0 fill the buffers we control the allocator
     }
@@ -214,5 +240,65 @@ impl<'a> BytesRefIterator for IndexedBytesRefIterator<'_> {
         } else {
             Ok(None)
         }
+    }
+}
+
+struct StableStringSorterImpl<'a> {
+    tmp: Vec<i32>,
+    ordered_entries: &'a mut [i32],
+    bytes_ref_array: &'a mut BytesRefArray,
+}
+impl Sorter for StableStringSorterImpl<'_> {
+    fn swap(&mut self, i: i32, j: i32) {
+        self.ordered_entries.swap(i as usize, j as usize);
+    }
+}
+
+impl StringSorterBase for StableStringSorterImpl<'_> {
+    fn get(
+        &mut self,
+        builder: &mut BytesRefBuilder,
+        result: &mut BytesRef,
+        i: i32,
+    ) -> Result<(), RuntimeError> {
+        self.bytes_ref_array
+            .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
+    }
+}
+
+impl StableStringSorterBase for StableStringSorterImpl<'_> {
+    fn save(&mut self, i: i32, j: i32) {
+        self.tmp[j as usize] = self.ordered_entries[i as usize];
+    }
+    fn restore(&mut self, i: i32, j: i32) {
+        self.ordered_entries[i as usize..j as usize]
+            .copy_from_slice(&self.tmp[i as usize..j as usize]);
+    }
+}
+impl MSBRadixSorterBase for StableStringSorterImpl<'_> {
+    fn byte_at(&mut self, _i: i32, _k: i32) -> i32 {
+        todo!()
+    }
+}
+
+struct StringSorterImpl<'a> {
+    tmp: Vec<i32>,
+    ordered_entries: &'a mut [i32],
+    bytes_ref_array: &'a mut BytesRefArray,
+}
+impl Sorter for StringSorterImpl<'_> {
+    fn swap(&mut self, i: i32, j: i32) {
+        self.ordered_entries.swap(i as usize, j as usize);
+    }
+}
+impl StringSorterBase for StringSorterImpl<'_> {
+    fn get(
+        &mut self,
+        builder: &mut BytesRefBuilder,
+        result: &mut BytesRef,
+        i: i32,
+    ) -> Result<(), RuntimeError> {
+        self.bytes_ref_array
+            .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
 }

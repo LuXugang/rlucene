@@ -140,10 +140,11 @@ impl ByteBlockPool {
                 .clone_from(&self.buffers[buffer_index as usize]);
             result.offset = pos;
         } else {
-            // builder.grow_no_copy(length);
+            builder.grow_no_copy(length);
+            result.bytes = vec![0; length as usize];
             result.offset = 0;
             self.read_bytes(offset, &mut result.bytes, 0, length);
-            builder.get().bytes.clone_from(&result.bytes);
+            // builder.get().bytes.clone_from(&result.bytes);
         }
     }
     /// Appends the bytes in the provided BytesRef at the current position.

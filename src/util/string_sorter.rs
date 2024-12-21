@@ -231,7 +231,12 @@ where
 }
 
 pub trait StringSorterBase {
-    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32);
+    fn get(
+        &mut self,
+        builder: &mut BytesRefBuilder,
+        result: &mut BytesRef,
+        i: i32,
+    ) -> Result<(), RuntimeError>;
     #[allow(unreachable_code)]
     fn fall_back_sorter<'a, T, C>(
         &'a mut self,

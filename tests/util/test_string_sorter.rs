@@ -21,6 +21,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
 use rlucene::util::{
     default_fall_back_sorter, default_get_fallback_sorter, default_radix_sorter, Comparator,
@@ -191,11 +192,17 @@ impl Sorter for StringSorterTestImpl {
     }
 }
 impl StringSorterBase for StringSorterTestImpl {
-    fn get(&mut self, _builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) {
+    fn get(
+        &mut self,
+        _builder: &mut BytesRefBuilder,
+        result: &mut BytesRef,
+        i: i32,
+    ) -> Result<(), RuntimeError> {
         let ref_item = &self.refs[i as usize];
         result.offset = ref_item.offset;
         result.length = ref_item.length;
         result.bytes = ref_item.bytes.clone();
+        Ok(())
     }
 
     fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
@@ -221,11 +228,17 @@ struct StableStringSorterTestImpl<'a> {
 }
 
 impl StringSorterBase for StableStringSorterTestImpl<'_> {
-    fn get(&mut self, _builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) {
+    fn get(
+        &mut self,
+        _builder: &mut BytesRefBuilder,
+        result: &mut BytesRef,
+        i: i32,
+    ) -> Result<(), RuntimeError> {
         let ref_item = &self.refs[self.ord[i as usize] as usize];
         result.offset = ref_item.offset;
         result.length = ref_item.length;
         result.bytes = ref_item.bytes.clone();
+        Ok(())
     }
 }
 
@@ -235,9 +248,7 @@ impl StableStringSorterBase for StableStringSorterTestImpl<'_> {
     }
 
     fn restore(&mut self, i: i32, j: i32) {
-        for idx in i..j {
-            self.ord[idx as usize] = self.tmp[idx as usize];
-        }
+        self.ord[i as usize..j as usize].copy_from_slice(&self.tmp[i as usize..j as usize]);
     }
 }
 impl Sorter for StableStringSorterTestImpl<'_> {

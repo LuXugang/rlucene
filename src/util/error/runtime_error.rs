@@ -34,6 +34,12 @@ pub enum RuntimeError {
 
     #[error("{0}")]
     ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
+
+    #[error("UTF-8 decoding error: {0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
+
+    #[error("UTF-8 conversion error: {0}")]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
 }
 
 impl RuntimeError {
@@ -51,5 +57,13 @@ impl RuntimeError {
 
     pub fn io(err: Error) -> Self {
         RuntimeError::Io(err)
+    }
+
+    pub fn utf8_error(err: std::str::Utf8Error) -> Self {
+        RuntimeError::Utf8Error(err)
+    }
+
+    pub fn from_utf8_error(err: std::string::FromUtf8Error) -> Self {
+        RuntimeError::FromUtf8Error(err)
     }
 }
