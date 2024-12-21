@@ -344,8 +344,10 @@ impl<'a> Iterator<'a> {
                 self.doc = NO_MORE_DOCS;
                 break;
             } else if self.doc_id_sets.as_ref().unwrap()[self.block as usize].is_some() {
-                let a = self.doc_id_sets.as_ref().unwrap()[self.block as usize].as_ref();
-                self.sub = a.unwrap().iterator();
+                self.sub = self.doc_id_sets.as_ref().unwrap()[self.block as usize]
+                    .as_ref()
+                    .unwrap()
+                    .iterator();
                 let sub_next = self.sub.as_mut().unwrap().next_doc();
                 debug_assert!(sub_next != NO_MORE_DOCS);
                 self.doc = (self.block << 16) | sub_next;

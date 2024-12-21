@@ -17,7 +17,7 @@
 use crate::index::BytesRefBuilder;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
-use crate::util::{check_range, Sorter};
+use crate::util::{check_range, DummySorter, Sorter};
 use std::cmp::min;
 
 /// After this many levels of recursion, we fall back to introsort.
@@ -300,10 +300,6 @@ impl<T> Sorter for MSBRadixSorter<T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
-        unreachable!("unused: not a comparison-based sort")
-    }
-
     fn swap(&mut self, i: i32, j: i32) {
         self.delegate_sorter.swap(i, j);
     }
@@ -392,7 +388,7 @@ where
 
 impl<T> IntroSorter for MSBRadixIntroSorterImpl<'_, T> where T: Sorter + MSBRadixSorterBase {}
 
-pub trait MSBRadixSorterBase {
+pub trait MSBRadixSorterBase: Sorter {
     /// Returns the k-th byte of the entry at the given index `i`, or `-1` if its length is less than
     /// or equal to `k`.
     ///
@@ -405,9 +401,16 @@ pub trait MSBRadixSorterBase {
     ///
     /// # Note
     /// In Rust, this method might return a signed integer (`i32`) to accommodate the `-1` case, which differs from Java's default integer handling.
-    fn byte_at(&mut self, i: i32, k: i32) -> i32;
+    fn byte_at(&mut self, _i: i32, _k: i32) -> i32 {
+        unimplemented!(" Override this in your implementation if needed")
+    }
 
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter;
+    #[allow(unreachable_code)]
+    fn get_fallback_sorter(&mut self, _k: i32) -> impl Sorter {
+        unimplemented!(" Override this in your implementation if needed");
+        // make compile happy
+        DummySorter::default()
+    }
 
     /// Reorder based on start/end offsets for each bucket. When this method returns, `start_offsets`
     /// and `end_offsets` are equal.
@@ -421,13 +424,27 @@ pub trait MSBRadixSorterBase {
     fn reorder(
         &mut self,
         from: i32,
-        to: i32,
+        _to: i32,
         start_offsets: &mut [i32],
         end_offsets: &mut [i32],
         k: i32,
-    );
+    ) {
+        // Reorder in place, similar to the Dutch national flag problem
+        for i in 0..HISTOGRAM_SIZE {
+            let limit = end_offsets[i];
+            while start_offsets[i] < limit {
+                let h1 = start_offsets[i];
+                let b = self.get_bucket(from + h1, k);
+                let h2 = start_offsets[b as usize];
+                start_offsets[b as usize] += 1;
+                self.swap(from + h1, from + h2);
+            }
+        }
+    }
 
-    fn get_bucket(&mut self, i: i32, k: i32) -> i32;
+    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
+        self.byte_at(i, k) + 1
+    }
 
     fn build_histogram(
         &mut self,
@@ -437,9 +454,18 @@ pub trait MSBRadixSorterBase {
         to: i32,
         k: i32,
         histogram: &mut [i32],
-    );
+    ) {
+        histogram[prefix_common_bucket as usize] = prefix_common_len;
 
-    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool;
+        for i in from..to {
+            let b = self.get_bucket(i, k) as usize;
+            histogram[b] += 1;
+        }
+    }
+
+    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
+        (to - from) <= LENGTH_THRESHOLD as i32 || l >= LEVEL_THRESHOLD as i32
+    }
 }
 pub fn default_get_fallback_sorter<T>(
     max_length: i32,
@@ -455,55 +481,4 @@ where
         k,
         delegate_sorter,
     }
-}
-pub fn default_reorder<T>(
-    delegate_sorter: &mut T,
-    from: i32,
-    _to: i32,
-    start_offsets: &mut [i32],
-    end_offsets: &mut [i32],
-    k: i32,
-) where
-    T: Sorter + MSBRadixSorterBase,
-{
-    // Reorder in place, similar to the Dutch national flag problem
-    for i in 0..HISTOGRAM_SIZE {
-        let limit = end_offsets[i];
-        while start_offsets[i] < limit {
-            let h1 = start_offsets[i];
-            let b = delegate_sorter.get_bucket(from + h1, k);
-            let h2 = start_offsets[b as usize];
-            start_offsets[b as usize] += 1;
-            delegate_sorter.swap(from + h1, from + h2);
-        }
-    }
-}
-
-pub fn default_get_get_bucket<T>(delegate_sorter: &mut T, i: i32, k: i32) -> i32
-where
-    T: Sorter + MSBRadixSorterBase,
-{
-    delegate_sorter.byte_at(i, k) + 1
-}
-
-pub fn default_build_histogram<T>(
-    delegate_sorter: &mut T,
-    prefix_common_bucket: i32,
-    prefix_common_len: i32,
-    from: i32,
-    to: i32,
-    k: i32,
-    histograms: &mut [i32],
-) where
-    T: Sorter + MSBRadixSorterBase,
-{
-    histograms[prefix_common_bucket as usize] = prefix_common_len;
-
-    for i in from..to {
-        let b = delegate_sorter.get_bucket(i, k) as usize;
-        histograms[b] += 1;
-    }
-}
-pub fn default_should_fallback(from: i32, to: i32, l: i32) -> bool {
-    (to - from) <= LENGTH_THRESHOLD as i32 || l >= LEVEL_THRESHOLD as i32
 }

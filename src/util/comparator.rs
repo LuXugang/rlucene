@@ -67,14 +67,6 @@ where
 /// The purpose of implementing BytesRefComparator is to
 /// allow it to be passed as the same parameter alongside other types
 /// that also implement BytesRefComparator, distinguishing its type by the TYPE constant.
-impl BytesRefComparator for NaturalOrder<BytesRef> {
-    fn byte_at(&self, _bytes_ref: &BytesRef, _i: u32) -> i32 {
-        unreachable!()
-    }
-
-    fn compared_bytes_count(&self) -> i32 {
-        unreachable!()
-    }
-}
+impl BytesRefComparator for NaturalOrder<BytesRef> {}
 
 pub const COMPARATOR_TYPE: &str = "Comparator";

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
 use crate::util::{Comparator, Sorter, TimSorterBase};
 
 /// A [`TimSorter`](crate::util::TimSorter) for object arrays.
@@ -71,10 +70,6 @@ where
 
     fn compare_pivot(&mut self, j: i32) -> i32 {
         self.compare(self.pivot_index, j)
-    }
-
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
-        unreachable!("You need to use TimSorter to wrap ArrayTimSorter in order to enable sorting functionality.")
     }
 }
 impl<T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'_, T, C>

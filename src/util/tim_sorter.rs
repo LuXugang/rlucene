@@ -18,9 +18,9 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::{sorter, Sorter};
 use std::cmp::{max, min};
 
-const MINRUN: i32 = 32;
+const MIN_RUN: i32 = 32;
 const THRESHOLD: i32 = 64;
-const STACKSIZE: i32 = 49; // depends on MINRUN
+const STACK_SIZE: i32 = 49; // depends on MINRUN
 const MIN_GALLOP: i32 = 7;
 
 /// [`Sorter`] implementation based on the [TimSort](http://svn.python.org/projects/python/trunk/Objects/listsort.txt) algorithm. It
@@ -55,12 +55,12 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             min_run: 0,
             to: 0,
             stack_size: 0,
-            run_ends: vec![0; STACKSIZE as usize + 1],
+            run_ends: vec![0; STACK_SIZE as usize + 1],
             delegate_sorter,
         }
     }
     fn min_run(&self, length: i32) -> i32 {
-        debug_assert!(length >= MINRUN);
+        debug_assert!(length >= MIN_RUN);
         let mut n = length;
         let mut r = 0;
         while n >= 64 {
@@ -68,7 +68,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             n >>= 1;
         }
         let min_run = n + r;
-        debug_assert!((MINRUN..=THRESHOLD).contains(&min_run));
+        debug_assert!((MIN_RUN..=THRESHOLD).contains(&min_run));
         min_run
     }
     fn run_len(&self, i: i32) -> i32 {

@@ -34,8 +34,8 @@ impl BytesRefBuilder {
         }
     }
     /// Return a reference to the bytes of this builder.
-    pub fn bytes_ref(&self) -> &BytesRef {
-        &self.bytes_ref
+    pub fn bytes_ref(&mut self) -> &mut BytesRef {
+        &mut self.bytes_ref
     }
 
     /// Return the number of bytes in this buffer.
@@ -51,7 +51,7 @@ impl BytesRefBuilder {
 
     /// Return the byte at the given offset.
     pub fn byte_at(&self, index: u32) -> u8 {
-        self.bytes_ref.bytes[(index) as usize]
+        self.bytes_ref.bytes[index as usize]
     }
 
     /// Set a byte.
@@ -67,7 +67,7 @@ impl BytesRefBuilder {
             self.bytes_ref.bytes.push(0);
         }
     }
-    fn grow_no_copy(&mut self, capacity: u32) {
+    pub fn grow_no_copy(&mut self, capacity: u32) {
         self.grow(capacity);
     }
 

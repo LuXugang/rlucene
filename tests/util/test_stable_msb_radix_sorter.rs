@@ -20,12 +20,8 @@ use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
-use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::stable_msb_radix_sorter::{StableMSBRadixSorter, StableMSBRadixSorterBase};
-use rlucene::util::{
-    default_build_histogram, default_get_fallback_sorter_stable, default_get_get_bucket,
-    default_reorder, default_should_fallback, MSBRadixSorter, MSBRadixSorterBase, Sorter,
-};
+use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
 use std::collections::HashSet;
 
 #[allow(dead_code)] // for quick search
@@ -49,7 +45,7 @@ fn test(refs: &[BytesRef], len: usize, random: &mut StdRng) -> Result<(), TestEr
     let final_max_length = max_length;
     let mut actual = refs[..len].to_vec();
     let delegate_sorter = StableMSBRadixSorterTestImpl::new(final_max_length, &mut actual);
-    let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter);
+    let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter, final_max_length);
     let mut msb_radix_sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
     msb_radix_sorter.sort(0, len as i32)?;
 
@@ -221,28 +217,12 @@ impl<'a> StableMSBRadixSorterTestImpl<'a> {
 }
 
 impl Sorter for StableMSBRadixSorterTestImpl<'_> {
-    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
-        unreachable!()
-    }
-
     fn swap(&mut self, i: i32, j: i32) {
         self.refs.swap(i as usize, j as usize);
     }
-
-    fn set_pivot(&mut self, _i: i32) {
-        unreachable!()
-    }
-
-    fn compare_pivot(&mut self, _i: i32) -> i32 {
-        unreachable!()
-    }
-
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
-        unreachable!()
-    }
 }
 
-impl<'a> MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'a> {
+impl MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
     fn byte_at(&mut self, i: i32, k: i32) -> i32 {
         assert!(k < self.final_max_length, "k is out of bounds");
         let ref_item = &self.refs[i as usize];
@@ -252,49 +232,6 @@ impl<'a> MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'a> {
         }
 
         ref_item.bytes[ref_item.offset as usize + k as usize] as i32
-    }
-
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        default_get_fallback_sorter_stable(self.final_max_length, self, k)
-    }
-
-    fn reorder(
-        &mut self,
-        from: i32,
-        to: i32,
-        start_offsets: &mut [i32],
-        end_offsets: &mut [i32],
-        k: i32,
-    ) {
-        default_reorder(self, from, to, start_offsets, end_offsets, k)
-    }
-
-    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
-        default_get_get_bucket(self, i, k)
-    }
-
-    fn build_histogram(
-        &mut self,
-        prefix_common_bucket: i32,
-        prefix_common_len: i32,
-        from: i32,
-        to: i32,
-        k: i32,
-        histogram: &mut [i32],
-    ) {
-        default_build_histogram(
-            self,
-            prefix_common_bucket,
-            prefix_common_len,
-            from,
-            to,
-            k,
-            histogram,
-        )
-    }
-
-    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
-        default_should_fallback(from, to, l)
     }
 }
 impl StableMSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {

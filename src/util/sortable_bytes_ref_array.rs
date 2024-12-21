@@ -17,14 +17,13 @@
 use crate::index::BytesRef;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
-#[allow(unused)]
-pub trait SortableBytesRefArray {
+pub trait SortableBytesRefArray<'a> {
     /// Append a new value
-    fn append(&self, bytes: BytesRef);
+    fn append(&mut self, bytes: &BytesRef) -> i32;
     /// Clear all previously stored values
-    fn clear(&self);
+    fn clear(&mut self);
     /// Returns the number of values appended so far
-    fn size();
+    fn size(&self) -> i32;
     /// Sort all values by the provided comparator and return an iterator over the sorted values */
-    fn iterator() -> impl BytesRefIterator;
+    fn iterator(&'a mut self) -> impl BytesRefIterator + 'a;
 }

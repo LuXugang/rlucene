@@ -21,15 +21,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
-use rlucene::util::error::runtime_error::RuntimeError;
-use rlucene::util::stable_string_sorter::{
-    default_fall_back_sorter_stable, default_radix_sorter_stable, StableStringSorter,
-    StableStringSorterBase,
-};
+use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
 use rlucene::util::{
-    default_build_histogram, default_fall_back_sorter, default_get_fallback_sorter,
-    default_get_get_bucket, default_radix_sorter, default_reorder, default_should_fallback,
-    Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
+    default_fall_back_sorter, default_get_fallback_sorter, default_radix_sorter, Comparator,
+    MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
 };
 
 #[allow(dead_code)] // for quick search
@@ -67,6 +62,7 @@ fn test_stable(
     let mut actual = refs[..len].to_vec();
     expected.sort();
 
+    let actual_before_sorted = actual.clone();
     let mut ord: Vec<i32> = (0..len).map(|i| i as i32).collect();
     let ord_len = ord.len();
     let delegate_sorter = StableStringSorterTestImpl {
@@ -77,6 +73,8 @@ fn test_stable(
     let string_sorter = StableStringSorter::new(delegate_sorter);
     let mut stable_string_sorter = StringSorter::new(string_sorter, comparator);
     stable_string_sorter.sort(0, len as i32)?;
+    // `actual` is not sorted, but `ord` is sorted
+    assert_vecs_equal(&actual_before_sorted, &actual);
     for i in 0..len {
         assert_eq!(
             &expected[i], &refs[ord[i] as usize],
@@ -188,24 +186,8 @@ impl StringSorterTestImpl {
     }
 }
 impl Sorter for StringSorterTestImpl {
-    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
-        unreachable!()
-    }
-
     fn swap(&mut self, i: i32, j: i32) {
         self.refs.swap(i as usize, j as usize);
-    }
-
-    fn set_pivot(&mut self, _i: i32) {
-        unreachable!()
-    }
-
-    fn compare_pivot(&mut self, _i: i32) -> i32 {
-        unreachable!()
-    }
-
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
-        unreachable!()
     }
 }
 impl StringSorterBase for StringSorterTestImpl {
@@ -245,21 +227,6 @@ impl StringSorterBase for StableStringSorterTestImpl<'_> {
         result.length = ref_item.length;
         result.bytes = ref_item.bytes.clone();
     }
-
-    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
-    where
-        T: Sorter + StringSorterBase,
-        C: BytesRefComparator + Comparator<BytesRef>,
-    {
-        default_fall_back_sorter_stable(cmp, self, k)
-    }
-
-    fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
-    where
-        C: BytesRefComparator + Comparator<BytesRef>,
-    {
-        default_radix_sorter_stable(cmp, self)
-    }
 }
 
 impl StableStringSorterBase for StableStringSorterTestImpl<'_> {
@@ -274,71 +241,12 @@ impl StableStringSorterBase for StableStringSorterTestImpl<'_> {
     }
 }
 impl Sorter for StableStringSorterTestImpl<'_> {
-    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
-        unreachable!()
-    }
-
     fn swap(&mut self, i: i32, j: i32) {
         self.ord.swap(i as usize, j as usize);
     }
-
-    fn set_pivot(&mut self, _i: i32) {
-        unreachable!()
-    }
-
-    fn compare_pivot(&mut self, _j: i32) -> i32 {
-        unreachable!()
-    }
-
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
-        unreachable!()
-    }
 }
 impl MSBRadixSorterBase for StableStringSorterTestImpl<'_> {
-    fn byte_at(&mut self, _i: i32, _k: i32) -> i32 {
-        unreachable!()
-    }
-
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
         default_get_fallback_sorter(i32::MAX, self, k)
-    }
-
-    fn reorder(
-        &mut self,
-        from: i32,
-        to: i32,
-        start_offsets: &mut [i32],
-        end_offsets: &mut [i32],
-        k: i32,
-    ) {
-        default_reorder(self, from, to, start_offsets, end_offsets, k)
-    }
-
-    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
-        default_get_get_bucket(self, i, k)
-    }
-
-    fn build_histogram(
-        &mut self,
-        prefix_common_bucket: i32,
-        prefix_common_len: i32,
-        from: i32,
-        to: i32,
-        k: i32,
-        histogram: &mut [i32],
-    ) {
-        default_build_histogram(
-            self,
-            prefix_common_bucket,
-            prefix_common_len,
-            from,
-            to,
-            k,
-            histogram,
-        )
-    }
-
-    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
-        default_should_fallback(from, to, l)
     }
 }

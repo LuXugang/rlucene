@@ -35,20 +35,30 @@ pub const INSERTION_SORT_THRESHOLD: i32 = 16;
 /// This is an internal API.
 pub trait Sorter {
     /// Compare entries found in slots i and j
-    fn compare(&mut self, i: i32, j: i32) -> i32;
+    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
+        unimplemented!(" Override this in your implementation if needed")
+    }
 
     /// Swap values at slots <code>i</code> and `j`.
-    fn swap(&mut self, i: i32, j: i32);
+    fn swap(&mut self, _i: i32, _j: i32) {
+        unimplemented!(" Override this in your implementation if needed")
+    }
 
     /// Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
-    fn set_pivot(&mut self, i: i32);
+    fn set_pivot(&mut self, _i: i32) {
+        unimplemented!(" Override this in your implementation if needed")
+    }
 
     /// Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
     /// compare(i, j).
-    fn compare_pivot(&mut self, i: i32) -> i32;
+    fn compare_pivot(&mut self, _i: i32) -> i32 {
+        unimplemented!(" Override this in your implementation if needed")
+    }
 
     /// Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError>;
+    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
+        unimplemented!(" Override this in your implementation if needed")
+    }
 
     fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
         if from == mid || mid == to || self.compare(mid - 1, mid) <= 0 {
@@ -297,3 +307,9 @@ pub fn check_range(from: i32, to: i32) -> Result<(), RuntimeError> {
     }
     Ok(())
 }
+
+/// A placeholder implementation of the `Sorter` trait.
+/// This implementation is provided to satisfy the compiler requirements.
+#[derive(Default)]
+pub struct DummySorter {}
+impl Sorter for DummySorter {}

@@ -17,6 +17,7 @@
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::{Counter, CounterEnum, VecCopyOps};
 use std::cmp::min;
+use std::sync::{Arc, Mutex};
 
 //TODO
 #[allow(unused)]
@@ -47,19 +48,19 @@ const BYTE_BLOCK_MASK: i32 = BYTE_BLOCK_SIZE - 1;
 ///
 /// # Note
 /// This is an internal API.
-pub struct ByteBlockPool<'a> {
+pub struct ByteBlockPool {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
     buffer_upto: i32,
-    allocator: AllocatorEnum<'a>,
+    allocator: AllocatorEnum,
     /// Offset from the start of the first buffer to the start of the current buffer, which is
     /// `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool maintains this offset because it is the first to
     /// overflow if there are too many allocated blocks.
     byte_offset: i32,
     byte_up_to: i32,
 }
-impl<'a> ByteBlockPool<'a> {
-    pub fn new(allocator: AllocatorEnum<'a>) -> Self {
+impl ByteBlockPool {
+    pub fn new(allocator: AllocatorEnum) -> Self {
         ByteBlockPool {
             buffers: vec![],
             buffer_upto: -1,
@@ -126,18 +127,18 @@ impl<'a> ByteBlockPool<'a> {
         &self,
         builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
-        offset: i64,
-        length: i32,
+        offset: u64,
+        length: u32,
     ) {
-        result.length = length as u32;
+        result.length = length;
         let buffer_index = (offset >> BYTE_BLOCK_SHIFT) as i32;
-        let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
-        if pos + length <= BYTE_BLOCK_SIZE {
+        let pos = (offset & BYTE_BLOCK_MASK as u64) as u32;
+        if pos + length <= BYTE_BLOCK_SIZE as u32 {
             // Common case: The slice lives in a single block.
             result
                 .bytes
                 .clone_from(&self.buffers[buffer_index as usize]);
-            result.offset = pos as u32;
+            result.offset = pos;
         } else {
             // builder.grow_no_copy(length);
             result.offset = 0;
@@ -146,10 +147,10 @@ impl<'a> ByteBlockPool<'a> {
         }
     }
     /// Appends the bytes in the provided BytesRef at the current position.
-    pub fn append_bytes_ref(&mut self, bytes: BytesRef) {
+    pub fn append_bytes_ref(&mut self, bytes: &BytesRef) {
         debug_assert!(bytes.offset <= i32::MAX as u32);
         debug_assert!(bytes.length <= i32::MAX as u32);
-        self.append_range(bytes.bytes, bytes.offset as i32, bytes.length as i32);
+        self.append_range(&bytes.bytes, bytes.offset as i32, bytes.length as i32);
     }
     /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and length.
     ///
@@ -207,7 +208,7 @@ impl<'a> ByteBlockPool<'a> {
     ///
     /// # Arguments
     /// * `bytes` - The byte array to write.
-    pub fn append(&mut self, bytes: Vec<u8>) {
+    pub fn append(&mut self, bytes: &[u8]) {
         let length = bytes.len() as i32;
         self.append_range(bytes, 0, length);
     }
@@ -217,7 +218,7 @@ impl<'a> ByteBlockPool<'a> {
     /// * `src_pool` - The source pool to copy from.
     /// * `src_offset` - The source pool offset.
     /// * `length` - The number of bytes to copy.
-    pub fn append_range(&mut self, bytes: Vec<u8>, mut offset: i32, length: i32) {
+    pub fn append_range(&mut self, bytes: &[u8], mut offset: i32, length: i32) {
         let mut bytes_left = length;
         while bytes_left > 0 {
             let buffer_left = BYTE_BLOCK_SIZE - self.byte_up_to;
@@ -251,16 +252,16 @@ impl<'a> ByteBlockPool<'a> {
     /// This method allows copying across block boundaries.
     pub fn read_bytes(
         &self,
-        offset: i64,
+        offset: u64,
         bytes: &mut [u8],
-        mut bytes_offset: i32,
-        bytes_length: i32,
+        mut bytes_offset: u32,
+        bytes_length: u32,
     ) -> Option<()> {
         let mut bytes_left = bytes_length;
         let mut buffer_index = (offset >> BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
-        let mut pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
+        let mut pos = (offset & BYTE_BLOCK_MASK as u64) as u32;
         while bytes_left > 0 {
-            let chunk = min(BYTE_BLOCK_SIZE - pos, bytes_left);
+            let chunk = min(BYTE_BLOCK_SIZE as u32 - pos, bytes_left);
             self.buffers[buffer_index].copy_to(
                 &mut bytes[bytes_offset as usize..(bytes_offset + chunk) as usize],
                 pos as usize,
@@ -331,26 +332,31 @@ impl Allocator for DirectAllocator {
         self.block_size
     }
 }
-pub struct DirectTrackingAllocator<'a> {
+pub struct DirectTrackingAllocator {
     block_size: i32,
-    byte_used: &'a mut CounterEnum,
+    byte_used: Arc<Mutex<CounterEnum>>,
 }
-impl<'a> DirectTrackingAllocator<'a> {
-    pub fn new(byte_used: &'a mut CounterEnum) -> Self {
+impl DirectTrackingAllocator {
+    pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Self {
         DirectTrackingAllocator {
             block_size: BYTE_BLOCK_SIZE,
             byte_used,
         }
     }
 }
-impl Allocator for DirectTrackingAllocator<'_> {
+impl Allocator for DirectTrackingAllocator {
     fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: i32, end: i32) {
         self.byte_used
+            .lock()
+            .unwrap()
             .add_and_get(-(end - start) as i64 * self.block_size as i64);
     }
 
     fn get_byte_block(&mut self) -> Vec<u8> {
-        self.byte_used.add_and_get(self.block_size as i64);
+        self.byte_used
+            .lock()
+            .unwrap()
+            .add_and_get(self.block_size as i64);
         vec![0; self.block_size as usize]
     }
 
@@ -359,15 +365,15 @@ impl Allocator for DirectTrackingAllocator<'_> {
     }
 }
 
-pub enum AllocatorEnum<'a> {
+pub enum AllocatorEnum {
     DA(DirectAllocator),
-    DTA(DirectTrackingAllocator<'a>),
+    DTA(DirectTrackingAllocator),
 }
-impl AllocatorEnum<'_> {
+impl AllocatorEnum {
     fn get_used(&self) -> i64 {
         match self {
             AllocatorEnum::DA(_da) => 0,
-            AllocatorEnum::DTA(dta) => dta.byte_used.get(),
+            AllocatorEnum::DTA(dta) => dta.byte_used.lock().unwrap().get(),
         }
     }
     fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {

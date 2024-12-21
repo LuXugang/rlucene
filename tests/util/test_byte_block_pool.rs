@@ -22,6 +22,7 @@ use rlucene::util::{
     new_counter, AllocatorEnum, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
     VecCopyOps, BYTE_BLOCK_SIZE,
 };
+use std::sync::{Arc, Mutex};
 
 #[allow(dead_code)] // for quick search
 struct TestByteBlockPool {}
@@ -37,12 +38,12 @@ fn test_append_from_other_pool() {
         .collect::<String>()
         .as_bytes()
         .to_vec();
-    pool.append(bytes.clone());
+    pool.append(&bytes);
     let bytes_length = bytes.len();
 
     let mut another_pool = ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()));
     let existing_bytes = vec![0; random.gen_range(500..100000)];
-    another_pool.append(existing_bytes.clone());
+    another_pool.append(&existing_bytes);
 
     let offset = random.gen_range(1..=bytes_length);
     let mut length = bytes_length - offset;
@@ -56,8 +57,13 @@ fn test_append_from_other_pool() {
     );
 
     let mut result = vec![0; length];
-    let result_length = result.len() as i32;
-    another_pool.read_bytes(existing_bytes.len() as i64, &mut result, 0, result_length);
+    let result_length = result.len();
+    another_pool.read_bytes(
+        existing_bytes.len() as u64,
+        &mut result,
+        0,
+        result_length as u32,
+    );
     for i in 0..length {
         assert_eq!(bytes[offset + i], result[i], "byte @ index= {}", i);
     }
@@ -65,10 +71,8 @@ fn test_append_from_other_pool() {
 #[test]
 fn test_read_and_write() {
     let mut random = my_random("test_read_and_write".to_string());
-    let mut byte_used = new_counter(false);
-    let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(
-        &mut byte_used,
-    )));
+    let byte_used = Arc::new(Mutex::new(new_counter(false)));
+    let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
     pool.next_buffer();
     let reuse_first = random.gen_bool(0.5);
     for _j in 0..2 {
@@ -85,7 +89,7 @@ fn test_read_and_write() {
             let value_copy = value.clone();
             list.push(BytesRef::new_from_string(&value));
             bytes_ref_builder.copy_chars_with_string(&value_copy);
-            pool.append_bytes_ref(bytes_ref_builder.get().clone());
+            pool.append_bytes_ref(bytes_ref_builder.get());
         }
         let mut position = 0;
         let mut builder = BytesRefBuilder::new();
@@ -100,7 +104,7 @@ fn test_read_and_write() {
                         position,
                         &mut bytes_ref_builder.get().bytes,
                         0,
-                        bytes_ref_builder_length as i32,
+                        bytes_ref_builder_length,
                     );
                 }
                 1 => {
@@ -110,7 +114,7 @@ fn test_read_and_write() {
                         &mut builder,
                         &mut scratch,
                         position,
-                        bytes_ref_builder.length() as i32,
+                        bytes_ref_builder.length(),
                     );
                     bytes_ref_builder.get().bytes.copy_from(
                         &scratch.bytes[scratch.offset as usize
@@ -123,7 +127,7 @@ fn test_read_and_write() {
                 }
             }
             assert!(bytes_ref_builder.get().bytes_equals(expected));
-            position += bytes_ref_builder.length() as i64;
+            position += bytes_ref_builder.length() as u64;
         }
         pool.reset(random.gen_bool(0.5), reuse_first);
         if reuse_first {
@@ -137,10 +141,8 @@ fn test_read_and_write() {
 #[test]
 fn test_large_random_block() {
     let mut random = my_random("test_large_random_block".to_string());
-    let mut byte_used = new_counter(false);
-    let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(
-        &mut byte_used,
-    )));
+    let byte_used = Arc::new(Mutex::new(new_counter(false)));
+    let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
     pool.next_buffer();
 
     let mut total_bytes = 0;
@@ -158,7 +160,7 @@ fn test_large_random_block() {
         random.fill_bytes(&mut bytes);
         let bytes_clone = bytes.clone();
         iterms.push(bytes);
-        pool.append_bytes_ref(BytesRef::new_from_bytes(bytes_clone));
+        pool.append_bytes_ref(&BytesRef::new_from_bytes(bytes_clone));
         total_bytes += size;
 
         // make sure we report the correct position
@@ -169,9 +171,9 @@ fn test_large_random_block() {
     for expected in iterms {
         let mut actual: Vec<u8> = vec![0; expected.len()];
         let actual_len = actual.len();
-        pool.read_bytes(position, &mut actual, 0, actual_len as i32);
+        pool.read_bytes(position, &mut actual, 0, actual_len as u32);
         assert_eq!(expected, actual);
-        position += expected.len() as i64;
+        position += expected.len() as u64;
     }
 }
 

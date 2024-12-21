@@ -23,44 +23,23 @@ where
 {
     delegate_sorter: T,
     fixed_start_offsets: Vec<i32>,
+    max_length: i32,
 }
 
 impl<T> StableMSBRadixSorter<T>
 where
     T: StableMSBRadixSorterBase,
 {
-    pub fn new(delegate_sorter: T) -> StableMSBRadixSorter<T> {
+    pub fn new(delegate_sorter: T, max_length: i32) -> StableMSBRadixSorter<T> {
         StableMSBRadixSorter {
             delegate_sorter,
             fixed_start_offsets: vec![0; HISTOGRAM_SIZE],
+            max_length,
         }
     }
 }
 
-impl<T> Sorter for StableMSBRadixSorter<T>
-where
-    T: StableMSBRadixSorterBase,
-{
-    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
-        unreachable!()
-    }
-
-    fn swap(&mut self, _i: i32, _j: i32) {
-        unreachable!()
-    }
-
-    fn set_pivot(&mut self, _i: i32) {
-        unreachable!()
-    }
-
-    fn compare_pivot(&mut self, _i: i32) -> i32 {
-        unreachable!()
-    }
-
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
-        unreachable!("You need to use MSBRadixSorter to wrap StableMSBRadixSorter in order to enable sorting functionality.")
-    }
-}
+impl<T> Sorter for StableMSBRadixSorter<T> where T: StableMSBRadixSorterBase {}
 
 impl<T> MSBRadixSorterBase for StableMSBRadixSorter<T>
 where
@@ -71,7 +50,11 @@ where
     }
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        self.delegate_sorter.get_fallback_sorter(k)
+        let delegate_sorter = MergeSorterImpl::new(k, self.max_length, &mut self.delegate_sorter);
+        MergeSorter {
+            delegate_sorter,
+            pivot_index: 0,
+        }
     }
 
     fn reorder(
@@ -97,33 +80,6 @@ where
         }
 
         self.delegate_sorter.restore(from, to);
-    }
-
-    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
-        self.delegate_sorter.get_bucket(i, k)
-    }
-
-    fn build_histogram(
-        &mut self,
-        prefix_common_bucket: i32,
-        prefix_common_len: i32,
-        from: i32,
-        to: i32,
-        k: i32,
-        histogram: &mut [i32],
-    ) {
-        self.delegate_sorter.build_histogram(
-            prefix_common_bucket,
-            prefix_common_len,
-            from,
-            to,
-            k,
-            histogram,
-        )
-    }
-
-    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
-        self.delegate_sorter.should_fallback(from, to, l)
     }
 }
 
@@ -282,78 +238,14 @@ where
         }
         0
     }
-
     fn swap(&mut self, i: i32, j: i32) {
         self.delegate_sorter.swap(i, j);
     }
-
-    fn set_pivot(&mut self, _i: i32) {
-        unreachable!(
-            "use MergeSorter to wrap MergeSorterImpl in order to enable `set_pivot` functionality.\
-        MergeSorterImpl is only used for MergeSorterBase's methods."
-        )
-    }
-
-    fn compare_pivot(&mut self, _i: i32) -> i32 {
-        unreachable!("use MergeSorter to wrap MergeSorterImpl in order to enable `compare_pivot` functionality.\
-        MergeSorterImpl is only used for MergeSorterBase's methods.")
-    }
-
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
-        unreachable!("You need to use MergeSorter to wrap MergeSorterImpl in order to enable sorting functionality.")
-    }
 }
 
-impl<T> MSBRadixSorterBase for MergeSorterImpl<'_, T>
-where
-    T: MSBRadixSorterBase + Sorter + StableMSBRadixSorterBase,
+impl<T> MSBRadixSorterBase for MergeSorterImpl<'_, T> where
+    T: MSBRadixSorterBase + Sorter + StableMSBRadixSorterBase
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
-        self.delegate_sorter.byte_at(i, k)
-    }
-
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        self.delegate_sorter.get_fallback_sorter(k)
-    }
-
-    fn reorder(
-        &mut self,
-        from: i32,
-        to: i32,
-        start_offsets: &mut [i32],
-        end_offsets: &mut [i32],
-        k: i32,
-    ) {
-        self.delegate_sorter
-            .reorder(from, to, start_offsets, end_offsets, k);
-    }
-
-    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
-        self.delegate_sorter.get_bucket(i, k)
-    }
-
-    fn build_histogram(
-        &mut self,
-        prefix_common_bucket: i32,
-        prefix_common_len: i32,
-        from: i32,
-        to: i32,
-        k: i32,
-        histogram: &mut [i32],
-    ) {
-        self.delegate_sorter.build_histogram(
-            prefix_common_bucket,
-            prefix_common_len,
-            from,
-            to,
-            k,
-            histogram,
-        );
-    }
-
-    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
-        self.delegate_sorter.should_fallback(from, to, l)
-    }
 }
 
 impl<T> StableMSBRadixSorterBase for MergeSorterImpl<'_, T>
@@ -366,20 +258,5 @@ where
 
     fn restore(&mut self, i: i32, j: i32) {
         self.delegate_sorter.restore(i, j);
-    }
-}
-
-pub fn default_get_fallback_sorter_stable<T>(
-    final_max_length: i32,
-    sorter: &mut T,
-    k: i32,
-) -> impl Sorter + '_
-where
-    T: Sorter + MSBRadixSorterBase + StableMSBRadixSorterBase,
-{
-    let delegate_sorter = MergeSorterImpl::new(k, final_max_length, sorter);
-    MergeSorter {
-        delegate_sorter,
-        pivot_index: 0,
     }
 }

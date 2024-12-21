@@ -18,10 +18,7 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::bytes_ref_comparator::{BytesRefComparator, BYTES_REF_COMPARATOR_TYPE};
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
-use crate::util::{
-    default_build_histogram, default_get_get_bucket, default_reorder, default_should_fallback,
-    Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter,
-};
+use crate::util::{Comparator, DummySorter, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 
 pub struct StringSorter<T, C>
 where
@@ -74,14 +71,6 @@ where
         self.delegate_sorter.swap(i, j);
     }
 
-    fn set_pivot(&mut self, _i: i32) {
-        unreachable!("Implemented polymorphism through its delegate_sorter")
-    }
-
-    fn compare_pivot(&mut self, _i: i32) -> i32 {
-        unreachable!("Implemented polymorphism through its delegate_sorter")
-    }
-
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         // In fact, it is necessary to provide an instance that implements BytesRefComparator to simplify the code.
         // However, the TYPE of this instance cannot be specified as "BytesRefComparator".
@@ -127,24 +116,8 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
-        unreachable!("unused: not a comparison-based sort")
-    }
-
     fn swap(&mut self, i: i32, j: i32) {
         self.delegate_sorter.swap(i, j);
-    }
-
-    fn set_pivot(&mut self, _i: i32) {
-        unreachable!("Implemented polymorphism through its delegate_sorter")
-    }
-
-    fn compare_pivot(&mut self, _j: i32) -> i32 {
-        unreachable!("Implemented polymorphism through its delegate_sorter")
-    }
-
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
-        unreachable!("Implemented polymorphism through its delegate_sorter")
     }
 }
 
@@ -162,45 +135,6 @@ where
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
         self.delegate_sorter
             .fall_back_sorter::<T, C>(self.cmp, Some(k))
-    }
-
-    fn reorder(
-        &mut self,
-        from: i32,
-        to: i32,
-        start_offsets: &mut [i32],
-        end_offsets: &mut [i32],
-        k: i32,
-    ) {
-        default_reorder(self, from, to, start_offsets, end_offsets, k)
-    }
-
-    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
-        default_get_get_bucket(self, i, k)
-    }
-
-    fn build_histogram(
-        &mut self,
-        prefix_common_bucket: i32,
-        prefix_common_len: i32,
-        from: i32,
-        to: i32,
-        k: i32,
-        histogram: &mut [i32],
-    ) {
-        default_build_histogram(
-            self,
-            prefix_common_bucket,
-            prefix_common_len,
-            from,
-            to,
-            k,
-            histogram,
-        )
-    }
-
-    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
-        default_should_fallback(from, to, l)
     }
 }
 
@@ -298,13 +232,29 @@ where
 
 pub trait StringSorterBase {
     fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32);
-    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
+    #[allow(unreachable_code)]
+    fn fall_back_sorter<'a, T, C>(
+        &'a mut self,
+        _cmp: &'a mut C,
+        _k: Option<i32>,
+    ) -> impl Sorter + 'a
     where
         T: Sorter + StringSorterBase,
-        C: BytesRefComparator + Comparator<BytesRef>;
-    fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
+        C: BytesRefComparator + Comparator<BytesRef>,
+    {
+        unimplemented!(" Override this in your implementation if needed");
+        // make compile happy
+        DummySorter::default()
+    }
+    #[allow(unreachable_code)]
+    fn radix_sorter<'a, C>(&'a mut self, _cmp: &'a mut C) -> impl Sorter + 'a
     where
-        C: BytesRefComparator + Comparator<BytesRef>;
+        C: BytesRefComparator + Comparator<BytesRef>,
+    {
+        unimplemented!(" Override this in your implementation if needed");
+        // make compile happy
+        DummySorter::default()
+    }
 }
 pub fn default_fall_back_sorter<'a, T, C>(
     cmp: &'a mut C,

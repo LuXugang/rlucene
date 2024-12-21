@@ -25,7 +25,9 @@ pub trait BytesRefComparator {
     /// Returns the unsigned byte to use for comparison at index `i`, or `-1` if all bytes
     /// that are useful for comparisons are exhausted. This may only be called with a value of `i`
     /// between `0` (inclusive) and `compared_bytes_count` (exclusive).
-    fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32;
+    fn byte_at(&self, _bytes_ref: &BytesRef, _i: u32) -> i32 {
+        unimplemented!(" Override this in your implementation if needed")
+    }
     fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: u32) -> i32 {
         for i in k..self.compared_bytes_count() as u32 {
             let b1 = self.byte_at(o1, i);
@@ -38,7 +40,9 @@ pub trait BytesRefComparator {
         }
         0
     }
-    fn compared_bytes_count(&self) -> i32;
+    fn compared_bytes_count(&self) -> i32 {
+        unimplemented!(" Override this in your implementation if needed")
+    }
 }
 
 pub struct Natural {
