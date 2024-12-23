@@ -155,7 +155,7 @@ impl Eq for BytesRef {}
 
 impl Ord for BytesRef {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.bytes.cmp(&other.bytes)
+        self.bytes[self.offset as usize..(self.offset + self.length) as usize].cmp(&other.bytes[other.offset as usize..(other.offset + other.length) as usize])
     }
 }
 

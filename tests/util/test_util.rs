@@ -58,6 +58,25 @@ const BLOCK_ENDS: &[u32] = &[
 ];
 
 impl TestUtil {
+
+    pub fn string_codepoint_comparator(a: &str, b: &str) -> std::cmp::Ordering {
+        let mut a_chars = a.chars();
+        let mut b_chars = b.chars();
+
+        loop {
+            match (a_chars.next(), b_chars.next()) {
+                (Some(a_cp), Some(b_cp)) => {
+                    if a_cp != b_cp {
+                        return a_cp.cmp(&b_cp);
+                    }
+                }
+                (None, None) => return std::cmp::Ordering::Equal, 
+                (None, _) => return std::cmp::Ordering::Less, 
+                (_, None) => return std::cmp::Ordering::Greater,
+            }
+        }
+    }
+    
     pub fn random_simple_string_with_length(
         random: &mut StdRng,
         min_length: usize,

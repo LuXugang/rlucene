@@ -37,6 +37,24 @@ pub trait VecCopyOps<T: Copy> {
 }
 
 impl<T: Copy> VecCopyOps<T> for Vec<T> {
+    /// Copies elements from a source slice (`src`) into the current slice (`self`) starting at the specified offset.
+    ///
+    /// # Parameters
+    /// - `self`: The destination mutable slice where the elements will be copied to.
+    /// - `src`: The source slice containing the elements to copy.
+    /// - `offset`: The starting position in the destination slice where the copy begins.
+    ///
+    /// # Panics
+    /// This function does not panic during runtime in release builds. However, it includes a `debug_assert!`
+    /// in debug mode to ensure that `offset + src.len()` does not exceed the length of the destination slice (`self`).
+    /// If the assertion fails, it indicates an out-of-bounds access.
+    ///
+    /// # Safety
+    /// This function uses `unsafe` code to call `std::ptr::copy_nonoverlapping`, which performs unchecked memory operations.
+    /// You must ensure that:
+    /// - The destination slice has enough space to accommodate the copied elements.
+    /// - The `src` and the destination slice (from `offset`) do not overlap.
+    ///
     fn copy_from(&mut self, src: &[T], offset: usize) {
         debug_assert!(
             offset + src.len() <= self.len(),

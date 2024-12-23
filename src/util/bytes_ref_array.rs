@@ -20,11 +20,7 @@ use crate::util::bit_util::INT_BYTES;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
-use crate::util::{
-    AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
-    DirectTrackingAllocator, MSBRadixSorterBase, Sorter, StableStringSorter,
-    StableStringSorterBase, StringSorter, StringSorterBase,
-};
+use crate::util::{AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, DirectTrackingAllocator, MSBRadixSorterBase, Natural, Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase};
 use std::sync::{Arc, Mutex};
 
 /// A simple append-only random-access array that stores full copies of the appended
@@ -157,6 +153,9 @@ impl BytesRefArray {
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
+    pub fn iterator_no_sort(& mut self) -> impl BytesRefIterator + use<'_>  {
+        IndexedBytesRefIterator::new(SortState::new(None), self)
+    }
 }
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     fn append(&mut self, bytes: &BytesRef) -> i32 {
@@ -179,9 +178,15 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         self.last_element
     }
 
-    fn iterator(&'a mut self) -> impl BytesRefIterator + 'a {
-        IndexedBytesRefIterator::new(SortState::new(None), self)
+   
+    fn iterator(
+        & mut self,
+        comp: impl BytesRefComparator + Comparator<BytesRef>,
+    ) -> Result<impl BytesRefIterator, RuntimeError> {
+        let ords = self.sort(comp, false)?;
+        Ok(IndexedBytesRefIterator::new(ords, self))
     }
+   
 }
 
 pub struct SortState {
@@ -275,11 +280,7 @@ impl StableStringSorterBase for StableStringSorterImpl<'_> {
             .copy_from_slice(&self.tmp[i as usize..j as usize]);
     }
 }
-impl MSBRadixSorterBase for StableStringSorterImpl<'_> {
-    fn byte_at(&mut self, _i: i32, _k: i32) -> i32 {
-        todo!()
-    }
-}
+impl MSBRadixSorterBase for StableStringSorterImpl<'_> {}
 
 struct StringSorterImpl<'a> {
     tmp: Vec<i32>,

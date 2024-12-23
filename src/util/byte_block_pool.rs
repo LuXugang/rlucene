@@ -121,15 +121,16 @@ impl ByteBlockPool {
     }
 
     /// Fills the provided [`BytesRef`] with the bytes at the specified offset and length.
-    /// This will avoid copying the bytes if the slice fits into a single block; otherwise, it uses the provided
-    /// [`BytesRefBuilder`] to copy bytes over.
     pub fn set_bytes_ref(
         &self,
-        builder: &mut BytesRefBuilder,
+        _builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         offset: u64,
         length: u32,
     ) {
+        if result.length < length {
+            result.bytes = vec![0; length as usize];
+        }
         result.length = length;
         let buffer_index = (offset >> BYTE_BLOCK_SHIFT) as i32;
         let pos = (offset & BYTE_BLOCK_MASK as u64) as u32;
@@ -137,11 +138,10 @@ impl ByteBlockPool {
             // Common case: The slice lives in a single block.
             result
                 .bytes
-                .clone_from(&self.buffers[buffer_index as usize]);
-            result.offset = pos;
+                .copy_from(&self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize], 0);
+            result.offset = 0;
         } else {
-            builder.grow_no_copy(length);
-            result.bytes = vec![0; length as usize];
+            // builder.grow_no_copy(length);
             result.offset = 0;
             self.read_bytes(offset, &mut result.bytes, 0, length);
             // builder.get().bytes.clone_from(&result.bytes);
