@@ -90,29 +90,29 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         self.stack_size += 1;
     }
     // Compute the length of the next run, make the run sorted and return its length.
-    fn next_run(&mut self) -> i32 {
+    fn next_run(&mut self) -> Result<i32, RuntimeError> {
         let run_base = self.run_end(0);
         debug_assert!(run_base < self.to);
 
         if run_base == self.to - 1 {
-            return 1;
+            return Ok(1);
         }
         let mut o = run_base + 2;
-        if self.compare(run_base, run_base + 1) > 0 {
-            while o < self.to && self.compare(o - 1, o) > 0 {
+        if self.compare(run_base, run_base + 1)? > 0 {
+            while o < self.to && self.compare(o - 1, o)? > 0 {
                 o += 1;
             }
             self.reverse(run_base, o);
         } else {
-            while o < self.to && self.compare(o - 1, o) <= 0 {
+            while o < self.to && self.compare(o - 1, o)? <= 0 {
                 o += 1;
             }
         }
         let run_hi = max(o, min(self.to, run_base + self.min_run));
-        self.binary_sort_with_start(run_base, run_hi, o);
-        run_hi - run_base
+        self.binary_sort_with_start(run_base, run_hi, o)?;
+        Ok(run_hi - run_base)
     }
-    pub fn ensure_invariants(&mut self) {
+    pub fn ensure_invariants(&mut self) -> Result<(), RuntimeError> {
         while self.stack_size > 1 {
             let run_len0 = self.run_len(0);
             let run_len1 = self.run_len(1);
@@ -123,26 +123,28 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
                 if run_len2 <= run_len1 + run_len0 {
                     // merge the smaller of 0 and 2 with 1
                     if run_len2 < run_len0 {
-                        self.merge_at(1);
+                        self.merge_at(1)?;
                     } else {
-                        self.merge_at(0);
+                        self.merge_at(0)?;
                     }
                     continue;
                 }
             }
 
             if run_len1 <= run_len0 {
-                self.merge_at(0);
+                self.merge_at(0)?;
                 continue;
             }
 
             break;
         }
+        Ok(())
     }
-    pub fn exhaust_stack(&mut self) {
+    pub fn exhaust_stack(&mut self) -> Result<(), RuntimeError> {
         while self.stack_size > 1 {
-            self.merge_at(0);
+            self.merge_at(0)?;
         }
+        Ok(())
     }
 
     pub fn reset(&mut self, from: i32, to: i32) {
@@ -158,35 +160,37 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         };
     }
 
-    pub fn merge_at(&mut self, n: i32) {
+    pub fn merge_at(&mut self, n: i32) -> Result<(), RuntimeError> {
         debug_assert!(self.stack_size >= 2);
-        self.merge(self.run_base(n + 1), self.run_base(n), self.run_end(n));
+        self.merge(self.run_base(n + 1), self.run_base(n), self.run_end(n))?;
 
         for j in (1..=n + 1).rev() {
             self.set_run_end(j, self.run_end(j - 1));
         }
 
         self.stack_size -= 1;
+        Ok(())
     }
 
-    fn merge(&mut self, mut lo: i32, mid: i32, mut hi: i32) {
-        if self.compare(mid - 1, mid) <= 0 {
-            return;
+    fn merge(&mut self, mut lo: i32, mid: i32, mut hi: i32) -> Result<(), RuntimeError> {
+        if self.compare(mid - 1, mid)? <= 0 {
+            return Ok(());
         }
 
-        lo = self.upper2(lo, mid, mid);
-        hi = self.lower2(mid, hi, mid - 1);
+        lo = self.upper2(lo, mid, mid)?;
+        hi = self.lower2(mid, hi, mid - 1)?;
         if hi - mid <= mid - lo && hi - mid <= self.max_temp_slots {
-            self.merge_hi(lo, mid, hi);
+            self.merge_hi(lo, mid, hi)?;
         } else if mid - lo <= self.max_temp_slots {
-            self.merge_lo(lo, mid, hi);
+            self.merge_lo(lo, mid, hi)?;
         } else {
-            self.merge_in_place(lo, mid, hi);
+            self.merge_in_place(lo, mid, hi)?;
         }
+        Ok(())
     }
 
-    fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) {
-        debug_assert!(self.delegate_sorter.compare(lo, mid) > 0);
+    fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), RuntimeError> {
+        debug_assert!(self.delegate_sorter.compare(lo, mid)? > 0);
 
         let len1 = mid - lo;
         self.delegate_sorter.save(lo, len1);
@@ -233,10 +237,11 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         }
 
         assert_eq!(j, dest);
+        Ok(())
     }
 
-    pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) {
-        debug_assert!(self.compare(mid - 1, hi - 1) > 0);
+    pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), RuntimeError> {
+        debug_assert!(self.compare(mid - 1, hi - 1)? > 0);
 
         let len2 = hi - mid;
         self.delegate_sorter.save(mid, len2);
@@ -283,6 +288,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         }
 
         debug_assert!(i == dest);
+        Ok(())
     }
 
     pub fn lower_saved(&self, mut from: i32, to: i32, val: i32) -> i32 {
@@ -351,7 +357,7 @@ impl<T> Sorter for TimSorter<T>
 where
     T: Sorter + TimSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter.compare(i, j)
     }
 
@@ -359,11 +365,11 @@ where
         self.delegate_sorter.swap(i, j);
     }
 
-    fn set_pivot(&mut self, i: i32) {
-        self.delegate_sorter.set_pivot(i);
+    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+        self.delegate_sorter.set_pivot(i)
     }
 
-    fn compare_pivot(&mut self, i: i32) -> i32 {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter.compare_pivot(i)
     }
 
@@ -376,15 +382,15 @@ where
         self.reset(from, to);
 
         loop {
-            self.ensure_invariants();
-            let run_length = self.next_run();
+            self.ensure_invariants()?;
+            let run_length = self.next_run()?;
             self.push_run_len(run_length);
 
             if self.run_end(0) >= to {
                 break;
             }
         }
-        self.exhaust_stack();
+        self.exhaust_stack()?;
 
         assert_eq!(self.run_end(0), to);
         Ok(())

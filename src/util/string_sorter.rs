@@ -18,7 +18,7 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::bytes_ref_comparator::{BytesRefComparator, BYTES_REF_COMPARATOR_TYPE};
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
-use crate::util::{Comparator, DummySorter, MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 
 pub struct StringSorter<T, C>
 where
@@ -59,12 +59,12 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i);
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate_sorter
-            .get(&mut self.scratch2, &mut self.scratch_bytes2, j);
-        self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
+            .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
+        Ok(self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2))
     }
 
     fn swap(&mut self, i: i32, j: i32) {
@@ -126,10 +126,10 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i);
-        self.cmp.byte_at(&self.scratch_bytes1, k as u32)
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
+        Ok(self.cmp.byte_at(&self.scratch_bytes1, k as u32))
     }
 
     fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
@@ -181,19 +181,19 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i);
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate_sorter
-            .get(&mut self.scratch2, &mut self.scratch_bytes2, j);
+            .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
         if self.k.is_some() {
-            self.cmp.compare_with_offset(
+            Ok(self.cmp.compare_with_offset(
                 &self.scratch_bytes1,
                 &self.scratch_bytes2,
                 self.k.unwrap() as u32,
-            )
+            ))
         } else {
-            self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
+            Ok(self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2))
         }
     }
 
@@ -201,19 +201,23 @@ where
         self.delegate_sorter.swap(i, j);
     }
 
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
         self.delegate_sorter
-            .get(&mut self.pivot_builder, &mut self.pivot, i);
+            .get(&mut self.pivot_builder, &mut self.pivot, i)?;
+        Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, j);
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, j)?;
         if self.k.is_some() {
-            self.cmp
-                .compare_with_offset(&self.pivot, &self.scratch_bytes1, self.k.unwrap() as u32)
+            Ok(self.cmp.compare_with_offset(
+                &self.pivot,
+                &self.scratch_bytes1,
+                self.k.unwrap() as u32,
+            ))
         } else {
-            self.cmp.compare(&self.pivot, &self.scratch_bytes1)
+            Ok(self.cmp.compare(&self.pivot, &self.scratch_bytes1))
         }
     }
 

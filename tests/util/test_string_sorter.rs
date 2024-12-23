@@ -23,7 +23,9 @@ use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
 use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
-use rlucene::util::{Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase};
+use rlucene::util::{
+    Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
+};
 
 #[allow(dead_code)] // for quick search
 struct TestStringSorter;
@@ -238,4 +240,4 @@ impl Sorter for StableStringSorterTestImpl<'_> {
         self.ord.swap(i as usize, j as usize);
     }
 }
-impl MSBRadixSorterBase for StableStringSorterTestImpl<'_>{}
+impl MSBRadixSorterBase for StableStringSorterTestImpl<'_> {}

@@ -136,9 +136,10 @@ impl ByteBlockPool {
         let pos = (offset & BYTE_BLOCK_MASK as u64) as u32;
         if pos + length <= BYTE_BLOCK_SIZE as u32 {
             // Common case: The slice lives in a single block.
-            result
-                .bytes
-                .copy_from(&self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize], 0);
+            result.bytes.copy_from(
+                &self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize],
+                0,
+            );
             result.offset = 0;
         } else {
             // builder.grow_no_copy(length);

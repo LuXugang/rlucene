@@ -103,13 +103,13 @@ where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i);
-        self.cmp.byte_at(&self.scratch_bytes1, k as u32)
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
+        Ok(self.cmp.byte_at(&self.scratch_bytes1, k as u32))
     }
 
-    fn get_fallback_sorter(&mut self, k: i32, _length:i32) -> impl Sorter {
+    fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
         fall_back_sorter_stable(self.cmp, self.delegate_sorter, Some(k))
     }
 }
@@ -146,19 +146,19 @@ where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i);
+            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate_sorter
-            .get(&mut self.scratch2, &mut self.scratch_bytes2, j);
+            .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
         if self.k.is_some() {
-            self.cmp.compare_with_offset(
+            Ok(self.cmp.compare_with_offset(
                 &self.scratch_bytes1,
                 &self.scratch_bytes2,
                 self.k.unwrap() as u32,
-            )
+            ))
         } else {
-            self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
+            Ok(self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2))
         }
     }
 
@@ -201,7 +201,7 @@ where
     C: BytesRefComparator + Comparator<BytesRef>,
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
         self.delegate_sorter.byte_at(i, k)
     }
 

@@ -16,9 +16,8 @@
  */
 use crate::index::BytesRef;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::{BytesRefComparator, Comparator};
-use crate::util::bytes_ref_array::{IndexedBytesRefIterator, SortState};
 use crate::util::error::runtime_error::RuntimeError;
+use crate::util::{BytesRefComparator, Comparator};
 
 pub trait SortableBytesRefArray<'a> {
     /// Append a new value
@@ -29,7 +28,7 @@ pub trait SortableBytesRefArray<'a> {
     fn size(&self) -> i32;
     /// Sort all values by the provided comparator and return an iterator over the sorted values */
     fn iterator(
-        & mut self,
+        &mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
     ) -> Result<impl BytesRefIterator, RuntimeError>;
 }

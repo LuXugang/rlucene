@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::{Comparator, Sorter, TimSorterBase};
 
 /// A [`TimSorter`](crate::util::TimSorter) for object arrays.
@@ -55,20 +56,22 @@ impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
     T: Default + Clone,
 {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
-        self.comparator
-            .compare(&self.arr[i as usize], &self.arr[j as usize])
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+        Ok(self
+            .comparator
+            .compare(&self.arr[i as usize], &self.arr[j as usize]))
     }
 
     fn swap(&mut self, i: i32, j: i32) {
         self.arr.swap(i as usize, j as usize);
     }
 
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
         self.pivot_index = i;
+        Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32, RuntimeError> {
         self.compare(self.pivot_index, j)
     }
 }

@@ -35,7 +35,7 @@ pub const INSERTION_SORT_THRESHOLD: i32 = 16;
 /// This is an internal API.
 pub trait Sorter {
     /// Compare entries found in slots i and j
-    fn compare(&mut self, _i: i32, _j: i32) -> i32 {
+    fn compare(&mut self, _i: i32, _j: i32) -> Result<i32, RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
@@ -45,13 +45,13 @@ pub trait Sorter {
     }
 
     /// Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
-    fn set_pivot(&mut self, _i: i32) {
+    fn set_pivot(&mut self, _i: i32) -> Result<(), RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
     /// Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
     /// compare(i, j).
-    fn compare_pivot(&mut self, _i: i32) -> i32 {
+    fn compare_pivot(&mut self, _i: i32) -> Result<i32, RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
@@ -60,77 +60,78 @@ pub trait Sorter {
         unimplemented!(" Override this in your implementation if needed")
     }
 
-    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) {
-        if from == mid || mid == to || self.compare(mid - 1, mid) <= 0 {
-            return;
+    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) -> Result<(), RuntimeError> {
+        if from == mid || mid == to || self.compare(mid - 1, mid)? <= 0 {
+            return Ok(());
         } else if to - from == 2 {
             self.swap(mid - 1, mid);
-            return;
+            return Ok(());
         }
 
-        while self.compare(from, mid) <= 0 {
+        while self.compare(from, mid)? <= 0 {
             from += 1;
         }
-        while self.compare(mid - 1, to - 1) <= 0 {
+        while self.compare(mid - 1, to - 1)? <= 0 {
             to -= 1;
         }
 
         let (first_cut, second_cut, _len11, len22) = if mid - from > to - mid {
             let len11 = (mid - from) >> 1;
             let first_cut = from + len11;
-            let second_cut = self.lower(mid, to, first_cut);
+            let second_cut = self.lower(mid, to, first_cut)?;
             let len22 = second_cut - mid;
             (first_cut, second_cut, len11, len22)
         } else {
             let len22 = (to - mid) >> 1;
             let second_cut = mid + len22;
-            let first_cut = self.upper(from, mid, second_cut);
+            let first_cut = self.upper(from, mid, second_cut)?;
             let len11 = first_cut - from;
             (first_cut, second_cut, len11, len22)
         };
 
         self.rotate(first_cut, mid, second_cut);
         let new_mid = first_cut + len22;
-        self.merge_in_place(from, first_cut, new_mid);
-        self.merge_in_place(new_mid, second_cut, to);
+        self.merge_in_place(from, first_cut, new_mid)?;
+        self.merge_in_place(new_mid, second_cut, to)?;
+        Ok(())
     }
 
-    fn lower(&mut self, mut from: i32, to: i32, val: i32) -> i32 {
+    fn lower(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32, RuntimeError> {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 1;
             let mid = from + half;
-            if self.compare(mid, val) < 0 {
+            if self.compare(mid, val)? < 0 {
                 from = mid + 1;
                 len = len - half - 1;
             } else {
                 len = half;
             }
         }
-        from
+        Ok(from)
     }
 
-    fn upper(&mut self, mut from: i32, to: i32, val: i32) -> i32 {
+    fn upper(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32, RuntimeError> {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 1;
             let mid = from + half;
-            if self.compare(val, mid) < 0 {
+            if self.compare(val, mid)? < 0 {
                 len = half;
             } else {
                 from = mid + 1;
                 len = len - half - 1;
             }
         }
-        from
+        Ok(from)
     }
     // faster than lower when val is at the end of [from:to[
-    fn lower2(&mut self, from: i32, to: i32, val: i32) -> i32 {
+    fn lower2(&mut self, from: i32, to: i32, val: i32) -> Result<i32, RuntimeError> {
         let mut f = to - 1;
         let mut t = to;
 
         while f > from {
-            if self.compare(f, val) < 0 {
+            if self.compare(f, val)? < 0 {
                 return self.lower(f, t, val);
             }
             let delta = t - f;
@@ -142,12 +143,12 @@ pub trait Sorter {
     }
 
     // faster than upper when val is at the beginning of [from:to[
-    fn upper2(&mut self, from: i32, to: i32, val: i32) -> i32 {
+    fn upper2(&mut self, from: i32, to: i32, val: i32) -> Result<i32, RuntimeError> {
         let mut f = from;
         let mut t = f + 1;
 
         while t < to {
-            if self.compare(t, val) > 0 {
+            if self.compare(t, val)? > 0 {
                 return self.upper(f, t, val);
             }
             let delta = t - f;
@@ -196,18 +197,23 @@ pub trait Sorter {
     /// when the number of items to sort becomes smaller than `BINARY_SORT_THRESHOLD`.
     ///
     /// This algorithm is **stable**.
-    fn binary_sort(&mut self, from: i32, to: i32) {
-        self.binary_sort_with_start(from, to, from + 1);
+    fn binary_sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+        self.binary_sort_with_start(from, to, from + 1)
     }
 
-    fn binary_sort_with_start(&mut self, from: i32, to: i32, mut i: i32) {
+    fn binary_sort_with_start(
+        &mut self,
+        from: i32,
+        to: i32,
+        mut i: i32,
+    ) -> Result<(), RuntimeError> {
         while i < to {
-            self.set_pivot(i);
+            self.set_pivot(i)?;
             let mut l = from;
             let mut h = i - 1;
             while l <= h {
                 let mid = (l + h) >> 1;
-                let cmp = self.compare_pivot(mid);
+                let cmp = self.compare_pivot(mid)?;
                 if cmp < 0 {
                     h = mid - 1;
                 } else {
@@ -221,19 +227,20 @@ pub trait Sorter {
             }
             i += 1;
         }
+        Ok(())
     }
 
     /// Sorts between `from` (inclusive) and `to` (exclusive) with insertion sort. Runs in `O(n^2)`.
     /// It is typically used by more sophisticated implementations as a fall-back when the number of
     /// items to sort becomes less than `INSERTION_SORT_THRESHOLD`. This algorithm is stable.
-    fn insertion_sort(&mut self, from: i32, to: i32) {
+    fn insertion_sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         let mut i = from + 1;
         while i < to {
             let mut current = i;
             i += 1;
             loop {
                 let previous = current - 1;
-                if self.compare(previous, current) > 0 {
+                if self.compare(previous, current)? > 0 {
                     self.swap(previous, current);
                     if previous == from {
                         break;
@@ -244,44 +251,47 @@ pub trait Sorter {
                 }
             }
         }
+        Ok(())
     }
     /// Uses heap sort to sort items between `from` (inclusive) and `to` (exclusive). This runs
     /// in `O(n * log(n))` and is used as a fall-back by [`IntroSorter`](crate::util::intro_sorter).
     /// This algorithm is NOT stable.
-    fn heap_sort(&mut self, from: i32, to: i32) {
+    fn heap_sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         if to - from <= 1 {
-            return;
+            return Ok(());
         }
-        self.heapify(from, to);
+        self.heapify(from, to)?;
         let mut end = to - 1;
         while end > from {
             self.swap(from, end);
-            self.sift_down(from, from, end);
+            self.sift_down(from, from, end)?;
             end -= 1;
         }
+        Ok(())
     }
 
-    fn heapify(&mut self, from: i32, to: i32) {
+    fn heapify(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         let mut i = Self::heap_parent(from, to - 1);
         while i >= from {
-            self.sift_down(i, from, to);
+            self.sift_down(i, from, to)?;
             i -= 1;
         }
+        Ok(())
     }
 
-    fn sift_down(&mut self, mut i: i32, from: i32, to: i32) {
+    fn sift_down(&mut self, mut i: i32, from: i32, to: i32) -> Result<(), RuntimeError> {
         let mut left_child = Self::heap_child(from, i);
         while left_child < to {
             let right_child = left_child + 1;
-            if self.compare(i, left_child) < 0 {
-                if right_child < to && self.compare(left_child, right_child) < 0 {
+            if self.compare(i, left_child)? < 0 {
+                if right_child < to && self.compare(left_child, right_child)? < 0 {
                     self.swap(i, right_child);
                     i = right_child;
                 } else {
                     self.swap(i, left_child);
                     i = left_child;
                 }
-            } else if right_child < to && self.compare(i, right_child) < 0 {
+            } else if right_child < to && self.compare(i, right_child)? < 0 {
                 self.swap(i, right_child);
                 i = right_child;
             } else {
@@ -289,6 +299,7 @@ pub trait Sorter {
             }
             left_child = Self::heap_child(from, i);
         }
+        Ok(())
     }
     fn heap_parent(from: i32, i: i32) -> i32 {
         ((i - 1 - from) >> 1) + from

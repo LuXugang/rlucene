@@ -47,9 +47,10 @@ where
     T: Ord,
     C: Comparator<T>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
-        self.comparator
-            .compare(&self.arr[i as usize], &self.arr[j as usize])
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+        Ok(self
+            .comparator
+            .compare(&self.arr[i as usize], &self.arr[j as usize]))
     }
 
     fn swap(&mut self, i: i32, j: i32) {
@@ -62,13 +63,15 @@ where
         self.arr.swap(i as usize, j as usize);
     }
 
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
         self.pivot = i;
+        Ok(())
     }
 
-    fn compare_pivot(&mut self, i: i32) -> i32 {
-        self.comparator
-            .compare(&self.arr[self.pivot as usize], &self.arr[i as usize])
+    fn compare_pivot(&mut self, i: i32) -> Result<i32, RuntimeError> {
+        Ok(self
+            .comparator
+            .compare(&self.arr[self.pivot as usize], &self.arr[i as usize]))
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {

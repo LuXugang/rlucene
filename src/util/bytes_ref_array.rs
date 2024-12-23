@@ -20,7 +20,11 @@ use crate::util::bit_util::INT_BYTES;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
-use crate::util::{AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, DirectTrackingAllocator, MSBRadixSorterBase, Natural, Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase};
+use crate::util::{
+    AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
+    DirectTrackingAllocator, MSBRadixSorterBase, Sorter, StableStringSorter,
+    StableStringSorterBase, StringSorter, StringSorterBase,
+};
 use std::sync::{Arc, Mutex};
 
 /// A simple append-only random-access array that stores full copies of the appended
@@ -144,7 +148,6 @@ impl BytesRefArray {
             string_sorter.sort(0, size)?;
         } else {
             let delegate_sorter = StringSorterImpl {
-                tmp: vec![0; size as usize],
                 ordered_entries: ordered_entries.as_mut_slice(),
                 bytes_ref_array: self,
             };
@@ -153,7 +156,7 @@ impl BytesRefArray {
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
-    pub fn iterator_no_sort(& mut self) -> impl BytesRefIterator + use<'_>  {
+    pub fn iterator_no_sort(&mut self) -> impl BytesRefIterator + use<'_> {
         IndexedBytesRefIterator::new(SortState::new(None), self)
     }
 }
@@ -178,15 +181,13 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         self.last_element
     }
 
-   
     fn iterator(
-        & mut self,
+        &mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
     ) -> Result<impl BytesRefIterator, RuntimeError> {
         let ords = self.sort(comp, false)?;
         Ok(IndexedBytesRefIterator::new(ords, self))
     }
-   
 }
 
 pub struct SortState {
@@ -229,7 +230,7 @@ impl<'a> IndexedBytesRefIterator<'a> {
         self.ord
     }
 }
-impl<'a> BytesRefIterator for IndexedBytesRefIterator<'_> {
+impl BytesRefIterator for IndexedBytesRefIterator<'_> {
     fn next(&mut self) -> Result<Option<BytesRef>, RuntimeError> {
         let mut result = BytesRef::new();
         self.pos += 1;
@@ -283,7 +284,6 @@ impl StableStringSorterBase for StableStringSorterImpl<'_> {
 impl MSBRadixSorterBase for StableStringSorterImpl<'_> {}
 
 struct StringSorterImpl<'a> {
-    tmp: Vec<i32>,
     ordered_entries: &'a mut [i32],
     bytes_ref_array: &'a mut BytesRefArray,
 }

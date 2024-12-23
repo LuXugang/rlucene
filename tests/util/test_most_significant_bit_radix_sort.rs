@@ -20,6 +20,7 @@ use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
 use std::collections::{BTreeSet, HashSet};
 
@@ -214,7 +215,7 @@ impl MSBRadixSorterImpl {
 }
 
 impl MSBRadixSorterBase for MSBRadixSorterImpl {
-    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
         assert!(
             k < self.final_max_length,
             "Index out of bounds: k={} exceeds final_max_length={}",
@@ -224,9 +225,9 @@ impl MSBRadixSorterBase for MSBRadixSorterImpl {
 
         let ref_item = &self.refs[i as usize];
         if ref_item.length as i32 <= k {
-            -1
+            Ok(-1)
         } else {
-            ref_item.bytes[ref_item.offset as usize + k as usize] as i32
+            Ok(ref_item.bytes[ref_item.offset as usize + k as usize] as i32)
         }
     }
 }
