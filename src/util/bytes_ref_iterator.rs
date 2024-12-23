@@ -28,7 +28,6 @@ pub trait BytesRefIterator {
     ///
     /// # Errors
     /// Returns an `std::io::Error` if there is a low-level I/O error.
-    #[allow(unused)]
     fn next(&mut self) -> Result<Option<BytesRef>, RuntimeError>;
 }
 

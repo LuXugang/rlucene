@@ -156,8 +156,11 @@ impl BytesRefArray {
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
-    pub fn iterator_no_sort(&mut self) -> impl BytesRefIterator + use<'_> {
-        IndexedBytesRefIterator::new(SortState::new(None), self)
+    pub fn iterator(&mut self) -> impl BytesRefIterator + use<'_> {
+        self.iterator_with_state(SortState::new(None))
+    }
+    pub fn iterator_with_state(&mut self, sort_state: SortState) -> IndexedBytesRefIteratorImpl {
+        IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
@@ -181,12 +184,14 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         self.last_element
     }
 
+    type Iter = IndexedBytesRefIteratorImpl<'a>;
+
     fn iterator(
-        &mut self,
+        &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<impl BytesRefIterator, RuntimeError> {
+    ) -> Result<Self::Iter, RuntimeError> {
         let ords = self.sort(comp, false)?;
-        Ok(IndexedBytesRefIterator::new(ords, self))
+        Ok(self.iterator_with_state(ords))
     }
 }
 
@@ -204,7 +209,7 @@ impl Accountable for SortState {
     }
 }
 
-pub struct IndexedBytesRefIterator<'a> {
+pub struct IndexedBytesRefIteratorImpl<'a> {
     pos: i32,
     ord: i32,
     sort_state: SortState,
@@ -212,11 +217,11 @@ pub struct IndexedBytesRefIterator<'a> {
     size: i32,
     bytes_ref_array: &'a mut BytesRefArray,
 }
-impl<'a> IndexedBytesRefIterator<'a> {
+impl<'a> IndexedBytesRefIteratorImpl<'a> {
     fn new(
         sort_state: SortState,
         bytes_ref_array: &'a mut BytesRefArray,
-    ) -> IndexedBytesRefIterator<'a> {
+    ) -> IndexedBytesRefIteratorImpl<'a> {
         Self {
             pos: -1,
             ord: -1,
@@ -226,11 +231,11 @@ impl<'a> IndexedBytesRefIterator<'a> {
             bytes_ref_array,
         }
     }
-    fn ord(&self) -> i32 {
+    pub fn ord(&self) -> i32 {
         self.ord
     }
 }
-impl BytesRefIterator for IndexedBytesRefIterator<'_> {
+impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
     fn next(&mut self) -> Result<Option<BytesRef>, RuntimeError> {
         let mut result = BytesRef::new();
         self.pos += 1;
@@ -247,6 +252,22 @@ impl BytesRefIterator for IndexedBytesRefIterator<'_> {
             Ok(None)
         }
     }
+}
+impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
+    fn ord(&self) -> i32 {
+        self.ord
+    }
+}
+
+pub trait IndexedBytesRefIterator: BytesRefIterator {
+    /// Returns the ordinal position of the element that was returned in the latest call to [`next`].
+    ///
+    /// # Warning
+    /// This method must not be called if [`next`] has not been called yet, or if the last call to
+    /// [`next`] returned `None`.
+    ///
+    /// [`next`]: Self::next
+    fn ord(&self) -> i32;
 }
 
 struct StableStringSorterImpl<'a> {

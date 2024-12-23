@@ -64,6 +64,7 @@ pub use tim_sorter::*;
 
 pub use sorter::*;
 
+pub use bytes_ref_array::*;
 pub use bytes_ref_comparator::*;
 pub use counter::*;
 pub use cursor_ext::*;

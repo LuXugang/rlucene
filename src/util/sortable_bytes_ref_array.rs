@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::{BytesRefComparator, Comparator};
 
@@ -27,8 +26,9 @@ pub trait SortableBytesRefArray<'a> {
     /// Returns the number of values appended so far
     fn size(&self) -> i32;
     /// Sort all values by the provided comparator and return an iterator over the sorted values */
+    type Iter;
     fn iterator(
-        &mut self,
+        &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<impl BytesRefIterator, RuntimeError>;
+    ) -> Result<Self::Iter, RuntimeError>;
 }
