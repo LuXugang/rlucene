@@ -49,8 +49,8 @@ where
         self.delegate_sorter.byte_at(i, k)
     }
 
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        let delegate_sorter = MergeSorterImpl::new(k, self.max_length, &mut self.delegate_sorter);
+    fn get_fallback_sorter(&mut self, k: i32, length: i32) -> impl Sorter {
+        let delegate_sorter = MergeSorterImpl::new(k, length, &mut self.delegate_sorter);
         MergeSorter {
             delegate_sorter,
             pivot_index: 0,

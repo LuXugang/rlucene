@@ -23,10 +23,7 @@ use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
 use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
-use rlucene::util::{
-    default_fall_back_sorter, default_get_fallback_sorter, default_radix_sorter, Comparator,
-    MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
-};
+use rlucene::util::{Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase};
 
 #[allow(dead_code)] // for quick search
 struct TestStringSorter;
@@ -204,21 +201,6 @@ impl StringSorterBase for StringSorterTestImpl {
         result.bytes = ref_item.bytes.clone();
         Ok(())
     }
-
-    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
-    where
-        T: Sorter + StringSorterBase,
-        C: BytesRefComparator + Comparator<BytesRef>,
-    {
-        default_fall_back_sorter(cmp, self, k)
-    }
-
-    fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
-    where
-        C: BytesRefComparator + Comparator<BytesRef>,
-    {
-        default_radix_sorter(cmp, self)
-    }
 }
 
 struct StableStringSorterTestImpl<'a> {
@@ -256,8 +238,4 @@ impl Sorter for StableStringSorterTestImpl<'_> {
         self.ord.swap(i as usize, j as usize);
     }
 }
-impl MSBRadixSorterBase for StableStringSorterTestImpl<'_> {
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        default_get_fallback_sorter(i32::MAX, self, k)
-    }
-}
+impl MSBRadixSorterBase for StableStringSorterTestImpl<'_>{}

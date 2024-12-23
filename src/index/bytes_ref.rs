@@ -109,8 +109,8 @@ impl BytesRef {
     /// - May return an error or panic if the data is not valid UTF-8 during runtime.
     pub fn utf8_to_string(&self) -> Result<String, RuntimeError> {
         std::str::from_utf8(&self.bytes[self.offset as usize..(self.offset + self.length) as usize])
-            .map(|s| s.to_owned()) 
-            .map_err(RuntimeError::Utf8Error) 
+            .map(|s| s.to_owned())
+            .map_err(RuntimeError::Utf8Error)
     }
     /// Creates a new `BytesRef` that points to a copy of the bytes from `other`.
     ///

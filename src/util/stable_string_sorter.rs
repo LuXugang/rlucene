@@ -109,7 +109,7 @@ where
         self.cmp.byte_at(&self.scratch_bytes1, k as u32)
     }
 
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
+    fn get_fallback_sorter(&mut self, k: i32, _length:i32) -> impl Sorter {
         fall_back_sorter_stable(self.cmp, self.delegate_sorter, Some(k))
     }
 }
@@ -205,8 +205,8 @@ where
         self.delegate_sorter.byte_at(i, k)
     }
 
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        self.delegate_sorter.get_fallback_sorter(k)
+    fn get_fallback_sorter(&mut self, k: i32, length: i32) -> impl Sorter {
+        self.delegate_sorter.get_fallback_sorter(k, length)
     }
 }
 

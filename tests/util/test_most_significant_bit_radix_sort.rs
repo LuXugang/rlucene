@@ -20,7 +20,7 @@ use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
-use rlucene::util::{default_get_fallback_sorter, MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
 use std::collections::{BTreeSet, HashSet};
 
 #[allow(dead_code)] // for quick search
@@ -228,10 +228,6 @@ impl MSBRadixSorterBase for MSBRadixSorterImpl {
         } else {
             ref_item.bytes[ref_item.offset as usize + k as usize] as i32
         }
-    }
-
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
-        default_get_fallback_sorter(self.final_max_length, self, k)
     }
 }
 impl Sorter for MSBRadixSorterImpl {

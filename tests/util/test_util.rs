@@ -76,13 +76,15 @@ impl TestUtil {
         Self::random_simple_string_with_length(random, 0, 10)
     }
 
-
-    pub fn random_realistic_unicode_string(random:&mut StdRng)-> String{
+    pub fn random_realistic_unicode_string(random: &mut StdRng) -> String {
         Self::random_realistic_unicode_string_with_length(random, 20)
     }
-    
-    pub fn random_realistic_unicode_string_with_length(random:&mut StdRng, max_length:i32 )-> String{
-       Self::random_realistic_unicode_string_impl(random, 0, max_length) 
+
+    pub fn random_realistic_unicode_string_with_length(
+        random: &mut StdRng,
+        max_length: i32,
+    ) -> String {
+        Self::random_realistic_unicode_string_impl(random, 0, max_length)
     }
 
     pub fn random_realistic_unicode_string_impl(

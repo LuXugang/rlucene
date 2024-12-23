@@ -14,20 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rlucene::util::bytes_ref_iterator::BytesRefIterator;
 use crate::common::my_random;
+use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::Rng;
 use rlucene::index::BytesRefBuilder;
 use rlucene::util::bytes_ref_array::BytesRefArray;
+use rlucene::util::bytes_ref_iterator::BytesRefIterator;
 use rlucene::util::{new_counter, CounterEnum, SortableBytesRefArray};
 use std::sync::{Arc, Mutex};
-use crate::util::test_error::TestError;
 
 #[allow(dead_code)] // for quick search
 struct TestBytesRefArray;
 #[test]
-fn test_append() -> Result<(), TestError>{
+fn test_append() -> Result<(), TestError> {
     let mut random = my_random("test_append".to_string());
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let mut list = BytesRefArray::new(counter);
@@ -44,7 +44,8 @@ fn test_append() -> Result<(), TestError>{
         let init_size = list.size();
 
         for i in 0..entries {
-            let random_realistic_unicode_string = TestUtil::random_realistic_unicode_string(&mut random);
+            let random_realistic_unicode_string =
+                TestUtil::random_realistic_unicode_string(&mut random);
             spare.copy_chars_with_string(&random_realistic_unicode_string);
             assert_eq!(i + init_size, list.append(spare.get()));
             string_list.push(random_realistic_unicode_string);
@@ -53,7 +54,7 @@ fn test_append() -> Result<(), TestError>{
         for i in 0..entries {
             assert_eq!(
                 string_list[i as usize],
-                list.get(&mut spare,i).unwrap().utf8_to_string()?,
+                list.get(&mut spare, i).unwrap().utf8_to_string()?,
                 "entry {} doesn't match",
                 i
             );
@@ -64,7 +65,7 @@ fn test_append() -> Result<(), TestError>{
             let e = random.gen_range(0..entries);
             assert_eq!(
                 string_list[e as usize],
-                list.get(&mut spare,e).unwrap().utf8_to_string()?,
+                list.get(&mut spare, e).unwrap().utf8_to_string()?,
                 "entry {} doesn't match",
                 e
             );
@@ -74,12 +75,9 @@ fn test_append() -> Result<(), TestError>{
         for _ in 0..2 {
             let mut iterator = list.iterator();
             for string in &string_list {
-                let value =  iterator.next()?;
+                let value = iterator.next()?;
                 assert!(value.is_some());
-                assert_eq!(
-                    *string,
-                    value.unwrap().utf8_to_string()?, 
-                );
+                assert_eq!(*string, value.unwrap().utf8_to_string()?,);
             }
         }
     }

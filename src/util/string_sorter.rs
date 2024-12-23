@@ -132,7 +132,7 @@ where
         self.cmp.byte_at(&self.scratch_bytes1, k as u32)
     }
 
-    fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter {
+    fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
         self.delegate_sorter
             .fall_back_sorter::<T, C>(self.cmp, Some(k))
     }
@@ -238,51 +238,22 @@ pub trait StringSorterBase {
         i: i32,
     ) -> Result<(), RuntimeError>;
     #[allow(unreachable_code)]
-    fn fall_back_sorter<'a, T, C>(
-        &'a mut self,
-        _cmp: &'a mut C,
-        _k: Option<i32>,
-    ) -> impl Sorter + 'a
+    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
     where
         T: Sorter + StringSorterBase,
         C: BytesRefComparator + Comparator<BytesRef>,
+        Self: Sorter + Sized,
     {
-        unimplemented!(" Override this in your implementation if needed");
-        // make compile happy
-        DummySorter::default()
+        StringIntroSorter::new(cmp, self, k)
     }
     #[allow(unreachable_code)]
-    fn radix_sorter<'a, C>(&'a mut self, _cmp: &'a mut C) -> impl Sorter + 'a
+    fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
     where
         C: BytesRefComparator + Comparator<BytesRef>,
+        Self: Sorter + Sized,
     {
-        unimplemented!(" Override this in your implementation if needed");
-        // make compile happy
-        DummySorter::default()
+        let length = cmp.compared_bytes_count();
+        let msb_radix_sorter_delegate_sorter = MSBStringRadixSorter::new(cmp, self);
+        MSBRadixSorter::new(length, msb_radix_sorter_delegate_sorter)
     }
-}
-pub fn default_fall_back_sorter<'a, T, C>(
-    cmp: &'a mut C,
-    delegate_sorter: &'a mut T,
-    k: Option<i32>,
-) -> StringIntroSorter<'a, T, C>
-where
-    T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
-{
-    StringIntroSorter::new(cmp, delegate_sorter, k)
-}
-
-pub fn default_radix_sorter<'a, T, C>(
-    cmp: &'a mut C,
-    string_sorter_delegate_sorter: &'a mut T,
-) -> MSBRadixSorter<MSBStringRadixSorter<'a, T, C>>
-where
-    T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
-{
-    let length = cmp.compared_bytes_count();
-    let msb_radix_sorter_delegate_sorter =
-        MSBStringRadixSorter::new(cmp, string_sorter_delegate_sorter);
-    MSBRadixSorter::new(length, msb_radix_sorter_delegate_sorter)
 }

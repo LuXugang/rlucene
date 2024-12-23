@@ -271,7 +271,7 @@ where
     }
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter + use<'_, T> {
-        self.delegate_sorter.get_fallback_sorter(k)
+        self.delegate_sorter.get_fallback_sorter(k, self.max_length)
     }
 
     /// Always returns `true` if the assertions pass.
@@ -406,10 +406,16 @@ pub trait MSBRadixSorterBase: Sorter {
     }
 
     #[allow(unreachable_code)]
-    fn get_fallback_sorter(&mut self, _k: i32) -> impl Sorter {
-        unimplemented!(" Override this in your implementation if needed");
-        // make compile happy
-        DummySorter::default()
+    fn get_fallback_sorter(&mut self, k: i32, length: i32) -> impl Sorter
+    where
+        Self: Sized,
+    {
+        MSBRadixIntroSorterImpl {
+            pivot: BytesRefBuilder::new(),
+            max_length: length,
+            k,
+            delegate_sorter: self,
+        }
     }
 
     /// Reorder based on start/end offsets for each bucket. When this method returns, `start_offsets`
@@ -465,20 +471,5 @@ pub trait MSBRadixSorterBase: Sorter {
 
     fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
         (to - from) <= LENGTH_THRESHOLD as i32 || l >= LEVEL_THRESHOLD as i32
-    }
-}
-pub fn default_get_fallback_sorter<T>(
-    max_length: i32,
-    delegate_sorter: &mut T,
-    k: i32,
-) -> MSBRadixIntroSorterImpl<T>
-where
-    T: Sorter + MSBRadixSorterBase,
-{
-    MSBRadixIntroSorterImpl {
-        pivot: BytesRefBuilder::new(),
-        max_length,
-        k,
-        delegate_sorter,
     }
 }
