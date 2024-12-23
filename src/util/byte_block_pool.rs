@@ -121,6 +121,14 @@ impl ByteBlockPool {
     }
 
     /// Fills the provided [`BytesRef`] with the bytes at the specified offset and length.
+    /// # Parameters
+    /// - `_builder`: This parameter is currently unused but retained for future compatibility.See Note
+    /// # Note
+    /// In Java, the length of result is adjusted through BytesRefBuilder,
+    /// whereas in Rust Lucene, to avoid copying, we operate directly on result.
+    ///
+    /// However, we still retain the interface definitions from Java Lucene to maintain consistency
+    /// with the original implementation as much as possible.
     pub fn set_bytes_ref(
         &self,
         _builder: &mut BytesRefBuilder,

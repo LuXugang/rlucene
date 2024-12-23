@@ -69,11 +69,6 @@ impl BytesRefArray {
     /// # Errors
     /// Returns [`RuntimeError::array_index_out_of_bounds`] if the index is invalid.
     ///
-    /// # Note
-    /// In Java Lucene, this method returns the `bytes_ref` field from the `BytesRefBuilder`.
-    /// However, in Rust Lucene, due to language constraints and complexity,
-    /// we modify the `BytesRefBuilder` directly. The caller retrieves the updated `BytesRef`
-    /// by accessing the modified `BytesRefBuilder`.
     pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef, RuntimeError> {
         if index < 0 || index >= self.last_element {
             return Err(RuntimeError::array_index_out_of_bounds(format!(
@@ -130,6 +125,17 @@ impl BytesRefArray {
         Ok(())
     }
 
+    /// Returns a [`SortState`] representing the order of elements in this array.
+    /// This is a non-destructive operation.
+    ///
+    /// # Parameters
+    /// - `comp`: The comparator to compare [`BytesRef`](BytesRef)s. A radix sort optimization is available
+    ///   if the comparator implements [`BytesRefComparator`](BytesRefComparator).
+    /// - `stable`: Indicates if the sort needs to be stable.
+    ///
+    /// # Returns
+    /// A [`SortState`](SortState) that can be used in [`BytesRefArray::iterator_with_state`] with the given sort state.
+    ///
     pub fn sort(
         &mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
@@ -159,10 +165,32 @@ impl BytesRefArray {
     pub fn iterator(&mut self) -> impl BytesRefIterator + use<'_> {
         self.iterator_with_state(SortState::new(None))
     }
+    /// Returns an [`IndexedBytesRefIteratorImpl`](IndexedBytesRefIteratorImpl) with point-in-time semantics.
+    /// The iterator provides access to all [`BytesRef`] instances appended so far.
+    ///
+    /// # Parameters
+    /// - `sort_state`:  the iterator will iterate the byte values
+    ///   in the order defined by the `sort_state`.
+    ///
+    /// # Notes
+    /// - This is a non-destructive operation.
+    ///
+    /// [`IndexedBytesRefIterator`]: crate::IndexedBytesRefIterator
+    /// [`BytesRef`]: crate::BytesRef
     pub fn iterator_with_state(&mut self, sort_state: SortState) -> IndexedBytesRefIteratorImpl {
         IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
+/// Appends a copy of the given [`BytesRef`](BytesRef) to this [`BytesRefArray`](BytesRefArray).
+///
+/// # Parameters
+/// - `bytes`: The `BytesRef` to append.
+///
+/// # Returns
+/// The index of the appended bytes.
+///
+/// [`BytesRef`]: crate::BytesRef
+/// [`BytesRefArray`]: crate::BytesRefArray
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     fn append(&mut self, bytes: &BytesRef) -> i32 {
         self.pool.append_bytes_ref(bytes);
@@ -184,8 +212,16 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         self.last_element
     }
 
+    /// Returns a [`BytesRefIterator`](BytesRefIterator) with point-in-time semantics. The iterator provides access
+    /// to all [`BytesRef`] instances appended so far.
+    ///
+    /// # Parameters
+    /// - `comp`: An optional [`Comparator`] to specify the order of iteration. the iterator
+    ///   will iterate the byte values in the order specified by the comparator.
+    ///
+    /// # Notes
+    /// - This is a non-destructive operation.
     type Iter = IndexedBytesRefIteratorImpl<'a>;
-
     fn iterator(
         &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
