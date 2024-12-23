@@ -618,7 +618,7 @@ fn test_and_not() {
     let mut random = my_random("test_and_not".to_string());
 
     let num_bits2 = random.gen_range(1000..=2000);
-    let num_bits1 = random.gen_range(1000..num_bits2);
+    let num_bits1 = random.gen_range(1000..=num_bits2);
 
     let count1 = random.gen_range(0..=num_bits1 - 1);
     let count2 = random.gen_range(0..=num_bits2 - 1);
