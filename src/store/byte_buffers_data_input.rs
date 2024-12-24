@@ -331,7 +331,7 @@ pub fn slice_buffer_list<'a>(
     let block_mask = (1u64 << block_bits) - 1;
 
     let start_block_index = (abs_start / block_bytes) as usize;
-    let end_block_index = ((abs_end / block_bytes) as usize).min(blocks.len() - 1);;
+    let end_block_index = ((abs_end / block_bytes) as usize).min(blocks.len() - 1);
 
     // Create a new Cursor for each block and adjust the position and underlying data range as needed
     blocks[start_block_index..=end_block_index]

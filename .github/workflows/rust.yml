@@ -15,8 +15,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v4
+      - name: Generate Random Seed
+        run: |
+          echo "Generating random seed with Rust..."
+          RANDOM_SEED=$(cargo run --example generate_seed | tail -n 1)
+          echo "TEST_SEED=$RANDOM_SEED" >> $GITHUB_ENV
+          echo "Generated Random Seed: $RANDOM_SEED"
+      - name: Log Random Seed
+        run: |
+          echo "Random Seed: $TEST_SEED"
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose

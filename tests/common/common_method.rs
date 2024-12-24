@@ -15,18 +15,31 @@
  * limitations under the License.
  */
 use rand::prelude::StdRng;
-use rand::{random, SeedableRng};
+use rand::{Rng, SeedableRng};
 
-pub fn get_seed_from_env() -> u64 {
-    std::env::var("TEST_SEED")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or_else(random) // 默认种子
+/// Retrieves the seed from the environment variable "TEST_SEED".
+/// If the environment variable is not set or cannot be parsed as a `u64`,
+/// it generates a random seed and logs the result.
+///
+/// # Returns
+/// A valid `u64` seed.
+pub fn get_seed_from_env(test_name: String) -> u64 {
+    if let Ok(seed_str) = std::env::var("TEST_SEED") {
+        if let Ok(seed) = seed_str.parse::<u64>() {
+            println!("Using Global Seed from environment: {}", seed);
+            return seed;
+        } else {
+            println!("Environment variable TEST_SEED is invalid: {}", seed_str);
+        }
+    }
+
+    let seed = rand::thread_rng().gen_range(0..u64::MAX);
+    println!("Generated random seed in {}: {}", test_name,seed);
+    seed
 }
 
 pub fn my_random(test_name: String) -> StdRng {
-    let seed: u64 = get_seed_from_env();
-    println!("Generated Seed in {}: {}", test_name, seed);
+    let seed: u64 = get_seed_from_env(test_name);
     StdRng::seed_from_u64(seed)
 }
 
