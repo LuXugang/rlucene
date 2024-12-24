@@ -28,7 +28,7 @@ pub const INSERTION_SORT_THRESHOLD: i32 = 16;
 /// 1. [`MSBRadixSorter`](crate::util::MSBRadixSorter) for strings (array of bytes/chars). Not a stable sort.
 /// 2. [`StableMSBRadixSorter`](crate::util::StableMSBRadixSorter) for strings (array of bytes/chars). Stable sort.
 /// 3. [`IntroSorter`](crate::util::intro_sorter::IntroSorter). Not a stable sort.
-/// 4. [`InPlaceMergeSorter`](crate::util::InPlaceMergeSorter). When the data to sort is typically small. Stable sort.
+/// 4. [`InPlaceMergeSorter`](crate::util::in_place_merge_sorter::InPlaceMergeSorter). When the data to sort is typically small. Stable sort.
 /// 5. [`TimSorter`](crate::util::tim_sorter::TimSorter). Stable sort.
 ///
 /// # Note

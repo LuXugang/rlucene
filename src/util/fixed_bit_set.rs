@@ -29,7 +29,7 @@ const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 #[derive(Default)]
 /// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`) `long[]`, accessed with
 /// an `int` index, implementing [`Bits`] and [`DocIdSet`](crate::search::doc_id_set).
-/// If you need to manage more than 2.1B bits, use [`LongBitSet`](crate::util::LongBitSet).
+/// If you need to manage more than 2.1B bits, use [`LongBitSet`](crate::util::long_bit_set::LongBitSet).
 ///
 /// # Note
 /// This is an internal API.

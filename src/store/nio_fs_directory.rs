@@ -49,7 +49,7 @@ impl Display for NIOFSDirectory {
     }
 }
 
-/// this method should only be called in [`FSDirectory::open_input`], which will first check whether file could be read
+/// this method should only be called in [`FSDirectory::open_input`](crate::store::fs_directory::FSDirectory), which will first check whether file could be read
 impl FSDirectoryBase for NIOFSDirectory {
     type Output = BufferedIndexInput<NIOFSIndexInput>;
     fn open_input(

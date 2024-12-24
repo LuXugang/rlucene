@@ -411,7 +411,6 @@ pub trait MSBRadixSorterBase: Sorter {
         unimplemented!(" Override this in your implementation if needed")
     }
 
-    #[allow(unreachable_code)]
     fn get_fallback_sorter(&mut self, k: i32, length: i32) -> impl Sorter
     where
         Self: Sized,

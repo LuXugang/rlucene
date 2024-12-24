@@ -52,11 +52,11 @@ use std::{fs, io};
 /// underlying channel to close immediately, leading to subsequent `ClosedChannelException` errors. If your application
 /// uses `Thread::interrupt()` or `Future::cancel()`, it's recommended to use the legacy `RAFDirectory` from the `misc` module.
 ///
-/// The default locking implementation is [`NativeFSLockFactory`](crate::store::native_fs_lock_factory::NativeFSLockFactory),
+/// The default locking implementation is [`NativeFSLockFactory`],
 /// but it can be replaced with a custom `LockFactory`.
 ///
 /// # See Also
-/// [`Directory`](Directory)
+/// [`Directory`]
 pub struct FSDirectory<D, T, B>
 where
     D: LockFactory,

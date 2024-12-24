@@ -16,7 +16,7 @@
  */
 use crate::util::error::data_io_error_enum::DataIOError;
 
-/// Random Access Index API. Unlike [`IndexInput`], this has no concept of file position; all
+/// Random Access Index API. Unlike [`IndexInput`](crate::store::IndexInput), this has no concept of file position; all
 /// reads are absolute. However, like `IndexInput`, it is only intended for use by a single thread.
 pub trait RandomAccessInput {
     /// The number of bytes in the file.

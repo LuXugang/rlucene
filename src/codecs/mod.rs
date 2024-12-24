@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod codec_util;
+pub mod compound_format;

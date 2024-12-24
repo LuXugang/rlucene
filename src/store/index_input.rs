@@ -18,7 +18,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, ReadAdvice};
 use crate::util::error::data_io_error_enum::DataIOError;
 
-/// Provides random-access input operations for files within a [`Directory`].
+/// Provides random-access input operations for files within a [`Directory`](crate::store::directory::Directory).
 ///
 /// `IndexInput` supports reading data from a file and maintains its own internal state,
 /// such as the current file position.
@@ -72,7 +72,7 @@ pub trait IndexInput: DataInput + Clone {
         length: u64,
     ) -> Result<impl IndexInput + RandomAccessInput, DataIOError>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used by
-    /// [`CompoundFormat`] implementations to honor
+    /// [`CompoundFormat`](crate::codecs::compound_format) implementations to honor
     /// the [`ReadAdvice`] of each file within the compound file.
     ///
     /// # Note

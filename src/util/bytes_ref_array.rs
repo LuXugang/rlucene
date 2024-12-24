@@ -129,12 +129,12 @@ impl BytesRefArray {
     /// This is a non-destructive operation.
     ///
     /// # Parameters
-    /// - `comp`: The comparator to compare [`BytesRef`](BytesRef)s. A radix sort optimization is available
-    ///   if the comparator implements [`BytesRefComparator`](BytesRefComparator).
+    /// - `comp`: The comparator to compare [`BytesRef`]s. A radix sort optimization is available
+    ///   if the comparator implements [`BytesRefComparator`].
     /// - `stable`: Indicates if the sort needs to be stable.
     ///
     /// # Returns
-    /// A [`SortState`](SortState) that can be used in [`BytesRefArray::iterator_with_state`] with the given sort state.
+    /// A [`SortState`] that can be used in [`BytesRefArray::iterator_with_state`] with the given sort state.
     ///
     pub fn sort(
         &mut self,
@@ -165,7 +165,7 @@ impl BytesRefArray {
     pub fn iterator(&mut self) -> impl BytesRefIterator + use<'_> {
         self.iterator_with_state(SortState::new(None))
     }
-    /// Returns an [`IndexedBytesRefIteratorImpl`](IndexedBytesRefIteratorImpl) with point-in-time semantics.
+    /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
     /// The iterator provides access to all [`BytesRef`] instances appended so far.
     ///
     /// # Parameters
@@ -174,14 +174,15 @@ impl BytesRefArray {
     ///
     /// # Notes
     /// - This is a non-destructive operation.
+    /// # See Also
+    /// [`IndexedBytesRefIterator`]
     ///
-    /// [`IndexedBytesRefIterator`]: crate::IndexedBytesRefIterator
-    /// [`BytesRef`]: crate::BytesRef
+    /// [`BytesRef`]
     pub fn iterator_with_state(&mut self, sort_state: SortState) -> IndexedBytesRefIteratorImpl {
         IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
-/// Appends a copy of the given [`BytesRef`](BytesRef) to this [`BytesRefArray`](BytesRefArray).
+/// Appends a copy of the given [`BytesRef`] to this [`BytesRefArray`].
 ///
 /// # Parameters
 /// - `bytes`: The `BytesRef` to append.
@@ -189,8 +190,9 @@ impl BytesRefArray {
 /// # Returns
 /// The index of the appended bytes.
 ///
-/// [`BytesRef`]: crate::BytesRef
-/// [`BytesRefArray`]: crate::BytesRefArray
+/// [`BytesRef`]
+///
+/// [`BytesRefArray`]
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     fn append(&mut self, bytes: &BytesRef) -> i32 {
         self.pool.append_bytes_ref(bytes);
@@ -212,7 +214,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         self.last_element
     }
 
-    /// Returns a [`BytesRefIterator`](BytesRefIterator) with point-in-time semantics. The iterator provides access
+    /// Returns a [`BytesRefIterator`] with point-in-time semantics. The iterator provides access
     /// to all [`BytesRef`] instances appended so far.
     ///
     /// # Parameters
@@ -296,13 +298,12 @@ impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
 }
 
 pub trait IndexedBytesRefIterator: BytesRefIterator {
-    /// Returns the ordinal position of the element that was returned in the latest call to [`next`].
+    /// Returns the ordinal position of the element that was returned in the latest call to [`next`](BytesRefIterator::next).
     ///
     /// # Warning
-    /// This method must not be called if [`next`] has not been called yet, or if the last call to
-    /// [`next`] returned `None`.
+    /// This method must not be called if [`next`](BytesRefIterator::next) has not been called yet, or if the last call to
+    /// [`next`](BytesRefIterator::next) returned `None`.
     ///
-    /// [`next`]: Self::next
     fn ord(&self) -> i32;
 }
 

@@ -15,4 +15,4 @@
  * limitations under the License.
  */
 #[allow(unused)]
-struct SimpleFSLockFactory;
+pub struct SimpleFSLockFactory;

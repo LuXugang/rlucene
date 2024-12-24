@@ -18,13 +18,13 @@ use crate::index::BytesRef;
 use crate::util::error::runtime_error::RuntimeError;
 
 pub trait BytesRefIterator {
-    /// Increments the iteration to the next [`BytesRef`](BytesRef) in the iterator.
-    /// Returns the resulting [`BytesRef`](BytesRef) or `None` if the end of the iterator is reached.
+    /// Increments the iteration to the next [`BytesRef`] in the iterator.
+    /// Returns the resulting [`BytesRef`] or `None` if the end of the iterator is reached.
     /// The returned `BytesRef` may be re-used across calls to `next`. After this method returns `None`,
     /// do not call it again as the results are undefined.
     ///
     /// # Returns
-    /// The next [`BytesRef`](BytesRef) in the iterator or `None` if the end of the iterator is reached.
+    /// The next [`BytesRef`] in the iterator or `None` if the end of the iterator is reached.
     ///
     /// # Errors
     /// Returns an `std::io::Error` if there is a low-level I/O error.

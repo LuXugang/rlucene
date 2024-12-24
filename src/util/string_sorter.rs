@@ -20,6 +20,11 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 
+/// A [`BytesRef`] sorter that attempts to use an efficient radix sorter if [`StringSorter::compare`]
+/// is a [`BytesRefComparator`]. Otherwise, it falls back to [`StringSorterBase::fall_back_sorter`].
+///
+/// # Notes
+/// - This is an internal API and is not intended for external use.
 pub struct StringSorter<T, C>
 where
     T: Sorter + StringSorterBase,
@@ -241,7 +246,6 @@ pub trait StringSorterBase {
         result: &mut BytesRef,
         i: i32,
     ) -> Result<(), RuntimeError>;
-    #[allow(unreachable_code)]
     fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
     where
         T: Sorter + StringSorterBase,
@@ -250,7 +254,6 @@ pub trait StringSorterBase {
     {
         StringIntroSorter::new(cmp, self, k)
     }
-    #[allow(unreachable_code)]
     fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
     where
         C: BytesRefComparator + Comparator<BytesRef>,
