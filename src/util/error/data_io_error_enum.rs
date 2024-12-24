@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::array_index_out_of_bounds::ArrayIndexOutOfBoundsError;
 use crate::util::error::corrupt_index::CorruptIndexError;
 use crate::util::error::eof::Eof;
 use crate::util::error::illegal_argument::IllegalArgumentError;
@@ -76,6 +77,9 @@ pub enum DataIOError {
 
     #[error("{0}")]
     LockHeldByOther(#[from] LockHeldByOtherError),
+
+    #[error("{0}")]
+    ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
 }
 impl DataIOError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -128,5 +132,8 @@ impl DataIOError {
     }
     pub fn lock_held_by_other(msg: impl Into<String>) -> Self {
         DataIOError::LockHeldByOther(LockHeldByOtherError::new(msg))
+    }
+    pub fn array_index_out_of_bounds(msg: impl Into<String>) -> Self {
+        DataIOError::ArrayIndexOutOfBounds(ArrayIndexOutOfBoundsError::new(msg))
     }
 }
