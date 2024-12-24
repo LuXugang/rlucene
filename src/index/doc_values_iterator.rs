@@ -14,17 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 
-mod buffered_updates;
-pub mod bytes_ref;
-pub use bytes_ref::*;
-pub mod bytes_ref_builder;
-pub use bytes_ref_builder::*;
-mod doc_values_iterator;
-pub mod docs_with_field_set;
-mod documents_writer_delete_queue;
-pub mod index_file_names;
-pub mod index_options;
-pub mod leaf_reader_context;
-
-pub use index_file_names::*;
+pub trait DocValuesIterator: DocIdSetIterator {
+    /// Advances the iterator to exactly `target` and returns whether `target` has a value.
+    ///
+    /// # Parameters
+    /// - `target`: The target document ID to advance to. `target` must be greater than or equal to
+    ///   the current document ID ([`doc_id()`](DocIdSetIterator::doc_id)) and must be a valid document ID (i.e., `target >= 0`
+    ///   and `target < max_doc`).
+    ///
+    /// # Returns
+    /// Returns `true` if `target` has a value, otherwise returns `false`.
+    ///
+    /// # Notes
+    /// After this method returns, [`doc_id()`](DocIdSetIterator::doc_id) will return the value of `target`.
+    fn advance_exact(&self, target: i32) -> bool;
+}

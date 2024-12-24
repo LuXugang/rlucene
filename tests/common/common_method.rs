@@ -34,7 +34,7 @@ pub fn get_seed_from_env(test_name: String) -> u64 {
     }
 
     let seed = rand::thread_rng().gen_range(0..u64::MAX);
-    println!("Generated random seed in {}: {}", test_name,seed);
+    println!("Generated random seed in {}: {}", test_name, seed);
     seed
 }
 

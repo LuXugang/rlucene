@@ -279,7 +279,6 @@ where
     }
 
     /// Always returns `true` if the assertions pass.
-    #[cfg(debug_assertions)]
     fn assert_histogram(common_prefix_length: i32, histogram: &[i32]) -> bool {
         let number_of_unique_bytes = histogram.iter().filter(|&&freq| freq > 0).count();
 
