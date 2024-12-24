@@ -33,7 +33,7 @@ impl<T> BulkOperationPacked<T>
 where
     T: Decoder + Encoder,
 {
-    pub fn new(bits_per_value: usize, sub_operation: Option<T>) -> Self {
+    pub const fn new(bits_per_value: usize, sub_operation: Option<T>) -> Self {
         debug_assert!(
             bits_per_value > 0 && bits_per_value <= 64,
             "bitsPerValue must be > 0 and <= 64"

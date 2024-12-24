@@ -14,4 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-struct BulkOperationPackedSingleBlock;
+use crate::util::packed::{Decoder, Encoder};
+
+#[derive(Default)]
+pub(crate) struct BulkOperationPackedSingleBlock{
+    bits_per_value: i32,
+}
+impl BulkOperationPackedSingleBlock{
+    pub const fn new(bits_per_value: i32) -> Self {
+        BulkOperationPackedSingleBlock { bits_per_value }
+    }
+}
+impl Decoder for BulkOperationPackedSingleBlock{}
+impl Encoder for BulkOperationPackedSingleBlock{}

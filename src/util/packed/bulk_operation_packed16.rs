@@ -17,6 +17,7 @@
 use crate::util::packed::bulk_operation_packed1::BulkOperationPacked1;
 use crate::util::packed::{Decoder, Encoder};
 
+#[derive(Default)]
 pub(crate) struct BulkOperationPacked16;
 impl Decoder for BulkOperationPacked16 {
     fn decode_long_to_long(

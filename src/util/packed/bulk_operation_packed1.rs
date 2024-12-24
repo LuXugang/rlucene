@@ -16,7 +16,13 @@
  */
 use crate::util::packed::{Decoder, Encoder};
 
+#[derive(Default)]
 pub(crate) struct BulkOperationPacked1;
+impl BulkOperationPacked1 {
+    pub const fn new() -> Self {
+        BulkOperationPacked1
+    }
+}
 impl Decoder for BulkOperationPacked1 {
     /// Decodes blocks of type `u64` into `u64` values.
     fn decode_long_to_long(

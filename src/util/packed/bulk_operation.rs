@@ -14,8 +14,137 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::packed::bulk_operation_packed::BulkOperationPacked;
+use crate::util::packed::bulk_operation_packed1::BulkOperationPacked1;
+use crate::util::packed::bulk_operation_packed10::BulkOperationPacked10;
+use crate::util::packed::bulk_operation_packed11::BulkOperationPacked11;
+use crate::util::packed::bulk_operation_packed12::BulkOperationPacked12;
+use crate::util::packed::bulk_operation_packed13::BulkOperationPacked13;
+use crate::util::packed::bulk_operation_packed14::BulkOperationPacked14;
+use crate::util::packed::bulk_operation_packed15::BulkOperationPacked15;
+use crate::util::packed::bulk_operation_packed16::BulkOperationPacked16;
+use crate::util::packed::bulk_operation_packed17::BulkOperationPacked17;
+use crate::util::packed::bulk_operation_packed18::BulkOperationPacked18;
+use crate::util::packed::bulk_operation_packed19::BulkOperationPacked19;
+use crate::util::packed::bulk_operation_packed2::BulkOperationPacked2;
+use crate::util::packed::bulk_operation_packed20::BulkOperationPacked20;
+use crate::util::packed::bulk_operation_packed21::BulkOperationPacked21;
+use crate::util::packed::bulk_operation_packed22::BulkOperationPacked22;
+use crate::util::packed::bulk_operation_packed23::BulkOperationPacked23;
+use crate::util::packed::bulk_operation_packed24::BulkOperationPacked24;
+use crate::util::packed::bulk_operation_packed3::BulkOperationPacked3;
+use crate::util::packed::bulk_operation_packed4::BulkOperationPacked4;
+use crate::util::packed::bulk_operation_packed5::BulkOperationPacked5;
+use crate::util::packed::bulk_operation_packed6::BulkOperationPacked6;
+use crate::util::packed::bulk_operation_packed7::BulkOperationPacked7;
+use crate::util::packed::bulk_operation_packed8::BulkOperationPacked8;
+use crate::util::packed::bulk_operation_packed9::BulkOperationPacked9;
+use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::{Decoder, Encoder};
-// pub const PACKED_BULK_OPS: [BulkOperationPacked<T>; 64] = [];
+use crate::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
+use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
+
+pub const PACKED_BULK_OPS: [BulkOperationPackedEnum; 64] = [
+   BulkOperationPackedEnum::Packed1(BulkOperationPacked::new(1, Some(BulkOperationPacked1))),
+    BulkOperationPackedEnum::Packed2(BulkOperationPacked::new(2, Some(BulkOperationPacked2))),
+    BulkOperationPackedEnum::Packed3(BulkOperationPacked::new(3, Some(BulkOperationPacked3))),
+    BulkOperationPackedEnum::Packed4(BulkOperationPacked::new(4, Some(BulkOperationPacked4))),
+    BulkOperationPackedEnum::Packed5(BulkOperationPacked::new(5, Some(BulkOperationPacked5))),
+    BulkOperationPackedEnum::Packed6(BulkOperationPacked::new(6, Some(BulkOperationPacked6))),
+    BulkOperationPackedEnum::Packed7(BulkOperationPacked::new(7, Some(BulkOperationPacked7))),
+    BulkOperationPackedEnum::Packed8(BulkOperationPacked::new(8, Some(BulkOperationPacked8))),
+    BulkOperationPackedEnum::Packed9(BulkOperationPacked::new(9, Some(BulkOperationPacked9))),
+    BulkOperationPackedEnum::Packed10(BulkOperationPacked::new(10, Some(BulkOperationPacked10))),
+    BulkOperationPackedEnum::Packed11(BulkOperationPacked::new(11, Some(BulkOperationPacked11))),
+    BulkOperationPackedEnum::Packed12(BulkOperationPacked::new(12, Some(BulkOperationPacked12))),
+    BulkOperationPackedEnum::Packed13(BulkOperationPacked::new(13, Some(BulkOperationPacked13))),
+    BulkOperationPackedEnum::Packed14(BulkOperationPacked::new(14, Some(BulkOperationPacked14))),
+    BulkOperationPackedEnum::Packed15(BulkOperationPacked::new(15, Some(BulkOperationPacked15))),
+    BulkOperationPackedEnum::Packed16(BulkOperationPacked::new(16, Some(BulkOperationPacked16))),
+    BulkOperationPackedEnum::Packed17(BulkOperationPacked::new(17, Some(BulkOperationPacked17))),
+    BulkOperationPackedEnum::Packed18(BulkOperationPacked::new(18, Some(BulkOperationPacked18))),
+    BulkOperationPackedEnum::Packed19(BulkOperationPacked::new(19, Some(BulkOperationPacked19))),
+    BulkOperationPackedEnum::Packed20(BulkOperationPacked::new(20, Some(BulkOperationPacked20))),
+    BulkOperationPackedEnum::Packed21(BulkOperationPacked::new(21, Some(BulkOperationPacked21))),
+    BulkOperationPackedEnum::Packed22(BulkOperationPacked::new(22, Some(BulkOperationPacked22))),
+    BulkOperationPackedEnum::Packed23(BulkOperationPacked::new(23, Some(BulkOperationPacked23))),
+    BulkOperationPackedEnum::Packed24(BulkOperationPacked::new(24, Some(BulkOperationPacked24))),
+    BulkOperationPackedEnum::Packed25(BulkOperationPacked::new(25, None)),
+    BulkOperationPackedEnum::Packed26(BulkOperationPacked::new(26, None)),
+    BulkOperationPackedEnum::Packed27(BulkOperationPacked::new(27, None)),
+    BulkOperationPackedEnum::Packed28(BulkOperationPacked::new(28, None)),
+    BulkOperationPackedEnum::Packed29(BulkOperationPacked::new(29, None)),
+    BulkOperationPackedEnum::Packed30(BulkOperationPacked::new(30, None)),
+    BulkOperationPackedEnum::Packed31(BulkOperationPacked::new(31, None)),
+    BulkOperationPackedEnum::Packed32(BulkOperationPacked::new(32, None)),
+    BulkOperationPackedEnum::Packed33(BulkOperationPacked::new(33, None)),
+    BulkOperationPackedEnum::Packed34(BulkOperationPacked::new(34, None)),
+    BulkOperationPackedEnum::Packed35(BulkOperationPacked::new(35, None)),
+    BulkOperationPackedEnum::Packed36(BulkOperationPacked::new(36, None)),
+    BulkOperationPackedEnum::Packed37(BulkOperationPacked::new(37, None)),
+    BulkOperationPackedEnum::Packed38(BulkOperationPacked::new(38, None)),
+    BulkOperationPackedEnum::Packed39(BulkOperationPacked::new(39, None)),
+    BulkOperationPackedEnum::Packed40(BulkOperationPacked::new(40, None)),
+    BulkOperationPackedEnum::Packed41(BulkOperationPacked::new(41, None)),
+    BulkOperationPackedEnum::Packed42(BulkOperationPacked::new(42, None)),
+    BulkOperationPackedEnum::Packed43(BulkOperationPacked::new(43, None)),
+    BulkOperationPackedEnum::Packed44(BulkOperationPacked::new(44, None)),
+    BulkOperationPackedEnum::Packed45(BulkOperationPacked::new(45, None)),
+    BulkOperationPackedEnum::Packed46(BulkOperationPacked::new(46, None)),
+    BulkOperationPackedEnum::Packed47(BulkOperationPacked::new(47, None)),
+    BulkOperationPackedEnum::Packed48(BulkOperationPacked::new(48, None)),
+    BulkOperationPackedEnum::Packed49(BulkOperationPacked::new(49, None)),
+    BulkOperationPackedEnum::Packed50(BulkOperationPacked::new(50, None)),
+    BulkOperationPackedEnum::Packed51(BulkOperationPacked::new(51, None)),
+    BulkOperationPackedEnum::Packed52(BulkOperationPacked::new(52, None)),
+    BulkOperationPackedEnum::Packed53(BulkOperationPacked::new(53, None)),
+    BulkOperationPackedEnum::Packed54(BulkOperationPacked::new(54, None)),
+    BulkOperationPackedEnum::Packed55(BulkOperationPacked::new(55, None)),
+    BulkOperationPackedEnum::Packed56(BulkOperationPacked::new(56, None)),
+    BulkOperationPackedEnum::Packed57(BulkOperationPacked::new(57, None)),
+    BulkOperationPackedEnum::Packed58(BulkOperationPacked::new(58, None)),
+    BulkOperationPackedEnum::Packed59(BulkOperationPacked::new(59, None)),
+    BulkOperationPackedEnum::Packed60(BulkOperationPacked::new(60, None)),
+    BulkOperationPackedEnum::Packed61(BulkOperationPacked::new(61, None)),
+    BulkOperationPackedEnum::Packed62(BulkOperationPacked::new(62, None)),
+    BulkOperationPackedEnum::Packed63(BulkOperationPacked::new(63, None)),
+    BulkOperationPackedEnum::Packed64(BulkOperationPacked::new(64, None)),
+];
+pub const PACKED_SINGLE_BLOCK_BULK_OPS: [BulkOperationPackedEnum; 32] = [
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(1)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(2)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(3)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(4)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(5)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(6)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(7)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(8)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(9)),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(10)),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(12)),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(16)),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(21)),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(32))
+];
+
 
 trait BulkOperation: Decoder + Encoder {
     fn write_long(block: i64, blocks: &mut [u8], mut blocks_offset: usize) -> usize {

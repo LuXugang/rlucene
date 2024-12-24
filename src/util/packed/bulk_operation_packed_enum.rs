@@ -41,8 +41,9 @@ use crate::util::packed::bulk_operation_packed8::BulkOperationPacked8;
 use crate::util::packed::bulk_operation_packed9::BulkOperationPacked9;
 use crate::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
 use crate::util::packed::{Decoder, Encoder};
+use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
 
-enum BulkOperationPackedEnum {
+pub(crate) enum BulkOperationPackedEnum {
     Packed1(BulkOperationPacked<BulkOperationPacked1>),
     Packed2(BulkOperationPacked<BulkOperationPacked2>),
     Packed3(BulkOperationPacked<BulkOperationPacked3>),
@@ -107,6 +108,8 @@ enum BulkOperationPackedEnum {
     Packed62(BulkOperationPacked<BulkOperationPackedDummy>),
     Packed63(BulkOperationPacked<BulkOperationPackedDummy>),
     Packed64(BulkOperationPacked<BulkOperationPackedDummy>),
+    SinglePacked(BulkOperationPackedSingleBlock),
+    Dummy(BulkOperationPackedDummy),
 }
 
 impl Decoder for BulkOperationPackedEnum {
@@ -176,6 +179,8 @@ impl Decoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed62(op) => Decoder::long_block_count(op),
             BulkOperationPackedEnum::Packed63(op) => Decoder::long_block_count(op),
             BulkOperationPackedEnum::Packed64(op) => Decoder::long_block_count(op),
+            BulkOperationPackedEnum::SinglePacked(op) => Decoder::long_block_count(op),
+            BulkOperationPackedEnum::Dummy(op) => Decoder::long_block_count(op),
         }
     }
 
@@ -245,6 +250,8 @@ impl Decoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed62(op) => Decoder::long_value_count(op),
             BulkOperationPackedEnum::Packed63(op) => Decoder::long_value_count(op),
             BulkOperationPackedEnum::Packed64(op) => Decoder::long_value_count(op),
+            BulkOperationPackedEnum::SinglePacked(op) => Decoder::long_value_count(op),
+            BulkOperationPackedEnum::Dummy(op) => Decoder::long_value_count(op),
         }
     }
 
@@ -314,6 +321,8 @@ impl Decoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed62(op) => Decoder::byte_block_count(op),
             BulkOperationPackedEnum::Packed63(op) => Decoder::byte_block_count(op),
             BulkOperationPackedEnum::Packed64(op) => Decoder::byte_block_count(op),
+            BulkOperationPackedEnum::SinglePacked(op) => Decoder::byte_block_count(op),
+            BulkOperationPackedEnum::Dummy(op) => Decoder::byte_block_count(op),
         }
     }
 
@@ -383,6 +392,8 @@ impl Decoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed62(op) => Decoder::byte_value_count(op),
             BulkOperationPackedEnum::Packed63(op) => Decoder::byte_value_count(op),
             BulkOperationPackedEnum::Packed64(op) => Decoder::byte_value_count(op),
+            BulkOperationPackedEnum::SinglePacked(op) => Decoder::byte_value_count(op),
+            BulkOperationPackedEnum::Dummy(op) => Decoder::byte_value_count(op),
         }
     }
 
@@ -585,6 +596,12 @@ impl Decoder for BulkOperationPackedEnum {
                 op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
+                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+            }
+            BulkOperationPackedEnum::SinglePacked(op) => {
+                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+            }
+            BulkOperationPackedEnum::Dummy(op) => {
                 op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
             }
         }
@@ -792,6 +809,12 @@ impl Decoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed64(op) => {
                 op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
             }
+            BulkOperationPackedEnum::SinglePacked(op) => {
+                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+            }
+            BulkOperationPackedEnum::Dummy(op) => {
+                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+            }
         }
     }
 
@@ -995,6 +1018,12 @@ impl Decoder for BulkOperationPackedEnum {
                 op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
+                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+            }
+            BulkOperationPackedEnum::SinglePacked(op) => {
+                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+            }
+            BulkOperationPackedEnum::Dummy(op) => {
                 op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
             }
         }
@@ -1201,6 +1230,12 @@ impl Decoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed64(op) => {
                 op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
             }
+            BulkOperationPackedEnum::SinglePacked(op) => {
+                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+            }
+            BulkOperationPackedEnum::Dummy(op) => {
+                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+            }
         }
     }
 }
@@ -1271,6 +1306,8 @@ impl Encoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed62(op) => Encoder::long_block_count(op),
             BulkOperationPackedEnum::Packed63(op) => Encoder::long_block_count(op),
             BulkOperationPackedEnum::Packed64(op) => Encoder::long_block_count(op),
+            BulkOperationPackedEnum::SinglePacked(op) => Encoder::long_block_count(op),
+            BulkOperationPackedEnum::Dummy(op) => Encoder::long_block_count(op),
         }
     }
 
@@ -1340,6 +1377,8 @@ impl Encoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed62(op) => Encoder::long_value_count(op),
             BulkOperationPackedEnum::Packed63(op) => Encoder::long_value_count(op),
             BulkOperationPackedEnum::Packed64(op) => Encoder::long_value_count(op),
+            BulkOperationPackedEnum::SinglePacked(op) => Encoder::long_value_count(op),
+            BulkOperationPackedEnum::Dummy(op) => Encoder::long_value_count(op),
         }
     }
 
@@ -1409,6 +1448,8 @@ impl Encoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed62(op) => Encoder::byte_block_count(op),
             BulkOperationPackedEnum::Packed63(op) => Encoder::byte_block_count(op),
             BulkOperationPackedEnum::Packed64(op) => Encoder::byte_block_count(op),
+            BulkOperationPackedEnum::SinglePacked(op) => Encoder::byte_block_count(op),
+            BulkOperationPackedEnum::Dummy(op) => Encoder::byte_block_count(op),
         }
     }
 
@@ -1478,6 +1519,8 @@ impl Encoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed62(op) => Encoder::byte_value_count(op),
             BulkOperationPackedEnum::Packed63(op) => Encoder::byte_value_count(op),
             BulkOperationPackedEnum::Packed64(op) => Encoder::byte_value_count(op),
+            BulkOperationPackedEnum::SinglePacked(op) => Encoder::byte_value_count(op),
+            BulkOperationPackedEnum::Dummy(op) => Encoder::byte_value_count(op),
         }
     }
 
@@ -1680,6 +1723,12 @@ impl Encoder for BulkOperationPackedEnum {
                 op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
+                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+            }
+            BulkOperationPackedEnum::SinglePacked(op) => {
+                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+            }
+            BulkOperationPackedEnum::Dummy(op) => {
                 op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
             }
         }
@@ -1886,6 +1935,12 @@ impl Encoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed64(op) => {
                 op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
             }
+            BulkOperationPackedEnum::SinglePacked(op) => {
+                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+            }
+            BulkOperationPackedEnum::Dummy(op) => {
+                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+            }
         }
     }
 
@@ -2090,6 +2145,12 @@ impl Encoder for BulkOperationPackedEnum {
             BulkOperationPackedEnum::Packed64(op) => {
                 op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
             }
+            BulkOperationPackedEnum::SinglePacked(op) => {
+                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+            }
+            BulkOperationPackedEnum::Dummy(op) => {
+                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+            }
         }
     }
 
@@ -2292,6 +2353,12 @@ impl Encoder for BulkOperationPackedEnum {
                 op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
+                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+            }
+            BulkOperationPackedEnum::SinglePacked(op) => {
+                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+            }
+            BulkOperationPackedEnum::Dummy(op) => {
                 op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
             }
         }
