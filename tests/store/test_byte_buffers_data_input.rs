@@ -185,10 +185,10 @@ fn test_slicing_window() -> Result<(), TestError> {
     while offset < max {
         assert_eq!(0, data_input.slice(offset, 0)?.length());
         assert_eq!(1, data_input.slice(offset, 1)?.length());
-        offset += 1;
 
         let window = (max - offset).min(1024);
         assert_eq!(window, data_input.slice(offset, window)?.length());
+        offset += 1;
     }
     assert_eq!(0, data_input.slice(max, 0)?.length());
     Ok(())

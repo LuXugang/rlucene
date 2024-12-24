@@ -331,7 +331,7 @@ pub fn slice_buffer_list<'a>(
     let block_mask = (1u64 << block_bits) - 1;
 
     let start_block_index = (abs_start / block_bytes) as usize;
-    let end_block_index = (abs_end / block_bytes) as usize;
+    let end_block_index = ((abs_end / block_bytes) as usize).min(blocks.len() - 1);;
 
     // Create a new Cursor for each block and adjust the position and underlying data range as needed
     blocks[start_block_index..=end_block_index]
@@ -340,18 +340,16 @@ pub fn slice_buffer_list<'a>(
         .map(|(i, block)| {
             let vec_data = *block.get_ref();
 
+            let mut new_cursor = Cursor::new(vec_data);
             if i == 0 {
                 // first block we need to set position to start_offset to keep al blocks same length
                 let block_offset = abs_start & block_mask;
-                let mut new_cursor = Cursor::new(vec_data);
                 new_cursor.set_position(block_offset);
-                new_cursor
             } else {
                 // other blocks we can use full block ,so we only need set position to 0
-                let mut new_cursor = Cursor::new(vec_data);
                 new_cursor.set_position(0);
-                new_cursor
             }
+            new_cursor
         })
         .collect()
 }
