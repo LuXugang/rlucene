@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::packed::Decoder;
+use crate::util::packed::bulk_operation_packed1::BulkOperationPacked1;
+use crate::util::packed::{Decoder, Encoder};
 
-struct BulkOperationPacked10;
+pub(crate) struct BulkOperationPacked10;
 impl Decoder for BulkOperationPacked10 {
     /// Decodes blocks of type `u64` into `u64` values.
     fn decode_long_to_long(
@@ -263,3 +264,4 @@ impl Decoder for BulkOperationPacked10 {
         }
     }
 }
+impl Encoder for BulkOperationPacked10 {}

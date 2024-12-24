@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::packed::Decoder;
+use crate::util::packed::bulk_operation_packed1::BulkOperationPacked1;
+use crate::util::packed::{Decoder, Encoder};
 
-struct BulkOperationPacked18;
+pub(crate) struct BulkOperationPacked18;
 
 impl Decoder for BulkOperationPacked18 {
     fn decode_long_to_long(
@@ -302,3 +303,4 @@ impl Decoder for BulkOperationPacked18 {
         }
     }
 }
+impl Encoder for BulkOperationPacked18 {}

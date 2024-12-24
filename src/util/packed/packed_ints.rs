@@ -129,22 +129,22 @@ pub fn fastest_format_and_bits(
 pub trait Decoder {
     /// The minimum number of long blocks to encode in a single iteration, when using long encoding.
     fn long_block_count(&self) -> usize {
-        todo!()
+        unreachable!("long_block_count() must be implemented")
     }
 
     /// The number of values that can be stored in `long_block_count()` long blocks.
     fn long_value_count(&self) -> usize {
-        todo!()
+        unreachable!("long_value_count() must be implemented")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when using byte encoding.
     fn byte_block_count(&self) -> usize {
-        todo!()
+        unreachable!("byte_block_count() must be implemented")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte blocks.
     fn byte_value_count(&self) -> usize {
-        todo!()
+        unreachable!("byte_value_count() must be implemented")
     }
 
     /// Read `iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -159,12 +159,14 @@ pub trait Decoder {
     /// * `iterations` - Controls how much data to decode.
     fn decode_long_to_long(
         &self,
-        blocks: &[u64],
-        blocks_offset: usize,
-        values: &mut [i64],
-        values_offset: usize,
-        iterations: usize,
-    );
+        _blocks: &[u64],
+        _blocks_offset: usize,
+        _values: &mut [i64],
+        _values_offset: usize,
+        _iterations: usize,
+    ) {
+        unreachable!("decode_long_to_long() must be implemented")
+    }
 
     /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them, and write
     /// `iterations * value_count()` values into `values`.
@@ -178,12 +180,14 @@ pub trait Decoder {
     /// * `iterations` - Controls how much data to decode.
     fn decode_byte_to_long(
         &self,
-        blocks: &[u8],
-        blocks_offset: usize,
-        values: &mut [i64],
-        values_offset: usize,
-        iterations: usize,
-    );
+        _blocks: &[u8],
+        _blocks_offset: usize,
+        _values: &mut [i64],
+        _values_offset: usize,
+        _iterations: usize,
+    ) {
+        unreachable!("decode_byte_to_long() must be implemented")
+    }
 
     /// Read `iterations * block_count()` blocks from `blocks`, decode them, and write
     /// `iterations * value_count()` values into `values`.
@@ -197,12 +201,14 @@ pub trait Decoder {
     /// * `iterations` - Controls how much data to decode.
     fn decode_long_to_int(
         &self,
-        blocks: &[u64],
-        blocks_offset: usize,
-        values: &mut [i32],
-        values_offset: usize,
-        iterations: usize,
-    );
+        _blocks: &[u64],
+        _blocks_offset: usize,
+        _values: &mut [i32],
+        _values_offset: usize,
+        _iterations: usize,
+    ) {
+        unreachable!("decode_long_to_int() must be implemented")
+    }
 
     /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them, and write
     /// `iterations * value_count()` values into `values`.
@@ -216,26 +222,36 @@ pub trait Decoder {
     /// * `iterations` - Controls how much data to decode.
     fn decode_byte_to_int(
         &self,
-        blocks: &[u8],
-        blocks_offset: usize,
-        values: &mut [i32],
-        values_offset: usize,
-        iterations: usize,
-    );
+        _blocks: &[u8],
+        _blocks_offset: usize,
+        _values: &mut [i32],
+        _values_offset: usize,
+        _iterations: usize,
+    ) {
+        unreachable!("decode_byte_to_int() must be implemented")
+    }
 }
 /// An encoder for packed integers.
 pub trait Encoder {
     /// The minimum number of long blocks to encode in a single iteration, when using long encoding.
-    fn long_block_count(&self) -> usize;
+    fn long_block_count(&self) -> usize {
+        unreachable!("long_block_count() must be implemented")
+    }
 
     /// The number of values that can be stored in `long_block_count()` long blocks.
-    fn long_value_count(&self) -> usize;
+    fn long_value_count(&self) -> usize {
+        unreachable!("long_value_count() must be implemented")
+    }
 
     /// The minimum number of byte blocks to encode in a single iteration, when using byte encoding.
-    fn byte_block_count(&self) -> usize;
+    fn byte_block_count(&self) -> usize {
+        unreachable!("byte_block_count() must be implemented")
+    }
 
     /// The number of values that can be stored in `byte_block_count()` byte blocks.
-    fn byte_value_count(&self) -> usize;
+    fn byte_value_count(&self) -> usize {
+        unreachable!("byte_value_count() must be implemented")
+    }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
     /// `iterations * block_count()` blocks into `blocks`.
@@ -249,12 +265,14 @@ pub trait Encoder {
     /// * `iterations` - Controls how much data to encode.
     fn encode_long_to_long(
         &self,
-        values: &[i64],
-        values_offset: usize,
-        blocks: &mut [u64],
-        blocks_offset: usize,
-        iterations: usize,
-    );
+        _values: &[i64],
+        _values_offset: usize,
+        _blocks: &mut [u64],
+        _blocks_offset: usize,
+        _iterations: usize,
+    ) {
+        unreachable!("encode_long_to_long() must be implemented")
+    }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
     /// `8 * iterations * block_count()` blocks into `blocks`.
@@ -268,12 +286,14 @@ pub trait Encoder {
     /// * `iterations` - Controls how much data to encode.
     fn encode_long_to_byte(
         &self,
-        values: &[i64],
-        values_offset: usize,
-        blocks: &mut [u8],
-        blocks_offset: usize,
-        iterations: usize,
-    );
+        _values: &[i64],
+        _values_offset: usize,
+        _blocks: &mut [u8],
+        _blocks_offset: usize,
+        _iterations: usize,
+    ) {
+        unreachable!("encode_long_to_byte() must be implemented")
+    }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
     /// `iterations * block_count()` blocks into `blocks`.
@@ -287,12 +307,14 @@ pub trait Encoder {
     /// * `iterations` - Controls how much data to encode.
     fn encode_int_to_long(
         &self,
-        values: &[i32],
-        values_offset: usize,
-        blocks: &mut [u64],
-        blocks_offset: usize,
-        iterations: usize,
-    );
+        _values: &[i32],
+        _values_offset: usize,
+        _blocks: &mut [u64],
+        _blocks_offset: usize,
+        _iterations: usize,
+    ) {
+        unreachable!("encode_int_to_long() must be implemented")
+    }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
     /// `8 * iterations * block_count()` blocks into `blocks`.
@@ -306,12 +328,14 @@ pub trait Encoder {
     /// * `iterations` - Controls how much data to encode.
     fn encode_int_to_byte(
         &self,
-        values: &[i32],
-        values_offset: usize,
-        blocks: &mut [u8],
-        blocks_offset: usize,
-        iterations: usize,
-    );
+        _values: &[i32],
+        _values_offset: usize,
+        _blocks: &mut [u8],
+        _blocks_offset: usize,
+        _iterations: usize,
+    ) {
+        unreachable!("encode_int_to_byte() must be implemented")
+    }
 }
 
 /// A read-only random access array of positive integers.
@@ -433,6 +457,7 @@ where
         self.sub_reader.ord()
     }
 }
+
 impl PackedInts {
     pub fn max_value(bits_per_value: u32) -> u64 {
         if bits_per_value == 64 {
@@ -440,5 +465,16 @@ impl PackedInts {
         } else {
             (1u64 << bits_per_value) - 1
         }
+    }
+    /// Returns how many bits are required to store `bits`, interpreted as an unsigned value.
+    /// NOTE: This method returns at least 1.
+    ///
+    /// # Arguments
+    /// - `bits`: The unsigned value for which to determine the required bit count.
+    ///
+    /// # Returns
+    /// The number of bits required to store `bits`.
+    pub fn unsigned_bits_required(bits: u64) -> usize {
+        (64 - bits.leading_zeros() as usize).max(1)
     }
 }

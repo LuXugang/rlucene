@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod bulk_operation_packed1;
+mod bulk_operation;
+mod bulk_operation_enum;
+mod bulk_operation_packed;
+pub(crate) mod bulk_operation_packed1;
 mod bulk_operation_packed10;
 mod bulk_operation_packed11;
 mod bulk_operation_packed12;
@@ -38,6 +41,9 @@ mod bulk_operation_packed6;
 mod bulk_operation_packed7;
 mod bulk_operation_packed8;
 mod bulk_operation_packed9;
+mod bulk_operation_packed_dummy;
+mod bulk_operation_packed_enum;
+mod bulk_operation_packed_single_block;
 mod packed64_single_block;
 pub mod packed_ints;
 mod packed_reader_iterator;
