@@ -51,5 +51,6 @@ mod packed64_single_block_enum;
 pub mod packed_ints;
 mod packed_long_values;
 mod packed_reader_iterator;
+mod packed_writer;
 
 pub use packed_ints::*;

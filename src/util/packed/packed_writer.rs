@@ -1,0 +1,140 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::store::{DataInput, DataOutput};
+use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::packed::bulk_operation::{of, BulkOperation};
+use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
+use crate::util::packed::format_behavior::FormatBehavior;
+use crate::util::packed::{Decoder, Encoder, Format, PackedInts, Writer};
+
+pub(crate) struct PackedWriter<'a, T>
+where
+    T: DataOutput + 'a,
+{
+    finished: bool,
+    format: Format,
+    encoder: &'static BulkOperationPackedEnum,
+    next_blocks: Vec<u8>,
+    next_values: Vec<i64>,
+    iterations: u32,
+    off: usize,
+    written: u32,
+    value_count: i32,
+    bits_per_value: u32,
+    data_output: &'a mut T,
+}
+impl<'a, T> PackedWriter<'a, T>
+where
+    T: DataOutput,
+{
+    pub fn new(
+        format: Format,
+        data_output: &'a mut T,
+        value_count: i32,
+        bits_per_value: u32,
+        mem: u32,
+    ) -> Self {
+        let encoder = of(format, bits_per_value);
+        debug_assert!(value_count >= 0);
+        let iterations = encoder.compute_iterations(value_count as u32, mem);
+        let next_blocks = vec![0; (iterations * Encoder::byte_block_count(encoder)) as usize];
+        let next_values = vec![0; (iterations * Encoder::byte_value_count(encoder)) as usize];
+
+        Self {
+            finished: false,
+            format,
+            encoder,
+            next_blocks,
+            next_values,
+            iterations,
+            off: 0,
+            written: 0,
+            value_count,
+            bits_per_value,
+            data_output,
+        }
+    }
+    pub fn flush(&mut self) -> Result<(), DataIOError> {
+        self.encoder.encode_long_to_byte(
+            &self.next_values,
+            0,
+            &mut self.next_blocks,
+            0,
+            self.iterations,
+        );
+        let block_count = self.format.byte_count(
+            PackedInts::VERSION_CURRENT,
+            self.off as u32,
+            self.bits_per_value,
+        );
+
+        debug_assert!(block_count <= u32::MAX as u64);
+        self.data_output.write_bytes_with_len(
+            &self.next_blocks[0..block_count as usize],
+            block_count as u32,
+        )?;
+        self.next_values.fill(0);
+        self.off = 0;
+        Ok(())
+    }
+}
+impl<'a, T> Writer for PackedWriter<'a, T>
+where
+    T: DataOutput,
+{
+    fn get_format(&self) -> &Format {
+        &self.format
+    }
+
+    fn add(&mut self, v: i64) -> Result<(), DataIOError> {
+        assert!(
+            PackedInts::unsigned_bits_required(v as u64) <= self.bits_per_value,
+            "Value exceeds allowed bits per value"
+        );
+        assert!(!self.finished, "Cannot add values after finishing writing");
+        if self.value_count != -1 && (self.written as i32) >= self.value_count {
+            return Err(DataIOError::eof("Writing past end of stream".to_string()));
+        }
+        self.next_values[self.off] = v;
+        self.off += 1;
+        if self.off == self.next_values.len() {
+            self.flush()?;
+        }
+        self.written += 1;
+        Ok(())
+    }
+
+    fn bits_per_values(&self) -> u32 {
+        self.bits_per_value
+    }
+
+    fn finish(&mut self) -> Result<(), DataIOError> {
+        debug_assert!(!self.finished, "Already finished");
+        if self.value_count != -1 {
+            while (self.written as i32) < self.value_count {
+                self.add(0)?;
+            }
+        }
+        self.flush()?;
+        self.finished = true;
+        Ok(())
+    }
+
+    fn ord(&self) -> i32 {
+        self.written as i32 - 1
+    }
+}

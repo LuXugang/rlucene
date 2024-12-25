@@ -710,3 +710,15 @@ impl Reader for NullReader {
         self.value_count
     }
 }
+pub trait Writer {
+    /// The format used to serialize values.
+    fn get_format(&self) -> &Format;
+    ///  Add a value to the stream.
+    fn add(&mut self, v: i64) -> Result<(), DataIOError>;
+    /// The number of bits per value.
+    fn bits_per_values(&self) -> u32;
+    /// Perform end-of-stream operations.
+    fn finish(&mut self) -> Result<(), DataIOError>;
+    /// Returns the current ord in the stream (number of values that have been written so far minus one).
+    fn ord(&self) -> i32;
+}
