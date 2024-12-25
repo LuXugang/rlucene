@@ -20,31 +20,33 @@ use crate::util::packed::format_behavior::{FormatBehavior, Packed, PackedSingleB
 use std::cmp::min;
 use std::fmt;
 use std::fmt::Display;
-/// At most 700% memory overhead, always select a direct implementation.
-pub const FASTEST: f32 = 7.0;
+use std::string::ToString;
 
-/// At most 50% memory overhead, always select a reasonably fast implementation.
-pub const FAST: f32 = 0.5;
-
-/// At most 25% memory overhead.
-pub const DEFAULT: f32 = 0.25;
-
-/// No memory overhead at all, but the returned implementation may be slow.
-pub const COMPACT: f32 = 0.0;
-
-/// Default amount of memory to use for bulk operations (1KB).
-pub const DEFAULT_BUFFER_SIZE: i32 = 1024;
-
-/// Codec name for PackedInts.
-pub const CODEC_NAME: &str = "PackedInts";
-
-/// Version constants.
-pub const VERSION_MONOTONIC_WITHOUT_ZIGZAG: i32 = 2;
-pub const VERSION_START: i32 = VERSION_MONOTONIC_WITHOUT_ZIGZAG;
-pub const VERSION_CURRENT: i32 = VERSION_MONOTONIC_WITHOUT_ZIGZAG;
 #[allow(dead_code)]
 pub struct PackedInts;
 impl PackedInts {
+    /// At most 700% memory overhead, always select a direct implementation.
+    pub const FASTEST: f32 = 7.0;
+
+    /// At most 50% memory overhead, always select a reasonably fast implementation.
+    pub const FAST: f32 = 0.5;
+
+    /// At most 25% memory overhead.
+    pub const DEFAULT: f32 = 0.25;
+
+    /// No memory overhead at all, but the returned implementation may be slow.
+    pub const COMPACT: f32 = 0.0;
+
+    /// Default amount of memory to use for bulk operations (1KB).
+    pub const DEFAULT_BUFFER_SIZE: i32 = 1024;
+
+    /// Codec name for PackedInts.
+    pub const CODEC_NAME: &'static str = "PackedInts";
+
+    /// Version constants.
+    pub const VERSION_MONOTONIC_WITHOUT_ZIGZAG: u32 = 2;
+    pub const VERSION_START: u32 = Self::VERSION_MONOTONIC_WITHOUT_ZIGZAG;
+    pub const VERSION_CURRENT: u32 = Self::VERSION_MONOTONIC_WITHOUT_ZIGZAG;
     /// Calculates the maximum unsigned long that can be expressed with the given number of bits.
     ///
     /// # Arguments
@@ -83,16 +85,18 @@ impl PackedInts {
 /// # Errors
 ///
 /// Returns an `IllegalArgumentError` if the version is out of bounds.
-pub fn check_version(version: i32) -> Result<(), DataIOError> {
-    if version < VERSION_START {
+pub fn check_version(version: u32) -> Result<(), DataIOError> {
+    if version < PackedInts::VERSION_START {
         return Err(DataIOError::illegal_argument(format!(
             "Version is too old, should be at least {} (got {})",
-            VERSION_START, version
+            PackedInts::VERSION_START,
+            version
         )));
-    } else if version > VERSION_CURRENT {
+    } else if version > PackedInts::VERSION_CURRENT {
         return Err(DataIOError::illegal_argument(format!(
             "Version is too new, should be at most {} (got {})",
-            VERSION_CURRENT, version
+            PackedInts::VERSION_CURRENT,
+            version
         )));
     }
     Ok(())
@@ -136,7 +140,8 @@ pub fn fastest_format_and_bits(
         value_count = i32::MAX;
     }
 
-    acceptable_overhead_ratio = acceptable_overhead_ratio.clamp(COMPACT, FASTEST);
+    acceptable_overhead_ratio =
+        acceptable_overhead_ratio.clamp(PackedInts::COMPACT, PackedInts::FASTEST);
     let acceptable_overhead_per_value = acceptable_overhead_ratio * bits_per_value as f32;
     let max_bits_per_value = bits_per_value + acceptable_overhead_per_value as u32;
 

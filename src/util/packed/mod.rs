@@ -45,6 +45,7 @@ mod bulk_operation_packed_dummy;
 mod bulk_operation_packed_enum;
 mod bulk_operation_packed_single_block;
 mod format_behavior;
+mod packed64;
 mod packed64_single_block;
 pub mod packed_ints;
 mod packed_reader_iterator;
