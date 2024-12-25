@@ -19,8 +19,8 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::{of, BulkOperation};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
-use crate::util::packed::{Decoder, Format, ReaderIterator};
 use crate::util::packed::format_behavior::FormatBehavior;
+use crate::util::packed::{Decoder, Format, ReaderIterator};
 
 pub(crate) struct PackedReaderIterator<'a, D>
 where
@@ -35,7 +35,7 @@ where
     position: i32,
     value_count: u32,
     bits_per_value: u32,
-    data_input : &'a mut D,
+    data_input: &'a mut D,
 }
 impl<'a, D> PackedReaderIterator<'a, D>
 where
@@ -79,13 +79,15 @@ where
         }
     }
 }
-impl <'a, D> ReaderIterator for PackedReaderIterator<'a, D>
+impl<'a, D> ReaderIterator for PackedReaderIterator<'a, D>
 where
     D: DataInput + 'a,
 {
-
     fn next_batch(&mut self, mut count: u32) -> Result<LongsRef, DataIOError> {
-        debug_assert!(self.next_values.longs.len() >= 0, "Next values length should be >= 0");
+        debug_assert!(
+            self.next_values.longs.len() >= 0,
+            "Next values length should be >= 0"
+        );
         debug_assert!(
             self.next_values.offset + self.next_values.length <= self.next_values.longs.len(),
             "Offset and length should be within the bounds of longs"
@@ -107,7 +109,11 @@ where
             );
             let blocks_to_read = remaining_blocks.min(self.next_blocks.len() as u64) as usize;
 
-            self.data_input.read_bytes(&mut self.next_blocks[..blocks_to_read], 0, blocks_to_read as u32)?;
+            self.data_input.read_bytes(
+                &mut self.next_blocks[..blocks_to_read],
+                0,
+                blocks_to_read as u32,
+            )?;
 
             if blocks_to_read < self.next_blocks.len() {
                 self.next_blocks[blocks_to_read..].fill(0);

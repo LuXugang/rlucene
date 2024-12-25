@@ -16,10 +16,10 @@
  */
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::longs_ref::LongsRef;
-use std::cmp::min;
 use crate::util::packed::format_behavior::{FormatBehavior, Packed, PackedSingleBlock};
-
-pub struct PackedInts;
+use std::cmp::min;
+use std::fmt;
+use std::fmt::Display;
 /// At most 700% memory overhead, always select a direct implementation.
 pub const FASTEST: f32 = 7.0;
 
@@ -42,6 +42,37 @@ pub const CODEC_NAME: &str = "PackedInts";
 pub const VERSION_MONOTONIC_WITHOUT_ZIGZAG: i32 = 2;
 pub const VERSION_START: i32 = VERSION_MONOTONIC_WITHOUT_ZIGZAG;
 pub const VERSION_CURRENT: i32 = VERSION_MONOTONIC_WITHOUT_ZIGZAG;
+#[allow(dead_code)]
+pub struct PackedInts;
+impl PackedInts {
+    /// Calculates the maximum unsigned long that can be expressed with the given number of bits.
+    ///
+    /// # Arguments
+    ///
+    /// * `bits_per_value` - The number of bits available for any given value.
+    ///
+    /// # Returns
+    ///
+    /// The maximum value for the given number of bits.
+    pub fn max_value(bits_per_value: u32) -> u64 {
+        if bits_per_value == 64 {
+            u64::MAX
+        } else {
+            (1u64 << bits_per_value) - 1
+        }
+    }
+    /// Returns how many bits are required to store `bits`, interpreted as an unsigned value.
+    /// NOTE: This method returns at least 1.
+    ///
+    /// # Arguments
+    /// - `bits`: The unsigned value for which to determine the required bit count.
+    ///
+    /// # Returns
+    /// The number of bits required to store `bits`.
+    pub fn unsigned_bits_required(bits: u64) -> u32 {
+        (64 - bits.leading_zeros() as usize).max(1) as u32
+    }
+}
 
 /// Check the validity of a version number.
 ///
@@ -340,9 +371,11 @@ pub trait Encoder {
 }
 
 /// A read-only random access array of positive integers.
-pub trait Reader {
+pub(crate) trait Reader {
     /// Get the value at the given index.
-    fn get(&self, index: usize) -> Result<u64, DataIOError>;
+    fn get(&self, _index: usize) -> Result<u64, DataIOError> {
+        unreachable!("get() must be implemented if it need to be used")
+    }
 
     /// Bulk get: read at least one and at most `len` values starting from `index`
     /// into `arr[off..off+len]` and return the actual number of values that have been read.
@@ -372,13 +405,13 @@ pub trait Reader {
     fn size(&self) -> u32;
 }
 /// Run-once iterator interface to decode previously saved PackedInts.
-pub trait ReaderIterator {
+pub(crate) trait ReaderIterator {
     /// Returns the next value.
     ///
     /// # Errors
     ///
     /// Returns an error if there is an issue decoding the next value.
-    fn next(&mut self) -> Result<i64, DataIOError>{
+    fn next(&mut self) -> Result<i64, DataIOError> {
         unreachable!("next() must be implemented if it need to be used")
     }
 
@@ -396,12 +429,12 @@ pub trait ReaderIterator {
     fn next_batch(&mut self, count: u32) -> Result<LongsRef, DataIOError>;
 
     /// Returns the number of bits per value.
-    fn get_bits_per_value(&self) -> u32{
+    fn get_bits_per_value(&self) -> u32 {
         unreachable!("get_bits_per_value() must be implemented if it need to be used")
     }
 
     /// Returns the total number of values.
-    fn size(&self) -> u32{
+    fn size(&self) -> u32 {
         unreachable!("size() must be implemented if it need to be used")
     }
 
@@ -469,23 +502,128 @@ where
     }
 }
 
-impl PackedInts {
-    pub fn max_value(bits_per_value: u32) -> u64 {
-        if bits_per_value == 64 {
-            u64::MAX
-        } else {
-            (1u64 << bits_per_value) - 1
-        }
-    }
-    /// Returns how many bits are required to store `bits`, interpreted as an unsigned value.
-    /// NOTE: This method returns at least 1.
+pub(crate) trait Mutable: Reader {
+    /// Returns the number of bits used to store any given value.
+    ///
+    /// Note: This does not imply that memory usage is `bits_per_value * #values` as implementations
+    /// are free to use non-space-optimal packing of bits.
+    fn get_bits_per_value(&self) -> u32;
+
+    /// Sets the value at the given index in the array.
     ///
     /// # Arguments
-    /// - `bits`: The unsigned value for which to determine the required bit count.
+    ///
+    /// * `index` - The position where the value should be set.
+    /// * `value` - The value to be stored, which must conform to the constraints of the array.
+    ///
+    fn set(&mut self, _index: usize, _value: i64) {
+        unreachable!("set() must be implemented if it need to be used")
+    }
+    /// Sets a range of values in the array.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The starting index in the packed array where values will be set.
+    /// * `arr` - The source array of values to set.
+    /// * `off` - The offset in the source array to start reading values from.
+    /// * `len` - The maximum number of values to set.
     ///
     /// # Returns
-    /// The number of bits required to store `bits`.
-    pub fn unsigned_bits_required(bits: u64) -> u32 {
-        (64 - bits.leading_zeros() as usize).max(1) as u32
+    ///
+    /// The actual number of values that have been set.
+    ///
+    fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> usize {
+        assert!(len > 0, "len must be > 0 (got {})", len);
+        assert!(
+            index < self.size() as usize,
+            "Index out of bounds: {}",
+            index
+        );
+
+        let len = len.min(self.size() as usize - index);
+        assert!(
+            off + len <= arr.len(),
+            "Array offset and length out of bounds"
+        );
+
+        for (i, o) in (index..index + len).zip(off..off + len) {
+            self.set(i, arr[o]);
+        }
+        len
+    }
+
+    /// Fills a range in the packed array with a specific value.
+    ///
+    /// # Arguments
+    ///
+    /// * `from_index` - The start index of the range to fill (inclusive).
+    /// * `to_index` - The end index of the range to fill (exclusive).
+    /// * `val` - The value to fill with.
+    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) {
+        assert!(val as u64 <= PackedInts::max_value(self.get_bits_per_value()));
+        assert!(
+            from_index <= to_index,
+            "from_index must be <= to_index: {} > {}",
+            from_index,
+            to_index
+        );
+        for i in from_index..to_index {
+            self.set(i, val);
+        }
+    }
+
+    /// Sets all values in the packed array to 0.
+    fn clear(&mut self) {
+        self.fill(0, self.size() as usize, 0);
+    }
+}
+pub(crate) struct MutableImpl<T>
+where
+    T: Mutable + Display,
+{
+    sub_reader: T,
+    value_count: u32,
+    bits_per_value: u32,
+}
+impl<T> MutableImpl<T>
+where
+    T: Mutable + Display,
+{
+    pub fn new(sub_reader: T, value_count: u32, bits_per_value: u32) -> Self {
+        Self {
+            sub_reader,
+            value_count,
+            bits_per_value,
+        }
+    }
+}
+
+impl<T> Reader for MutableImpl<T>
+where
+    T: Mutable + Display,
+{
+    fn size(&self) -> u32 {
+        self.value_count
+    }
+}
+
+impl<T> Mutable for MutableImpl<T>
+where
+    T: Mutable + Display,
+{
+    fn get_bits_per_value(&self) -> u32 {
+        self.bits_per_value
+    }
+}
+impl<T> Display for MutableImpl<T>
+where
+    T: Mutable + Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}(valueCount={}, bitsPerValue={})",
+            self.sub_reader, self.value_count, self.bits_per_value
+        )
     }
 }

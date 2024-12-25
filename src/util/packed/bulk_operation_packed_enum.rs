@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::packed::bulk_operation::BulkOperation;
 use crate::util::packed::bulk_operation_packed::BulkOperationPacked;
 use crate::util::packed::bulk_operation_packed1::BulkOperationPacked1;
 use crate::util::packed::bulk_operation_packed10::BulkOperationPacked10;
@@ -42,7 +43,6 @@ use crate::util::packed::bulk_operation_packed9::BulkOperationPacked9;
 use crate::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
 use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
 use crate::util::packed::{Decoder, Encoder};
-use crate::util::packed::bulk_operation::BulkOperation;
 
 pub(crate) enum BulkOperationPackedEnum {
     Packed1(BulkOperationPacked<BulkOperationPacked1>),
@@ -2365,4 +2365,4 @@ impl Encoder for BulkOperationPackedEnum {
         }
     }
 }
-impl BulkOperation for BulkOperationPackedEnum{}
+impl BulkOperation for BulkOperationPackedEnum {}

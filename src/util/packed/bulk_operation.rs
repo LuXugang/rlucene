@@ -147,7 +147,6 @@ pub const PACKED_SINGLE_BLOCK_BULK_OPS: [BulkOperationPackedEnum; 32] = [
     BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(32)),
 ];
 pub(crate) trait BulkOperation: Decoder + Encoder {
-    
     fn write_long(&self, block: u64, blocks: &mut [u8], mut blocks_offset: usize) -> usize {
         for j in 1..=8 {
             blocks[blocks_offset] = (block >> (64 - (j << 3))) as u8;
@@ -191,20 +190,20 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
 }
 pub fn of(format: Format, bits_per_value: u32) -> &'static BulkOperationPackedEnum {
     match format {
-        Format::Packed(..)=> {
+        Format::Packed(..) => {
             assert!(
                 bits_per_value > 0 && bits_per_value <= 64,
                 "bits_per_value must be between 1 and 64"
             );
             &PACKED_BULK_OPS[bits_per_value as usize - 1]
         }
-        Format::PackedSingleBlock(..)=> {
+        Format::PackedSingleBlock(..) => {
             assert!(
                 bits_per_value > 0 && bits_per_value <= 32,
                 "bits_per_value must be between 1 and 32"
             );
 
-            let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value as usize- 1];
+            let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value as usize - 1];
 
             debug_assert!(
                 !matches!(operation, BulkOperationPackedEnum::Dummy(_)),
