@@ -34,7 +34,7 @@ where
     off: usize,
     written: u32,
     value_count: i32,
-    bits_per_value: u32,
+    pub bits_per_value: u32,
     data_output: &'a mut T,
 }
 impl<'a, T> PackedWriter<'a, T>
@@ -102,7 +102,7 @@ where
 
     fn add(&mut self, v: i64) -> Result<(), DataIOError> {
         assert!(
-            PackedInts::unsigned_bits_required(v as u64) <= self.bits_per_value,
+            PackedInts::unsigned_bits_required(v) <= self.bits_per_value,
             "Value exceeds allowed bits per value"
         );
         assert!(!self.finished, "Cannot add values after finishing writing");

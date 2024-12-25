@@ -175,8 +175,8 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
     /// # Returns
     /// The number of iterations to perform.
     fn compute_iterations(&self, value_count: u32, ram_budget: u32) -> u32 {
-        let byte_value_count = Decoder::byte_block_count(self);
-        let iterations = ram_budget / (byte_value_count + 8 * byte_value_count);
+        let byte_value_count = Decoder::byte_value_count(self);
+        let iterations = ram_budget / (Decoder::byte_block_count(self) + 8 * byte_value_count);
         if iterations == 0 {
             // At least 1 iteration is required
             1

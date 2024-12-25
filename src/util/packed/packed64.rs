@@ -17,7 +17,7 @@
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::bulk_operation::of;
-use crate::util::packed::format_behavior::{FormatBehavior, Packed};
+use crate::util::packed::format_behavior::{FormatBehavior, PackedImpl};
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
 use std::fmt::{Display, Formatter};
 
@@ -65,7 +65,7 @@ impl Packed64 {
     /// A new instance of `Packed64`.
     ///
     pub fn new(value_count: u32, bits_per_value: u32) -> Self {
-        let format = Format::Packed(Packed::new(0)); // Corresponds to PackedInts.Format.PACKED in Java
+        let format = Format::Packed(PackedImpl::new(0)); // Corresponds to PackedInts.Format.PACKED in Java
         let long_count =
             format.long_count(PackedInts::VERSION_CURRENT, value_count, bits_per_value);
         let blocks = vec![0; long_count as usize];
@@ -131,7 +131,7 @@ impl Reader for Packed64 {
         );
 
         let original_index = index;
-        let decoder = of(Format::Packed(Packed::new(0)), self.bits_per_value);
+        let decoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value);
 
         // Go to the next block where the value does not span across two blocks
         let offset_in_blocks = index % Decoder::long_value_count(decoder) as usize;
@@ -175,8 +175,12 @@ impl Reader for Packed64 {
         } else {
             // No progress so far => already at a block boundary but no full block to get
             assert_eq!(index, original_index, "Index mismatch");
-            Reader::default_get_bulk(self, index, arr, off, len) // This assumes a fallback to another implementation
+            self.default_get_bulk(index, arr, off, len) // This assumes a fallback to another implementation
         }
+    }
+
+    fn size(&self) -> u32 {
+        self.value_count
     }
 }
 
@@ -232,7 +236,7 @@ impl Mutable for Packed64 {
         );
 
         let original_index = index;
-        let encoder = of(Format::Packed(Packed::new(0)), self.bits_per_value);
+        let encoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value);
 
         // Go to the next block where the value does not span across two blocks
         let offset_in_blocks = index % Encoder::long_value_count(encoder) as usize;
@@ -289,7 +293,7 @@ impl Mutable for Packed64 {
 
     fn fill(&mut self, mut from_index: usize, to_index: usize, val: i64) {
         assert!(
-            PackedInts::unsigned_bits_required(val as u64) <= self.bits_per_value,
+            PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
             "Value requires more bits than allowed by bits_per_value"
         );
         assert!(from_index <= to_index, "from_index must be <= to_index");

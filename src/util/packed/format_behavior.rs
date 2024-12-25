@@ -17,7 +17,7 @@
 use crate::util::packed::packed64_single_block::is_supported;
 use crate::util::packed::Format;
 
-pub(crate) trait FormatBehavior {
+pub trait FormatBehavior {
     fn get_id(&self) -> u32;
     /// Computes how many byte blocks are needed to store `values` values of size `bits_per_value`.
     fn byte_count(&self, packed_ints_version: u32, value_count: u32, bits_per_value: u32) -> u64 {
@@ -58,15 +58,15 @@ pub(crate) trait FormatBehavior {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Packed {
+pub struct PackedImpl {
     id: u32,
 }
-impl Packed {
+impl PackedImpl {
     pub fn new(id: u32) -> Self {
-        Packed { id }
+        PackedImpl { id }
     }
 }
-impl FormatBehavior for Packed {
+impl FormatBehavior for PackedImpl {
     fn get_id(&self) -> u32 {
         self.id
     }
@@ -76,15 +76,15 @@ impl FormatBehavior for Packed {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PackedSingleBlock {
+pub struct PackedSingleBlockImpl {
     id: u32,
 }
-impl PackedSingleBlock {
+impl PackedSingleBlockImpl {
     pub fn new(id: u32) -> Self {
-        PackedSingleBlock { id }
+        PackedSingleBlockImpl { id }
     }
 }
-impl FormatBehavior for PackedSingleBlock {
+impl FormatBehavior for PackedSingleBlockImpl {
     fn get_id(&self) -> u32 {
         self.id
     }

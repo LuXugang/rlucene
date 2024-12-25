@@ -18,8 +18,8 @@ use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::packed::bulk_operation::of;
-use crate::util::packed::format_behavior::{Packed, PackedSingleBlock};
-use crate::util::packed::packed64_single_block_enum::MutablePacked64Enum;
+use crate::util::packed::format_behavior::{PackedImpl, PackedSingleBlockImpl};
+use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader};
 use std::fmt::{Display, Formatter};
 
@@ -39,12 +39,12 @@ pub fn is_supported(bits_per_value: u32) -> bool {
         .binary_search(&bits_per_value)
         .is_ok()
 }
+pub const MAX_SUPPORTED_BITS_PER_VALUE: u32 = 32;
 impl<T> Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
     /// Supported bits per value
-    const MAX_SUPPORTED_BITS_PER_VALUE: u32 = 32;
 
     fn required_capacity(value_count: u32, values_per_block: u32) -> u32 {
         value_count / values_per_block
@@ -121,7 +121,7 @@ where
             0,
             "index not aligned with block boundary"
         );
-        let decoder = of(Format::Packed(Packed::new(0)), self.bits_per_value);
+        let decoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value);
         assert_eq!(
             Decoder::long_value_count(decoder),
             1,
@@ -310,7 +310,7 @@ where
         );
 
         let op = of(
-            Format::PackedSingleBlock(PackedSingleBlock::new(1)),
+            Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
             self.bits_per_value,
         );
         assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");
@@ -343,7 +343,7 @@ where
     fn fill(&mut self, mut from_index: usize, to_index: usize, val: i64) {
         assert!(from_index <= to_index, "from_index must be <= to_index");
         assert!(
-            PackedInts::unsigned_bits_required(val as u64) <= self.bits_per_value,
+            PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
             "Value requires more bits than allowed by bits_per_value"
         );
 

@@ -21,10 +21,10 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
-use crate::util::packed::format_behavior::{Packed, PackedSingleBlock};
+use crate::util::packed::format_behavior::{PackedImpl, PackedSingleBlockImpl};
 use crate::util::packed::packed64::Packed64;
 use crate::util::packed::packed64_single_block::create;
-use crate::util::packed::packed64_single_block_enum::MutablePacked64Enum;
+use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
 use std::cmp::min;
@@ -114,18 +114,17 @@ impl PackedInts {
         value_count: u32,
         bits_per_value: u32,
         mem: u32,
-    ) -> Result<PackedReaderIterator<T>, DataIOError>
+    ) -> Result<ReaderIteratorImpl<impl ReaderIterator + use<'_, T>>, DataIOError>
     where
         T: DataInput,
     {
         check_version(version)?;
-        Ok(PackedReaderIterator::new(
-            format,
-            version,
+        let sub_reader =
+            PackedReaderIterator::new(format, version, value_count, bits_per_value, input, mem);
+        Ok(ReaderIteratorImpl::new(
             value_count,
             bits_per_value,
-            input,
-            mem,
+            sub_reader,
         ))
     }
     /// Create a packed integer array with the given amount of values initialized to 0. The `value_count`
@@ -242,7 +241,7 @@ impl PackedInts {
                 max_value
             )));
         }
-        Ok(PackedInts::unsigned_bits_required(max_value as u64))
+        Ok(PackedInts::unsigned_bits_required(max_value))
     }
 
     /// Returns how many bits are required to store `bits`, interpreted as an unsigned value.
@@ -253,7 +252,7 @@ impl PackedInts {
     ///
     /// # Returns
     /// The number of bits required to store `bits`.
-    pub fn unsigned_bits_required(bits: u64) -> u32 {
+    pub fn unsigned_bits_required(bits: i64) -> u32 {
         (64 - bits.leading_zeros() as usize).max(1) as u32
     }
 
@@ -268,7 +267,7 @@ impl PackedInts {
     /// The maximum value for the given number of bits.
     pub fn max_value(bits_per_value: u32) -> u64 {
         if bits_per_value == 64 {
-            u64::MAX
+            i64::MAX as u64
         } else {
             (1u64 << bits_per_value) - 1
         }
@@ -421,11 +420,11 @@ pub fn check_version(version: u32) -> Result<(), DataIOError> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// Compact format, all bits are written contiguously.
-    Packed(Packed),
+    Packed(PackedImpl),
 
     /// A format that may insert padding bits to improve encoding and decoding speed.
     /// This format is deprecated; use `Packed` instead.
-    PackedSingleBlock(PackedSingleBlock),
+    PackedSingleBlock(PackedSingleBlockImpl),
 }
 /// Represents a combination of Format and bitsPerValue.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -469,7 +468,7 @@ pub fn fastest_format_and_bits(
     };
 
     FormatAndBits {
-        format: Format::Packed(Packed::new(0)),
+        format: Format::Packed(PackedImpl::new(0)),
         bits_per_value: actual_bits_per_value,
     }
 }
@@ -733,7 +732,7 @@ pub trait Reader: Accountable {
     }
 }
 /// Run-once iterator interface to decode previously saved PackedInts.
-pub(crate) trait ReaderIterator {
+pub trait ReaderIterator: Display {
     /// Returns the next value.
     ///
     /// # Errors
@@ -754,7 +753,7 @@ pub(crate) trait ReaderIterator {
     /// # Errors
     ///
     /// Returns an error if there is an issue decoding the values.
-    fn next_batch(&mut self, count: u32) -> Result<LongsRef, DataIOError>;
+    fn next_batch(&mut self, count: u32) -> Result<&mut LongsRef, DataIOError>;
 
     /// Returns the number of bits per value.
     fn get_bits_per_value(&self) -> u32 {
@@ -770,7 +769,7 @@ pub(crate) trait ReaderIterator {
     fn ord(&self) -> i32;
 }
 /// A base implementation of the `ReaderIterator` trait.
-pub(crate) struct ReaderIteratorImpl<C>
+pub struct ReaderIteratorImpl<C>
 where
     C: ReaderIterator,
 {
@@ -805,7 +804,7 @@ where
     C: ReaderIterator,
 {
     fn next(&mut self) -> Result<i64, DataIOError> {
-        let mut next_values = self.next_batch(1)?;
+        let next_values = self.next_batch(1)?;
         debug_assert!(next_values.length > 0, "next_values buffer is empty");
         let result = next_values.longs[next_values.offset];
         next_values.offset += 1;
@@ -813,7 +812,7 @@ where
         Ok(result)
     }
 
-    fn next_batch(&mut self, count: u32) -> Result<LongsRef, DataIOError> {
+    fn next_batch(&mut self, count: u32) -> Result<&mut LongsRef, DataIOError> {
         self.sub_reader.next_batch(count)
     }
 
@@ -827,6 +826,14 @@ where
 
     fn ord(&self) -> i32 {
         self.sub_reader.ord()
+    }
+}
+impl<C> Display for ReaderIteratorImpl<C>
+where
+    C: ReaderIterator,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.sub_reader)
     }
 }
 
@@ -948,18 +955,34 @@ impl<T> Reader for MutableImpl<T>
 where
     T: Mutable + Display,
 {
+    
+    fn get(&mut self, index: usize) -> Result<i64, DataIOError> {
+        self.sub_reader.get(index)
+    }
+
+    fn get_bulk(&mut self, index: usize, arr: &mut [i64], off: usize, len: usize) -> Result<u32, DataIOError> {
+        self.sub_reader.get_bulk(index, arr, off, len)
+    }
+
     fn size(&self) -> u32 {
         self.value_count
     }
+    
 }
 
 impl<T> Mutable for MutableImpl<T>
 where
     T: Mutable + Display,
 {
+    
     fn get_bits_per_value(&self) -> u32 {
         self.bits_per_value
     }
+
+    fn set(&mut self, index: usize, value: i64) {
+        self.sub_reader.set(index, value)
+    }
+    
 }
 impl<T> Display for MutableImpl<T>
 where

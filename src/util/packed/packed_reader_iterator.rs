@@ -21,6 +21,7 @@ use crate::util::packed::bulk_operation::{of, BulkOperation};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
 use crate::util::packed::{Decoder, Format, ReaderIterator};
+use std::fmt::Display;
 
 pub struct PackedReaderIterator<'a, D>
 where
@@ -59,9 +60,11 @@ where
 
         let next_blocks =
             vec![0u8; iterations as usize * bulk_operation.byte_block_count() as usize];
+        let next_values_long_length =
+            iterations as usize * bulk_operation.byte_value_count() as usize;
         let next_values = LongsRef::from_slice(
-            vec![0i64; iterations as usize * bulk_operation.byte_value_count() as usize],
-            0,
+            vec![0i64; next_values_long_length],
+            next_values_long_length,
             0,
         );
 
@@ -83,7 +86,7 @@ impl<'a, D> ReaderIterator for PackedReaderIterator<'a, D>
 where
     D: DataInput + 'a,
 {
-    fn next_batch(&mut self, mut count: u32) -> Result<LongsRef, DataIOError> {
+    fn next_batch(&mut self, mut count: u32) -> Result<&mut LongsRef, DataIOError> {
         debug_assert!(
             self.next_values.offset + self.next_values.length <= self.next_values.longs.len(),
             "Offset and length should be within the bounds of longs"
@@ -131,9 +134,17 @@ where
         debug_assert!(self.next_values.length <= u32::MAX as usize);
         self.position += self.next_values.length as i32;
 
-        Ok(self.next_values.clone())
+        Ok(&mut self.next_values)
     }
     fn ord(&self) -> i32 {
         self.position
+    }
+}
+impl<D> Display for PackedReaderIterator<'_, D>
+where
+    D: DataInput,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PackedReaderIterator")
     }
 }
