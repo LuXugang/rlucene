@@ -21,7 +21,7 @@ pub(crate) trait FormatBehavior {
     /// Computes how many byte blocks are needed to store `values` values of size `bits_per_value`.
     fn byte_count(&self, packed_ints_version: u32, value_count: u32, bits_per_value: u32) -> u64 {
         assert!(
-            bits_per_value >= 0 && bits_per_value <= 64,
+             bits_per_value <= 64,
             "bits_per_value must be between 0 and 64"
         );
         8 * self.long_count(packed_ints_version, value_count, bits_per_value) as u64

@@ -85,10 +85,6 @@ where
 {
     fn next_batch(&mut self, mut count: u32) -> Result<LongsRef, DataIOError> {
         debug_assert!(
-            self.next_values.longs.len() >= 0,
-            "Next values length should be >= 0"
-        );
-        debug_assert!(
             self.next_values.offset + self.next_values.length <= self.next_values.longs.len(),
             "Offset and length should be within the bounds of longs"
         );

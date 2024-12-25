@@ -52,7 +52,7 @@ impl Packed64 {
     pub const BLOCK_SIZE: u32 = 64; // 32 = int, 64 = long
     pub const BLOCK_BITS: u32 = 6; // The #bits representing BLOCK_SIZE
     pub const MOD_MASK: u32 = Self::BLOCK_SIZE - 1; // x % BLOCK_SIZE
-    
+
     /// Creates an array with the internal structures adjusted for the given limits and initialized to 0.
     ///
     /// # Arguments
@@ -63,7 +63,7 @@ impl Packed64 {
     /// # Returns
     ///
     /// A new instance of `Packed64`.
-    /// 
+    ///
     pub fn new(value_count: u32, bits_per_value: u32) -> Self {
         let format = Format::Packed(Packed); // Corresponds to PackedInts.Format.PACKED in Java
         let long_count =
@@ -223,7 +223,7 @@ impl Mutable for Packed64 {
             | (value << (Self::BLOCK_SIZE as i64 - end_bits)) as u64;
     }
 
-    fn set_bulk(&mut self, mut index: usize, arr: &[i64], mut off: usize, mut len: usize) -> usize {
+    fn set_bulk(&mut self, mut index: usize, arr: &[i64], mut off: usize, mut len: usize) -> u32 {
         assert!(index < self.value_count as usize, "index out of bounds");
         len = len.min(self.value_count as usize - index);
         assert!(
@@ -239,7 +239,8 @@ impl Mutable for Packed64 {
         if offset_in_blocks != 0 {
             for _ in offset_in_blocks..Encoder::long_value_count(encoder) as usize {
                 if len == 0 {
-                    return index - original_index;
+                    debug_assert!(index - original_index <= u32::MAX as usize);
+                    return (index - original_index) as u32;
                 }
                 self.set(index, arr[off]);
                 index += 1;
@@ -247,7 +248,8 @@ impl Mutable for Packed64 {
                 len -= 1;
             }
             if len == 0 {
-                return index - original_index;
+                debug_assert!(index - original_index <= u32::MAX as usize);
+                return (index - original_index) as u32;
             }
         }
 
@@ -276,7 +278,8 @@ impl Mutable for Packed64 {
 
         if index > original_index {
             // Stay at the block boundary
-            index - original_index
+            debug_assert!(index - original_index <= u32::MAX as usize);
+            (index - original_index) as u32
         } else {
             // No progress so far => already at a block boundary but no full block to set
             assert_eq!(index, original_index);

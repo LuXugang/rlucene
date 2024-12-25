@@ -552,10 +552,10 @@ pub(crate) trait Mutable: Reader + Display {
     ///
     /// The actual number of values that have been set.
     ///
-    fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> usize {
+    fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> u32 {
         self.default_set_bulk(index, arr, off, len)
     }
-    fn default_set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> usize {
+    fn default_set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> u32 {
         assert!(len > 0, "len must be > 0 (got {})", len);
         assert!(
             index < self.size() as usize,
@@ -572,7 +572,8 @@ pub(crate) trait Mutable: Reader + Display {
         for (i, o) in (index..index + len).zip(off..off + len) {
             self.set(i, arr[o]);
         }
-        len
+        debug_assert!(len <= u32::MAX as usize);
+        len as u32
     }
 
     /// Fills a range in the packed array with a specific value.
