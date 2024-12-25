@@ -19,10 +19,7 @@ use crate::store::base_data_output_test_case::{add_random_data, BaseDataOutputTe
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::store::data_output::DataOutput;
-use rlucene::store::{
-    ByteArrayDataInput, ByteBuffersDataOutput, DEFAULT_MAX_BITS_PER_BLOCK,
-    DEFAULT_MIN_BITS_PER_BLOCK, LIMIT_MIN_BITS_PER_BLOCK, MAX_BLOCKS_BEFORE_BLOCK_EXPANSION,
-};
+use rlucene::store::{ByteArrayDataInput, ByteBuffersDataOutput};
 
 struct TestByteBuffersDataOutput;
 impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
@@ -40,8 +37,11 @@ impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
 #[test]
 fn test_reuse() -> Result<(), TestError> {
     let mut random = my_random("test_reuse".to_string());
-    let mut o =
-        ByteBuffersDataOutput::new(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK, true)?;
+    let mut o = ByteBuffersDataOutput::new(
+        ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
+        ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
+        true,
+    )?;
     // add some random data first
     let gen_seed: u64 = random.gen();
     let mut random1 = my_random_with_seed(gen_seed);
@@ -62,7 +62,10 @@ fn test_constructor_with_expected_size() -> Result<(), TestError> {
     o.write_byte(0)?;
     let (_length, mut result) = o.to_buffer_list();
     let capacity = result.get_mut(0).unwrap().get_ref().len();
-    assert_eq!(1 << DEFAULT_MIN_BITS_PER_BLOCK, capacity);
+    assert_eq!(
+        1 << ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
+        capacity
+    );
 
     let mb = 1024 * 1024;
     let expected_size: i64 = random.gen_range(mb..mb * 1024);
@@ -70,8 +73,14 @@ fn test_constructor_with_expected_size() -> Result<(), TestError> {
     let _ = o.write_byte(0);
     let (_length, mut result) = o.to_buffer_list();
     let cap = result.get_mut(0).unwrap().get_ref().len();
-    assert!(((cap >> 1) * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize) < expected_size as usize);
-    assert!(cap * MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize >= expected_size as usize);
+    assert!(
+        ((cap >> 1) * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize)
+            < expected_size as usize
+    );
+    assert!(
+        cap * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize
+            >= expected_size as usize
+    );
     Ok(())
 }
 
@@ -86,8 +95,8 @@ fn test_randomized_writes() -> Result<(), TestError> {
 #[test]
 fn test_illegal_min_bits_per_block() {
     let o = ByteBuffersDataOutput::new(
-        LIMIT_MIN_BITS_PER_BLOCK - 1,
-        DEFAULT_MAX_BITS_PER_BLOCK,
+        ByteBuffersDataOutput::LIMIT_MIN_BITS_PER_BLOCK - 1,
+        ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
         false,
     );
     assert!(o.is_err());
@@ -95,8 +104,8 @@ fn test_illegal_min_bits_per_block() {
 #[test]
 fn test_illegal_max_bits_per_block() {
     let o = ByteBuffersDataOutput::new(
-        DEFAULT_MIN_BITS_PER_BLOCK,
-        LIMIT_MIN_BITS_PER_BLOCK + 1,
+        ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
+        ByteBuffersDataOutput::LIMIT_MIN_BITS_PER_BLOCK + 1,
         false,
     );
     assert!(o.is_err());
@@ -160,8 +169,8 @@ fn test_copy_bytes_on_heap() -> Result<(), TestError> {
     let mut input = ByteArrayDataInput::new_with_range(bytes, offset as u32, len as u32);
 
     let mut o = ByteBuffersDataOutput::new(
-        DEFAULT_MIN_BITS_PER_BLOCK,
-        DEFAULT_MAX_BITS_PER_BLOCK,
+        ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
+        ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
         false,
     )?;
     o.copy_bytes(&mut input, len as u64)?;
@@ -179,8 +188,8 @@ fn test_copy_bytes_on_direct_byte_buffer() -> Result<(), TestError> {
     let bytes_clone = bytes.clone();
     let mut input = ByteArrayDataInput::new_with_range(bytes, offset as u32, len as u32);
     let mut o = ByteBuffersDataOutput::new(
-        DEFAULT_MIN_BITS_PER_BLOCK,
-        DEFAULT_MAX_BITS_PER_BLOCK,
+        ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
+        ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
         false,
     )?;
     o.copy_bytes(&mut input, len as u64)?;

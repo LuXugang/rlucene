@@ -16,10 +16,6 @@
  */
 use crate::util::error::runtime_error::RuntimeError;
 
-pub const BINARY_SORT_THRESHOLD: i32 = 20;
-// Below this size threshold, the sub-range is sorted using Insertion sort.
-pub const INSERTION_SORT_THRESHOLD: i32 = 16;
-
 /// Base class for sorting algorithm implementations.
 ///
 /// There are a number of subclasses to choose from that vary in performance and [stability](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability).
@@ -34,6 +30,9 @@ pub const INSERTION_SORT_THRESHOLD: i32 = 16;
 /// # Note
 /// This is an internal API.
 pub trait Sorter {
+    const BINARY_SORT_THRESHOLD: i32 = 20;
+    // Below this size threshold, the sub-range is sorted using Insertion sort.
+    const INSERTION_SORT_THRESHOLD: i32 = 16;
     /// Compare entries found in slots i and j
     fn compare(&mut self, _i: i32, _j: i32) -> Result<i32, RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")

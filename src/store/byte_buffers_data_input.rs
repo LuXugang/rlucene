@@ -17,7 +17,7 @@
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
-use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
+use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, VecCopyOps};
@@ -134,20 +134,20 @@ impl<'a> ByteBuffersDataInput<'a> {
         Ok(())
     }
     fn read_longs(&mut self, pos: u64, len: u32, output: &mut [i64]) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, LONG_BYTES as u32, LE::read_i64)
+        self.read_buffer(pos, len, output, BitUtil::LONG_BYTES as u32, LE::read_i64)
     }
     fn read_bytes(&mut self, pos: u64, len: u32, output: &mut [u8]) -> Result<(), DataIOError> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
     fn read_ints(&mut self, pos: u64, len: u32, output: &mut [i32]) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, INT_BYTES as u32, LE::read_i32)
+        self.read_buffer(pos, len, output, BitUtil::INT_BYTES as u32, LE::read_i32)
     }
     fn read_shorts(&mut self, pos: u64, len: u32, output: &mut [i16]) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, SHORT_BYTES as u32, LE::read_i16)
+        self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES as u32, LE::read_i16)
     }
     fn read_floats(&mut self, pos: u64, len: u32, output: &mut [f32]) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, FLOAT_BYTES as u32, LE::read_f32)
+        self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES as u32, LE::read_f32)
     }
 
     pub fn seek(&mut self, position: u64) -> Result<(), DataIOError> {
@@ -210,14 +210,14 @@ impl DataInput for ByteBuffersDataInput<'_> {
     fn read_short(&mut self) -> Result<i16, DataIOError> {
         let mut output = [0; 1];
         self.read_shorts(self.pos, 1, &mut output)?;
-        self.pos += SHORT_BYTES as u64;
+        self.pos += BitUtil::SHORT_BYTES as u64;
         Ok(output[0])
     }
 
     fn read_int(&mut self) -> Result<i32, DataIOError> {
         let mut output = [0; 1];
         self.read_ints(self.pos, 1, &mut output)?;
-        self.pos += INT_BYTES as u64;
+        self.pos += BitUtil::INT_BYTES as u64;
         Ok(output[0])
     }
 
@@ -240,7 +240,7 @@ impl DataInput for ByteBuffersDataInput<'_> {
     fn read_long(&mut self) -> Result<i64, DataIOError> {
         let mut output = [0; 1];
         self.read_longs(self.pos, 1, &mut output)?;
-        self.pos += LONG_BYTES as u64;
+        self.pos += BitUtil::LONG_BYTES as u64;
         Ok(output[0])
     }
 
@@ -285,21 +285,21 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
 
     fn read_short(&mut self, pos: u64) -> Result<i16, DataIOError> {
         let pos = pos + self.offset;
-        let mut bytes = [0; SHORT_BYTES];
+        let mut bytes = [0; BitUtil::SHORT_BYTES];
         self.read_shorts(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
     fn read_int(&mut self, pos: u64) -> Result<i32, DataIOError> {
         let pos = pos + self.offset;
-        let mut bytes = [0; INT_BYTES];
+        let mut bytes = [0; BitUtil::INT_BYTES];
         self.read_ints(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
     fn read_long(&mut self, pos: u64) -> Result<i64, DataIOError> {
         let pos = pos + self.offset;
-        let mut bytes = [0; LONG_BYTES];
+        let mut bytes = [0; BitUtil::LONG_BYTES];
         self.read_longs(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }

@@ -17,7 +17,7 @@
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
-use crate::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES, SHORT_BYTES};
+use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, VecCopyOps};
@@ -172,7 +172,7 @@ where
             pos,
             len,
             output,
-            LONG_BYTES as u32,
+            BitUtil::LONG_BYTES as u32,
             LE::read_i64,
             use_buffer,
         )
@@ -195,7 +195,14 @@ where
         output: &mut [i32],
         use_buffer: bool,
     ) -> Result<(), DataIOError> {
-        self.read_buffer(pos, len, output, INT_BYTES as u32, LE::read_i32, use_buffer)
+        self.read_buffer(
+            pos,
+            len,
+            output,
+            BitUtil::INT_BYTES as u32,
+            LE::read_i32,
+            use_buffer,
+        )
     }
     fn read_shorts(
         &mut self,
@@ -208,7 +215,7 @@ where
             pos,
             len,
             output,
-            SHORT_BYTES as u32,
+            BitUtil::SHORT_BYTES as u32,
             LE::read_i16,
             use_buffer,
         )
@@ -224,7 +231,7 @@ where
             pos,
             len,
             output,
-            FLOAT_BYTES as u32,
+            BitUtil::FLOAT_BYTES as u32,
             LE::read_f32,
             use_buffer,
         )
@@ -552,14 +559,14 @@ where
     fn read_short(&mut self) -> Result<i16, DataIOError> {
         let mut output = [0; 1];
         self.read_shorts(self.pos, 1, &mut output, true)?;
-        self.pos += SHORT_BYTES as u64;
+        self.pos += BitUtil::SHORT_BYTES as u64;
         Ok(output[0])
     }
 
     fn read_int(&mut self) -> Result<i32, DataIOError> {
         let mut output = [0; 1];
         self.read_ints(self.pos, 1, &mut output, true)?;
-        self.pos += INT_BYTES as u64;
+        self.pos += BitUtil::INT_BYTES as u64;
         Ok(output[0])
     }
 
@@ -581,7 +588,7 @@ where
     fn read_long(&mut self) -> Result<i64, DataIOError> {
         let mut output = [0; 1];
         self.read_longs(self.pos, 1, &mut output, true)?;
-        self.pos += LONG_BYTES as u64;
+        self.pos += BitUtil::LONG_BYTES as u64;
         Ok(output[0])
     }
     fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), DataIOError> {
@@ -591,7 +598,7 @@ where
             &mut dst[offset as usize..(offset + len) as usize],
             true,
         )?;
-        self.pos += len as u64 * LONG_BYTES as u64;
+        self.pos += len as u64 * BitUtil::LONG_BYTES as u64;
         Ok(())
     }
     fn read_ints(&mut self, dst: &mut [i32], offset: u32, len: u32) -> Result<(), DataIOError> {
@@ -602,7 +609,7 @@ where
             true,
         )?;
 
-        self.pos += len as u64 * INT_BYTES as u64;
+        self.pos += len as u64 * BitUtil::INT_BYTES as u64;
         Ok(())
     }
     fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), DataIOError> {
@@ -612,7 +619,7 @@ where
             &mut dst[offset as usize..(offset + len) as usize],
             true,
         )?;
-        self.pos += len as u64 * FLOAT_BYTES as u64;
+        self.pos += len as u64 * BitUtil::FLOAT_BYTES as u64;
         Ok(())
     }
 
@@ -723,22 +730,22 @@ where
     }
 
     fn read_short(&mut self, pos: u64) -> Result<i16, DataIOError> {
-        let mut bytes = [0; SHORT_BYTES];
-        self.resolve_position_in_buffer(pos, SHORT_BYTES as u32)?;
+        let mut bytes = [0; BitUtil::SHORT_BYTES];
+        self.resolve_position_in_buffer(pos, BitUtil::SHORT_BYTES as u32)?;
         self.read_shorts(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
     fn read_int(&mut self, pos: u64) -> Result<i32, DataIOError> {
-        let mut bytes = [0; INT_BYTES];
-        self.resolve_position_in_buffer(pos, INT_BYTES as u32)?;
+        let mut bytes = [0; BitUtil::INT_BYTES];
+        self.resolve_position_in_buffer(pos, BitUtil::INT_BYTES as u32)?;
         self.read_ints(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
     fn read_long(&mut self, pos: u64) -> Result<i64, DataIOError> {
-        let mut bytes = [0; LONG_BYTES];
-        self.resolve_position_in_buffer(pos, LONG_BYTES as u32)?;
+        let mut bytes = [0; BitUtil::LONG_BYTES];
+        self.resolve_position_in_buffer(pos, BitUtil::LONG_BYTES as u32)?;
         self.read_longs(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }

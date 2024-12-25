@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::runtime_error::RuntimeError;
-use crate::util::sorter::{check_range, Sorter, INSERTION_SORT_THRESHOLD};
+use crate::util::sorter::{check_range, Sorter};
 /// Below this size threshold, the partition selection is simplified to a single median.
 const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 
@@ -51,7 +51,7 @@ pub trait IntroSorter: Sorter {
         mut to: i32,
         mut max_depth: usize,
     ) -> Result<(), RuntimeError> {
-        while to - from > INSERTION_SORT_THRESHOLD {
+        while to - from > Self::INSERTION_SORT_THRESHOLD {
             if max_depth == 0 {
                 // Max recursion depth exceeded: fallback to heap sort.
                 self.heap_sort(from, to)?;

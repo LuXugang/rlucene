@@ -18,15 +18,23 @@ use std::{mem, ptr};
 
 pub struct BitUtil {}
 impl BitUtil {
+    pub const SHORT_BYTES: usize = mem::size_of::<i16>();
+    pub const INT_BYTES: usize = mem::size_of::<i32>();
+    pub const LONG_BYTES: usize = mem::size_of::<i64>();
+    pub const FLOAT_BYTES: usize = mem::size_of::<f32>();
+    pub const USIZE_BYTES: usize = mem::size_of::<usize>();
     #[cfg(target_endian = "little")]
     pub fn get_i16_le(bytes: &[u8], pos: usize) -> i16 {
-        debug_assert!(pos + SHORT_BYTES <= bytes.len(), "Index out of bounds");
+        debug_assert!(
+            pos + Self::SHORT_BYTES <= bytes.len(),
+            "Index out of bounds"
+        );
         unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i16) }
     }
     #[cfg(target_endian = "little")]
     pub fn set_i16_le(bytes: &mut [u8], pos: usize, value: i16) {
         // Call the more flexible implementation with len = 2 (write all bytes)
-        Self::set_i16_le_with_len(bytes, pos, value, SHORT_BYTES);
+        Self::set_i16_le_with_len(bytes, pos, value, Self::SHORT_BYTES);
     }
 
     #[cfg(target_endian = "little")]
@@ -39,10 +47,10 @@ impl BitUtil {
             bytes.len()
         );
         debug_assert!(
-            (0..=SHORT_BYTES).contains(&len),
+            (0..=Self::SHORT_BYTES).contains(&len),
             "Invalid length: len={} (must be <= {})",
             len,
-            SHORT_BYTES
+            Self::SHORT_BYTES
         );
 
         let value_le = value.to_le();
@@ -56,7 +64,7 @@ impl BitUtil {
 
     #[cfg(target_endian = "little")]
     pub fn get_i32_le(bytes: &[u8], pos: usize) -> i32 {
-        debug_assert!(pos + INT_BYTES <= bytes.len(), "Index out of bounds");
+        debug_assert!(pos + Self::INT_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32) }
     }
@@ -64,7 +72,7 @@ impl BitUtil {
     #[cfg(target_endian = "little")]
     pub fn set_i32_le(bytes: &mut [u8], pos: usize, value: i32) {
         // Call the more flexible implementation with len = 4 (write all bytes)
-        Self::set_i32_le_with_len(bytes, pos, value, INT_BYTES);
+        Self::set_i32_le_with_len(bytes, pos, value, Self::INT_BYTES);
     }
     #[cfg(target_endian = "little")]
     pub fn set_i32_le_with_len(bytes: &mut [u8], pos: usize, value: i32, len: usize) {
@@ -76,7 +84,7 @@ impl BitUtil {
             bytes.len()
         );
         debug_assert!(
-            (0..=INT_BYTES).contains(&len),
+            (0..=Self::INT_BYTES).contains(&len),
             "Invalid length: len={} (must be <= 4)",
             len
         );
@@ -92,7 +100,7 @@ impl BitUtil {
 
     #[cfg(target_endian = "little")]
     pub fn get_i64_le(bytes: &[u8], pos: usize) -> i64 {
-        debug_assert!(pos + LONG_BYTES <= bytes.len(), "Index out of bounds");
+        debug_assert!(pos + Self::LONG_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i64) }
     }
@@ -100,7 +108,7 @@ impl BitUtil {
     #[cfg(target_endian = "little")]
     pub fn set_i64_le(bytes: &mut [u8], pos: usize, value: i64) {
         // Call the more flexible implementation with len = 8 (write all bytes)
-        Self::set_i64_le_with_len(bytes, pos, value, LONG_BYTES);
+        Self::set_i64_le_with_len(bytes, pos, value, Self::LONG_BYTES);
     }
 
     #[cfg(target_endian = "little")]
@@ -113,10 +121,10 @@ impl BitUtil {
             bytes.len()
         );
         debug_assert!(
-            (0..=LONG_BYTES).contains(&len),
+            (0..=Self::LONG_BYTES).contains(&len),
             "Invalid length: len={} (must be <= {})",
             len,
-            LONG_BYTES
+            Self::LONG_BYTES
         );
 
         let value_le = value.to_le();
@@ -144,9 +152,3 @@ impl BitUtil {
         (((l >> 63) as u64) ^ ((l << 1) as u64)) as i64
     }
 }
-
-pub const SHORT_BYTES: usize = mem::size_of::<i16>();
-pub const INT_BYTES: usize = mem::size_of::<i32>();
-pub const LONG_BYTES: usize = mem::size_of::<i64>();
-pub const FLOAT_BYTES: usize = mem::size_of::<f32>();
-pub const USIZE_BYTES: usize = mem::size_of::<usize>();

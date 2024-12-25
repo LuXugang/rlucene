@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::runtime_error::RuntimeError;
-use crate::util::{check_range, MSBRadixSorterBase, Sorter, BINARY_SORT_THRESHOLD, HISTOGRAM_SIZE};
+use crate::util::{check_range, MSBRadixSorterBase, Sorter, HISTOGRAM_SIZE};
 
 pub struct StableMSBRadixSorter<T>
 where
@@ -104,7 +104,7 @@ where
     T: Sorter + StableMSBRadixSorterBase,
 {
     fn merge_sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
-        if to - from < BINARY_SORT_THRESHOLD {
+        if to - from < Self::BINARY_SORT_THRESHOLD {
             self.binary_sort(from, to)
         } else {
             let mid = (from + to) / 2;

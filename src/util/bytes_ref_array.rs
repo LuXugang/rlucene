@@ -16,7 +16,7 @@
  */
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
-use crate::util::bit_util::INT_BYTES;
+use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
@@ -48,7 +48,10 @@ impl BytesRefArray {
             byte_used.clone(),
         )));
         let offsets = Vec::new();
-        byte_used.lock().unwrap().add_and_get(INT_BYTES as i64);
+        byte_used
+            .lock()
+            .unwrap()
+            .add_and_get(BitUtil::INT_BYTES as i64);
         BytesRefArray {
             pool,
             offsets,
@@ -199,7 +202,10 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         self.offsets.push(self.current_offset);
         self.last_element += 1;
         self.current_offset += bytes.length;
-        self.byte_used.lock().unwrap().add_and_get(INT_BYTES as i64);
+        self.byte_used
+            .lock()
+            .unwrap()
+            .add_and_get(BitUtil::INT_BYTES as i64);
         self.last_element - 1
     }
 

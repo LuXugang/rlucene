@@ -16,7 +16,7 @@
  */
 
 use crate::store::data_output::DataOutput;
-use crate::util::bit_util::{BitUtil, INT_BYTES, LONG_BYTES, SHORT_BYTES};
+use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 /// `DataOutput` backed by a byte array.
 ///
@@ -129,31 +129,31 @@ impl DataOutput for ByteArrayDataOutput<'_> {
 
     fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + INT_BYTES as u32 <= self.limit,
+            self.pos + BitUtil::INT_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"
         );
         BitUtil::set_i32_le(self.bytes, self.pos as usize, i);
-        self.pos += INT_BYTES as u32;
+        self.pos += BitUtil::INT_BYTES as u32;
         Ok(())
     }
 
     fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + SHORT_BYTES as u32 <= self.limit,
+            self.pos + BitUtil::SHORT_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"
         );
         BitUtil::set_i16_le(self.bytes, self.pos as usize, i);
-        self.pos += SHORT_BYTES as u32;
+        self.pos += BitUtil::SHORT_BYTES as u32;
         Ok(())
     }
 
     fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
         debug_assert!(
-            self.pos + LONG_BYTES as u32 <= self.limit,
+            self.pos + BitUtil::LONG_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"
         );
         BitUtil::set_i64_le(self.bytes, self.pos as usize, i);
-        self.pos += LONG_BYTES as u32;
+        self.pos += BitUtil::LONG_BYTES as u32;
         Ok(())
     }
 }

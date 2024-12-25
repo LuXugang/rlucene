@@ -16,7 +16,7 @@
  */
 use crate::store::data_output::DataOutput;
 use crate::store::index_output::IndexOutput;
-use crate::util::bit_util::LONG_BYTES;
+use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
 use byteorder::{LittleEndian, WriteBytesExt};
@@ -52,10 +52,11 @@ where
         inner: W,
         buffer_size: u32,
     ) -> Result<OutputStreamIndexOutput<W>, RuntimeError> {
-        if (buffer_size as usize) < LONG_BYTES {
+        if (buffer_size as usize) < BitUtil::LONG_BYTES {
             return Err(RuntimeError::illegal_argument(format!(
                 "Buffer size too small, need: {}, got: {}",
-                LONG_BYTES, buffer_size
+                BitUtil::LONG_BYTES,
+                buffer_size
             )));
         }
         let os = XBufferedOutputStream::new(inner, buffer_size);

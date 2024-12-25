@@ -31,6 +31,10 @@ use regex::Regex;
 pub struct IndexFileNames;
 
 impl IndexFileNames {
+    /// Name of the index segment file
+    pub const SEGMENTS: &'static str = "segments";
+    /// Name of pending index segment file
+    pub const PENDING_SEGMENTS: &'static str = "pending_segments";
     /// Computes the full file name from `base`, `extension`, and `generation`.
     /// If the generation is `-1`, the file name is `None`. If it's `0`, the file name is `<base>.<ext>`.
     /// If it's greater than `0`, the file name is `<base>_<gen>.<ext>`.
@@ -177,10 +181,6 @@ impl IndexFileNames {
         }
     }
 }
-/// Name of the index segment file
-pub const SEGMENTS: &str = "segments";
-/// Name of pending index segment file
-pub const PENDING_SEGMENTS: &str = "pending_segments";
 
 lazy_static::lazy_static! {
     ///   All files created by codecs much match this pattern (checked in SegmentInfo).

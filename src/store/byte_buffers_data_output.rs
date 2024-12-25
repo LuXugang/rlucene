@@ -25,18 +25,6 @@ use byteorder::WriteBytesExt;
 use std::collections::VecDeque;
 use std::io::{Cursor, Seek};
 
-/// Smallest `minBitsPerBlock` allowed
-pub const LIMIT_MIN_BITS_PER_BLOCK: u32 = 1;
-/// Largest `maxBitsPerBlock` allowed
-pub const LIMIT_MAX_BITS_PER_BLOCK: u32 = 31;
-///Maximum number of blocks at the current `blockBits` block size before we increase the
-///block size (and thus decrease the number of blocks).
-pub const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: u32 = 100;
-///Default `maxBitsPerBlock`
-pub const DEFAULT_MAX_BITS_PER_BLOCK: u32 = 26;
-/// Default `minBitsPerBlock`
-pub const DEFAULT_MIN_BITS_PER_BLOCK: u32 = 10;
-
 /// A [`DataOutput`] storing data in a list of [`Cursor<Vec<u8>>`](std::io::Cursor).
 pub struct ByteBuffersDataOutput {
     //In Rust Lucene, all data within each block is considered valid.
@@ -51,9 +39,25 @@ pub struct ByteBuffersDataOutput {
     reuse: bool,
 }
 impl ByteBuffersDataOutput {
+    /// Smallest `minBitsPerBlock` allowed
+    pub const LIMIT_MIN_BITS_PER_BLOCK: u32 = 1;
+    /// Largest `maxBitsPerBlock` allowed
+    pub const LIMIT_MAX_BITS_PER_BLOCK: u32 = 31;
+    ///Maximum number of blocks at the current `blockBits` block size before we increase the
+    ///block size (and thus decrease the number of blocks).
+    pub const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: u32 = 100;
+    ///Default `maxBitsPerBlock`
+    pub const DEFAULT_MAX_BITS_PER_BLOCK: u32 = 26;
+    /// Default `minBitsPerBlock`
+    pub const DEFAULT_MIN_BITS_PER_BLOCK: u32 = 10;
+
     ///Creates a new output with all defaults.
     pub fn new_resettable_instance() -> Result<Self, RuntimeError> {
-        Self::new(DEFAULT_MIN_BITS_PER_BLOCK, DEFAULT_MAX_BITS_PER_BLOCK, true)
+        Self::new(
+            Self::DEFAULT_MIN_BITS_PER_BLOCK,
+            Self::DEFAULT_MAX_BITS_PER_BLOCK,
+            true,
+        )
     }
     /// Expert: Creates a new output with custom parameters.
     ///
@@ -66,16 +70,18 @@ impl ByteBuffersDataOutput {
         max_bits_per_block: u32,
         reuse: bool,
     ) -> Result<Self, RuntimeError> {
-        if min_bits_per_block < LIMIT_MIN_BITS_PER_BLOCK {
+        if min_bits_per_block < Self::LIMIT_MIN_BITS_PER_BLOCK {
             return Err(RuntimeError::illegal_argument(format!(
                 "minBitsPerBlock ({}) too small, must be at least {}",
-                min_bits_per_block, LIMIT_MIN_BITS_PER_BLOCK
+                min_bits_per_block,
+                Self::LIMIT_MIN_BITS_PER_BLOCK
             )));
         }
-        if max_bits_per_block > LIMIT_MAX_BITS_PER_BLOCK {
+        if max_bits_per_block > Self::LIMIT_MAX_BITS_PER_BLOCK {
             return Err(RuntimeError::illegal_argument(format!(
                 "maxBitsPerBlock ({}) too large, must not exceed {}",
-                max_bits_per_block, LIMIT_MAX_BITS_PER_BLOCK
+                max_bits_per_block,
+                Self::LIMIT_MAX_BITS_PER_BLOCK
             )));
         }
         if min_bits_per_block > max_bits_per_block {
@@ -104,11 +110,11 @@ impl ByteBuffersDataOutput {
     /// * `expected_size` - Estimated size of the output file.
     pub fn new_with_expected_size(expected_size: u64) -> Result<Self, RuntimeError> {
         let block_bits = compute_block_size_bits_for(expected_size);
-        Self::new(block_bits, DEFAULT_MAX_BITS_PER_BLOCK, false)
+        Self::new(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
     }
 
     fn append_block(&mut self) {
-        if self.blocks.len() > MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize
+        if self.blocks.len() > Self::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize
             && self.block_bits < self.max_bits_per_block
         {
             self.rewrite_to_block_size(self.block_bits + 1);
@@ -373,14 +379,14 @@ impl Accountable for ByteBuffersDataOutput {
 }
 
 fn compute_block_size_bits_for(bytes: u64) -> u32 {
-    let avg_block_size = bytes / MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as u64;
+    let avg_block_size = bytes / ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as u64;
     let power_of_two = avg_block_size.next_power_of_two();
     if power_of_two == 0 {
-        return DEFAULT_MIN_BITS_PER_BLOCK;
+        return ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK;
     }
     let mut block_bits = power_of_two.trailing_zeros();
-    block_bits = block_bits.min(DEFAULT_MAX_BITS_PER_BLOCK);
-    block_bits = block_bits.max(DEFAULT_MIN_BITS_PER_BLOCK);
+    block_bits = block_bits.min(ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK);
+    block_bits = block_bits.max(ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK);
     block_bits
 }
 

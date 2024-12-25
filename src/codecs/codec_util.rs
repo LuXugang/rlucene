@@ -25,10 +25,6 @@ use crate::util::version::MIN_SUPPORTED_MAJOR;
 use crate::util::{id_to_string, ID_LENGTH};
 use std::cmp::Ordering;
 
-/// Constant to identify the start of a codec header.
-pub const CODEC_MAGIC: u32 = 0x3fd76c17;
-/// Constant to identify the start of a codec footer.
-pub const FOOTER_MAGIC: u32 = !CODEC_MAGIC;
 /// Utility class for reading and writing versioned headers.
 ///
 /// Writing codec headers is useful to ensure that a file is in the format you expect it to be.
@@ -36,7 +32,13 @@ pub const FOOTER_MAGIC: u32 = !CODEC_MAGIC;
 /// # Experimental
 /// This is an experimental API and may be subject to change in future versions.
 #[allow(dead_code)] // for quick search
-struct CodecUtil;
+pub struct CodecUtil;
+impl CodecUtil {
+    /// Constant to identify the start of a codec header.
+    pub const CODEC_MAGIC: u32 = 0x3fd76c17;
+    /// Constant to identify the start of a codec footer.
+    pub const FOOTER_MAGIC: u32 = !Self::CODEC_MAGIC;
+}
 /// Writes a codec header, which records both a string to identify the file and a version number.
 /// This header can be parsed and validated with [`check_header`].
 ///
@@ -82,7 +84,7 @@ pub fn write_header(
             codec
         )));
     }
-    write_be_int(out, CODEC_MAGIC)?;
+    write_be_int(out, CodecUtil::CODEC_MAGIC)?;
     out.write_string(codec)?;
     write_be_int(out, version)?;
     Ok(())
@@ -96,7 +98,7 @@ pub fn write_header(
 ///
 /// - **Magic**:  
 ///   A `u32` (written using `write_int`). This identifies the start of the header.
-///   It is always [`CODEC_MAGIC`].
+///   It is always [`CodecUtil::CODEC_MAGIC`].
 ///
 /// - **CodecName**:  
 ///   A string (written using `write_string`). This is a string to identify this file.
@@ -194,7 +196,7 @@ pub fn index_header_length(codec: &str, suffix: &str) -> u32 {
 /// satisfying `min_version <= actual <= max_version`. Otherwise, an error is returned.
 ///
 /// # Errors
-/// - `CorruptIndexError`: If the first four bytes are not [`CODEC_MAGIC`] or if the codec does not match `codec`.
+/// - `CorruptIndexError`: If the first four bytes are not [`CodecUtil::CODEC_MAGIC`] or if the codec does not match `codec`.
 /// - `IndexFormatTooOldError`: If the actual version is less than `min_version`.
 /// - `IndexFormatTooNewError`: If the actual version is greater than `max_version`.
 /// - `IoError`: If there is an I/O error reading from the underlying medium.
@@ -208,10 +210,11 @@ pub fn check_header(
     max_version: u32,
 ) -> Result<u32, DataIOError> {
     let actual_header = read_be_int(data_input)?;
-    if actual_header != CODEC_MAGIC {
+    if actual_header != CodecUtil::CODEC_MAGIC {
         return Err(DataIOError::corrupt_index(format!(
             "codec header mismatch: actual header={} vs expected header={}",
-            actual_header, CODEC_MAGIC
+            actual_header,
+            CodecUtil::CODEC_MAGIC
         )));
     }
     check_header_no_magic(data_input, codec, min_version, max_version)
@@ -265,7 +268,7 @@ pub fn check_header_no_magic(
 /// `expected_suffix`, with a version satisfying `min_version <= actual <= max_version`.
 ///
 /// # Errors
-/// - `CorruptIndexError`: If the first four bytes are not [`CODEC_MAGIC`], the codec does not match
+/// - `CorruptIndexError`: If the first four bytes are not [`CodecUtil::CODEC_MAGIC`], the codec does not match
 ///   `codec`, or `expected_id` or `expected_suffix` do not match.
 /// - `IndexFormatTooOldError`: If the actual version is less than `min_version`.
 /// - `IndexFormatTooNewError`: If the actual version is greater than `max_version`.
@@ -298,7 +301,7 @@ pub fn check_index_header(
 /// - `expected_id`: The expected segment ID.
 ///
 /// # Errors
-/// - `CorruptIndexError`: If the first four bytes are not [`CODEC_MAGIC`] or if the `expected_id`
+/// - `CorruptIndexError`: If the first four bytes are not [`CodecUtil::CODEC_MAGIC`] or if the `expected_id`
 ///   does not match.
 /// - `IoError`: If there is an I/O error reading from the underlying medium.
 ///
@@ -316,10 +319,10 @@ pub fn verify_and_copy_index_header(
         )));
     }
     let actual_header = read_be_int(data_in)?;
-    if actual_header != CODEC_MAGIC {
+    if actual_header != CodecUtil::CODEC_MAGIC {
         return Err(DataIOError::corrupt_index(format!(
             "compound sub-files must have a valid codec header and footer: codec header mismatch: actual header={} vs expected header={}",
-            actual_header, CODEC_MAGIC
+            actual_header, CodecUtil::CODEC_MAGIC
         )));
     }
 
@@ -329,7 +332,7 @@ pub fn verify_and_copy_index_header(
     let suffix_length = data_in.read_byte()?;
     let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_length as usize];
     data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as u32)?;
-    write_be_int(data_out, CODEC_MAGIC)?;
+    write_be_int(data_out, CodecUtil::CODEC_MAGIC)?;
     data_out.write_string(&codec)?;
     write_be_int(data_out, version)?;
     data_out.write_bytes_range(expected_id, 0, ID_LENGTH)?;
@@ -343,10 +346,11 @@ pub fn verify_and_copy_index_header(
 /// - `CorruptIndexError`: If the file does not appear to be a valid index file.
 pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>, DataIOError> {
     let actual_header = read_be_int(data_input)?;
-    if actual_header != CODEC_MAGIC {
+    if actual_header != CodecUtil::CODEC_MAGIC {
         return Err(DataIOError::corrupt_index(format!(
             "codec header mismatch: actual header={} vs expected header={}",
-            actual_header, CODEC_MAGIC
+            actual_header,
+            CodecUtil::CODEC_MAGIC
         )));
     }
     let codec = data_input.read_string()?;
@@ -438,7 +442,7 @@ pub fn check_index_header_suffix(
 /// # Errors
 /// - `IoError`: If there is an I/O error writing to the underlying medium.
 pub fn write_footer(out: &mut impl IndexOutput) -> Result<(), DataIOError> {
-    write_be_int(out, FOOTER_MAGIC)?;
+    write_be_int(out, CodecUtil::FOOTER_MAGIC)?;
     write_be_int(out, 0)?;
     write_crc(out)?;
     Ok(())
@@ -634,10 +638,10 @@ fn validate_footer(input: &mut impl IndexInput) -> Result<(), DataIOError> {
         Ordering::Equal => {}
     }
     let magic = read_be_int(input)?;
-    if magic != FOOTER_MAGIC {
+    if magic != CodecUtil::FOOTER_MAGIC {
         return Err(DataIOError::corrupt_index(format!(
             "codec footer mismatch  (file truncated?): actual footer={} vs expected footer={} (resource={})",
-            magic, FOOTER_MAGIC, input
+            magic, CodecUtil::FOOTER_MAGIC, input
         )));
     }
     let algorithm_id = read_be_int(input)?;

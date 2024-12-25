@@ -17,7 +17,7 @@
 use crate::store::data_input::DataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::util::bit_util::{BitUtil, INT_BYTES};
+use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 
 // the maximum length of a single group-varint is 4 integers + 1 byte flag.
@@ -177,7 +177,7 @@ impl GroupVIntUtil {
     }
     fn num_bytes(v: i32) -> u32 {
         // | 1 ensures it returns 1 when v = 0
-        INT_BYTES as u32 - ((v | 1).leading_zeros() / 8)
+        BitUtil::INT_BYTES as u32 - ((v | 1).leading_zeros() / 8)
     }
     /// Converts an i64 value to an i32, ensuring it fits within the valid range.
     /// Throws an error if the value is not within 0 to 0xFFFFFFFF.
