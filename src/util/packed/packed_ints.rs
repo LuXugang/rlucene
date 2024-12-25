@@ -18,9 +18,10 @@ use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::format_behavior::{FormatBehavior, Packed, PackedSingleBlock};
+use crate::util::packed::packed_long_values::DEFAULT_PAGE_SIZE;
 use std::cmp::min;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::string::ToString;
 
 #[allow(dead_code)]
@@ -377,7 +378,7 @@ pub trait Encoder {
 }
 
 /// A read-only random access array of positive integers.
-pub(crate) trait Reader: Display + Accountable {
+pub(crate) trait Reader: Accountable {
     /// Get the value at the given index.
     fn get(&mut self, _index: usize) -> Result<i64, DataIOError> {
         unimplemented!("get() must be implemented if it need to be used")
@@ -520,7 +521,7 @@ where
     }
 }
 
-pub(crate) trait Mutable: Reader {
+pub(crate) trait Mutable: Reader + Display {
     /// Returns the number of bits used to store any given value.
     ///
     /// Note: This does not imply that memory usage is `bits_per_value * #values` as implementations
@@ -657,5 +658,55 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.sub_reader)
+    }
+}
+
+pub struct NullReader {
+    value_count: u32,
+}
+impl NullReader {
+    pub fn for_count(value_count: u32) -> Self {
+        Self { value_count }
+    }
+    pub fn new(value_count: u32) -> Self {
+        Self::for_count(value_count)
+    }
+}
+impl Accountable for NullReader {
+    fn ram_bytes_used(&self) -> i64 {
+        todo!()
+    }
+}
+impl Reader for NullReader {
+    fn get(&mut self, _index: usize) -> Result<i64, DataIOError> {
+        Ok(0)
+    }
+
+    fn get_bulk(
+        &mut self,
+        index: usize,
+        arr: &mut [i64],
+        off: usize,
+        mut len: usize,
+    ) -> Result<u32, DataIOError> {
+        assert!(
+            index < self.value_count as usize,
+            "index out of bounds (index={}, valueCount={})",
+            index,
+            self.value_count
+        );
+
+        len = len.min(self.value_count as usize - index);
+        assert!(
+            off + len <= arr.len(),
+            "not enough space in destination array"
+        );
+
+        arr[off..off + len].fill(0);
+        Ok(len as u32)
+    }
+
+    fn size(&self) -> u32 {
+        self.value_count
     }
 }
