@@ -21,16 +21,15 @@ use crate::util::error::runtime_error::RuntimeError;
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
-use crate::util::packed::format_behavior::{FormatBehavior, Packed, PackedSingleBlock};
+use crate::util::packed::format_behavior::{Packed, PackedSingleBlock};
 use crate::util::packed::packed64::Packed64;
-use crate::util::packed::packed64_single_block::{create, Packed64SingleBlock};
+use crate::util::packed::packed64_single_block::create;
 use crate::util::packed::packed64_single_block_enum::MutablePacked64Enum;
-use crate::util::packed::packed_long_values::DEFAULT_PAGE_SIZE;
 use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
 use std::cmp::min;
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::string::ToString;
 
 #[allow(dead_code)]
@@ -303,7 +302,7 @@ impl PackedInts {
             // Use bulk operations
             let buf_size = (capacity as usize).min(len);
             let mut buf = vec![0; buf_size];
-            PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf);
+            PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf)?;
         }
         Ok(())
     }
@@ -688,7 +687,7 @@ pub trait Encoder {
 }
 
 /// A read-only random access array of positive integers.
-pub(crate) trait Reader: Accountable {
+pub trait Reader: Accountable {
     /// Get the value at the given index.
     fn get(&mut self, _index: usize) -> Result<i64, DataIOError> {
         unimplemented!("get() must be implemented if it need to be used")
@@ -915,7 +914,7 @@ pub trait Mutable: Reader + Display {
         self.fill(0, self.size() as usize, 0);
     }
 }
-pub(crate) struct MutableImpl<T>
+pub struct MutableImpl<T>
 where
     T: Mutable + Display,
 {

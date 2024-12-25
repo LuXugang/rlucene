@@ -16,6 +16,7 @@
  */
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 
+#[allow(unused)]
 pub trait DocValuesIterator: DocIdSetIterator {
     /// Advances the iterator to exactly `target` and returns whether `target` has a value.
     ///

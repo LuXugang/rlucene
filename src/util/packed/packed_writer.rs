@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::{DataInput, DataOutput};
+use crate::store::DataOutput;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::bulk_operation::{of, BulkOperation};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
-use crate::util::packed::{Decoder, Encoder, Format, PackedInts, Writer};
+use crate::util::packed::{Encoder, Format, PackedInts, Writer};
 
 pub struct PackedWriter<'a, T>
 where
@@ -92,7 +92,7 @@ where
         Ok(())
     }
 }
-impl<'a, T> Writer for PackedWriter<'a, T>
+impl<T> Writer for PackedWriter<'_, T>
 where
     T: DataOutput,
 {

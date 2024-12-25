@@ -332,7 +332,7 @@ impl DirectAllocator {
     }
 }
 impl Allocator for DirectAllocator {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], _start: i32, _end: i32) {}
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: i32, _end: i32) {}
 
     fn get_byte_block(&mut self) -> Vec<u8> {
         vec![0; self.block_size as usize]
@@ -355,7 +355,7 @@ impl DirectTrackingAllocator {
     }
 }
 impl Allocator for DirectTrackingAllocator {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: i32, end: i32) {
         self.byte_used
             .lock()
             .unwrap()

@@ -23,7 +23,7 @@ use crate::util::packed::packed64_single_block_enum::MutablePacked64Enum;
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader};
 use std::fmt::{Display, Formatter};
 
-pub(crate) struct Packed64SingleBlock<T>
+pub struct Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
@@ -99,7 +99,7 @@ where
         let values_per_block = 64 / self.bits_per_value;
         let offset_in_block = index % values_per_block as usize;
         if offset_in_block != 0 {
-            for i in offset_in_block..values_per_block as usize {
+            for _ in offset_in_block..values_per_block as usize {
                 if len == 0 {
                     debug_assert!((index - original_index) <= u32::MAX as usize);
                     return Ok((index - original_index) as u32);
@@ -286,7 +286,7 @@ where
         let offset_in_block = index % values_per_block as usize;
 
         if offset_in_block != 0 {
-            for i in offset_in_block..values_per_block as usize {
+            for _ in offset_in_block..values_per_block as usize {
                 if len == 0 {
                     debug_assert!((index - original_index) <= u32::MAX as usize);
                     return (index - original_index) as u32;
@@ -351,14 +351,14 @@ where
 
         // If the range is too small, fallback to naive setting
         if to_index - from_index <= (values_per_block * 2) as usize {
-            for i in from_index..to_index {
+            for _ in from_index..to_index {
                 self.default_fill(from_index, to_index, val);
             }
             return;
         }
 
         // set values naively until the next block start
-        let mut from_offset_in_block = from_index % values_per_block as usize;
+        let from_offset_in_block = from_index % values_per_block as usize;
         if from_offset_in_block != 0 {
             for _ in from_offset_in_block..values_per_block as usize {
                 self.set(from_index, val);
@@ -391,7 +391,7 @@ where
 }
 
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock1 {}
+pub struct Packed64SingleBlock1 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock1 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index >> 6;
@@ -408,7 +408,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock1 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock2 {}
+pub struct Packed64SingleBlock2 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock2 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index >> 5;
@@ -425,7 +425,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock2 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock3 {}
+pub struct Packed64SingleBlock3 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock3 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index / 21;
@@ -442,7 +442,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock3 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock4 {}
+pub struct Packed64SingleBlock4 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock4 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index >> 4;
@@ -459,7 +459,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock4 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock5 {}
+pub struct Packed64SingleBlock5 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock5 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index / 12;
@@ -476,7 +476,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock5 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock6 {}
+pub struct Packed64SingleBlock6 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock6 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index / 10;
@@ -493,7 +493,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock6 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock7 {}
+pub struct Packed64SingleBlock7 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock7 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index / 9;
@@ -510,7 +510,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock7 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock8 {}
+pub struct Packed64SingleBlock8 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock8 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index >> 3;
@@ -527,7 +527,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock8 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock9 {}
+pub struct Packed64SingleBlock9 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock9 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index / 7;
@@ -544,7 +544,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock9 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock10 {}
+pub struct Packed64SingleBlock10 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock10 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index / 6;
@@ -561,7 +561,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock10 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock12 {}
+pub struct Packed64SingleBlock12 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock12 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index / 5;
@@ -578,7 +578,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock12 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock16 {}
+pub struct Packed64SingleBlock16 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock16 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index >> 2;
@@ -595,7 +595,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock16 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock21 {}
+pub struct Packed64SingleBlock21 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock21 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index / 3;
@@ -612,7 +612,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock21 {
     }
 }
 #[allow(dead_code)]
-pub(crate) struct Packed64SingleBlock32 {}
+pub struct Packed64SingleBlock32 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock32 {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
         let o = index >> 1;
@@ -629,7 +629,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock32 {
     }
 }
 
-pub(crate) trait Packed64SingleBlockBase {
+pub trait Packed64SingleBlockBase {
     fn get(&self, index: usize, blocks: &mut [u64]) -> i64;
     fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]);
 }

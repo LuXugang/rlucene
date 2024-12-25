@@ -18,7 +18,7 @@ use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::format_behavior::{FormatBehavior, Packed};
-use crate::util::packed::{Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader};
+use crate::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
 use std::fmt::{Display, Formatter};
 
 /// Space-optimized random access array of values with a fixed number of bits per value. Values
@@ -36,7 +36,7 @@ use std::fmt::{Display, Formatter};
 /// faster.
 ///
 /// See [LUCENE-4062](https://issues.apache.org/jira/browse/LUCENE-4062) for details.
-pub(crate) struct Packed64 {
+pub struct Packed64 {
     /// Values are stored contiguously in the blocks array.
     blocks: Vec<u64>,
     /// A right-aligned mask of width `bits_per_value` used by the `get` method.
@@ -141,7 +141,7 @@ impl Reader for Packed64 {
                 if len == 0 {
                     return Ok((index - original_index) as u32);
                 }
-                arr[off] = self.get(index)? as i64;
+                arr[off] = self.get(index)?;
                 off += 1;
                 index += 1;
                 len -= 1;
@@ -300,7 +300,7 @@ impl Mutable for Packed64 {
 
         // If the span is too small, fall back to naive filling
         if span <= (3 * n_aligned_values) as usize {
-            for i in from_index..to_index {
+            for _ in from_index..to_index {
                 self.default_fill(from_index, to_index, val);
             }
             return;

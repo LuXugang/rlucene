@@ -20,7 +20,7 @@ use crate::util::packed::{Decoder, Encoder};
 const BLOCK_COUNT: u32 = 1;
 /// Non-specialized `BulkOperation` for `PackedInts.Format::PACKED_SINGLE_BLOCK`.
 #[derive(Default)]
-pub(crate) struct BulkOperationPackedSingleBlock {
+pub struct BulkOperationPackedSingleBlock {
     bits_per_value: u32,
     value_count: u32,
     mask: u64,

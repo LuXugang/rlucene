@@ -17,7 +17,7 @@
 use crate::util::packed::{Decoder, Encoder};
 
 #[derive(Default)]
-pub(crate) struct BulkOperationPackedDummy;
+pub struct BulkOperationPackedDummy;
 impl BulkOperationPackedDummy {
     pub const fn new() -> Self {
         BulkOperationPackedDummy

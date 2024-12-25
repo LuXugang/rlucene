@@ -198,7 +198,7 @@ pub fn of(format: Format, bits_per_value: u32) -> &'static BulkOperationPackedEn
             &PACKED_BULK_OPS[bits_per_value as usize - 1]
         }
         Format::PackedSingleBlock(..) => {
-            assert!(
+            debug_assert!(
                 bits_per_value > 0 && bits_per_value <= 32,
                 "bits_per_value must be between 1 and 32"
             );
@@ -210,10 +210,6 @@ pub fn of(format: Format, bits_per_value: u32) -> &'static BulkOperationPackedEn
                 "BulkOperationPackedDummy is not a valid operation"
             );
             operation
-        }
-        _ => {
-            debug_assert!(false, "Unsupported format: {:?}", format);
-            &PACKED_DUMMY
         }
     }
 }

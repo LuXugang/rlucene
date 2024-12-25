@@ -58,7 +58,7 @@ pub(crate) trait FormatBehavior {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Packed {
+pub struct Packed {
     id: u32,
 }
 impl Packed {
@@ -76,7 +76,7 @@ impl FormatBehavior for Packed {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct PackedSingleBlock {
+pub struct PackedSingleBlock {
     id: u32,
 }
 impl PackedSingleBlock {

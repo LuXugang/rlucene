@@ -16,7 +16,7 @@
  */
 use crate::util::packed::{Decoder, Encoder, PackedInts};
 
-pub(crate) struct BulkOperationPacked<T>
+pub struct BulkOperationPacked<T>
 where
     T: Decoder + Encoder,
 {
