@@ -17,13 +17,13 @@
 use crate::util::packed::{Decoder, Encoder};
 
 #[derive(Default)]
-pub(crate) struct BulkOperationPackedSingleBlock{
+pub(crate) struct BulkOperationPackedSingleBlock {
     bits_per_value: i32,
 }
-impl BulkOperationPackedSingleBlock{
+impl BulkOperationPackedSingleBlock {
     pub const fn new(bits_per_value: i32) -> Self {
         BulkOperationPackedSingleBlock { bits_per_value }
     }
 }
-impl Decoder for BulkOperationPackedSingleBlock{}
-impl Encoder for BulkOperationPackedSingleBlock{}
+impl Decoder for BulkOperationPackedSingleBlock {}
+impl Encoder for BulkOperationPackedSingleBlock {}

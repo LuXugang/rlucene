@@ -39,13 +39,15 @@ use crate::util::packed::bulk_operation_packed6::BulkOperationPacked6;
 use crate::util::packed::bulk_operation_packed7::BulkOperationPacked7;
 use crate::util::packed::bulk_operation_packed8::BulkOperationPacked8;
 use crate::util::packed::bulk_operation_packed9::BulkOperationPacked9;
-use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
-use crate::util::packed::{Decoder, Encoder};
 use crate::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
+use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
-
+use crate::util::packed::{Decoder, Encoder, Format};
+/// Padding Value to make compiler happy
+pub const PACKED_DUMMY: BulkOperationPackedEnum =
+    BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new());
 pub const PACKED_BULK_OPS: [BulkOperationPackedEnum; 64] = [
-   BulkOperationPackedEnum::Packed1(BulkOperationPacked::new(1, Some(BulkOperationPacked1))),
+    BulkOperationPackedEnum::Packed1(BulkOperationPacked::new(1, Some(BulkOperationPacked1))),
     BulkOperationPackedEnum::Packed2(BulkOperationPacked::new(2, Some(BulkOperationPacked2))),
     BulkOperationPackedEnum::Packed3(BulkOperationPacked::new(3, Some(BulkOperationPacked3))),
     BulkOperationPackedEnum::Packed4(BulkOperationPacked::new(4, Some(BulkOperationPacked4))),
@@ -142,11 +144,38 @@ pub const PACKED_SINGLE_BLOCK_BULK_OPS: [BulkOperationPackedEnum; 32] = [
     BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
     BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
     BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(32))
+    BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(32)),
 ];
-
-
 trait BulkOperation: Decoder + Encoder {
+    fn of(format: Format, bits_per_value: usize) -> &'static BulkOperationPackedEnum {
+        match format {
+            Format::PACKED => {
+                assert!(
+                    bits_per_value > 0 && bits_per_value <= 64,
+                    "bits_per_value must be between 1 and 64"
+                );
+                &PACKED_BULK_OPS[bits_per_value - 1]
+            }
+            Format::PackedSingleBlock => {
+                assert!(
+                    bits_per_value > 0 && bits_per_value <= 32,
+                    "bits_per_value must be between 1 and 32"
+                );
+
+                let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value - 1];
+
+                debug_assert!(
+                    !matches!(operation, BulkOperationPackedEnum::Dummy(_)),
+                    "BulkOperationPackedDummy is not a valid operation"
+                );
+                operation
+            }
+            _ => {
+                debug_assert!(false, "Unsupported format: {:?}", format);
+                &PACKED_DUMMY
+            }
+        }
+    }
     fn write_long(block: i64, blocks: &mut [u8], mut blocks_offset: usize) -> usize {
         for j in 1..=8 {
             blocks[blocks_offset] = ((block as u64) >> (64 - (j << 3))) as u8;

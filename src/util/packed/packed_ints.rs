@@ -69,7 +69,7 @@ pub fn check_version(version: i32) -> Result<(), DataIOError> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// Compact format, all bits are written contiguously.
-    Packed,
+    PACKED,
 
     /// A format that may insert padding bits to improve encoding and decoding speed.
     /// This format is deprecated; use `Packed` instead.
@@ -121,7 +121,7 @@ pub fn fastest_format_and_bits(
     };
 
     FormatAndBits {
-        format: Format::Packed,
+        format: Format::PACKED,
         bits_per_value: actual_bits_per_value,
     }
 }
