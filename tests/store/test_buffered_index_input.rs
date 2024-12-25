@@ -22,10 +22,10 @@ use rlucene::store::dummy_index_input::DummyIndexInput;
 use rlucene::store::index_input::IndexInput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput, BUFFER_SIZE};
+use rlucene::util::bit_util::BitUtil;
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::ReadableCursorExt;
 use std::io::Cursor;
-use rlucene::util::bit_util::BitUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestBufferedIndexInput;

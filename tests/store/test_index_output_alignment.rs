@@ -65,7 +65,12 @@ fn assert_invalid_alignment(size: u32) {
 }
 #[test]
 fn test_output_alignment() -> Result<(), DataIOError> {
-    let alignments = [BitUtil::LONG_BYTES, BitUtil::INT_BYTES, BitUtil::SHORT_BYTES, 1usize];
+    let alignments = [
+        BitUtil::LONG_BYTES,
+        BitUtil::INT_BYTES,
+        BitUtil::SHORT_BYTES,
+        1usize,
+    ];
     for alignment in alignments.iter() {
         run_test_output_alignment(*alignment as u32)?;
     }

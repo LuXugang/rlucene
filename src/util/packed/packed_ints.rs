@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::format_behavior::{FormatBehavior, Packed, PackedSingleBlock};
@@ -166,22 +167,22 @@ pub fn fastest_format_and_bits(
 pub trait Decoder {
     /// The minimum number of long blocks to encode in a single iteration, when using long encoding.
     fn long_block_count(&self) -> u32 {
-        unreachable!("long_block_count() must be implemented if it need to be used")
+        unimplemented!("long_block_count() must be implemented if it need to be used")
     }
 
     /// The number of values that can be stored in `long_block_count()` long blocks.
     fn long_value_count(&self) -> u32 {
-        unreachable!("long_value_count() must be implemented if it need to be used")
+        unimplemented!("long_value_count() must be implemented if it need to be used")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when using byte encoding.
     fn byte_block_count(&self) -> u32 {
-        unreachable!("byte_block_count() must be implemented if it need to be used")
+        unimplemented!("byte_block_count() must be implemented if it need to be used")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte blocks.
     fn byte_value_count(&self) -> u32 {
-        unreachable!("byte_value_count() must be implemented if it need to be used")
+        unimplemented!("byte_value_count() must be implemented if it need to be used")
     }
 
     /// Read `iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -202,7 +203,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("decode_long_to_long() must be implemented if it need to be used")
+        unimplemented!("decode_long_to_long() must be implemented if it need to be used")
     }
 
     /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -223,7 +224,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("decode_byte_to_long() must be implemented if it need to be used")
+        unimplemented!("decode_byte_to_long() must be implemented if it need to be used")
     }
 
     /// Read `iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -244,7 +245,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("decode_long_to_int() must be implemented if it need to be used")
+        unimplemented!("decode_long_to_int() must be implemented if it need to be used")
     }
 
     /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -265,29 +266,29 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("decode_byte_to_int() must be implemented")
+        unimplemented!("decode_byte_to_int() must be implemented")
     }
 }
 /// An encoder for packed integers.
 pub trait Encoder {
     /// The minimum number of long blocks to encode in a single iteration, when using long encoding.
     fn long_block_count(&self) -> u32 {
-        unreachable!("long_block_count() must be implemented if it need to be used")
+        unimplemented!("long_block_count() must be implemented if it need to be used")
     }
 
     /// The number of values that can be stored in `long_block_count()` long blocks.
     fn long_value_count(&self) -> u32 {
-        unreachable!("long_value_count() must be implemented if it need to be used")
+        unimplemented!("long_value_count() must be implemented if it need to be used")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when using byte encoding.
     fn byte_block_count(&self) -> u32 {
-        unreachable!("byte_block_count() must be implemented if it need to be used")
+        unimplemented!("byte_block_count() must be implemented if it need to be used")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte blocks.
     fn byte_value_count(&self) -> u32 {
-        unreachable!("byte_value_count() must be implemented if it need to be used")
+        unimplemented!("byte_value_count() must be implemented if it need to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
@@ -308,7 +309,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("encode_long_to_long() must be implemented if it need to be used")
+        unimplemented!("encode_long_to_long() must be implemented if it need to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
@@ -329,7 +330,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("encode_long_to_byte() must be implemented if it need to be used")
+        unimplemented!("encode_long_to_byte() must be implemented if it need to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
@@ -350,7 +351,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("encode_int_to_long() must be implemented if it need to be used")
+        unimplemented!("encode_int_to_long() must be implemented if it need to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
@@ -371,26 +372,35 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("encode_int_to_byte() must be implemented if it need to be used")
+        unimplemented!("encode_int_to_byte() must be implemented if it need to be used")
     }
 }
 
 /// A read-only random access array of positive integers.
-pub(crate) trait Reader {
+pub(crate) trait Reader: Accountable {
     /// Get the value at the given index.
     fn get(&self, _index: usize) -> Result<u64, DataIOError> {
-        unreachable!("get() must be implemented if it need to be used")
+        unimplemented!("get() must be implemented if it need to be used")
     }
 
     /// Bulk get: read at least one and at most `len` values starting from `index`
     /// into `arr[off..off+len]` and return the actual number of values that have been read.
-    fn bulk_get(
+    fn get_bulk(
         &self,
         index: usize,
-        arr: &mut [u64],
+        arr: &mut [i64],
         off: usize,
         len: usize,
-    ) -> Result<usize, DataIOError> {
+    ) -> Result<u32, DataIOError> {
+        self.default_get_bulk(index, arr, off, len)
+    }
+    fn default_get_bulk(
+        &self,
+        index: usize,
+        arr: &mut [i64],
+        off: usize,
+        len: usize,
+    ) -> Result<u32, DataIOError> {
         debug_assert!(len > 0, "len must be > 0");
         debug_assert!(
             index < self.size() as usize,
@@ -401,13 +411,16 @@ pub(crate) trait Reader {
 
         let gets = min(self.size() as usize - index, len);
         for (i, o) in (index..index + gets).zip(off..off + gets) {
-            arr[o] = self.get(i)?;
+            arr[o] = self.get(i)? as i64;
         }
-        Ok(gets)
+        debug_assert!(gets <= u32::MAX as usize);
+        Ok(gets as u32)
     }
 
     /// Returns the number of values in the reader.
-    fn size(&self) -> u32;
+    fn size(&self) -> u32 {
+        unimplemented!("size() must be implemented if it need to be used")
+    }
 }
 /// Run-once iterator interface to decode previously saved PackedInts.
 pub(crate) trait ReaderIterator {
@@ -417,7 +430,7 @@ pub(crate) trait ReaderIterator {
     ///
     /// Returns an error if there is an issue decoding the next value.
     fn next(&mut self) -> Result<i64, DataIOError> {
-        unreachable!("next() must be implemented if it need to be used")
+        unimplemented!("next() must be implemented if it need to be used")
     }
 
     /// Returns at least 1 and at most `count` next values.
@@ -435,12 +448,12 @@ pub(crate) trait ReaderIterator {
 
     /// Returns the number of bits per value.
     fn get_bits_per_value(&self) -> u32 {
-        unreachable!("get_bits_per_value() must be implemented if it need to be used")
+        unimplemented!("get_bits_per_value() must be implemented if it need to be used")
     }
 
     /// Returns the total number of values.
     fn size(&self) -> u32 {
-        unreachable!("size() must be implemented if it need to be used")
+        unimplemented!("size() must be implemented if it need to be used")
     }
 
     /// Returns the current position.
@@ -507,12 +520,14 @@ where
     }
 }
 
-pub(crate) trait Mutable: Reader {
+pub(crate) trait Mutable: Reader + Display {
     /// Returns the number of bits used to store any given value.
     ///
     /// Note: This does not imply that memory usage is `bits_per_value * #values` as implementations
     /// are free to use non-space-optimal packing of bits.
-    fn get_bits_per_value(&self) -> u32;
+    fn get_bits_per_value(&self) -> u32 {
+        unimplemented!("get_bits_per_value() must be implemented if it need to be used")
+    }
 
     /// Sets the value at the given index in the array.
     ///
@@ -522,7 +537,7 @@ pub(crate) trait Mutable: Reader {
     /// * `value` - The value to be stored, which must conform to the constraints of the array.
     ///
     fn set(&mut self, _index: usize, _value: i64) {
-        unreachable!("set() must be implemented if it need to be used")
+        unimplemented!("set() must be implemented if it need to be used")
     }
     /// Sets a range of values in the array.
     ///
@@ -538,6 +553,9 @@ pub(crate) trait Mutable: Reader {
     /// The actual number of values that have been set.
     ///
     fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> usize {
+        self.default_set_bulk(index, arr, off, len)
+    }
+    fn default_set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> usize {
         assert!(len > 0, "len must be > 0 (got {})", len);
         assert!(
             index < self.size() as usize,
@@ -565,6 +583,9 @@ pub(crate) trait Mutable: Reader {
     /// * `to_index` - The end index of the range to fill (exclusive).
     /// * `val` - The value to fill with.
     fn fill(&mut self, from_index: usize, to_index: usize, val: i64) {
+        self.default_fill(from_index, to_index, val)
+    }
+    fn default_fill(&mut self, from_index: usize, to_index: usize, val: i64) {
         assert!(val as u64 <= PackedInts::max_value(self.get_bits_per_value()));
         assert!(
             from_index <= to_index,
@@ -603,6 +624,15 @@ where
     }
 }
 
+impl<T> Accountable for MutableImpl<T>
+where
+    T: Display + Mutable,
+{
+    fn ram_bytes_used(&self) -> i64 {
+        todo!()
+    }
+}
+
 impl<T> Reader for MutableImpl<T>
 where
     T: Mutable + Display,
@@ -625,10 +655,6 @@ where
     T: Mutable + Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}(valueCount={}, bitsPerValue={})",
-            self.sub_reader, self.value_count, self.bits_per_value
-        )
+        write!(f, "{}", self.sub_reader)
     }
 }

@@ -15,7 +15,11 @@
  * limitations under the License.
  */
 use crate::util::test_error::TestError;
-use rlucene::codecs::codec_util::{check_footer_with_error, check_header, check_index_header, checksum_entire_file, header_length, index_header_length, read_crc, retrieve_checksum, write_be_int, write_be_long, write_crc, write_footer, write_header, write_index_header, CodecUtil};
+use rlucene::codecs::codec_util::{
+    check_footer_with_error, check_header, check_index_header, checksum_entire_file, header_length,
+    index_header_length, read_crc, retrieve_checksum, write_be_int, write_be_long, write_crc,
+    write_footer, write_header, write_index_header, CodecUtil,
+};
 use rlucene::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::index_input::IndexInput;
