@@ -14,11 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::longs_ref::LongsRef;
+use crate::util::packed::bulk_operation::of;
+use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::{FormatBehavior, Packed, PackedSingleBlock};
+use crate::util::packed::packed64::Packed64;
+use crate::util::packed::packed64_single_block::{create, Packed64SingleBlock};
+use crate::util::packed::packed64_single_block_enum::MutablePacked64Enum;
 use crate::util::packed::packed_long_values::DEFAULT_PAGE_SIZE;
+use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
+use crate::util::packed::packed_writer::PackedWriter;
 use std::cmp::min;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -49,6 +58,206 @@ impl PackedInts {
     pub const VERSION_MONOTONIC_WITHOUT_ZIGZAG: u32 = 2;
     pub const VERSION_START: u32 = Self::VERSION_MONOTONIC_WITHOUT_ZIGZAG;
     pub const VERSION_CURRENT: u32 = Self::VERSION_MONOTONIC_WITHOUT_ZIGZAG;
+    /// Get a [`Decoder`].
+    ///
+    /// # Arguments
+    /// - `format`: The format used to store packed integers.
+    /// - `version`: The compatibility version.
+    /// - `bits_per_value`: The number of bits per value.
+    ///
+    /// # Returns
+    /// A decoder.
+    pub fn get_decoder(
+        format: Format,
+        version: u32,
+        bits_per_value: u32,
+    ) -> Result<&'static BulkOperationPackedEnum, DataIOError> {
+        check_version(version)?;
+        Ok(of(format, bits_per_value))
+    }
+    /// Get an [`Encoder`].
+    ///
+    /// # Arguments
+    /// - `format`: The format used to store packed integers.
+    /// - `version`: The compatibility version.
+    /// - `bits_per_value`: The number of bits per value.
+    ///
+    /// # Returns
+    /// A result containing a reference to the encoder, or an error if the version is invalid.
+    pub fn get_encoder(
+        format: Format,
+        version: u32,
+        bits_per_value: u32,
+    ) -> Result<&'static BulkOperationPackedEnum, DataIOError> {
+        PackedInts::get_decoder(format, version, bits_per_value)
+    }
+    /// Expert: Restore a [`ReaderIterator`] from a stream without reading metadata at the
+    /// beginning of the stream. This method is useful to restore data from streams which have been
+    /// created using `PackedInts::get_writer_no_header`.
+    ///
+    /// # Arguments
+    /// - `input`: The stream to read data from, positioned at the beginning of the packed values.
+    /// - `format`: The format used to serialize.
+    /// - `version`: The version used to serialize the data.
+    /// - `value_count`: How many values the stream holds.
+    /// - `bits_per_value`: The number of bits per value.
+    /// - `mem`: How much memory the iterator is allowed to use to read-ahead (likely to speed up iteration).
+    ///
+    /// # Returns
+    /// A `ReaderIterator`.
+    ///
+    /// # Errors
+    /// Returns an error if the version is invalid.
+    pub fn get_reader_iterator_no_header<T>(
+        input: &mut T,
+        format: Format,
+        version: u32,
+        value_count: u32,
+        bits_per_value: u32,
+        mem: u32,
+    ) -> Result<PackedReaderIterator<T>, DataIOError>
+    where
+        T: DataInput,
+    {
+        check_version(version)?;
+        Ok(PackedReaderIterator::new(
+            format,
+            version,
+            value_count,
+            bits_per_value,
+            input,
+            mem,
+        ))
+    }
+    /// Create a packed integer array with the given amount of values initialized to 0. The `value_count`
+    /// and the `bits_per_value` cannot be changed after creation. All mutables known by this factory
+    /// are kept fully in RAM.
+    ///
+    /// Positive values of `acceptable_overhead_ratio` will trade space for speed by selecting a faster
+    /// but potentially less memory-efficient implementation. An `acceptable_overhead_ratio` of
+    /// [`PackedInts::COMPACT`] will make sure that the most memory-efficient implementation is selected,
+    /// whereas [`PackedInts::FASTEST`] will make sure that the fastest implementation is selected.
+    ///
+    /// # Arguments
+    /// - `value_count`: The number of elements.
+    /// - `bits_per_value`: The number of bits available for any given value.
+    /// - `acceptable_overhead_ratio`: An acceptable overhead ratio per value.
+    ///
+    /// # Returns
+    /// A mutable packed integer array.
+    ///
+    pub fn get_mutable(
+        value_count: u32,
+        bits_per_value: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> Result<MutablePacked64Enum, RuntimeError> {
+        let format_and_bits =
+            fastest_format_and_bits(value_count, bits_per_value, acceptable_overhead_ratio);
+        PackedInts::get_mutable_impl(
+            value_count,
+            format_and_bits.bits_per_value,
+            format_and_bits.format,
+        )
+    }
+
+    /// Same as [`get_mutable`](get_mutable) with a pre-computed number of bits per value and format.
+    pub fn get_mutable_impl(
+        value_count: u32,
+        bits_per_value: u32,
+        format: Format,
+    ) -> Result<MutablePacked64Enum, RuntimeError> {
+        match format {
+            Format::PackedSingleBlock(_) => Ok(create(value_count, bits_per_value)?),
+            Format::Packed(_) => Ok(MutablePacked64Enum::P64(MutableImpl::new(
+                Packed64::new(value_count, bits_per_value),
+                value_count,
+                bits_per_value,
+            ))),
+        }
+    }
+    /// Expert: Create a packed integer array writer for the given output, format, value count, and
+    /// number of bits per value.
+    ///
+    /// The resulting stream will be long-aligned. This means that depending on the format which is
+    /// used, up to 63 bits will be wasted. An easy way to make sure that no space is lost is to always
+    /// use a `value_count` that is a multiple of 64.
+    ///
+    /// This method does not write any metadata to the stream, meaning that it is your responsibility
+    /// to store it somewhere else in order to be able to recover data from the stream later on:
+    ///
+    /// - `format` (using [`Format::get_id`])
+    /// - `value_count`
+    /// - `bits_per_value`
+    /// - [`PackedInts::VERSION_CURRENT`].
+    ///
+    /// It is possible to start writing values without knowing how many of them you are actually
+    /// going to write. To do this, just pass `-1` as `value_count`. On the other hand, for any positive
+    /// value of `value_count`, the returned writer will make sure that you don't write more values than
+    /// expected and pad the end of the stream with zeros in case you have written less than `value_count`
+    /// when calling [`Writer::finish`].
+    ///
+    /// The `mem` parameter lets you control how much memory can be used to buffer changes in memory
+    /// before flushing to disk. High values of `mem` are likely to improve throughput. On the other
+    /// hand, if speed is not that important to you, a value of `0` will use as little memory as possible
+    /// and should already offer reasonable throughput.
+    ///
+    /// # Arguments
+    /// - `out`: The data output.
+    /// - `format`: The format to use to serialize the values.
+    /// - `value_count`: The number of values.
+    /// - `bits_per_value`: The number of bits per value.
+    /// - `mem`: How much memory (in bytes) can be used to speed up serialization.
+    ///
+    /// # Returns
+    /// A `Writer` instance.
+    ///
+    pub fn get_writer_no_header<T>(
+        out: &'_ mut T,
+        format: Format,
+        value_count: i32,
+        bits_per_value: u32,
+        mem: u32,
+    ) -> PackedWriter<'_, T>
+    where
+        T: DataOutput,
+    {
+        PackedWriter::new(format, out, value_count, bits_per_value, mem)
+    }
+
+    /// Returns how many bits are required to hold values up to and including `max_value`.
+    ///
+    /// This method will always return at least 1.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_value` - The maximum value that should be representable.
+    ///
+    /// # Returns
+    ///
+    /// The number of bits needed to represent values from 0 to `max_value`.
+    ///
+    pub fn bits_required(max_value: i64) -> Result<u32, RuntimeError> {
+        if max_value < 0 {
+            return Err(RuntimeError::illegal_argument(format!(
+                "max_value must be non-negative (got {})",
+                max_value
+            )));
+        }
+        Ok(PackedInts::unsigned_bits_required(max_value as u64))
+    }
+
+    /// Returns how many bits are required to store `bits`, interpreted as an unsigned value.
+    /// NOTE: This method returns at least 1.
+    ///
+    /// # Arguments
+    /// - `bits`: The unsigned value for which to determine the required bit count.
+    ///
+    /// # Returns
+    /// The number of bits required to store `bits`.
+    pub fn unsigned_bits_required(bits: u64) -> u32 {
+        (64 - bits.leading_zeros() as usize).max(1) as u32
+    }
+
     /// Calculates the maximum unsigned long that can be expressed with the given number of bits.
     ///
     /// # Arguments
@@ -65,16 +274,122 @@ impl PackedInts {
             (1u64 << bits_per_value) - 1
         }
     }
-    /// Returns how many bits are required to store `bits`, interpreted as an unsigned value.
-    /// NOTE: This method returns at least 1.
+    /// Copy `src[src_pos..src_pos+len]` into `dest[dest_pos..dest_pos+len]` using at most `mem` bytes.
     ///
-    /// # Arguments
-    /// - `bits`: The unsigned value for which to determine the required bit count.
     ///
-    /// # Returns
-    /// The number of bits required to store `bits`.
-    pub fn unsigned_bits_required(bits: u64) -> u32 {
-        (64 - bits.leading_zeros() as usize).max(1) as u32
+    pub fn copy(
+        src: &mut impl Reader,
+        src_pos: usize,
+        dest: &mut impl Mutable,
+        dest_pos: usize,
+        len: usize,
+        mem: u32,
+    ) -> Result<(), DataIOError> {
+        assert!(
+            src_pos + len <= src.size() as usize,
+            "Source position and length out of bounds"
+        );
+        assert!(
+            dest_pos + len <= dest.size() as usize,
+            "Destination position and length out of bounds"
+        );
+
+        let capacity = mem >> 3; // Convert memory to the number of 64-bit elements
+        if capacity == 0 {
+            for i in 0..len {
+                dest.set(dest_pos + i, src.get(src_pos + i)?);
+            }
+        } else if len > 0 {
+            // Use bulk operations
+            let buf_size = (capacity as usize).min(len);
+            let mut buf = vec![0; buf_size];
+            PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf);
+        }
+        Ok(())
+    }
+    /// Same as `copy` but uses a pre-allocated buffer.
+    ///
+    pub fn copy_with_buffer(
+        src: &mut impl Reader,
+        mut src_pos: usize,
+        dest: &mut impl Mutable,
+        mut dest_pos: usize,
+        mut len: usize,
+        buf: &mut [i64],
+    ) -> Result<(), DataIOError> {
+        assert!(!buf.is_empty(), "Buffer length must be greater than 0");
+
+        let mut remaining = 0;
+
+        while len > 0 {
+            let read = src.get_bulk(src_pos, buf, remaining, len.min(buf.len() - remaining))?;
+            assert!(read > 0, "Read operation failed");
+            src_pos += read as usize;
+            len -= read as usize;
+            remaining += read as usize;
+
+            let written = dest.set_bulk(dest_pos, buf, 0, remaining) as usize;
+            assert!(written > 0, "Write operation failed");
+            dest_pos += written;
+
+            if written < remaining {
+                buf.copy_within(written..remaining, 0);
+            }
+            remaining -= written;
+        }
+
+        while remaining > 0 {
+            let written = dest.set_bulk(dest_pos, buf, 0, remaining) as usize;
+            dest_pos += written;
+            remaining -= written;
+            if remaining > 0 {
+                buf.copy_within(written..(written + remaining), 0);
+            }
+        }
+        Ok(())
+    }
+    /// Check that the block size is a power of 2, within the right bounds, and return its log in base 2.
+    pub fn check_block_size(
+        block_size: u32,
+        min_block_size: u32,
+        max_block_size: u32,
+    ) -> Result<u32, RuntimeError> {
+        if block_size < min_block_size || block_size > max_block_size {
+            panic!(
+                "block_size must be >= {} and <= {}, got {}",
+                min_block_size, max_block_size, block_size
+            );
+        }
+
+        if block_size & (block_size - 1) != 0 {
+            return Err(RuntimeError::illegal_argument(format!(
+                "block_size must be a power of two, got {}",
+                block_size
+            )));
+        }
+
+        Ok(block_size.trailing_zeros())
+    }
+    /// Return the number of blocks required to store `size` values on `block_size`.
+    pub fn num_blocks(size: u64, block_size: u32) -> Result<u32, RuntimeError> {
+        let num_blocks =
+            (size / block_size as u64) + if size % block_size as u64 == 0 { 0 } else { 1 };
+        let result = num_blocks.checked_mul(block_size as u64);
+        match result {
+            Some(result) => {
+                if result < size {
+                    return Err(RuntimeError::illegal_argument(
+                        "size is too large for this block size".to_string(),
+                    ));
+                }
+                debug_assert!(num_blocks <= u32::MAX as u64);
+                Ok(num_blocks as u32)
+            }
+            None => Err(RuntimeError::illegal_argument(format!(
+                "multiply overflow:block_size:{}, num_blocks:{} ",
+                block_size, num_blocks
+            ))),
+        }
     }
 }
 
@@ -133,15 +448,10 @@ pub struct FormatAndBits {
 /// A `FormatAndBits` struct containing the selected format and bits per value.
 #[allow(unused)] // `value_count` is not used in Java Lucene
 pub fn fastest_format_and_bits(
-    mut value_count: i32,
+    mut value_count: u32,
     bits_per_value: u32,
     mut acceptable_overhead_ratio: f32,
 ) -> FormatAndBits {
-    // Handle unknown value count
-    if value_count == -1 {
-        value_count = i32::MAX;
-    }
-
     acceptable_overhead_ratio =
         acceptable_overhead_ratio.clamp(PackedInts::COMPACT, PackedInts::FASTEST);
     let acceptable_overhead_per_value = acceptable_overhead_ratio * bits_per_value as f32;
@@ -160,7 +470,7 @@ pub fn fastest_format_and_bits(
     };
 
     FormatAndBits {
-        format: Format::Packed(Packed),
+        format: Format::Packed(Packed::new(0)),
         bits_per_value: actual_bits_per_value,
     }
 }
@@ -200,7 +510,7 @@ pub trait Decoder {
         &self,
         _blocks: &[u64],
         _blocks_offset: usize,
-        values: &mut [i64],
+        _values: &mut [i64],
         _values_offset: usize,
         _iterations: u32,
     ) {
@@ -219,9 +529,9 @@ pub trait Decoder {
     /// * `iterations` - Controls how much data to decode.
     fn decode_byte_to_long(
         &self,
-        blocks: &[u8],
+        _blocks: &[u8],
         _blocks_offset: usize,
-        values: &mut [i64],
+        _values: &mut [i64],
         _values_offset: usize,
         _iterations: u32,
     ) {
@@ -242,7 +552,7 @@ pub trait Decoder {
         &self,
         _blocks: &[u64],
         _blocks_offset: usize,
-        values: &mut [i32],
+        _values: &mut [i32],
         _values_offset: usize,
         _iterations: u32,
     ) {
@@ -261,9 +571,9 @@ pub trait Decoder {
     /// * `iterations` - Controls how much data to decode.
     fn decode_byte_to_int(
         &self,
-        blocks: &[u8],
+        _blocks: &[u8],
         _blocks_offset: usize,
-        values: &mut [i32],
+        _values: &mut [i32],
         _values_offset: usize,
         _iterations: u32,
     ) {
@@ -521,7 +831,7 @@ where
     }
 }
 
-pub(crate) trait Mutable: Reader + Display {
+pub trait Mutable: Reader + Display {
     /// Returns the number of bits used to store any given value.
     ///
     /// Note: This does not imply that memory usage is `bits_per_value * #values` as implementations

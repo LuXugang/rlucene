@@ -65,7 +65,7 @@ impl Packed64 {
     /// A new instance of `Packed64`.
     ///
     pub fn new(value_count: u32, bits_per_value: u32) -> Self {
-        let format = Format::Packed(Packed); // Corresponds to PackedInts.Format.PACKED in Java
+        let format = Format::Packed(Packed::new(0)); // Corresponds to PackedInts.Format.PACKED in Java
         let long_count =
             format.long_count(PackedInts::VERSION_CURRENT, value_count, bits_per_value);
         let blocks = vec![0; long_count as usize];
@@ -131,7 +131,7 @@ impl Reader for Packed64 {
         );
 
         let original_index = index;
-        let decoder = of(Format::Packed(Packed), self.bits_per_value);
+        let decoder = of(Format::Packed(Packed::new(0)), self.bits_per_value);
 
         // Go to the next block where the value does not span across two blocks
         let offset_in_blocks = index % Decoder::long_value_count(decoder) as usize;
@@ -232,7 +232,7 @@ impl Mutable for Packed64 {
         );
 
         let original_index = index;
-        let encoder = of(Format::Packed(Packed), self.bits_per_value);
+        let encoder = of(Format::Packed(Packed::new(0)), self.bits_per_value);
 
         // Go to the next block where the value does not span across two blocks
         let offset_in_blocks = index % Encoder::long_value_count(encoder) as usize;

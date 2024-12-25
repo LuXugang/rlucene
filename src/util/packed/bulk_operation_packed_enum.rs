@@ -44,7 +44,7 @@ use crate::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
 use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
 use crate::util::packed::{Decoder, Encoder};
 
-pub(crate) enum BulkOperationPackedEnum {
+pub enum BulkOperationPackedEnum {
     Packed1(BulkOperationPacked<BulkOperationPacked1>),
     Packed2(BulkOperationPacked<BulkOperationPacked2>),
     Packed3(BulkOperationPacked<BulkOperationPacked3>),

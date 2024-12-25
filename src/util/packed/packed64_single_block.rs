@@ -69,101 +69,6 @@ where
             sub_reader,
         }
     }
-    pub fn create(
-        value_count: u32,
-        bits_per_value: u32,
-    ) -> Result<MutablePacked64Enum, RuntimeError> {
-        match bits_per_value {
-            1 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock1 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock1(reader))
-            }
-            2 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock2 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock2(reader))
-            }
-            3 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock3 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock3(reader))
-            }
-            4 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock4 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock4(reader))
-            }
-            5 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock5 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock5(reader))
-            }
-            6 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock6 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock6(reader))
-            }
-            7 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock7 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock7(reader))
-            }
-            8 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock8 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock8(reader))
-            }
-            9 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock9 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock9(reader))
-            }
-            10 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock10 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock10(reader))
-            }
-            12 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock12 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock12(reader))
-            }
-            16 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock16 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock16(reader))
-            }
-            21 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock21 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock21(reader))
-            }
-            32 => {
-                let sub_reader =
-                    Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock32 {});
-                let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
-                Ok(MutablePacked64Enum::P64SingleBlock32(reader))
-            }
-            _ => Err(RuntimeError::illegal_argument(format!(
-                "Unsupported number of bits per value:  {}",
-                bits_per_value
-            ))),
-        }
-    }
 }
 
 impl<T> Reader for Packed64SingleBlock<T>
@@ -216,7 +121,7 @@ where
             0,
             "index not aligned with block boundary"
         );
-        let decoder = of(Format::Packed(Packed), self.bits_per_value);
+        let decoder = of(Format::Packed(Packed::new(0)), self.bits_per_value);
         assert_eq!(
             Decoder::long_value_count(decoder),
             1,
@@ -245,7 +150,98 @@ where
         }
     }
 }
-
+pub fn create(value_count: u32, bits_per_value: u32) -> Result<MutablePacked64Enum, RuntimeError> {
+    match bits_per_value {
+        1 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock1 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock1(reader))
+        }
+        2 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock2 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock2(reader))
+        }
+        3 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock3 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock3(reader))
+        }
+        4 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock4 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock4(reader))
+        }
+        5 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock5 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock5(reader))
+        }
+        6 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock6 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock6(reader))
+        }
+        7 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock7 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock7(reader))
+        }
+        8 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock8 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock8(reader))
+        }
+        9 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock9 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock9(reader))
+        }
+        10 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock10 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock10(reader))
+        }
+        12 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock12 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock12(reader))
+        }
+        16 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock16 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock16(reader))
+        }
+        21 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock21 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock21(reader))
+        }
+        32 => {
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock32 {});
+            let reader = MutableImpl::new(sub_reader, value_count, bits_per_value);
+            Ok(MutablePacked64Enum::P64SingleBlock32(reader))
+        }
+        _ => Err(RuntimeError::illegal_argument(format!(
+            "Unsupported number of bits per value:  {}",
+            bits_per_value
+        ))),
+    }
+}
 impl<T> Accountable for Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
@@ -314,7 +310,7 @@ where
         );
 
         let op = of(
-            Format::PackedSingleBlock(PackedSingleBlock),
+            Format::PackedSingleBlock(PackedSingleBlock::new(1)),
             self.bits_per_value,
         );
         assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");

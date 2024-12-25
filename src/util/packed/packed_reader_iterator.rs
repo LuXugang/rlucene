@@ -22,9 +22,9 @@ use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
 use crate::util::packed::{Decoder, Format, ReaderIterator};
 
-pub(crate) struct PackedReaderIterator<'a, D>
+pub struct PackedReaderIterator<'a, D>
 where
-    D: DataInput + 'a,
+    D: DataInput,
 {
     packed_ints_version: u32,
     format: Format,

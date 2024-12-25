@@ -21,7 +21,7 @@ use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
 use crate::util::packed::{Decoder, Encoder, Format, PackedInts, Writer};
 
-pub(crate) struct PackedWriter<'a, T>
+pub struct PackedWriter<'a, T>
 where
     T: DataOutput + 'a,
 {
