@@ -80,7 +80,7 @@ pub enum Format {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FormatAndBits {
     pub format: Format,
-    pub bits_per_value: usize,
+    pub bits_per_value: u32,
 }
 /// Find the fastest [`Format`] and `bits_per_value` that would restore from disk
 /// with overhead less than the specified acceptable overhead ratio.
@@ -96,18 +96,18 @@ pub struct FormatAndBits {
 /// A `FormatAndBits` struct containing the selected format and bits per value.
 #[allow(unused)] // `value_count` is not used in Java Lucene
 pub fn fastest_format_and_bits(
-    mut value_count: isize,
-    bits_per_value: usize,
+    mut value_count: i32,
+    bits_per_value: u32,
     mut acceptable_overhead_ratio: f32,
 ) -> FormatAndBits {
     // Handle unknown value count
     if value_count == -1 {
-        value_count = isize::MAX;
+        value_count = i32::MAX;
     }
 
     acceptable_overhead_ratio = acceptable_overhead_ratio.clamp(COMPACT, FASTEST);
     let acceptable_overhead_per_value = acceptable_overhead_ratio * bits_per_value as f32;
-    let max_bits_per_value = bits_per_value + acceptable_overhead_per_value as usize;
+    let max_bits_per_value = bits_per_value + acceptable_overhead_per_value as u32;
 
     let actual_bits_per_value = if bits_per_value <= 8 && max_bits_per_value >= 8 {
         8
