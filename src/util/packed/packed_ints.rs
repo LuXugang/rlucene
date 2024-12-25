@@ -160,7 +160,7 @@ pub trait Decoder {
     fn decode_long_to_long(
         &self,
         _blocks: &[u64],
-         _blocks_offset: usize,
+        _blocks_offset: usize,
         values: &mut [i64],
         _values_offset: usize,
         _iterations: u32,
@@ -181,7 +181,7 @@ pub trait Decoder {
     fn decode_byte_to_long(
         &self,
         blocks: &[u8],
-         _blocks_offset: usize,
+        _blocks_offset: usize,
         values: &mut [i64],
         _values_offset: usize,
         _iterations: u32,
@@ -202,7 +202,7 @@ pub trait Decoder {
     fn decode_long_to_int(
         &self,
         _blocks: &[u64],
-         _blocks_offset: usize,
+        _blocks_offset: usize,
         values: &mut [i32],
         _values_offset: usize,
         _iterations: u32,
@@ -223,7 +223,7 @@ pub trait Decoder {
     fn decode_byte_to_int(
         &self,
         blocks: &[u8],
-         _blocks_offset: usize,
+        _blocks_offset: usize,
         values: &mut [i32],
         _values_offset: usize,
         _iterations: u32,
@@ -268,7 +268,7 @@ pub trait Encoder {
         _values: &[i64],
         _values_offset: usize,
         _blocks: &mut [u64],
-         _blocks_offset: usize,
+        _blocks_offset: usize,
         _iterations: u32,
     ) {
         unreachable!("encode_long_to_long() must be implemented")
@@ -289,7 +289,7 @@ pub trait Encoder {
         _values: &[i64],
         _values_offset: usize,
         _blocks: &mut [u8],
-         _blocks_offset: usize,
+        _blocks_offset: usize,
         _iterations: u32,
     ) {
         unreachable!("encode_long_to_byte() must be implemented")
@@ -310,7 +310,7 @@ pub trait Encoder {
         _values: &[i32],
         _values_offset: usize,
         _blocks: &mut [u64],
-         _blocks_offset: usize,
+        _blocks_offset: usize,
         _iterations: u32,
     ) {
         unreachable!("encode_int_to_long() must be implemented")
@@ -331,7 +331,7 @@ pub trait Encoder {
         _values: &[i32],
         _values_offset: usize,
         _blocks: &mut [u8],
-         _blocks_offset: usize,
+        _blocks_offset: usize,
         _iterations: u32,
     ) {
         unreachable!("encode_int_to_byte() must be implemented")

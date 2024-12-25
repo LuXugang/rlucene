@@ -146,7 +146,7 @@ pub const PACKED_SINGLE_BLOCK_BULK_OPS: [BulkOperationPackedEnum; 32] = [
     BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
     BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(32)),
 ];
-trait BulkOperation: Decoder + Encoder {
+pub(crate) trait BulkOperation: Decoder + Encoder {
     fn of(format: Format, bits_per_value: usize) -> &'static BulkOperationPackedEnum {
         match format {
             Format::PACKED => {
@@ -176,9 +176,9 @@ trait BulkOperation: Decoder + Encoder {
             }
         }
     }
-    fn write_long(block: i64, blocks: &mut [u8], mut blocks_offset: usize) -> usize {
+    fn write_long(&self, block: u64, blocks: &mut [u8], mut blocks_offset: usize) -> usize {
         for j in 1..=8 {
-            blocks[blocks_offset] = ((block as u64) >> (64 - (j << 3))) as u8;
+            blocks[blocks_offset] = (block >> (64 - (j << 3))) as u8;
             blocks_offset += 1;
         }
         blocks_offset
@@ -203,7 +203,7 @@ trait BulkOperation: Decoder + Encoder {
     ///
     /// # Returns
     /// The number of iterations to perform.
-    fn compute_iterations(&self, value_count: u32, ram_budget: u32) -> u32{
+    fn compute_iterations(&self, value_count: u32, ram_budget: u32) -> u32 {
         let byte_value_count = Decoder::byte_block_count(self);
         let iterations = ram_budget / (byte_value_count + 8 * byte_value_count);
         if iterations == 0 {
