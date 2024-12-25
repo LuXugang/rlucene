@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::packed::packed64_single_block::Packed64SingleBlock;
+use crate::util::packed::packed64_single_block::is_supported;
 use crate::util::packed::Format;
 
 pub(crate) trait FormatBehavior {
     /// Computes how many byte blocks are needed to store `values` values of size `bits_per_value`.
     fn byte_count(&self, packed_ints_version: u32, value_count: u32, bits_per_value: u32) -> u64 {
         assert!(
-             bits_per_value <= 64,
+            bits_per_value <= 64,
             "bits_per_value must be between 0 and 64"
         );
         8 * self.long_count(packed_ints_version, value_count, bits_per_value) as u64
@@ -41,7 +41,7 @@ pub(crate) trait FormatBehavior {
     }
     /// Tests whether the provided number of bits per value is supported by the format.
     fn is_supported(&self, bits_per_value: u32) -> bool {
-        bits_per_value >= 1 && bits_per_value <= 64
+        (1..=64).contains(&bits_per_value)
     }
     /// Returns the overhead per value, in bits.
     fn overhead_per_value(&self, bits_per_value: u32) -> f32 {
@@ -72,7 +72,7 @@ impl FormatBehavior for PackedSingleBlock {
     }
 
     fn is_supported(&self, bits_per_value: u32) -> bool {
-        Packed64SingleBlock::is_supported(bits_per_value)
+        is_supported(bits_per_value)
     }
 
     fn overhead_per_value(&self, bits_per_value: u32) -> f32 {

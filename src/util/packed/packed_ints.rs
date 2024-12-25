@@ -377,16 +377,16 @@ pub trait Encoder {
 }
 
 /// A read-only random access array of positive integers.
-pub(crate) trait Reader: Accountable {
+pub(crate) trait Reader: Display + Accountable {
     /// Get the value at the given index.
-    fn get(&self, _index: usize) -> Result<u64, DataIOError> {
+    fn get(&mut self, _index: usize) -> Result<i64, DataIOError> {
         unimplemented!("get() must be implemented if it need to be used")
     }
 
     /// Bulk get: read at least one and at most `len` values starting from `index`
     /// into `arr[off..off+len]` and return the actual number of values that have been read.
     fn get_bulk(
-        &self,
+        &mut self,
         index: usize,
         arr: &mut [i64],
         off: usize,
@@ -395,7 +395,7 @@ pub(crate) trait Reader: Accountable {
         self.default_get_bulk(index, arr, off, len)
     }
     fn default_get_bulk(
-        &self,
+        &mut self,
         index: usize,
         arr: &mut [i64],
         off: usize,
@@ -411,7 +411,7 @@ pub(crate) trait Reader: Accountable {
 
         let gets = min(self.size() as usize - index, len);
         for (i, o) in (index..index + gets).zip(off..off + gets) {
-            arr[o] = self.get(i)? as i64;
+            arr[o] = self.get(i)?;
         }
         debug_assert!(gets <= u32::MAX as usize);
         Ok(gets as u32)
@@ -520,7 +520,7 @@ where
     }
 }
 
-pub(crate) trait Mutable: Reader + Display {
+pub(crate) trait Mutable: Reader {
     /// Returns the number of bits used to store any given value.
     ///
     /// Note: This does not imply that memory usage is `bits_per_value * #values` as implementations

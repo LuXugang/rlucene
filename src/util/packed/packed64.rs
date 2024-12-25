@@ -96,7 +96,7 @@ impl Packed64 {
 }
 
 impl Reader for Packed64 {
-    fn get(&self, index: usize) -> Result<u64, DataIOError> {
+    fn get(&mut self, index: usize) -> Result<i64, DataIOError> {
         // The abstract index in a bit stream
         let major_bit_pos = (index as u64) * (self.bits_per_value as u64);
 
@@ -109,15 +109,15 @@ impl Reader for Packed64 {
 
         if end_bits <= 0 {
             // Single block
-            return Ok((self.blocks[element_pos] >> -end_bits) & self.mask_right);
+            return Ok(((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64);
         }
-        Ok(((self.blocks[element_pos] << end_bits)
+        Ok((((self.blocks[element_pos] << end_bits)
             | (self.blocks[element_pos + 1] >> (Self::BLOCK_SIZE as i64 - end_bits)))
-            & self.mask_right)
+            & self.mask_right) as i64)
     }
 
     fn get_bulk(
-        &self,
+        &mut self,
         mut index: usize,
         arr: &mut [i64],
         mut off: usize,
