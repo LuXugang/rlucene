@@ -88,7 +88,7 @@ impl BulkOperationPackedSingleBlock {
         }
         block
     }
-    fn read_long(blocks: &[u8], mut blocks_offset: usize) -> u64 {
+    fn read_long(blocks: &[u8], blocks_offset: usize) -> u64 {
         ((blocks[blocks_offset] as u64) << 56)
             | ((blocks[blocks_offset + 1] as u64) << 48)
             | ((blocks[blocks_offset + 2] as u64) << 40)

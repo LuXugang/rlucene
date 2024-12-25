@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::packed::{Decoder, Encoder};
+use crate::util::packed::bulk_operation::BulkOperation;
 
 #[derive(Default)]
 pub(crate) struct BulkOperationPacked13;
@@ -495,3 +496,4 @@ impl Decoder for BulkOperationPacked13 {
     }
 }
 impl Encoder for BulkOperationPacked13 {}
+impl BulkOperation for BulkOperationPacked13{}
