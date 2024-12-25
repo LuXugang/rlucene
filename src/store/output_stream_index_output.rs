@@ -44,7 +44,7 @@ where
     /// * `buffer_size` - The buffer size in bytes used to buffer writes internally.
     ///
     /// # Errors
-    /// Returns an `IllegalArgumentError` if the given buffer size is less than [`LONG_BYTES`].
+    /// Returns an `IllegalArgumentError` if the given buffer size is less than [`BitUtil::LONG_BYTES`].
     ///
     pub fn new(
         resource_description: &str,

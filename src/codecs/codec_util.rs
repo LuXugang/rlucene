@@ -47,7 +47,7 @@ impl CodecUtil {
 ///
 /// - **Magic**:  
 ///   A `u32` (written using `write_int`). This identifies the start of the header.  
-///   It is always [`CODEC_MAGIC`].
+///   It is always [`CodecUtil::CODEC_MAGIC`].
 ///
 /// - **CodecName**:  
 ///   A string (written using `write_string`). This is a string to identify this file.
@@ -426,7 +426,7 @@ pub fn check_index_header_suffix(
 ///
 /// - **Magic**:  
 ///   A `u32` (written using `write_int`). This identifies the start of the footer.  
-///   It is always [`FOOTER_MAGIC`].
+///   It is always [`CodecUtil::FOOTER_MAGIC`].
 ///
 /// - **AlgorithmID**:  
 ///   A `u32` (written using `write_int`). This indicates the checksum algorithm used.  

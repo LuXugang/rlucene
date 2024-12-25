@@ -21,6 +21,21 @@ use crate::util::packed::format_behavior::{FormatBehavior, Packed};
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader};
 use std::fmt::{Display, Formatter};
 
+/// Space-optimized random access array of values with a fixed number of bits per value. Values
+/// are packed contiguously.
+///
+/// The implementation strives to achieve maximum performance under the constraint of contiguous
+/// bits by avoiding expensive operations. This comes at the cost of code clarity.
+///
+/// # Technical Details
+/// This implementation is a refinement of a non-branching version. The non-branching `get` and
+/// `set` methods meant that 2 or 4 atomic accesses in the underlying array were always performed,
+/// even for cases where only 1 or 2 accesses were needed. Even with caching, this had a detrimental
+/// effect on performance. To address this issue, this implementation avoids using lookup tables
+/// for shifts and masks. Instead, shifts and masks are calculated on the fly, which proved to be
+/// faster.
+///
+/// See [LUCENE-4062](https://issues.apache.org/jira/browse/LUCENE-4062) for details.
 pub(crate) struct Packed64 {
     /// Values are stored contiguously in the blocks array.
     blocks: Vec<u64>,
@@ -37,6 +52,7 @@ impl Packed64 {
     pub const BLOCK_SIZE: u32 = 64; // 32 = int, 64 = long
     pub const BLOCK_BITS: u32 = 6; // The #bits representing BLOCK_SIZE
     pub const MOD_MASK: u32 = Self::BLOCK_SIZE - 1; // x % BLOCK_SIZE
+    
     /// Creates an array with the internal structures adjusted for the given limits and initialized to 0.
     ///
     /// # Arguments
@@ -47,6 +63,7 @@ impl Packed64 {
     /// # Returns
     ///
     /// A new instance of `Packed64`.
+    /// 
     pub fn new(value_count: u32, bits_per_value: u32) -> Self {
         let format = Format::Packed(Packed); // Corresponds to PackedInts.Format.PACKED in Java
         let long_count =
