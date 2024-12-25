@@ -128,22 +128,22 @@ pub fn fastest_format_and_bits(
 /// A decoder for packed integers.
 pub trait Decoder {
     /// The minimum number of long blocks to encode in a single iteration, when using long encoding.
-    fn long_block_count(&self) -> usize {
+    fn long_block_count(&self) -> u32 {
         unreachable!("long_block_count() must be implemented")
     }
 
     /// The number of values that can be stored in `long_block_count()` long blocks.
-    fn long_value_count(&self) -> usize {
+    fn long_value_count(&self) -> u32 {
         unreachable!("long_value_count() must be implemented")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when using byte encoding.
-    fn byte_block_count(&self) -> usize {
+    fn byte_block_count(&self) -> u32 {
         unreachable!("byte_block_count() must be implemented")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte blocks.
-    fn byte_value_count(&self) -> usize {
+    fn byte_value_count(&self) -> u32 {
         unreachable!("byte_value_count() must be implemented")
     }
 
@@ -160,10 +160,10 @@ pub trait Decoder {
     fn decode_long_to_long(
         &self,
         _blocks: &[u64],
-        _blocks_offset: usize,
-        _values: &mut [i64],
+         _blocks_offset: usize,
+        values: &mut [i64],
         _values_offset: usize,
-        _iterations: usize,
+        _iterations: u32,
     ) {
         unreachable!("decode_long_to_long() must be implemented")
     }
@@ -180,11 +180,11 @@ pub trait Decoder {
     /// * `iterations` - Controls how much data to decode.
     fn decode_byte_to_long(
         &self,
-        _blocks: &[u8],
-        _blocks_offset: usize,
-        _values: &mut [i64],
+        blocks: &[u8],
+         _blocks_offset: usize,
+        values: &mut [i64],
         _values_offset: usize,
-        _iterations: usize,
+        _iterations: u32,
     ) {
         unreachable!("decode_byte_to_long() must be implemented")
     }
@@ -202,10 +202,10 @@ pub trait Decoder {
     fn decode_long_to_int(
         &self,
         _blocks: &[u64],
-        _blocks_offset: usize,
-        _values: &mut [i32],
+         _blocks_offset: usize,
+        values: &mut [i32],
         _values_offset: usize,
-        _iterations: usize,
+        _iterations: u32,
     ) {
         unreachable!("decode_long_to_int() must be implemented")
     }
@@ -222,11 +222,11 @@ pub trait Decoder {
     /// * `iterations` - Controls how much data to decode.
     fn decode_byte_to_int(
         &self,
-        _blocks: &[u8],
-        _blocks_offset: usize,
-        _values: &mut [i32],
+        blocks: &[u8],
+         _blocks_offset: usize,
+        values: &mut [i32],
         _values_offset: usize,
-        _iterations: usize,
+        _iterations: u32,
     ) {
         unreachable!("decode_byte_to_int() must be implemented")
     }
@@ -234,22 +234,22 @@ pub trait Decoder {
 /// An encoder for packed integers.
 pub trait Encoder {
     /// The minimum number of long blocks to encode in a single iteration, when using long encoding.
-    fn long_block_count(&self) -> usize {
+    fn long_block_count(&self) -> u32 {
         unreachable!("long_block_count() must be implemented")
     }
 
     /// The number of values that can be stored in `long_block_count()` long blocks.
-    fn long_value_count(&self) -> usize {
+    fn long_value_count(&self) -> u32 {
         unreachable!("long_value_count() must be implemented")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when using byte encoding.
-    fn byte_block_count(&self) -> usize {
+    fn byte_block_count(&self) -> u32 {
         unreachable!("byte_block_count() must be implemented")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte blocks.
-    fn byte_value_count(&self) -> usize {
+    fn byte_value_count(&self) -> u32 {
         unreachable!("byte_value_count() must be implemented")
     }
 
@@ -268,8 +268,8 @@ pub trait Encoder {
         _values: &[i64],
         _values_offset: usize,
         _blocks: &mut [u64],
-        _blocks_offset: usize,
-        _iterations: usize,
+         _blocks_offset: usize,
+        _iterations: u32,
     ) {
         unreachable!("encode_long_to_long() must be implemented")
     }
@@ -289,8 +289,8 @@ pub trait Encoder {
         _values: &[i64],
         _values_offset: usize,
         _blocks: &mut [u8],
-        _blocks_offset: usize,
-        _iterations: usize,
+         _blocks_offset: usize,
+        _iterations: u32,
     ) {
         unreachable!("encode_long_to_byte() must be implemented")
     }
@@ -310,8 +310,8 @@ pub trait Encoder {
         _values: &[i32],
         _values_offset: usize,
         _blocks: &mut [u64],
-        _blocks_offset: usize,
-        _iterations: usize,
+         _blocks_offset: usize,
+        _iterations: u32,
     ) {
         unreachable!("encode_int_to_long() must be implemented")
     }
@@ -331,8 +331,8 @@ pub trait Encoder {
         _values: &[i32],
         _values_offset: usize,
         _blocks: &mut [u8],
-        _blocks_offset: usize,
-        _iterations: usize,
+         _blocks_offset: usize,
+        _iterations: u32,
     ) {
         unreachable!("encode_int_to_byte() must be implemented")
     }
@@ -353,10 +353,14 @@ pub trait Reader {
         len: usize,
     ) -> Result<usize, DataIOError> {
         debug_assert!(len > 0, "len must be > 0");
-        debug_assert!(index < self.size(), "index out of bounds: {}", index);
+        debug_assert!(
+            index < self.size() as usize,
+            "index out of bounds: {}",
+            index
+        );
         debug_assert!(off + len <= arr.len(), "offset + len exceeds array length");
 
-        let gets = min(self.size() - index, len);
+        let gets = min(self.size() as usize - index, len);
         for (i, o) in (index..index + gets).zip(off..off + gets) {
             arr[o] = self.get(i)?;
         }
@@ -364,7 +368,7 @@ pub trait Reader {
     }
 
     /// Returns the number of values in the reader.
-    fn size(&self) -> usize;
+    fn size(&self) -> u32;
 }
 /// Run-once iterator interface to decode previously saved PackedInts.
 pub trait ReaderIterator {
@@ -386,24 +390,24 @@ pub trait ReaderIterator {
     /// # Errors
     ///
     /// Returns an error if there is an issue decoding the values.
-    fn next_batch(&mut self, count: usize) -> Result<LongsRef, DataIOError>;
+    fn next_batch(&mut self, count: u32) -> Result<LongsRef, DataIOError>;
 
     /// Returns the number of bits per value.
-    fn get_bits_per_value(&self) -> usize;
+    fn get_bits_per_value(&self) -> u32;
 
     /// Returns the total number of values.
-    fn size(&self) -> usize;
+    fn size(&self) -> u32;
 
     /// Returns the current position.
-    fn ord(&self) -> usize;
+    fn ord(&self) -> u32;
 }
 /// A base implementation of the `ReaderIterator` trait.
 pub struct ReaderIteratorImpl<C>
 where
     C: ReaderIterator,
 {
-    bits_per_value: usize,
-    value_count: usize,
+    bits_per_value: u32,
+    value_count: u32,
     next_values: Option<LongsRef>,
     sub_reader: C,
 }
@@ -418,7 +422,7 @@ where
     ///
     /// * `value_count` - Total number of values.
     /// * `bits_per_value` - Number of bits per value.
-    pub fn new(value_count: usize, bits_per_value: usize, sub_reader: C) -> Self {
+    pub fn new(value_count: u32, bits_per_value: u32, sub_reader: C) -> Self {
         Self {
             bits_per_value,
             value_count,
@@ -441,19 +445,19 @@ where
         Ok(result)
     }
 
-    fn next_batch(&mut self, count: usize) -> Result<LongsRef, DataIOError> {
+    fn next_batch(&mut self, count: u32) -> Result<LongsRef, DataIOError> {
         self.sub_reader.next_batch(count)
     }
 
-    fn get_bits_per_value(&self) -> usize {
+    fn get_bits_per_value(&self) -> u32 {
         self.bits_per_value
     }
 
-    fn size(&self) -> usize {
+    fn size(&self) -> u32 {
         self.value_count
     }
 
-    fn ord(&self) -> usize {
+    fn ord(&self) -> u32 {
         self.sub_reader.ord()
     }
 }
@@ -474,7 +478,7 @@ impl PackedInts {
     ///
     /// # Returns
     /// The number of bits required to store `bits`.
-    pub fn unsigned_bits_required(bits: u64) -> usize {
-        (64 - bits.leading_zeros() as usize).max(1)
+    pub fn unsigned_bits_required(bits: u64) -> u32 {
+        (64 - bits.leading_zeros() as usize).max(1) as u32
     }
 }

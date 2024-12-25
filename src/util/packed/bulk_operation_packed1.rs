@@ -31,7 +31,7 @@ impl Decoder for BulkOperationPacked1 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         for _ in 0..iterations {
             let block = blocks[blocks_offset];
@@ -60,7 +60,7 @@ impl Decoder for BulkOperationPacked1 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         for _ in 0..iterations {
             let block = blocks[blocks_offset];
@@ -86,7 +86,7 @@ impl Decoder for BulkOperationPacked1 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         for _ in 0..iterations {
             let block = blocks[blocks_offset];
@@ -115,7 +115,7 @@ impl Decoder for BulkOperationPacked1 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         for _ in 0..iterations {
             let block = blocks[blocks_offset];

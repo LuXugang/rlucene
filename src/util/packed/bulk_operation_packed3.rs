@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::packed::bulk_operation_packed1::BulkOperationPacked1;
 use crate::util::packed::{Decoder, Encoder};
 
 #[derive(Default)]
@@ -27,7 +26,7 @@ impl Decoder for BulkOperationPacked3 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         for _ in 0..iterations {
             let block0 = blocks[blocks_offset];
@@ -115,7 +114,7 @@ impl Decoder for BulkOperationPacked3 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         for _ in 0..iterations {
             let byte0 = blocks[blocks_offset] as u64;
@@ -141,7 +140,7 @@ impl Decoder for BulkOperationPacked3 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         for _ in 0..iterations {
             let block0 = blocks[blocks_offset];
@@ -229,7 +228,7 @@ impl Decoder for BulkOperationPacked3 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         for _ in 0..iterations {
             let byte0 = blocks[blocks_offset] as i32;

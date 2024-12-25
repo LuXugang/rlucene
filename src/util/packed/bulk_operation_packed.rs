@@ -21,11 +21,11 @@ where
     T: Decoder + Encoder,
 {
     sub_operation: Option<T>,
-    bits_per_value: usize,
-    long_block_count: usize,
-    long_value_count: usize,
-    byte_block_count: usize,
-    byte_value_count: usize,
+    bits_per_value: u32,
+    long_block_count: u32,
+    long_value_count: u32,
+    byte_block_count: u32,
+    byte_value_count: u32,
     mask: u64,
     int_mask: u32,
 }
@@ -33,7 +33,7 @@ impl<T> BulkOperationPacked<T>
 where
     T: Decoder + Encoder,
 {
-    pub const fn new(bits_per_value: usize, sub_operation: Option<T>) -> Self {
+    pub const fn new(bits_per_value: u32, sub_operation: Option<T>) -> Self {
         debug_assert!(
             bits_per_value > 0 && bits_per_value <= 64,
             "bitsPerValue must be > 0 and <= 64"
@@ -81,19 +81,19 @@ impl<T> Decoder for BulkOperationPacked<T>
 where
     T: Decoder + Encoder,
 {
-    fn long_block_count(&self) -> usize {
+    fn long_block_count(&self) -> u32 {
         self.long_block_count
     }
 
-    fn long_value_count(&self) -> usize {
+    fn long_value_count(&self) -> u32 {
         self.long_value_count
     }
 
-    fn byte_block_count(&self) -> usize {
+    fn byte_block_count(&self) -> u32 {
         self.byte_block_count
     }
 
-    fn byte_value_count(&self) -> usize {
+    fn byte_value_count(&self) -> u32 {
         self.byte_value_count
     }
 
@@ -103,7 +103,7 @@ where
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         if self.sub_operation.is_some() {
             self.sub_operation.as_ref().unwrap().decode_long_to_long(
@@ -121,7 +121,7 @@ where
 
             if bits_left < 0 {
                 let lower_part = (blocks[blocks_offset]
-                    & ((1u64 << (self.bits_per_value + bits_left as usize)) - 1))
+                    & ((1u64 << (self.bits_per_value as i32 + bits_left)) - 1))
                     << -bits_left;
 
                 blocks_offset += 1;
@@ -142,7 +142,7 @@ where
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         if self.sub_operation.is_some() {
             self.sub_operation.as_ref().unwrap().decode_byte_to_long(
@@ -158,7 +158,7 @@ where
         let mut bits_left: i32 = self.bits_per_value as i32;
 
         for _ in 0..(iterations * self.byte_block_count) {
-            let bytes = (blocks[blocks_offset] & 0xFF) as i64;
+            let bytes = blocks[blocks_offset] as i64;
             blocks_offset += 1;
 
             if bits_left > 8 {
@@ -177,13 +177,11 @@ where
                     values_offset += 1;
                 }
 
-                // Buffer the remaining bits
                 bits_left = self.bits_per_value as i32 - bits;
                 next_value = (bytes & ((1 << bits) - 1) as i64) << bits_left;
             }
         }
 
-        // Ensure all bits are consumed
         assert_eq!(bits_left, self.bits_per_value as i32);
     }
 
@@ -193,7 +191,7 @@ where
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         if self.sub_operation.is_some() {
             self.sub_operation.as_ref().unwrap().decode_long_to_int(
@@ -219,7 +217,7 @@ where
             if bits_left < 0 {
                 // Handle case where bits_left is negative
                 let lower_part = (blocks[blocks_offset]
-                    & ((1u64 << (self.bits_per_value + bits_left as usize)) - 1))
+                    & ((1u64 << (self.bits_per_value as i32 + bits_left)) - 1))
                     << -bits_left;
 
                 blocks_offset += 1;
@@ -242,7 +240,7 @@ where
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         if self.sub_operation.is_some() {
             self.sub_operation.as_ref().unwrap().decode_byte_to_int(
@@ -290,19 +288,19 @@ impl<T> Encoder for BulkOperationPacked<T>
 where
     T: Decoder + Encoder,
 {
-    fn long_block_count(&self) -> usize {
+    fn long_block_count(&self) -> u32 {
         Decoder::long_block_count(self)
     }
 
-    fn long_value_count(&self) -> usize {
+    fn long_value_count(&self) -> u32 {
         Decoder::long_value_count(self)
     }
 
-    fn byte_block_count(&self) -> usize {
+    fn byte_block_count(&self) -> u32 {
         Decoder::byte_block_count(self)
     }
 
-    fn byte_value_count(&self) -> usize {
+    fn byte_value_count(&self) -> u32 {
         Decoder::byte_value_count(self)
     }
 
@@ -312,7 +310,7 @@ where
         mut values_offset: usize,
         blocks: &mut [u64],
         mut blocks_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         let mut next_block: u64 = 0;
         let mut bits_left: i32 = 64;
@@ -352,7 +350,7 @@ where
         mut values_offset: usize,
         blocks: &mut [u8],
         mut blocks_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         let mut next_block: i32 = 0;
         let mut bits_left: i32 = 8;
@@ -399,7 +397,7 @@ where
         mut values_offset: usize,
         blocks: &mut [u64],
         mut blocks_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         let mut next_block: u64 = 0;
         let mut bits_left: i32 = 64;
@@ -436,7 +434,7 @@ where
         mut values_offset: usize,
         blocks: &mut [u8],
         mut blocks_offset: usize,
-        iterations: usize,
+        iterations: u32,
     ) {
         let mut next_block: i32 = 0;
         let mut bits_left: i32 = 8;
