@@ -19,7 +19,7 @@ use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::{align_offset, IndexOutput, OutputStreamIndexOutput};
-use rlucene::util::bit_util::{INT_BYTES, LONG_BYTES, SHORT_BYTES};
+use rlucene::util::bit_util::BitUtil;
 use rlucene::util::error::data_io_error_enum::DataIOError;
 
 #[allow(dead_code)]
@@ -28,25 +28,25 @@ struct TestIndexOutputAlignment;
 #[test]
 fn test_alignment_calculation() -> Result<(), TestError> {
     // Test alignment with various sizes
-    assert_eq!(align_offset(0, LONG_BYTES as u32)?, 0);
-    assert_eq!(align_offset(0, INT_BYTES as u32)?, 0);
-    assert_eq!(align_offset(0, SHORT_BYTES as u32)?, 0);
+    assert_eq!(align_offset(0, BitUtil::LONG_BYTES as u32)?, 0);
+    assert_eq!(align_offset(0, BitUtil::INT_BYTES as u32)?, 0);
+    assert_eq!(align_offset(0, BitUtil::SHORT_BYTES as u32)?, 0);
     assert_eq!(align_offset(0, 1)?, 0);
 
-    assert_eq!(align_offset(1, LONG_BYTES as u32)?, 8);
-    assert_eq!(align_offset(1, INT_BYTES as u32)?, 4);
-    assert_eq!(align_offset(1, SHORT_BYTES as u32)?, 2);
+    assert_eq!(align_offset(1, BitUtil::LONG_BYTES as u32)?, 8);
+    assert_eq!(align_offset(1, BitUtil::INT_BYTES as u32)?, 4);
+    assert_eq!(align_offset(1, BitUtil::SHORT_BYTES as u32)?, 2);
     assert_eq!(align_offset(1, 1)?, 1);
 
-    assert_eq!(align_offset(25, LONG_BYTES as u32)?, 32);
-    assert_eq!(align_offset(25, INT_BYTES as u32)?, 28);
-    assert_eq!(align_offset(25, SHORT_BYTES as u32)?, 26);
+    assert_eq!(align_offset(25, BitUtil::LONG_BYTES as u32)?, 32);
+    assert_eq!(align_offset(25, BitUtil::INT_BYTES as u32)?, 28);
+    assert_eq!(align_offset(25, BitUtil::SHORT_BYTES as u32)?, 26);
     assert_eq!(align_offset(25, 1)?, 25);
 
     let val = 1u64 << 48;
-    assert_eq!(align_offset(val - 1, LONG_BYTES as u32)?, val);
-    assert_eq!(align_offset(val - 1, INT_BYTES as u32)?, val);
-    assert_eq!(align_offset(val - 1, SHORT_BYTES as u32)?, val);
+    assert_eq!(align_offset(val - 1, BitUtil::LONG_BYTES as u32)?, val);
+    assert_eq!(align_offset(val - 1, BitUtil::INT_BYTES as u32)?, val);
+    assert_eq!(align_offset(val - 1, BitUtil::SHORT_BYTES as u32)?, val);
     assert_eq!(align_offset(val - 1, 1)?, val - 1);
 
     assert_eq!(align_offset(u64::MAX, 1)?, u64::MAX);
@@ -65,7 +65,7 @@ fn assert_invalid_alignment(size: u32) {
 }
 #[test]
 fn test_output_alignment() -> Result<(), DataIOError> {
-    let alignments = [LONG_BYTES, INT_BYTES, SHORT_BYTES, 1usize];
+    let alignments = [BitUtil::LONG_BYTES, BitUtil::INT_BYTES, BitUtil::SHORT_BYTES, 1usize];
     for alignment in alignments.iter() {
         run_test_output_alignment(*alignment as u32)?;
     }

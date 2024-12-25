@@ -22,10 +22,10 @@ use rlucene::store::dummy_index_input::DummyIndexInput;
 use rlucene::store::index_input::IndexInput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput, BUFFER_SIZE};
-use rlucene::util::bit_util::{FLOAT_BYTES, INT_BYTES, LONG_BYTES};
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::ReadableCursorExt;
 use std::io::Cursor;
+use rlucene::util::bit_util::BitUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestBufferedIndexInput;
@@ -324,17 +324,17 @@ fn test_read_floats() -> Result<(), TestError> {
     )?;
     let mut float_buffer = vec![0f32; buffer_length];
 
-    for alignment in 0..FLOAT_BYTES {
+    for alignment in 0..BitUtil::FLOAT_BYTES {
         input.seek(0)?;
         for _ in 0..alignment {
             DataInput::read_byte(&mut input)?;
         }
 
-        let bulk_reads = length / (buffer_length * FLOAT_BYTES) - 1;
+        let bulk_reads = length / (buffer_length * BitUtil::FLOAT_BYTES) - 1;
         for i in 0..bulk_reads {
-            let pos = alignment + i * buffer_length * FLOAT_BYTES;
+            let pos = alignment + i * buffer_length * BitUtil::FLOAT_BYTES;
             let float_offset: usize = random.gen_range(0..3);
-            DataInput::skip_bytes(&mut input, (float_offset * FLOAT_BYTES) as u64)?;
+            DataInput::skip_bytes(&mut input, (float_offset * BitUtil::FLOAT_BYTES) as u64)?;
 
             input.read_floats(
                 &mut float_buffer[float_offset..],
@@ -348,7 +348,7 @@ fn test_read_floats() -> Result<(), TestError> {
                 .skip(float_offset)
                 .take(buffer_length - float_offset)
             {
-                let offset = pos + idx * FLOAT_BYTES;
+                let offset = pos + idx * BitUtil::FLOAT_BYTES;
 
                 let bb = [
                     byten(offset as u64),
@@ -386,17 +386,17 @@ fn test_read_ints() -> Result<(), TestError> {
     )?;
     let mut int_buffer = vec![0i32; buffer_length];
 
-    for alignment in 0..INT_BYTES {
+    for alignment in 0..BitUtil::INT_BYTES {
         input.seek(0)?;
         for _ in 0..alignment {
             DataInput::read_byte(&mut input)?;
         }
 
-        let bulk_reads = length / (buffer_length * INT_BYTES) - 1;
+        let bulk_reads = length / (buffer_length * BitUtil::INT_BYTES) - 1;
         for i in 0..bulk_reads {
-            let pos = alignment + i * buffer_length * INT_BYTES;
+            let pos = alignment + i * buffer_length * BitUtil::INT_BYTES;
             let int_offset: usize = random.gen_range(0..3);
-            DataInput::skip_bytes(&mut input, (int_offset * INT_BYTES) as u64)?;
+            DataInput::skip_bytes(&mut input, (int_offset * BitUtil::INT_BYTES) as u64)?;
 
             input.read_ints(
                 &mut int_buffer[int_offset..],
@@ -410,7 +410,7 @@ fn test_read_ints() -> Result<(), TestError> {
                 .skip(int_offset)
                 .take(buffer_length - int_offset)
             {
-                let offset = pos + idx * INT_BYTES;
+                let offset = pos + idx * BitUtil::INT_BYTES;
 
                 let bb = [
                     byten(offset as u64),
@@ -443,20 +443,20 @@ fn test_read_longs() -> Result<(), TestError> {
         &resource_description,
         BUFFER_SIZE,
     )?;
-    let mut bb = vec![0u8; LONG_BYTES];
+    let mut bb = vec![0u8; BitUtil::LONG_BYTES];
     let mut long_buffer = vec![0i64; buffer_length];
 
-    for alignment in 0..LONG_BYTES {
+    for alignment in 0..BitUtil::LONG_BYTES {
         input.seek(0)?;
         for _ in 0..alignment {
             DataInput::read_byte(&mut input)?;
         }
 
-        let bulk_reads = length / (buffer_length * LONG_BYTES) - 1;
+        let bulk_reads = length / (buffer_length * BitUtil::LONG_BYTES) - 1;
         for i in 0..bulk_reads {
-            let pos = alignment + i * buffer_length * LONG_BYTES;
+            let pos = alignment + i * buffer_length * BitUtil::LONG_BYTES;
             let long_offset: usize = random.gen_range(0..3);
-            DataInput::skip_bytes(&mut input, (long_offset * LONG_BYTES) as u64)?;
+            DataInput::skip_bytes(&mut input, (long_offset * BitUtil::LONG_BYTES) as u64)?;
 
             input.read_longs(
                 &mut long_buffer[long_offset..],
@@ -470,7 +470,7 @@ fn test_read_longs() -> Result<(), TestError> {
                 .take(buffer_length)
                 .skip(long_offset)
             {
-                let offset = pos + idx * LONG_BYTES;
+                let offset = pos + idx * BitUtil::LONG_BYTES;
                 bb[0] = byten(offset as u64);
                 bb[1] = byten(offset as u64 + 1);
                 bb[2] = byten(offset as u64 + 2);

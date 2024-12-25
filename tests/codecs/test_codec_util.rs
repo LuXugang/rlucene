@@ -15,11 +15,7 @@
  * limitations under the License.
  */
 use crate::util::test_error::TestError;
-use rlucene::codecs::codec_util::{
-    check_footer_with_error, check_header, check_index_header, checksum_entire_file, header_length,
-    index_header_length, read_crc, retrieve_checksum, write_be_int, write_be_long, write_crc,
-    write_footer, write_header, write_index_header, FOOTER_MAGIC,
-};
+use rlucene::codecs::codec_util::{check_footer_with_error, check_header, check_index_header, checksum_entire_file, header_length, index_header_length, read_crc, retrieve_checksum, write_be_int, write_be_long, write_crc, write_footer, write_header, write_index_header, CodecUtil};
 use rlucene::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::index_input::IndexInput;
@@ -187,7 +183,7 @@ fn test_check_footer_invalid() -> Result<(), TestError> {
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
         write_header(&mut output, "FooBar", 5)?;
         output.write_string("this is the data")?;
-        write_be_int(&mut output, FOOTER_MAGIC)?;
+        write_be_int(&mut output, CodecUtil::FOOTER_MAGIC)?;
         write_be_int(&mut output, 0)?;
         write_be_long(&mut output, 1234567)?; // write a bogus checksum
     }
