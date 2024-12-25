@@ -17,6 +17,7 @@
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::longs_ref::LongsRef;
 use std::cmp::min;
+use crate::util::packed::format_behavior::{FormatBehavior, Packed, PackedSingleBlock};
 
 pub struct PackedInts;
 /// At most 700% memory overhead, always select a direct implementation.
@@ -69,11 +70,11 @@ pub fn check_version(version: i32) -> Result<(), DataIOError> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// Compact format, all bits are written contiguously.
-    PACKED,
+    Packed(Packed),
 
     /// A format that may insert padding bits to improve encoding and decoding speed.
     /// This format is deprecated; use `Packed` instead.
-    PackedSingleBlock,
+    PackedSingleBlock(PackedSingleBlock),
 }
 /// Represents a combination of Format and bitsPerValue.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,7 +122,7 @@ pub fn fastest_format_and_bits(
     };
 
     FormatAndBits {
-        format: Format::PACKED,
+        format: Format::Packed(Packed),
         bits_per_value: actual_bits_per_value,
     }
 }
@@ -129,22 +130,22 @@ pub fn fastest_format_and_bits(
 pub trait Decoder {
     /// The minimum number of long blocks to encode in a single iteration, when using long encoding.
     fn long_block_count(&self) -> u32 {
-        unreachable!("long_block_count() must be implemented")
+        unreachable!("long_block_count() must be implemented if it need to be used")
     }
 
     /// The number of values that can be stored in `long_block_count()` long blocks.
     fn long_value_count(&self) -> u32 {
-        unreachable!("long_value_count() must be implemented")
+        unreachable!("long_value_count() must be implemented if it need to be used")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when using byte encoding.
     fn byte_block_count(&self) -> u32 {
-        unreachable!("byte_block_count() must be implemented")
+        unreachable!("byte_block_count() must be implemented if it need to be used")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte blocks.
     fn byte_value_count(&self) -> u32 {
-        unreachable!("byte_value_count() must be implemented")
+        unreachable!("byte_value_count() must be implemented if it need to be used")
     }
 
     /// Read `iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -165,7 +166,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("decode_long_to_long() must be implemented")
+        unreachable!("decode_long_to_long() must be implemented if it need to be used")
     }
 
     /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -186,7 +187,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("decode_byte_to_long() must be implemented")
+        unreachable!("decode_byte_to_long() must be implemented if it need to be used")
     }
 
     /// Read `iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -207,7 +208,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("decode_long_to_int() must be implemented")
+        unreachable!("decode_long_to_int() must be implemented if it need to be used")
     }
 
     /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them, and write
@@ -235,22 +236,22 @@ pub trait Decoder {
 pub trait Encoder {
     /// The minimum number of long blocks to encode in a single iteration, when using long encoding.
     fn long_block_count(&self) -> u32 {
-        unreachable!("long_block_count() must be implemented")
+        unreachable!("long_block_count() must be implemented if it need to be used")
     }
 
     /// The number of values that can be stored in `long_block_count()` long blocks.
     fn long_value_count(&self) -> u32 {
-        unreachable!("long_value_count() must be implemented")
+        unreachable!("long_value_count() must be implemented if it need to be used")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when using byte encoding.
     fn byte_block_count(&self) -> u32 {
-        unreachable!("byte_block_count() must be implemented")
+        unreachable!("byte_block_count() must be implemented if it need to be used")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte blocks.
     fn byte_value_count(&self) -> u32 {
-        unreachable!("byte_value_count() must be implemented")
+        unreachable!("byte_value_count() must be implemented if it need to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
@@ -271,7 +272,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("encode_long_to_long() must be implemented")
+        unreachable!("encode_long_to_long() must be implemented if it need to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
@@ -292,7 +293,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("encode_long_to_byte() must be implemented")
+        unreachable!("encode_long_to_byte() must be implemented if it need to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
@@ -313,7 +314,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("encode_int_to_long() must be implemented")
+        unreachable!("encode_int_to_long() must be implemented if it need to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and write
@@ -334,7 +335,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: u32,
     ) {
-        unreachable!("encode_int_to_byte() must be implemented")
+        unreachable!("encode_int_to_byte() must be implemented if it need to be used")
     }
 }
 
@@ -377,7 +378,9 @@ pub trait ReaderIterator {
     /// # Errors
     ///
     /// Returns an error if there is an issue decoding the next value.
-    fn next(&mut self) -> Result<u64, DataIOError>;
+    fn next(&mut self) -> Result<i64, DataIOError>{
+        unreachable!("next() must be implemented if it need to be used")
+    }
 
     /// Returns at least 1 and at most `count` next values.
     ///
@@ -393,16 +396,20 @@ pub trait ReaderIterator {
     fn next_batch(&mut self, count: u32) -> Result<LongsRef, DataIOError>;
 
     /// Returns the number of bits per value.
-    fn get_bits_per_value(&self) -> u32;
+    fn get_bits_per_value(&self) -> u32{
+        unreachable!("get_bits_per_value() must be implemented if it need to be used")
+    }
 
     /// Returns the total number of values.
-    fn size(&self) -> u32;
+    fn size(&self) -> u32{
+        unreachable!("size() must be implemented if it need to be used")
+    }
 
     /// Returns the current position.
-    fn ord(&self) -> u32;
+    fn ord(&self) -> i32;
 }
 /// A base implementation of the `ReaderIterator` trait.
-pub struct ReaderIteratorImpl<C>
+pub(crate) struct ReaderIteratorImpl<C>
 where
     C: ReaderIterator,
 {
@@ -436,7 +443,7 @@ impl<C> ReaderIterator for ReaderIteratorImpl<C>
 where
     C: ReaderIterator,
 {
-    fn next(&mut self) -> Result<u64, DataIOError> {
+    fn next(&mut self) -> Result<i64, DataIOError> {
         let mut next_values = self.next_batch(1)?;
         debug_assert!(next_values.length > 0, "next_values buffer is empty");
         let result = next_values.longs[next_values.offset];
@@ -457,7 +464,7 @@ where
         self.value_count
     }
 
-    fn ord(&self) -> u32 {
+    fn ord(&self) -> i32 {
         self.sub_reader.ord()
     }
 }

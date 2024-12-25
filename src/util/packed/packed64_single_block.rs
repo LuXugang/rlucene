@@ -14,3 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub(crate)struct Packed64SingleBlock; 
+impl Packed64SingleBlock{
+    /// Supported bits per value
+    const SUPPORTED_BITS_PER_VALUE: [u32; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
+
+    /// Checks if the given `bits_per_value` is supported.
+    pub fn is_supported(bits_per_value: u32) -> bool {
+        Self::SUPPORTED_BITS_PER_VALUE.binary_search(&bits_per_value).is_ok()
+    } 
+}

@@ -87,9 +87,9 @@ pub trait IndexInput: DataInput + Clone {
         description: &str,
         offset: u64,
         length: u64,
-        _read_advice: ReadAdvice,
+        read_advice: ReadAdvice,
     ) -> Result<impl IndexInput, DataIOError> {
-        self.default_slice_with_read_advice(description, offset, length, _read_advice)
+        self.default_slice_with_read_advice(description, offset, length, read_advice)
     }
     fn default_slice_with_read_advice(
         &self,

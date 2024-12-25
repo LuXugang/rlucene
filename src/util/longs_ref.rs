@@ -26,7 +26,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug, Eq)]
 pub struct LongsRef {
     /// The contents of the LongsRef. Should never be `None`.
-    pub longs: Vec<u64>,
+    pub longs: Vec<i64>,
 
     /// Offset of the first valid long.
     pub offset: usize,
@@ -73,8 +73,8 @@ impl LongsRef {
     /// # Panics
     ///
     /// Panics if the combination of `offset` and `length` exceeds the bounds of `longs`.
-    pub fn from_slice(longs: Vec<u64>, offset: usize, length: usize) -> Self {
-        debug_assert!(Self::is_valid(&longs, offset, length).unwrap());
+    pub fn from_slice(mut longs: Vec<i64>, offset: usize, length: usize) -> Self {
+        debug_assert!(Self::is_valid(longs.as_mut_slice(), offset, length).unwrap());
         Self {
             longs,
             offset,
@@ -107,7 +107,7 @@ impl LongsRef {
         })
     }
 
-    pub fn is_valid(longs: &[u64], offset: usize, length: usize) -> Result<bool, DataIOError> {
+    pub fn is_valid(longs: &[i64], offset: usize, length: usize) -> Result<bool, DataIOError> {
         if longs.is_empty() {
             return Err(DataIOError::illegal_state("longs is empty"));
         }
@@ -165,7 +165,7 @@ impl Hash for LongsRef {
         for &value in &self.longs[self.offset..end] {
             result = PRIME
                 .wrapping_mul(result)
-                .wrapping_add(value ^ (value >> 32));
+                .wrapping_add((value ^ (value >> 32)) as u64);
         }
 
         state.write_u64(result);
