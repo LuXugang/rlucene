@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::packed::{Decoder, Encoder, PackedInts};
+use std::cmp::Ordering;
 
 pub struct BulkOperationPacked<T>
 where
@@ -318,28 +319,32 @@ where
         for _ in 0..(self.long_value_count * iterations) {
             bits_left -= self.bits_per_value as i32;
 
-            if bits_left > 0 {
-                // Buffer the value
-                next_block |= (values[values_offset] << bits_left) as u64;
-                values_offset += 1;
-            } else if bits_left == 0 {
-                next_block |= values[values_offset] as u64;
-                values_offset += 1;
-                blocks[blocks_offset] = next_block;
-                blocks_offset += 1;
-                next_block = 0;
-                bits_left = 64;
-            } else {
-                // Handle case where bits_left < 0
-                next_block |= (values[values_offset] as u64) >> -bits_left;
+            match bits_left.cmp(&0) {
+                std::cmp::Ordering::Greater => {
+                    // Buffer the value
+                    next_block |= (values[values_offset] << bits_left) as u64;
+                    values_offset += 1;
+                }
+                std::cmp::Ordering::Equal => {
+                    next_block |= values[values_offset] as u64;
+                    values_offset += 1;
+                    blocks[blocks_offset] = next_block;
+                    blocks_offset += 1;
+                    next_block = 0;
+                    bits_left = 64;
+                }
+                std::cmp::Ordering::Less => {
+                    // Handle case where bits_left < 0
+                    next_block |= (values[values_offset] as u64) >> -bits_left;
 
-                blocks[blocks_offset] = next_block;
-                blocks_offset += 1;
+                    blocks[blocks_offset] = next_block;
+                    blocks_offset += 1;
 
-                next_block = ((values[values_offset] & ((1u64 << -bits_left) - 1) as i64)
-                    << (64 + bits_left)) as u64;
-                values_offset += 1;
-                bits_left += 64;
+                    next_block = ((values[values_offset] & ((1u64 << -bits_left) - 1) as i64)
+                        << (64 + bits_left)) as u64;
+                    values_offset += 1;
+                    bits_left += 64;
+                }
             }
         }
     }
@@ -404,26 +409,29 @@ where
 
         for _ in 0..(self.long_value_count * iterations) {
             bits_left -= self.bits_per_value as i32;
-
-            if bits_left > 0 {
-                next_block |= (values[values_offset] as u64 & 0xFFFFFFFF) << bits_left;
-                values_offset += 1;
-            } else if bits_left == 0 {
-                next_block |= values[values_offset] as u64 & 0xFFFFFFFF;
-                values_offset += 1;
-                blocks[blocks_offset] = next_block;
-                blocks_offset += 1;
-                next_block = 0;
-                bits_left = 64;
-            } else {
-                next_block |= (values[values_offset] as u64 & 0xFFFFFFFF) >> -bits_left;
-                blocks[blocks_offset] = next_block;
-                blocks_offset += 1;
-                next_block = ((values[values_offset] as u64 & 0xFFFFFFFF)
-                    & ((1u64 << -bits_left) - 1))
-                    << (64 + bits_left);
-                values_offset += 1;
-                bits_left += 64;
+            match bits_left.cmp(&0) {
+                Ordering::Greater => {
+                    next_block |= (values[values_offset] as u64 & 0xFFFFFFFF) << bits_left;
+                    values_offset += 1;
+                }
+                Ordering::Equal => {
+                    next_block |= values[values_offset] as u64 & 0xFFFFFFFF;
+                    values_offset += 1;
+                    blocks[blocks_offset] = next_block;
+                    blocks_offset += 1;
+                    next_block = 0;
+                    bits_left = 64;
+                }
+                Ordering::Less => {
+                    next_block |= (values[values_offset] as u64 & 0xFFFFFFFF) >> -bits_left;
+                    blocks[blocks_offset] = next_block;
+                    blocks_offset += 1;
+                    next_block = ((values[values_offset] as u64 & 0xFFFFFFFF)
+                        & ((1u64 << -bits_left) - 1))
+                        << (64 + bits_left);
+                    values_offset += 1;
+                    bits_left += 64;
+                }
             }
         }
     }

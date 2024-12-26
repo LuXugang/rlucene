@@ -25,7 +25,6 @@ use crate::util::packed::packed64_single_block::{
 };
 use crate::util::packed::{Mutable, MutableImpl, Reader};
 use std::fmt::{Display, Formatter};
-use crate::util::error::runtime_error::RuntimeError;
 
 pub enum MutablePacked64Enum {
     P64SingleBlock1(MutableImpl<Packed64SingleBlock<Packed64SingleBlock1>>),
@@ -205,7 +204,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn set(&mut self, index: usize, value: i64) ->Result<(), DataIOError>{
+    fn set(&mut self, index: usize, value: i64) -> Result<(), DataIOError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.set(index, value),
             MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.set(index, value),
@@ -225,7 +224,13 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> Result<u32, DataIOError>{
+    fn set_bulk(
+        &mut self,
+        index: usize,
+        arr: &[i64],
+        off: usize,
+        len: usize,
+    ) -> Result<u32, DataIOError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
@@ -273,7 +278,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<(),DataIOError>{
+    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<(), DataIOError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
@@ -321,7 +326,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn clear(&mut self) {
+    fn clear(&mut self) -> Result<(), DataIOError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.clear(),
             MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.clear(),

@@ -294,7 +294,7 @@ impl PackedInts {
         let capacity = mem >> 3; // Convert memory to the number of 64-bit elements
         if capacity == 0 {
             for i in 0..len {
-                dest.set(dest_pos + i, src.get(src_pos + i)?);
+                dest.set(dest_pos + i, src.get(src_pos + i)?)?;
             }
         } else if len > 0 {
             // Use bulk operations
@@ -336,7 +336,7 @@ impl PackedInts {
         }
 
         while remaining > 0 {
-            let written = dest.set_bulk(dest_pos, buf, 0, remaining)? as usize ;
+            let written = dest.set_bulk(dest_pos, buf, 0, remaining)? as usize;
             dest_pos += written;
             remaining -= written;
             if remaining > 0 {
@@ -850,7 +850,7 @@ pub trait Mutable: Reader + Display {
     /// * `index` - The position where the value should be set.
     /// * `value` - The value to be stored, which must conform to the constraints of the array.
     ///
-    fn set(&mut self, _index: usize, _value: i64) ->Result<(), DataIOError>{
+    fn set(&mut self, _index: usize, _value: i64) -> Result<(), DataIOError> {
         unimplemented!("set() must be implemented if it need to be used")
     }
     /// Sets a range of values in the array.
@@ -866,10 +866,22 @@ pub trait Mutable: Reader + Display {
     ///
     /// The actual number of values that have been set.
     ///
-    fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> Result<u32, DataIOError>{
+    fn set_bulk(
+        &mut self,
+        index: usize,
+        arr: &[i64],
+        off: usize,
+        len: usize,
+    ) -> Result<u32, DataIOError> {
         self.default_set_bulk(index, arr, off, len)
     }
-    fn default_set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> Result<u32, DataIOError>{
+    fn default_set_bulk(
+        &mut self,
+        index: usize,
+        arr: &[i64],
+        off: usize,
+        len: usize,
+    ) -> Result<u32, DataIOError> {
         assert!(len > 0, "len must be > 0 (got {})", len);
         assert!(
             index < self.size() as usize,
@@ -884,7 +896,7 @@ pub trait Mutable: Reader + Display {
         );
 
         for (i, o) in (index..index + len).zip(off..off + len) {
-            self.set(i, arr[o]);
+            self.set(i, arr[o])?;
         }
         debug_assert!(len <= u32::MAX as usize);
         Ok(len as u32)
@@ -897,10 +909,15 @@ pub trait Mutable: Reader + Display {
     /// * `from_index` - The start index of the range to fill (inclusive).
     /// * `to_index` - The end index of the range to fill (exclusive).
     /// * `val` - The value to fill with.
-    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<(),DataIOError>{
+    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<(), DataIOError> {
         self.default_fill(from_index, to_index, val)
     }
-    fn default_fill(&mut self, from_index: usize, to_index: usize, val: i64)-> Result<(),DataIOError> {
+    fn default_fill(
+        &mut self,
+        from_index: usize,
+        to_index: usize,
+        val: i64,
+    ) -> Result<(), DataIOError> {
         assert!(val <= PackedInts::max_value(self.get_bits_per_value()));
         assert!(
             from_index <= to_index,
@@ -915,8 +932,8 @@ pub trait Mutable: Reader + Display {
     }
 
     /// Sets all values in the packed array to 0.
-    fn clear(&mut self) {
-        self.fill(0, self.size() as usize, 0);
+    fn clear(&mut self) -> Result<(), DataIOError> {
+        self.fill(0, self.size() as usize, 0)
     }
 }
 pub struct MutableImpl<T>

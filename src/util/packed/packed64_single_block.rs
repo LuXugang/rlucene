@@ -284,12 +284,18 @@ where
         self.bits_per_value
     }
 
-    fn set(&mut self, index: usize, value: i64) ->Result<(), DataIOError>{
+    fn set(&mut self, index: usize, value: i64) -> Result<(), DataIOError> {
         self.sub_reader.set(index, value, &mut self.blocks);
         Ok(())
     }
 
-    fn set_bulk(&mut self, mut index: usize, arr: &[i64], mut off: usize, mut len: usize) -> Result<u32, DataIOError>{
+    fn set_bulk(
+        &mut self,
+        mut index: usize,
+        arr: &[i64],
+        mut off: usize,
+        mut len: usize,
+    ) -> Result<u32, DataIOError> {
         assert!(index < self.value_count as usize, "index out of bounds");
         len = len.min(self.value_count as usize - index);
         assert!(off + len <= arr.len(), "not enough space in source array");
@@ -361,7 +367,12 @@ where
         }
     }
 
-    fn fill(&mut self, mut from_index: usize, to_index: usize, val: i64) -> Result<(),DataIOError>{
+    fn fill(
+        &mut self,
+        mut from_index: usize,
+        to_index: usize,
+        val: i64,
+    ) -> Result<(), DataIOError> {
         assert!(from_index <= to_index, "from_index must be <= to_index");
         assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
@@ -373,7 +384,7 @@ where
         // If the range is too small, fallback to naive setting
         if to_index - from_index <= (values_per_block * 2) as usize {
             for _ in from_index..to_index {
-                self.default_fill(from_index, to_index, val);
+                self.default_fill(from_index, to_index, val)?;
             }
             return Ok(());
         }
@@ -382,7 +393,7 @@ where
         let from_offset_in_block = from_index % values_per_block as usize;
         if from_offset_in_block != 0 {
             for _ in from_offset_in_block..values_per_block as usize {
-                self.set(from_index, val);
+                self.set(from_index, val)?;
                 from_index += 1;
             }
             assert_eq!(from_index % values_per_block as usize, 0);
@@ -402,13 +413,14 @@ where
 
         // Fill the gap at the end
         for i in (values_per_block as usize * to_block)..to_index {
-            self.set(i, val);
+            self.set(i, val)?;
         }
         Ok(())
     }
 
-    fn clear(&mut self) {
+    fn clear(&mut self) -> Result<(), DataIOError> {
         self.blocks.fill(0);
+        Ok(())
     }
 }
 

@@ -20,7 +20,6 @@ use crate::util::packed::bulk_operation::of;
 use crate::util::packed::format_behavior::{FormatBehavior, PackedImpl};
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
 use std::fmt::{Display, Formatter};
-use crate::util::error::runtime_error::RuntimeError;
 
 /// Space-optimized random access array of values with a fixed number of bits per value. Values
 /// are packed contiguously.
@@ -218,7 +217,7 @@ impl Mutable for Packed64 {
         self.bits_per_value
     }
 
-    fn set(&mut self, index: usize, value: i64) ->Result<(), DataIOError>{
+    fn set(&mut self, index: usize, value: i64) -> Result<(), DataIOError> {
         // The abstract index in a contiguous bit stream
         let major_bit_pos = (index as u64) * self.bits_per_value as u64;
         // The index in the backing blocks array
@@ -243,7 +242,13 @@ impl Mutable for Packed64 {
         Ok(())
     }
 
-    fn set_bulk(&mut self, mut index: usize, arr: &[i64], mut off: usize, mut len: usize) -> Result<u32, DataIOError>{
+    fn set_bulk(
+        &mut self,
+        mut index: usize,
+        arr: &[i64],
+        mut off: usize,
+        mut len: usize,
+    ) -> Result<u32, DataIOError> {
         assert!(index < self.value_count as usize, "index out of bounds");
         len = len.min(self.value_count as usize - index);
         assert!(
@@ -262,7 +267,7 @@ impl Mutable for Packed64 {
                     debug_assert!(index - original_index <= u32::MAX as usize);
                     return Ok((index - original_index) as u32);
                 }
-                self.set(index, arr[off]);
+                self.set(index, arr[off])?;
                 index += 1;
                 off += 1;
                 len -= 1;
@@ -307,7 +312,12 @@ impl Mutable for Packed64 {
         }
     }
 
-    fn fill(&mut self, mut from_index: usize, to_index: usize, val: i64) -> Result<(),DataIOError>{
+    fn fill(
+        &mut self,
+        mut from_index: usize,
+        to_index: usize,
+        val: i64,
+    ) -> Result<(), DataIOError> {
         assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
             "Value requires more bits than allowed by bits_per_value"
@@ -321,7 +331,7 @@ impl Mutable for Packed64 {
         // If the span is too small, fall back to naive filling
         if span <= (3 * n_aligned_values) as usize {
             for _ in from_index..to_index {
-                self.default_fill(from_index, to_index, val);
+                self.default_fill(from_index, to_index, val)?;
             }
             return Ok(());
         }
@@ -330,7 +340,7 @@ impl Mutable for Packed64 {
         let from_index_mod_n_aligned_values = from_index % n_aligned_values as usize;
         if from_index_mod_n_aligned_values != 0 {
             for _ in from_index_mod_n_aligned_values..n_aligned_values as usize {
-                self.set(from_index, val);
+                self.set(from_index, val)?;
                 from_index += 1;
             }
         }
@@ -343,7 +353,7 @@ impl Mutable for Packed64 {
         let n_aligned_values_blocks = {
             let mut values = Packed64::new(n_aligned_values, self.bits_per_value);
             for i in 0..n_aligned_values {
-                values.set(i as usize, val);
+                values.set(i as usize, val)?;
             }
             values.blocks
         };
@@ -359,12 +369,13 @@ impl Mutable for Packed64 {
 
         // Fill the gap
         for i in ((end_block << 6) / self.bits_per_value as usize)..to_index {
-            self.set(i, val);
+            self.set(i, val)?;
         }
         Ok(())
     }
 
-    fn clear(&mut self) {
+    fn clear(&mut self) -> Result<(), DataIOError> {
         self.blocks.fill(0);
+        Ok(())
     }
 }

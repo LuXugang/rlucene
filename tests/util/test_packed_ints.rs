@@ -21,14 +21,13 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rlucene::store::directory::Directory;
 use rlucene::store::{DataOutput, IndexInput, IndexOutput};
-use rlucene::util::accountable::Accountable;
+use rlucene::util::packed::growable_writer::GrowableWriter;
 use rlucene::util::packed::Format::{Packed, PackedSingleBlock};
 use rlucene::util::packed::{
     create, is_supported, FormatBehavior, Mutable, MutableImpl, MutablePacked64Enum, NullReader,
     Packed64, PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
     MAX_SUPPORTED_BITS_PER_VALUE,
 };
-use rlucene::util::packed::growable_writer::GrowableWriter;
 
 #[allow(dead_code)] // for quick search
 struct TestPackedInts;
@@ -118,7 +117,7 @@ fn test_packed_ints() -> Result<(), TestError> {
                     Packed(PackedImpl::new(0)),
                     value_count as i32,
                     nbits,
-                    mem ,
+                    mem,
                 );
 
                 let actual_value_count = if random.gen_bool(0.5) {
@@ -127,14 +126,19 @@ fn test_packed_ints() -> Result<(), TestError> {
                     random.gen_range(0..=value_count)
                 };
 
-                for i in 0..actual_value_count {
-                    values[i] = if nbits == 64 {
-                        random.gen()
-                    } else {
-                        random.gen_range(0..=max_value)
-                    };
-                    writer.add(values[i])?;
-                }
+                values
+                    .iter_mut()
+                    .take(actual_value_count)
+                    .enumerate()
+                    .try_for_each(|(_, value)| {
+                        let val = if nbits == 64 {
+                            random.gen()
+                        } else {
+                            random.gen_range(0..=max_value)
+                        };
+                        *value = val;
+                        writer.add(val)
+                    })?;
                 writer.finish()?;
 
                 // Ensure that finish() added the missing values
@@ -159,10 +163,10 @@ fn test_packed_ints() -> Result<(), TestError> {
                         nbits,
                         buffer_size,
                     )?;
-                    for i in 0..value_count {
+                    for (i, &expected_value) in values.iter().enumerate().take(value_count) {
                         let next_value = reader.next()?;
                         assert_eq!(
-                            values[i], next_value,
+                            expected_value, next_value,
                             "index={}, value_count={}, nbits={}, for reader {}",
                             i, value_count, nbits, reader
                         );
@@ -277,7 +281,7 @@ fn test_controlled_equality() -> Result<(), TestError> {
 
     for mut packed_int in packed_ints {
         for i in 0..packed_int.size() {
-            packed_int.set(i as usize, (i + 1) as i64);
+            packed_int.set(i as usize, (i + 1) as i64)?;
         }
     }
     let mut packed_ints = create_packed_ints(VALUE_COUNT as u32, BITS_PER_VALUE)?;
@@ -311,8 +315,8 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
         let max_value = PackedInts::max_value(bits1);
         for i in 0..value_count {
             let val = random.gen_range(0..=max_value);
-            packed1.set(i, val);
-            packed2.set(i, val);
+            packed1.set(i, val)?;
+            packed2.set(i, val)?;
         }
 
         let mut buffer = vec![0i64; value_count];
@@ -424,7 +428,7 @@ fn fill(
             random.gen_range(0..=max_value)
         };
 
-        packed_int.set(i, value);
+        packed_int.set(i, value)?;
         let retrieved_value = packed_int.get(i)?;
 
         if value != retrieved_value {
@@ -482,9 +486,9 @@ fn assert_list_equality_impl(
 #[test]
 fn test_secondary_block_change() -> Result<(), TestError> {
     let mut mutable = MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(26, 5)));
-    mutable.set(24, 31);
+    mutable.set(24, 31)?;
     assert_eq!(mutable.get(24)?, 31, "The value #24 should be correct");
-    mutable.set(4, 16);
+    mutable.set(4, 16)?;
     assert_eq!(
         mutable.get(24)?,
         31,
@@ -514,8 +518,8 @@ fn test_fill() -> Result<(), TestError> {
                 packed, bpv, from, to, val
             );
 
-            packed.fill(0, packed.size() as usize, 1);
-            packed.fill(from, to, val);
+            packed.fill(0, packed.size() as usize, 1)?;
+            packed.fill(from, to, val)?;
 
             for i in 0..packed.size() as usize {
                 let expected_value: i64 = if i >= from && i < to { val } else { 1 };
@@ -547,8 +551,8 @@ fn test_packed_ints_null() -> Result<(), TestError> {
         (size - 1),
         "The number of values read should match size - 1"
     );
-    for i in 0..r as usize {
-        assert_eq!(arr[i], 0, "The value at position {} should be 0", i);
+    for (i, &value) in arr.iter().take(r as usize).enumerate() {
+        assert_eq!(value, 0, "The value at position {} should be 0", i);
     }
     arr.fill(1);
     let r = packed_ints.get_bulk(10, &mut arr, 0, (size + 10) as usize)?;
@@ -580,7 +584,7 @@ fn test_bulk_get() -> Result<(), TestError> {
         let mut packed_ints = create_packed_ints(value_count as u32, bpv)?;
         for ints in &mut packed_ints {
             for i in 0..ints.size() as usize {
-                ints.set(i, (31 * i as i64 - 1099) & mask);
+                ints.set(i, (31 * i as i64 - 1099) & mask)?;
             }
             let mut arr = vec![0i64; off + len];
             let msg = format!(
@@ -599,18 +603,18 @@ fn test_bulk_get() -> Result<(), TestError> {
                 "{}: gets should be less than or equal to remaining values",
                 msg
             );
-            for i in 0..arr.len() {
+            for (i, &item) in arr.iter().enumerate() {
                 let m = format!("{}, i={}", msg, i);
                 if i >= off && i < off + gets as usize {
                     assert_eq!(
                         ints.get(i - off + index)?,
-                        arr[i],
+                        item,
                         "{}: value mismatch at index {}",
                         m,
                         i
                     );
                 } else {
-                    assert_eq!(arr[i], 0, "{}: array values outside range should be 0", m);
+                    assert_eq!(item, 0, "{}: array values outside range should be 0", m);
                 }
             }
         }
@@ -631,8 +635,8 @@ fn test_bulk_set() -> Result<(), TestError> {
         let mut packed_ints = create_packed_ints(value_count as u32, bpv)?;
         let mut arr = vec![0i64; off + len];
         let length = arr.len();
-        for i in 0..length {
-            arr[i] = (31 * i as i64 + 19) & mask
+        for (i, item) in arr.iter_mut().enumerate().take(length) {
+            *item = (31 * i as i64 + 19) & mask;
         }
         for ints in &mut packed_ints {
             let msg = format!(
@@ -681,7 +685,7 @@ fn test_copy() -> Result<(), TestError> {
         let mask = PackedInts::max_value(bpv);
         for mut r1 in create_packed_ints(value_count as u32, bpv)? {
             for i in 0..r1.size() as usize {
-                r1.set(i, ((31 * i as i64 - 1023) & mask));
+                r1.set(i, (31 * i as i64 - 1023) & mask)?;
             }
             for mut r2 in create_packed_ints(value_count as u32, bpv)? {
                 let msg = format!(
