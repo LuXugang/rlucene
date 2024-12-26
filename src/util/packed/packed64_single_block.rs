@@ -18,7 +18,7 @@ use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::error::runtime_error::RuntimeError;
 use crate::util::packed::bulk_operation::of;
-use crate::util::packed::format_behavior::{PackedImpl, PackedSingleBlockImpl};
+use crate::util::packed::format_behavior::PackedSingleBlockImpl;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader};
 use std::fmt::{Display, Formatter};
@@ -45,7 +45,6 @@ where
     T: Packed64SingleBlockBase,
 {
     /// Supported bits per value
-
     fn required_capacity(value_count: u32, values_per_block: u32) -> u32 {
         value_count / values_per_block
             + if value_count % values_per_block == 0 {
@@ -121,9 +120,12 @@ where
             0,
             "index not aligned with block boundary"
         );
-        let decoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value);
+        let decoder = of(
+            Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
+            self.bits_per_value,
+        );
         assert_eq!(
-            Decoder::long_value_count(decoder),
+            Decoder::long_block_count(decoder),
             1,
             "Decoder longBlockCount mismatch"
         );
@@ -270,6 +272,10 @@ impl<T> Mutable for Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
+    fn get_bits_per_value(&self) -> u32 {
+        self.bits_per_value
+    }
+
     fn set(&mut self, _index: usize, _value: i64) {
         self.sub_reader.set(_index, _value, &mut self.blocks);
     }
@@ -315,7 +321,7 @@ where
         );
         assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");
         assert_eq!(
-            Decoder::long_block_count(op),
+            Decoder::long_value_count(op),
             values_per_block,
             "longValueCount mismatch"
         );
@@ -323,7 +329,13 @@ where
         let block_index = index / values_per_block as usize;
         let nblocks = (index + len) / values_per_block as usize - block_index;
 
-        op.encode_i64_to_u64(&arr[off..], 0, &mut self.blocks, block_index, nblocks as u32);
+        op.encode_i64_to_u64(
+            &arr[off..],
+            0,
+            &mut self.blocks,
+            block_index,
+            nblocks as u32,
+        );
 
         let diff = nblocks * values_per_block as usize;
         index += diff;

@@ -45,17 +45,16 @@ pub mod bulk_operation_packed_dummy;
 pub mod bulk_operation_packed_enum;
 pub mod bulk_operation_packed_single_block;
 pub mod format_behavior;
+pub mod mutable_packed64_enum;
 pub mod packed64;
 pub mod packed64_single_block;
-pub mod mutable_packed64_enum;
 pub mod packed_ints;
 pub mod packed_long_values;
 pub mod packed_reader_iterator;
 pub mod packed_writer;
 
 pub use format_behavior::*;
-pub use packed_ints::*;
 pub use mutable_packed64_enum::*;
 pub use packed64::*;
 pub use packed64_single_block::*;
-
+pub use packed_ints::*;

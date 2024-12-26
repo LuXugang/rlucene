@@ -22,9 +22,9 @@ use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::{PackedImpl, PackedSingleBlockImpl};
+use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::packed64::Packed64;
 use crate::util::packed::packed64_single_block::create;
-use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
 use std::cmp::min;
@@ -265,11 +265,11 @@ impl PackedInts {
     /// # Returns
     ///
     /// The maximum value for the given number of bits.
-    pub fn max_value(bits_per_value: u32) -> u64 {
+    pub fn max_value(bits_per_value: u32) -> i64 {
         if bits_per_value == 64 {
-            i64::MAX as u64
+            i64::MAX
         } else {
-            (1u64 << bits_per_value) - 1
+            (1i64 << bits_per_value) - 1
         }
     }
     /// Copy `src[src_pos..src_pos+len]` into `dest[dest_pos..dest_pos+len]` using at most `mem` bytes.
@@ -775,7 +775,6 @@ where
 {
     bits_per_value: u32,
     value_count: u32,
-    next_values: Option<LongsRef>,
     sub_reader: C,
 }
 
@@ -793,7 +792,6 @@ where
         Self {
             bits_per_value,
             value_count,
-            next_values: None,
             sub_reader,
         }
     }
@@ -904,7 +902,7 @@ pub trait Mutable: Reader + Display {
         self.default_fill(from_index, to_index, val)
     }
     fn default_fill(&mut self, from_index: usize, to_index: usize, val: i64) {
-        assert!(val as u64 <= PackedInts::max_value(self.get_bits_per_value()));
+        assert!(val <= PackedInts::max_value(self.get_bits_per_value()));
         assert!(
             from_index <= to_index,
             "from_index must be <= to_index: {} > {}",
@@ -955,18 +953,15 @@ impl<T> Reader for MutableImpl<T>
 where
     T: Mutable + Display,
 {
-    
     fn size(&self) -> u32 {
         self.value_count
     }
-    
 }
 
 impl<T> Mutable for MutableImpl<T>
 where
     T: Mutable + Display,
 {
-    
     fn get_bits_per_value(&self) -> u32 {
         self.bits_per_value
     }

@@ -114,7 +114,7 @@ impl Reader for Packed64 {
             //     println!("Single block2:{}",(self.blocks[element_pos] >> -end_bits) as i64 );
             //     println!("Single block3:{}",((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64 );
             // }
-            
+
             return Ok(((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64);
         }
         Ok((((self.blocks[element_pos] << end_bits)
@@ -209,6 +209,10 @@ impl Display for Packed64 {
 }
 
 impl Mutable for Packed64 {
+    fn get_bits_per_value(&self) -> u32 {
+        self.bits_per_value
+    }
+
     fn set(&mut self, index: usize, value: i64) {
         // The abstract index in a contiguous bit stream
         let major_bit_pos = (index as u64) * self.bits_per_value as u64;
@@ -227,7 +231,7 @@ impl Mutable for Packed64 {
 
         // Two blocks case
         self.blocks[element_pos] = (self.blocks[element_pos] & !(self.mask_right >> end_bits))
-            | ((value as u64)>> end_bits);
+            | ((value as u64) >> end_bits);
 
         self.blocks[element_pos + 1] = (self.blocks[element_pos + 1] & (!0u64 >> end_bits))
             | (value << (Self::BLOCK_SIZE as i64 - end_bits)) as u64;
@@ -340,16 +344,15 @@ impl Mutable for Packed64 {
         assert!(n_aligned_blocks as usize <= n_aligned_values_blocks.len());
 
         // Bulk set values using precomputed blocks
-        let start_block = ((from_index as u64 * self.bits_per_value as u64) >> 6) as usize;
-        let end_block = ((to_index as u64 * self.bits_per_value as u64) >> 6) as usize;
-
+        let start_block = (from_index * self.bits_per_value as usize) >> 6;
+        let end_block = (to_index * self.bits_per_value as usize) >> 6;
         for block in start_block..end_block {
             let block_value = n_aligned_values_blocks[block % n_aligned_blocks as usize];
             self.blocks[block] = block_value;
         }
 
         // Fill the gap
-        for i in ((end_block) << (6 / self.bits_per_value as u64))..to_index {
+        for i in ((end_block << 6) / self.bits_per_value as usize)..to_index {
             self.set(i, val);
         }
     }
