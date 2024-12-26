@@ -65,6 +65,10 @@ impl Packed64 {
     /// A new instance of `Packed64`.
     ///
     pub fn new(value_count: u32, bits_per_value: u32) -> Self {
+        debug_assert!(
+            bits_per_value > 0 && bits_per_value <= 64,
+            "bitsPerValue must be > 0 and <= 64"
+        );
         let format = Format::Packed(PackedImpl::new(0)); // Corresponds to PackedInts.Format.PACKED in Java
         let long_count =
             format.long_count(PackedInts::VERSION_CURRENT, value_count, bits_per_value);

@@ -392,7 +392,7 @@ fn create_packed_ints(
 ) -> Result<Vec<MutablePacked64Enum>, TestError> {
     let mut packed_ints: Vec<MutablePacked64Enum> = Vec::new();
     let packed64 = Packed64::new(value_count, bits_per_value);
-    let mutable_impl = MutableImpl::new(packed64, value_count, bits_per_value);
+    let mutable_impl = MutableImpl::new(packed64);
     packed_ints.push(MutablePacked64Enum::P64(mutable_impl));
 
     for bpv in bits_per_value..=MAX_SUPPORTED_BITS_PER_VALUE {
@@ -479,7 +479,7 @@ fn assert_list_equality_impl(
 }
 #[test]
 fn test_secondary_block_change() -> Result<(), TestError> {
-    let mut mutable = MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(26, 5), 26, 5));
+    let mut mutable = MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(26, 5)));
     mutable.set(24, 31);
     assert_eq!(mutable.get(24)?, 31, "The value #24 should be correct");
     mutable.set(4, 16);
@@ -661,6 +661,51 @@ fn test_bulk_set() -> Result<(), TestError> {
                         "{}: array values outside range should be 0",
                         m
                     );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+#[test]
+fn test_copy() -> Result<(), TestError> {
+    let mut random = my_random("test_copy".to_string());
+    let value_count = random.gen_range(5..=600);
+    let off1 = random.gen_range(0..value_count);
+    let off2 = random.gen_range(0..value_count);
+    let len = random.gen_range(0..(value_count - off1).min(value_count - off2));
+    let mem = random.gen_range(0..1024);
+    for bpv in 1..=64 {
+        let mask = PackedInts::max_value(bpv);
+        for mut r1 in create_packed_ints(value_count as u32, bpv)? {
+            for i in 0..r1.size() as usize {
+                r1.set(i, ((31 * i as i64 - 1023) & mask));
+            }
+            for mut r2 in create_packed_ints(value_count as u32, bpv)? {
+                let msg = format!(
+                    "src={}, dest={}, srcPos={}, destPos={}, len={}, mem={}",
+                    r1, r2, off1, off2, len, mem
+                );
+                PackedInts::copy(&mut r1, off1, &mut r2, off2, len, mem)?;
+                for i in 0..r2.size() as usize {
+                    let m = format!("{}, i={}", msg, i);
+                    if i >= off2 && i < off2 + len {
+                        assert_eq!(
+                            r1.get(i - off2 + off1)?,
+                            r2.get(i)?,
+                            "{}: Values mismatch at index {}",
+                            m,
+                            i
+                        );
+                    } else {
+                        assert_eq!(
+                            r2.get(i)?,
+                            0,
+                            "{}: Unexpected non-zero value at index {}",
+                            m,
+                            i
+                        );
+                    }
                 }
             }
         }

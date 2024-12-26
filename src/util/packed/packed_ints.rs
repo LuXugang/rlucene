@@ -166,11 +166,10 @@ impl PackedInts {
     ) -> Result<MutablePacked64Enum, RuntimeError> {
         match format {
             Format::PackedSingleBlock(_) => Ok(create(value_count, bits_per_value)?),
-            Format::Packed(_) => Ok(MutablePacked64Enum::P64(MutableImpl::new(
-                Packed64::new(value_count, bits_per_value),
+            Format::Packed(_) => Ok(MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(
                 value_count,
                 bits_per_value,
-            ))),
+            )))),
         }
     }
     /// Expert: Create a packed integer array writer for the given output, format, value count, and
@@ -924,19 +923,13 @@ where
     T: Mutable + Display,
 {
     pub sub_reader: T,
-    value_count: u32,
-    bits_per_value: u32,
 }
 impl<T> MutableImpl<T>
 where
     T: Mutable + Display,
 {
-    pub fn new(sub_reader: T, value_count: u32, bits_per_value: u32) -> Self {
-        Self {
-            sub_reader,
-            value_count,
-            bits_per_value,
-        }
+    pub fn new(sub_reader: T) -> Self {
+        Self { sub_reader }
     }
 }
 
@@ -954,7 +947,7 @@ where
     T: Mutable + Display,
 {
     fn size(&self) -> u32 {
-        self.value_count
+        self.sub_reader.size()
     }
 }
 
@@ -963,7 +956,7 @@ where
     T: Mutable + Display,
 {
     fn get_bits_per_value(&self) -> u32 {
-        self.bits_per_value
+        self.sub_reader.get_bits_per_value()
     }
 }
 impl<T> Display for MutableImpl<T>
