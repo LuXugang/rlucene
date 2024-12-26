@@ -48,7 +48,7 @@ impl PackedInts {
     pub const COMPACT: f32 = 0.0;
 
     /// Default amount of memory to use for bulk operations (1KB).
-    pub const DEFAULT_BUFFER_SIZE: i32 = 1024;
+    pub const DEFAULT_BUFFER_SIZE: u32 = 1024;
 
     /// Codec name for PackedInts.
     pub const CODEC_NAME: &'static str = "PackedInts";
@@ -325,7 +325,7 @@ impl PackedInts {
             len -= read as usize;
             remaining += read as usize;
 
-            let written = dest.set_bulk(dest_pos, buf, 0, remaining) as usize;
+            let written = dest.set_bulk(dest_pos, buf, 0, remaining)? as usize;
             assert!(written > 0, "Write operation failed");
             dest_pos += written;
 
@@ -336,7 +336,7 @@ impl PackedInts {
         }
 
         while remaining > 0 {
-            let written = dest.set_bulk(dest_pos, buf, 0, remaining) as usize;
+            let written = dest.set_bulk(dest_pos, buf, 0, remaining)? as usize ;
             dest_pos += written;
             remaining -= written;
             if remaining > 0 {
@@ -850,7 +850,7 @@ pub trait Mutable: Reader + Display {
     /// * `index` - The position where the value should be set.
     /// * `value` - The value to be stored, which must conform to the constraints of the array.
     ///
-    fn set(&mut self, _index: usize, _value: i64) {
+    fn set(&mut self, _index: usize, _value: i64) ->Result<(), DataIOError>{
         unimplemented!("set() must be implemented if it need to be used")
     }
     /// Sets a range of values in the array.
@@ -866,10 +866,10 @@ pub trait Mutable: Reader + Display {
     ///
     /// The actual number of values that have been set.
     ///
-    fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> u32 {
+    fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> Result<u32, DataIOError>{
         self.default_set_bulk(index, arr, off, len)
     }
-    fn default_set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> u32 {
+    fn default_set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> Result<u32, DataIOError>{
         assert!(len > 0, "len must be > 0 (got {})", len);
         assert!(
             index < self.size() as usize,
@@ -887,7 +887,7 @@ pub trait Mutable: Reader + Display {
             self.set(i, arr[o]);
         }
         debug_assert!(len <= u32::MAX as usize);
-        len as u32
+        Ok(len as u32)
     }
 
     /// Fills a range in the packed array with a specific value.
@@ -897,10 +897,10 @@ pub trait Mutable: Reader + Display {
     /// * `from_index` - The start index of the range to fill (inclusive).
     /// * `to_index` - The end index of the range to fill (exclusive).
     /// * `val` - The value to fill with.
-    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) {
+    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<(),DataIOError>{
         self.default_fill(from_index, to_index, val)
     }
-    fn default_fill(&mut self, from_index: usize, to_index: usize, val: i64) {
+    fn default_fill(&mut self, from_index: usize, to_index: usize, val: i64)-> Result<(),DataIOError> {
         assert!(val <= PackedInts::max_value(self.get_bits_per_value()));
         assert!(
             from_index <= to_index,
@@ -909,8 +909,9 @@ pub trait Mutable: Reader + Display {
             to_index
         );
         for i in from_index..to_index {
-            self.set(i, val);
+            self.set(i, val)?;
         }
+        Ok(())
     }
 
     /// Sets all values in the packed array to 0.

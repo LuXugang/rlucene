@@ -21,12 +21,14 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rlucene::store::directory::Directory;
 use rlucene::store::{DataOutput, IndexInput, IndexOutput};
+use rlucene::util::accountable::Accountable;
 use rlucene::util::packed::Format::{Packed, PackedSingleBlock};
 use rlucene::util::packed::{
     create, is_supported, FormatBehavior, Mutable, MutableImpl, MutablePacked64Enum, NullReader,
     Packed64, PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
     MAX_SUPPORTED_BITS_PER_VALUE,
 };
+use rlucene::util::packed::growable_writer::GrowableWriter;
 
 #[allow(dead_code)] // for quick search
 struct TestPackedInts;
@@ -116,7 +118,7 @@ fn test_packed_ints() -> Result<(), TestError> {
                     Packed(PackedImpl::new(0)),
                     value_count as i32,
                     nbits,
-                    mem as u32,
+                    mem ,
                 );
 
                 let actual_value_count = if random.gen_bool(0.5) {
@@ -328,7 +330,7 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
             if random.gen_bool(0.5) {
                 let got = packed1.get_bulk(start, &mut buffer, offset, len)?;
                 assert!(got as usize <= len);
-                let sot = packed2.set_bulk(start, &buffer, offset, got as usize);
+                let sot = packed2.set_bulk(start, &buffer, offset, got as usize)?;
                 assert!(sot <= got);
             } else {
                 PackedInts::copy(
@@ -637,7 +639,7 @@ fn test_bulk_set() -> Result<(), TestError> {
                 "{} valueCount={}, index={}, len={}, off={}",
                 ints, value_count, index, len, off
             );
-            let sets = ints.set_bulk(index, &arr, off, len);
+            let sets = ints.set_bulk(index, &arr, off, len)?;
             assert!(sets > 0, "{}: gets should be greater than 0", msg);
             assert!(
                 sets <= len as u32,
@@ -710,5 +712,42 @@ fn test_copy() -> Result<(), TestError> {
             }
         }
     }
+    Ok(())
+}
+
+#[test]
+fn test_growable_writer() -> Result<(), TestError> {
+    let mut random = my_random("test_growable_writer".to_string());
+    let value_count = 113 + random.gen_range(0..1112);
+
+    let mut wrt = GrowableWriter::new(1, value_count as u32, PackedInts::DEFAULT)?;
+
+    wrt.set(4, 2)?;
+    wrt.set(7, 10)?;
+    wrt.set(value_count - 10, 99)?;
+    wrt.set(99, 999)?;
+    wrt.set(value_count - 1, 1 << 10)?;
+    assert_eq!(wrt.get(value_count - 1)?, 1 << 10);
+
+    wrt.set(99, (1 << 23) - 1)?;
+    assert_eq!(wrt.get(value_count - 1)?, 1 << 10);
+
+    wrt.set(1, i64::MAX)?;
+    wrt.set(2, -3)?;
+    assert_eq!(wrt.get_bits_per_value(), 64);
+    assert_eq!(wrt.get(value_count - 1)?, 1 << 10);
+    assert_eq!(wrt.get(1)?, i64::MAX);
+    assert_eq!(wrt.get(2)?, -3);
+    assert_eq!(wrt.get(4)?, 2);
+    assert_eq!(wrt.get(99)?, (1 << 23) - 1);
+    assert_eq!(wrt.get(7)?, 10);
+    assert_eq!(wrt.get(value_count - 10)?, 99);
+    assert_eq!(wrt.get(value_count - 1)?, 1 << 10);
+
+    // TODO:
+    // Check memory usage
+    // let ram_used = wrt.ram_bytes_used();
+    // assert_eq!(ram_used, ram_usage(&wrt));
+
     Ok(())
 }

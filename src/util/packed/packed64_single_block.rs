@@ -284,11 +284,12 @@ where
         self.bits_per_value
     }
 
-    fn set(&mut self, _index: usize, _value: i64) {
-        self.sub_reader.set(_index, _value, &mut self.blocks);
+    fn set(&mut self, index: usize, value: i64) ->Result<(), DataIOError>{
+        self.sub_reader.set(index, value, &mut self.blocks);
+        Ok(())
     }
 
-    fn set_bulk(&mut self, mut index: usize, arr: &[i64], mut off: usize, mut len: usize) -> u32 {
+    fn set_bulk(&mut self, mut index: usize, arr: &[i64], mut off: usize, mut len: usize) -> Result<u32, DataIOError>{
         assert!(index < self.value_count as usize, "index out of bounds");
         len = len.min(self.value_count as usize - index);
         assert!(off + len <= arr.len(), "not enough space in source array");
@@ -303,7 +304,7 @@ where
             for _ in offset_in_block..values_per_block as usize {
                 if len == 0 {
                     debug_assert!((index - original_index) <= u32::MAX as usize);
-                    return (index - original_index) as u32;
+                    return Ok((index - original_index) as u32);
                 }
                 self.sub_reader.set(index, arr[off], &mut self.blocks);
                 off += 1;
@@ -312,7 +313,7 @@ where
             }
             if len == 0 {
                 debug_assert!((index - original_index) <= u32::MAX as usize);
-                return (index - original_index) as u32;
+                return Ok((index - original_index) as u32);
             }
         }
 
@@ -352,7 +353,7 @@ where
         if index > original_index {
             // Stay at the block boundary
             debug_assert!(index - original_index <= u32::MAX as usize);
-            (index - original_index) as u32
+            Ok((index - original_index) as u32)
         } else {
             // No progress so far => already at a block boundary but no full block to set
             assert_eq!(index, original_index, "Index mismatch");
@@ -360,7 +361,7 @@ where
         }
     }
 
-    fn fill(&mut self, mut from_index: usize, to_index: usize, val: i64) {
+    fn fill(&mut self, mut from_index: usize, to_index: usize, val: i64) -> Result<(),DataIOError>{
         assert!(from_index <= to_index, "from_index must be <= to_index");
         assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
@@ -374,7 +375,7 @@ where
             for _ in from_index..to_index {
                 self.default_fill(from_index, to_index, val);
             }
-            return;
+            return Ok(());
         }
 
         // set values naively until the next block start
@@ -403,6 +404,7 @@ where
         for i in (values_per_block as usize * to_block)..to_index {
             self.set(i, val);
         }
+        Ok(())
     }
 
     fn clear(&mut self) {

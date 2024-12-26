@@ -52,6 +52,7 @@ pub mod packed_ints;
 pub mod packed_long_values;
 pub mod packed_reader_iterator;
 pub mod packed_writer;
+pub mod growable_writer;
 
 pub use format_behavior::*;
 pub use mutable_packed64_enum::*;
