@@ -97,7 +97,7 @@ where
         self.byte_value_count
     }
 
-    fn decode_long_to_long(
+    fn decode_u64_to_i64(
         &self,
         blocks: &[u64],
         mut blocks_offset: usize,
@@ -106,7 +106,7 @@ where
         iterations: u32,
     ) {
         if self.sub_operation.is_some() {
-            self.sub_operation.as_ref().unwrap().decode_long_to_long(
+            self.sub_operation.as_ref().unwrap().decode_u64_to_i64(
                 blocks,
                 blocks_offset,
                 values,
@@ -136,7 +136,7 @@ where
         }
     }
 
-    fn decode_byte_to_long(
+    fn decode_u8_to_i64(
         &self,
         blocks: &[u8],
         mut blocks_offset: usize,
@@ -145,7 +145,7 @@ where
         iterations: u32,
     ) {
         if self.sub_operation.is_some() {
-            self.sub_operation.as_ref().unwrap().decode_byte_to_long(
+            self.sub_operation.as_ref().unwrap().decode_u8_to_i64(
                 blocks,
                 blocks_offset,
                 values,
@@ -185,7 +185,7 @@ where
         assert_eq!(bits_left, self.bits_per_value as i32);
     }
 
-    fn decode_long_to_int(
+    fn decode_u64_to_i32(
         &self,
         blocks: &[u64],
         mut blocks_offset: usize,
@@ -194,7 +194,7 @@ where
         iterations: u32,
     ) {
         if self.sub_operation.is_some() {
-            self.sub_operation.as_ref().unwrap().decode_long_to_int(
+            self.sub_operation.as_ref().unwrap().decode_u64_to_i32(
                 blocks,
                 blocks_offset,
                 values,
@@ -234,7 +234,7 @@ where
         }
     }
 
-    fn decode_byte_to_int(
+    fn decode_u8_to_i32(
         &self,
         blocks: &[u8],
         mut blocks_offset: usize,
@@ -243,7 +243,7 @@ where
         iterations: u32,
     ) {
         if self.sub_operation.is_some() {
-            self.sub_operation.as_ref().unwrap().decode_byte_to_int(
+            self.sub_operation.as_ref().unwrap().decode_u8_to_i32(
                 blocks,
                 blocks_offset,
                 values,
@@ -304,7 +304,7 @@ where
         Decoder::byte_value_count(self)
     }
 
-    fn encode_long_to_long(
+    fn encode_i64_to_u64(
         &self,
         values: &[i64],
         mut values_offset: usize,
@@ -331,7 +331,7 @@ where
                 bits_left = 64;
             } else {
                 // Handle case where bits_left < 0
-                next_block |= values[values_offset] as u64 >> -bits_left;
+                next_block |= (values[values_offset] as u64) >> -bits_left;
 
                 blocks[blocks_offset] = next_block;
                 blocks_offset += 1;
@@ -344,7 +344,7 @@ where
         }
     }
 
-    fn encode_long_to_byte(
+    fn encode_i64_to_u8(
         &self,
         values: &[i64],
         mut values_offset: usize,
@@ -391,7 +391,7 @@ where
         );
     }
 
-    fn encode_int_to_long(
+    fn encode_i32_to_u64(
         &self,
         values: &[i32],
         mut values_offset: usize,
@@ -428,7 +428,7 @@ where
         }
     }
 
-    fn encode_int_to_byte(
+    fn encode_i32_to_u8(
         &self,
         values: &[i32],
         mut values_offset: usize,

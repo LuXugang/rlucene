@@ -21,7 +21,7 @@ use crate::util::packed::{Decoder, Encoder};
 pub struct BulkOperationPacked18;
 
 impl Decoder for BulkOperationPacked18 {
-    fn decode_long_to_long(
+    fn decode_u64_to_i64(
         &self,
         blocks: &[u64],
         mut blocks_offset: usize,
@@ -122,7 +122,7 @@ impl Decoder for BulkOperationPacked18 {
             values_offset += 1;
         }
     }
-    fn decode_byte_to_long(
+    fn decode_u8_to_i64(
         &self,
         blocks: &[u8],
         mut blocks_offset: usize,
@@ -162,7 +162,7 @@ impl Decoder for BulkOperationPacked18 {
             values_offset += 1;
         }
     }
-    fn decode_long_to_int(
+    fn decode_u64_to_i32(
         &self,
         blocks: &[u64],
         mut blocks_offset: usize,
@@ -263,7 +263,7 @@ impl Decoder for BulkOperationPacked18 {
             values_offset += 1;
         }
     }
-    fn decode_byte_to_int(
+    fn decode_u8_to_i32(
         &self,
         blocks: &[u8],
         mut blocks_offset: usize,

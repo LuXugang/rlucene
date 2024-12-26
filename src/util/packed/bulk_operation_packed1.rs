@@ -26,7 +26,7 @@ impl BulkOperationPacked1 {
 }
 impl Decoder for BulkOperationPacked1 {
     /// Decodes blocks of type `u64` into `u64` values.
-    fn decode_long_to_long(
+    fn decode_u64_to_i64(
         &self,
         blocks: &[u64],
         mut blocks_offset: usize,
@@ -38,24 +38,15 @@ impl Decoder for BulkOperationPacked1 {
             let block = blocks[blocks_offset];
             blocks_offset += 1;
 
-            values[values_offset] = ((block >> 63) & 1) as i64;
-            values[values_offset + 1] = ((block >> 62) & 1) as i64;
-            values[values_offset + 2] = ((block >> 61) & 1) as i64;
-            values[values_offset + 3] = ((block >> 60) & 1) as i64;
-            values[values_offset + 4] = ((block >> 59) & 1) as i64;
-            values[values_offset + 5] = ((block >> 58) & 1) as i64;
-            values[values_offset + 6] = ((block >> 57) & 1) as i64;
-            values[values_offset + 7] = ((block >> 56) & 1) as i64;
-
-            // Add the remaining bits similarly...
-            // values[values_offset + 8] to values[values_offset + 63]
-
-            values_offset += 64;
+            for shift in (0..=63).rev() {
+                values[values_offset] = ((block >> shift) & 1) as i64;
+                values_offset += 1;
+            }
         }
     }
 
     /// Decodes blocks of type `u8` into `u64` values.
-    fn decode_byte_to_long(
+    fn decode_u8_to_i64(
         &self,
         blocks: &[u8],
         mut blocks_offset: usize,
@@ -81,7 +72,7 @@ impl Decoder for BulkOperationPacked1 {
     }
 
     /// Decodes blocks of type `u64` into `i32` values.
-    fn decode_long_to_int(
+    fn decode_u64_to_i32(
         &self,
         blocks: &[u64],
         mut blocks_offset: usize,
@@ -93,24 +84,15 @@ impl Decoder for BulkOperationPacked1 {
             let block = blocks[blocks_offset];
             blocks_offset += 1;
 
-            values[values_offset] = ((block >> 63) & 1) as i32;
-            values[values_offset + 1] = ((block >> 62) & 1) as i32;
-            values[values_offset + 2] = ((block >> 61) & 1) as i32;
-            values[values_offset + 3] = ((block >> 60) & 1) as i32;
-            values[values_offset + 4] = ((block >> 59) & 1) as i32;
-            values[values_offset + 5] = ((block >> 58) & 1) as i32;
-            values[values_offset + 6] = ((block >> 57) & 1) as i32;
-            values[values_offset + 7] = ((block >> 56) & 1) as i32;
-
-            // Add the remaining bits similarly...
-            // values[values_offset + 8] to values[values_offset + 63]
-
-            values_offset += 64;
+            for shift in (0..=63).rev() {
+                values[values_offset] = ((block >> shift) & 1) as i32;
+                values_offset += 1;
+            }
         }
     }
 
     /// Decodes blocks of type `u8` into `i32` values.
-    fn decode_byte_to_int(
+    fn decode_u8_to_i32(
         &self,
         blocks: &[u8],
         mut blocks_offset: usize,

@@ -398,7 +398,7 @@ impl Decoder for BulkOperationPackedEnum {
         }
     }
 
-    fn decode_long_to_long(
+    fn decode_u64_to_i64(
         &self,
         blocks: &[u64],
         blocks_offset: usize,
@@ -408,207 +408,207 @@ impl Decoder for BulkOperationPackedEnum {
     ) {
         match self {
             BulkOperationPackedEnum::Packed1(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed2(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed3(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed4(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed5(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed6(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed7(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed8(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed9(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed10(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed11(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed12(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed13(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed14(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed15(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed16(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed17(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed18(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed19(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed20(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed21(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed22(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed23(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed24(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed25(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed26(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed27(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed28(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed29(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed30(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed31(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed32(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed33(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed34(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed35(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed36(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed37(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed38(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed39(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed40(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed41(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed42(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed43(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed44(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed45(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed46(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed47(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed48(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed49(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed50(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed51(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed52(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed53(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed54(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed55(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed56(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed57(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed58(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed59(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed60(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed61(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed62(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed63(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::SinglePacked(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Dummy(op) => {
-                op.decode_long_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
         }
     }
 
-    fn decode_byte_to_long(
+    fn decode_u8_to_i64(
         &self,
         blocks: &[u8],
         blocks_offset: usize,
@@ -618,208 +618,208 @@ impl Decoder for BulkOperationPackedEnum {
     ) {
         match self {
             BulkOperationPackedEnum::Packed1(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed2(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed3(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed4(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed5(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed6(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed7(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed8(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed9(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed10(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed11(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed12(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed13(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed14(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed15(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed16(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed17(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed18(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed19(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed20(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed21(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed22(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed23(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed24(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed25(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed26(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed27(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
 
             BulkOperationPackedEnum::Packed28(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed29(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed30(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed31(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed32(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed33(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed34(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed35(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed36(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed37(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed38(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed39(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed40(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed41(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed42(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed43(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed44(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed45(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed46(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed47(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed48(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed49(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed50(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed51(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed52(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed53(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed54(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed55(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed56(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed57(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed58(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed59(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed60(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed61(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed62(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed63(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::SinglePacked(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Dummy(op) => {
-                op.decode_byte_to_long(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i64(blocks, blocks_offset, values, values_offset, iterations)
             }
         }
     }
 
-    fn decode_long_to_int(
+    fn decode_u64_to_i32(
         &self,
         blocks: &[u64],
         blocks_offset: usize,
@@ -829,208 +829,208 @@ impl Decoder for BulkOperationPackedEnum {
     ) {
         match self {
             BulkOperationPackedEnum::Packed1(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed2(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed3(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed4(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed5(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed6(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed7(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed8(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed9(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed10(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed11(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed12(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed13(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed14(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed15(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed16(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed17(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed18(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed19(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed20(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed21(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
 
             BulkOperationPackedEnum::Packed22(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed23(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed24(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed25(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed26(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed27(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed28(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed29(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed30(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed31(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed32(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed33(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed34(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed35(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed36(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed37(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed38(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed39(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed40(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed41(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed42(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed43(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed44(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed45(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed46(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed47(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed48(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed49(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed50(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed51(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed52(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed53(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed54(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed55(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed56(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed57(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed58(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed59(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed60(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed61(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed62(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed63(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::SinglePacked(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Dummy(op) => {
-                op.decode_long_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
         }
     }
 
-    fn decode_byte_to_int(
+    fn decode_u8_to_i32(
         &self,
         blocks: &[u8],
         blocks_offset: usize,
@@ -1040,202 +1040,202 @@ impl Decoder for BulkOperationPackedEnum {
     ) {
         match self {
             BulkOperationPackedEnum::Packed1(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed2(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed3(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed4(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed5(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed6(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed7(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed8(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed9(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed10(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed11(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed12(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed13(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed14(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed15(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed16(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed17(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed18(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed19(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed20(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed21(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed22(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed23(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed24(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed25(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed26(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed27(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed28(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed29(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed30(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed31(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed32(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed33(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed34(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed35(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed36(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed37(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed38(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed39(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed40(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed41(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed42(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed43(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed44(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed45(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed46(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed47(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed48(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed49(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed50(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed51(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed52(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed53(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed54(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed55(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed56(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed57(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed58(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed59(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed60(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed61(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed62(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed63(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::SinglePacked(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
             BulkOperationPackedEnum::Dummy(op) => {
-                op.decode_byte_to_int(blocks, blocks_offset, values, values_offset, iterations)
+                op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)
             }
         }
     }
@@ -1525,7 +1525,7 @@ impl Encoder for BulkOperationPackedEnum {
         }
     }
 
-    fn encode_long_to_long(
+    fn encode_i64_to_u64(
         &self,
         values: &[i64],
         values_offset: usize,
@@ -1535,207 +1535,207 @@ impl Encoder for BulkOperationPackedEnum {
     ) {
         match self {
             BulkOperationPackedEnum::Packed1(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed2(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed3(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed4(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed5(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed6(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed7(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed8(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed9(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed10(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed11(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed12(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed13(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed14(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed15(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed16(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed17(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed18(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed19(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed20(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed21(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed22(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed23(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed24(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed25(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed26(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed27(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed28(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed29(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed30(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed31(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed32(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed33(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed34(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed35(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed36(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed37(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed38(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed39(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed40(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed41(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed42(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed43(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed44(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed45(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed46(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed47(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed48(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed49(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed50(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed51(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed52(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed53(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed54(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed55(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed56(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed57(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed58(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed59(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed60(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed61(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed62(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed63(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::SinglePacked(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Dummy(op) => {
-                op.encode_long_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
         }
     }
 
-    fn encode_long_to_byte(
+    fn encode_i64_to_u8(
         &self,
         values: &[i64],
         values_offset: usize,
@@ -1745,207 +1745,207 @@ impl Encoder for BulkOperationPackedEnum {
     ) {
         match self {
             BulkOperationPackedEnum::Packed1(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed2(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed3(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed4(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed5(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed6(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed7(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed8(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed9(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed10(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed11(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed12(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed13(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed14(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed15(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed16(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed17(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed18(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed19(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed20(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed21(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed22(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed23(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed24(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed25(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed26(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed27(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed28(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed29(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed30(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed31(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed32(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed33(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed34(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed35(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed36(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed37(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed38(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed39(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed40(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed41(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed42(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed43(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed44(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed45(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed46(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed47(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed48(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed49(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed50(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed51(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed52(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed53(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed54(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed55(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed56(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed57(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed58(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed59(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed60(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed61(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed62(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed63(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::SinglePacked(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Dummy(op) => {
-                op.encode_long_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i64_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
         }
     }
 
-    fn encode_int_to_long(
+    fn encode_i32_to_u64(
         &self,
         values: &[i32],
         values_offset: usize,
@@ -1955,207 +1955,207 @@ impl Encoder for BulkOperationPackedEnum {
     ) {
         match self {
             BulkOperationPackedEnum::Packed1(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed2(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed3(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed4(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed5(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed6(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed7(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed8(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed9(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed10(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed11(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed12(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed13(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed14(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed15(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed16(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed17(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed18(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed19(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed20(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed21(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed22(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed23(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed24(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed25(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed26(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed27(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed28(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed29(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed30(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed31(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed32(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed33(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed34(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed35(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed36(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed37(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed38(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed39(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed40(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed41(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed42(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed43(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed44(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed45(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed46(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed47(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed48(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed49(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed50(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed51(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed52(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed53(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed54(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed55(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed56(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed57(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed58(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed59(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed60(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed61(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed62(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed63(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::SinglePacked(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Dummy(op) => {
-                op.encode_int_to_long(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u64(values, values_offset, blocks, blocks_offset, iterations)
             }
         }
     }
 
-    fn encode_int_to_byte(
+    fn encode_i32_to_u8(
         &self,
         values: &[i32],
         values_offset: usize,
@@ -2165,202 +2165,202 @@ impl Encoder for BulkOperationPackedEnum {
     ) {
         match self {
             BulkOperationPackedEnum::Packed1(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed2(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed3(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed4(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed5(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed6(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed7(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed8(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed9(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed10(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed11(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed12(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed13(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed14(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed15(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed16(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed17(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed18(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed19(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed20(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed21(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed22(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed23(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed24(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed25(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed26(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed27(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed28(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed29(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed30(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed31(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed32(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed33(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed34(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed35(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed36(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed37(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed38(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed39(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed40(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed41(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed42(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed43(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed44(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed45(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed46(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed47(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed48(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed49(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed50(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed51(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed52(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed53(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed54(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed55(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed56(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed57(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed58(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed59(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed60(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed61(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed62(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed63(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Packed64(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::SinglePacked(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
             BulkOperationPackedEnum::Dummy(op) => {
-                op.encode_int_to_byte(values, values_offset, blocks, blocks_offset, iterations)
+                op.encode_i32_to_u8(values, values_offset, blocks, blocks_offset, iterations)
             }
         }
     }

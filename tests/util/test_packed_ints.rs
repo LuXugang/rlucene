@@ -121,12 +121,11 @@ fn test_packed_ints() -> Result<(), TestError> {
                 };
 
                 for i in 0..actual_value_count {
-                    // values[i] = if nbits == 64 {
-                    //     random.gen()
-                    // } else {
-                    //     random.gen_range(0..=max_value as i64)
-                    // };
-                    values[i] = 1;
+                    values[i] = if nbits == 64 {
+                        random.gen()
+                    } else {
+                        random.gen_range(0..=max_value as i64)
+                    };
                     writer.add(values[i])?;
                 }
                 writer.finish()?;
@@ -281,6 +280,13 @@ fn test_controlled_equality() -> Result<(), TestError> {
 
     Ok(())
 }
+#[test]
+fn random_test() -> Result<(), TestError> {
+    for _i in 0..200{
+        test_random_bulk_copy()?
+    }
+    Ok(())
+}
 
 #[test]
 fn test_random_bulk_copy() -> Result<(), TestError> {
@@ -297,6 +303,7 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
         let mut bits1 = random.gen_range(1..=64);
         let mut bits2 = random.gen_range(1..=64);
 
+
         if bits1 > bits2 {
             std::mem::swap(&mut bits1, &mut bits2);
         }
@@ -305,9 +312,8 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
         let mut packed2 = PackedInts::get_mutable(value_count as u32, bits2, PackedInts::COMPACT)?;
 
         let max_value = PackedInts::max_value(bits1);
-
         for i in 0..value_count {
-            let val = random.gen_range(0..=max_value) as i64;
+            let val = random.gen_range(0..=max_value as i64);
             packed1.set(i, val );
             packed2.set(i, val );
         }

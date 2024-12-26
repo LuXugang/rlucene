@@ -118,7 +118,7 @@ where
                 self.next_blocks[blocks_to_read..].fill(0);
             }
 
-            self.bulk_operation.decode_byte_to_long(
+            self.bulk_operation.decode_u8_to_i64(
                 &self.next_blocks,
                 0,
                 self.next_values.longs.as_mut_slice(),

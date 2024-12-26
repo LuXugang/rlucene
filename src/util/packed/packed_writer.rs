@@ -69,7 +69,7 @@ where
         }
     }
     pub fn flush(&mut self) -> Result<(), DataIOError> {
-        self.encoder.encode_long_to_byte(
+        self.encoder.encode_i64_to_u8(
             &self.next_values,
             0,
             &mut self.next_blocks,

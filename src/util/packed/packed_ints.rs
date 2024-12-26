@@ -504,7 +504,7 @@ pub trait Decoder {
     /// * `values` - The buffer to write the decoded values into.
     /// * `values_offset` - The offset where to start writing values.
     /// * `iterations` - Controls how much data to decode.
-    fn decode_long_to_long(
+    fn decode_u64_to_i64(
         &self,
         _blocks: &[u64],
         _blocks_offset: usize,
@@ -525,7 +525,7 @@ pub trait Decoder {
     /// * `values` - The buffer to write the decoded values into.
     /// * `values_offset` - The offset where to start writing values.
     /// * `iterations` - Controls how much data to decode.
-    fn decode_byte_to_long(
+    fn decode_u8_to_i64(
         &self,
         _blocks: &[u8],
         _blocks_offset: usize,
@@ -546,7 +546,7 @@ pub trait Decoder {
     /// * `values` - The buffer to write the decoded values into.
     /// * `values_offset` - The offset where to start writing values.
     /// * `iterations` - Controls how much data to decode.
-    fn decode_long_to_int(
+    fn decode_u64_to_i32(
         &self,
         _blocks: &[u64],
         _blocks_offset: usize,
@@ -567,7 +567,7 @@ pub trait Decoder {
     /// * `values` - The buffer to write the decoded values into.
     /// * `values_offset` - The offset where to start writing values.
     /// * `iterations` - Controls how much data to decode.
-    fn decode_byte_to_int(
+    fn decode_u8_to_i32(
         &self,
         _blocks: &[u8],
         _blocks_offset: usize,
@@ -610,7 +610,7 @@ pub trait Encoder {
     /// * `blocks` - The buffer to write encoded blocks into.
     /// * `blocks_offset` - The offset where to start writing blocks.
     /// * `iterations` - Controls how much data to encode.
-    fn encode_long_to_long(
+    fn encode_i64_to_u64(
         &self,
         _values: &[i64],
         _values_offset: usize,
@@ -631,7 +631,7 @@ pub trait Encoder {
     /// * `blocks` - The buffer to write encoded blocks into.
     /// * `blocks_offset` - The offset where to start writing blocks.
     /// * `iterations` - Controls how much data to encode.
-    fn encode_long_to_byte(
+    fn encode_i64_to_u8(
         &self,
         _values: &[i64],
         _values_offset: usize,
@@ -652,7 +652,7 @@ pub trait Encoder {
     /// * `blocks` - The buffer to write encoded blocks into.
     /// * `blocks_offset` - The offset where to start writing blocks.
     /// * `iterations` - Controls how much data to encode.
-    fn encode_int_to_long(
+    fn encode_i32_to_u64(
         &self,
         _values: &[i32],
         _values_offset: usize,
@@ -673,7 +673,7 @@ pub trait Encoder {
     /// * `blocks` - The buffer to write encoded blocks into.
     /// * `blocks_offset` - The offset where to start writing blocks.
     /// * `iterations` - Controls how much data to encode.
-    fn encode_int_to_byte(
+    fn encode_i32_to_u8(
         &self,
         _values: &[i32],
         _values_offset: usize,
@@ -925,7 +925,7 @@ pub struct MutableImpl<T>
 where
     T: Mutable + Display,
 {
-    sub_reader: T,
+    pub sub_reader: T,
     value_count: u32,
     bits_per_value: u32,
 }
@@ -956,14 +956,6 @@ where
     T: Mutable + Display,
 {
     
-    fn get(&mut self, index: usize) -> Result<i64, DataIOError> {
-        self.sub_reader.get(index)
-    }
-
-    fn get_bulk(&mut self, index: usize, arr: &mut [i64], off: usize, len: usize) -> Result<u32, DataIOError> {
-        self.sub_reader.get_bulk(index, arr, off, len)
-    }
-
     fn size(&self) -> u32 {
         self.value_count
     }
@@ -978,11 +970,6 @@ where
     fn get_bits_per_value(&self) -> u32 {
         self.bits_per_value
     }
-
-    fn set(&mut self, index: usize, value: i64) {
-        self.sub_reader.set(index, value)
-    }
-    
 }
 impl<T> Display for MutableImpl<T>
 where

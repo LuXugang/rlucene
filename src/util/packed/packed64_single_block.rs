@@ -134,7 +134,7 @@ where
         );
         let block_index = index / values_per_block as usize;
         let nblocks = (index + len) / values_per_block as usize - block_index;
-        decoder.decode_long_to_long(&self.blocks, block_index, arr, off, nblocks as u32);
+        decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, nblocks as u32);
         let diff = nblocks * values_per_block as usize;
         index += diff;
         len -= diff;
@@ -323,7 +323,7 @@ where
         let block_index = index / values_per_block as usize;
         let nblocks = (index + len) / values_per_block as usize - block_index;
 
-        op.encode_long_to_long(arr, off, &mut self.blocks, block_index, nblocks as u32);
+        op.encode_i64_to_u64(&arr[off..], 0, &mut self.blocks, block_index, nblocks as u32);
 
         let diff = nblocks * values_per_block as usize;
         index += diff;

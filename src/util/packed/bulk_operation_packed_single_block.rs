@@ -116,7 +116,7 @@ impl Decoder for BulkOperationPackedSingleBlock {
         self.value_count
     }
 
-    fn decode_long_to_long(
+    fn decode_u64_to_i64(
         &self,
         blocks: &[u64],
         mut blocks_offset: usize,
@@ -131,7 +131,7 @@ impl Decoder for BulkOperationPackedSingleBlock {
         }
     }
 
-    fn decode_byte_to_long(
+    fn decode_u8_to_i64(
         &self,
         blocks: &[u8],
         mut blocks_offset: usize,
@@ -146,7 +146,7 @@ impl Decoder for BulkOperationPackedSingleBlock {
         }
     }
 
-    fn decode_long_to_int(
+    fn decode_u64_to_i32(
         &self,
         blocks: &[u64],
         mut blocks_offset: usize,
@@ -166,7 +166,7 @@ impl Decoder for BulkOperationPackedSingleBlock {
         }
     }
 
-    fn decode_byte_to_int(
+    fn decode_u8_to_i32(
         &self,
         blocks: &[u8],
         mut blocks_offset: usize,
@@ -204,7 +204,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
         Decoder::byte_value_count(self)
     }
 
-    fn encode_long_to_long(
+    fn encode_i64_to_u64(
         &self,
         values: &[i64],
         mut values_offset: usize,
@@ -219,7 +219,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
         }
     }
 
-    fn encode_long_to_byte(
+    fn encode_i64_to_u8(
         &self,
         values: &[i64],
         mut values_offset: usize,
@@ -234,7 +234,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
         }
     }
 
-    fn encode_int_to_long(
+    fn encode_i32_to_u64(
         &self,
         values: &[i32],
         mut values_offset: usize,
@@ -249,7 +249,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
         }
     }
 
-    fn encode_int_to_byte(
+    fn encode_i32_to_u8(
         &self,
         values: &[i32],
         mut values_offset: usize,

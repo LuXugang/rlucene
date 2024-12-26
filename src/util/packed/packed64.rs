@@ -109,6 +109,12 @@ impl Reader for Packed64 {
 
         if end_bits <= 0 {
             // Single block
+            // if element_pos == 0{
+            //     println!("Single block1:{}",self.blocks[element_pos] as i64);
+            //     println!("Single block2:{}",(self.blocks[element_pos] >> -end_bits) as i64 );
+            //     println!("Single block3:{}",((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64 );
+            // }
+            
             return Ok(((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64);
         }
         Ok((((self.blocks[element_pos] << end_bits)
@@ -162,7 +168,7 @@ impl Reader for Packed64 {
 
         let iterations = len / Decoder::long_value_count(decoder) as usize;
         debug_assert!(iterations <= u32::MAX as usize);
-        decoder.decode_long_to_long(&self.blocks, block_index, arr, off, iterations as u32);
+        decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, iterations as u32);
 
         let got_values = iterations * Decoder::long_value_count(decoder) as usize;
         index += got_values;
@@ -221,7 +227,7 @@ impl Mutable for Packed64 {
 
         // Two blocks case
         self.blocks[element_pos] = (self.blocks[element_pos] & !(self.mask_right >> end_bits))
-            | (value >> end_bits) as u64;
+            | ((value as u64)>> end_bits);
 
         self.blocks[element_pos + 1] = (self.blocks[element_pos + 1] & (!0u64 >> end_bits))
             | (value << (Self::BLOCK_SIZE as i64 - end_bits)) as u64;
@@ -268,10 +274,10 @@ impl Mutable for Packed64 {
 
         let iterations = len / Encoder::long_value_count(encoder) as usize;
         debug_assert!(iterations <= u32::MAX as usize);
-        encoder.encode_long_to_long(
+        encoder.encode_i64_to_u64(
             &arr[off..],
             0,
-            self.blocks.as_mut_slice(),
+            &mut self.blocks,
             block_index,
             iterations as u32,
         );
