@@ -692,7 +692,7 @@ pub trait Reader: Accountable {
     }
 
     /// Bulk get: read at least one and at most `len` values starting from `index`
-    /// into `arr[off..off+len]` and return the actual number of values that have been read.
+    /// into `arr[off.off+len]` and return the actual number of values that have been read.
     fn get_bulk(
         &mut self,
         index: usize,

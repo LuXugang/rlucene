@@ -772,10 +772,8 @@ fn test_encode_decode() -> Result<(), TestError> {
             // let msg = format!("{} {}", format, bpv);
             let msg = format!("{}", bpv);
 
-            let encoder =
-                PackedInts::get_encoder(*format, PackedInts::VERSION_CURRENT, bpv)?;
-            let decoder =
-                PackedInts::get_decoder(*format, PackedInts::VERSION_CURRENT, bpv)?;
+            let encoder = PackedInts::get_encoder(*format, PackedInts::VERSION_CURRENT, bpv)?;
+            let decoder = PackedInts::get_decoder(*format, PackedInts::VERSION_CURRENT, bpv)?;
 
             let long_block_count = Encoder::long_block_count(encoder);
             let long_value_count = Encoder::long_value_count(encoder);
