@@ -14,21 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::data_io_error_enum::DataIOError;
+
 /// Abstraction over an array of longs.
 pub trait LongValues {
-    fn get(index: u64) -> i64;
+    fn get(&mut self, index: u64) -> Result<i64, DataIOError>;
 }
 
 pub struct Zeroes;
 impl LongValues for Zeroes {
-    fn get(_index: u64) -> i64 {
-        0
+    fn get(&mut self, _index: u64) -> Result<i64, DataIOError> {
+        Ok(0)
     }
 }
 pub struct Identity;
 impl LongValues for Identity {
-    fn get(index: u64) -> i64 {
+    fn get(&mut self, index: u64) -> Result<i64, DataIOError> {
         debug_assert!(index <= i64::MAX as u64);
-        index as i64
+        Ok(index as i64)
     }
 }

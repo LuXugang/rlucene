@@ -47,6 +47,7 @@ pub mod bulk_operation_packed_enum;
 pub mod bulk_operation_packed_single_block;
 pub mod format_behavior;
 pub mod growable_writer;
+mod mutable_enum;
 pub mod mutable_packed64_enum;
 pub mod packed64;
 pub mod packed64_single_block;
@@ -54,6 +55,8 @@ pub mod packed_ints;
 pub mod packed_long_values;
 pub mod packed_reader_iterator;
 pub mod packed_writer;
+pub mod paged_growable_writer;
+pub mod paged_mutable;
 
 pub use format_behavior::*;
 pub use mutable_packed64_enum::*;
