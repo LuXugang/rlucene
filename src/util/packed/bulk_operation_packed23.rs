@@ -332,7 +332,7 @@ impl Decoder for BulkOperationPacked23 {
 
             let block1 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block0 & 0x3FFFFF) << 5) | (block1 >> 59)) as i32;
+            values[values_offset] = (((block0 & 0x3FFFF) << 5) | (block1 >> 59)) as i32;
             values_offset += 1;
             values[values_offset] = ((block1 >> 36) & 0x7FFFFF) as i32;
             values_offset += 1;
@@ -452,7 +452,7 @@ impl Decoder for BulkOperationPacked23 {
 
             let block15 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block14 & 0x1FF) << 6) | (block15 >> 58)) as i32;
+            values[values_offset] = (((block14 & 0x1FFFF) << 6) | (block15 >> 58)) as i32;
             values_offset += 1;
             values[values_offset] = ((block15 >> 35) & 0x7FFFFF) as i32;
             values_offset += 1;

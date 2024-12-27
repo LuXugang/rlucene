@@ -225,7 +225,7 @@ where
 
                 let upper_part = blocks[blocks_offset] >> (64 + bits_left);
 
-                values[values_offset] = ((lower_part | upper_part) as i64) as i32;
+                values[values_offset] = (lower_part | upper_part) as i32;
                 bits_left += 64;
             } else {
                 values[values_offset] = ((blocks[blocks_offset] >> bits_left) & self.mask) as i32;
@@ -451,7 +451,8 @@ where
             let v = values[values_offset];
             values_offset += 1;
             debug_assert!(
-                PackedInts::unsigned_bits_required(v as i64) <= self.bits_per_value,
+                PackedInts::unsigned_bits_required(((v as u64) & 0xFFFFFFFF) as i64)
+                    <= self.bits_per_value,
                 "Value requires more bits than allowed by bits_per_value"
             );
             if (self.bits_per_value as i32) < bits_left {

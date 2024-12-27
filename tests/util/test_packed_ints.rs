@@ -24,9 +24,9 @@ use rlucene::store::{DataOutput, IndexInput, IndexOutput};
 use rlucene::util::packed::growable_writer::GrowableWriter;
 use rlucene::util::packed::Format::{Packed, PackedSingleBlock};
 use rlucene::util::packed::{
-    create, is_supported, FormatBehavior, Mutable, MutableImpl, MutablePacked64Enum, NullReader,
-    Packed64, PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
-    MAX_SUPPORTED_BITS_PER_VALUE,
+    create, is_supported, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl,
+    MutablePacked64Enum, NullReader, Packed64, PackedImpl, PackedInts, PackedSingleBlockImpl,
+    Reader, ReaderIterator, Writer, MAX_SUPPORTED_BITS_PER_VALUE,
 };
 
 #[allow(dead_code)] // for quick search
@@ -754,4 +754,198 @@ fn test_growable_writer() -> Result<(), TestError> {
     // assert_eq!(ram_used, ram_usage(&wrt));
 
     Ok(())
+}
+
+#[test]
+fn test_encode_decode() -> Result<(), TestError> {
+    let mut random = my_random("test_encode_decode".to_string());
+
+    for format in &[
+        Packed(PackedImpl::new(0)),
+        PackedSingleBlock(PackedSingleBlockImpl::new(1)),
+    ] {
+        for bpv in 1..=64 {
+            if !format.is_supported(bpv) {
+                continue;
+            }
+
+            // let msg = format!("{} {}", format, bpv);
+            let msg = format!("{}", bpv);
+
+            let encoder =
+                PackedInts::get_encoder(*format, PackedInts::VERSION_CURRENT, bpv)?;
+            let decoder =
+                PackedInts::get_decoder(*format, PackedInts::VERSION_CURRENT, bpv)?;
+
+            let long_block_count = Encoder::long_block_count(encoder);
+            let long_value_count = Encoder::long_value_count(encoder);
+            let byte_block_count = Encoder::byte_block_count(encoder);
+            let byte_value_count = Encoder::byte_value_count(encoder);
+
+            assert_eq!(long_block_count, Encoder::long_block_count(decoder));
+            assert_eq!(long_value_count, Encoder::long_value_count(decoder));
+            assert_eq!(byte_block_count, Encoder::byte_block_count(decoder));
+            assert_eq!(byte_value_count, Encoder::byte_value_count(decoder));
+
+            // let long_iterations = random.gen_range(0..100);
+            let long_iterations = 3;
+            let byte_iterations = long_iterations * long_value_count / byte_value_count;
+            assert_eq!(
+                long_iterations * long_value_count,
+                byte_iterations * byte_value_count
+            );
+
+            let blocks_offset = random.gen_range(0..100) as usize;
+            let values_offset = random.gen_range(0..100) as usize;
+            let blocks_offset2 = random.gen_range(0..100) as usize;
+            let blocks_len = (long_iterations * long_block_count) as usize;
+
+            // 1. generate random inputs
+            let mut blocks: Vec<u64> = vec![0; blocks_offset + blocks_len];
+            for block in blocks.iter_mut() {
+                *block = random.gen::<u64>();
+
+                if matches!(format, PackedSingleBlock(_)) && 64 % bpv != 0 {
+                    let to_clear = 64 % bpv;
+                    *block = (*block << to_clear) >> to_clear;
+                }
+            }
+
+            // 2. decode
+            let mut values =
+                vec![0i64; values_offset + (long_iterations * long_value_count) as usize];
+            decoder.decode_u64_to_i64(
+                &blocks,
+                blocks_offset,
+                &mut values,
+                values_offset,
+                long_iterations,
+            );
+            for &value in &values {
+                assert!(
+                    value <= PackedInts::max_value(bpv),
+                    "{}: value exceeds maxValue for bpv={}",
+                    msg,
+                    bpv
+                );
+            }
+            let mut int_values = vec![0i32; values.len()];
+            if bpv <= 32 {
+                decoder.decode_u64_to_i32(
+                    &blocks,
+                    blocks_offset,
+                    &mut int_values,
+                    values_offset,
+                    long_iterations,
+                );
+                assert!(equals(&int_values, &values), "{}", msg);
+            }
+
+            // 3. re-encode
+            let mut blocks2 = vec![0u64; blocks_offset2 + blocks_len];
+            encoder.encode_i64_to_u64(
+                &values,
+                values_offset,
+                &mut blocks2,
+                blocks_offset2,
+                long_iterations,
+            );
+            assert_eq!(
+                &blocks[blocks_offset..],
+                &blocks2[blocks_offset2..],
+                "{}: Blocks mismatch after encoding",
+                msg
+            );
+            if bpv <= 32 {
+                let mut blocks3 = vec![0u64; blocks2.len()];
+                encoder.encode_i32_to_u64(
+                    &int_values,
+                    values_offset,
+                    &mut blocks3,
+                    blocks_offset2,
+                    long_iterations,
+                );
+                assert_eq!(blocks2, blocks3, "{}", msg);
+            }
+
+            // 4. byte[] decoding
+            let mut byte_blocks = vec![0u8; 8 * blocks.len()];
+            let mut values2 =
+                vec![0i64; values_offset + (long_iterations * long_value_count) as usize];
+            byte_blocks
+                .chunks_exact_mut(8)
+                .zip(blocks.iter())
+                .for_each(|(chunk, &block)| chunk.copy_from_slice(&block.to_be_bytes()));
+
+            decoder.decode_u8_to_i64(
+                &byte_blocks,
+                blocks_offset * 8,
+                &mut values2,
+                values_offset,
+                byte_iterations,
+            );
+            for &value in &values2 {
+                assert!(
+                    value <= PackedInts::max_value(bpv),
+                    "{}: Byte-decoded value exceeds maxValue for bpv={}",
+                    msg,
+                    bpv
+                );
+            }
+            assert_eq!(values, values2, "{}", msg);
+            if bpv <= 32 {
+                let mut int_values2 = vec![0i32; values2.len()];
+                decoder.decode_u8_to_i32(
+                    &byte_blocks,
+                    blocks_offset * 8,
+                    &mut int_values2,
+                    values_offset,
+                    byte_iterations,
+                );
+                assert!(equals(&int_values2, &values2), "{}", msg);
+            }
+            // 5. byte[] encoding
+            let mut blocks3 = vec![0u8; 8 * (blocks_offset2 + blocks_len)];
+            encoder.encode_i64_to_u8(
+                &values,
+                values_offset,
+                &mut blocks3,
+                8 * blocks_offset2,
+                byte_iterations,
+            );
+            assert_eq!(
+                blocks2,
+                blocks3
+                    .chunks_exact(8)
+                    .map(|chunk| u64::from_be_bytes(chunk.try_into().unwrap()))
+                    .collect::<Vec<_>>(),
+                "{}: Byte-encoded blocks mismatch original blocks",
+                msg
+            );
+            if bpv <= 32 {
+                let mut blocks4 = vec![0u8; blocks3.len()];
+                encoder.encode_i32_to_u8(
+                    &int_values,
+                    values_offset,
+                    &mut blocks4,
+                    8 * blocks_offset2,
+                    byte_iterations,
+                );
+                assert_eq!(blocks3, blocks4, "{}", msg);
+            }
+        }
+    }
+
+    Ok(())
+}
+fn equals(ints: &[i32], longs: &[i64]) -> bool {
+    if ints.len() != longs.len() {
+        return false;
+    }
+    for i in 0..ints.len() {
+        if (ints[i] as u64 & 0xFFFFFFFF) as i64 != longs[i] {
+            return false;
+        }
+    }
+    true
 }
