@@ -18,7 +18,7 @@ use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::growable_writer::GrowableWriter;
 use crate::util::packed::{Mutable, MutablePacked64Enum, Reader};
-use std::fmt::{Display, Pointer};
+use std::fmt::Display;
 
 pub enum MutableEnum {
     Packed(MutablePacked64Enum),
