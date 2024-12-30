@@ -144,7 +144,7 @@ impl DocIdSetBuilder {
             }
             self.buffer.push(NO_MORE_DOCS);
             let l = self.buffer.len() - 1;
-            let result = IntArrayDocIdSet::new(self.buffer.clone(), l as i32)?;
+            let result = IntArrayDocIdSet::new(std::mem::take(&mut self.buffer), l as i32)?;
             Ok(DocIdSetBuilderEnum::I(result))
         }
     }

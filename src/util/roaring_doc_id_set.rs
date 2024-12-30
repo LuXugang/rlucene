@@ -172,9 +172,9 @@ impl RoaringDocIdSetBuilder {
             assert_eq!(self.dense_buffer.length(), 0);
             if self.current_block_cardinality > 0 {
                 let sparse = Some(DocIdSetEnum::Sparse(ShortArrayDocIdSet::new(
-                    self.buffer.clone(),
+                    std::mem::take(&mut self.buffer),
                 )));
-                self.buffer.clear();
+                debug_assert!(self.buffer.is_empty());
                 self.sets.as_mut().unwrap()[self.current_block as usize] = sparse;
             }
         } else {
@@ -208,7 +208,7 @@ impl RoaringDocIdSetBuilder {
                 self.sets.as_mut().unwrap()[self.current_block as usize] = dense;
             } else {
                 let result = BitDocIdSet::new_with_cost(
-                    Some(self.dense_buffer.clone()),
+                    Some(std::mem::take(&mut self.dense_buffer)),
                     self.current_block_cardinality as i64,
                 )?;
 

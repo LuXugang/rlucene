@@ -97,7 +97,7 @@ impl BytesRefArray {
             length,
         );
         // TODO: should we avoid Clone here?
-        Ok(spare.get().clone())
+        Ok(std::mem::take(spare.bytes_ref()))
     }
 
     /// Used only by the sorting function below to set a [`BytesRef`] with the specified slice,

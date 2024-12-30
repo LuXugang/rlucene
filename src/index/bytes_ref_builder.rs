@@ -156,7 +156,7 @@ impl BytesRefBuilder {
         &mut self.bytes_ref
     }
     /// Build a new BytesRef that has the same content as this buffer.
-    pub fn to_bytes_ref(&self) -> BytesRef {
-        self.bytes_ref.clone()
+    pub fn get_bytes_ref(&mut self) -> BytesRef {
+        std::mem::take(&mut self.bytes_ref)
     }
 }
