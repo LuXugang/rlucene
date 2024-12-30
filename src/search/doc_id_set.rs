@@ -16,9 +16,9 @@
  */
 use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, EmptyDISI};
 use crate::util::accountable::Accountable;
+use crate::util::bit_util::BitUtil;
 use crate::util::bits::{Bits, MatchAllBits, MatchNoBits};
 use std::sync::Arc;
-use crate::util::bit_util::BitUtil;
 
 /// A `DocIdSet` contains a set of document IDs.
 /// Implementing types must provide an [`iterator`](DocIdSet::iterator) method to access the set.

@@ -16,4 +16,18 @@
  */
 pub struct DeltaPackedLongValues;
 
-pub struct DeltaPackedLongValuesBuilder;
+pub struct DeltaPackedLongValuesBuilder {
+    page_size: u32,
+    acceptable_overhead_ratio: f32,
+}
+impl DeltaPackedLongValuesBuilder {
+    pub(crate) fn new(
+        page_size: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> DeltaPackedLongValuesBuilder {
+        DeltaPackedLongValuesBuilder {
+            page_size,
+            acceptable_overhead_ratio,
+        }
+    }
+}

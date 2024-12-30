@@ -14,64 +14,315 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub const DEFAULT_PAGE_SIZE: u32 = 256;
-const MIN_PAGE_SIZE: u32 = 64;
-const MAX_PAGE_SIZE: u32 = 1 << 20;
-pub struct PackedLongValues;
+use crate::util::accountable::Accountable;
+use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::long_values::LongValues;
+use crate::util::packed::delta_packed_long_values::DeltaPackedLongValuesBuilder;
+use crate::util::packed::monotonic_long_values::MonotonicLongValuesBuilder;
+use crate::util::packed::read_enum::PackedIntsReadEnum;
+use crate::util::packed::{Mutable, NullReader, PackedInts, Reader};
 
-// impl PackedLongValues {
-//     pub fn packed_long_values_builder(page_size: u32, acceptable_overhead_ratio:f32) -> PackedLongValuesBuilder {
-//         todo!()
-//     }
-// }
-//
-// pub struct PackedLongValuesBuilder {
-//
-//     // Fields
-//     page_shift: u32,
-//     page_mask: u32,
-//     acceptable_overhead_ratio: f32,
-//     pending: Vec<i64>,
-//     size: u64,
-//     values: Vec<PackedIntsReader>,
-//     ram_bytes_used: usize,
-//     values_off: usize,
-//     pending_off: usize,
-// }
-//
-// impl PackedLongValues {
-//     const INITIAL_PAGE_COUNT: usize = 16;
-//     // TODO
-//     const BASE_RAM_BYTES_USED: u64= 0;
-//     /// Constructor for Builder
-//     pub fn new(page_size: usize, acceptable_overhead_ratio: f32) -> Self {
-//         let page_shift = Self::check_block_size(page_size, MIN_PAGE_SIZE, MAX_PAGE_SIZE);
-//         let page_mask = (page_size - 1) as u32;
-//         let pending = vec![0; page_size];
-//         let values = Vec::with_capacity(Self::INITIAL_PAGE_COUNT);
-//
-//         let base_ram_bytes_used = std::mem::size_of::<Self>();
-//         let pending_ram_bytes = pending.len() * std::mem::size_of::<i64>();
-//         let values_ram_bytes = values.capacity() * std::mem::size_of::<PackedIntsReader>();
-//
-//         Self {
-//             page_shift,
-//             page_mask,
-//             acceptable_overhead_ratio,
-//             pending,
-//             size: 0,
-//             values,
-//             ram_bytes_used: base_ram_bytes_used + pending_ram_bytes + values_ram_bytes,
-//             values_off: 0,
-//             pending_off: 0,
-//         }
-//     }
-//
-//     /// Validates block size
-//     fn check_block_size(page_size: usize, min_page_size: usize, max_page_size: usize) -> u32 {
-//         if page_size < min_page_size || page_size > max_page_size || !page_size.is_power_of_two() {
-//             panic!("Page size must be a power of 2 between {} and {}", min_page_size, max_page_size);
-//         }
-//         page_size.trailing_zeros()
-//     }
-// }
+/// Utility class to compress integers into a [`LongValues`] instance.
+pub struct PackedLongValues {
+    page_shift: u32,
+    page_mask: u32,
+    values: Vec<PackedIntsReadEnum>,
+    size: u64,
+    ram_bytes_used: u64,
+}
+
+impl PackedLongValues {
+    pub const DEFAULT_PAGE_SIZE: u32 = 256;
+    const MIN_PAGE_SIZE: u32 = 64;
+    // More than 1M doesn't really makes sense with these appending buffers
+    // since their goal is to try to have small numbers of bits per value
+    const MAX_PAGE_SIZE: u32 = 1 << 20;
+    /// Return a new [`PackedLongValuesBuilder`](PackedLongValuesBuilder) that will compress efficiently positive integers.
+    pub fn packed_long_values_builder(
+        page_size: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> Result<PackedLongValuesBuilder, DataIOError> {
+        PackedLongValuesBuilder::new(page_size, acceptable_overhead_ratio)
+    }
+    /// See [`PackedLongValuesBuilder`](PackedLongValuesBuilder).
+    pub fn packed_long_values_builder_default(
+        acceptable_overhead_ratio: f32,
+    ) -> Result<PackedLongValuesBuilder, DataIOError> {
+        Self::packed_long_values_builder(
+            PackedLongValues::DEFAULT_PAGE_SIZE,
+            acceptable_overhead_ratio,
+        )
+    }
+
+    /// Return a new [`DeltaPackedLongValuesBuilder`](DeltaPackedLongValuesBuilder) that will compress efficiently integers that are close to each other.
+    pub fn delta_packed_long_values_builder(
+        page_size: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> DeltaPackedLongValuesBuilder {
+        DeltaPackedLongValuesBuilder::new(page_size, acceptable_overhead_ratio)
+    }
+
+    /// See [`delta_packed_long_values_builder`].
+    pub fn delta_packed_long_values_builder_default(
+        acceptable_overhead_ratio: f32,
+    ) -> DeltaPackedLongValuesBuilder {
+        Self::delta_packed_long_values_builder(
+            PackedLongValues::DEFAULT_PAGE_SIZE,
+            acceptable_overhead_ratio,
+        )
+    }
+
+    /// Return a new [`MonotonicLongValuesBuilder`](MonotonicLongValuesBuilder) that will compress efficiently integers that would be a monotonic function of their index.
+    pub fn monotonic_long_values_builder(
+        page_size: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> MonotonicLongValuesBuilder {
+        MonotonicLongValuesBuilder::new(page_size, acceptable_overhead_ratio)
+    }
+
+    /// See [`monotonic_long_values_builder`].
+    pub fn monotonic_long_values_builder_default(
+        acceptable_overhead_ratio: f32,
+    ) -> MonotonicLongValuesBuilder {
+        PackedLongValues::monotonic_long_values_builder(
+            PackedLongValues::DEFAULT_PAGE_SIZE,
+            acceptable_overhead_ratio,
+        )
+    }
+    pub fn new(
+        page_shift: u32,
+        page_mask: u32,
+        values: Vec<PackedIntsReadEnum>,
+        size: u64,
+        ram_bytes_used: u64,
+    ) -> Self {
+        Self {
+            page_shift,
+            page_mask,
+            values,
+            size,
+            ram_bytes_used,
+        }
+    }
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+}
+impl Accountable for PackedLongValues {
+    fn ram_bytes_used(&self) -> u64 {
+        //TODO
+        self.ram_bytes_used
+    }
+}
+impl LongValues for PackedLongValues {
+    fn get(&mut self, index: u64) -> Result<i64, DataIOError> {
+        debug_assert!(index < self.size());
+        let block = (index >> self.page_shift) as usize;
+        let element = (index & self.page_mask as u64) as usize;
+
+        self.get_value(block, element)
+    }
+}
+impl PackedLongValuesBase1 for PackedLongValues {
+    fn decode_block(&mut self, block: usize, dest: &mut [i64]) -> Result<u32, DataIOError> {
+        let vals = &mut self.values[block];
+        let size = vals.size();
+        let mut k = 0;
+        while k < size {
+            k += vals.get_bulk(k as usize, dest, k as usize, (size - k) as usize)?;
+        }
+        Ok(size)
+    }
+
+    fn get_value(&mut self, block: usize, element: usize) -> Result<i64, DataIOError> {
+        self.values[block].get(element)
+    }
+}
+
+/// A Builder for a {@link PackedLongValues} instance.
+pub struct PackedLongValuesBuilder {
+    page_shift: u32,
+    page_mask: u32,
+    acceptable_overhead_ratio: f32,
+    pending: Option<Vec<i64>>,
+    size: u64,
+    values: Vec<PackedIntsReadEnum>,
+    ram_bytes_used: u64,
+    values_off: u32,
+    pending_off: u32,
+}
+
+/// A Builder for a [`PackedLongValues`] instance.
+impl PackedLongValuesBuilder {
+    const INITIAL_PAGE_COUNT: usize = 16;
+    // TODO
+    const BASE_RAM_BYTES_USED: u64 = 0;
+    pub fn new(
+        page_size: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> Result<PackedLongValuesBuilder, DataIOError> {
+        let page_shift = PackedInts::check_block_size(
+            page_size,
+            PackedLongValues::MIN_PAGE_SIZE,
+            PackedLongValues::MAX_PAGE_SIZE,
+        )?;
+        let page_mask = page_size - 1;
+        let pending = Some(vec![0; page_size as usize]);
+        let values = Vec::with_capacity(Self::INITIAL_PAGE_COUNT);
+        Ok(Self {
+            page_shift,
+            page_mask,
+            acceptable_overhead_ratio,
+            pending,
+            size: 0,
+            values,
+            ram_bytes_used: 0, // TODO
+            values_off: 0,
+            pending_off: 0,
+        })
+    }
+    /**
+     * Build a [`PackedLongValues`] instance that contains values that have been added to this
+     * builder. This operation is destructive.
+     */
+    pub fn build(mut self) -> Result<PackedLongValues, DataIOError> {
+        self.finish()?;
+        // TODO
+        let ram_bytes_used = 0;
+        let mut values = std::mem::take(&mut self.values);
+        let _ = values.split_off(self.values_off as usize);
+        Ok(PackedLongValues::new(
+            self.page_shift,
+            self.page_mask,
+            values,
+            self.size,
+            ram_bytes_used,
+        ))
+    }
+
+    /**
+     * Add a new element to this builder.
+     */
+    pub fn add(&mut self, l: i64) -> Result<&mut Self, DataIOError> {
+        if self.pending.is_none() {
+            return Err(DataIOError::illegal_state("Cannot be reused after build()"));
+        }
+
+        if self.pending_off as usize == self.pending.as_ref().unwrap().len() {
+            let current_value_len = self.values.len();
+            if current_value_len == self.values_off as usize {
+                // Not consistent with the Java version implementation, we increase by half of the current length
+                let new_length = current_value_len + current_value_len / 2;
+                debug_assert!(new_length <= u32::MAX as usize);
+                self.grow(new_length as u32);
+            }
+            self.pack_impl()?;
+        }
+
+        self.pending.as_mut().unwrap()[self.pending_off as usize] = l;
+        self.pending_off += 1;
+        self.size += 1;
+        Ok(self)
+    }
+    fn finish(&mut self) -> Result<(), DataIOError> {
+        if self.pending_off > 0 {
+            if self.values.len() == self.values_off as usize {
+                self.grow(self.values_off + 1);
+            }
+            self.pack_impl()?;
+        }
+        Ok(())
+    }
+    fn pack_impl(&mut self) -> Result<(), DataIOError> {
+        let pending = self.pending.take().unwrap();
+        self.pack(
+            &pending,
+            self.pending_off,
+            self.values_off,
+            self.acceptable_overhead_ratio,
+        )?;
+        // TODO
+        self.ram_bytes_used = 0;
+        self.values_off += 1;
+        // Reset pending buffer
+        self.pending_off = 0;
+        Ok(())
+    }
+}
+
+impl PackedLongValuesBase2 for PackedLongValuesBuilder {
+    fn base_ram_bytes_used(&self) -> u64 {
+        // TODO
+        PackedLongValuesBuilder::BASE_RAM_BYTES_USED
+    }
+
+    fn pack(
+        &mut self,
+        values: &[i64],
+        num_values: u32,
+        block: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> Result<(), DataIOError> {
+        let mut min_value = values[0];
+        let mut max_value = values[0];
+
+        for &value in values.iter().take(num_values as usize).skip(1) {
+            min_value = min_value.min(value);
+            max_value = max_value.max(value);
+        }
+
+        // Build a new packed reader
+        if min_value == 0 && max_value == 0 {
+            let reader = NullReader::new(num_values);
+            self.values[block as usize] = PackedIntsReadEnum::NullReader(reader);
+            Ok(())
+        } else {
+            let bits_required = if min_value < 0 {
+                64
+            } else {
+                PackedInts::bits_required(max_value)?
+            };
+
+            let mut mutable =
+                PackedInts::get_mutable(num_values, bits_required, acceptable_overhead_ratio)?;
+            let mut i = 0;
+            while i < num_values {
+                i += mutable.set_bulk(i as usize, values, i as usize, (num_values - i) as usize)?;
+            }
+
+            self.values[block as usize] = PackedIntsReadEnum::PackedReader(mutable);
+            Ok(())
+        }
+    }
+
+    fn grow(&mut self, new_block_count: u32) {
+        // TODO
+        self.ram_bytes_used = 0;
+        let current_len = self.values.len();
+        if new_block_count <= current_len as u32 {
+            return;
+        }
+        for _i in 0..(new_block_count as usize - current_len) {
+            // PackedIntsReadEnum::NullReader as padding value
+            self.values
+                .push(PackedIntsReadEnum::NullReader(NullReader::new(0)));
+        }
+    }
+}
+
+pub trait PackedLongValuesBase1 {
+    fn decode_block(&mut self, block: usize, dest: &mut [i64]) -> Result<u32, DataIOError>;
+    fn get_value(&mut self, block: usize, element: usize) -> Result<i64, DataIOError>;
+}
+
+pub trait PackedLongValuesBase2 {
+    fn base_ram_bytes_used(&self) -> u64;
+    fn pack(
+        &mut self,
+        values: &[i64],
+        num_values: u32,
+        block: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> Result<(), DataIOError>;
+    fn grow(&mut self, new_block_count: u32);
+}

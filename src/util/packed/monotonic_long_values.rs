@@ -14,6 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::packed::delta_packed_long_values::DeltaPackedLongValuesBuilder;
+
 pub struct MonotonicLongValues;
 
-pub struct MonotonicLongValuesBuilder;
+pub struct MonotonicLongValuesBuilder {
+    page_size: u32,
+    acceptable_overhead_ratio: f32,
+}
+impl MonotonicLongValuesBuilder {
+    pub(crate) fn new(
+        page_size: u32,
+        acceptable_overhead_ratio: f32,
+    ) -> MonotonicLongValuesBuilder {
+        MonotonicLongValuesBuilder {
+            page_size,
+            acceptable_overhead_ratio,
+        }
+    }
+}

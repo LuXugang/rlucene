@@ -75,19 +75,12 @@ fn default_random_multiplier() -> i32 {
 }
 pub fn assert_vecs_equal<T: PartialEq + std::fmt::Debug>(expected: &[T], actual: &[T]) {
     if expected.len() != actual.len() {
-        panic!(
-            "Expected and actual arrays have different lengths: expected {}, actual {}",
-            expected.len(),
-            actual.len()
-        );
+        assert_eq!(expected.len(), actual.len(),);
     }
 
     for (i, (exp, act)) in expected.iter().zip(actual.iter()).enumerate() {
         if exp != act {
-            panic!(
-                "Mismatch at index {}: Expected {:?}, Actual {:?}",
-                i, exp, act
-            );
+            assert_eq!(exp, act,);
         }
     }
 }

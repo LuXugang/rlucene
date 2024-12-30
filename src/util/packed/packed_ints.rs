@@ -352,10 +352,10 @@ impl PackedInts {
         max_block_size: u32,
     ) -> Result<u32, RuntimeError> {
         if block_size < min_block_size || block_size > max_block_size {
-            panic!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "block_size must be >= {} and <= {}, got {}",
                 min_block_size, max_block_size, block_size
-            );
+            )));
         }
 
         if block_size & (block_size - 1) != 0 {

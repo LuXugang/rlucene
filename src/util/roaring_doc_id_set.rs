@@ -69,10 +69,7 @@ impl DocIdSet for RoaringDocIdSet {
     type DISIType<'a> = Iterator<'a>;
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
-        Some(Iterator::new(
-            &self.doc_id_sets,
-            self.cardinality as i64,
-        ))
+        Some(Iterator::new(&self.doc_id_sets, self.cardinality as i64))
     }
 
     type BitType = MatchNoBits;
