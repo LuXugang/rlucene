@@ -44,13 +44,13 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// # Note
 /// This is an internal API.
 pub struct RoaringDocIdSet {
-    doc_id_sets: Option<Vec<Option<DocIdSetEnum>>>,
+    doc_id_sets: Vec<Option<DocIdSetEnum>>,
     cardinality: i32,
     #[allow(unused)]
     ram_bytes_used: i64,
 }
 impl RoaringDocIdSet {
-    fn new(doc_id_sets: Option<Vec<Option<DocIdSetEnum>>>, cardinality: i32) -> Self {
+    fn new(doc_id_sets: Vec<Option<DocIdSetEnum>>, cardinality: i32) -> Self {
         // todo
         let ram_bytes_used = 0;
         RoaringDocIdSet {
@@ -70,7 +70,7 @@ impl DocIdSet for RoaringDocIdSet {
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
         Some(Iterator::new(
-            self.doc_id_sets.as_ref(),
+            &self.doc_id_sets,
             self.cardinality as i64,
         ))
     }
@@ -90,7 +90,7 @@ impl Accountable for RoaringDocIdSet {
 
 pub struct RoaringDocIdSetBuilder {
     max_doc: i32,
-    sets: Option<Vec<Option<DocIdSetEnum>>>,
+    sets: Vec<Option<DocIdSetEnum>>,
     cardinality: i32,
     last_doc_id: i32,
     current_block: i32,
@@ -112,7 +112,7 @@ impl RoaringDocIdSetBuilder {
         }
         RoaringDocIdSetBuilder {
             max_doc,
-            sets: Some(sets),
+            sets: sets,
             cardinality: 0,
             last_doc_id: -1,
             current_block: -1,
@@ -163,7 +163,7 @@ impl RoaringDocIdSetBuilder {
     }
     pub fn build(&mut self) -> RoaringDocIdSet {
         let _ = self.flush();
-        RoaringDocIdSet::new(self.sets.take(), self.cardinality)
+        RoaringDocIdSet::new(std::mem::take(&mut self.sets), self.cardinality)
     }
     fn flush(&mut self) -> Result<(), RuntimeError> {
         debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
@@ -175,7 +175,7 @@ impl RoaringDocIdSetBuilder {
                     std::mem::take(&mut self.buffer),
                 )));
                 debug_assert!(self.buffer.is_empty());
-                self.sets.as_mut().unwrap()[self.current_block as usize] = sparse;
+                self.sets[self.current_block as usize] = sparse;
             }
         } else {
             assert_ne!(self.dense_buffer.length(), 0);
@@ -205,7 +205,7 @@ impl RoaringDocIdSetBuilder {
                     ShortArrayDocIdSet::new(excluded_docs),
                 )));
                 self.buffer.clear();
-                self.sets.as_mut().unwrap()[self.current_block as usize] = dense;
+                self.sets[self.current_block as usize] = dense;
             } else {
                 let result = BitDocIdSet::new_with_cost(
                     Some(std::mem::take(&mut self.dense_buffer)),
@@ -214,7 +214,7 @@ impl RoaringDocIdSetBuilder {
 
                 let medium: Option<DocIdSetEnum> = Some(DocIdSetEnum::Medium(result));
                 self.buffer.clear();
-                self.sets.as_mut().unwrap()[self.current_block as usize] = medium;
+                self.sets[self.current_block as usize] = medium;
             }
             self.dense_buffer = FixedBitSet::new(0);
         }
@@ -322,12 +322,12 @@ pub struct Iterator<'a> {
     doc: i32,
     set_length: usize,
     sub: Option<DocIdSetIteratorEnum<'a>>,
-    doc_id_sets: Option<&'a Vec<Option<DocIdSetEnum>>>,
+    doc_id_sets: &'a Vec<Option<DocIdSetEnum>>,
     cardinality: i64,
 }
 impl<'a> Iterator<'a> {
-    fn new(doc_id_sets: Option<&'a Vec<Option<DocIdSetEnum>>>, cardinality: i64) -> Self {
-        let set_length = doc_id_sets.as_ref().unwrap().len();
+    fn new(doc_id_sets: &'a Vec<Option<DocIdSetEnum>>, cardinality: i64) -> Self {
+        let set_length = doc_id_sets.len();
         Iterator {
             block: -1,
             doc: -1,
@@ -343,8 +343,8 @@ impl<'a> Iterator<'a> {
             if self.block >= self.set_length as i32 {
                 self.doc = NO_MORE_DOCS;
                 break;
-            } else if self.doc_id_sets.as_ref().unwrap()[self.block as usize].is_some() {
-                self.sub = self.doc_id_sets.as_ref().unwrap()[self.block as usize]
+            } else if self.doc_id_sets[self.block as usize].is_some() {
+                self.sub = self.doc_id_sets[self.block as usize]
                     .as_ref()
                     .unwrap()
                     .iterator();
@@ -375,15 +375,15 @@ impl DocIdSetIterator for Iterator<'_> {
         let target_block = target >> 16;
         if target_block != self.block {
             self.block = target_block;
-            if self.block > self.doc_id_sets.as_ref().unwrap().len() as i32 {
+            if self.block > self.doc_id_sets.len() as i32 {
                 self.sub = None;
                 self.doc = NO_MORE_DOCS;
                 return self.doc;
             }
-            if self.doc_id_sets.as_ref().unwrap()[self.block as usize].is_none() {
+            if self.doc_id_sets[self.block as usize].is_none() {
                 return self.first_doc_from_next_block();
             }
-            self.sub = self.doc_id_sets.as_ref().unwrap()[self.block as usize]
+            self.sub = self.doc_id_sets[self.block as usize]
                 .as_ref()
                 .unwrap()
                 .iterator()
