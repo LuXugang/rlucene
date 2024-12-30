@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::delta_packed_long_values::DeltaPackedLongValuesBuilder;
 
 pub struct MonotonicLongValues;
@@ -26,10 +27,10 @@ impl MonotonicLongValuesBuilder {
     pub(crate) fn new(
         page_size: u32,
         acceptable_overhead_ratio: f32,
-    ) -> MonotonicLongValuesBuilder {
-        MonotonicLongValuesBuilder {
+    ) -> Result<MonotonicLongValuesBuilder,DataIOError > {
+        Ok(MonotonicLongValuesBuilder {
             page_size,
             acceptable_overhead_ratio,
-        }
+        })
     }
 }

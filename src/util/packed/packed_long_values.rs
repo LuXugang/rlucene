@@ -17,7 +17,7 @@
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::long_values::LongValues;
-use crate::util::packed::delta_packed_long_values::DeltaPackedLongValuesBuilder;
+use crate::util::packed::delta_packed_long_values::{DeltaPackedLongValues, DeltaPackedLongValuesBuilder};
 use crate::util::packed::monotonic_long_values::MonotonicLongValuesBuilder;
 use crate::util::packed::read_enum::PackedIntsReadEnum;
 use crate::util::packed::{Mutable, NullReader, PackedInts, Reader};
@@ -26,7 +26,7 @@ use crate::util::packed::{Mutable, NullReader, PackedInts, Reader};
 pub struct PackedLongValues {
     page_shift: u32,
     page_mask: u32,
-    values: Vec<PackedIntsReadEnum>,
+    pub(crate) values: Vec<PackedIntsReadEnum>,
     size: u64,
     ram_bytes_used: u64,
 }
@@ -58,14 +58,14 @@ impl PackedLongValues {
     pub fn delta_packed_long_values_builder(
         page_size: u32,
         acceptable_overhead_ratio: f32,
-    ) -> DeltaPackedLongValuesBuilder {
+    ) -> Result<DeltaPackedLongValuesBuilder,DataIOError>{
         DeltaPackedLongValuesBuilder::new(page_size, acceptable_overhead_ratio)
     }
 
     /// See [`delta_packed_long_values_builder`].
     pub fn delta_packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
-    ) -> DeltaPackedLongValuesBuilder {
+    ) -> Result<DeltaPackedLongValuesBuilder,DataIOError> {
         Self::delta_packed_long_values_builder(
             PackedLongValues::DEFAULT_PAGE_SIZE,
             acceptable_overhead_ratio,
@@ -76,20 +76,20 @@ impl PackedLongValues {
     pub fn monotonic_long_values_builder(
         page_size: u32,
         acceptable_overhead_ratio: f32,
-    ) -> MonotonicLongValuesBuilder {
+    ) -> Result<MonotonicLongValuesBuilder,DataIOError >{
         MonotonicLongValuesBuilder::new(page_size, acceptable_overhead_ratio)
     }
 
     /// See [`monotonic_long_values_builder`].
     pub fn monotonic_long_values_builder_default(
         acceptable_overhead_ratio: f32,
-    ) -> MonotonicLongValuesBuilder {
+    ) -> Result<MonotonicLongValuesBuilder,DataIOError > {
         PackedLongValues::monotonic_long_values_builder(
             PackedLongValues::DEFAULT_PAGE_SIZE,
             acceptable_overhead_ratio,
         )
     }
-    pub fn new(
+    pub(crate) fn new(
         page_shift: u32,
         page_mask: u32,
         values: Vec<PackedIntsReadEnum>,
@@ -141,14 +141,14 @@ impl PackedLongValuesBase1 for PackedLongValues {
 
 /// A Builder for a {@link PackedLongValues} instance.
 pub struct PackedLongValuesBuilder {
-    page_shift: u32,
-    page_mask: u32,
+    pub(crate)page_shift: u32,
+    pub(crate)page_mask: u32,
     acceptable_overhead_ratio: f32,
     pending: Option<Vec<i64>>,
-    size: u64,
-    values: Vec<PackedIntsReadEnum>,
-    ram_bytes_used: u64,
-    values_off: u32,
+    pub(crate)size: u64,
+    pub(crate)values: Vec<PackedIntsReadEnum>,
+    pub(crate)ram_bytes_used: u64,
+    pub(crate)values_off: usize,
     pending_off: u32,
 }
 
@@ -224,21 +224,22 @@ impl PackedLongValuesBuilder {
         self.size += 1;
         Ok(self)
     }
-    fn finish(&mut self) -> Result<(), DataIOError> {
+    pub(crate)fn finish(&mut self) -> Result<(), DataIOError> {
         if self.pending_off > 0 {
-            if self.values.len() == self.values_off as usize {
-                self.grow(self.values_off + 1);
+            if self.values.len() == self.values_off{
+                debug_assert!(self.values_off <= u32::MAX as usize);
+                self.grow(self.values_off as u32);
             }
             self.pack_impl()?;
         }
         Ok(())
     }
     fn pack_impl(&mut self) -> Result<(), DataIOError> {
-        let pending = self.pending.take().unwrap();
+        let mut pending = self.pending.take().unwrap();
         self.pack(
-            &pending,
+            &mut pending,
             self.pending_off,
-            self.values_off,
+            self.values_off as usize,
             self.acceptable_overhead_ratio,
         )?;
         // TODO
@@ -258,9 +259,9 @@ impl PackedLongValuesBase2 for PackedLongValuesBuilder {
 
     fn pack(
         &mut self,
-        values: &[i64],
+        values: &mut [i64],
         num_values: u32,
-        block: u32,
+        block: usize,
         acceptable_overhead_ratio: f32,
     ) -> Result<(), DataIOError> {
         let mut min_value = values[0];
@@ -274,7 +275,7 @@ impl PackedLongValuesBase2 for PackedLongValuesBuilder {
         // Build a new packed reader
         if min_value == 0 && max_value == 0 {
             let reader = NullReader::new(num_values);
-            self.values[block as usize] = PackedIntsReadEnum::NullReader(reader);
+            self.values[block] = PackedIntsReadEnum::NullReader(reader);
             Ok(())
         } else {
             let bits_required = if min_value < 0 {
@@ -290,7 +291,7 @@ impl PackedLongValuesBase2 for PackedLongValuesBuilder {
                 i += mutable.set_bulk(i as usize, values, i as usize, (num_values - i) as usize)?;
             }
 
-            self.values[block as usize] = PackedIntsReadEnum::PackedReader(mutable);
+            self.values[block] = PackedIntsReadEnum::PackedReader(mutable);
             Ok(())
         }
     }
@@ -319,9 +320,9 @@ pub trait PackedLongValuesBase2 {
     fn base_ram_bytes_used(&self) -> u64;
     fn pack(
         &mut self,
-        values: &[i64],
+        values: &mut [i64],
         num_values: u32,
-        block: u32,
+        block: usize,
         acceptable_overhead_ratio: f32,
     ) -> Result<(), DataIOError>;
     fn grow(&mut self, new_block_count: u32);
