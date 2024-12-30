@@ -195,7 +195,7 @@ impl Reader for Packed64 {
 }
 
 impl Accountable for Packed64 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> u64 {
         todo!()
     }
 }

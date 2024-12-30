@@ -955,7 +955,7 @@ impl<T> Accountable for MutableImpl<T>
 where
     T: Display + Mutable,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> u64 {
         todo!()
     }
 }
@@ -998,7 +998,7 @@ impl NullReader {
     }
 }
 impl Accountable for NullReader {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> u64 {
         todo!()
     }
 }

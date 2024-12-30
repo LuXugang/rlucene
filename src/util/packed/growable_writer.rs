@@ -121,7 +121,7 @@ impl Reader for GrowableWriter {
 }
 
 impl Accountable for GrowableWriter {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> u64 {
         todo!()
     }
 }

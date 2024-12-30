@@ -18,6 +18,7 @@ use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, 
 use crate::util::accountable::Accountable;
 use crate::util::bits::{Bits, MatchAllBits, MatchNoBits};
 use std::sync::Arc;
+use crate::util::bit_util::BitUtil;
 
 /// A `DocIdSet` contains a set of document IDs.
 /// Implementing types must provide an [`iterator`](DocIdSet::iterator) method to access the set.
@@ -79,14 +80,14 @@ impl DocIdSet for All {
 }
 
 impl Accountable for All {
-    fn ram_bytes_used(&self) -> i64 {
-        std::mem::size_of::<i32>() as i64
+    fn ram_bytes_used(&self) -> u64 {
+        BitUtil::INT_BYTES as u64
     }
 }
 
 pub struct EmptyDocIdSet;
 impl Accountable for EmptyDocIdSet {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> u64 {
         0
     }
 }
