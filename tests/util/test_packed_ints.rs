@@ -14,20 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{is_night_mode, my_random};
+use crate::common::{is_night_mode, my_random, rarely};
 use crate::util::lucene_test_case::{new_directory, new_io_context};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rlucene::store::directory::Directory;
 use rlucene::store::{DataOutput, IndexInput, IndexOutput};
+use rlucene::util::long_values::LongValues;
+use rlucene::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use rlucene::util::packed::growable_writer::GrowableWriter;
+use rlucene::util::packed::packed_long_values::{
+    PackedLongValues
+};
+use rlucene::util::packed::paged_growable_writer::PagedGrowableWriter;
 use rlucene::util::packed::Format::{Packed, PackedSingleBlock};
 use rlucene::util::packed::{
     create, is_supported, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl,
     MutablePacked64Enum, NullReader, Packed64, PackedImpl, PackedInts, PackedSingleBlockImpl,
     Reader, ReaderIterator, Writer, MAX_SUPPORTED_BITS_PER_VALUE,
 };
+use rlucene::util::packed::paged_mutable::PagedMutable;
 
 #[allow(dead_code)] // for quick search
 struct TestPackedInts;
@@ -752,6 +759,163 @@ fn test_growable_writer() -> Result<(), TestError> {
     // Check memory usage
     // let ram_used = wrt.ram_bytes_used();
     // assert_eq!(ram_used, ram_usage(&wrt));
+
+    Ok(())
+}
+#[test]
+fn test_paged_growable_writer() -> Result<(), TestError> {
+    let mut random = my_random("test_paged_growable_writer".to_string());
+
+    let page_size = 1 << random.gen_range(6..=30);
+    let acceptable_overhead_ratio = random.gen::<f32>();
+    let initial_bit_width = random.gen_range(1..=64);
+
+    let sub_reader =
+        PagedGrowableWriter::new_with_fill_page(initial_bit_width, acceptable_overhead_ratio);
+
+    let mut writer = AbstractPagedMutable::new(initial_bit_width, 0, page_size, sub_reader)?;
+    assert_eq!(writer.size(), 0);
+
+    let mut buf = PackedLongValues::delta_packed_long_values_builder_default(random.gen::<f32>())?;
+    let size = if is_night_mode() {
+        random.gen_range(0..1_000_000)
+    } else {
+        random.gen_range(0..100_000)
+    };
+
+    let mut max = 5;
+    for _ in 0..size {
+        buf.add(random.gen_range(0..=max))?;
+        if rarely(&mut random) {
+            max = PackedInts::max_value(if rarely(&mut random) {
+                random.gen_range(0..=63)
+            } else {
+                random.gen_range(0..=31)
+            });
+        }
+    }
+    let bits_per_value = random.gen_range(1..=64);
+    writer = AbstractPagedMutable::new(
+        bits_per_value,
+        size,
+        page_size,
+        PagedGrowableWriter::new_with_fill_page(bits_per_value, random.gen::<f32>()),
+    )?;
+    assert_eq!(writer.size(), size);
+
+    let mut values = buf.build()?;
+    for i in (0..size).rev() {
+        writer.set(i, values.get(i)?)?;
+    }
+    for i in 0..size {
+        assert_eq!(values.get(i)?, writer.get(i)?);
+    }
+
+    // TODO
+    // assert!(
+    //     (RamUsageTester::ram_used(&writer) as f64 - writer.ram_bytes_used() as f64).abs() < 8.0
+    // );
+
+    let new_size = random.gen_range((writer.size() / 2)..=(writer.size() * 3 / 2));
+    let mut copy = writer.resize(new_size)?;
+    for i in 0..copy.size() {
+        if i < writer.size() {
+            assert_eq!(writer.get(i)?, copy.get(i)?);
+        } else {
+            assert_eq!(copy.get(i)?, 0);
+        }
+    }
+
+    let grow_size = random.gen_range((writer.size() / 2)..=(writer.size() * 3 / 2));
+    let grow = writer.grow_with_size(grow_size)?;
+    let mut grow_len;
+    if grow.is_some() {
+        let mut new_writer = grow.unwrap();
+        grow_len = new_writer.size();
+        for i in 0..grow_len {
+            if i < writer.size() {
+                assert_eq!(new_writer.get(i)?, writer.get(i)?);
+            } else {
+                assert_eq!(new_writer.get(i)?, 0);
+            }
+        }
+    }
+    
+
+    Ok(())
+}
+#[test]
+fn test_paged_mutable() -> Result<(), TestError> {
+    let mut random = my_random("test_paged_mutable".to_string());
+    let bits_per_value = random.gen_range(1..=64);
+    let max = PackedInts::max_value(bits_per_value);
+    let page_size = 1 << random.gen_range(6..=30);
+    let acceptable_overhead_ratio = random.gen::<f32>() / 2.0;
+
+    let mut sub_mutable = PagedMutable::new_with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
+    let mut writer = AbstractPagedMutable::new(bits_per_value, 0, page_size, sub_mutable)?;
+    assert_eq!(writer.size(), 0);
+    
+    let mut buf = PackedLongValues::delta_packed_long_values_builder_default(random.gen::<f32>())?;
+    let size = if is_night_mode() {
+        random.gen_range(0..1_000_000)
+    } else {
+        random.gen_range(0..100_000)
+    };
+
+    for _ in 0..size {
+        let value = if bits_per_value == 64 {
+            random.gen_range(i64::MIN..=i64::MAX)
+        } else {
+            random.gen_range(0..=max)
+        };
+        buf.add(value)?;
+    }
+
+    let acceptable_overhead_ratio = random.gen::<f32>();
+    sub_mutable = PagedMutable::new_with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
+    writer = AbstractPagedMutable::new(bits_per_value,size, page_size, sub_mutable)?;
+    
+    assert_eq!(writer.size(), size);
+
+    let mut values = buf.build()?;
+    for i in (0..size).rev() {
+        writer.set(i, values.get(i)?)?;
+    }
+    for i in 0..size {
+        assert_eq!(values.get(i)?, writer.get(i)?);
+    }
+
+    // TODO
+    // assert!(
+    //     (RamUsageTester::ram_used(&writer) as f64 - RamUsageTester::ram_used(&writer.format) as f64 - writer.ram_bytes_used() as f64).abs() < 8.0
+    // );
+
+    let new_size = random.gen_range((writer.size() / 2)..=(writer.size() * 3 / 2));
+    let mut copy = writer.resize(new_size)?;
+    for i in 0..copy.size() {
+        if i < writer.size() {
+            assert_eq!(writer.get(i)?, copy.get(i)?);
+        } else {
+            assert_eq!(copy.get(i)?, 0);
+        }
+    }
+
+    let grow_size = random.gen_range((writer.size() / 2)..=(writer.size() * 3 / 2));
+    let grow_wrapper = writer.grow_with_size(grow_size)?;
+    let mut grow_len = writer.size();
+    if let Some(g) = grow_wrapper {
+        let mut grow = g;
+        grow_len = grow.size();
+        for i in 0..grow_len {
+            if i < writer.size(){
+                assert_eq!(grow.get(i)?, writer.get(i)?);
+            } else {
+                assert_eq!(grow.get(i)?, 0);
+            }
+        }
+    }
+    
 
     Ok(())
 }

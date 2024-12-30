@@ -15,36 +15,30 @@
  * limitations under the License.
  */
 use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::long_values::LongValues;
+use crate::util::packed::monotonic_long_values::{MonotonicLongValues, MonotonicLongValuesBuilder};
 use crate::util::packed::packed_long_values::{
-    PackedLongValues, PackedLongValuesBase1, PackedLongValuesBase2, PackedLongValuesBuilder,
+    PackedLongValues, PackedLongValuesBuilder, INITIAL_PAGE_COUNT,
 };
 use crate::util::packed::read_enum::PackedIntsReadEnum;
 use crate::util::packed::Reader;
 
 pub struct DeltaPackedLongValues {
-    pub(crate) base: PackedLongValues,
+    pub(crate) sub_long_value: Option<MonotonicLongValues>,
     pub(crate) mins: Vec<i64>,
 }
 
 impl DeltaPackedLongValues {
     const BASE_RAM_BYTES_USED: u64 = 0;
-    pub(crate) fn new(
-        page_shift: u32,
-        page_mask: u32,
-        values: Vec<PackedIntsReadEnum>,
-        mins: Vec<i64>,
-        size: u64,
-        ram_bytes_used: u64,
-    ) -> Self {
-        let length = values.len();
-        let base = PackedLongValues::new(page_shift, page_mask, values, size, ram_bytes_used);
-        debug_assert!(length == mins.len(),);
-        Self { base, mins }
+    pub(crate) fn new(mins: Vec<i64>, sub_reader: Option<MonotonicLongValues>) -> Self {
+        Self { sub_long_value: sub_reader, mins }
     }
-}
-impl PackedLongValuesBase1 for DeltaPackedLongValues {
-    fn decode_block(&mut self, block: usize, dest: &mut [i64]) -> Result<u32, DataIOError> {
-        let count = self.base.decode_block(block, dest)?;
+    pub(crate) fn decode_block(
+        &mut self,
+        block: usize,
+        dest: &mut [i64],
+        count: u32,
+    ) -> Result<u32, DataIOError> {
         let min = self.mins[block];
         for i in 0..count as usize {
             dest[i] += min;
@@ -52,63 +46,71 @@ impl PackedLongValuesBase1 for DeltaPackedLongValues {
         Ok(count)
     }
 
-    fn get_value(&mut self, block: usize, element: usize) -> Result<i64, DataIOError> {
-        Ok(self.mins[block] + self.base.values[block].get(element)?)
+    pub(crate) fn get_value(
+        &mut self,
+        block: usize,
+        element: usize,
+        _value: u64,
+    ) -> Result<i64, DataIOError> {
+        let current = self.mins[block];
+        match self.sub_long_value {
+            Some(ref mut reader) => Ok(reader.get_value(block, element, current as u64)?),
+            None => Ok(current),
+        }
     }
 }
 
 pub struct DeltaPackedLongValuesBuilder {
-    pub(crate) base_builder: PackedLongValuesBuilder,
+    pub(crate) sub_builder: Option<MonotonicLongValuesBuilder>,
     pub(crate) mins: Vec<i64>,
 }
 impl DeltaPackedLongValuesBuilder {
     // TODO
     const BASE_RAM_BYTES_USED: u64 = 0;
-    pub fn new(
-        page_size: u32,
-        acceptable_overhead_ratio: f32,
-    ) -> Result<DeltaPackedLongValuesBuilder, DataIOError> {
-        let base_builder = PackedLongValuesBuilder::new(page_size, acceptable_overhead_ratio)?;
-        let length = base_builder.values.len();
-        Ok(Self {
-            base_builder,
-            mins: Vec::with_capacity(length),
-        })
+    pub fn new() -> DeltaPackedLongValuesBuilder {
+        Self::new_with_sub_builder(None)
     }
-    pub fn build(mut self) -> Result<DeltaPackedLongValues, DataIOError> {
-        self.base_builder.finish()?;
-        let values = self
-            .base_builder
-            .values
-            .split_off(self.base_builder.values_off as usize);
-        let mins = self.mins.split_off(self.base_builder.values_off as usize);
-        // TODO:
-        let ram_bytes_used = 0;
-        //TODO
-        let ram_bytes_used = 0;
-        Ok(DeltaPackedLongValues::new(
-            self.base_builder.page_shift,
-            self.base_builder.page_mask,
-            values,
-            mins,
-            self.base_builder.size,
-            ram_bytes_used,
-        ))
-    }
-}
-impl PackedLongValuesBase2 for DeltaPackedLongValuesBuilder {
-    fn base_ram_bytes_used(&self) -> u64 {
-        // TODO
-        Self::BASE_RAM_BYTES_USED
+    pub fn new_with_sub_builder(
+        sub_builder: Option<MonotonicLongValuesBuilder>,
+    ) -> DeltaPackedLongValuesBuilder {
+        Self {
+            sub_builder,
+            mins: vec![0; INITIAL_PAGE_COUNT],
+        }
     }
 
-    fn pack(
+    pub fn build(
+        mut self,
+        packed_long_values_builder: &mut PackedLongValuesBuilder,
+    ) -> Result<DeltaPackedLongValues, DataIOError> {
+        let sub_reader = if self.sub_builder.is_some() {
+            Some(
+                self.sub_builder
+                    .take()
+                    .unwrap()
+                    .build(&mut self, packed_long_values_builder)?,
+            )
+        } else {
+            None
+        };
+        let mut mins = self.mins.split_off(packed_long_values_builder.values_off);
+        // TODO:
+        let ram_bytes_used = 0;
+        Ok(DeltaPackedLongValues::new(std::mem::take(&mut self.mins), sub_reader))
+    }
+    pub(crate) fn pack(
         &mut self,
         values: &mut [i64],
         num_values: u32,
         block: usize,
-        acceptable_overhead_ratio: f32,
     ) -> Result<(), DataIOError> {
+        if self.sub_builder.is_some() {
+            self.sub_builder.as_mut().unwrap().pack(
+                values,
+                num_values,
+                block,
+            )?;
+        }
         let mut min = values[0];
         for &value in values.iter().take(num_values as usize).skip(1) {
             min = min.min(value);
@@ -116,20 +118,21 @@ impl PackedLongValuesBase2 for DeltaPackedLongValuesBuilder {
         for value in values.iter_mut().take(num_values as usize) {
             *value -= min;
         }
-        self.base_builder
-            .pack(values, num_values, block, acceptable_overhead_ratio)?;
         self.mins[block] = min;
         Ok(())
     }
 
-    fn grow(&mut self, new_block_count: u32) {
-        self.base_builder.grow(new_block_count);
-        if new_block_count as usize > self.mins.len() {
-            for _i in 0..new_block_count as usize - self.mins.len() {
+    pub(crate) fn grow(&mut self, new_block_count: u32) {
+        if let Some(ref mut builder) = self.sub_builder { builder.grow(new_block_count) }
+        if new_block_count as usize >= self.mins.len() {
+            for _i in 0..new_block_count as usize /2 {
                 self.mins.push(0);
             }
         }
         //TODO
-        self.base_builder.ram_bytes_used = 0;
+        // self.sub_builder.ram_bytes_used = 0;
+    }
+    fn base_ram_bytes_used(&self) -> u64 {
+        todo!()
     }
 }

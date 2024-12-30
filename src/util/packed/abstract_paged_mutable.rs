@@ -18,7 +18,7 @@ use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::mutable_enum::MutableEnum;
-use crate::util::packed::{Mutable, PackedInts, Reader};
+use crate::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
 use std::cmp::min;
 use std::fmt::Display;
 
@@ -44,7 +44,7 @@ impl<T> AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    pub(crate) fn new(
+    pub fn new(
         bits_per_value: u32,
         size: u64,
         page_size: u32,
@@ -53,12 +53,17 @@ where
         let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let page_mask = page_size - 1;
         let num_pages = PackedInts::num_blocks(size, page_size)?;
+        let mut sub_mutables = Vec::with_capacity(num_pages as usize);
+        // We use index-based access to sub_mutables, so we can initialize it as DummyMutable.
+        for _ in 0..num_pages as usize {
+           sub_mutables.push(MutableEnum::Dummy(DummyMutable)); 
+        } 
         let mut result = AbstractPagedMutable {
             sub_reader,
             size,
             page_shift,
             page_mask,
-            sub_mutables: Vec::with_capacity(num_pages as usize),
+            sub_mutables,
             bits_per_value,
         };
         if result.sub_reader.fill_pages() {
@@ -75,10 +80,7 @@ where
             } else {
                 self.page_size()
             };
-            self.sub_mutables.push(
-                self.sub_reader
-                    .new_mutable(value_count, self.bits_per_value)?,
-            );
+            self.sub_mutables[i as usize]= self.sub_reader.new_mutable(value_count, self.bits_per_value)?;
         }
         Ok(())
     }

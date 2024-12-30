@@ -29,7 +29,7 @@ use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
 use std::cmp::min;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::string::ToString;
 
 #[allow(dead_code)]
@@ -1047,3 +1047,19 @@ pub trait Writer {
     /// Returns the current ord in the stream (number of values that have been written so far minus one).
     fn ord(&self) -> i32;
 }
+
+
+#[derive(Debug, Clone)]
+pub struct DummyMutable;
+impl Reader for DummyMutable {}
+impl Accountable for DummyMutable {
+    fn ram_bytes_used(&self) -> u64 {
+        unreachable!("DummyMutable should not be used")
+    }
+}
+impl Display for DummyMutable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        unreachable!("DummyMutable should not be displayed")
+    }
+}
+impl Mutable for DummyMutable{}

@@ -17,6 +17,6 @@
 pub struct MonotonicBlockPackedReader;
 impl MonotonicBlockPackedReader {
     pub fn expected(origin: i64, average: f32, index: usize) -> i64 {
-        todo!()
+        origin + (average * index as f32).round() as i64
     }
 }

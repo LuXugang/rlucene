@@ -34,7 +34,7 @@ pub fn get_seed_from_env(test_name: String) -> u64 {
     }
 
     let seed = rand::thread_rng().gen_range(0..u64::MAX);
-    println!("Generated random seed in {}: {}", test_name, seed);
+    // println!("Generated random seed in {}: {}", test_name, seed);
     seed
 }
 
@@ -51,11 +51,11 @@ pub fn is_night_mode() -> bool {
     std::env::var("NIGHT_MODE").map_or(false, |v| v == "true")
 }
 
-pub fn rarely(random_value: i32) -> bool {
-    let mut p = if is_night_mode() { 5 } else { 1 }; // Probability factor for nightly testing
-    p += (p as f64 * (get_random_multiplier() as f64).ln()).round() as i32; // Adjust by random multiplier
+pub fn rarely(random: &mut StdRng) -> bool {
+    let mut p = if is_night_mode() { 5 } else { 1 };
+    p += (p as f64 * (get_random_multiplier() as f64).ln()).round() as i32;
     let min = 100 - p.min(20); // Never more than 20% chance
-    random_value >= min
+    random.gen_range(0..100) >= min
 }
 
 pub fn get_random_multiplier() -> i32 {

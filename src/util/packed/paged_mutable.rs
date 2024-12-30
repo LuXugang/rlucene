@@ -29,7 +29,7 @@ pub struct PagedMutable {
     bits_per_value: u32,
 }
 impl PagedMutable {
-    pub fn new_with_overhead(
+    pub fn new_with_overhead_ratio(
         page_size: u32,
         bits_per_value: u32,
         acceptable_overhead_ratio: f32,

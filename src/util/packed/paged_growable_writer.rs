@@ -34,12 +34,15 @@ pub struct PagedGrowableWriter {
     fill_page: bool,
 }
 impl PagedGrowableWriter {
-    fn new(start_bits_per_value: u32, acceptable_overhead_ratio: f32, fill_page: bool) -> Self {
+    pub fn new(start_bits_per_value: u32, acceptable_overhead_ratio: f32, fill_page: bool) -> Self {
         PagedGrowableWriter {
             acceptable_overhead_ratio,
             bits_per_value: start_bits_per_value,
             fill_page,
         }
+    }
+    pub fn new_with_fill_page(start_bits_per_value: u32, acceptable_overhead_ratio: f32) -> Self {
+        PagedGrowableWriter::new(start_bits_per_value, acceptable_overhead_ratio, true)
     }
 }
 impl AbstractPagedMutableBase for PagedGrowableWriter {

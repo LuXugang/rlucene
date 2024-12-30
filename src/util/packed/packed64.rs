@@ -112,13 +112,11 @@ impl Reader for Packed64 {
             (major_bit_pos & Self::MOD_MASK as u64) as i64 + self.bpv_minus_block_size as i64;
 
         if end_bits <= 0 {
-            // Single block
-            // if element_pos == 0{
-            //     println!("Single block1:{}",self.blocks[element_pos] as i64);
-            //     println!("Single block2:{}",(self.blocks[element_pos] >> -end_bits) as i64 );
-            //     println!("Single block3:{}",((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64 );
-            // }
-
+            // let value = self.blocks[element_pos] >> -end_bits;
+            // let value1= (self.blocks[element_pos] >> -end_bits) as i64;
+            // let value2= value & self.mask_right;
+            // let value3= (value & self.mask_right) as i64;
+            // println!("value: {}, value1: {}, value2: {}, value3: {}", value, value1, value2, value3);
             return Ok(((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64);
         }
         Ok((((self.blocks[element_pos] << end_bits)

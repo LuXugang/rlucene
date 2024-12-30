@@ -17,18 +17,20 @@
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::growable_writer::GrowableWriter;
-use crate::util::packed::{Mutable, MutablePacked64Enum, Reader};
+use crate::util::packed::{DummyMutable, Mutable, MutablePacked64Enum, Reader};
 use std::fmt::Display;
 
 pub enum MutableEnum {
     Packed(MutablePacked64Enum),
     GrowableW(GrowableWriter),
+    Dummy(DummyMutable)
 }
 impl Display for MutableEnum {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MutableEnum::Packed(op) => op.fmt(f),
             MutableEnum::GrowableW(op) => op.fmt(f),
+            MutableEnum::Dummy(op) => op.fmt(f),
         }
     }
 }
@@ -37,6 +39,7 @@ impl Accountable for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.ram_bytes_used(),
             MutableEnum::GrowableW(op) => op.ram_bytes_used(),
+            MutableEnum::Dummy(op) => op.ram_bytes_used(),
         }
     }
 }
@@ -45,6 +48,7 @@ impl Reader for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.get(index),
             MutableEnum::GrowableW(op) => op.get(index),
+            MutableEnum::Dummy(op) => op.get(index),
         }
     }
 
@@ -58,6 +62,7 @@ impl Reader for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.get_bulk(index, arr, off, len),
             MutableEnum::GrowableW(op) => op.get_bulk(index, arr, off, len),
+            MutableEnum::Dummy(op) => op.get_bulk(index, arr, off, len),
         }
     }
 
@@ -65,6 +70,7 @@ impl Reader for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.size(),
             MutableEnum::GrowableW(op) => op.size(),
+            MutableEnum::Dummy(op) => op.size(),
         }
     }
 }
@@ -73,6 +79,7 @@ impl Mutable for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.get_bits_per_value(),
             MutableEnum::GrowableW(op) => op.get_bits_per_value(),
+            MutableEnum::Dummy(op) => op.get_bits_per_value(),
         }
     }
 
@@ -80,6 +87,7 @@ impl Mutable for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.set(index, value),
             MutableEnum::GrowableW(op) => op.set(index, value),
+            MutableEnum::Dummy(op) => op.set(index, value),
         }
     }
 
@@ -93,6 +101,7 @@ impl Mutable for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.set_bulk(index, arr, off, len),
             MutableEnum::GrowableW(op) => op.set_bulk(index, arr, off, len),
+            MutableEnum::Dummy(op) => op.set_bulk(index, arr, off, len),
         }
     }
 
@@ -100,6 +109,7 @@ impl Mutable for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.fill(from_index, to_index, val),
             MutableEnum::GrowableW(op) => op.fill(from_index, to_index, val),
+            MutableEnum::Dummy(op) => op.fill(from_index, to_index, val),
         }
     }
 
@@ -107,6 +117,7 @@ impl Mutable for MutableEnum {
         match self {
             MutableEnum::Packed(op) => op.clear(),
             MutableEnum::GrowableW(op) => op.clear(),
+            MutableEnum::Dummy(op) => op.clear(),
         }
     }
 }

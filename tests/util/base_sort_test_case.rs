@@ -145,7 +145,7 @@ impl Strategy {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.gen_range(0..6), 0)
                 } else {
-                    let value = if rarely(random.gen()) {
+                    let value = if rarely(random) {
                         random.gen_range(0..1000)
                     } else {
                         arr[(i - 1) as usize].value + random.gen_range(0..6)

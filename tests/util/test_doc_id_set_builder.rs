@@ -179,7 +179,7 @@ fn test_random() {
             let mut budget = 0;
             while k < l {
                 let random_value = random.gen_range(0..100);
-                let rarely = rarely(random_value);
+                let rarely = rarely(&mut random);
                 if budget == 0 || rarely {
                     budget = random.gen_range(1..=l - k + 5);
                     builder.grow(budget as i32);
