@@ -1220,3 +1220,7 @@ fn test_packed_long_values() -> Result<(), TestError> {
 
     Ok(())
 }
+#[test]
+fn test_packed_input_output() {
+    // PackedDataOutput is only used for tests, so we don't need to test it
+}

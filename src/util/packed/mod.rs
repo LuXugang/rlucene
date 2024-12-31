@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod abstract_block_packed_writer;
 pub mod abstract_paged_mutable;
+mod block_packed_reader_iterator;
+mod block_packed_writer;
 pub mod bulk_operation;
 pub mod bulk_operation_enum;
 pub mod bulk_operation_packed;
@@ -49,6 +52,7 @@ mod delta_packed_long_values;
 pub mod format_behavior;
 pub mod growable_writer;
 mod monotonic_block_packed_reader;
+mod monotonic_block_packed_writer;
 mod monotonic_long_values;
 mod mutable_enum;
 pub mod mutable_packed64_enum;
