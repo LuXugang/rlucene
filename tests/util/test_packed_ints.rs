@@ -33,7 +33,6 @@ use rlucene::util::packed::{
     MutablePacked64Enum, NullReader, Packed64, PackedImpl, PackedInts, PackedSingleBlockImpl,
     Reader, ReaderIterator, Writer, MAX_SUPPORTED_BITS_PER_VALUE,
 };
-use std::time::Instant;
 
 #[allow(dead_code)] // for quick search
 struct TestPackedInts;
@@ -827,7 +826,7 @@ fn test_paged_growable_writer() -> Result<(), TestError> {
 
     let grow_size = random.gen_range((writer.size() / 2)..=(writer.size() * 3 / 2));
     let grow = writer.grow_with_size(grow_size)?;
-    let mut grow_len;
+    let grow_len;
     if grow.is_some() {
         let mut new_writer = grow.unwrap();
         grow_len = new_writer.size();
@@ -903,7 +902,7 @@ fn test_paged_mutable() -> Result<(), TestError> {
 
     let grow_size = random.gen_range((writer.size() / 2)..=(writer.size() * 3 / 2));
     let grow_wrapper = writer.grow_with_size(grow_size)?;
-    let mut grow_len = writer.size();
+    let grow_len;
     if let Some(g) = grow_wrapper {
         let mut grow = g;
         grow_len = grow.size();
@@ -1114,10 +1113,11 @@ fn equals(ints: &[i32], longs: &[i64]) -> bool {
 fn test_packed_long_values_on_zeros() {
     // TOOD
 }
+#[allow(dead_code)]
 enum DataType {
-    PACKED,
-    DELTA_PACKED,
-    MONOTONIC,
+    Packed,
+    DeltaPacked,
+    Monotonic,
 }
 #[test]
 fn test_packed_long_values() -> Result<(), TestError> {
@@ -1133,7 +1133,7 @@ fn test_packed_long_values() -> Result<(), TestError> {
     let ratio_options = [PackedInts::DEFAULT, PackedInts::COMPACT, PackedInts::FAST];
 
     for bpv in [0, 1, 63, 64, random.gen_range(2..=62)].iter() {
-        for data_type in [DataType::DELTA_PACKED].iter() {
+        for data_type in [DataType::DeltaPacked].iter() {
             let page_size = 1 << random.gen_range(6..=20);
             let acceptable_overhead_ratio = ratio_options[random.gen_range(0..ratio_options.len())];
 
@@ -1141,21 +1141,21 @@ fn test_packed_long_values() -> Result<(), TestError> {
             let inc: i64;
 
             match data_type {
-                DataType::PACKED => {
+                DataType::Packed => {
                     buf = PackedLongValues::packed_long_values_builder(
                         page_size,
                         acceptable_overhead_ratio,
                     )?;
                     inc = 0;
                 }
-                DataType::DELTA_PACKED => {
+                DataType::DeltaPacked => {
                     buf = PackedLongValues::delta_packed_long_values_builder(
                         page_size,
                         acceptable_overhead_ratio,
                     )?;
                     inc = 0;
                 }
-                DataType::MONOTONIC => {
+                DataType::Monotonic => {
                     buf = PackedLongValues::monotonic_long_values_builder(
                         page_size,
                         acceptable_overhead_ratio,
@@ -1170,16 +1170,16 @@ fn test_packed_long_values() -> Result<(), TestError> {
                     arr[i] = arr[i - 1] + inc;
                 }
             } else if *bpv == 64 {
-                for i in 0..arr.len() {
-                    arr[i] = random.gen::<i64>();
-                }
+                arr.iter_mut().for_each(|item| {
+                    *item = random.gen::<i64>();
+                });
             } else {
                 let min_value = random.gen_range(i64::MIN..=i64::MAX - PackedInts::max_value(*bpv));
-                for i in 0..arr.len() {
-                    arr[i] = min_value
+                arr.iter_mut().enumerate().for_each(|(i, item)| {
+                    *item = min_value
                         + inc * i as i64
                         + (random.gen::<i64>() & PackedInts::max_value(*bpv));
-                }
+                });
             }
 
             for &value in &arr {
@@ -1202,7 +1202,7 @@ fn test_packed_long_values() -> Result<(), TestError> {
             }
 
             let mut it = values.iterator()?;
-            for (_, &value) in arr.iter().enumerate() {
+            for &value in arr.iter() {
                 if random.gen_bool(0.5) {
                     assert!(it.has_next());
                 }

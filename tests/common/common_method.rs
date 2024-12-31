@@ -78,7 +78,7 @@ pub fn assert_vecs_equal<T: PartialEq + std::fmt::Debug>(expected: &[T], actual:
         assert_eq!(expected.len(), actual.len(),);
     }
 
-    for (i, (exp, act)) in expected.iter().zip(actual.iter()).enumerate() {
+    for (exp, act) in expected.iter().zip(actual.iter()) {
         if exp != act {
             assert_eq!(exp, act,);
         }

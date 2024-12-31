@@ -109,7 +109,7 @@ impl RoaringDocIdSetBuilder {
         }
         RoaringDocIdSetBuilder {
             max_doc,
-            sets: sets,
+            sets,
             cardinality: 0,
             last_doc_id: -1,
             current_block: -1,

@@ -23,7 +23,6 @@ use crate::util::packed::delta_packed_long_values::{
 use crate::util::packed::monotonic_long_values::MonotonicLongValuesBuilder;
 use crate::util::packed::read_enum::PackedIntsReadEnum;
 use crate::util::packed::{Mutable, NullReader, PackedInts, Reader};
-use std::cmp::min;
 
 /// Utility class to compress integers into a [`LongValues`] instance.
 pub struct PackedLongValues {
@@ -187,6 +186,7 @@ pub(crate) const INITIAL_PAGE_COUNT: usize = 16;
 /// A Builder for a [`PackedLongValues`] instance.
 impl PackedLongValuesBuilder {
     // TODO
+    #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
     pub fn new(
         page_size: u32,
@@ -230,7 +230,7 @@ impl PackedLongValuesBuilder {
         let mut values = std::mem::take(&mut self.values);
         let sub_values = values.split_off(self.values_off);
         if self.sub_builder.is_some() {
-            let sub = self.sub_builder.take().unwrap().build(&mut self)?;
+            let sub = self.sub_builder.take().unwrap().build(self.values_off)?;
             return Ok(PackedLongValues::new(
                 self.page_shift,
                 self.page_mask,
@@ -308,6 +308,7 @@ impl PackedLongValuesBuilder {
         self.pending_off = 0;
         Ok(())
     }
+    #[allow(dead_code)]
     fn base_ram_bytes_used(&self) -> u64 {
         // TODO
         todo!()

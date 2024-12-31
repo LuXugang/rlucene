@@ -119,6 +119,7 @@ where
         let index_in_page = self.index_in_page(index);
         self.sub_mutables[page_index].set(index_in_page as usize, value)
     }
+    #[allow(dead_code)]
     fn base_ram_bytes_used(&self) -> i64 {
         todo!()
     }

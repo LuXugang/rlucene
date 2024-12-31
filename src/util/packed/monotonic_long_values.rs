@@ -15,14 +15,8 @@
  * limitations under the License.
  */
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::long_values::LongValues;
-use crate::util::packed::delta_packed_long_values::{
-    DeltaPackedLongValues, DeltaPackedLongValuesBuilder,
-};
 use crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
-use crate::util::packed::packed_long_values::{PackedLongValuesBuilder, INITIAL_PAGE_COUNT};
-use crate::util::packed::read_enum::PackedIntsReadEnum;
-use crate::util::packed::Reader;
+use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
 pub struct MonotonicLongValues {
     averages: Vec<f32>,
@@ -30,20 +24,21 @@ pub struct MonotonicLongValues {
 
 impl MonotonicLongValues {
     //TODO
+    #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
 
     pub fn new(averages: Vec<f32>) -> Self {
         Self { averages }
     }
-    fn decode_block(
+    pub(crate) fn decode_block(
         &mut self,
         block: usize,
         dest: &mut [i64],
         count: u32,
     ) -> Result<u32, DataIOError> {
         let average = self.averages[block];
-        for i in 0..count as usize {
-            dest[i] += MonotonicBlockPackedReader::expected(0, average, i);
+        for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
+            *item += MonotonicBlockPackedReader::expected(0, average, i);
         }
         Ok(count)
     }
@@ -66,8 +61,15 @@ pub struct MonotonicLongValuesBuilder {
     averages: Vec<f32>,
 }
 
+impl Default for MonotonicLongValuesBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MonotonicLongValuesBuilder {
     //TODO
+    #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
 
     pub fn new() -> Self {
@@ -76,20 +78,15 @@ impl MonotonicLongValuesBuilder {
         }
     }
 
-    pub fn build(
-        mut self,
-        delta_packed_long_values_builder: &mut DeltaPackedLongValuesBuilder,
-        packed_long_values_builder: &mut PackedLongValuesBuilder,
-    ) -> Result<MonotonicLongValues, DataIOError> {
-        let mut averages = self
-            .averages
-            .split_off(packed_long_values_builder.values_off);
+    pub fn build(mut self, values_off: usize) -> Result<MonotonicLongValues, DataIOError> {
+        let _ = self.averages.split_off(values_off);
 
         // TODO
-        let ram_bytes_used = 0;
+        let _ram_bytes_used = 0;
 
         Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
     }
+    #[allow(dead_code)]
     fn base_ram_bytes_used(&self) -> u64 {
         // TODO
         Self::BASE_RAM_BYTES_USED
@@ -107,8 +104,8 @@ impl MonotonicLongValuesBuilder {
             (values[num_values as usize - 1] - values[0]) as f32 / (num_values - 1) as f32
         };
 
-        for i in 0..num_values as usize {
-            values[i] -= MonotonicBlockPackedReader::expected(0, average, i);
+        for (i, value) in values.iter_mut().enumerate().take(num_values as usize) {
+            *value -= MonotonicBlockPackedReader::expected(0, average, i);
         }
         self.averages[block] = average;
         Ok(())

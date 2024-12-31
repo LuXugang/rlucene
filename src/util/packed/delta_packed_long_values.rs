@@ -15,13 +15,8 @@
  * limitations under the License.
  */
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::long_values::LongValues;
 use crate::util::packed::monotonic_long_values::{MonotonicLongValues, MonotonicLongValuesBuilder};
-use crate::util::packed::packed_long_values::{
-    PackedLongValues, PackedLongValuesBuilder, INITIAL_PAGE_COUNT,
-};
-use crate::util::packed::read_enum::PackedIntsReadEnum;
-use crate::util::packed::Reader;
+use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
 pub struct DeltaPackedLongValues {
     pub(crate) sub_long_value: Option<MonotonicLongValues>,
@@ -29,6 +24,7 @@ pub struct DeltaPackedLongValues {
 }
 
 impl DeltaPackedLongValues {
+    #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
     pub(crate) fn new(mins: Vec<i64>, sub_reader: Option<MonotonicLongValues>) -> Self {
         Self {
@@ -43,10 +39,13 @@ impl DeltaPackedLongValues {
         count: u32,
     ) -> Result<u32, DataIOError> {
         let min = self.mins[block];
-        for i in 0..count as usize {
-            dest[i] += min;
+        for item in dest.iter_mut().take(count as usize) {
+            *item += min;
         }
-        Ok(count)
+        match self.sub_long_value {
+            Some(ref mut sub) => Ok(sub.decode_block(block, dest, count)?),
+            _ => Ok(count),
+        }
     }
 
     pub(crate) fn get_value(
@@ -67,8 +66,15 @@ pub struct DeltaPackedLongValuesBuilder {
     pub(crate) sub_builder: Option<MonotonicLongValuesBuilder>,
     pub(crate) mins: Vec<i64>,
 }
+impl Default for DeltaPackedLongValuesBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DeltaPackedLongValuesBuilder {
     // TODO
+    #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
     pub fn new() -> DeltaPackedLongValuesBuilder {
         Self::new_with_sub_builder(None)
@@ -82,23 +88,15 @@ impl DeltaPackedLongValuesBuilder {
         }
     }
 
-    pub fn build(
-        mut self,
-        packed_long_values_builder: &mut PackedLongValuesBuilder,
-    ) -> Result<DeltaPackedLongValues, DataIOError> {
+    pub fn build(mut self, values_off: usize) -> Result<DeltaPackedLongValues, DataIOError> {
         let sub_reader = if self.sub_builder.is_some() {
-            Some(
-                self.sub_builder
-                    .take()
-                    .unwrap()
-                    .build(&mut self, packed_long_values_builder)?,
-            )
+            Some(self.sub_builder.take().unwrap().build(values_off)?)
         } else {
             None
         };
-        let mut mins = self.mins.split_off(packed_long_values_builder.values_off);
+        let _ = self.mins.split_off(values_off);
         // TODO:
-        let ram_bytes_used = 0;
+        let _ram_bytes_used = 0;
         Ok(DeltaPackedLongValues::new(
             std::mem::take(&mut self.mins),
             sub_reader,
@@ -139,6 +137,7 @@ impl DeltaPackedLongValuesBuilder {
         //TODO
         // self.sub_builder.ram_bytes_used = 0;
     }
+    #[allow(dead_code)]
     fn base_ram_bytes_used(&self) -> u64 {
         todo!()
     }
