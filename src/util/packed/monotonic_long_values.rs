@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
+use crate::util::packed::monotonic_block_packed_reader::{expected, MonotonicBlockPackedReader};
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
 pub struct MonotonicLongValues {
@@ -38,7 +38,7 @@ impl MonotonicLongValues {
     ) -> Result<u32, DataIOError> {
         let average = self.averages[block];
         for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
-            *item += MonotonicBlockPackedReader::expected(0, average, i);
+            *item += expected(0, average, i);
         }
         Ok(count)
     }
@@ -49,11 +49,7 @@ impl MonotonicLongValues {
         element: usize,
         value: u64,
     ) -> Result<i64, DataIOError> {
-        Ok(MonotonicBlockPackedReader::expected(
-            value as i64,
-            self.averages[block],
-            element,
-        ))
+        Ok(expected(value as i64, self.averages[block], element))
     }
 }
 
@@ -105,7 +101,7 @@ impl MonotonicLongValuesBuilder {
         };
 
         for (i, value) in values.iter_mut().enumerate().take(num_values as usize) {
-            *value -= MonotonicBlockPackedReader::expected(0, average, i);
+            *value -= expected(0, average, i);
         }
         self.averages[block] = average;
         Ok(())

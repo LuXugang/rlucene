@@ -21,6 +21,7 @@ pub trait LongValues {
     fn get(&mut self, index: u64) -> Result<i64, DataIOError>;
 }
 
+#[derive(Clone)]
 pub struct Zeroes;
 impl LongValues for Zeroes {
     fn get(&mut self, _index: u64) -> Result<i64, DataIOError> {

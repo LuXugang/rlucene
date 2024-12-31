@@ -19,7 +19,7 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::abstract_block_packed_writer::{
     write_values, AbstractBlockPackedWriterBase,
 };
-use crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
+use crate::util::packed::monotonic_block_packed_reader::{expected, MonotonicBlockPackedReader};
 use crate::util::packed::PackedInts;
 /// A writer for large monotonically increasing sequences of positive longs.
 ///
@@ -65,14 +65,14 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
         let mut min = values[0];
         // adjust min so that all deltas will be positive
         for (i, &actual) in values.iter().enumerate().skip(1).take(*off - 1) {
-            let expected = MonotonicBlockPackedReader::expected(min, avg, i);
+            let expected = expected(min, avg, i);
             if expected > actual {
                 min -= expected - actual;
             }
         }
         let mut max_delta = 0;
         for (i, value) in values.iter_mut().take(*off).enumerate() {
-            *value -= MonotonicBlockPackedReader::expected(min, avg, i);
+            *value -= expected(min, avg, i);
             max_delta = max_delta.max(*value);
         }
         out.write_zlong(min)?;
