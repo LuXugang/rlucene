@@ -16,7 +16,7 @@
  */
 pub mod abstract_block_packed_writer;
 pub mod abstract_paged_mutable;
-mod block_packed_reader_iterator;
+pub mod block_packed_reader_iterator;
 pub mod block_packed_writer;
 pub mod bulk_operation;
 pub mod bulk_operation_enum;

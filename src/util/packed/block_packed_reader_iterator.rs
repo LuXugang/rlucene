@@ -60,7 +60,6 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         for shift in (0..56).step_by(7) {
             let b = data_input.read_byte()?;
             l |= ((b & 0x7F) as u64) << shift;
-            debug_assert!(b <= i8::MAX as u8);
             if b as i8 >= 0 {
                 return Ok(l as i64);
             }
@@ -85,7 +84,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
             block_size,
             values_ref: long_ref,
             blocks: vec![],
-            off: 0,
+            off: block_size as usize,
             ord: 0,
         })
     }
@@ -282,7 +281,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
             );
             debug_assert!(blocks_count <= u32::MAX as u64);
             self.data_input
-                .read_bytes(&mut self.blocks, 9, blocks_count as u32)?;
+                .read_bytes(&mut self.blocks, 0, blocks_count as u32)?;
 
             decoder.decode_u8_to_i64(&self.blocks, 0, &mut self.values_ref.longs, 0, iterations);
             if min_value != 0 {

@@ -202,7 +202,7 @@ pub(crate) fn write_values<O: DataOutput>(
         bits_required,
     )?;
     let iterations = values.len() / Encoder::byte_value_count(encoder) as usize;
-    let block_size = Encoder::byte_value_count(encoder) as usize * iterations;
+    let block_size = Encoder::byte_block_count(encoder) as usize * iterations;
     if blocks.len() < block_size {
         *blocks = vec![0u8; block_size];
     }

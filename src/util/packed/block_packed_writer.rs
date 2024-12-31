@@ -98,7 +98,7 @@ impl AbstractBlockPackedWriterBase for BlockPackedWriter {
             }
             write_values(bits_required, out, blocks, values, *off)?;
         }
-
+        *off = 0;
         Ok(())
     }
 }
