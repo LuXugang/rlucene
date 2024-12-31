@@ -228,7 +228,7 @@ impl PackedLongValuesBuilder {
         // TODO
         let ram_bytes_used = 0;
         let mut values = std::mem::take(&mut self.values);
-        let sub_values = values.split_off(self.values_off);
+        let _ = values.split_off(self.values_off);
         if self.sub_builder.is_some() {
             let sub = self.sub_builder.take().unwrap().build(self.values_off)?;
             return Ok(PackedLongValues::new(
@@ -243,7 +243,7 @@ impl PackedLongValuesBuilder {
         Ok(PackedLongValues::new(
             self.page_shift,
             self.page_mask,
-            sub_values,
+            values,
             self.size,
             ram_bytes_used,
             None,

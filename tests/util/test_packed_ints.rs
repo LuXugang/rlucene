@@ -1133,7 +1133,8 @@ fn test_packed_long_values() -> Result<(), TestError> {
     let ratio_options = [PackedInts::DEFAULT, PackedInts::COMPACT, PackedInts::FAST];
 
     for bpv in [0, 1, 63, 64, random.gen_range(2..=62)].iter() {
-        for data_type in [DataType::DeltaPacked].iter() {
+        for data_type in [DataType::DeltaPacked, DataType::Monotonic, DataType::Packed].iter() {
+            // for data_type in [DataType::Packed].iter() {
             let page_size = 1 << random.gen_range(6..=20);
             let acceptable_overhead_ratio = ratio_options[random.gen_range(0..ratio_options.len())];
 
