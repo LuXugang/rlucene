@@ -21,7 +21,32 @@ use crate::util::packed::abstract_block_packed_writer::{
 };
 use crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
 use crate::util::packed::PackedInts;
-
+/// A writer for large monotonically increasing sequences of positive longs.
+///
+/// The sequence is divided into fixed-size blocks, and for each block, values are modeled after a
+/// linear function `f(x) = A * x + B`. The block encodes deltas from the expected values computed
+/// from this function using as few bits as possible.
+///
+/// # Format
+///
+/// - `<Block>^BlockCount`
+/// - `BlockCount`: ⌈ ValueCount / BlockSize ⌉
+/// - `Block`: `<Header, (Ints)>`
+/// - `Header`: `<B, A, BitsPerValue>`
+///   - `B`: The `B` from `f(x) = A * x + B` encoded using
+///     [`BitUtil::zig_zag_encode_i64`](crate::util::bit_util::BitUtil::zig_zag_encode_i64) with [`DataOutput::write_vlong`].
+///   - `A`: The `A` from `f(x) = A * x + B` encoded using
+///     [`f32::to_bits`] and written as a 4-byte integer with [`DataOutput::write_int`].
+///   - `BitsPerValue`: A variable-length integer written with [`DataOutput::write_vint`].
+/// - `Ints`: If `BitsPerValue` is `0`, then there is nothing to read, and all values perfectly
+///   match the result of the function. Otherwise, these are the packed deltas from the expected
+///   values (computed from the function) using exactly `BitsPerValue` bits per value.
+///
+/// # See Also
+/// - [`MonotonicBlockPackedReader`]
+///
+/// # Notes
+/// This is an internal implementation detail of the Lucene-like system.
 pub struct MonotonicBlockPackedWriter;
 impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
     fn flush<T: DataOutput>(

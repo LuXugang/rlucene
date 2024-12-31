@@ -17,14 +17,14 @@
 use crate::store::DataOutput;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::Format::Packed;
-use crate::util::packed::{Decoder, Encoder, Format, FormatBehavior, PackedImpl, PackedInts};
+use crate::util::packed::{Encoder, FormatBehavior, PackedImpl, PackedInts};
 
 pub(crate) const MIN_BLOCK_SIZE: u32 = 64;
 pub(crate) const MAX_BLOCK_SIZE: u32 = 1 << (30 - 3);
 pub(crate) const MIN_VALUE_EQUALS_0: u32 = 1 << 0;
 pub(crate) const BPV_SHIFT: u32 = 1;
-pub struct AbstractBlockPackedWriter<T: DataOutput, D: AbstractBlockPackedWriterBase> {
-    out: T,
+pub struct AbstractBlockPackedWriter<'a, T: DataOutput, D: AbstractBlockPackedWriterBase> {
+    out: &'a mut T,
     values: Vec<i64>,
     blocks: Vec<u8>,
     off: usize,
@@ -33,7 +33,7 @@ pub struct AbstractBlockPackedWriter<T: DataOutput, D: AbstractBlockPackedWriter
     sub_writer: D,
 }
 
-impl<D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<T, D> {
+impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<'a, T, D> {
     /// Constructs a new `AbstractBlockPackedWriter`.
     ///
     /// # Arguments
@@ -44,7 +44,7 @@ impl<D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<
     /// # Errors
     ///
     /// Returns an error if `block_size` is not valid.
-    pub fn new(block_size: u32, sub_writer: D, out: T) -> Result<Self, DataIOError> {
+    pub fn new(block_size: u32, sub_writer: D, out: &'a mut T) -> Result<Self, DataIOError> {
         PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
 
         Ok(Self {
@@ -63,7 +63,7 @@ impl<D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<
     /// # Arguments
     ///
     /// * `out` - The new output stream.
-    pub fn reset(&mut self, out: T) {
+    pub fn reset(&mut self, out: &'a mut T) {
         self.out = out;
         self.off = 0;
         self.ord = 0;
@@ -89,12 +89,8 @@ impl<D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<
         self.sub_writer.add(value);
         self.check_not_finished()?;
         if self.off == self.values.len() {
-            self.sub_writer.flush(
-                &mut self.out,
-                &mut self.off,
-                &mut self.values,
-                &mut self.blocks,
-            )?;
+            self.sub_writer
+                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
         }
         self.values[self.off] = value;
         self.off += 1;
@@ -113,12 +109,8 @@ impl<D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<
             return Err(DataIOError::illegal_state(format!("{}", self.off)));
         }
         if self.off == self.values.len() {
-            self.sub_writer.flush(
-                &mut self.out,
-                &mut self.off,
-                &mut self.values,
-                &mut self.blocks,
-            )?;
+            self.sub_writer
+                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
         }
         self.values.fill(0);
         self.off = self.values.len();
@@ -134,12 +126,8 @@ impl<D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<
     pub fn finish(&mut self) -> Result<(), DataIOError> {
         self.check_not_finished()?;
         if self.off > 0 {
-            self.sub_writer.flush(
-                &mut self.out,
-                &mut self.off,
-                &mut self.values,
-                &mut self.blocks,
-            )?;
+            self.sub_writer
+                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
         }
         self.finished = true;
         Ok(())
@@ -180,7 +168,7 @@ impl<D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<
             }
         }
         debug_assert!(iterations <= u32::MAX as usize);
-        encoder.encode_i64_to_u8(&values, 0, blocks, 0, iterations as u32);
+        encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as u32);
         debug_assert!(off <= u32::MAX as usize);
         let block_count = Packed(PackedImpl::new(0)).byte_count(
             PackedInts::VERSION_CURRENT,
@@ -188,7 +176,7 @@ impl<D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<
             bits_required,
         );
         debug_assert!(block_count <= u32::MAX as u64);
-        out.write_bytes_with_len(&blocks, block_count as u32)?;
+        out.write_bytes_with_len(blocks, block_count as u32)?;
         Ok(())
     }
 }
@@ -224,7 +212,7 @@ pub(crate) fn write_values<O: DataOutput>(
         }
     }
     debug_assert!(iterations <= u32::MAX as usize);
-    encoder.encode_i64_to_u8(&values, 0, blocks, 0, iterations as u32);
+    encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as u32);
     debug_assert!(off <= u32::MAX as usize);
     let block_count = Packed(PackedImpl::new(0)).byte_count(
         PackedInts::VERSION_CURRENT,
@@ -232,7 +220,7 @@ pub(crate) fn write_values<O: DataOutput>(
         bits_required,
     );
     debug_assert!(block_count <= u32::MAX as u64);
-    out.write_bytes_with_len(&blocks, block_count as u32)?;
+    out.write_bytes_with_len(blocks, block_count as u32)?;
     Ok(())
 }
 /// Same as DataOutput::writeVLong but accepts negative values.
@@ -246,10 +234,10 @@ pub(crate) fn write_vlong<T: DataOutput>(out: &mut T, mut i: i64) -> Result<(), 
     out.write_byte(i as u8)?;
     Ok(())
 }
-pub(crate) trait AbstractBlockPackedWriterBase {
-    fn flush<T: DataOutput>(
+pub trait AbstractBlockPackedWriterBase {
+    fn flush<'a, T: DataOutput>(
         &mut self,
-        out: &mut T,
+        out: &'a mut T,
         off: &mut usize,
         values: &mut [i64],
         blocks: &mut Vec<u8>,

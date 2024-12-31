@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 use crate::common::{is_night_mode, my_random, rarely};
-use crate::util::lucene_test_case::{new_directory, new_io_context};
+use crate::util::lucene_test_case::{new_directory, new_io_context, new_io_context_with_default};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rlucene::store::directory::Directory;
-use rlucene::store::{DataOutput, IndexInput, IndexOutput};
+use rlucene::store::random_access_input::RandomAccessInput;
+use rlucene::store::{
+    ByteArrayDataInput, DataInput, DataInputType, DataOutput, IOContext, IndexInput, IndexOutput,
+};
 use rlucene::util::long_values::LongValues;
+use rlucene::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
 use rlucene::util::packed::abstract_paged_mutable::AbstractPagedMutable;
+use rlucene::util::packed::block_packed_writer::BlockPackedWriter;
 use rlucene::util::packed::growable_writer::GrowableWriter;
 use rlucene::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
 use rlucene::util::packed::paged_growable_writer::PagedGrowableWriter;
@@ -1223,4 +1228,105 @@ fn test_packed_long_values() -> Result<(), TestError> {
 #[test]
 fn test_packed_input_output() {
     // PackedDataOutput is only used for tests, so we don't need to test it
+}
+#[test]
+fn test_block_packed_reader_writer() -> Result<(), TestError> {
+    // let mut random = my_random("test_block_packed_reader_writer".to_string());
+    // let iters = random.gen_range(2..=100);
+    // for _ in 0..iters {
+    //     let block_size = 1 << random.gen_range(6..=18);
+    //     let value_count:u32 = if is_night_mode() {
+    //         random.gen_range(0..(1 << 18))
+    //     } else {
+    //         random.gen_range(0..(1 << 15))
+    //     };
+    //
+    //     let mut values = vec![0i64; value_count as usize];
+    //     let mut min_value = 0;
+    //     let mut bpv = 0;
+    //
+    //     for i in 0..value_count {
+    //         if i % block_size == 0 {
+    //             min_value = if rarely(&mut random) {
+    //                 random.gen_range(0..256) as i64
+    //             } else if rarely(&mut random) {
+    //                 -5
+    //             } else {
+    //                 random.gen()
+    //             };
+    //             bpv = random.gen_range(0..=64);
+    //         }
+    //         values[i] = if bpv == 0 {
+    //             min_value
+    //         } else if bpv == 64 {
+    //             random.gen()
+    //         } else {
+    //             min_value + random.gen_range(0..=((1 << bpv) - 1))
+    //         };
+    //     }
+    //
+    //     let mut dir = new_directory(&mut random)?;
+    //     let mut out = dir.create_output("out.bin", IOContext::default_io_context()?)?;
+    //     let mut writer = AbstractBlockPackedWriter::new(block_size as u32, BlockPackedWriter, &mut out)?;
+    //     for (i, &value) in values.iter().enumerate() {
+    //         assert_eq!(i, writer.ord() as usize);
+    //         writer.add(value)?;
+    //     }
+    //     assert_eq!(value_count as u64, writer.ord());
+    //     writer.finish()?;
+    //     assert_eq!(value_count as u64, writer.ord());
+    //     let fp = out.get_file_pointer();
+    //
+    //     let mut in1 = dir.open_input("out.bin", IOContext::default_io_context()?)?;
+    //     let mut buf = vec![0u8; fp as usize];
+    //     DataInput::read_bytes(&mut in1, &mut buf, 0, fp as u32)?;
+    //     in1.seek(0)?;
+    //     let mut in2 = ByteArrayDataInput::new();
+    //     let mut in_ref: = if random.gen_bool(0.5) { &mut in1 } else { &mut in2 };
+    //     let mut it = BlockPackedReaderIterator::new(in_ref, PackedInts::VERSION_CURRENT, block_size, value_count);
+    //
+    //     let mut i = 0;
+    //     while i < value_count {
+    //         if random.gen_bool(0.5) {
+    //             assert_eq!(values[i], it.next()?);
+    //             i += 1;
+    //         } else {
+    //             let next_values = it.next_batch(random.gen_range(1..=1024))?;
+    //             for j in 0..next_values.len() {
+    //                 assert_eq!(values[i + j], next_values[j]);
+    //             }
+    //             i += next_values.len();
+    //         }
+    //         assert_eq!(i, it.ord());
+    //     }
+    //     assert_eq!(fp, in_ref.get_file_pointer());
+    //
+    //     assert!(it.next().is_err());
+    //
+    //     if let Some(in2) = in_ref.as_any().downcast_ref::<ByteArrayDataInput>() {
+    //         in2.set_position(0);
+    //     } else {
+    //         in1.seek(0)?;
+    //     }
+    //     let mut it2 = BlockPackedReaderIterator::new(in_ref, PackedInts::VERSION_CURRENT, block_size, value_count);
+    //     i = 0;
+    //     loop {
+    //         let skip = random.gen_range(0..=value_count - i);
+    //         it2.skip(skip)?;
+    //         i += skip;
+    //         assert_eq!(i, it2.ord());
+    //         if i == value_count {
+    //             break;
+    //         } else {
+    //             assert_eq!(values[i], it2.next()?);
+    //             i += 1;
+    //         }
+    //     }
+    //     assert_eq!(fp, in_ref.get_file_pointer());
+    //     assert!(it2.skip(1).is_err());
+    //
+    //     in1.close()?;
+    //     dir.close()?;
+    // }
+    Ok(())
 }
