@@ -31,7 +31,10 @@ pub struct DeltaPackedLongValues {
 impl DeltaPackedLongValues {
     const BASE_RAM_BYTES_USED: u64 = 0;
     pub(crate) fn new(mins: Vec<i64>, sub_reader: Option<MonotonicLongValues>) -> Self {
-        Self { sub_long_value: sub_reader, mins }
+        Self {
+            sub_long_value: sub_reader,
+            mins,
+        }
     }
     pub(crate) fn decode_block(
         &mut self,
@@ -96,7 +99,10 @@ impl DeltaPackedLongValuesBuilder {
         let mut mins = self.mins.split_off(packed_long_values_builder.values_off);
         // TODO:
         let ram_bytes_used = 0;
-        Ok(DeltaPackedLongValues::new(std::mem::take(&mut self.mins), sub_reader))
+        Ok(DeltaPackedLongValues::new(
+            std::mem::take(&mut self.mins),
+            sub_reader,
+        ))
     }
     pub(crate) fn pack(
         &mut self,
@@ -105,11 +111,10 @@ impl DeltaPackedLongValuesBuilder {
         block: usize,
     ) -> Result<(), DataIOError> {
         if self.sub_builder.is_some() {
-            self.sub_builder.as_mut().unwrap().pack(
-                values,
-                num_values,
-                block,
-            )?;
+            self.sub_builder
+                .as_mut()
+                .unwrap()
+                .pack(values, num_values, block)?;
         }
         let mut min = values[0];
         for &value in values.iter().take(num_values as usize).skip(1) {
@@ -123,9 +128,11 @@ impl DeltaPackedLongValuesBuilder {
     }
 
     pub(crate) fn grow(&mut self, new_block_count: u32) {
-        if let Some(ref mut builder) = self.sub_builder { builder.grow(new_block_count) }
+        if let Some(ref mut builder) = self.sub_builder {
+            builder.grow(new_block_count)
+        }
         if new_block_count as usize >= self.mins.len() {
-            for _i in 0..new_block_count as usize /2 {
+            for _i in 0..new_block_count as usize / 2 {
                 self.mins.push(0);
             }
         }

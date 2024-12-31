@@ -56,8 +56,8 @@ where
         let mut sub_mutables = Vec::with_capacity(num_pages as usize);
         // We use index-based access to sub_mutables, so we can initialize it as DummyMutable.
         for _ in 0..num_pages as usize {
-           sub_mutables.push(MutableEnum::Dummy(DummyMutable)); 
-        } 
+            sub_mutables.push(MutableEnum::Dummy(DummyMutable));
+        }
         let mut result = AbstractPagedMutable {
             sub_reader,
             size,
@@ -80,7 +80,9 @@ where
             } else {
                 self.page_size()
             };
-            self.sub_mutables[i as usize]= self.sub_reader.new_mutable(value_count, self.bits_per_value)?;
+            self.sub_mutables[i as usize] = self
+                .sub_reader
+                .new_mutable(value_count, self.bits_per_value)?;
         }
         Ok(())
     }

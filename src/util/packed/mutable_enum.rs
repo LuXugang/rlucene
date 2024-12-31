@@ -23,7 +23,7 @@ use std::fmt::Display;
 pub enum MutableEnum {
     Packed(MutablePacked64Enum),
     GrowableW(GrowableWriter),
-    Dummy(DummyMutable)
+    Dummy(DummyMutable),
 }
 impl Display for MutableEnum {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

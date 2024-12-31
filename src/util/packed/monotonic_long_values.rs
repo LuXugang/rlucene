@@ -88,7 +88,7 @@ impl MonotonicLongValuesBuilder {
         // TODO
         let ram_bytes_used = 0;
 
-        Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages) ))
+        Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
     }
     fn base_ram_bytes_used(&self) -> u64 {
         // TODO
@@ -116,7 +116,7 @@ impl MonotonicLongValuesBuilder {
 
     pub(crate) fn grow(&mut self, new_block_count: u32) {
         if new_block_count as usize >= self.averages.len() {
-            for _i in 0..new_block_count as usize /2 {
+            for _i in 0..new_block_count as usize / 2 {
                 self.averages.push(0.0);
             }
         }

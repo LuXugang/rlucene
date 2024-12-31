@@ -23,13 +23,14 @@ use crate::util::packed::delta_packed_long_values::{
 use crate::util::packed::monotonic_long_values::MonotonicLongValuesBuilder;
 use crate::util::packed::read_enum::PackedIntsReadEnum;
 use crate::util::packed::{Mutable, NullReader, PackedInts, Reader};
+use std::cmp::min;
 
 /// Utility class to compress integers into a [`LongValues`] instance.
 pub struct PackedLongValues {
     page_shift: u32,
-    page_mask: u32,
+    pub(crate) page_mask: u32,
     pub(crate) values: Vec<PackedIntsReadEnum>,
-    size: u64,
+    pub(crate) size: u64,
     ram_bytes_used: u64,
     sub_long_values: Option<DeltaPackedLongValues>,
 }
@@ -147,6 +148,9 @@ impl PackedLongValues {
         };
         Ok(self.values[block].get(element)? + value)
     }
+    pub fn iterator(&mut self) -> Result<PackedLongValuesIterator, DataIOError> {
+        PackedLongValuesIterator::new(self)
+    }
 }
 impl Accountable for PackedLongValues {
     fn ram_bytes_used(&self) -> u64 {
@@ -226,11 +230,7 @@ impl PackedLongValuesBuilder {
         let mut values = std::mem::take(&mut self.values);
         let sub_values = values.split_off(self.values_off);
         if self.sub_builder.is_some() {
-            let sub = self
-                .sub_builder
-                .take()
-                .unwrap()
-                .build(&mut self)?;
+            let sub = self.sub_builder.take().unwrap().build(&mut self)?;
             return Ok(PackedLongValues::new(
                 self.page_shift,
                 self.page_mask,
@@ -300,7 +300,7 @@ impl PackedLongValuesBuilder {
             self.values_off,
             self.acceptable_overhead_ratio,
         )?;
-        
+
         // TODO
         self.ram_bytes_used = 0;
         self.values_off += 1;
@@ -353,17 +353,79 @@ impl PackedLongValuesBuilder {
     }
 
     fn grow(&mut self, new_block_count: u32) {
-        if let Some(ref mut sub) = self.sub_builder { sub.grow(new_block_count) }
+        if let Some(ref mut sub) = self.sub_builder {
+            sub.grow(new_block_count)
+        }
         // TODO
         self.ram_bytes_used = 0;
         let current_len = self.values.len();
         if new_block_count < current_len as u32 {
             return;
         }
-        for _i in 0..(new_block_count as usize/2) {
+        for _i in 0..(new_block_count as usize / 2) {
             // PackedIntsReadEnum::NullReader as padding value
             self.values
                 .push(PackedIntsReadEnum::NullReader(NullReader::new(0)));
         }
+    }
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+}
+
+pub struct PackedLongValuesIterator<'a> {
+    packed_long_values: &'a mut PackedLongValues,
+    current_values: Vec<i64>,
+    v_off: usize,
+    p_off: usize,
+    current_count: u32,
+}
+
+impl<'a> PackedLongValuesIterator<'a> {
+    pub fn new(packed_long_values: &'a mut PackedLongValues) -> Result<Self, DataIOError> {
+        let current_values = vec![
+            0;
+            packed_long_values
+                .size
+                .min((packed_long_values.page_mask + 1) as u64)
+                as usize
+        ];
+        let mut iterator = PackedLongValuesIterator {
+            packed_long_values,
+            current_values,
+            v_off: 0,
+            p_off: 0,
+            current_count: 0,
+        };
+        iterator.fill_block()?;
+        Ok(iterator)
+    }
+
+    fn fill_block(&mut self) -> Result<(), DataIOError> {
+        if self.v_off >= self.packed_long_values.values.len() {
+            self.current_count = 0;
+        } else {
+            self.current_count =
+                self.packed_long_values
+                    .decode_block(self.v_off, &mut self.current_values, 0)?;
+            debug_assert!(self.current_count > 0);
+        }
+        Ok(())
+    }
+
+    pub fn has_next(&self) -> bool {
+        self.p_off < self.current_count as usize
+    }
+
+    pub fn next_value(&mut self) -> Result<i64, DataIOError> {
+        debug_assert!(self.has_next(), "No more values available");
+        let result = self.current_values[self.p_off];
+        self.p_off += 1;
+        if self.p_off == self.current_count as usize {
+            self.v_off += 1;
+            self.p_off = 0;
+            self.fill_block()?;
+        }
+        Ok(result)
     }
 }

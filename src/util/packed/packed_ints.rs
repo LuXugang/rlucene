@@ -1048,7 +1048,6 @@ pub trait Writer {
     fn ord(&self) -> i32;
 }
 
-
 #[derive(Debug, Clone)]
 pub struct DummyMutable;
 impl Reader for DummyMutable {}
@@ -1062,4 +1061,4 @@ impl Display for DummyMutable {
         unreachable!("DummyMutable should not be displayed")
     }
 }
-impl Mutable for DummyMutable{}
+impl Mutable for DummyMutable {}

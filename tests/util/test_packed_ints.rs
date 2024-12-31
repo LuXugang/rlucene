@@ -24,17 +24,16 @@ use rlucene::store::{DataOutput, IndexInput, IndexOutput};
 use rlucene::util::long_values::LongValues;
 use rlucene::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use rlucene::util::packed::growable_writer::GrowableWriter;
-use rlucene::util::packed::packed_long_values::{
-    PackedLongValues
-};
+use rlucene::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
 use rlucene::util::packed::paged_growable_writer::PagedGrowableWriter;
+use rlucene::util::packed::paged_mutable::PagedMutable;
 use rlucene::util::packed::Format::{Packed, PackedSingleBlock};
 use rlucene::util::packed::{
     create, is_supported, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl,
     MutablePacked64Enum, NullReader, Packed64, PackedImpl, PackedInts, PackedSingleBlockImpl,
     Reader, ReaderIterator, Writer, MAX_SUPPORTED_BITS_PER_VALUE,
 };
-use rlucene::util::packed::paged_mutable::PagedMutable;
+use std::time::Instant;
 
 #[allow(dead_code)] // for quick search
 struct TestPackedInts;
@@ -840,7 +839,6 @@ fn test_paged_growable_writer() -> Result<(), TestError> {
             }
         }
     }
-    
 
     Ok(())
 }
@@ -852,10 +850,11 @@ fn test_paged_mutable() -> Result<(), TestError> {
     let page_size = 1 << random.gen_range(6..=30);
     let acceptable_overhead_ratio = random.gen::<f32>() / 2.0;
 
-    let mut sub_mutable = PagedMutable::new_with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
+    let mut sub_mutable =
+        PagedMutable::new_with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
     let mut writer = AbstractPagedMutable::new(bits_per_value, 0, page_size, sub_mutable)?;
     assert_eq!(writer.size(), 0);
-    
+
     let mut buf = PackedLongValues::delta_packed_long_values_builder_default(random.gen::<f32>())?;
     let size = if is_night_mode() {
         random.gen_range(0..1_000_000)
@@ -873,9 +872,10 @@ fn test_paged_mutable() -> Result<(), TestError> {
     }
 
     let acceptable_overhead_ratio = random.gen::<f32>();
-    sub_mutable = PagedMutable::new_with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
-    writer = AbstractPagedMutable::new(bits_per_value,size, page_size, sub_mutable)?;
-    
+    sub_mutable =
+        PagedMutable::new_with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
+    writer = AbstractPagedMutable::new(bits_per_value, size, page_size, sub_mutable)?;
+
     assert_eq!(writer.size(), size);
 
     let mut values = buf.build()?;
@@ -908,14 +908,13 @@ fn test_paged_mutable() -> Result<(), TestError> {
         let mut grow = g;
         grow_len = grow.size();
         for i in 0..grow_len {
-            if i < writer.size(){
+            if i < writer.size() {
                 assert_eq!(grow.get(i)?, writer.get(i)?);
             } else {
                 assert_eq!(grow.get(i)?, 0);
             }
         }
     }
-    
 
     Ok(())
 }
@@ -1110,4 +1109,113 @@ fn equals(ints: &[i32], longs: &[i64]) -> bool {
         }
     }
     true
+}
+#[test]
+fn test_packed_long_values_on_zeros() {
+    // TOOD
+}
+enum DataType {
+    PACKED,
+    DELTA_PACKED,
+    MONOTONIC,
+}
+#[test]
+fn test_packed_long_values() -> Result<(), TestError> {
+    let mut random = my_random("test_packed_long_values".to_string());
+
+    let arr_size = if is_night_mode() {
+        random.gen_range(1..=1_000_000)
+    } else {
+        random.gen_range(1..=10_000)
+    };
+    let mut arr = vec![0i64; arr_size];
+
+    let ratio_options = [PackedInts::DEFAULT, PackedInts::COMPACT, PackedInts::FAST];
+
+    for bpv in [0, 1, 63, 64, random.gen_range(2..=62)].iter() {
+        for data_type in [DataType::DELTA_PACKED].iter() {
+            let page_size = 1 << random.gen_range(6..=20);
+            let acceptable_overhead_ratio = ratio_options[random.gen_range(0..ratio_options.len())];
+
+            let mut buf: PackedLongValuesBuilder;
+            let inc: i64;
+
+            match data_type {
+                DataType::PACKED => {
+                    buf = PackedLongValues::packed_long_values_builder(
+                        page_size,
+                        acceptable_overhead_ratio,
+                    )?;
+                    inc = 0;
+                }
+                DataType::DELTA_PACKED => {
+                    buf = PackedLongValues::delta_packed_long_values_builder(
+                        page_size,
+                        acceptable_overhead_ratio,
+                    )?;
+                    inc = 0;
+                }
+                DataType::MONOTONIC => {
+                    buf = PackedLongValues::monotonic_long_values_builder(
+                        page_size,
+                        acceptable_overhead_ratio,
+                    )?;
+                    inc = random.gen_range(-1000..=1000);
+                }
+            }
+
+            if *bpv == 0 {
+                arr[0] = random.gen::<i64>();
+                for i in 1..arr.len() {
+                    arr[i] = arr[i - 1] + inc;
+                }
+            } else if *bpv == 64 {
+                for i in 0..arr.len() {
+                    arr[i] = random.gen::<i64>();
+                }
+            } else {
+                let min_value = random.gen_range(i64::MIN..=i64::MAX - PackedInts::max_value(*bpv));
+                for i in 0..arr.len() {
+                    arr[i] = min_value
+                        + inc * i as i64
+                        + (random.gen::<i64>() & PackedInts::max_value(*bpv));
+                }
+            }
+
+            for &value in &arr {
+                buf.add(value)?;
+                if rarely(&mut random) && !is_night_mode() {
+                    // TODO
+                    // let expected_bytes_used = ram_usage_tester_ram_used(&buf)?;
+                    // let computed_bytes_used = buf.ram_bytes_used();
+                    // assert_eq!(expected_bytes_used, computed_bytes_used);
+                }
+            }
+
+            assert_eq!(arr.len(), buf.size() as usize);
+
+            let mut values = buf.build()?;
+            assert_eq!(arr.len(), values.size() as usize);
+
+            for (i, &value) in arr.iter().enumerate() {
+                assert_eq!(value, values.get(i as u64)?);
+            }
+
+            let mut it = values.iterator()?;
+            for (_, &value) in arr.iter().enumerate() {
+                if random.gen_bool(0.5) {
+                    assert!(it.has_next());
+                }
+                assert_eq!(value, it.next_value()?);
+            }
+            assert!(!it.has_next());
+
+            // TODO
+            // let expected_bytes_used = ram_usage_tester_ram_used(&values)?;
+            // let computed_bytes_used = values.ram_bytes_used();
+            // assert_eq!(expected_bytes_used, computed_bytes_used);
+        }
+    }
+
+    Ok(())
 }
