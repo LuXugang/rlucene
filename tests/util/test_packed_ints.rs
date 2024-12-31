@@ -1398,3 +1398,52 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
     }
     Ok(())
 }
+#[cfg(feature = "nightly")]
+#[test]
+fn test_block_reader_overflow() -> Result<(), TestError> {
+    let mut random = my_random("test_block_reader_overflow".to_string());
+    let value_count = random.gen_range(
+        1 + i64::from(i32::MAX)..i64::from(i32::MAX) * 2,
+    );
+    let block_size = 1 << random.gen_range(20..=22) ;
+    let mut dir = new_directory(&mut random)?;
+    let value_offset = random.gen_range(0..=value_count - 1);
+    let value = random.gen::<i64>() & 0xFFFFFFFF;
+    {
+        let mut out = dir.create_output("out.bin", IOContext::default_io_context()?)?;
+        let mut writer =
+            AbstractBlockPackedWriter::new(block_size as u32, BlockPackedWriter, &mut out)?;
+
+        let mut i = 0;
+        while i < value_count {
+            assert_eq!(i as u64, writer.ord());
+            if (i & (block_size - 1)) == 0
+                && (i + block_size < value_offset || (i > value_offset && i + block_size < value_count))
+            {
+                writer.add_block_of_zeros()?;
+                i += block_size ;
+            } else if i == value_offset {
+                writer.add(value)?;
+                i += 1;
+            } else {
+                writer.add(0)?;
+                i += 1;
+            }
+        } 
+    }
+    
+
+    let mut input = dir.open_input("out.bin", IOContext::default_io_context()?)?;
+    debug_assert!(block_size <= u32::MAX as i64);
+    let mut reader = BlockPackedReaderIterator::new(
+        &mut input,
+        PackedInts::VERSION_CURRENT,
+        block_size as u32,
+        value_count as u64,
+    )?;
+
+    reader.skip(value_offset as u64)?;
+    assert_eq!(value, reader.next_value()?);
+
+    Ok(())
+}
