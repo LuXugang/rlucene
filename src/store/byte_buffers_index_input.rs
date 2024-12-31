@@ -112,6 +112,20 @@ impl DataInput for ByteBuffersIndexInput<'_> {
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
         DataInput::skip_bytes(&mut self.data_input, num_bytes)
     }
+
+    fn is_index_input(&self) -> bool {
+        true
+    }
+
+    fn seek_in_data_input(&mut self, pos: u64) -> Result<(), DataIOError> {
+        debug_assert!(self.is_index_input());
+        IndexInput::seek(self, pos)
+    }
+
+    fn get_file_pointer_in_data_input(&self) -> u64 {
+        debug_assert!(self.is_index_input());
+        IndexInput::get_file_pointer(self)
+    }
 }
 impl RandomAccessInput for ByteBuffersIndexInput<'_> {
     fn length(&self) -> u64 {

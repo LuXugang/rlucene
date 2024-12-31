@@ -33,6 +33,10 @@ impl DataInput for DummyIndexInput {
     fn skip_bytes(&mut self, _num_bytes: u64) -> Result<(), DataIOError> {
         unreachable!("DummyIndexInput")
     }
+
+    fn is_index_input(&self) -> bool {
+        unreachable!("DummyIndexInput")
+    }
 }
 
 impl Display for DummyIndexInput {

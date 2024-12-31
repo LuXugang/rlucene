@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::IndexInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::group_vint_util::GroupVIntUtil;
@@ -302,4 +303,20 @@ pub trait DataInput: Sized + Display {
     /// Skips over `num_bytes` bytes. This method may skip bytes in whatever way is most optimal,
     /// and may not behave the same as reading the skipped bytes.
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError>;
+
+    /// To determine at compile time whether the current struct implements the IndexInput trait.
+    /// In Java Lucene, could cast to IndexInput, though this is  possible in Rust but need dyn.
+    /// we do not accept any dyn things
+    //TODO: is there a better way to do this?
+    fn is_index_input(&self) -> bool {
+        false
+    }
+    fn seek_in_data_input(&mut self, _pos: u64) -> Result<(), DataIOError> {
+        debug_assert!(self.is_index_input());
+        unimplemented!("Seek is not implemented for this DataInput")
+    }
+    fn get_file_pointer_in_data_input(&self) -> u64 {
+        debug_assert!(self.is_index_input());
+        unimplemented!("get_file_pointer is not implemented for this DataInput")
+    }
 }
