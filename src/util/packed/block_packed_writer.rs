@@ -92,8 +92,8 @@ impl AbstractBlockPackedWriterBase for BlockPackedWriter {
 
         if bits_required > 0 {
             if min_adjusted != 0 {
-                for i in 0..*off {
-                    values[i] -= min_adjusted;
+                for value in values.iter_mut().take(*off) {
+                    *value -= min_adjusted;
                 }
             }
             write_values(bits_required, out, blocks, values, *off)?;

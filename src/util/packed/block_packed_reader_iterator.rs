@@ -140,7 +140,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
             }
 
             let block_bytes = Format::Packed(PackedImpl::new(0)).byte_count(
-                self.packed_ints_version as u32,
+                self.packed_ints_version,
                 self.block_size,
                 bits_per_value,
             );
@@ -192,7 +192,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// - If the current block is exhausted (`off == block_size`), it will refill the block.
     /// - Increments the `ord` to track the current position in the stream.
     /// - Returns the next value from the `values` buffer.
-    pub fn next(&mut self) -> Result<i64, DataIOError> {
+    pub fn next_value(&mut self) -> Result<i64, DataIOError> {
         if self.ord == self.value_count {
             return Err(DataIOError::eof("Reached end of value stream"));
         }
@@ -261,7 +261,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         } else {
             let decoder = PackedInts::get_decoder(
                 Format::Packed(PackedImpl::new(0)),
-                self.packed_ints_version as u32,
+                self.packed_ints_version,
                 bits_per_value,
             )?;
 

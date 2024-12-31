@@ -163,8 +163,8 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
             *blocks = vec![0u8; block_size];
         }
         if off < values.len() {
-            for i in off..values.len() {
-                values[i] = 0;
+            for value in values.iter_mut().skip(off) {
+                *value = 0;
             }
         }
         debug_assert!(iterations <= u32::MAX as usize);
@@ -207,8 +207,8 @@ pub(crate) fn write_values<O: DataOutput>(
         *blocks = vec![0u8; block_size];
     }
     if off < values.len() {
-        for i in off..values.len() {
-            values[i] = 0;
+        for value in values.iter_mut().skip(off) {
+            *value = 0;
         }
     }
     debug_assert!(iterations <= u32::MAX as usize);
@@ -235,9 +235,9 @@ pub(crate) fn write_vlong<T: DataOutput>(out: &mut T, mut i: i64) -> Result<(), 
     Ok(())
 }
 pub trait AbstractBlockPackedWriterBase {
-    fn flush<'a, T: DataOutput>(
+    fn flush<T: DataOutput>(
         &mut self,
-        out: &'a mut T,
+        out: &mut T,
         off: &mut usize,
         values: &mut [i64],
         blocks: &mut Vec<u8>,

@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 use crate::common::{is_night_mode, my_random, rarely};
-use crate::util::lucene_test_case::{new_directory, new_io_context, new_io_context_with_default};
+use crate::util::lucene_test_case::{new_directory, new_io_context};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rlucene::store::directory::Directory;
-use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{
-    ByteArrayDataInput, DataInput, DataInputType, DataOutput, IOContext, IndexInput, IndexOutput,
+    ByteArrayDataInput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
 };
 use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::long_values::LongValues;
@@ -1299,7 +1298,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
             let mut i = 0;
             while i < value_count {
                 if random.gen_bool(0.5) {
-                    assert_eq!(values[i as usize], it.next()?);
+                    assert_eq!(values[i as usize], it.next_value()?);
                     i += 1;
                 } else {
                     let next_values = it.next_batch(random.gen_range(1..=1024))?;
@@ -1314,7 +1313,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 }
                 assert_eq!(i as u64, it.ord());
             }
-            let result = it.next();
+            let result = it.next_value();
             matches!(result, Err(DataIOError::Eof(_)));
             assert_eq!(fp, in_ref.get_file_pointer());
             in_ref.seek(0)?;
@@ -1333,7 +1332,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 if i == value_count {
                     break;
                 } else {
-                    assert_eq!(values[i as usize], it2.next()?);
+                    assert_eq!(values[i as usize], it2.next_value()?);
                     i += 1;
                 }
             }
@@ -1354,7 +1353,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
             let mut i = 0;
             while i < value_count {
                 if random.gen_bool(0.5) {
-                    assert_eq!(values[i as usize], it.next()?);
+                    assert_eq!(values[i as usize], it.next_value()?);
                     i += 1;
                 } else {
                     let next_values = it.next_batch(random.gen_range(1..=1024))?;
@@ -1369,7 +1368,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 }
                 assert_eq!(i as u64, it.ord());
             }
-            let result = it.next();
+            let result = it.next_value();
             matches!(result, Err(DataIOError::Eof(_)));
             assert_eq!(fp, in_ref.get_position() as u64);
 
@@ -1389,7 +1388,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 if i == value_count {
                     break;
                 } else {
-                    assert_eq!(values[i as usize], it2.next()?);
+                    assert_eq!(values[i as usize], it2.next_value()?);
                     i += 1;
                 }
             }
