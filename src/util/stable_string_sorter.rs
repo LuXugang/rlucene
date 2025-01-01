@@ -94,7 +94,7 @@ where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.delegate_sorter.swap(i, j)
     }
 }
@@ -163,7 +163,7 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.delegate_sorter.swap(i, j)
     }
 }

@@ -128,8 +128,9 @@ impl<'a> Sorter for IntroSorterImpl<'a> {
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         // let tmp_ord = self.ords.get(i)?
+        Ok(())
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {

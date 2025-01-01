@@ -183,7 +183,7 @@ where
         self.delegate_sorter.compare(i, j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.delegate_sorter.swap(i, j)
     }
 
@@ -242,8 +242,8 @@ where
         }
         Ok(0)
     }
-    fn swap(&mut self, i: i32, j: i32) {
-        self.delegate_sorter.swap(i, j);
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+        self.delegate_sorter.swap(i, j)
     }
 }
 

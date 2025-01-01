@@ -53,7 +53,7 @@ where
             .compare(&self.arr[i as usize], &self.arr[j as usize]))
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         // The data pointed to by the pivot has been swapped.
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
@@ -61,6 +61,7 @@ where
             self.pivot = i;
         }
         self.arr.swap(i as usize, j as usize);
+        Ok(())
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {

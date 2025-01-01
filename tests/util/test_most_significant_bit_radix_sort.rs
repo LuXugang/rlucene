@@ -233,7 +233,8 @@ impl MSBRadixSorterBase for MSBRadixSorterImpl {
     }
 }
 impl Sorter for MSBRadixSorterImpl {
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.refs.swap(i as usize, j as usize);
+        Ok(())
     }
 }

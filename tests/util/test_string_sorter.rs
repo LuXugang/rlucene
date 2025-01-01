@@ -187,8 +187,9 @@ impl StringSorterTestImpl {
     }
 }
 impl Sorter for StringSorterTestImpl {
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.refs.swap(i as usize, j as usize);
+        Ok(())
     }
 }
 impl StringSorterBase for StringSorterTestImpl {
@@ -237,8 +238,9 @@ impl StableStringSorterBase for StableStringSorterTestImpl<'_> {
     }
 }
 impl Sorter for StableStringSorterTestImpl<'_> {
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.ord.swap(i as usize, j as usize);
+        Ok(())
     }
 }
 impl MSBRadixSorterBase for StableStringSorterTestImpl<'_> {}

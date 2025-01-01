@@ -362,8 +362,8 @@ where
         self.delegate_sorter.compare(i, j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
-        self.delegate_sorter.swap(i, j);
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+        self.delegate_sorter.swap(i, j)
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {

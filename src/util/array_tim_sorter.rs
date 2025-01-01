@@ -63,8 +63,9 @@ where
             .compare(&self.arr[i as usize], &self.arr[j as usize]))
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.arr.swap(i as usize, j as usize);
+        Ok(())
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {

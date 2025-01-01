@@ -320,8 +320,9 @@ struct StableStringSorterImpl<'a> {
     bytes_ref_array: &'a mut BytesRefArray,
 }
 impl Sorter for StableStringSorterImpl<'_> {
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.ordered_entries.swap(i as usize, j as usize);
+        Ok(())
     }
 }
 
@@ -353,8 +354,9 @@ struct StringSorterImpl<'a> {
     bytes_ref_array: &'a mut BytesRefArray,
 }
 impl Sorter for StringSorterImpl<'_> {
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.ordered_entries.swap(i as usize, j as usize);
+        Ok(())
     }
 }
 impl StringSorterBase for StringSorterImpl<'_> {

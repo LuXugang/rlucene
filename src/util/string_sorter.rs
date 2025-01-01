@@ -73,8 +73,8 @@ where
         Ok(self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2))
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
-        self.delegate_sorter.swap(i, j);
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+        self.delegate_sorter.swap(i, j)
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
@@ -122,8 +122,8 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn swap(&mut self, i: i32, j: i32) {
-        self.delegate_sorter.swap(i, j);
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+        self.delegate_sorter.swap(i, j)
     }
 }
 
@@ -203,8 +203,8 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
-        self.delegate_sorter.swap(i, j);
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+        self.delegate_sorter.swap(i, j)
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {

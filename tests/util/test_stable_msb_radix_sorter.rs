@@ -219,8 +219,9 @@ impl<'a> StableMSBRadixSorterTestImpl<'a> {
 }
 
 impl Sorter for StableMSBRadixSorterTestImpl<'_> {
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
         self.refs.swap(i as usize, j as usize);
+        Ok(())
     }
 }
 

@@ -304,8 +304,8 @@ impl<T> Sorter for MSBRadixSorter<T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    fn swap(&mut self, i: i32, j: i32) {
-        self.delegate_sorter.swap(i, j);
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+        self.delegate_sorter.swap(i, j)
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
@@ -350,8 +350,8 @@ where
         Ok(0)
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
-        self.delegate_sorter.swap(i, j);
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+        self.delegate_sorter.swap(i, j)
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {

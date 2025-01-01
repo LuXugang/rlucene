@@ -39,7 +39,7 @@ pub trait Sorter {
     }
 
     /// Swap values at slots <code>i</code> and `j`.
-    fn swap(&mut self, _i: i32, _j: i32) {
+    fn swap(&mut self, _i: i32, _j: i32) -> Result<(), RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
