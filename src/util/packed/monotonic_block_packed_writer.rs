@@ -43,7 +43,7 @@ use crate::util::packed::PackedInts;
 ///   values (computed from the function) using exactly `BitsPerValue` bits per value.
 ///
 /// # See Also
-/// - [`MonotonicBlockPackedReader`]
+/// - [`MonotonicBlockPackedReader`](crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader)
 ///
 /// # Notes
 /// This is an internal implementation detail of the Lucene-like system.

@@ -39,21 +39,21 @@ const MIN_PAGE_SIZE: u32 = 64;
 const MAX_PAGE_SIZE: u32 = 1 << 20;
 pub const DEFAULT_PAGE_SIZE: u32 = 256;
 impl PackedLongValues {
-    /// Return a new [`PackedLongValuesBuilder`](PackedLongValuesBuilder) that will compress efficiently positive integers.
+    /// Return a new [`PackedLongValuesBuilder`] that will compress efficiently positive integers.
     pub fn packed_long_values_builder(
         page_size: u32,
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, DataIOError> {
         PackedLongValuesBuilder::new(page_size, acceptable_overhead_ratio)
     }
-    /// See [`PackedLongValuesBuilder`](PackedLongValuesBuilder).
+    /// See [`PackedLongValuesBuilder`].
     pub fn packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, DataIOError> {
         Self::packed_long_values_builder(DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
-    /// Return a new [`DeltaPackedLongValuesBuilder`](DeltaPackedLongValuesBuilder) that will compress efficiently integers that are close to each other.
+    /// Return a new [`DeltaPackedLongValuesBuilder`] that will compress efficiently integers that are close to each other.
     pub fn delta_packed_long_values_builder(
         page_size: u32,
         acceptable_overhead_ratio: f32,
@@ -66,14 +66,14 @@ impl PackedLongValues {
         )
     }
 
-    /// See [`delta_packed_long_values_builder`].
+    /// See [`delta_packed_long_values_builder`](DeltaPackedLongValuesBuilder).
     pub fn delta_packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, DataIOError> {
         Self::delta_packed_long_values_builder(DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
-    /// Return a new [`MonotonicLongValuesBuilder`](MonotonicLongValuesBuilder) that will compress efficiently integers that would be a monotonic function of their index.
+    /// Return a new [`MonotonicLongValuesBuilder`] that will compress efficiently integers that would be a monotonic function of their index.
     pub fn monotonic_long_values_builder(
         page_size: u32,
         acceptable_overhead_ratio: f32,
@@ -88,7 +88,7 @@ impl PackedLongValues {
         )
     }
 
-    /// See [`monotonic_long_values_builder`].
+    /// See [`monotonic_long_values_builder`](MonotonicLongValuesBuilder).
     pub fn monotonic_long_values_builder_default(
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, DataIOError> {

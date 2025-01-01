@@ -158,7 +158,7 @@ impl PackedInts {
         )
     }
 
-    /// Same as [`get_mutable`](get_mutable) with a pre-computed number of bits per value and format.
+    /// Same as [`get_mutable`](PackedInts::get_mutable) with a pre-computed number of bits per value and format.
     pub fn get_mutable_impl(
         value_count: u32,
         bits_per_value: u32,
@@ -182,7 +182,7 @@ impl PackedInts {
     /// This method does not write any metadata to the stream, meaning that it is your responsibility
     /// to store it somewhere else in order to be able to recover data from the stream later on:
     ///
-    /// - `format` (using [`Format::get_id`])
+    /// - `format` (using [`Format::get_id`](crate::util::packed::FormatBehavior::get_id))
     /// - `value_count`
     /// - `bits_per_value`
     /// - [`PackedInts::VERSION_CURRENT`].

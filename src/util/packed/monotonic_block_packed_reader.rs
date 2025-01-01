@@ -51,7 +51,7 @@ impl MonotonicBlockPackedReader {
         value_count: u64,
     ) -> Result<Self, DataIOError> {
         Self::new(input, packed_ints_version, block_size, value_count)
-    } 
+    }
     fn new<I: IndexInput>(
         input: &mut I,
         packed_ints_version: u32,
@@ -64,7 +64,7 @@ impl MonotonicBlockPackedReader {
         let mut min_values = vec![0; num_blocks as usize];
         let mut averages = vec![0.0; num_blocks as usize];
         let mut sub_readers = vec![LongValuesEnum::ZeroesLongValues(Zeroes); num_blocks as usize];
-        let mut sum_bpv:u64 = 0;
+        let mut sum_bpv: u64 = 0;
         let mut total_byte_count = 0;
         for i in 0..num_blocks as usize {
             min_values[i] = input.read_zlong()?;
