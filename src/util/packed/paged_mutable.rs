@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
 use crate::util::packed::mutable_enum::MutableEnum;
 use crate::util::packed::{fastest_format_and_bits, Format, FormatAndBits, PackedInts};

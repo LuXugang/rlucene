@@ -21,7 +21,7 @@ use crate::store::index_input::IndexInput;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexOutput};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::collections::HashSet;
 use std::fmt::Display;
 

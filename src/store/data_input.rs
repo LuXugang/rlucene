@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;

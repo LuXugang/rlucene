@@ -18,7 +18,7 @@ use crate::store::data_input::DataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 // the maximum length of a single group-varint is 4 integers + 1 byte flag.
 pub const MAX_LENGTH_PER_GROUP: usize = 17;

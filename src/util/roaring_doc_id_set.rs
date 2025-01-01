@@ -21,7 +21,7 @@ use crate::util::bit_doc_id_set::BitDocIdSet;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 use std::cmp::min;

@@ -16,7 +16,7 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, ReadAdvice};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 /// Provides random-access input operations for files within a [`Directory`](crate::store::directory::Directory).
 ///

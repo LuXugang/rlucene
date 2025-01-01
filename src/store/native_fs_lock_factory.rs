@@ -17,7 +17,7 @@
 use crate::store::fs_lock_factory::FSLockFactory;
 use crate::store::lock::{FSLockEnum, Lock};
 use crate::store::lock_factory::LockFactory;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use chrono::{DateTime, Utc};
 use fs2::FileExt;
 use std::collections::HashSet;

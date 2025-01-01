@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 pub trait BytesRefIterator {
     /// Increments the iteration to the next [`BytesRef`] in the iterator.

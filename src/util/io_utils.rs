@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;

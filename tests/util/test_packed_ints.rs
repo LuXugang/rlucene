@@ -23,7 +23,7 @@ use rlucene::store::directory::Directory;
 use rlucene::store::{
     ByteArrayDataInput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
 };
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::long_values::LongValues;
 use rlucene::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
 use rlucene::util::packed::abstract_paged_mutable::AbstractPagedMutable;

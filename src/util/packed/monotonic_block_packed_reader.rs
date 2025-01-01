@@ -16,7 +16,7 @@
  */
 use crate::store::IndexInput;
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};

@@ -16,7 +16,7 @@
  */
 use crate::index::BytesRef;
 
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::{BytesRefComparator, Comparator};
 
 pub trait SortableBytesRefArray<'a> {

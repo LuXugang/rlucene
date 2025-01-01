@@ -18,7 +18,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::index_output::IndexOutput;
 use rlucene::store::output_stream_index_output::OutputStreamIndexOutput;
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use std::io::Cursor;
 
 #[allow(dead_code)] // for quick search

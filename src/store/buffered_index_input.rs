@@ -18,7 +18,7 @@ use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, VecCopyOps};
 use byteorder::{ByteOrder, LE};

@@ -19,7 +19,7 @@ use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::accountable::Accountable;
 use crate::util::bits::MatchNoBits;
 
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::cmp::min;
 use std::sync::Arc;
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::packed::packed64::Packed64;
 use crate::util::packed::packed64_single_block::{
     Packed64SingleBlock, Packed64SingleBlock1, Packed64SingleBlock10, Packed64SingleBlock12,

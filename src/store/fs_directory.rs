@@ -23,7 +23,7 @@ use crate::store::{
     BufferedIndexInput, BufferedIndexInputBase, IOContext, IndexOutput, NativeFSLockFactory,
     OutputStreamIndexOutput,
 };
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};

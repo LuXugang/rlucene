@@ -19,7 +19,7 @@ use crate::store::dummy_index_input::DummyIndexInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedChecksum, Checksum, DataInput, HasherChecksum};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
 

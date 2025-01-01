@@ -20,7 +20,7 @@ use rand::Rng;
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::{align_offset, IndexOutput, OutputStreamIndexOutput};
 use rlucene::util::bit_util::BitUtil;
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 
 #[allow(dead_code)]
 struct TestIndexOutputAlignment;

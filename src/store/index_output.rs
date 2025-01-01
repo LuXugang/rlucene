@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::data_output::DataOutput;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::fmt::Display;
 
 /// A `DataOutput` for appending data to a file in a `Directory`.

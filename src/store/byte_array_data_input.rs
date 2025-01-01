@@ -16,7 +16,7 @@
  */
 use crate::store::data_input::DataInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::any::type_name;
 use std::fmt::{Display, Formatter};
 

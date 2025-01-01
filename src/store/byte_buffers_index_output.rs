@@ -16,7 +16,7 @@
  */
 use crate::store::data_output::DataOutput;
 use crate::store::{ByteBuffersDataOutput, DataInput, IndexOutput};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crc32fast::Hasher;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};

@@ -19,7 +19,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
     AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,

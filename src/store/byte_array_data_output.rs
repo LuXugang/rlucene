@@ -17,7 +17,7 @@
 
 use crate::store::data_output::DataOutput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 /// `DataOutput` backed by a byte array.
 ///
 /// # Warning

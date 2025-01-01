@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::mutable_enum::MutableEnum;
 use crate::util::packed::{DummyMutable, Mutable, PackedInts, Reader};

@@ -16,7 +16,6 @@
  */
 pub mod array_index_out_of_bounds;
 pub mod corrupt_index;
-pub mod data_io_error_enum;
 pub mod eof;
 pub mod illegal_argument;
 pub mod illegal_state;
@@ -27,4 +26,5 @@ mod lock_already_held;
 mod lock_held_by_other;
 mod not_found;
 pub mod parse;
+pub mod runtime_error;
 mod unsupported_operation;

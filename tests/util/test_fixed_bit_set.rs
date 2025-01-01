@@ -27,7 +27,7 @@ use rlucene::util::bit_set_iterator::BitSetIterator;
 use rlucene::util::bits::Bits;
 use rlucene::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
 
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::fixed_bit_set::FixedBitSet;
 use rlucene::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
 use rlucene::util::sparse_fixed_bit_set::SparseFixedBitSet;

@@ -16,7 +16,7 @@
  */
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::of;

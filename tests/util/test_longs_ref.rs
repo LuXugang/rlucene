@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::test_error::TestError;
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::longs_ref::LongsRef;
 
 #[allow(dead_code)] // for quick search

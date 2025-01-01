@@ -22,7 +22,7 @@ use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
 
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
 use rlucene::util::{
     Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,

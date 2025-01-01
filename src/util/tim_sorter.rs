@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::{sorter, Sorter};
 use std::cmp::{max, min};
 

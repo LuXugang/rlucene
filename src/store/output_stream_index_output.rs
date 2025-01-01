@@ -17,7 +17,7 @@
 use crate::store::data_output::DataOutput;
 use crate::store::index_output::IndexOutput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher;

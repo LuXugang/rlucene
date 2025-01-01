@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::comparator::Comparator;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::sorter::Sorter;
 

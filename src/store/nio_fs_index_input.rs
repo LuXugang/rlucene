@@ -17,7 +17,7 @@
 use crate::store::index_input::{get_full_slice_description, IndexInput};
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInput, BufferedIndexInputBase, BUFFER_SIZE};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
 use std::fs::File;

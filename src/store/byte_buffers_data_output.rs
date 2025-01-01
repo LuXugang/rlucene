@@ -18,7 +18,7 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 use crate::util::{ReadableCursorExt, WritableCursorExt};
 use byteorder::WriteBytesExt;

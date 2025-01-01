@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::iter::repeat_with;
 use std::mem;
 
@@ -197,11 +197,11 @@ where
     }
 
     /// Returns the least element of the PriorityQueue in constant time.
-    pub fn top(&self) -> &T {
+    pub fn top(&mut self) -> &mut T {
         // We don't need to check size here: if maxSize is 0,
         // then heap is length 2 array with both entries null.
         // If size is 0 then heap[1] is already null.
-        &self.heap[1]
+        &mut self.heap[1]
     }
 
     /// Removes and returns the least element of the PriorityQueue in log(size) time.

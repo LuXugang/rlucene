@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::index_input::IndexInput;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 const SKIP_BUFFER_SIZE: u32 = 1024;
 /// An extension of [`IndexInput`] that computes a checksum as it reads data.

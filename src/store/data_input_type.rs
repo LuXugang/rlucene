@@ -16,7 +16,7 @@
  */
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::{ByteArrayDataInput, DataInput};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::fmt::{Display, Formatter};
 
 pub enum DataInputType<'a> {

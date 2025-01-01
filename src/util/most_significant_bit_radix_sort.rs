@@ -16,7 +16,7 @@
  */
 use crate::index::BytesRefBuilder;
 
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{check_range, Sorter};
 use std::cmp::min;

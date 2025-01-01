@@ -17,7 +17,7 @@
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::bit_set::BitSet;
 
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::any::TypeId;

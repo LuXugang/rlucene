@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::delta_packed_long_values::{
     DeltaPackedLongValues, DeltaPackedLongValuesBuilder,

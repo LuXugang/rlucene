@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 /// This abstract class defines methods to iterate over a set of non-decreasing document IDs.
 /// Note that this class assumes it iterates on document IDs, and therefore [`NO_MORE_DOCS`]
@@ -65,7 +65,9 @@ pub trait DocIdSetIterator {
     /// This method may be called with [`NO_MORE_DOCS`] for efficiency
     /// by some Scorers. If your implementation cannot efficiently determine that it should exhaust, it
     /// is recommended to check for this value in each call to this method.
-    fn advance(&mut self, target: i32) -> i32;
+    fn advance(&mut self, target: i32) -> i32 {
+        unimplemented!("advance is not implemented for this DocIdSetIterator")
+    }
     /// A slow (linear) implementation of [`advance`](DocIdSetIterator::advance) that relies on
     /// [`next_doc`](DocIdSetIterator::next_doc) to move beyond the target position.
     fn slow_advance(&mut self, target: i32) -> i32 {
@@ -82,7 +84,9 @@ pub trait DocIdSetIterator {
     /// Returns the estimated cost of this [`DocIdSetIterator`].
     /// This is generally an upper bound on the number of documents this iterator might match, but
     /// it may also be a rough heuristic, a hardcoded value, or otherwise completely inaccurate.
-    fn cost(&self) -> i64;
+    fn cost(&self) -> i64 {
+        unimplemented!("cost is not implemented for this DocIdSetIterator")
+    }
 }
 
 ///An empty [`DocIdSetIterator`]

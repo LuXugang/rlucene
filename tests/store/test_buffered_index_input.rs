@@ -23,7 +23,7 @@ use rlucene::store::index_input::IndexInput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput, BUFFER_SIZE};
 use rlucene::util::bit_util::BitUtil;
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::ReadableCursorExt;
 use std::io::Cursor;
 

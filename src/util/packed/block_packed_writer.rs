@@ -16,7 +16,7 @@
  */
 use crate::store::DataOutput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::packed::abstract_block_packed_writer::{
     write_values, write_vlong, AbstractBlockPackedWriterBase, BPV_SHIFT, MIN_VALUE_EQUALS_0,
 };

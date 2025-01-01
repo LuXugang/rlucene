@@ -16,7 +16,7 @@
  */
 use crate::store::simple_fs_lock::SimpleFSLock;
 use crate::store::NativeFSLock;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::fmt::{Display, Formatter};
 
 /// An interprocess mutex lock.

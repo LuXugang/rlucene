@@ -16,7 +16,7 @@
  */
 use crate::store::DataInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::abstract_block_packed_writer::{
     BPV_SHIFT, MAX_BLOCK_SIZE, MIN_BLOCK_SIZE, MIN_VALUE_EQUALS_0,

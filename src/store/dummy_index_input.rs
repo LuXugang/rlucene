@@ -16,7 +16,7 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::fmt::{Display, Formatter};
 
 pub struct DummyIndexInput;

@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 use rlucene::util::error::corrupt_index::CorruptIndexError;
-use rlucene::util::error::data_io_error_enum::RuntimeError;
 use rlucene::util::error::eof::Eof;
 use rlucene::util::error::illegal_argument::IllegalArgumentError;
 use rlucene::util::error::illegal_state::IllegalStateError;
 use rlucene::util::error::index_format_too_new::IndexFormatTooNewError;
 use rlucene::util::error::integer_overflow::IntegerOverflow;
+use rlucene::util::error::runtime_error::RuntimeError;
 
 use rlucene::util::version::VersionError;
 use std::io::Error;

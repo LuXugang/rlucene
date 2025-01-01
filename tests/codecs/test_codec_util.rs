@@ -26,7 +26,7 @@ use rlucene::store::index_input::IndexInput;
 use rlucene::store::{
     ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput, IndexOutput,
 };
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::random_id;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::AtomicI64;

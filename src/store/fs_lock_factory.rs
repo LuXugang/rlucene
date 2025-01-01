@@ -17,7 +17,7 @@
 use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
 use crate::store::NativeFSLockFactory;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use std::path::Path;
 
 /// Base class for file system based locking implementation. This class is explicitly checking that

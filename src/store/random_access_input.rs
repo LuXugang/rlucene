@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 /// Random Access Index API. Unlike [`IndexInput`](crate::store::IndexInput), this has no concept of file position; all
 /// reads are absolute. However, like `IndexInput`, it is only intended for use by a single thread.

@@ -17,7 +17,7 @@
 use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 
 /// `IOContext` holds additional details on the merge/search context. An `IOContext` object can never be
 /// passed as a `None` parameter to either [`Directory::open_input`](crate::store::directory::Directory::open_input)

@@ -20,7 +20,7 @@ use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::data_output::DataOutput;
 use crate::store::index_input::IndexInput;
 use crate::store::{DataInput, IndexOutput};
-use crate::util::error::data_io_error_enum::RuntimeError;
+use crate::util::error::runtime_error::RuntimeError;
 use crate::util::version::MIN_SUPPORTED_MAJOR;
 use crate::util::{id_to_string, ID_LENGTH};
 use std::cmp::Ordering;

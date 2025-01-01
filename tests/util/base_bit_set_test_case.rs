@@ -24,7 +24,7 @@ use rlucene::util::accountable::Accountable;
 use rlucene::util::bit_set::BitSet;
 use rlucene::util::bits::Bits;
 
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::collections::HashSet;
 

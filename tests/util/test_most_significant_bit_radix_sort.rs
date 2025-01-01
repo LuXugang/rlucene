@@ -21,7 +21,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 
-use rlucene::util::error::data_io_error_enum::RuntimeError;
+use rlucene::util::error::runtime_error::RuntimeError;
 use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
 use std::collections::{BTreeSet, HashSet};
 
