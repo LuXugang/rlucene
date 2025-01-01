@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::lock::FSLockEnum;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use std::fmt::Display;
 use std::path::Path;
 
@@ -40,5 +40,5 @@ pub trait LockFactory: Display {
     /// - Returns a `LockObtainFailedException` (optional specific exception) if the lock could not be
     ///   obtained because it is currently held elsewhere.
     /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain the lock.
-    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, RuntimeError>;
+    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, LuceneError>;
 }

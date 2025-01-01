@@ -16,7 +16,7 @@
  */
 use crate::store::data_output::DataOutput;
 use crate::store::{ByteBuffersDataOutput, DataInput, IndexOutput};
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crc32fast::Hasher;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -59,11 +59,11 @@ impl<'a> ByteBuffersIndexOutput<'a> {
 }
 
 impl DataOutput for ByteBuffersIndexOutput<'_> {
-    fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError> {
+    fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
         self.delegate.write_byte(b)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), RuntimeError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), LuceneError> {
         self.delegate.write_bytes_with_len(b, len)
     }
 
@@ -72,23 +72,23 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         b: &[u8],
         offset: u32,
         length: u32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         self.delegate.write_bytes_range(b, offset, length)
     }
 
-    fn write_int(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn write_int(&mut self, i: i32) -> Result<(), LuceneError> {
         self.delegate.write_int(i)
     }
 
-    fn write_short(&mut self, i: i16) -> Result<(), RuntimeError> {
+    fn write_short(&mut self, i: i16) -> Result<(), LuceneError> {
         self.delegate.write_short(i)
     }
 
-    fn write_long(&mut self, i: i64) -> Result<(), RuntimeError> {
+    fn write_long(&mut self, i: i64) -> Result<(), LuceneError> {
         self.delegate.write_long(i)
     }
 
-    fn write_string(&mut self, s: &str) -> Result<(), RuntimeError> {
+    fn write_string(&mut self, s: &str) -> Result<(), LuceneError> {
         self.delegate.write_string(s)
     }
 
@@ -96,11 +96,11 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         &mut self,
         input: &mut T,
         num_bytes: u64,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         self.delegate.copy_bytes(input, num_bytes)
     }
 
-    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), RuntimeError> {
+    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), LuceneError> {
         self.delegate.write_map_of_strings(map)
     }
 }

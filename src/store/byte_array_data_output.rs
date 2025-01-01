@@ -17,7 +17,7 @@
 
 use crate::store::data_output::DataOutput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 /// `DataOutput` backed by a byte array.
 ///
 /// # Warning
@@ -67,7 +67,7 @@ impl<'a> ByteArrayDataOutput<'a> {
 }
 
 impl DataOutput for ByteArrayDataOutput<'_> {
-    fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError> {
+    fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
         debug_assert!(self.pos < self.limit, "Write exceeds the allowed limit");
         debug_assert!(
             self.pos < self.limit,
@@ -88,7 +88,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
         b: &[u8],
         offset: u32,
         length: u32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         debug_assert!(
             self.pos + length <= self.limit,
             "Write exceeds the allowed limit: pos={}, length={}, limit={}",
@@ -132,7 +132,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
         Ok(())
     }
 
-    fn write_int(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn write_int(&mut self, i: i32) -> Result<(), LuceneError> {
         debug_assert!(
             self.pos + BitUtil::INT_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"
@@ -142,7 +142,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
         Ok(())
     }
 
-    fn write_short(&mut self, i: i16) -> Result<(), RuntimeError> {
+    fn write_short(&mut self, i: i16) -> Result<(), LuceneError> {
         debug_assert!(
             self.pos + BitUtil::SHORT_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"
@@ -152,7 +152,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
         Ok(())
     }
 
-    fn write_long(&mut self, i: i64) -> Result<(), RuntimeError> {
+    fn write_long(&mut self, i: i64) -> Result<(), LuceneError> {
         debug_assert!(
             self.pos + BitUtil::LONG_BYTES as u32 <= self.limit,
             "Write exceeds the allowed limit"

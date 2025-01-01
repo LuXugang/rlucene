@@ -16,21 +16,21 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput};
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use std::fmt::{Display, Formatter};
 
 pub struct DummyIndexInput;
 
 impl DataInput for DummyIndexInput {
-    fn read_byte(&mut self) -> Result<u8, RuntimeError> {
+    fn read_byte(&mut self) -> Result<u8, LuceneError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: u32, _len: u32) -> Result<(), RuntimeError> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: u32, _len: u32) -> Result<(), LuceneError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn skip_bytes(&mut self, _num_bytes: u64) -> Result<(), RuntimeError> {
+    fn skip_bytes(&mut self, _num_bytes: u64) -> Result<(), LuceneError> {
         unreachable!("DummyIndexInput")
     }
 
@@ -56,7 +56,7 @@ impl IndexInput for DummyIndexInput {
         unreachable!("DummyIndexInput")
     }
 
-    fn seek(&mut self, _pos: u64) -> Result<(), RuntimeError> {
+    fn seek(&mut self, _pos: u64) -> Result<(), LuceneError> {
         unreachable!("DummyIndexInput")
     }
 
@@ -70,12 +70,12 @@ impl IndexInput for DummyIndexInput {
         _slice_description: &str,
         _offset: u64,
         _length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
         // Used by the compiler to infer the returned type
         if false {
             return Ok(DummyIndexInput);
         }
-        Err(RuntimeError::unsupported_operation(
+        Err(LuceneError::unsupported_operation(
             "slice method is not supported".to_string(),
         ))
     }
@@ -85,12 +85,12 @@ impl IndexInput for DummyIndexInput {
         &self,
         _offset: u64,
         _length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
         // Used by the compiler to infer the returned type
         if false {
             return Ok(DummyIndexInput);
         }
-        Err(RuntimeError::unsupported_operation(
+        Err(LuceneError::unsupported_operation(
             "random_access_slice method is not supported".to_string(),
         ))
     }
@@ -100,23 +100,23 @@ impl RandomAccessInput for DummyIndexInput {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_byte(&mut self, _pos: u64) -> Result<u8, RuntimeError> {
+    fn read_byte(&mut self, _pos: u64) -> Result<u8, LuceneError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_short(&mut self, _pos: u64) -> Result<i16, RuntimeError> {
+    fn read_short(&mut self, _pos: u64) -> Result<i16, LuceneError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_int(&mut self, _pos: u64) -> Result<i32, RuntimeError> {
+    fn read_int(&mut self, _pos: u64) -> Result<i32, LuceneError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_long(&mut self, _pos: u64) -> Result<i64, RuntimeError> {
+    fn read_long(&mut self, _pos: u64) -> Result<i64, LuceneError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn pre_fetch(&mut self, __pos: u64, _len: u64) -> Result<(), RuntimeError> {
+    fn pre_fetch(&mut self, __pos: u64, _len: u64) -> Result<(), LuceneError> {
         unreachable!("DummyIndexInput")
     }
 }

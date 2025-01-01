@@ -20,12 +20,12 @@ use crate::index::doc_values_type::DocValuesType;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_mutable::PagedMutable;
-use crate::util::packed::{MutablePacked64Enum, PackedInts, Reader};
+use crate::util::packed::{Mutable, MutablePacked64Enum, PackedInts, Reader};
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::Sorter;
 
@@ -50,7 +50,7 @@ impl DocValuesFieldUpdates {
         del_gen: u64,
         field: String,
         doc_values_type: DocValuesType,
-    ) -> Result<Self, RuntimeError> {
+    ) -> Result<Self, LuceneError> {
         let bits_per_value = PackedInts::bits_required(max_doc as i64 - 1)? + SHIFT;
         let sub_mutable =
             PagedMutable::new_with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
@@ -69,7 +69,7 @@ impl DocValuesFieldUpdates {
 
     pub fn merged_iterator<T>(
         subs: Vec<Iterator<T>>,
-    ) -> Result<Option<Iterator<IteratorPQImpl<T>>>, RuntimeError>
+    ) -> Result<Option<Iterator<IteratorPQImpl<T>>>, LuceneError>
     where
         T: IteratorBase + DocIdSetIterator + Default,
     {
@@ -110,7 +110,7 @@ struct IntroSorterImpl<'a> {
 }
 
 impl<'a> Sorter for IntroSorterImpl<'a> {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
         // increasing docID order:
         // NOTE: we can have ties here, when the same docID was updated in the same segment, in
         // which case we rely on sort being
@@ -128,18 +128,21 @@ impl<'a> Sorter for IntroSorterImpl<'a> {
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
-        // let tmp_ord = self.ords.get(i)?
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        let tmp_ord = self.ords.get(i as usize)?;
+        let value = self.ords.get(j as usize)?;
+        self.ords.set(i as usize, value)?;
+        self.ords.set(j as usize, tmp_ord)?;
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
         self.pivot_doc = self.docs.get(i as u64)? >> 1;
         self.pivot_ord = self.ords.get(i as usize)?;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32, RuntimeError> {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32, LuceneError> {
         let mut cmp = (self.pivot_doc).cmp(&((self.docs.get(j as u64)? as u64 >> 1) as i64));
         if cmp == std::cmp::Ordering::Equal {
             // If docIDs are the same, compare pivot_ord with ords[j]
@@ -300,7 +303,7 @@ impl<T> BinaryDocValues for BinaryDocValuesImpl<T>
 where
     T: IteratorBase + DocIdSetIterator + Default,
 {
-    fn binary_value(&mut self) -> Result<BytesRef, RuntimeError> {
+    fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
         Ok(self.iterator.sub_iterator.binary_value())
     }
 }
@@ -355,7 +358,7 @@ impl<T> NumericDocValues for NumericDocValuesImpl<T>
 where
     T: IteratorBase + DocIdSetIterator + Default,
 {
-    fn long_value(&mut self) -> Result<i64, RuntimeError> {
+    fn long_value(&mut self) -> Result<i64, LuceneError> {
         Ok(self.iterator.sub_iterator.long_value())
     }
 }
@@ -413,7 +416,7 @@ impl<T> IteratorPQImpl<T>
 where
     T: IteratorBase + DocIdSetIterator + Default,
 {
-    pub fn new(length: i32, cmp: IteratorPQCmp<T>) -> Result<Self, RuntimeError> {
+    pub fn new(length: i32, cmp: IteratorPQCmp<T>) -> Result<Self, LuceneError> {
         Ok(Self {
             queue: PriorityQueue::new(length, cmp)?,
             doc: -1,

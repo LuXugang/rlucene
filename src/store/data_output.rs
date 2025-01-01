@@ -17,7 +17,7 @@
 use crate::index::BytesRef;
 use crate::store::data_input::DataInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::group_vint_util::{GroupVIntUtil, MAX_LENGTH_PER_GROUP};
 use std::collections::{HashMap, HashSet};
 
@@ -34,7 +34,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`IndexInput::read_byte`](crate::store::DataInput::read_byte)
-    fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError>;
+    fn write_byte(&mut self, b: u8) -> Result<(), LuceneError>;
 
     /// Writes an array of bytes.
     ///
@@ -44,7 +44,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_bytes`]
-    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), RuntimeError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), LuceneError> {
         self.write_bytes_range(b, 0, len)
     }
     /// Writes an array of bytes.
@@ -57,14 +57,14 @@ pub trait DataOutput: Sized {
     /// # See Also
     /// [`DataInput::read_bytes`].
     fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32)
-        -> Result<(), RuntimeError>;
+        -> Result<(), LuceneError>;
 
     /// Writes an `int` as four bytes (little-endian byte order).
     ///
     /// # See Also
     /// [`DataInput::read_int`]
     /// [`BitUtil::set_i16_le`](BitUtil::set_i16_le)
-    fn write_int(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn write_int(&mut self, i: i32) -> Result<(), LuceneError> {
         self.write_byte(i as u8)?;
         self.write_byte((i >> 8) as u8)?;
         self.write_byte((i >> 16) as u8)?;
@@ -77,7 +77,7 @@ pub trait DataOutput: Sized {
     /// # See Also
     /// [`DataInput::read_short`]
     /// [`BitUtil::set_i16_le`](BitUtil::set_i16_le)
-    fn write_short(&mut self, i: i16) -> Result<(), RuntimeError> {
+    fn write_short(&mut self, i: i16) -> Result<(), LuceneError> {
         self.write_byte(i as u8)?;
         self.write_byte((i >> 8) as u8)?;
         Ok(())
@@ -115,7 +115,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_vint`]
-    fn write_vint(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn write_vint(&mut self, i: i32) -> Result<(), LuceneError> {
         let mut i = i as u32;
         while (i & !0x7F) != 0 {
             self.write_byte(((i & 0x7F) | 0x80) as u8)?;
@@ -132,7 +132,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_zint`]
-    fn write_zint(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn write_zint(&mut self, i: i32) -> Result<(), LuceneError> {
         self.write_vint(BitUtil::zig_zag_encode_i32(i))
     }
 
@@ -141,7 +141,7 @@ pub trait DataOutput: Sized {
     /// # See Also
     /// [`DataInput::read_long`]
     /// [`BitUtil::set_i64_le`](BitUtil::set_i64_le)
-    fn write_long(&mut self, i: i64) -> Result<(), RuntimeError> {
+    fn write_long(&mut self, i: i64) -> Result<(), LuceneError> {
         self.write_int(i as i32)?;
         self.write_int((i >> 32) as i32)?;
         Ok(())
@@ -155,9 +155,9 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_vlong`]
-    fn write_vlong(&mut self, i: i64) -> Result<(), RuntimeError> {
+    fn write_vlong(&mut self, i: i64) -> Result<(), LuceneError> {
         if i < 0 {
-            return Err(RuntimeError::illegal_argument(
+            return Err(LuceneError::illegal_argument(
                 "cannot write negative vLong (got: ".to_string() + &i.to_string() + ")",
             ));
         }
@@ -165,7 +165,7 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    fn write_signed_vlong(&mut self, i: i64) -> Result<(), RuntimeError> {
+    fn write_signed_vlong(&mut self, i: i64) -> Result<(), LuceneError> {
         let mut i = i as u64;
         while (i & !0x7F) != 0 {
             self.write_byte(((i & 0x7F) | 0x80) as u8)?;
@@ -180,7 +180,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_zlong`]
-    fn write_zlong(&mut self, i: i64) -> Result<(), RuntimeError> {
+    fn write_zlong(&mut self, i: i64) -> Result<(), LuceneError> {
         self.write_signed_vlong(BitUtil::zig_zag_encode_i64(i))
     }
 
@@ -190,7 +190,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_zlong`]
-    fn write_string(&mut self, s: &str) -> Result<(), RuntimeError> {
+    fn write_string(&mut self, s: &str) -> Result<(), LuceneError> {
         let utf8_result = BytesRef::new_from_string(s);
         let len = utf8_result.length;
         let offset = utf8_result.offset;
@@ -203,7 +203,7 @@ pub trait DataOutput: Sized {
         &mut self,
         input: &mut T,
         num_bytes: u64,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         let mut buffer = vec![0u8; COPY_BUFFER_SIZE as usize];
         let mut left = num_bytes;
         while left > 0 {
@@ -226,7 +226,7 @@ pub trait DataOutput: Sized {
     ///
     /// # Arguments
     /// * `map` - The input map.
-    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), RuntimeError> {
+    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), LuceneError> {
         self.write_vint(map.len() as i32)?;
         for (key, value) in map.iter() {
             self.write_string(key)?;
@@ -243,7 +243,7 @@ pub trait DataOutput: Sized {
     /// # Arguments
     /// * `set` - The input set.
     ///
-    fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<(), RuntimeError> {
+    fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<(), LuceneError> {
         self.write_vint(set.len() as i32)?;
         for value in set.iter() {
             self.write_string(value)?;
@@ -261,7 +261,7 @@ pub trait DataOutput: Sized {
     ///
     /// # Note
     /// This is an experimental API.
-    fn write_group_vints(&mut self, values: &mut [i64], limit: u32) -> Result<(), RuntimeError> {
+    fn write_group_vints(&mut self, values: &mut [i64], limit: u32) -> Result<(), LuceneError> {
         let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];
         GroupVIntUtil::write_group_vints(self, &mut group_vint_bytes, values, limit)?;
         Ok(())

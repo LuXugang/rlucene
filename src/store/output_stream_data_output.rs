@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::data_output::DataOutput;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use byteorder::WriteBytesExt;
 use std::io::{BufWriter, Write};
 /// A [`DataOutput`] wrapping a plain [`OutputStream`](Write).
@@ -30,7 +30,7 @@ impl<W: Write> OutputStreamDataOutput<W> {
     }
 }
 impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
-    fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError> {
+    fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
         Ok(self.os.write_u8(b)?)
     }
 
@@ -39,7 +39,7 @@ impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
         b: &[u8],
         offset: u32,
         length: u32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         let end = offset + length;
         Ok(self.os.write_all(&b[offset as usize..end as usize])?)
     }

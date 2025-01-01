@@ -16,7 +16,7 @@
  */
 use crate::index::BytesRefBuilder;
 
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{check_range, Sorter};
 use std::cmp::min;
@@ -61,7 +61,7 @@ where
             delegate_sorter,
         }
     }
-    pub fn sort_impl(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<(), RuntimeError> {
+    pub fn sort_impl(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<(), LuceneError> {
         if self.should_fallback(from, to, l) {
             self.get_fallback_sorter(k).sort(from, to)
         } else {
@@ -79,7 +79,7 @@ where
         &mut self,
         from: i32,
         k: i32,
-    ) -> Result<i32, RuntimeError> {
+    ) -> Result<i32, LuceneError> {
         let common_prefix = &mut self.common_prefix;
         let mut common_prefix_length = min(common_prefix.len(), (self.max_length - k) as usize);
 
@@ -105,7 +105,7 @@ where
         l: i32,
         common_prefix_length: i32,
         i: i32,
-    ) -> Result<i32, RuntimeError> {
+    ) -> Result<i32, LuceneError> {
         if i < to {
             debug_assert!(common_prefix_length == 0);
             self.build_histogram(self.common_prefix[0] + 1, i - from, i, to, k, l)?;
@@ -126,7 +126,7 @@ where
         to: i32,
         k: i32,
         l: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         self.delegate_sorter.build_histogram(
             prefix_common_bucket,
             prefix_common_len,
@@ -143,7 +143,7 @@ where
         k: i32,
         l: i32,
         mut common_prefix_length: i32,
-    ) -> Result<i32, RuntimeError> {
+    ) -> Result<i32, LuceneError> {
         let mut i = from + 1;
 
         'outer: for idx in from + 1..to {
@@ -177,7 +177,7 @@ where
         to: i32,
         k: i32,
         l: i32,
-    ) -> Result<i32, RuntimeError> {
+    ) -> Result<i32, LuceneError> {
         let common_prefix_length = self.compute_initial_common_prefix_length(from, k)?;
         self.compute_common_prefix_length_and_build_histogram_part1(
             from,
@@ -205,7 +205,7 @@ where
     /// - `start_offsets`: Start offsets per bucket.
     /// - `end_offsets`: End offsets per bucket.
     /// - `k`: The current position offset.
-    fn reorder(&mut self, from: i32, to: i32, l: i32, k: i32) -> Result<(), RuntimeError> {
+    fn reorder(&mut self, from: i32, to: i32, l: i32, k: i32) -> Result<(), LuceneError> {
         self.delegate_sorter.reorder(
             from,
             to,
@@ -221,7 +221,7 @@ where
     /// - `to`: End index (exclusive).
     /// - `k`: The character number to compare.
     /// - `l`: The level of recursion.
-    fn radix_sort(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<(), RuntimeError> {
+    fn radix_sort(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<(), LuceneError> {
         // Access or initialize the histogram for this level
         if self.histograms[l as usize].is_empty() {
             self.histograms[l as usize] = vec![0; HISTOGRAM_SIZE];
@@ -304,19 +304,19 @@ impl<T> Sorter for MSBRadixSorter<T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         self.delegate_sorter.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
         self.delegate_sorter.set_pivot(i)
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32, RuntimeError> {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32, LuceneError> {
         self.delegate_sorter.compare_pivot(i)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
         check_range(from, to)?;
         self.sort_impl(from, to, 0, 0)
     }
@@ -336,7 +336,7 @@ impl<T> Sorter for MSBRadixIntroSorterImpl<'_, T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
         for o in self.k..self.max_length {
             let b1 = self.delegate_sorter.byte_at(i, o)?;
             let b2 = self.delegate_sorter.byte_at(j, o)?;
@@ -350,11 +350,11 @@ where
         Ok(0)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         self.delegate_sorter.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
         self.pivot.set_length(0);
 
         for o in self.k..self.max_length {
@@ -367,7 +367,7 @@ where
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32, RuntimeError> {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32, LuceneError> {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
             let b2 = self.delegate_sorter.byte_at(j, self.k + o as i32)?;
@@ -386,7 +386,7 @@ where
         }
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -407,7 +407,7 @@ pub trait MSBRadixSorterBase: Sorter {
     ///
     /// # Note
     /// In Rust, this method might return a signed integer (`i32`) to accommodate the `-1` case, which differs from Java's default integer handling.
-    fn byte_at(&mut self, _i: i32, _k: i32) -> Result<i32, RuntimeError> {
+    fn byte_at(&mut self, _i: i32, _k: i32) -> Result<i32, LuceneError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
@@ -439,7 +439,7 @@ pub trait MSBRadixSorterBase: Sorter {
         start_offsets: &mut [i32],
         end_offsets: &mut [i32],
         k: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         // Reorder in place, similar to the Dutch national flag problem
         for i in 0..HISTOGRAM_SIZE {
             let limit = end_offsets[i];
@@ -454,7 +454,7 @@ pub trait MSBRadixSorterBase: Sorter {
         Ok(())
     }
 
-    fn get_bucket(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
+    fn get_bucket(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
         Ok(self.byte_at(i, k)? + 1)
     }
 
@@ -466,7 +466,7 @@ pub trait MSBRadixSorterBase: Sorter {
         to: i32,
         k: i32,
         histogram: &mut [i32],
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         histogram[prefix_common_bucket as usize] = prefix_common_len;
 
         for i in from..to {

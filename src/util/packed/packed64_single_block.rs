@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::format_behavior::PackedSingleBlockImpl;
@@ -78,7 +78,7 @@ impl<T> Reader for Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
-    fn get(&mut self, _index: usize) -> Result<i64, RuntimeError> {
+    fn get(&mut self, _index: usize) -> Result<i64, LuceneError> {
         Ok(self.sub_reader.get(_index, &mut self.blocks))
     }
 
@@ -88,7 +88,7 @@ where
         arr: &mut [i64],
         mut off: usize,
         mut len: usize,
-    ) -> Result<u32, RuntimeError> {
+    ) -> Result<u32, LuceneError> {
         assert!(index < self.value_count as usize, "index out of bounds");
         len = len.min(self.value_count as usize - index);
         assert!(
@@ -160,7 +160,7 @@ where
         self.value_count
     }
 }
-pub fn create(value_count: u32, bits_per_value: u32) -> Result<MutablePacked64Enum, RuntimeError> {
+pub fn create(value_count: u32, bits_per_value: u32) -> Result<MutablePacked64Enum, LuceneError> {
     match bits_per_value {
         1 => {
             let sub_reader =
@@ -246,7 +246,7 @@ pub fn create(value_count: u32, bits_per_value: u32) -> Result<MutablePacked64En
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock32(reader))
         }
-        _ => Err(RuntimeError::illegal_argument(format!(
+        _ => Err(LuceneError::illegal_argument(format!(
             "Unsupported number of bits per value:  {}",
             bits_per_value
         ))),
@@ -284,7 +284,7 @@ where
         self.bits_per_value
     }
 
-    fn set(&mut self, index: usize, value: i64) -> Result<(), RuntimeError> {
+    fn set(&mut self, index: usize, value: i64) -> Result<(), LuceneError> {
         self.sub_reader.set(index, value, &mut self.blocks);
         Ok(())
     }
@@ -295,7 +295,7 @@ where
         arr: &[i64],
         mut off: usize,
         mut len: usize,
-    ) -> Result<u32, RuntimeError> {
+    ) -> Result<u32, LuceneError> {
         assert!(index < self.value_count as usize, "index out of bounds");
         len = len.min(self.value_count as usize - index);
         assert!(off + len <= arr.len(), "not enough space in source array");
@@ -372,7 +372,7 @@ where
         mut from_index: usize,
         to_index: usize,
         val: i64,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         assert!(from_index <= to_index, "from_index must be <= to_index");
         assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
@@ -418,7 +418,7 @@ where
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), RuntimeError> {
+    fn clear(&mut self) -> Result<(), LuceneError> {
         self.blocks.fill(0);
         Ok(())
     }

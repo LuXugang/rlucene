@@ -18,7 +18,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, VecCopyOps};
 use byteorder::{ByteOrder, LE};
@@ -80,7 +80,7 @@ impl<'a> ByteBuffersDataInput<'a> {
         output: &mut [T],
         type_size: u32,
         converter: C,
-    ) -> Result<(), RuntimeError>
+    ) -> Result<(), LuceneError>
     where
         C: Fn(&[u8]) -> T,
         T: Copy,
@@ -97,7 +97,7 @@ impl<'a> ByteBuffersDataInput<'a> {
             if block_index as usize >= self.blocks.len()
                 || pos + bytes_read as u64 > self.length + self.offset
             {
-                return Err(RuntimeError::eof(format!("{}", pos)));
+                return Err(LuceneError::eof(format!("{}", pos)));
             }
 
             let block = self.blocks.get_mut(block_index as usize).unwrap();
@@ -133,28 +133,28 @@ impl<'a> ByteBuffersDataInput<'a> {
 
         Ok(())
     }
-    fn read_longs(&mut self, pos: u64, len: u32, output: &mut [i64]) -> Result<(), RuntimeError> {
+    fn read_longs(&mut self, pos: u64, len: u32, output: &mut [i64]) -> Result<(), LuceneError> {
         self.read_buffer(pos, len, output, BitUtil::LONG_BYTES as u32, LE::read_i64)
     }
-    fn read_bytes(&mut self, pos: u64, len: u32, output: &mut [u8]) -> Result<(), RuntimeError> {
+    fn read_bytes(&mut self, pos: u64, len: u32, output: &mut [u8]) -> Result<(), LuceneError> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
-    fn read_ints(&mut self, pos: u64, len: u32, output: &mut [i32]) -> Result<(), RuntimeError> {
+    fn read_ints(&mut self, pos: u64, len: u32, output: &mut [i32]) -> Result<(), LuceneError> {
         self.read_buffer(pos, len, output, BitUtil::INT_BYTES as u32, LE::read_i32)
     }
-    fn read_shorts(&mut self, pos: u64, len: u32, output: &mut [i16]) -> Result<(), RuntimeError> {
+    fn read_shorts(&mut self, pos: u64, len: u32, output: &mut [i16]) -> Result<(), LuceneError> {
         self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES as u32, LE::read_i16)
     }
-    fn read_floats(&mut self, pos: u64, len: u32, output: &mut [f32]) -> Result<(), RuntimeError> {
+    fn read_floats(&mut self, pos: u64, len: u32, output: &mut [f32]) -> Result<(), LuceneError> {
         self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES as u32, LE::read_f32)
     }
 
-    pub fn seek(&mut self, position: u64) -> Result<(), RuntimeError> {
+    pub fn seek(&mut self, position: u64) -> Result<(), LuceneError> {
         self.pos = position + self.offset;
         if position > self.length() {
             self.pos = self.length;
-            return Err(RuntimeError::eof(format!("{}", self.pos)));
+            return Err(LuceneError::eof(format!("{}", self.pos)));
         }
         Ok(())
     }
@@ -165,9 +165,9 @@ impl<'a> ByteBuffersDataInput<'a> {
         &self,
         offset: u64,
         length: u64,
-    ) -> Result<ByteBuffersDataInput<'a>, RuntimeError> {
+    ) -> Result<ByteBuffersDataInput<'a>, LuceneError> {
         if offset + length > self.length {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
                 offset, length, self.length
             )));
@@ -199,33 +199,33 @@ impl Display for ByteBuffersDataInput<'_> {
 }
 
 impl DataInput for ByteBuffersDataInput<'_> {
-    fn read_byte(&mut self) -> Result<u8, RuntimeError> {
+    fn read_byte(&mut self) -> Result<u8, LuceneError> {
         let mut bytes = [0; 1];
         self.read_bytes(self.pos, 1, &mut bytes)?;
         self.pos += 1;
         Ok(bytes[0])
     }
-    fn read_bytes(&mut self, arr: &mut [u8], off: u32, len: u32) -> Result<(), RuntimeError> {
+    fn read_bytes(&mut self, arr: &mut [u8], off: u32, len: u32) -> Result<(), LuceneError> {
         self.read_bytes(self.pos, len, &mut arr[off as usize..(off + len) as usize])?;
         self.pos += len as u64;
         Ok(())
     }
 
-    fn read_short(&mut self) -> Result<i16, RuntimeError> {
+    fn read_short(&mut self) -> Result<i16, LuceneError> {
         let mut output = [0; 1];
         self.read_shorts(self.pos, 1, &mut output)?;
         self.pos += BitUtil::SHORT_BYTES as u64;
         Ok(output[0])
     }
 
-    fn read_int(&mut self) -> Result<i32, RuntimeError> {
+    fn read_int(&mut self) -> Result<i32, LuceneError> {
         let mut output = [0; 1];
         self.read_ints(self.pos, 1, &mut output)?;
         self.pos += BitUtil::INT_BYTES as u64;
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), RuntimeError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), LuceneError> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
         let block = self.blocks.get_mut(block_index as usize).unwrap();
@@ -241,14 +241,14 @@ impl DataInput for ByteBuffersDataInput<'_> {
         self.pos += len as u64;
         Ok(())
     }
-    fn read_long(&mut self) -> Result<i64, RuntimeError> {
+    fn read_long(&mut self) -> Result<i64, LuceneError> {
         let mut output = [0; 1];
         self.read_longs(self.pos, 1, &mut output)?;
         self.pos += BitUtil::LONG_BYTES as u64;
         Ok(output[0])
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), RuntimeError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), LuceneError> {
         self.read_longs(
             self.pos,
             len,
@@ -258,7 +258,7 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(())
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), RuntimeError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), LuceneError> {
         self.read_floats(
             self.pos,
             len,
@@ -268,7 +268,7 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), RuntimeError> {
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), LuceneError> {
         let skip_to = self.position() + num_bytes;
         self.seek(skip_to)
     }
@@ -280,35 +280,35 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
         self.length
     }
 
-    fn read_byte(&mut self, pos: u64) -> Result<u8, RuntimeError> {
+    fn read_byte(&mut self, pos: u64) -> Result<u8, LuceneError> {
         let pos = pos + self.offset;
         let mut bytes = [0; 1];
         self.read_bytes(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_short(&mut self, pos: u64) -> Result<i16, RuntimeError> {
+    fn read_short(&mut self, pos: u64) -> Result<i16, LuceneError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::SHORT_BYTES];
         self.read_shorts(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_int(&mut self, pos: u64) -> Result<i32, RuntimeError> {
+    fn read_int(&mut self, pos: u64) -> Result<i32, LuceneError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::INT_BYTES];
         self.read_ints(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_long(&mut self, pos: u64) -> Result<i64, RuntimeError> {
+    fn read_long(&mut self, pos: u64) -> Result<i64, LuceneError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::LONG_BYTES];
         self.read_longs(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), RuntimeError> {
+    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), LuceneError> {
         Ok(())
     }
 }

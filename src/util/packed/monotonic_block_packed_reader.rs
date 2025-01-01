@@ -16,7 +16,7 @@
  */
 use crate::store::IndexInput;
 use crate::util::accountable::Accountable;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};
@@ -50,7 +50,7 @@ impl MonotonicBlockPackedReader {
         packed_ints_version: u32,
         block_size: u32,
         value_count: u64,
-    ) -> Result<Self, RuntimeError> {
+    ) -> Result<Self, LuceneError> {
         Self::new(input, packed_ints_version, block_size, value_count)
     }
     fn new<I: IndexInput>(
@@ -58,7 +58,7 @@ impl MonotonicBlockPackedReader {
         packed_ints_version: u32,
         block_size: u32,
         value_count: u64,
-    ) -> Result<Self, RuntimeError> {
+    ) -> Result<Self, LuceneError> {
         let block_shift = PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let block_mask = block_size - 1;
         let num_blocks = PackedInts::num_blocks(value_count, block_size)?;
@@ -73,7 +73,7 @@ impl MonotonicBlockPackedReader {
             let bits_per_value = input.read_vint()? as u32;
             sum_bpv += bits_per_value as u64;
             if bits_per_value > 64 {
-                return Err(RuntimeError::corrupt_index(
+                return Err(LuceneError::corrupt_index(
                     "Corrupted: bits_per_value > 64".to_string(),
                 ));
             }
@@ -134,7 +134,7 @@ pub struct MonotonicLongValues {
     mask_right: u64,
 }
 impl LongValues for MonotonicLongValues {
-    fn get(&mut self, index: u64) -> Result<i64, RuntimeError> {
+    fn get(&mut self, index: u64) -> Result<i64, LuceneError> {
         // The abstract index in a bit stream
         let major_bit_pos = index * self.bits_per_values as u64;
         // The offset of the first block in the backing byte-array
@@ -158,7 +158,7 @@ impl LongValues for MonotonicLongValues {
     }
 }
 impl LongValues for MonotonicBlockPackedReader {
-    fn get(&mut self, index: u64) -> Result<i64, RuntimeError> {
+    fn get(&mut self, index: u64) -> Result<i64, LuceneError> {
         debug_assert!(
             index < self.value_count,
             "Index out of bounds: {} >= {}",
@@ -205,7 +205,7 @@ pub enum LongValuesEnum {
     ZeroesLongValues(Zeroes),
 }
 impl LongValues for LongValuesEnum {
-    fn get(&mut self, index: u64) -> Result<i64, RuntimeError> {
+    fn get(&mut self, index: u64) -> Result<i64, LuceneError> {
         match self {
             LongValuesEnum::Monotonic(mlv) => mlv.get(index),
             LongValuesEnum::ZeroesLongValues(zlv) => zlv.get(index),

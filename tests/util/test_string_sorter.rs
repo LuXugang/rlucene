@@ -22,7 +22,7 @@ use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
 
-use rlucene::util::error::runtime_error::RuntimeError;
+use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
 use rlucene::util::{
     Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
@@ -187,7 +187,7 @@ impl StringSorterTestImpl {
     }
 }
 impl Sorter for StringSorterTestImpl {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         self.refs.swap(i as usize, j as usize);
         Ok(())
     }
@@ -198,7 +198,7 @@ impl StringSorterBase for StringSorterTestImpl {
         _builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         let ref_item = &self.refs[i as usize];
         result.offset = ref_item.offset;
         result.length = ref_item.length;
@@ -219,7 +219,7 @@ impl StringSorterBase for StableStringSorterTestImpl<'_> {
         _builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         let ref_item = &self.refs[self.ord[i as usize] as usize];
         result.offset = ref_item.offset;
         result.length = ref_item.length;
@@ -238,7 +238,7 @@ impl StableStringSorterBase for StableStringSorterTestImpl<'_> {
     }
 }
 impl Sorter for StableStringSorterTestImpl<'_> {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         self.ord.swap(i as usize, j as usize);
         Ok(())
     }

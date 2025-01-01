@@ -16,7 +16,7 @@
  */
 use crate::index::BytesRef;
 
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::{BytesRefComparator, Comparator};
 
 pub trait SortableBytesRefArray<'a> {
@@ -31,5 +31,5 @@ pub trait SortableBytesRefArray<'a> {
     fn iterator(
         &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<Self::Iter, RuntimeError>;
+    ) -> Result<Self::Iter, LuceneError>;
 }

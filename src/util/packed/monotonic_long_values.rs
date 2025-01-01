@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::monotonic_block_packed_reader::expected;
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
@@ -35,7 +35,7 @@ impl MonotonicLongValues {
         block: usize,
         dest: &mut [i64],
         count: u32,
-    ) -> Result<u32, RuntimeError> {
+    ) -> Result<u32, LuceneError> {
         let average = self.averages[block];
         for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
             *item += expected(0, average, i);
@@ -48,7 +48,7 @@ impl MonotonicLongValues {
         block: usize,
         element: usize,
         value: u64,
-    ) -> Result<i64, RuntimeError> {
+    ) -> Result<i64, LuceneError> {
         Ok(expected(value as i64, self.averages[block], element))
     }
 }
@@ -74,7 +74,7 @@ impl MonotonicLongValuesBuilder {
         }
     }
 
-    pub fn build(mut self, values_off: usize) -> Result<MonotonicLongValues, RuntimeError> {
+    pub fn build(mut self, values_off: usize) -> Result<MonotonicLongValues, LuceneError> {
         let _ = self.averages.split_off(values_off);
 
         // TODO
@@ -93,7 +93,7 @@ impl MonotonicLongValuesBuilder {
         values: &mut [i64],
         num_values: u32,
         block: usize,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         let average = if num_values == 1 {
             0.0
         } else {

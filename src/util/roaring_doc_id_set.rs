@@ -21,7 +21,7 @@ use crate::util::bit_doc_id_set::BitDocIdSet;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 use std::cmp::min;
@@ -119,9 +119,9 @@ impl RoaringDocIdSetBuilder {
         }
     }
     /// Add a new doc-id to this builder. NOTE: doc ids must be added in order.
-    pub fn add(&mut self, doc_id: i32) -> Result<(), RuntimeError> {
+    pub fn add(&mut self, doc_id: i32) -> Result<(), LuceneError> {
         if doc_id <= self.last_doc_id {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "Doc ids must be added in-order, got {} which is <= lastDocID=",
                 self.last_doc_id
             )));
@@ -162,7 +162,7 @@ impl RoaringDocIdSetBuilder {
         let _ = self.flush();
         RoaringDocIdSet::new(std::mem::take(&mut self.sets), self.cardinality)
     }
-    fn flush(&mut self) -> Result<(), RuntimeError> {
+    fn flush(&mut self) -> Result<(), LuceneError> {
         debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
         if self.current_block_cardinality <= MAX_ARRAY_LENGTH {
             // use sparse encoding

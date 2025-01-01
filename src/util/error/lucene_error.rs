@@ -31,7 +31,7 @@ use std::string::FromUtf8Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum RuntimeError {
+pub enum LuceneError {
     #[error("IO error: {0}")]
     Io(#[from] Error),
 
@@ -80,9 +80,9 @@ pub enum RuntimeError {
     #[error("UTF-8 decoding error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
 }
-impl RuntimeError {
+impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
-        RuntimeError::IoWithPath {
+        LuceneError::IoWithPath {
             source: err,
             path: path.into(),
         }
@@ -92,50 +92,50 @@ impl RuntimeError {
     }
 
     pub fn utf8(err: FromUtf8Error) -> Self {
-        RuntimeError::FromUtf8Error(err)
+        LuceneError::FromUtf8Error(err)
     }
     pub fn illegal_argument(msg: impl Into<String>) -> Self {
-        RuntimeError::IllegalArgument(IllegalArgumentError::new(msg))
+        LuceneError::IllegalArgument(IllegalArgumentError::new(msg))
     }
     pub fn illegal_state(msg: impl Into<String>) -> Self {
-        RuntimeError::IllegalState(IllegalStateError::new(msg))
+        LuceneError::IllegalState(IllegalStateError::new(msg))
     }
 
     pub fn eof(msg: impl Into<String>) -> Self {
-        RuntimeError::Eof(Eof::new(msg))
+        LuceneError::Eof(Eof::new(msg))
     }
 
     pub fn integer_overflow(msg: impl Into<String>) -> Self {
-        RuntimeError::IntegerOverflow(IntegerOverflow::new(msg))
+        LuceneError::IntegerOverflow(IntegerOverflow::new(msg))
     }
 
     pub fn corrupt_index(msg: impl Into<String>) -> Self {
-        RuntimeError::CorruptIndex(CorruptIndexError::new(msg))
+        LuceneError::CorruptIndex(CorruptIndexError::new(msg))
     }
 
     pub fn index_format_too_new(msg: impl Into<String>) -> Self {
-        RuntimeError::IndexFormatTooNew(IndexFormatTooNewError::new(msg))
+        LuceneError::IndexFormatTooNew(IndexFormatTooNewError::new(msg))
     }
     pub fn index_format_too_old(msg: impl Into<String>) -> Self {
-        RuntimeError::IndexFormatTooOld(IndexFormatTooOldError::new(msg))
+        LuceneError::IndexFormatTooOld(IndexFormatTooOldError::new(msg))
     }
 
     pub fn unsupported_operation(msg: impl Into<String>) -> Self {
-        RuntimeError::UnsupportedOperation(UnsupportedOperationError::new(msg))
+        LuceneError::UnsupportedOperation(UnsupportedOperationError::new(msg))
     }
     pub fn not_found(msg: impl Into<String>) -> Self {
-        RuntimeError::NotFound(NotFoundError::new(msg))
+        LuceneError::NotFound(NotFoundError::new(msg))
     }
     pub fn lock_already_held(msg: impl Into<String>) -> Self {
-        RuntimeError::LockAlreadyHeld(LockAlreadyHeldError::new(msg))
+        LuceneError::LockAlreadyHeld(LockAlreadyHeldError::new(msg))
     }
     pub fn lock_held_by_other(msg: impl Into<String>) -> Self {
-        RuntimeError::LockHeldByOther(LockHeldByOtherError::new(msg))
+        LuceneError::LockHeldByOther(LockHeldByOtherError::new(msg))
     }
     pub fn array_index_out_of_bounds(msg: impl Into<String>) -> Self {
-        RuntimeError::ArrayIndexOutOfBounds(ArrayIndexOutOfBoundsError::new(msg))
+        LuceneError::ArrayIndexOutOfBounds(ArrayIndexOutOfBoundsError::new(msg))
     }
     pub fn utf8_error(err: std::str::Utf8Error) -> Self {
-        RuntimeError::Utf8Error(err)
+        LuceneError::Utf8Error(err)
     }
 }

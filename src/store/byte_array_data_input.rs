@@ -16,7 +16,7 @@
  */
 use crate::store::data_input::DataInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use std::any::type_name;
 use std::fmt::{Display, Formatter};
 
@@ -90,13 +90,13 @@ impl Display for ByteArrayDataInput {
 }
 
 impl DataInput for ByteArrayDataInput {
-    fn read_byte(&mut self) -> Result<u8, RuntimeError> {
+    fn read_byte(&mut self) -> Result<u8, LuceneError> {
         let value = self.bytes[self.pos as usize];
         self.pos += 1;
         Ok(value)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), RuntimeError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), LuceneError> {
         debug_assert!(
             (offset + len) as usize <= b.len(),
             "Offset and length exceed the destination buffer size"
@@ -114,25 +114,25 @@ impl DataInput for ByteArrayDataInput {
         Ok(())
     }
 
-    fn read_short(&mut self) -> Result<i16, RuntimeError> {
+    fn read_short(&mut self) -> Result<i16, LuceneError> {
         let result = BitUtil::get_i16_le(&self.bytes, self.pos as usize);
         self.pos += 2;
         Ok(result)
     }
 
-    fn read_int(&mut self) -> Result<i32, RuntimeError> {
+    fn read_int(&mut self) -> Result<i32, LuceneError> {
         let value = BitUtil::get_i32_le(&self.bytes, self.pos as usize);
         self.pos += 4;
         Ok(value)
     }
 
-    fn read_long(&mut self) -> Result<i64, RuntimeError> {
+    fn read_long(&mut self) -> Result<i64, LuceneError> {
         let value = BitUtil::get_i64_le(&self.bytes, self.pos as usize);
         self.pos += 8;
         Ok(value)
     }
 
-    fn skip_bytes(&mut self, count: u64) -> Result<(), RuntimeError> {
+    fn skip_bytes(&mut self, count: u64) -> Result<(), LuceneError> {
         debug_assert!(count <= u32::MAX as u64, "count exceeds usize range");
         self.pos += count as u32;
         Ok(())

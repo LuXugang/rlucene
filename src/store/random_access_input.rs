@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 
 /// Random Access Index API. Unlike [`IndexInput`](crate::store::IndexInput), this has no concept of file position; all
 /// reads are absolute. However, like `IndexInput`, it is only intended for use by a single thread.
@@ -22,7 +22,7 @@ pub trait RandomAccessInput {
     /// The number of bytes in the file.
     fn length(&self) -> u64;
     /// Reads a byte at the given position in the file
-    fn read_byte(&mut self, pos: u64) -> Result<u8, RuntimeError>;
+    fn read_byte(&mut self, pos: u64) -> Result<u8, LuceneError>;
     /// Reads a specified number of bytes starting at a given position into an array at the specified offset.
     fn read_bytes(
         &mut self,
@@ -30,18 +30,18 @@ pub trait RandomAccessInput {
         buf: &mut [u8],
         offset: u32,
         len: u32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         for i in 0..len {
             buf[(offset + i) as usize] = self.read_byte(pos + i as u64)?;
         }
         Ok(())
     }
     ///  Reads an i16 (LE byte order) at the given position in the file.
-    fn read_short(&mut self, pos: u64) -> Result<i16, RuntimeError>;
+    fn read_short(&mut self, pos: u64) -> Result<i16, LuceneError>;
     /// Reads an i32 (LE byte order) at the given position in the file.
-    fn read_int(&mut self, pos: u64) -> Result<i32, RuntimeError>;
+    fn read_int(&mut self, pos: u64) -> Result<i32, LuceneError>;
     /// Reads a long (LE byte order) at the given position in the file.
-    fn read_long(&mut self, pos: u64) -> Result<i64, RuntimeError>;
+    fn read_long(&mut self, pos: u64) -> Result<i64, LuceneError>;
     ///  Prefetch data in the background.
-    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), RuntimeError>;
+    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), LuceneError>;
 }

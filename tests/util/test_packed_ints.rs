@@ -23,7 +23,7 @@ use rlucene::store::directory::Directory;
 use rlucene::store::{
     ByteArrayDataInput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
 };
-use rlucene::util::error::runtime_error::RuntimeError;
+use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::long_values::LongValues;
 use rlucene::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
 use rlucene::util::packed::abstract_paged_mutable::AbstractPagedMutable;
@@ -1316,7 +1316,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 assert_eq!(i as u64, it.ord());
             }
             let result = it.next_value();
-            matches!(result, Err(RuntimeError::Eof(_)));
+            matches!(result, Err(LuceneError::Eof(_)));
             assert_eq!(fp, in_ref.get_file_pointer());
             in_ref.seek(0)?;
             let mut it2 = BlockPackedReaderIterator::new(
@@ -1371,7 +1371,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 assert_eq!(i as u64, it.ord());
             }
             let result = it.next_value();
-            matches!(result, Err(RuntimeError::Eof(_)));
+            matches!(result, Err(LuceneError::Eof(_)));
             assert_eq!(fp, in_ref.get_position() as u64);
 
             in_ref.set_position(0);

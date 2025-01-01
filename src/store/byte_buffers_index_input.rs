@@ -18,7 +18,7 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
@@ -38,11 +38,11 @@ impl<'a> ByteBuffersIndexInput<'a> {
 }
 
 impl DataInput for ByteBuffersIndexInput<'_> {
-    fn read_byte(&mut self) -> Result<u8, RuntimeError> {
+    fn read_byte(&mut self) -> Result<u8, LuceneError> {
         DataInput::read_byte(&mut self.data_input)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), RuntimeError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), LuceneError> {
         DataInput::read_bytes(&mut self.data_input, b, offset, len)
     }
 
@@ -52,64 +52,64 @@ impl DataInput for ByteBuffersIndexInput<'_> {
         offset: u32,
         len: u32,
         _use_buffer: bool,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         self.data_input
             .read_bytes_with_buffer(b, offset, len, false)
     }
 
-    fn read_short(&mut self) -> Result<i16, RuntimeError> {
+    fn read_short(&mut self) -> Result<i16, LuceneError> {
         DataInput::read_short(&mut self.data_input)
     }
 
-    fn read_int(&mut self) -> Result<i32, RuntimeError> {
+    fn read_int(&mut self) -> Result<i32, LuceneError> {
         DataInput::read_int(&mut self.data_input)
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), RuntimeError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), LuceneError> {
         self.data_input.read_group_vint(dst, offset)
     }
 
-    fn read_vint(&mut self) -> Result<i32, RuntimeError> {
+    fn read_vint(&mut self) -> Result<i32, LuceneError> {
         DataInput::read_vint(&mut self.data_input)
     }
 
-    fn read_zint(&mut self) -> Result<i32, RuntimeError> {
+    fn read_zint(&mut self) -> Result<i32, LuceneError> {
         DataInput::read_zint(&mut self.data_input)
     }
 
-    fn read_long(&mut self) -> Result<i64, RuntimeError> {
+    fn read_long(&mut self) -> Result<i64, LuceneError> {
         DataInput::read_long(&mut self.data_input)
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), RuntimeError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), LuceneError> {
         self.data_input.read_longs(dst, offset, len)
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), RuntimeError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), LuceneError> {
         self.data_input.read_floats(dst, offset, len)
     }
 
-    fn read_vlong(&mut self) -> Result<i64, RuntimeError> {
+    fn read_vlong(&mut self) -> Result<i64, LuceneError> {
         self.data_input.read_vlong()
     }
 
-    fn read_zlong(&mut self) -> Result<i64, RuntimeError> {
+    fn read_zlong(&mut self) -> Result<i64, LuceneError> {
         self.data_input.read_zlong()
     }
 
-    fn read_string(&mut self) -> Result<String, RuntimeError> {
+    fn read_string(&mut self) -> Result<String, LuceneError> {
         self.data_input.read_string()
     }
 
-    fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>, RuntimeError> {
+    fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>, LuceneError> {
         self.data_input.read_map_of_strings()
     }
 
-    fn read_set_of_strings(&mut self) -> Result<HashSet<String>, RuntimeError> {
+    fn read_set_of_strings(&mut self) -> Result<HashSet<String>, LuceneError> {
         self.data_input.read_set_of_strings()
     }
 
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), RuntimeError> {
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), LuceneError> {
         DataInput::skip_bytes(&mut self.data_input, num_bytes)
     }
 
@@ -117,7 +117,7 @@ impl DataInput for ByteBuffersIndexInput<'_> {
         true
     }
 
-    fn seek_in_data_input(&mut self, pos: u64) -> Result<(), RuntimeError> {
+    fn seek_in_data_input(&mut self, pos: u64) -> Result<(), LuceneError> {
         debug_assert!(self.is_index_input());
         IndexInput::seek(self, pos)
     }
@@ -132,23 +132,23 @@ impl RandomAccessInput for ByteBuffersIndexInput<'_> {
         RandomAccessInput::length(&self.data_input)
     }
 
-    fn read_byte(&mut self, pos: u64) -> Result<u8, RuntimeError> {
+    fn read_byte(&mut self, pos: u64) -> Result<u8, LuceneError> {
         RandomAccessInput::read_byte(&mut self.data_input, pos)
     }
 
-    fn read_short(&mut self, pos: u64) -> Result<i16, RuntimeError> {
+    fn read_short(&mut self, pos: u64) -> Result<i16, LuceneError> {
         RandomAccessInput::read_short(&mut self.data_input, pos)
     }
 
-    fn read_int(&mut self, pos: u64) -> Result<i32, RuntimeError> {
+    fn read_int(&mut self, pos: u64) -> Result<i32, LuceneError> {
         RandomAccessInput::read_int(&mut self.data_input, pos)
     }
 
-    fn read_long(&mut self, pos: u64) -> Result<i64, RuntimeError> {
+    fn read_long(&mut self, pos: u64) -> Result<i64, LuceneError> {
         RandomAccessInput::read_long(&mut self.data_input, pos)
     }
 
-    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), RuntimeError> {
+    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), LuceneError> {
         Ok(())
     }
 }
@@ -171,7 +171,7 @@ impl IndexInput for ByteBuffersIndexInput<'_> {
         self.data_input.position()
     }
 
-    fn seek(&mut self, pos: u64) -> Result<(), RuntimeError> {
+    fn seek(&mut self, pos: u64) -> Result<(), LuceneError> {
         self.data_input.seek(pos)
     }
 
@@ -184,7 +184,7 @@ impl IndexInput for ByteBuffersIndexInput<'_> {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
         Ok(ByteBuffersIndexInput::new(
             self.data_input.slice(offset, length)?,
             slice_description,
@@ -195,7 +195,7 @@ impl IndexInput for ByteBuffersIndexInput<'_> {
         &self,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
         self.slice("", offset, length)
     }
 }

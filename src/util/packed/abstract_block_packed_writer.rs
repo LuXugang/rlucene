@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::DataOutput;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::Format::Packed;
 use crate::util::packed::{Encoder, FormatBehavior, PackedImpl, PackedInts};
 
@@ -44,7 +44,7 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     /// # Errors
     ///
     /// Returns an error if `block_size` is not valid.
-    pub fn new(block_size: u32, sub_writer: D, out: &'a mut T) -> Result<Self, RuntimeError> {
+    pub fn new(block_size: u32, sub_writer: D, out: &'a mut T) -> Result<Self, LuceneError> {
         PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
 
         Ok(Self {
@@ -69,9 +69,9 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
         self.ord = 0;
         self.finished = false;
     }
-    fn check_not_finished(&self) -> Result<(), RuntimeError> {
+    fn check_not_finished(&self) -> Result<(), LuceneError> {
         if self.finished {
-            return Err(RuntimeError::illegal_state("Already finished"));
+            return Err(LuceneError::illegal_state("Already finished"));
         }
         Ok(())
     }
@@ -85,7 +85,7 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     /// # Errors
     ///
     /// Returns an error if the writer has already finished or if flushing fails.
-    pub fn add(&mut self, value: i64) -> Result<(), RuntimeError> {
+    pub fn add(&mut self, value: i64) -> Result<(), LuceneError> {
         self.sub_writer.add(value);
         self.check_not_finished()?;
         if self.off == self.values.len() {
@@ -103,10 +103,10 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     ///
     /// Returns an error if the writer has already finished or the offset is invalid.
     #[cfg(feature = "test_only")]
-    pub fn add_block_of_zeros(&mut self) -> Result<(), RuntimeError> {
+    pub fn add_block_of_zeros(&mut self) -> Result<(), LuceneError> {
         self.check_not_finished()?;
         if self.off != 0 && self.off != self.values.len() {
-            return Err(RuntimeError::illegal_state(format!("{}", self.off)));
+            return Err(LuceneError::illegal_state(format!("{}", self.off)));
         }
         if self.off == self.values.len() {
             self.sub_writer
@@ -123,7 +123,7 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     /// # Errors
     ///
     /// Returns an error if the writer has already finished or if flushing fails.
-    pub fn finish(&mut self) -> Result<(), RuntimeError> {
+    pub fn finish(&mut self) -> Result<(), LuceneError> {
         self.check_not_finished()?;
         if self.off > 0 {
             self.sub_writer
@@ -151,7 +151,7 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
         blocks: &mut Vec<u8>,
         values: &mut [i64],
         off: usize,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         let encoder = PackedInts::get_encoder(
             Packed(PackedImpl::new(0)),
             PackedInts::VERSION_CURRENT,
@@ -195,7 +195,7 @@ pub(crate) fn write_values<O: DataOutput>(
     blocks: &mut Vec<u8>,
     values: &mut [i64],
     off: usize,
-) -> Result<(), RuntimeError> {
+) -> Result<(), LuceneError> {
     let encoder = PackedInts::get_encoder(
         Packed(PackedImpl::new(0)),
         PackedInts::VERSION_CURRENT,
@@ -224,7 +224,7 @@ pub(crate) fn write_values<O: DataOutput>(
     Ok(())
 }
 /// Same as DataOutput::writeVLong but accepts negative values.
-pub(crate) fn write_vlong<T: DataOutput>(out: &mut T, mut i: i64) -> Result<(), RuntimeError> {
+pub(crate) fn write_vlong<T: DataOutput>(out: &mut T, mut i: i64) -> Result<(), LuceneError> {
     let mut k = 0;
     while (i & !0x7F) != 0 && k < 8 {
         out.write_byte(((i & 0x7F) | 0x80) as u8)?;
@@ -241,6 +241,6 @@ pub trait AbstractBlockPackedWriterBase {
         off: &mut usize,
         values: &mut [i64],
         blocks: &mut Vec<u8>,
-    ) -> Result<(), RuntimeError>;
+    ) -> Result<(), LuceneError>;
     fn add(&mut self, _value: i64) {}
 }

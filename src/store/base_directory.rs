@@ -16,7 +16,7 @@
  */
 use crate::store::directory::Directory;
 use crate::store::lock::Lock;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 
 /// Base implementation for a concrete [`Directory`] that uses a [`LockFactory`](crate::store::lock_factory::LockFactory) for locking.
 ///
@@ -27,5 +27,5 @@ use crate::util::error::runtime_error::RuntimeError;
 /// This trait could actually be removed because `LockFactory` has been moved to the implementation of `Directory`,
 /// such as [`FSDirectory`](crate::store::fs_directory::FSDirectory). However, it is temporarily retained to maintain consistency with the structure of Java Lucene.
 pub trait BaseDirectory: Directory {
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, RuntimeError>;
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, LuceneError>;
 }

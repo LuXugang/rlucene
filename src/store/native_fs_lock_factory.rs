@@ -17,7 +17,7 @@
 use crate::store::fs_lock_factory::FSLockFactory;
 use crate::store::lock::{FSLockEnum, Lock};
 use crate::store::lock_factory::LockFactory;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use chrono::{DateTime, Utc};
 use fs2::FileExt;
 use std::collections::HashSet;
@@ -79,7 +79,7 @@ impl NativeFSLockFactory {
     }
 }
 impl LockFactory for NativeFSLockFactory {
-    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, RuntimeError> {
+    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, LuceneError> {
         FSLockFactory::obtain_lock(self, dir, lock_name)
     }
 }
@@ -91,9 +91,9 @@ impl Display for NativeFSLockFactory {
 }
 
 impl FSLockFactory for NativeFSLockFactory {
-    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, RuntimeError> {
+    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, LuceneError> {
         fs::create_dir_all(dir)
-            .map_err(|e| RuntimeError::io_with_path(dir.to_string_lossy().to_string(), e))?;
+            .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
 
         let lock_file = dir.join(lock_name);
 
@@ -108,7 +108,7 @@ impl FSLockFactory for NativeFSLockFactory {
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     Ok(File::open(&lock_file)?)
                 } else {
-                    Err(RuntimeError::io_with_path(
+                    Err(LuceneError::io_with_path(
                         lock_file.to_string_lossy().to_string(),
                         e,
                     ))
@@ -117,12 +117,12 @@ impl FSLockFactory for NativeFSLockFactory {
 
         let real_path = lock_file
             .canonicalize()
-            .map_err(|e| RuntimeError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
+            .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
         let real_path_str = real_path.to_string_lossy().to_string();
 
         let mut lock_held = self.lock_held.lock().unwrap();
         if !lock_held.insert(real_path_str.clone()) {
-            return Err(RuntimeError::lock_already_held(format!(
+            return Err(LuceneError::lock_already_held(format!(
                 "Lock held by another program: {}",
                 real_path_str
             )));
@@ -140,7 +140,7 @@ impl FSLockFactory for NativeFSLockFactory {
             }
             Err(_) => {
                 lock_held.remove(&real_path_str);
-                Err(RuntimeError::lock_held_by_other(format!(
+                Err(LuceneError::lock_held_by_other(format!(
                     "Lock held by this virtual machine: {}",
                     real_path_str
                 )))
@@ -213,26 +213,26 @@ impl Lock for NativeFSLock {
     ///   - The file lock is no longer valid.
     ///   - The lock file size is not 0.
     ///   - The lock file has been deleted or is inaccessible.
-    fn ensure_valid(&self) -> Result<(), RuntimeError> {
+    fn ensure_valid(&self) -> Result<(), LuceneError> {
         let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
         let lock_held = lock_held.lock().unwrap();
         if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
-            return Err(RuntimeError::illegal_state(format!(
+            return Err(LuceneError::illegal_state(format!(
                 "Lock path unexpectedly cleared from map: {:?}",
                 self.path
             )));
         }
 
         if self.file.try_lock_exclusive().is_ok() {
-            return Err(RuntimeError::illegal_state(format!(
+            return Err(LuceneError::illegal_state(format!(
                 "File lock invalidated by an external force: {:?}",
                 self.path
             )));
         }
 
-        let metadata = self.file.metadata().map_err(RuntimeError::io)?;
+        let metadata = self.file.metadata().map_err(LuceneError::io)?;
         if metadata.len() != 0 {
-            return Err(RuntimeError::illegal_state(format!(
+            return Err(LuceneError::illegal_state(format!(
                 "Unexpected lock file size: {}, (lock: {:?})",
                 metadata.len(),
                 self.path
@@ -240,7 +240,7 @@ impl Lock for NativeFSLock {
         }
 
         if !self.path.exists() {
-            return Err(RuntimeError::illegal_state(format!(
+            return Err(LuceneError::illegal_state(format!(
                 "Lock file deleted or inaccessible: {:?}",
                 self.path
             )));

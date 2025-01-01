@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::{MutablePacked64Enum, NullReader, Reader};
 
 pub enum PackedIntsReadEnum {
@@ -33,7 +33,7 @@ impl Accountable for PackedIntsReadEnum {
 }
 
 impl Reader for PackedIntsReadEnum {
-    fn get(&mut self, index: usize) -> Result<i64, RuntimeError> {
+    fn get(&mut self, index: usize) -> Result<i64, LuceneError> {
         match self {
             PackedIntsReadEnum::PackedReader(op) => op.get(index),
             PackedIntsReadEnum::NullReader(op) => op.get(index),
@@ -46,7 +46,7 @@ impl Reader for PackedIntsReadEnum {
         arr: &mut [i64],
         off: usize,
         len: usize,
-    ) -> Result<u32, RuntimeError> {
+    ) -> Result<u32, LuceneError> {
         match self {
             PackedIntsReadEnum::PackedReader(op) => op.get_bulk(index, arr, off, len),
             PackedIntsReadEnum::NullReader(op) => op.get_bulk(index, arr, off, len),

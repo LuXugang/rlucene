@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
@@ -29,11 +29,11 @@ impl IOUtils {
     /// * `file_to_sync` - The path to the file or directory to sync.
     /// * `is_dir` - If `true`, the given path is a directory. On platforms where directory syncing
     ///   is unsupported (like Windows), this will be ignored for directories.
-    pub fn fsync(file_to_sync: &PathBuf, is_dir: bool) -> Result<(), RuntimeError> {
+    pub fn fsync(file_to_sync: &PathBuf, is_dir: bool) -> Result<(), LuceneError> {
         if is_dir {
             if cfg!(windows) {
                 if !file_to_sync.exists() {
-                    return Err(RuntimeError::not_found(format!(
+                    return Err(LuceneError::not_found(format!(
                         "Directory not found: {}",
                         file_to_sync.display()
                     )));
@@ -46,11 +46,11 @@ impl IOUtils {
                     .read(true)
                     .open(file_to_sync)
                     .map_err(|e| match e.kind() {
-                        io::ErrorKind::NotFound => RuntimeError::not_found(format!(
+                        io::ErrorKind::NotFound => LuceneError::not_found(format!(
                             "Directory not found: {}",
                             file_to_sync.display()
                         )),
-                        _ => RuntimeError::io_with_path(
+                        _ => LuceneError::io_with_path(
                             file_to_sync.to_string_lossy().to_string(),
                             e,
                         ),
@@ -70,11 +70,11 @@ impl IOUtils {
                 .write(true)
                 .open(file_to_sync)
                 .map_err(|e| {
-                    RuntimeError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
+                    LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
                 })?;
 
             file.sync_all().map_err(|e| {
-                RuntimeError::io_with_path(
+                LuceneError::io_with_path(
                     file_to_sync.to_string_lossy().to_string(),
                     io::Error::new(e.kind(), format!("Failed to sync file: {}", e)),
                 )

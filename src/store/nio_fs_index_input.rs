@@ -17,7 +17,7 @@
 use crate::store::index_input::{get_full_slice_description, IndexInput};
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInput, BufferedIndexInputBase, BUFFER_SIZE};
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -68,9 +68,9 @@ impl NIOFSIndexInput {
 }
 
 impl BufferedIndexInputBase for NIOFSIndexInput {
-    fn seek_internal(&mut self, pos: u64) -> Result<(), RuntimeError> {
+    fn seek_internal(&mut self, pos: u64) -> Result<(), LuceneError> {
         if pos > self.length() {
-            return Err(RuntimeError::eof(format!(
+            return Err(LuceneError::eof(format!(
                 "read past EOF: pos={} vs length={} in {}",
                 pos,
                 self.length(),
@@ -95,9 +95,9 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
     ///
     /// This method returns a `DataIOError` in the following cases:
     ///
-    /// * [`RuntimeError::Eof`] - If the requested read range exceeds the file's bounds or if the file
+    /// * [`LuceneError::Eof`] - If the requested read range exceeds the file's bounds or if the file
     ///   unexpectedly reaches EOF during a read.
-    /// * [`RuntimeError::Io`] - For general I/O errors encountered while reading or seeking the file.
+    /// * [`LuceneError::Io`] - For general I/O errors encountered while reading or seeking the file.
     ///
     /// # Details
     ///
@@ -117,13 +117,13 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         buffer: &mut Cursor<Vec<u8>>,
         len: u64,
         file_pointer: u64,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         debug_assert!(buffer.remain() >= len, "buffer overflow");
         let mut pos = file_pointer + self.off;
 
         // Check if the requested read exceeds the file's end
         if pos + len > self.end {
-            return Err(RuntimeError::eof(format!(
+            return Err(LuceneError::eof(format!(
                 "read past EOF: position={} len={} end={}",
                 pos, len, self.end
             )));
@@ -137,17 +137,17 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             // Seek to the correct position in the file
             self.file
                 .seek(SeekFrom::Start(pos))
-                .map_err(RuntimeError::io)?;
+                .map_err(LuceneError::io)?;
 
             // Prepare the buffer slice for writing
             let buffer_start = buffer.position() as usize;
             let buffer_end = buffer_start + to_read;
             let buffer_slice = &mut buffer.get_mut()[buffer_start..buffer_end];
 
-            let bytes_read = self.file.read(buffer_slice).map_err(RuntimeError::io)?;
+            let bytes_read = self.file.read(buffer_slice).map_err(LuceneError::io)?;
 
             if bytes_read == 0 {
-                return Err(RuntimeError::eof(format!(
+                return Err(LuceneError::eof(format!(
                     "read past EOF during chunk read: position={} chunk size={} end={}",
                     pos, to_read, self.end
                 )));
@@ -173,9 +173,9 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
         if offset + length > self.length() {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",
                 slice_description,
                 offset,
@@ -188,7 +188,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         let resource_desc = get_full_slice_description(slice_description);
         let sub_index_input = NIOFSIndexInput::new_with_range(
             // Clone the file handle to create a new `File` instance pointing to the same file resource.
-            self.file.try_clone().map_err(RuntimeError::io)?,
+            self.file.try_clone().map_err(LuceneError::io)?,
             self.off + offset,
             length,
             &resource_desc,

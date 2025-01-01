@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::comparator::Comparator;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::sorter::Sorter;
 
@@ -47,13 +47,13 @@ where
     T: Ord,
     C: Comparator<T>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
         Ok(self
             .comparator
             .compare(&self.arr[i as usize], &self.arr[j as usize]))
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         // The data pointed to by the pivot has been swapped.
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
@@ -64,18 +64,18 @@ where
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
         self.pivot = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32, RuntimeError> {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32, LuceneError> {
         Ok(self
             .comparator
             .compare(&self.arr[self.pivot as usize], &self.arr[i as usize]))
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }

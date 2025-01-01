@@ -17,7 +17,7 @@
 use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 
 /// `IOContext` holds additional details on the merge/search context. An `IOContext` object can never be
 /// passed as a `None` parameter to either [`Directory::open_input`](crate::store::directory::Directory::open_input)
@@ -42,27 +42,27 @@ impl IOContext {
         read_advice: Option<ReadAdvice>,
         merge_info: Option<MergeInfo>,
         flush_info: Option<FlushInfo>,
-    ) -> Result<IOContext, RuntimeError> {
-        let context = context.ok_or(RuntimeError::illegal_argument(
+    ) -> Result<IOContext, LuceneError> {
+        let context = context.ok_or(LuceneError::illegal_argument(
             "context must not be None".to_string(),
         ))?;
-        let read_advice = read_advice.ok_or(RuntimeError::illegal_argument(
+        let read_advice = read_advice.ok_or(LuceneError::illegal_argument(
             "read_advice must not be None".to_string(),
         ))?;
         if matches!(context, Context::Merge) && merge_info.is_none() {
-            return Err(RuntimeError::illegal_argument(
+            return Err(LuceneError::illegal_argument(
                 "merge_info must not be None if context is MERGE".to_string(),
             ));
         }
         if matches!(context, Context::Flush) && flush_info.is_none() {
-            return Err(RuntimeError::illegal_argument(
+            return Err(LuceneError::illegal_argument(
                 "flush_info must not be None if context is FLUSH".to_string(),
             ));
         }
         if (matches!(context, Context::Flush) || matches!(context, Context::Merge))
             && !matches!(read_advice, ReadAdvice::Sequential)
         {
-            return Err(RuntimeError::illegal_argument(
+            return Err(LuceneError::illegal_argument(
                 "The FLUSH and MERGE contexts must use the SEQUENTIAL read access advice"
                     .to_string(),
             ));
@@ -78,12 +78,12 @@ impl IOContext {
     /// `Context` is a `Context::Default` context, otherwise returns the existing instance. This
     /// helps preserve a `ReadAdvice::Sequential` advice for merging, which is always the right choice,
     /// while allowing `IndexInput`s opened for searching to use arbitrary `ReadAdvice` values.
-    fn new_with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, RuntimeError> {
+    fn new_with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
         Self::new(Some(Context::Default), Some(read_advice), None, None)
     }
 
     ///  Creates an `IOContext` for flushing.
-    pub fn new_with_flush(flush_info: FlushInfo) -> Result<IOContext, RuntimeError> {
+    pub fn new_with_flush(flush_info: FlushInfo) -> Result<IOContext, LuceneError> {
         Self::new(
             Some(Context::Flush),
             Some(ReadAdvice::Sequential),
@@ -92,7 +92,7 @@ impl IOContext {
         )
     }
     ///  Creates an `IOContext` for merging.
-    pub fn new_with_merge(merge_info: MergeInfo) -> Result<IOContext, RuntimeError> {
+    pub fn new_with_merge(merge_info: MergeInfo) -> Result<IOContext, LuceneError> {
         Self::new(
             Some(Context::Merge),
             Some(ReadAdvice::Sequential),
@@ -102,7 +102,7 @@ impl IOContext {
     }
 
     #[allow(unused)]
-    fn with_read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext, RuntimeError> {
+    fn with_read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
         if matches!(self.context, Context::Default) {
             // TODO: maybe should statically define all types of context
             Self::new_with_read_advice(read_advice)
@@ -116,7 +116,7 @@ impl IOContext {
     /// # Note
     /// It will use [`ReadAdvice::Random`] by default, unless set by the system property
     /// `org.apache.lucene.store.defaultReadAdvice`.
-    pub fn default_io_context() -> Result<IOContext, RuntimeError> {
+    pub fn default_io_context() -> Result<IOContext, LuceneError> {
         Self::new_with_read_advice(ReadAdvice::default_read_advice())
     }
     /// A default context for reads with [`ReadAdvice::Sequential`].
@@ -124,7 +124,7 @@ impl IOContext {
     /// # Note
     /// This context should only be used when the read operations will be performed in the same
     /// thread as the thread that opens the underlying storage.
-    pub fn read_once_io_context() -> Result<IOContext, RuntimeError> {
+    pub fn read_once_io_context() -> Result<IOContext, LuceneError> {
         Self::new_with_read_advice(ReadAdvice::Sequential)
     }
 }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
 use crate::util::packed::mutable_enum::MutableEnum;
 use crate::util::packed::{fastest_format_and_bits, Format, FormatAndBits, PackedInts};
@@ -53,7 +53,7 @@ impl AbstractPagedMutableBase for PagedMutable {
         &self,
         value_count: u32,
         bits_per_value: u32,
-    ) -> Result<MutableEnum, RuntimeError> {
+    ) -> Result<MutableEnum, LuceneError> {
         debug_assert!(self.bits_per_value >= bits_per_value);
         let sub_mutable =
             PackedInts::get_mutable_impl(value_count, self.bits_per_value, self.format)?;
@@ -66,7 +66,7 @@ impl AbstractPagedMutableBase for PagedMutable {
         &self,
         new_size: u64,
         page_size: u32,
-    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, RuntimeError> {
+    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, LuceneError> {
         let sub_reader = PagedMutable::new_with_bits_and_format(self.bits_per_value, self.format);
         AbstractPagedMutable::new(self.bits_per_value, new_size, page_size, sub_reader)
     }

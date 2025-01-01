@@ -19,7 +19,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
     AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
@@ -71,11 +71,11 @@ impl BytesRefArray {
     /// The nth element of this [`BytesRefArray`] as a [`BytesRef`].
     ///
     /// # Errors
-    /// Returns [`RuntimeError::array_index_out_of_bounds`] if the index is invalid.
+    /// Returns [`LuceneError::array_index_out_of_bounds`] if the index is invalid.
     ///
-    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef, RuntimeError> {
+    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef, LuceneError> {
         if index < 0 || index >= self.last_element {
-            return Err(RuntimeError::array_index_out_of_bounds(format!(
+            return Err(LuceneError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
                 index, self.last_element
             )));
@@ -109,9 +109,9 @@ impl BytesRefArray {
         spare: &mut BytesRefBuilder,
         result: &mut BytesRef,
         index: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         if index < 0 || index >= self.last_element {
-            return Err(RuntimeError::array_index_out_of_bounds(format!(
+            return Err(LuceneError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
                 index, self.last_element
             )));
@@ -144,7 +144,7 @@ impl BytesRefArray {
         &mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
         stable: bool,
-    ) -> Result<SortState, RuntimeError> {
+    ) -> Result<SortState, LuceneError> {
         let size = self.size();
         let mut ordered_entries: Vec<i32> = (0..size).collect();
         if stable {
@@ -234,7 +234,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     fn iterator(
         &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<Self::Iter, RuntimeError> {
+    ) -> Result<Self::Iter, LuceneError> {
         let ords = self.sort(comp, false)?;
         Ok(self.iterator_with_state(ords))
     }
@@ -281,7 +281,7 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
     }
 }
 impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
-    fn next(&mut self) -> Result<Option<BytesRef>, RuntimeError> {
+    fn next(&mut self) -> Result<Option<BytesRef>, LuceneError> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
@@ -320,7 +320,7 @@ struct StableStringSorterImpl<'a> {
     bytes_ref_array: &'a mut BytesRefArray,
 }
 impl Sorter for StableStringSorterImpl<'_> {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         self.ordered_entries.swap(i as usize, j as usize);
         Ok(())
     }
@@ -332,7 +332,7 @@ impl StringSorterBase for StableStringSorterImpl<'_> {
         builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         self.bytes_ref_array
             .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
@@ -354,7 +354,7 @@ struct StringSorterImpl<'a> {
     bytes_ref_array: &'a mut BytesRefArray,
 }
 impl Sorter for StringSorterImpl<'_> {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), RuntimeError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         self.ordered_entries.swap(i as usize, j as usize);
         Ok(())
     }
@@ -365,7 +365,7 @@ impl StringSorterBase for StringSorterImpl<'_> {
         builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         self.bytes_ref_array
             .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }

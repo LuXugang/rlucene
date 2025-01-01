@@ -16,7 +16,7 @@
  */
 use crate::store::simple_fs_lock::SimpleFSLock;
 use crate::store::NativeFSLock;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use std::fmt::{Display, Formatter};
 
 /// An interprocess mutex lock.
@@ -41,7 +41,7 @@ pub trait Lock: Display {
     ///
     /// # Errors
     /// Returns an `DataIOError` if the lock is no longer valid.
-    fn ensure_valid(&self) -> Result<(), RuntimeError>;
+    fn ensure_valid(&self) -> Result<(), LuceneError>;
 }
 
 pub enum FSLockEnum {
@@ -59,7 +59,7 @@ impl Display for FSLockEnum {
 }
 
 impl Lock for FSLockEnum {
-    fn ensure_valid(&self) -> Result<(), RuntimeError> {
+    fn ensure_valid(&self) -> Result<(), LuceneError> {
         match self {
             FSLockEnum::Native(native_lock) => native_lock.ensure_valid(),
             FSLockEnum::Simple(simple_lock) => simple_lock.ensure_valid(),

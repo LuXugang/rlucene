@@ -18,7 +18,7 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 
 use crate::util::{ReadableCursorExt, WritableCursorExt};
 use byteorder::WriteBytesExt;
@@ -52,7 +52,7 @@ impl ByteBuffersDataOutput {
     pub const DEFAULT_MIN_BITS_PER_BLOCK: u32 = 10;
 
     ///Creates a new output with all defaults.
-    pub fn new_resettable_instance() -> Result<Self, RuntimeError> {
+    pub fn new_resettable_instance() -> Result<Self, LuceneError> {
         Self::new(
             Self::DEFAULT_MIN_BITS_PER_BLOCK,
             Self::DEFAULT_MAX_BITS_PER_BLOCK,
@@ -69,23 +69,23 @@ impl ByteBuffersDataOutput {
         min_bits_per_block: u32,
         max_bits_per_block: u32,
         reuse: bool,
-    ) -> Result<Self, RuntimeError> {
+    ) -> Result<Self, LuceneError> {
         if min_bits_per_block < Self::LIMIT_MIN_BITS_PER_BLOCK {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "minBitsPerBlock ({}) too small, must be at least {}",
                 min_bits_per_block,
                 Self::LIMIT_MIN_BITS_PER_BLOCK
             )));
         }
         if max_bits_per_block > Self::LIMIT_MAX_BITS_PER_BLOCK {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "maxBitsPerBlock ({}) too large, must not exceed {}",
                 max_bits_per_block,
                 Self::LIMIT_MAX_BITS_PER_BLOCK
             )));
         }
         if min_bits_per_block > max_bits_per_block {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "minBitsPerBlock ({}) cannot exceed maxBitsPerBlock ({})",
                 min_bits_per_block, max_bits_per_block
             )));
@@ -108,7 +108,7 @@ impl ByteBuffersDataOutput {
     ///
     /// # Arguments
     /// * `expected_size` - Estimated size of the output file.
-    pub fn new_with_expected_size(expected_size: u64) -> Result<Self, RuntimeError> {
+    pub fn new_with_expected_size(expected_size: u64) -> Result<Self, LuceneError> {
         let block_bits = compute_block_size_bits_for(expected_size);
         Self::new(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
     }
@@ -184,7 +184,7 @@ impl ByteBuffersDataOutput {
     }
     /// Copies the current content of this object into another [`DataOutput`].
     #[allow(unused)]
-    fn copy_to<T: DataInput>(&mut self, _output: T) -> Result<(), RuntimeError> {
+    fn copy_to<T: DataInput>(&mut self, _output: T) -> Result<(), LuceneError> {
         unimplemented!("")
     }
     /// The number of bytes written to this output so far.
@@ -278,19 +278,19 @@ impl ByteBuffersDataOutput {
         last_block.remain()
     }
     #[cfg(feature = "test_only")]
-    pub fn write_bytes(&mut self, b: Vec<u8>) -> Result<(), RuntimeError> {
+    pub fn write_bytes(&mut self, b: Vec<u8>) -> Result<(), LuceneError> {
         debug_assert!(b.len() <= u32::MAX as usize);
         self.write_bytes_range(&b, 0, b.len() as u32)
     }
 
     #[cfg(feature = "test_only")]
-    pub fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError> {
+    pub fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
         self.write_bytes_range(&[b], 0, 1)
     }
 }
 
 impl DataOutput for ByteBuffersDataOutput {
-    fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError> {
+    fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
         self.append_block_if_needed();
         let last_block = self
             .blocks
@@ -299,7 +299,7 @@ impl DataOutput for ByteBuffersDataOutput {
         Ok(last_block.write_u8(b)?)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), RuntimeError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), LuceneError> {
         self.write_bytes_range(b, 0, len)
     }
 
@@ -308,7 +308,7 @@ impl DataOutput for ByteBuffersDataOutput {
         b: &[u8],
         mut offset: u32,
         mut length: u32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         while length > 0 {
             let available_space = self.append_block_if_needed();
             let last_block = self
@@ -324,22 +324,22 @@ impl DataOutput for ByteBuffersDataOutput {
         Ok(())
     }
 
-    fn write_int(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn write_int(&mut self, i: i32) -> Result<(), LuceneError> {
         let value = i.to_le_bytes();
         self.write_bytes_range(&value, 0, 4)
     }
 
-    fn write_short(&mut self, i: i16) -> Result<(), RuntimeError> {
+    fn write_short(&mut self, i: i16) -> Result<(), LuceneError> {
         let value = i.to_le_bytes();
         self.write_bytes_range(&value, 0, 2)
     }
 
-    fn write_long(&mut self, i: i64) -> Result<(), RuntimeError> {
+    fn write_long(&mut self, i: i64) -> Result<(), LuceneError> {
         let value = i.to_le_bytes();
         self.write_bytes_range(&value, 0, 8)
     }
 
-    fn write_string(&mut self, s: &str) -> Result<(), RuntimeError> {
+    fn write_string(&mut self, s: &str) -> Result<(), LuceneError> {
         let bytes = s.as_bytes();
         let length = bytes.len();
         debug_assert!(length <= u32::MAX as usize);
@@ -351,7 +351,7 @@ impl DataOutput for ByteBuffersDataOutput {
         &mut self,
         input: &mut T,
         mut num_bytes: u64,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         while num_bytes > 0 {
             let available_space = self.append_block_if_needed();
             let last_block = self

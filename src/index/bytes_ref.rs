@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use std::cmp::Ordering;
 use std::hash::Hash;
 
@@ -107,10 +107,10 @@ impl BytesRef {
     /// # Errors
     /// - May panic with an assertion error if debug assertions are enabled and the data is not well-formed UTF-8.
     /// - May return an error or panic if the data is not valid UTF-8 during runtime.
-    pub fn utf8_to_string(&self) -> Result<String, RuntimeError> {
+    pub fn utf8_to_string(&self) -> Result<String, LuceneError> {
         std::str::from_utf8(&self.bytes[self.offset as usize..(self.offset + self.length) as usize])
             .map(|s| s.to_owned())
-            .map_err(RuntimeError::Utf8Error)
+            .map_err(LuceneError::Utf8Error)
     }
     /// Creates a new `BytesRef` that points to a copy of the bytes from `other`.
     ///
@@ -119,23 +119,23 @@ impl BytesRef {
         Self::new_from_vec(other.bytes.clone(), 0, other.length)
     }
     /// Performs internal consistency checks. Always returns `true` (or throws `IllegalStateError`).
-    pub fn is_valid(&self) -> Result<bool, RuntimeError> {
+    pub fn is_valid(&self) -> Result<bool, LuceneError> {
         if self.length as usize > self.bytes.len() {
-            return Err(RuntimeError::illegal_state(format!(
+            return Err(LuceneError::illegal_state(format!(
                 "length is out of bounds: {},bytes.length= {}",
                 self.length,
                 self.bytes.len()
             )));
         }
         if self.offset as usize > self.bytes.len() {
-            return Err(RuntimeError::illegal_state(format!(
+            return Err(LuceneError::illegal_state(format!(
                 "offset out of bounds: {},bytes.length= {}",
                 self.offset,
                 self.bytes.len()
             )));
         }
         if (self.offset + self.length) as usize > self.bytes.len() {
-            return Err(RuntimeError::illegal_state(format!(
+            return Err(LuceneError::illegal_state(format!(
                 "offset+length out of bounds: offset={},length={},bytes.length= {}",
                 self.offset,
                 self.length,

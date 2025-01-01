@@ -26,7 +26,7 @@ use rlucene::store::index_input::IndexInput;
 use rlucene::store::{
     ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput, IndexOutput,
 };
-use rlucene::util::error::runtime_error::RuntimeError;
+use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::random_id;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::AtomicI64;
@@ -57,7 +57,7 @@ fn test_write_too_long_header() -> Result<(), TestError> {
     let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
 
     let result = write_header(&mut output, &too_long, 5);
-    matches!(result, Err(RuntimeError::IllegalArgument(_)));
+    matches!(result, Err(LuceneError::IllegalArgument(_)));
     Ok(())
 }
 
@@ -69,7 +69,7 @@ fn test_write_non_ascii_header() -> Result<(), TestError> {
     let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 
     let result = write_header(&mut output, &non_ascii_header, 5);
-    matches!(result, Err(RuntimeError::IllegalArgument(_)));
+    matches!(result, Err(LuceneError::IllegalArgument(_)));
     Ok(())
 }
 
@@ -86,7 +86,7 @@ fn test_read_header_wrong_magic() -> Result<(), TestError> {
     let mut input = ByteBuffersIndexInput::new(input_data, "temp");
 
     let result = check_header(&mut input, "bogus", 1, 1);
-    assert!(matches!(result, Err(RuntimeError::CorruptIndex(_))));
+    assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
     Ok(())
 }
 
@@ -117,7 +117,7 @@ fn test_check_footer_valid() -> Result<(), TestError> {
 
     let mut input =
         BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(out.get_data_input(), "temp"));
-    let mut mine = RuntimeError::illegal_argument("fake exception");
+    let mut mine = LuceneError::illegal_argument("fake exception");
     let result = check_footer_with_error(&mut input, &mut mine);
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("checksum passed"));
@@ -140,7 +140,7 @@ fn test_check_footer_valid_at_footer() -> Result<(), TestError> {
     check_header(&mut input, "FooBar", 5, 5)?;
     let read_data = input.read_string()?;
     assert_eq!(read_data, "this is the data");
-    let mut mine = RuntimeError::illegal_argument("fake exception");
+    let mut mine = LuceneError::illegal_argument("fake exception");
     let result = check_footer_with_error(&mut input, &mut mine);
     assert!(result.is_err());
     let err_message = result.unwrap_err().to_string();
@@ -169,7 +169,7 @@ fn test_check_footer_valid_past_footer() -> Result<(), TestError> {
     // Bogusly read a byte too far
     input.read_byte()?;
 
-    let mut mine = RuntimeError::illegal_argument("fake exception");
+    let mut mine = LuceneError::illegal_argument("fake exception");
     let result = check_footer_with_error(&mut input, &mut mine);
 
     assert!(result.is_err());
@@ -196,7 +196,7 @@ fn test_check_footer_invalid() -> Result<(), TestError> {
     check_header(&mut input, "FooBar", 5, 5)?;
     let read_data = input.read_string()?;
     assert_eq!(read_data, "this is the data");
-    let mut mine = RuntimeError::illegal_argument("fake exception");
+    let mut mine = LuceneError::illegal_argument("fake exception");
     let result = check_footer_with_error(&mut input, &mut mine);
     assert!(result.is_err());
     let err_message = result.unwrap_err().to_string();
@@ -229,7 +229,7 @@ fn test_write_too_long_suffix() {
     let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 
     let result = write_index_header(&mut output, "foobar", 5, &random_id(), &too_long);
-    assert!(matches!(result, Err(RuntimeError::IllegalArgument(_))));
+    assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 }
 #[test]
 fn test_write_very_long_suffix() -> Result<(), TestError> {
@@ -261,7 +261,7 @@ fn test_write_non_ascii_suffix() {
     let non_ascii_suffix = "\u{1234}";
 
     let result = write_index_header(&mut output, "foobar", 5, &random_id(), non_ascii_suffix);
-    assert!(matches!(result, Err(RuntimeError::IllegalArgument(_))));
+    assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 }
 #[test]
 fn test_read_bogus_crc() -> Result<(), TestError> {
@@ -280,7 +280,7 @@ fn test_read_bogus_crc() -> Result<(), TestError> {
 
     for _ in 0..3 {
         let result = read_crc(&mut input);
-        assert!(matches!(result, Err(RuntimeError::CorruptIndex(_))));
+        assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
     }
 
     let result = read_crc(&mut input);
@@ -299,17 +299,17 @@ fn test_write_bogus_crc() -> Result<(), TestError> {
     fake_checksum.store(-1, std::sync::atomic::Ordering::Relaxed); // bad
     let result = write_crc(&mut fake_output);
     assert!(result.is_err());
-    assert!(matches!(result, Err(RuntimeError::IllegalState(_))));
+    assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
     fake_checksum.store(1 << 32, std::sync::atomic::Ordering::Relaxed); // bad
     let result = write_crc(&mut fake_output);
     assert!(result.is_err());
-    assert!(matches!(result, Err(RuntimeError::IllegalState(_))));
+    assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
     fake_checksum.store(-(1 << 32), std::sync::atomic::Ordering::Relaxed); // bad
     let result = write_crc(&mut fake_output);
     assert!(result.is_err());
-    assert!(matches!(result, Err(RuntimeError::IllegalState(_))));
+    assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
     fake_checksum.store((1 << 32) - 1, std::sync::atomic::Ordering::Relaxed); // ok
     let result = write_crc(&mut fake_output);
@@ -326,13 +326,13 @@ fn test_truncated_file_throws_corrupt_index_exception() -> Result<(), TestError>
     let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
 
     let result = checksum_entire_file(&mut input);
-    assert!(matches!(result, Err(RuntimeError::CorruptIndex(_))));
+    assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
     assert!(result.unwrap_err().to_string().contains(
         "misplaced codec footer (file truncated?): length=0 but footerLength==16 (resource"
     ));
 
     let result = retrieve_checksum(&mut input);
-    assert!(matches!(result, Err(RuntimeError::CorruptIndex(_))));
+    assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
     assert!(result.unwrap_err().to_string().contains(
         "misplaced codec footer (file truncated?): length=0 but footerLength==16 (resource"
     ));
@@ -358,7 +358,7 @@ impl<'a> FakeOutput<'a> {
 }
 
 impl DataOutput for FakeOutput<'_> {
-    fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError> {
+    fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
         self.output.write_byte(b)
     }
 
@@ -367,7 +367,7 @@ impl DataOutput for FakeOutput<'_> {
         b: &[u8],
         offset: u32,
         length: u32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         self.output.write_bytes_range(b, offset, length)
     }
 }

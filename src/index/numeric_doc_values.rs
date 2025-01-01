@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 
 pub trait NumericDocValues: DocValuesIterator {
     /// Returns the numeric value for the current document ID.
     ///
     /// # Returns
     /// The numeric value for the current document ID.
-    fn long_value(&mut self) -> Result<i64, RuntimeError>;
+    fn long_value(&mut self) -> Result<i64, LuceneError>;
 }

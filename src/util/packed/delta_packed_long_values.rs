@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::monotonic_long_values::{MonotonicLongValues, MonotonicLongValuesBuilder};
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
@@ -37,7 +37,7 @@ impl DeltaPackedLongValues {
         block: usize,
         dest: &mut [i64],
         count: u32,
-    ) -> Result<u32, RuntimeError> {
+    ) -> Result<u32, LuceneError> {
         let min = self.mins[block];
         for item in dest.iter_mut().take(count as usize) {
             *item += min;
@@ -53,7 +53,7 @@ impl DeltaPackedLongValues {
         block: usize,
         element: usize,
         _value: u64,
-    ) -> Result<i64, RuntimeError> {
+    ) -> Result<i64, LuceneError> {
         let current = self.mins[block];
         match self.sub_long_value {
             Some(ref mut reader) => Ok(reader.get_value(block, element, current as u64)?),
@@ -88,7 +88,7 @@ impl DeltaPackedLongValuesBuilder {
         }
     }
 
-    pub fn build(mut self, values_off: usize) -> Result<DeltaPackedLongValues, RuntimeError> {
+    pub fn build(mut self, values_off: usize) -> Result<DeltaPackedLongValues, LuceneError> {
         let sub_reader = if self.sub_builder.is_some() {
             Some(self.sub_builder.take().unwrap().build(values_off)?)
         } else {
@@ -107,7 +107,7 @@ impl DeltaPackedLongValuesBuilder {
         values: &mut [i64],
         num_values: u32,
         block: usize,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), LuceneError> {
         if self.sub_builder.is_some() {
             self.sub_builder
                 .as_mut()

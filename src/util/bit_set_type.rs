@@ -18,7 +18,7 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
@@ -124,7 +124,7 @@ impl BitSet for BitSetType {
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), RuntimeError> {
+    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), LuceneError> {
         match self {
             Self::Sparse(s) => s.or(iter),
             Self::Fixed(fixed) => BitSet::or(fixed, iter),

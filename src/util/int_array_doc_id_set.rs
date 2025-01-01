@@ -19,7 +19,7 @@ use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::accountable::Accountable;
 use crate::util::bits::MatchNoBits;
 
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::lucene_error::LuceneError;
 use std::cmp::min;
 use std::sync::Arc;
 
@@ -43,9 +43,9 @@ pub struct IntArrayDocIdSet {
 ///   [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS).
 /// * `len` - The valid docs length in the array.
 impl IntArrayDocIdSet {
-    pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet, RuntimeError> {
+    pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet, LuceneError> {
         if docs[length as usize] != NO_MORE_DOCS {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "last value must be {}",
                 NO_MORE_DOCS
             )));
