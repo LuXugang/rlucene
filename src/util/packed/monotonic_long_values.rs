@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::packed::monotonic_block_packed_reader::{expected, MonotonicBlockPackedReader};
+use crate::util::packed::monotonic_block_packed_reader::expected;
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
 pub struct MonotonicLongValues {

@@ -51,7 +51,7 @@ pub mod bulk_operation_packed_single_block;
 mod delta_packed_long_values;
 pub mod format_behavior;
 pub mod growable_writer;
-mod monotonic_block_packed_reader;
+pub mod monotonic_block_packed_reader;
 pub mod monotonic_block_packed_writer;
 mod monotonic_long_values;
 mod mutable_enum;

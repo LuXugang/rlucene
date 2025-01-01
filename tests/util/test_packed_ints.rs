@@ -30,6 +30,8 @@ use rlucene::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use rlucene::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
 use rlucene::util::packed::block_packed_writer::BlockPackedWriter;
 use rlucene::util::packed::growable_writer::GrowableWriter;
+use rlucene::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
+use rlucene::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter;
 use rlucene::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
 use rlucene::util::packed::paged_growable_writer::PagedGrowableWriter;
 use rlucene::util::packed::paged_mutable::PagedMutable;
@@ -1396,6 +1398,64 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
             assert_eq!(fp, in_ref.get_position() as u64);
         }
     }
+    Ok(())
+}
+#[test]
+fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
+    let mut random = my_random("test_monotonic_block_packed_reader_writer".to_string());
+    let iters = random.gen_range(2..100);
+    for _ in 0..iters {
+        let block_size = 1 << random.gen_range(6..=18);
+        let value_count = random.gen_range(0..(1 << 18));
+        let mut values = vec![0i64; value_count];
+
+        if value_count > 0 {
+            values[0] = if random.gen_bool(0.5) {
+                random.gen_range(0..10) as i64
+            } else {
+                random.gen_range(0..i32::MAX) as i64
+            };
+
+            let mut max_delta = random.gen_range(0..64);
+            for i in 1..value_count {
+                if random.gen_bool(0.1) {
+                    max_delta = random.gen_range(0..64);
+                }
+                values[i] =
+                    std::cmp::max(0, values[i - 1] + random.gen_range(-16..=max_delta) as i64);
+            }
+        }
+        let mut dir = new_directory(&mut random)?;
+        let file_pointer;
+        {
+            let mut out = dir.create_output("out.bin", IOContext::default_io_context()?)?;
+            let mut writer = AbstractBlockPackedWriter::new(
+                block_size as u32,
+                MonotonicBlockPackedWriter,
+                &mut out,
+            )?;
+            for (i, &value) in values.iter().enumerate().take(value_count) {
+                assert_eq!(i as u64, writer.ord());
+                writer.add(value)?;
+            }
+            assert_eq!(value_count as u64, writer.ord());
+            writer.finish()?;
+            assert_eq!(value_count as u64, writer.ord());
+            file_pointer = out.get_file_pointer();
+        }
+        let mut input = dir.open_input("out.bin", IOContext::default_io_context()?)?;
+        let mut reader = MonotonicBlockPackedReader::of(
+            &mut input,
+            PackedInts::VERSION_CURRENT,
+            block_size,
+            value_count as u64,
+        )?;
+        assert_eq!(file_pointer, input.get_file_pointer());
+        for (i, &value) in values.iter().enumerate().take(value_count) {
+            assert_eq!(value, reader.get(i as u64)?);
+        }
+    }
+
     Ok(())
 }
 #[cfg(feature = "nightly")]

@@ -37,12 +37,22 @@ pub struct MonotonicBlockPackedReader {
     min_values: Vec<i64>,
     averages: Vec<f32>,
     sub_readers: Vec<LongValuesEnum>,
+    #[allow(unused)]
     sum_bpv: u64,
+    #[allow(unused)]
     total_byte_count: u64,
 }
 
 impl MonotonicBlockPackedReader {
-    pub fn new<I: IndexInput>(
+    pub fn of<I: IndexInput>(
+        input: &mut I,
+        packed_ints_version: u32,
+        block_size: u32,
+        value_count: u64,
+    ) -> Result<Self, DataIOError> {
+        Self::new(input, packed_ints_version, block_size, value_count)
+    } 
+    fn new<I: IndexInput>(
         input: &mut I,
         packed_ints_version: u32,
         block_size: u32,
@@ -54,13 +64,13 @@ impl MonotonicBlockPackedReader {
         let mut min_values = vec![0; num_blocks as usize];
         let mut averages = vec![0.0; num_blocks as usize];
         let mut sub_readers = vec![LongValuesEnum::ZeroesLongValues(Zeroes); num_blocks as usize];
-        let mut sum_bpv: u32 = 0;
+        let mut sum_bpv:u64 = 0;
         let mut total_byte_count = 0;
         for i in 0..num_blocks as usize {
             min_values[i] = input.read_zlong()?;
             averages[i] = f32::from_bits(input.read_int()? as u32);
             let bits_per_value = input.read_vint()? as u32;
-            sum_bpv += bits_per_value;
+            sum_bpv += bits_per_value as u64;
             if bits_per_value > 64 {
                 return Err(DataIOError::corrupt_index(
                     "Corrupted: bits_per_value > 64".to_string(),
@@ -85,7 +95,7 @@ impl MonotonicBlockPackedReader {
                 debug_assert!(byte_count <= u32::MAX as u64);
                 input.read_bytes(&mut blocks, 0, byte_count as u32)?;
                 let mask_right = (1u64 << bits_per_value) - 1;
-                let bpv_minus_block_size = bits_per_value - BLOCK_SIZE;
+                let bpv_minus_block_size = bits_per_value as i32 - BLOCK_SIZE as i32;
                 sub_readers[i] = LongValuesEnum::Monotonic(MonotonicLongValues {
                     bits_per_values: bits_per_value,
                     bpv_minus_block_size,
@@ -102,7 +112,7 @@ impl MonotonicBlockPackedReader {
             min_values,
             averages,
             sub_readers,
-            sum_bpv: 0,
+            sum_bpv,
             total_byte_count,
         })
     }
@@ -118,7 +128,7 @@ pub fn expected(origin: i64, average: f32, index: usize) -> i64 {
 #[derive(Clone)]
 pub struct MonotonicLongValues {
     bits_per_values: u32,
-    bpv_minus_block_size: u32,
+    bpv_minus_block_size: i32,
     blocks: Vec<u8>,
     mask_right: u64,
 }

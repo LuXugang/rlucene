@@ -19,7 +19,7 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::packed::abstract_block_packed_writer::{
     write_values, AbstractBlockPackedWriterBase,
 };
-use crate::util::packed::monotonic_block_packed_reader::{expected, MonotonicBlockPackedReader};
+use crate::util::packed::monotonic_block_packed_reader::expected;
 use crate::util::packed::PackedInts;
 /// A writer for large monotonically increasing sequences of positive longs.
 ///
