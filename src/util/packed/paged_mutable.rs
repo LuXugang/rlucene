@@ -71,8 +71,8 @@ impl AbstractPagedMutableBase for PagedMutable {
         AbstractPagedMutable::new(self.bits_per_value, new_size, page_size, sub_reader)
     }
 
-    fn base_ram_bytes_used(&self) -> i64 {
-        todo!()
+    fn base_ram_bytes_used_base(&self) -> u64 {
+        0
     }
 
     fn fill_pages(&self) -> bool {

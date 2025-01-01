@@ -81,7 +81,7 @@ impl DocIdSet for All {
 
 impl Accountable for All {
     fn ram_bytes_used(&self) -> u64 {
-        BitUtil::INT_BYTES as u64
+        0
     }
 }
 

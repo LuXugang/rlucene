@@ -20,6 +20,7 @@ use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};
+use crate::util::ram_usage_estimator::RamUsageEstimator;
 use std::cmp::min;
 use std::fmt::Display;
 
@@ -190,7 +191,11 @@ impl Display for MonotonicBlockPackedReader {
 }
 impl Accountable for MonotonicBlockPackedReader {
     fn ram_bytes_used(&self) -> u64 {
-        todo!()
+        let mut size_in_bytes = 0;
+        size_in_bytes += RamUsageEstimator::size_of_vec(&self.min_values);
+        size_in_bytes += RamUsageEstimator::size_of_vec(&self.averages);
+        size_in_bytes += self.total_byte_count;
+        size_in_bytes
     }
 }
 #[derive(Clone)]

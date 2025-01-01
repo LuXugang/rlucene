@@ -119,9 +119,8 @@ where
         let index_in_page = self.index_in_page(index);
         self.sub_mutables[page_index].set(index_in_page as usize, value)
     }
-    #[allow(dead_code)]
-    fn base_ram_bytes_used(&self) -> i64 {
-        todo!()
+    pub(crate) fn base_ram_bytes_used(&self) -> u64 {
+        self.sub_reader.base_ram_bytes_used_base()
     }
     /// Create a new copy of size <code>newSize</code> based on the content of this buffer. This
     /// is much more efficient than creating a new instance and copying values one by one.
@@ -190,10 +189,14 @@ where
 }
 impl<T> Accountable for AbstractPagedMutable<T>
 where
-    T: AbstractPagedMutableBase,
+    T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
     fn ram_bytes_used(&self) -> u64 {
-        todo!()
+        let mut byte_used = self.base_ram_bytes_used();
+        for sub_mutable in &self.sub_mutables {
+            byte_used += sub_mutable.ram_bytes_used();
+        }
+        byte_used
     }
 }
 impl<T> Display for AbstractPagedMutable<T>
@@ -222,6 +225,6 @@ pub trait AbstractPagedMutableBase {
         new_size: u64,
         page_size: u32,
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, DataIOError>;
-    fn base_ram_bytes_used(&self) -> i64;
+    fn base_ram_bytes_used_base(&self) -> u64;
     fn fill_pages(&self) -> bool;
 }

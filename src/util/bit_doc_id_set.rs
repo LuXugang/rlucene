@@ -61,7 +61,7 @@ where
     T: BitSet + Clone,
 {
     fn ram_bytes_used(&self) -> u64 {
-        todo!()
+        self.set.as_ref().unwrap().ram_bytes_used()
     }
 }
 
