@@ -16,7 +16,8 @@
  */
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::bytes_ref_comparator::{BytesRefComparator, BYTES_REF_COMPARATOR_TYPE};
-use crate::util::error::runtime_error::RuntimeError;
+
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 
@@ -64,7 +65,7 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate_sorter
@@ -76,7 +77,7 @@ where
         self.delegate_sorter.swap(i, j);
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
         // In fact, it is necessary to provide an instance that implements BytesRefComparator to simplify the code.
         // However, the TYPE of this instance cannot be specified as "BytesRefComparator".
         if C::TYPE.eq(BYTES_REF_COMPARATOR_TYPE) {
@@ -131,7 +132,7 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         Ok(self.cmp.byte_at(&self.scratch_bytes1, k as u32))
@@ -186,7 +187,7 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate_sorter
@@ -206,13 +207,13 @@ where
         self.delegate_sorter.swap(i, j);
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn set_pivot(&mut self, i: i32) -> Result<(), DataIOError> {
         self.delegate_sorter
             .get(&mut self.pivot_builder, &mut self.pivot, i)?;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32, RuntimeError> {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, j)?;
         if self.k.is_some() {
@@ -226,7 +227,7 @@ where
         }
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -245,7 +246,7 @@ pub trait StringSorterBase {
         builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError>;
+    ) -> Result<(), DataIOError>;
     fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
     where
         T: Sorter + StringSorterBase,

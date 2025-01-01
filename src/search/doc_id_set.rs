@@ -16,7 +16,6 @@
  */
 use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, EmptyDISI};
 use crate::util::accountable::Accountable;
-use crate::util::bit_util::BitUtil;
 use crate::util::bits::{Bits, MatchAllBits, MatchNoBits};
 use std::sync::Arc;
 

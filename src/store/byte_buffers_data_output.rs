@@ -19,7 +19,7 @@ use crate::store::data_output::DataOutput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::error::runtime_error::RuntimeError;
+
 use crate::util::{ReadableCursorExt, WritableCursorExt};
 use byteorder::WriteBytesExt;
 use std::collections::VecDeque;
@@ -52,7 +52,7 @@ impl ByteBuffersDataOutput {
     pub const DEFAULT_MIN_BITS_PER_BLOCK: u32 = 10;
 
     ///Creates a new output with all defaults.
-    pub fn new_resettable_instance() -> Result<Self, RuntimeError> {
+    pub fn new_resettable_instance() -> Result<Self, DataIOError> {
         Self::new(
             Self::DEFAULT_MIN_BITS_PER_BLOCK,
             Self::DEFAULT_MAX_BITS_PER_BLOCK,
@@ -69,23 +69,23 @@ impl ByteBuffersDataOutput {
         min_bits_per_block: u32,
         max_bits_per_block: u32,
         reuse: bool,
-    ) -> Result<Self, RuntimeError> {
+    ) -> Result<Self, DataIOError> {
         if min_bits_per_block < Self::LIMIT_MIN_BITS_PER_BLOCK {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "minBitsPerBlock ({}) too small, must be at least {}",
                 min_bits_per_block,
                 Self::LIMIT_MIN_BITS_PER_BLOCK
             )));
         }
         if max_bits_per_block > Self::LIMIT_MAX_BITS_PER_BLOCK {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "maxBitsPerBlock ({}) too large, must not exceed {}",
                 max_bits_per_block,
                 Self::LIMIT_MAX_BITS_PER_BLOCK
             )));
         }
         if min_bits_per_block > max_bits_per_block {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "minBitsPerBlock ({}) cannot exceed maxBitsPerBlock ({})",
                 min_bits_per_block, max_bits_per_block
             )));
@@ -108,7 +108,7 @@ impl ByteBuffersDataOutput {
     ///
     /// # Arguments
     /// * `expected_size` - Estimated size of the output file.
-    pub fn new_with_expected_size(expected_size: u64) -> Result<Self, RuntimeError> {
+    pub fn new_with_expected_size(expected_size: u64) -> Result<Self, DataIOError> {
         let block_bits = compute_block_size_bits_for(expected_size);
         Self::new(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
     }

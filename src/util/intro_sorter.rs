@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::sorter::{check_range, Sorter};
 /// Below this size threshold, the partition selection is simplified to a single median.
 const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
@@ -34,7 +34,7 @@ const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 /// # Note
 /// This is an internal API.
 pub trait IntroSorter: Sorter {
-    fn sort_range(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort_range(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
         check_range(from, to)?;
         self.sort_in_intro(from, to, (2.0 * ((to - from) as f64).log2()) as usize)?;
         Ok(())
@@ -50,7 +50,7 @@ pub trait IntroSorter: Sorter {
         mut from: i32,
         mut to: i32,
         mut max_depth: usize,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), DataIOError> {
         while to - from > Self::INSERTION_SORT_THRESHOLD {
             if max_depth == 0 {
                 // Max recursion depth exceeded: fallback to heap sort.
@@ -152,7 +152,7 @@ pub trait IntroSorter: Sorter {
     }
 
     /// Returns the index of the median element among three elements at provided indices.
-    fn median(&mut self, i: i32, j: i32, k: i32) -> Result<i32, RuntimeError> {
+    fn median(&mut self, i: i32, j: i32, k: i32) -> Result<i32, DataIOError> {
         if self.compare(i, j)? < 0 {
             if self.compare(j, k)? <= 0 {
                 return Ok(j);
@@ -174,7 +174,7 @@ pub trait IntroSorter: Sorter {
     }
 
     #[allow(unused)]
-    fn compare_default(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare_default(&mut self, i: i32, j: i32) -> Result<i32, DataIOError> {
         self.set_pivot(i);
         self.compare_pivot(j)
     }

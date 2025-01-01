@@ -312,12 +312,12 @@ where
                 DataIOError::io_with_path(file_path.to_string_lossy().to_string(), err)
             })?;
 
-        Ok(OutputStreamIndexOutput::new(
+        OutputStreamIndexOutput::new(
             format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),
             name,
             file,
             CHUNK_SIZE,
-        )?)
+        )
     }
     fn create_temp_output(
         &mut self,
@@ -347,12 +347,12 @@ where
                 .open(&file_path)
             {
                 Ok(file) => {
-                    return Ok(OutputStreamIndexOutput::new(
+                    return OutputStreamIndexOutput::new(
                         format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),
                         &name,
                         file,
                         CHUNK_SIZE,
-                    )?);
+                    );
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
                     continue;

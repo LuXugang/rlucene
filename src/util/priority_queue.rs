@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::data_io_error_enum::DataIOError;
 use std::iter::repeat_with;
 use std::mem;
 
@@ -86,7 +86,7 @@ where
         max_size: i32,
         sentinel_object_supplier: F,
         compare: C,
-    ) -> Result<PriorityQueue<T, C>, RuntimeError>
+    ) -> Result<PriorityQueue<T, C>, DataIOError>
     where
         F: Fn() -> Option<T>,
         C: Compare<T>,
@@ -96,7 +96,7 @@ where
             2
         } else {
             if !(0..i32::MAX).contains(&max_size) {
-                return Err(RuntimeError::illegal_argument(format!(
+                return Err(DataIOError::illegal_argument(format!(
                     "maxSize must be >= 0 and < {}; got: {}",
                     i32::MAX,
                     max_size
@@ -133,7 +133,7 @@ where
     }
 
     // construct
-    pub fn new(max_size: i32, compare: C) -> Result<PriorityQueue<T, C>, RuntimeError> {
+    pub fn new(max_size: i32, compare: C) -> Result<PriorityQueue<T, C>, DataIOError> {
         Self::with_sentinel_object(max_size, || None, compare)
     }
 
@@ -144,9 +144,9 @@ where
     /// # Errors
     /// If one tries to add more objects than the `max_size` passed in the constructor, an
     /// [`ArrayIndexOutOfBoundsError`](crate::util::error::array_index_out_of_bounds) is thrown.
-    pub fn add_all(&mut self, elements: Vec<T>) -> Result<(), RuntimeError> {
+    pub fn add_all(&mut self, elements: Vec<T>) -> Result<(), DataIOError> {
         if (self.size + elements.len()) > self.max_size {
-            return Err(RuntimeError::array_index_out_of_bounds(format!(
+            return Err(DataIOError::array_index_out_of_bounds(format!(
                 "Cannot add {} elements to a queue with remaining capacity: {}",
                 elements.len(),
                 self.max_size - self.size

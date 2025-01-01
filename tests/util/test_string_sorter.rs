@@ -21,7 +21,8 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
-use rlucene::util::error::runtime_error::RuntimeError;
+
+use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
 use rlucene::util::{
     Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
@@ -196,7 +197,7 @@ impl StringSorterBase for StringSorterTestImpl {
         _builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), DataIOError> {
         let ref_item = &self.refs[i as usize];
         result.offset = ref_item.offset;
         result.length = ref_item.length;
@@ -217,7 +218,7 @@ impl StringSorterBase for StableStringSorterTestImpl<'_> {
         _builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), DataIOError> {
         let ref_item = &self.refs[self.ord[i as usize] as usize];
         result.offset = ref_item.offset;
         result.length = ref_item.length;

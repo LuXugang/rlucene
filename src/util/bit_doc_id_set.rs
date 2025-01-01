@@ -18,7 +18,8 @@ use crate::search::doc_id_set::DocIdSet;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
-use crate::util::error::runtime_error::RuntimeError;
+
+use crate::util::error::data_io_error_enum::DataIOError;
 use std::sync::Arc;
 
 //TODO
@@ -36,9 +37,9 @@ pub struct BitDocIdSet<T: BitSet> {
 /// Wraps the given [`BitSet`] as a [`DocIdSet`].
 /// The provided [`BitSet`] must not be modified afterwards.
 impl<T: BitSet> BitDocIdSet<T> {
-    pub fn new_with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, RuntimeError> {
+    pub fn new_with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, DataIOError> {
         if cost < 0 {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
                 cost
             )));
@@ -50,7 +51,7 @@ impl<T: BitSet> BitDocIdSet<T> {
     }
     /// Same as [`BitDocIdSet`] but uses the set's [`BitSet::approximate_cardinality`]
     /// as a cost.
-    pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>, RuntimeError> {
+    pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>, DataIOError> {
         let cost = set.as_ref().unwrap().approximate_cardinality();
         Self::new_with_cost(set, cost as i64)
     }

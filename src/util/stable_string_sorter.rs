@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::error::runtime_error::RuntimeError;
+
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::{
     BytesRefComparator, Comparator, MSBRadixSorter, MSBRadixSorterBase, MergeSorter, Sorter,
     StableMSBRadixSorter, StableMSBRadixSorterBase, StringSorterBase,
@@ -47,7 +48,7 @@ where
         builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), DataIOError> {
         self.delegate_sorter.get(builder, result, i)
     }
 
@@ -103,7 +104,7 @@ where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         Ok(self.cmp.byte_at(&self.scratch_bytes1, k as u32))
@@ -146,7 +147,7 @@ where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate_sorter
@@ -177,7 +178,7 @@ where
         builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), DataIOError> {
         self.delegate_sorter.get(builder, result, i)
     }
 }
@@ -201,7 +202,7 @@ where
     C: BytesRefComparator + Comparator<BytesRef>,
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter.byte_at(i, k)
     }
 

@@ -21,7 +21,7 @@ use rlucene::util::error::illegal_argument::IllegalArgumentError;
 use rlucene::util::error::illegal_state::IllegalStateError;
 use rlucene::util::error::index_format_too_new::IndexFormatTooNewError;
 use rlucene::util::error::integer_overflow::IntegerOverflow;
-use rlucene::util::error::runtime_error::RuntimeError;
+
 use rlucene::util::version::VersionError;
 use std::io::Error;
 use std::string::FromUtf8Error;
@@ -53,11 +53,6 @@ pub enum TestError {
 
     #[error("{0}")]
     IllegalState(#[from] IllegalStateError),
-
-    // combined errors
-    #[error("{0}")]
-    RuntimeError(#[from] RuntimeError),
-
     #[error("{0}")]
     DataIOError(#[from] DataIOError),
 

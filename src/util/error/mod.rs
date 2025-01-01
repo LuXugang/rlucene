@@ -27,5 +27,4 @@ mod lock_already_held;
 mod lock_held_by_other;
 mod not_found;
 pub mod parse;
-pub mod runtime_error;
 mod unsupported_operation;

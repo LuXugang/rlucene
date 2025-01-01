@@ -16,7 +16,8 @@
  */
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::bit_set::BitSet;
-use crate::util::error::runtime_error::RuntimeError;
+
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::any::TypeId;
@@ -33,9 +34,9 @@ pub struct BitSetIterator<'a, T: BitSet> {
 }
 
 impl<'a, T: BitSet> BitSetIterator<'a, T> {
-    pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<'a, T>, RuntimeError> {
+    pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<'a, T>, DataIOError> {
         if cost < 0 {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
                 cost
             )));

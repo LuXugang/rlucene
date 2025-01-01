@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::comparator::Comparator;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::sorter::Sorter;
 
@@ -47,7 +47,7 @@ where
     T: Ord,
     C: Comparator<T>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, DataIOError> {
         Ok(self
             .comparator
             .compare(&self.arr[i as usize], &self.arr[j as usize]))
@@ -63,18 +63,18 @@ where
         self.arr.swap(i as usize, j as usize);
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn set_pivot(&mut self, i: i32) -> Result<(), DataIOError> {
         self.pivot = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32, RuntimeError> {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32, DataIOError> {
         Ok(self
             .comparator
             .compare(&self.arr[self.pivot as usize], &self.arr[i as usize]))
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }

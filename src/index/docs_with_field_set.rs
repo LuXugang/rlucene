@@ -20,7 +20,8 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
-use crate::util::error::runtime_error::RuntimeError;
+
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::sync::Arc;
 
@@ -55,9 +56,9 @@ impl DocsWithFieldSet<FixedBitSet> {
     ///
     /// # Parameters
     /// - `doc_id`: The document ID to be added.
-    pub fn add(&mut self, doc_id: i32) -> Result<(), RuntimeError> {
+    pub fn add(&mut self, doc_id: i32) -> Result<(), DataIOError> {
         if doc_id <= self.last_doc_id {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "Out of order doc ids: last= {}, next= {}",
                 self.last_doc_id, doc_id
             )));

@@ -17,7 +17,8 @@
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
-use crate::util::error::runtime_error::RuntimeError;
+
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::cmp::max;
 
@@ -37,15 +38,15 @@ impl DocBaseBitSetIterator {
         bits: FixedBitSet,
         cost: i64,
         doc_base: i32,
-    ) -> Result<DocBaseBitSetIterator, RuntimeError> {
+    ) -> Result<DocBaseBitSetIterator, DataIOError> {
         if cost < 0 {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
                 cost
             )));
         }
         if (doc_base & 63) != 0 {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "docBase need to be a multiple of 64, got {}",
                 doc_base
             )));

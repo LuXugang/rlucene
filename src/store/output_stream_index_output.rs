@@ -18,7 +18,7 @@ use crate::store::data_output::DataOutput;
 use crate::store::index_output::IndexOutput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::error::runtime_error::RuntimeError;
+
 use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
@@ -51,9 +51,9 @@ where
         name: &str,
         inner: W,
         buffer_size: u32,
-    ) -> Result<OutputStreamIndexOutput<W>, RuntimeError> {
+    ) -> Result<OutputStreamIndexOutput<W>, DataIOError> {
         if (buffer_size as usize) < BitUtil::LONG_BYTES {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "Buffer size too small, need: {}, got: {}",
                 BitUtil::LONG_BYTES,
                 buffer_size

@@ -18,7 +18,7 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set_type::BitSetType;
 use crate::util::bits::Bits;
-use crate::util::error::runtime_error::RuntimeError;
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
@@ -26,7 +26,7 @@ use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 pub trait BitSet: Bits + Accountable {
     /// Builds a [`BitSet`] from the content of the provided [`DocIdSetIterator`].
     /// **Note**: This will fully consume the [`DocIdSetIterator`].
-    fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType, RuntimeError> {
+    fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType, DataIOError> {
         let cost = it.cost();
         let threshold = max_doc >> 7;
         let mut set: BitSetType;
@@ -87,14 +87,14 @@ pub trait BitSet: Bits + Accountable {
     fn next_set_bit_range(&self, start: i32, end: i32) -> i32;
 
     ///Assert that the current doc is -1.
-    fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<(), RuntimeError> {
+    fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<(), DataIOError> {
         if iter.doc_id() != -1 {
-            return Err(RuntimeError::illegal_state( format!("This operation only works with an unpositioned iterator, got current position = {}", iter.doc_id())));
+            return Err(DataIOError::illegal_state( format!("This operation only works with an unpositioned iterator, got current position = {}", iter.doc_id())));
         }
         Ok(())
     }
 
     /// Performs in-place OR of the bits provided by the iterator. The state of the iterator after this
     /// operation terminates is undefined.
-    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), RuntimeError>;
+    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<(), DataIOError>;
 }

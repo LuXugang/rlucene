@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::{sorter, Sorter};
 use std::cmp::{max, min};
 
@@ -90,7 +91,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         self.stack_size += 1;
     }
     // Compute the length of the next run, make the run sorted and return its length.
-    fn next_run(&mut self) -> Result<i32, RuntimeError> {
+    fn next_run(&mut self) -> Result<i32, DataIOError> {
         let run_base = self.run_end(0);
         debug_assert!(run_base < self.to);
 
@@ -112,7 +113,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         self.binary_sort_with_start(run_base, run_hi, o)?;
         Ok(run_hi - run_base)
     }
-    pub fn ensure_invariants(&mut self) -> Result<(), RuntimeError> {
+    pub fn ensure_invariants(&mut self) -> Result<(), DataIOError> {
         while self.stack_size > 1 {
             let run_len0 = self.run_len(0);
             let run_len1 = self.run_len(1);
@@ -140,7 +141,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         }
         Ok(())
     }
-    pub fn exhaust_stack(&mut self) -> Result<(), RuntimeError> {
+    pub fn exhaust_stack(&mut self) -> Result<(), DataIOError> {
         while self.stack_size > 1 {
             self.merge_at(0)?;
         }
@@ -160,7 +161,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         };
     }
 
-    pub fn merge_at(&mut self, n: i32) -> Result<(), RuntimeError> {
+    pub fn merge_at(&mut self, n: i32) -> Result<(), DataIOError> {
         debug_assert!(self.stack_size >= 2);
         self.merge(self.run_base(n + 1), self.run_base(n), self.run_end(n))?;
 
@@ -172,7 +173,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    fn merge(&mut self, mut lo: i32, mid: i32, mut hi: i32) -> Result<(), RuntimeError> {
+    fn merge(&mut self, mut lo: i32, mid: i32, mut hi: i32) -> Result<(), DataIOError> {
         if self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
         }
@@ -189,7 +190,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), RuntimeError> {
+    fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), DataIOError> {
         debug_assert!(self.delegate_sorter.compare(lo, mid)? > 0);
 
         let len1 = mid - lo;
@@ -240,7 +241,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), RuntimeError> {
+    pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), DataIOError> {
         debug_assert!(self.compare(mid - 1, hi - 1)? > 0);
 
         let len2 = hi - mid;
@@ -357,7 +358,7 @@ impl<T> Sorter for TimSorter<T>
 where
     T: Sorter + TimSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter.compare(i, j)
     }
 
@@ -365,15 +366,15 @@ where
         self.delegate_sorter.swap(i, j);
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn set_pivot(&mut self, i: i32) -> Result<(), DataIOError> {
         self.delegate_sorter.set_pivot(i)
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32, RuntimeError> {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter.compare_pivot(i)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
         sorter::check_range(from, to)?;
         if to - from <= 1 {
             return Ok(());

@@ -23,7 +23,8 @@ use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use rlucene::util::accountable::Accountable;
 use rlucene::util::bit_set::BitSet;
 use rlucene::util::bits::Bits;
-use rlucene::util::error::runtime_error::RuntimeError;
+
+use rlucene::util::error::data_io_error_enum::DataIOError;
 use rlucene::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::collections::HashSet;
 
@@ -341,7 +342,7 @@ impl BitSet for RustUtilBitSet {
         NO_MORE_DOCS
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, _iter: T) -> Result<(), RuntimeError> {
+    fn or<T: DocIdSetIterator>(&mut self, _iter: T) -> Result<(), DataIOError> {
         todo!()
     }
 }

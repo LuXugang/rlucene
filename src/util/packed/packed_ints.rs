@@ -17,7 +17,7 @@
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::error::runtime_error::RuntimeError;
+
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
@@ -148,7 +148,7 @@ impl PackedInts {
         value_count: u32,
         bits_per_value: u32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<MutablePacked64Enum, RuntimeError> {
+    ) -> Result<MutablePacked64Enum, DataIOError> {
         let format_and_bits =
             fastest_format_and_bits(value_count, bits_per_value, acceptable_overhead_ratio);
         PackedInts::get_mutable_impl(
@@ -163,7 +163,7 @@ impl PackedInts {
         value_count: u32,
         bits_per_value: u32,
         format: Format,
-    ) -> Result<MutablePacked64Enum, RuntimeError> {
+    ) -> Result<MutablePacked64Enum, DataIOError> {
         match format {
             Format::PackedSingleBlock(_) => Ok(create(value_count, bits_per_value)?),
             Format::Packed(_) => Ok(MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(
@@ -233,9 +233,9 @@ impl PackedInts {
     ///
     /// The number of bits needed to represent values from 0 to `max_value`.
     ///
-    pub fn bits_required(max_value: i64) -> Result<u32, RuntimeError> {
+    pub fn bits_required(max_value: i64) -> Result<u32, DataIOError> {
         if max_value < 0 {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "max_value must be non-negative (got {})",
                 max_value
             )));
@@ -350,16 +350,16 @@ impl PackedInts {
         block_size: u32,
         min_block_size: u32,
         max_block_size: u32,
-    ) -> Result<u32, RuntimeError> {
+    ) -> Result<u32, DataIOError> {
         if block_size < min_block_size || block_size > max_block_size {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "block_size must be >= {} and <= {}, got {}",
                 min_block_size, max_block_size, block_size
             )));
         }
 
         if block_size & (block_size - 1) != 0 {
-            return Err(RuntimeError::illegal_argument(format!(
+            return Err(DataIOError::illegal_argument(format!(
                 "block_size must be a power of two, got {}",
                 block_size
             )));
@@ -368,21 +368,21 @@ impl PackedInts {
         Ok(block_size.trailing_zeros())
     }
     /// Return the number of blocks required to store `size` values on `block_size`.
-    pub fn num_blocks(size: u64, block_size: u32) -> Result<u32, RuntimeError> {
+    pub fn num_blocks(size: u64, block_size: u32) -> Result<u32, DataIOError> {
         let num_blocks =
             (size / block_size as u64) + if size % block_size as u64 == 0 { 0 } else { 1 };
         let result = num_blocks.checked_mul(block_size as u64);
         match result {
             Some(result) => {
                 if result < size {
-                    return Err(RuntimeError::illegal_argument(
+                    return Err(DataIOError::illegal_argument(
                         "size is too large for this block size".to_string(),
                     ));
                 }
                 debug_assert!(num_blocks <= u32::MAX as u64);
                 Ok(num_blocks as u32)
             }
-            None => Err(RuntimeError::illegal_argument(format!(
+            None => Err(DataIOError::illegal_argument(format!(
                 "multiply overflow:block_size:{}, num_blocks:{} ",
                 block_size, num_blocks
             ))),

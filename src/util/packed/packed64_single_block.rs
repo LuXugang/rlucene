@@ -16,7 +16,7 @@
  */
 use crate::util::accountable::Accountable;
 use crate::util::error::data_io_error_enum::DataIOError;
-use crate::util::error::runtime_error::RuntimeError;
+
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::format_behavior::PackedSingleBlockImpl;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
@@ -160,7 +160,7 @@ where
         self.value_count
     }
 }
-pub fn create(value_count: u32, bits_per_value: u32) -> Result<MutablePacked64Enum, RuntimeError> {
+pub fn create(value_count: u32, bits_per_value: u32) -> Result<MutablePacked64Enum, DataIOError> {
     match bits_per_value {
         1 => {
             let sub_reader =
@@ -246,7 +246,7 @@ pub fn create(value_count: u32, bits_per_value: u32) -> Result<MutablePacked64En
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock32(reader))
         }
-        _ => Err(RuntimeError::illegal_argument(format!(
+        _ => Err(DataIOError::illegal_argument(format!(
             "Unsupported number of bits per value:  {}",
             bits_per_value
         ))),

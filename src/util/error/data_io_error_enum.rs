@@ -25,7 +25,6 @@ use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::lock_already_held::LockAlreadyHeldError;
 use crate::util::error::lock_held_by_other::LockHeldByOtherError;
 use crate::util::error::not_found::NotFoundError;
-use crate::util::error::runtime_error::RuntimeError;
 use crate::util::error::unsupported_operation::UnsupportedOperationError;
 use std::io::Error;
 use std::string::FromUtf8Error;
@@ -67,9 +66,6 @@ pub enum DataIOError {
     UnsupportedOperation(#[from] UnsupportedOperationError),
 
     #[error("{0}")]
-    RuntimeError(#[from] RuntimeError),
-
-    #[error("{0}")]
     NotFound(#[from] NotFoundError),
 
     #[error("{0}")]
@@ -80,6 +76,9 @@ pub enum DataIOError {
 
     #[error("{0}")]
     ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
+
+    #[error("UTF-8 decoding error: {0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
 }
 impl DataIOError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -135,5 +134,8 @@ impl DataIOError {
     }
     pub fn array_index_out_of_bounds(msg: impl Into<String>) -> Self {
         DataIOError::ArrayIndexOutOfBounds(ArrayIndexOutOfBoundsError::new(msg))
+    }
+    pub fn utf8_error(err: std::str::Utf8Error) -> Self {
+        DataIOError::Utf8Error(err)
     }
 }

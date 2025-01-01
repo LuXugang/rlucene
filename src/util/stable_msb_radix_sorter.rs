@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::runtime_error::RuntimeError;
+
+use crate::util::error::data_io_error_enum::DataIOError;
 use crate::util::{check_range, MSBRadixSorterBase, Sorter, HISTOGRAM_SIZE};
 
 pub struct StableMSBRadixSorter<T>
@@ -45,7 +46,7 @@ impl<T> MSBRadixSorterBase for StableMSBRadixSorter<T>
 where
     T: StableMSBRadixSorterBase,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter.byte_at(i, k)
     }
 
@@ -64,7 +65,7 @@ where
         start_offsets: &mut [i32],
         end_offsets: &mut [i32],
         k: i32,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), DataIOError> {
         // Copy start_offsets to fixed_start_offsets
         self.fixed_start_offsets[..start_offsets.len()].copy_from_slice(start_offsets);
 
@@ -103,7 +104,7 @@ impl<T> MergeSorter<T>
 where
     T: Sorter + StableMSBRadixSorterBase,
 {
-    fn merge_sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn merge_sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
         if to - from < Self::BINARY_SORT_THRESHOLD {
             self.binary_sort(from, to)
         } else {
@@ -120,7 +121,7 @@ where
             self.delegate_sorter.save(from + i, tmp_from + i);
         }
     }
-    fn merge(&mut self, from: i32, to: i32, mid: i32) -> Result<(), RuntimeError> {
+    fn merge(&mut self, from: i32, to: i32, mid: i32) -> Result<(), DataIOError> {
         debug_assert!(
             to > mid && mid > from,
             "Invalid indices: to={}, mid={}, from={}",
@@ -178,7 +179,7 @@ impl<T> Sorter for MergeSorter<T>
 where
     T: Sorter + StableMSBRadixSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, DataIOError> {
         self.delegate_sorter.compare(i, j)
     }
 
@@ -186,16 +187,16 @@ where
         self.delegate_sorter.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), RuntimeError> {
+    fn set_pivot(&mut self, i: i32) -> Result<(), DataIOError> {
         self.pivot_index = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32, RuntimeError> {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32, DataIOError> {
         self.compare(self.pivot_index, i)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
         check_range(from, to)?;
         self.merge_sort(from, to)?;
         Ok(())
@@ -229,7 +230,7 @@ impl<T> Sorter for MergeSorterImpl<'_, T>
 where
     T: Sorter + MSBRadixSorterBase + StableMSBRadixSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, RuntimeError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32, DataIOError> {
         for o in self.k..self.max_length {
             let b1 = self.delegate_sorter.byte_at(i, o)?;
             let b2 = self.delegate_sorter.byte_at(j, o)?;
