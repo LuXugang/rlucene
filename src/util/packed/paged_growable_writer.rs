@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
 use crate::util::packed::growable_writer::GrowableWriter;
 use crate::util::packed::mutable_enum::MutableEnum;
@@ -50,7 +50,7 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
         &self,
         value_count: u32,
         bits_per_value: u32,
-    ) -> Result<MutableEnum, DataIOError> {
+    ) -> Result<MutableEnum, RuntimeError> {
         Ok(MutableEnum::GrowableW(GrowableWriter::new(
             bits_per_value,
             value_count,
@@ -63,7 +63,7 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
         &self,
         new_size: u64,
         page_size: u32,
-    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, DataIOError> {
+    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, RuntimeError> {
         let sub_read =
             PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false);
         AbstractPagedMutable::new(self.bits_per_value, new_size, page_size, sub_read)

@@ -23,7 +23,7 @@ use crate::store::{
     BufferedIndexInput, BufferedIndexInputBase, IOContext, IndexOutput, NativeFSLockFactory,
     OutputStreamIndexOutput,
 };
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -83,7 +83,7 @@ where
         directory: PathBuf,
         lock_factory: D,
         sub_fs_directory: T,
-    ) -> Result<FSDirectory<D, T, B>, DataIOError> {
+    ) -> Result<FSDirectory<D, T, B>, RuntimeError> {
         if !directory.is_dir() {
             fs::create_dir(&directory)?;
         }
@@ -100,7 +100,7 @@ where
     fn list_all(
         dir: &Path,
         skip_names: Option<&HashSet<String>>,
-    ) -> Result<Vec<String>, DataIOError> {
+    ) -> Result<Vec<String>, RuntimeError> {
         let mut entries = Vec::new();
 
         for entry in dir.read_dir()? {
@@ -123,7 +123,7 @@ where
         directory: &Path,
         pending_deletes: &mut HashSet<String>,
         ops_since_last_delete: &mut AtomicU32,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         if !pending_deletes.is_empty() {
             let count = ops_since_last_delete.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
 
@@ -144,7 +144,7 @@ where
     /// # Errors
     ///
     /// Returns a `DataIOError` if the file cannot be found or synchronized.
-    pub fn fsync(&self, name: &str) -> Result<(), DataIOError> {
+    pub fn fsync(&self, name: &str) -> Result<(), RuntimeError> {
         IOUtils::fsync(&self.directory.join(name), false)
     }
 
@@ -153,7 +153,7 @@ where
     pub fn delete_pending_files(
         directory: &Path,
         pending_deletes: &mut HashSet<String>,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         if !pending_deletes.is_empty() {
             // TODO: we could fix IndexInputs from FSDirectory subclasses to call this when they are
             // closed?
@@ -173,7 +173,7 @@ where
         name: &str,
         is_pending_delete: bool,
         pending_deletes: &mut HashSet<String>,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         let file_path = directory.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         match fs::remove_file(file_path) {
@@ -194,7 +194,7 @@ where
                     // delete it again, with NSFE/FNFE
                     Ok(())
                 } else {
-                    Err(DataIOError::io_with_path(file_name, e))
+                    Err(RuntimeError::io_with_path(file_name, e))
                 }
             }
             Err(e) => {
@@ -212,15 +212,15 @@ where
                     pending_deletes.insert(name.to_string());
                     Ok(())
                 } else {
-                    Err(DataIOError::io_with_path(file_name, e))
+                    Err(RuntimeError::io_with_path(file_name, e))
                 }
             }
         }
     }
-    fn ensure_can_read(&self, name: &str) -> Result<(), DataIOError> {
+    fn ensure_can_read(&self, name: &str) -> Result<(), RuntimeError> {
         let pending_deletes = self.pending_deletes.lock().unwrap();
         if pending_deletes.contains(name) {
-            return Err(DataIOError::not_found(format!(
+            return Err(RuntimeError::not_found(format!(
                 "file \"{}\" is pending delete and cannot be opened for read",
                 name
             )));
@@ -236,7 +236,7 @@ where
     pub fn new(
         directory: PathBuf,
         sub_fs_directory: T,
-    ) -> Result<FSDirectory<NativeFSLockFactory, T, B>, DataIOError> {
+    ) -> Result<FSDirectory<NativeFSLockFactory, T, B>, RuntimeError> {
         Self::new_with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
     }
 }
@@ -247,15 +247,15 @@ where
     B: BufferedIndexInputBase,
     T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
-    fn list_all(&self) -> Result<Vec<String>, DataIOError> {
+    fn list_all(&self) -> Result<Vec<String>, RuntimeError> {
         let pending_deletes = self.pending_deletes.lock().unwrap();
         Self::list_all(&self.directory, Some(&pending_deletes))
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<(), DataIOError> {
+    fn delete_file(&mut self, name: &str) -> Result<(), RuntimeError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         if pending_deletes.contains(name) {
-            return Err(DataIOError::not_found(format!(
+            return Err(RuntimeError::not_found(format!(
                 "file \"{}\" is already pending delete",
                 name
             )));
@@ -272,9 +272,9 @@ where
         Ok(())
     }
 
-    fn file_length(&self, name: &str) -> Result<u64, DataIOError> {
+    fn file_length(&self, name: &str) -> Result<u64, RuntimeError> {
         if self.pending_deletes.lock().unwrap().contains(name) {
-            return Err(DataIOError::not_found(format!(
+            return Err(RuntimeError::not_found(format!(
                 "file \"{}\" is pending delete",
                 name
             )));
@@ -283,14 +283,14 @@ where
         let file_path = self.directory.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         let metadata =
-            fs::metadata(file_path).map_err(|e| DataIOError::io_with_path(file_name, e))?;
+            fs::metadata(file_path).map_err(|e| RuntimeError::io_with_path(file_name, e))?;
         Ok(metadata.len())
     }
     fn create_output(
         &mut self,
         name: &str,
         _context: IOContext,
-    ) -> Result<impl IndexOutput, DataIOError> {
+    ) -> Result<impl IndexOutput, RuntimeError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         Self::maybe_delete_pending_files(
             &self.directory,
@@ -309,7 +309,7 @@ where
             .create_new(true)
             .open(&file_path)
             .map_err(|err| {
-                DataIOError::io_with_path(file_path.to_string_lossy().to_string(), err)
+                RuntimeError::io_with_path(file_path.to_string_lossy().to_string(), err)
             })?;
 
         OutputStreamIndexOutput::new(
@@ -324,7 +324,7 @@ where
         prefix: &str,
         suffix: &str,
         _context: IOContext,
-    ) -> Result<impl IndexOutput, DataIOError> {
+    ) -> Result<impl IndexOutput, RuntimeError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         Self::maybe_delete_pending_files(
             &self.directory,
@@ -358,7 +358,7 @@ where
                     continue;
                 }
                 Err(e) => {
-                    return Err(DataIOError::io_with_path(
+                    return Err(RuntimeError::io_with_path(
                         file_path.to_string_lossy().to_string(),
                         e,
                     ));
@@ -367,7 +367,7 @@ where
         }
     }
 
-    fn sync(&mut self, names: &[&str]) -> Result<(), DataIOError> {
+    fn sync(&mut self, names: &[&str]) -> Result<(), RuntimeError> {
         for &name in names {
             self.fsync(name)?;
         }
@@ -379,7 +379,7 @@ where
         Ok(())
     }
 
-    fn sync_metadata(&mut self) -> Result<(), DataIOError> {
+    fn sync_metadata(&mut self) -> Result<(), RuntimeError> {
         // TODO: to improve listCommits(), IndexFileDeleter could call this after deleting segments_Ns
         IOUtils::fsync(&self.directory, true)?;
         Self::maybe_delete_pending_files(
@@ -390,10 +390,10 @@ where
         Ok(())
     }
 
-    fn rename(&mut self, source: &str, dest: &str) -> Result<(), DataIOError> {
+    fn rename(&mut self, source: &str, dest: &str) -> Result<(), RuntimeError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         if pending_deletes.contains(source) {
-            return Err(DataIOError::not_found(format!(
+            return Err(RuntimeError::not_found(format!(
                 "File \"{}\" is pending delete and cannot be moved",
                 source
             )));
@@ -412,23 +412,23 @@ where
         let source_path = self.directory.join(source);
         let dest_path = self.directory.join(dest);
 
-        fs::rename(source_path, dest_path).map_err(DataIOError::io)?;
+        fs::rename(source_path, dest_path).map_err(RuntimeError::io)?;
 
         Ok(())
     }
 
     type Output = BufferedIndexInput<B>;
-    fn open_input(&self, name: &str, context: IOContext) -> Result<Self::Output, DataIOError> {
+    fn open_input(&self, name: &str, context: IOContext) -> Result<Self::Output, RuntimeError> {
         self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)
     }
 
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, DataIOError> {
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, RuntimeError> {
         self.lock_factory.obtain_lock(&self.directory, name)
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, DataIOError> {
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, RuntimeError> {
         let mut pending_deletes = self.pending_deletes.lock().unwrap();
         Self::delete_pending_files(&self.directory, &mut pending_deletes)?;
         if pending_deletes.is_empty() {
@@ -467,7 +467,7 @@ where
     B: BufferedIndexInputBase,
     T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, DataIOError> {
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, RuntimeError> {
         Directory::obtain_lock(self, name)
     }
 }

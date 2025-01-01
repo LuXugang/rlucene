@@ -16,7 +16,7 @@
  */
 use crate::store::DataOutput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::packed::abstract_block_packed_writer::{
     write_values, write_vlong, AbstractBlockPackedWriterBase, BPV_SHIFT, MIN_VALUE_EQUALS_0,
 };
@@ -55,7 +55,7 @@ impl AbstractBlockPackedWriterBase for BlockPackedWriter {
         off: &mut usize,
         values: &mut [i64],
         blocks: &mut Vec<u8>,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         let mut min = i64::MAX;
         let mut max = i64::MIN;
         for &value in &values[..*off] {

@@ -28,7 +28,7 @@ use rlucene::store::DataInput;
 use rlucene::store::IndexInput;
 use rlucene::store::IndexOutput;
 use rlucene::store::{DataOutput, IOContext};
-use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::data_io_error_enum::RuntimeError;
 use rlucene::util::error::illegal_state::IllegalStateError;
 use rlucene::util::group_vint_util::GroupVIntUtil;
 use rlucene::util::packed::PackedInts;
@@ -128,7 +128,7 @@ pub trait BaseDirectoryTestCase {
         assert!(result.is_err());
         assert!(matches!(
             result,
-            Err(DataIOError::IoWithPath {
+            Err(RuntimeError::IoWithPath {
                 source,
                 path
             }) if source.kind() == std::io::ErrorKind::NotFound && path.contains(file)
@@ -278,7 +278,7 @@ pub trait BaseDirectoryTestCase {
             input.seek(offset as u64)?;
 
             let result = input.read_longs(&mut vec![0i64; length], 0, length as u32);
-            assert!(matches!(result, Err(DataIOError::Eof(_))));
+            assert!(matches!(result, Err(RuntimeError::Eof(_))));
         }
 
         Ok(())
@@ -357,7 +357,7 @@ pub trait BaseDirectoryTestCase {
 
         let mut ints = vec![0; length];
         let result = input.read_ints(&mut ints, 0, length as u32);
-        assert!(matches!(result, Err(DataIOError::Eof(_))));
+        assert!(matches!(result, Err(RuntimeError::Eof(_))));
 
         Ok(())
     }
@@ -432,7 +432,7 @@ pub trait BaseDirectoryTestCase {
         let mut input = dir.open_input("Floats", new_io_context(random)?)?;
         input.seek(offset as u64)?;
         let result = input.read_floats(&mut vec![0.0; length], 0, length as u32);
-        assert!(matches!(result, Err(DataIOError::Eof(_))));
+        assert!(matches!(result, Err(RuntimeError::Eof(_))));
 
         Ok(())
     }
@@ -769,13 +769,13 @@ pub trait BaseDirectoryTestCase {
                             Ok(_input) => {
                                 thread::sleep(Duration::from_millis(1));
                             }
-                            Err(DataIOError::IoWithPath { source, .. })
+                            Err(RuntimeError::IoWithPath { source, .. })
                                 if source.kind() == ErrorKind::PermissionDenied =>
                             {
                                 // 忽略 AccessDenied 错误
                             }
                             Err(e) => {
-                                return Err(TestError::DataIOError(DataIOError::IoWithPath {
+                                return Err(TestError::DataIOError(RuntimeError::IoWithPath {
                                     path: file.to_string(),
                                     source: Error::new(ErrorKind::Other, format!("{:?}", e)),
                                 }));
@@ -911,18 +911,18 @@ pub trait BaseDirectoryTestCase {
         // Seeking past EOF should always return an error
         assert!(matches!(
             input.seek(len as u64 + random.gen_range(1..2048) as u64),
-            Err(DataIOError::Eof(_))
+            Err(RuntimeError::Eof(_))
         ));
 
         input.seek(len as u64)?;
 
         assert!(matches!(
             DataInput::read_byte(&mut input),
-            Err(DataIOError::Eof(_))
+            Err(RuntimeError::Eof(_))
         ));
         assert!(matches!(
             DataInput::read_bytes(&mut input, &mut [0u8; 1], 0, 1),
-            Err(DataIOError::Eof(_))
+            Err(RuntimeError::Eof(_))
         ));
 
         Ok(())
@@ -944,7 +944,7 @@ pub trait BaseDirectoryTestCase {
 
         assert!(matches!(
             input.slice("slice1", 0, len as u64 + 1),
-            Err(DataIOError::IllegalArgument(_))
+            Err(RuntimeError::IllegalArgument(_))
         ));
 
         let slice = input.slice("slice3", 4, (len / 2) as u64)?;
@@ -952,7 +952,7 @@ pub trait BaseDirectoryTestCase {
         // Attempting to create a nested slice that goes out of bounds
         assert!(matches!(
             slice.slice("slice3sub", 1, (len / 2) as u64),
-            Err(DataIOError::IllegalArgument(_))
+            Err(RuntimeError::IllegalArgument(_))
         ));
 
         Ok(())
@@ -1140,7 +1140,7 @@ pub trait BaseDirectoryTestCase {
         let result = fsdir.sync(&["afile"]);
         assert!(matches!(
             result,
-            Err(DataIOError::IoWithPath { source, .. })
+            Err(RuntimeError::IoWithPath { source, .. })
                 if source.kind() == std::io::ErrorKind::NotFound
         ));
 
@@ -1625,7 +1625,7 @@ pub trait BaseDirectoryTestCase {
             // Attempt to create the same file again, which should fail
             let result = dir.create_output(name, IOContext::default_io_context()?);
             assert!(
-                matches!(result, Err(DataIOError::IoWithPath { source, .. }) if source.kind() == std::io::ErrorKind::AlreadyExists)
+                matches!(result, Err(RuntimeError::IoWithPath { source, .. }) if source.kind() == std::io::ErrorKind::AlreadyExists)
             );
         }
 
@@ -1677,7 +1677,7 @@ pub trait BaseDirectoryTestCase {
             assert_eq!(100, input.get_file_pointer());
 
             // Attempting to seek beyond the end of the file should return an EOF error
-            assert!(matches!(input.seek(1025), Err(DataIOError::Eof(_))));
+            assert!(matches!(input.seek(1025), Err(RuntimeError::Eof(_))));
         }
 
         Ok(())
@@ -1858,7 +1858,7 @@ pub trait BaseDirectoryTestCase {
             std::fs::remove_file(file_path.join("test"))?;
             let mut out = dir.create_output("test", IOContext::default_io_context()?)?;
             let result = out.write_group_vints(&mut values[..values_len], 4);
-            assert!(matches!(result, Err(DataIOError::IntegerOverflow(_))));
+            assert!(matches!(result, Err(RuntimeError::IntegerOverflow(_))));
         }
 
         Ok(())

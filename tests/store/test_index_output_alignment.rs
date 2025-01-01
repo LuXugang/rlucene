@@ -20,7 +20,7 @@ use rand::Rng;
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::{align_offset, IndexOutput, OutputStreamIndexOutput};
 use rlucene::util::bit_util::BitUtil;
-use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::data_io_error_enum::RuntimeError;
 
 #[allow(dead_code)]
 struct TestIndexOutputAlignment;
@@ -64,7 +64,7 @@ fn assert_invalid_alignment(size: u32) {
     assert!(result.is_err());
 }
 #[test]
-fn test_output_alignment() -> Result<(), DataIOError> {
+fn test_output_alignment() -> Result<(), RuntimeError> {
     let alignments = [
         BitUtil::LONG_BYTES,
         BitUtil::INT_BYTES,
@@ -76,7 +76,7 @@ fn test_output_alignment() -> Result<(), DataIOError> {
     }
     Ok(())
 }
-pub fn run_test_output_alignment(alignment: u32) -> Result<(), DataIOError> {
+pub fn run_test_output_alignment(alignment: u32) -> Result<(), RuntimeError> {
     let mut random = my_random("test_output_alignment".to_string());
     let mut buffer = Vec::new();
     let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;

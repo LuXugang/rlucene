@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::test_error::TestError;
-use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::data_io_error_enum::RuntimeError;
 use rlucene::util::longs_ref::LongsRef;
 
 #[allow(dead_code)] // for quick search
@@ -49,6 +49,6 @@ fn test_invalid_deep_copy() -> Result<(), TestError> {
     let mut from = LongsRef::from_slice(vec![1, 2], 0, 2);
     from.offset += 1;
     let result = LongsRef::deep_copy_of(&from);
-    matches!(result, Err(DataIOError::ArrayIndexOutOfBounds(_)));
+    matches!(result, Err(RuntimeError::ArrayIndexOutOfBounds(_)));
     Ok(())
 }

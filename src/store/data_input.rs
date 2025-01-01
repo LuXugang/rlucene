@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
@@ -29,7 +29,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_byte`](crate::store::data_output::DataOutput::write_byte)
-    fn read_byte(&mut self) -> Result<u8, DataIOError>;
+    fn read_byte(&mut self) -> Result<u8, RuntimeError>;
     /// Reads a specified number of bytes into an array at the specified offset.
     ///
     /// # Arguments
@@ -39,7 +39,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_bytes_range`](crate::store::data_output::DataOutput::write_bytes_range)
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError>;
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), RuntimeError>;
     /// Reads a specified number of bytes into an array at the specified offset, with control over
     /// whether the read should be buffered. Callers who have their own buffer should pass `false`
     /// for `use_buffer`. Currently, only `BufferedIndexInput` respects this parameter.
@@ -58,12 +58,12 @@ pub trait DataInput: Sized + Display {
         offset: u32,
         len: u32,
         _use_buffer: bool,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         self.read_bytes(b, offset, len)
     }
     /// # See
     /// [`DataInput::default_read_short`].
-    fn read_short(&mut self) -> Result<i16, DataIOError> {
+    fn read_short(&mut self) -> Result<i16, RuntimeError> {
         self.default_read_short()
     }
     /// Reads two bytes and returns a `short` (little-endian byte order).
@@ -71,14 +71,14 @@ pub trait DataInput: Sized + Display {
     /// # See Also
     /// [`DataOutput::write_short`](crate::store::data_output::DataOutput::write_short)
     /// [`BitUtil::get_i16_le`](BitUtil::get_i16_le)
-    fn default_read_short(&mut self) -> Result<i16, DataIOError> {
+    fn default_read_short(&mut self) -> Result<i16, RuntimeError> {
         let b1 = self.read_byte()?;
         let b2 = self.read_byte()?;
         Ok(i16::from_le_bytes([b2, b1]))
     }
     /// # See
     /// [`DataInput::default_read_int`].
-    fn read_int(&mut self) -> Result<i32, DataIOError> {
+    fn read_int(&mut self) -> Result<i32, RuntimeError> {
         self.default_read_int()
     }
     /// Reads four bytes and returns an `int` (little-endian byte order).
@@ -86,7 +86,7 @@ pub trait DataInput: Sized + Display {
     /// # See Also
     /// [`DataOutput::write_int`](crate::store::data_output::DataOutput::write_int)
     /// [`BitUtil::get_i32_le`](BitUtil::get_i32_le)
-    fn default_read_int(&mut self) -> Result<i32, DataIOError> {
+    fn default_read_int(&mut self) -> Result<i32, RuntimeError> {
         let b1 = self.read_byte()?;
         let b2 = self.read_byte()?;
         let b3 = self.read_byte()?;
@@ -96,10 +96,14 @@ pub trait DataInput: Sized + Display {
 
     /// Override if you have an efficient implementation. In general this is when the input supports
     /// random access.
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), RuntimeError> {
         self.default_read_group_vint(dst, offset)
     }
-    fn default_read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
+    fn default_read_group_vint(
+        &mut self,
+        dst: &mut [i64],
+        offset: u32,
+    ) -> Result<(), RuntimeError> {
         GroupVIntUtil::read_group_vint(self, dst, offset)
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,
@@ -110,7 +114,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint)
-    fn read_vint(&mut self) -> Result<i32, DataIOError> {
+    fn read_vint(&mut self) -> Result<i32, RuntimeError> {
         let mut b = self.read_byte()? as i32;
         let mut i = b & 0x7F;
         let mut shift = 7;
@@ -127,12 +131,12 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_zint`](crate::store::data_output::DataOutput::write_zint)
-    fn read_zint(&mut self) -> Result<i32, DataIOError> {
+    fn read_zint(&mut self) -> Result<i32, RuntimeError> {
         Ok(BitUtil::zig_zag_decode_i32(self.read_vint()? as u32))
     }
     /// # See
     /// [`DataInput::default_read_long`].
-    fn read_long(&mut self) -> Result<i64, DataIOError> {
+    fn read_long(&mut self) -> Result<i64, RuntimeError> {
         self.default_read_long()
     }
     /// Reads eight bytes and returns a `long` (little-endian byte order).
@@ -140,7 +144,7 @@ pub trait DataInput: Sized + Display {
     /// # See Also
     /// [`DataOutput::write_long`](crate::store::data_output::DataOutput::write_long)
     /// [`BitUtil::get_i64_le`](BitUtil::get_i64_le)
-    fn default_read_long(&mut self) -> Result<i64, DataIOError> {
+    fn default_read_long(&mut self) -> Result<i64, RuntimeError> {
         let b1 = self.read_int()? as u64 & 0xFFFFFFFF;
         let b2 = (self.read_int()? as u64) << 32;
         Ok((b2 | b1) as i64)
@@ -149,7 +153,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Note
     /// This is an experimental API.
-    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), DataIOError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), RuntimeError> {
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = self.read_long()?;
@@ -163,7 +167,7 @@ pub trait DataInput: Sized + Display {
     /// * `dst` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `int` values.
     /// * `length` - The number of `int` values to read.
-    fn read_ints(&mut self, dst: &mut [i32], offset: u32, len: u32) -> Result<(), DataIOError> {
+    fn read_ints(&mut self, dst: &mut [i32], offset: u32, len: u32) -> Result<(), RuntimeError> {
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = self.read_int()?;
@@ -178,7 +182,7 @@ pub trait DataInput: Sized + Display {
     /// * `floats` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `float` values.
     /// * `len` - The number of `float` values to read.
-    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), DataIOError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), RuntimeError> {
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = f32::from_bits(self.read_int()? as u32);
@@ -195,7 +199,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_vlong`](crate::store::data_output::DataOutput::write_vlong)
-    fn read_vlong(&mut self) -> Result<i64, DataIOError> {
+    fn read_vlong(&mut self) -> Result<i64, RuntimeError> {
         let mut b = self.read_byte()? as i64;
         let mut i = b & 0x7F;
         let mut shift = 7;
@@ -211,14 +215,14 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_zlong`](crate::store::data_output::DataOutput::write_zlong)
-    fn read_zlong(&mut self) -> Result<i64, DataIOError> {
+    fn read_zlong(&mut self) -> Result<i64, RuntimeError> {
         Ok(BitUtil::zig_zag_decode_i64(self.read_vlong()? as u64))
     }
     /// Reads a string.
     ///
     /// # See Also
     /// [`DataOutput::write_string`](crate::store::data_output::DataOutput::write_string)
-    fn read_string(&mut self) -> Result<String, DataIOError> {
+    fn read_string(&mut self) -> Result<String, RuntimeError> {
         let length = self.read_vint()?;
         debug_assert!(length >= 0, "Length must be positive: {}", length);
         let mut bytes = vec![0u8; length as usize];
@@ -247,7 +251,7 @@ pub trait DataInput: Sized + Display {
     /// - For a count of `1`, a singleton `HashSet` is created.
     /// - For larger sets, a `HashSet` is created and populated.
     /// - Ownership is transferred to the caller, and immutability is guaranteed by not exposing mutable references.
-    fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>, DataIOError> {
+    fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>, RuntimeError> {
         let count = self.read_vint()?;
 
         if count == 0 {
@@ -283,7 +287,7 @@ pub trait DataInput: Sized + Display {
     /// - For a count of `1`, a singleton `HashSet` is created.
     /// - For larger sets, a `HashSet` is created and populated.
     /// - Ownership is transferred to the caller, and immutability is guaranteed by not exposing mutable references.
-    fn read_set_of_strings(&mut self) -> Result<HashSet<String>, DataIOError> {
+    fn read_set_of_strings(&mut self) -> Result<HashSet<String>, RuntimeError> {
         let count = self.read_vint()?;
         if count == 0 {
             Ok(HashSet::new())
@@ -301,7 +305,7 @@ pub trait DataInput: Sized + Display {
     }
     /// Skips over `num_bytes` bytes. This method may skip bytes in whatever way is most optimal,
     /// and may not behave the same as reading the skipped bytes.
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError>;
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), RuntimeError>;
 
     /// To determine at compile time whether the current struct implements the IndexInput trait.
     /// In Java Lucene, could cast to IndexInput, though this is  possible in Rust but need dyn.
@@ -310,7 +314,7 @@ pub trait DataInput: Sized + Display {
     fn is_index_input(&self) -> bool {
         false
     }
-    fn seek_in_data_input(&mut self, _pos: u64) -> Result<(), DataIOError> {
+    fn seek_in_data_input(&mut self, _pos: u64) -> Result<(), RuntimeError> {
         debug_assert!(self.is_index_input());
         unimplemented!("Seek is not implemented for this DataInput")
     }

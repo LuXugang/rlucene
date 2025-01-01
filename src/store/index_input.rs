@@ -16,7 +16,7 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, ReadAdvice};
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 
 /// Provides random-access input operations for files within a [`Directory`](crate::store::directory::Directory).
 ///
@@ -45,7 +45,7 @@ pub trait IndexInput: DataInput + Clone {
     ///
     /// # See Also
     /// [`get_file_pointer`](IndexInput::get_file_pointer)
-    fn seek(&mut self, pos: u64) -> Result<(), DataIOError>;
+    fn seek(&mut self, pos: u64) -> Result<(), RuntimeError>;
     /// Inherits documentation from the parent implementation.
     ///
     /// # Behavior
@@ -55,7 +55,7 @@ pub trait IndexInput: DataInput + Clone {
     /// [`get_file_pointer`](IndexInput::get_file_pointer)
     ///
     /// [`seek`](IndexInput::seek)
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), RuntimeError> {
         let skip_to = self.get_file_pointer() + num_bytes;
         self.seek(skip_to)?;
         Ok(())
@@ -70,7 +70,7 @@ pub trait IndexInput: DataInput + Clone {
         slice_description: &str,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError>;
+    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used by
     /// [`CompoundFormat`](crate::codecs::compound_format) implementations to honor
     /// the [`ReadAdvice`] of each file within the compound file.
@@ -88,7 +88,7 @@ pub trait IndexInput: DataInput + Clone {
         offset: u64,
         length: u64,
         read_advice: ReadAdvice,
-    ) -> Result<impl IndexInput, DataIOError> {
+    ) -> Result<impl IndexInput, RuntimeError> {
         self.default_slice_with_read_advice(description, offset, length, read_advice)
     }
     fn default_slice_with_read_advice(
@@ -97,7 +97,7 @@ pub trait IndexInput: DataInput + Clone {
         offset: u64,
         length: u64,
         _read_advice: ReadAdvice,
-    ) -> Result<impl IndexInput, DataIOError> {
+    ) -> Result<impl IndexInput, RuntimeError> {
         self.slice(description, offset, length)
     }
     /// Creates a random-access slice of this index input, with the given offset and length.
@@ -109,7 +109,7 @@ pub trait IndexInput: DataInput + Clone {
         &self,
         offset: u64,
         length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError>;
+    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError>;
 
     /// Optional method: Gives a hint to this input that some bytes will be read in the near future.
     /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data
@@ -121,11 +121,11 @@ pub trait IndexInput: DataInput + Clone {
     ///
     /// # Note
     /// The default implementation is a no-op.
-    fn prefetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError> {
+    fn prefetch(&mut self, pos: u64, len: u64) -> Result<(), RuntimeError> {
         self.default_prefetch(pos, len)
     }
 
-    fn default_prefetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
+    fn default_prefetch(&mut self, _pos: u64, _len: u64) -> Result<(), RuntimeError> {
         Ok(())
     }
 }

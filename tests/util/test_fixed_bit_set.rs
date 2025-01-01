@@ -27,7 +27,7 @@ use rlucene::util::bit_set_iterator::BitSetIterator;
 use rlucene::util::bits::Bits;
 use rlucene::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
 
-use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::data_io_error_enum::RuntimeError;
 use rlucene::util::fixed_bit_set::FixedBitSet;
 use rlucene::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
 use rlucene::util::sparse_fixed_bit_set::SparseFixedBitSet;
@@ -474,7 +474,7 @@ fn make_fixed_bitset(
     random: &mut StdRng,
     a: &Vec<i32>,
     num_bits: i32,
-) -> Result<FixedBitSet, DataIOError> {
+) -> Result<FixedBitSet, RuntimeError> {
     let mut bs: FixedBitSet;
     if random.gen_bool(0.5) {
         let bits_2_words = FixedBitSet::bits2words(num_bits);

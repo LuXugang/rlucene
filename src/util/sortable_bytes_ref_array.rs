@@ -16,7 +16,7 @@
  */
 use crate::index::BytesRef;
 
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::{BytesRefComparator, Comparator};
 
 pub trait SortableBytesRefArray<'a> {
@@ -31,5 +31,5 @@ pub trait SortableBytesRefArray<'a> {
     fn iterator(
         &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<Self::Iter, DataIOError>;
+    ) -> Result<Self::Iter, RuntimeError>;
 }

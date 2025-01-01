@@ -19,7 +19,7 @@ use crate::store::dummy_index_input::DummyIndexInput;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedChecksum, Checksum, DataInput, HasherChecksum};
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
 
@@ -46,7 +46,7 @@ where
         self.main.get_file_pointer()
     }
 
-    fn seek(&mut self, pos: u64) -> Result<(), DataIOError> {
+    fn seek(&mut self, pos: u64) -> Result<(), RuntimeError> {
         ChecksumIndexInput::seek(self, pos)
     }
 
@@ -60,12 +60,12 @@ where
         _slice_description: &str,
         _offset: u64,
         _length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
         // Used by the compiler to infer the returned type
         if false {
             return Ok(DummyIndexInput);
         }
-        Err(DataIOError::unsupported_operation(
+        Err(RuntimeError::unsupported_operation(
             "BufferedChecksumIndexInput does not support slicing",
         ))
     }
@@ -75,12 +75,12 @@ where
         &self,
         _offset: u64,
         _length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
         // Used by the compiler to infer the returned type
         if false {
             return Ok(DummyIndexInput);
         }
-        Err(DataIOError::unsupported_operation(
+        Err(RuntimeError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",
         ))
     }
@@ -90,19 +90,19 @@ impl<T> DataInput for BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
 {
-    fn read_byte(&mut self) -> Result<u8, DataIOError> {
+    fn read_byte(&mut self) -> Result<u8, RuntimeError> {
         let b = self.main.read_byte()?;
         self.digest.update(b);
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), RuntimeError> {
         self.main.read_bytes(b, offset, len)?;
         self.digest.update_bytes(b, offset, len);
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), RuntimeError> {
         IndexInput::skip_bytes(self, num_bytes)
     }
 
@@ -110,7 +110,7 @@ where
         true
     }
 
-    fn seek_in_data_input(&mut self, pos: u64) -> Result<(), DataIOError> {
+    fn seek_in_data_input(&mut self, pos: u64) -> Result<(), RuntimeError> {
         debug_assert!(self.is_index_input());
         IndexInput::seek(self, pos)
     }

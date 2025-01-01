@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::packed::packed64::Packed64;
 use crate::util::packed::packed64_single_block::{
     Packed64SingleBlock, Packed64SingleBlock1, Packed64SingleBlock10, Packed64SingleBlock12,
@@ -88,7 +88,7 @@ impl Accountable for MutablePacked64Enum {
 }
 
 impl Reader for MutablePacked64Enum {
-    fn get(&mut self, index: usize) -> Result<i64, DataIOError> {
+    fn get(&mut self, index: usize) -> Result<i64, RuntimeError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.get(index),
             MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.get(index),
@@ -114,7 +114,7 @@ impl Reader for MutablePacked64Enum {
         arr: &mut [i64],
         off: usize,
         len: usize,
-    ) -> Result<u32, DataIOError> {
+    ) -> Result<u32, RuntimeError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
@@ -204,7 +204,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn set(&mut self, index: usize, value: i64) -> Result<(), DataIOError> {
+    fn set(&mut self, index: usize, value: i64) -> Result<(), RuntimeError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.set(index, value),
             MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.set(index, value),
@@ -230,7 +230,7 @@ impl Mutable for MutablePacked64Enum {
         arr: &[i64],
         off: usize,
         len: usize,
-    ) -> Result<u32, DataIOError> {
+    ) -> Result<u32, RuntimeError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
@@ -278,7 +278,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<(), DataIOError> {
+    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<(), RuntimeError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
@@ -326,7 +326,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn clear(&mut self) -> Result<(), DataIOError> {
+    fn clear(&mut self) -> Result<(), RuntimeError> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.clear(),
             MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.clear(),

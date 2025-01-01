@@ -19,7 +19,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
     AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
@@ -71,11 +71,11 @@ impl BytesRefArray {
     /// The nth element of this [`BytesRefArray`] as a [`BytesRef`].
     ///
     /// # Errors
-    /// Returns [`DataIOError::array_index_out_of_bounds`] if the index is invalid.
+    /// Returns [`RuntimeError::array_index_out_of_bounds`] if the index is invalid.
     ///
-    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef, DataIOError> {
+    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef, RuntimeError> {
         if index < 0 || index >= self.last_element {
-            return Err(DataIOError::array_index_out_of_bounds(format!(
+            return Err(RuntimeError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
                 index, self.last_element
             )));
@@ -109,9 +109,9 @@ impl BytesRefArray {
         spare: &mut BytesRefBuilder,
         result: &mut BytesRef,
         index: i32,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         if index < 0 || index >= self.last_element {
-            return Err(DataIOError::array_index_out_of_bounds(format!(
+            return Err(RuntimeError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
                 index, self.last_element
             )));
@@ -144,7 +144,7 @@ impl BytesRefArray {
         &mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
         stable: bool,
-    ) -> Result<SortState, DataIOError> {
+    ) -> Result<SortState, RuntimeError> {
         let size = self.size();
         let mut ordered_entries: Vec<i32> = (0..size).collect();
         if stable {
@@ -234,7 +234,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     fn iterator(
         &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<Self::Iter, DataIOError> {
+    ) -> Result<Self::Iter, RuntimeError> {
         let ords = self.sort(comp, false)?;
         Ok(self.iterator_with_state(ords))
     }
@@ -281,7 +281,7 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
     }
 }
 impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
-    fn next(&mut self) -> Result<Option<BytesRef>, DataIOError> {
+    fn next(&mut self) -> Result<Option<BytesRef>, RuntimeError> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
@@ -331,7 +331,7 @@ impl StringSorterBase for StableStringSorterImpl<'_> {
         builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         self.bytes_ref_array
             .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
@@ -363,7 +363,7 @@ impl StringSorterBase for StringSorterImpl<'_> {
         builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
         i: i32,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         self.bytes_ref_array
             .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::Comparator;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -92,9 +92,9 @@ impl LongsRef {
     /// # Returns
     ///
     /// A new `LongsRef` that is a deep copy of the provided `other`.
-    pub fn deep_copy_of(other: &LongsRef) -> Result<LongsRef, DataIOError> {
+    pub fn deep_copy_of(other: &LongsRef) -> Result<LongsRef, RuntimeError> {
         if other.offset + other.length > other.longs.len() {
-            return Err(DataIOError::array_index_out_of_bounds(
+            return Err(RuntimeError::array_index_out_of_bounds(
                 "Offset and length exceed vector bounds",
             ));
         }
@@ -107,13 +107,13 @@ impl LongsRef {
         })
     }
 
-    pub fn is_valid(longs: &[i64], offset: usize, length: usize) -> Result<bool, DataIOError> {
+    pub fn is_valid(longs: &[i64], offset: usize, length: usize) -> Result<bool, RuntimeError> {
         if longs.is_empty() {
-            return Err(DataIOError::illegal_state("longs is empty"));
+            return Err(RuntimeError::illegal_state("longs is empty"));
         }
 
         if length > longs.len() {
-            return Err(DataIOError::illegal_state(format!(
+            return Err(RuntimeError::illegal_state(format!(
                 "length is out of bounds: {}, longs.len={}",
                 length,
                 longs.len()
@@ -121,14 +121,14 @@ impl LongsRef {
         }
 
         if offset > longs.len() {
-            return Err(DataIOError::illegal_state(format!(
+            return Err(RuntimeError::illegal_state(format!(
                 "offset is out of bounds: {}, longs.len={}",
                 offset,
                 longs.len()
             )));
         }
         if offset + length > longs.len() {
-            return Err(DataIOError::illegal_state(format!(
+            return Err(RuntimeError::illegal_state(format!(
                 "offset + length out of bounds: offset={}, length={}, longs.len={}",
                 offset,
                 length,

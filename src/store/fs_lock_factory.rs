@@ -17,7 +17,7 @@
 use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
 use crate::store::NativeFSLockFactory;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::path::Path;
 
 /// Base class for file system based locking implementation. This class is explicitly checking that
@@ -26,7 +26,7 @@ pub trait FSLockFactory: LockFactory {
     /// Returns the default locking implementation for this platform.
     ///
     /// This method always returns [`native_fs_lock_factory`](crate::store::native_fs_lock_factory::NativeFSLockFactory).
-    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum, DataIOError> {
+    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum, RuntimeError> {
         self.obtain_fs_lock(directory, lock_name)
     }
 
@@ -37,7 +37,8 @@ pub trait FSLockFactory: LockFactory {
     ///
     /// # Note
     /// Implement this method to define how the lock should be acquired.
-    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum, DataIOError>;
+    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str)
+        -> Result<FSLockEnum, RuntimeError>;
 }
 #[allow(unused)]
 pub(crate) fn get_default() -> impl FSLockFactory {

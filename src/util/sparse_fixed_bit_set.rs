@@ -19,7 +19,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::VecCopyOps;
 use std::cmp::min;
 
@@ -59,9 +59,9 @@ pub struct SparseFixedBitSet {
 }
 
 impl SparseFixedBitSet {
-    pub fn new(length: i32) -> Result<SparseFixedBitSet, DataIOError> {
+    pub fn new(length: i32) -> Result<SparseFixedBitSet, RuntimeError> {
         if length < 1 {
-            return Err(DataIOError::illegal_argument("length needs to be >= 1"));
+            return Err(RuntimeError::illegal_argument("length needs to be >= 1"));
         }
         let block_count = block_count(length);
         let indices = vec![0; block_count as usize];
@@ -296,7 +296,7 @@ impl SparseFixedBitSet {
     }
     /// [`or`](#method.or) implementation that works best when `it` is dense.
     #[allow(unused)]
-    fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<(), DataIOError> {
+    fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<(), RuntimeError> {
         SparseFixedBitSet::check_unpositioned(&it)?;
         // The goal here is to try to take advantage of the ordering of documents
         // to build the data-structure more efficiently
@@ -576,7 +576,7 @@ impl BitSet for SparseFixedBitSet {
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), DataIOError> {
+    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), RuntimeError> {
         //TODO: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
         let mut doc = iter.next_doc();

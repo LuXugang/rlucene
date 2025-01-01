@@ -16,7 +16,7 @@
  */
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::{ByteArrayDataInput, DataInput};
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::fmt::{Display, Formatter};
 
 pub enum DataInputType<'a> {
@@ -40,63 +40,63 @@ impl Display for DataInputType<'_> {
 }
 
 impl DataInput for DataInputType<'_> {
-    fn read_byte(&mut self) -> Result<u8, DataIOError> {
+    fn read_byte(&mut self) -> Result<u8, RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_byte(),
             DataInputType::ByteBuffers(data_input) => data_input.read_byte(),
         }
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, length: u32) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: u32, length: u32) -> Result<(), RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_bytes(b, offset, length),
             DataInputType::ByteBuffers(data_input) => data_input.read_bytes(b, offset, length),
         }
     }
 
-    fn read_short(&mut self) -> Result<i16, DataIOError> {
+    fn read_short(&mut self) -> Result<i16, RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_short(),
             DataInputType::ByteBuffers(data_input) => data_input.read_short(),
         }
     }
 
-    fn read_int(&mut self) -> Result<i32, DataIOError> {
+    fn read_int(&mut self) -> Result<i32, RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_int(),
             DataInputType::ByteBuffers(data_input) => data_input.read_int(),
         }
     }
 
-    fn read_vint(&mut self) -> Result<i32, DataIOError> {
+    fn read_vint(&mut self) -> Result<i32, RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_vint(),
             DataInputType::ByteBuffers(data_input) => data_input.read_vint(),
         }
     }
 
-    fn read_long(&mut self) -> Result<i64, DataIOError> {
+    fn read_long(&mut self) -> Result<i64, RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_long(),
             DataInputType::ByteBuffers(data_input) => data_input.read_long(),
         }
     }
 
-    fn read_vlong(&mut self) -> Result<i64, DataIOError> {
+    fn read_vlong(&mut self) -> Result<i64, RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_vlong(),
             DataInputType::ByteBuffers(data_input) => data_input.read_vlong(),
         }
     }
 
-    fn read_string(&mut self) -> Result<String, DataIOError> {
+    fn read_string(&mut self) -> Result<String, RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_string(),
             DataInputType::ByteBuffers(data_input) => data_input.read_string(),
         }
     }
 
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), RuntimeError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.skip_bytes(num_bytes),
             DataInputType::ByteBuffers(data_input) => data_input.skip_bytes(num_bytes),

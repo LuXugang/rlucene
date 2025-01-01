@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::io::Cursor;
 pub trait ReadableCursorExt {
     /// Returns the remaining bytes in the buffer from the current position.
@@ -31,7 +31,7 @@ pub trait ReadableCursorExt {
     fn remain_between(&self, position: u64, limit: u64) -> u64;
 
     /// Reads data from the cursor's buffer to the destination slice, starting at the current position.
-    fn read_to(&mut self, dest: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError>;
+    fn read_to(&mut self, dest: &mut [u8], offset: u32, len: u32) -> Result<(), RuntimeError>;
 
     /// Reads data from a specific position in the cursor into the destination buffer.
     fn read_to_buffer(
@@ -40,15 +40,15 @@ pub trait ReadableCursorExt {
         offset: usize,
         position: u64,
         len: usize,
-    ) -> Result<(), DataIOError>;
+    ) -> Result<(), RuntimeError>;
 }
 
 pub trait WritableCursorExt: ReadableCursorExt {
     /// Writes the entire slice of data into the cursor's buffer.
-    fn write_from_slice(&mut self, src: &[u8]) -> Result<(), DataIOError>;
+    fn write_from_slice(&mut self, src: &[u8]) -> Result<(), RuntimeError>;
 
     /// Writes data from the source slice into the cursor's buffer, starting from the given offset.
-    fn write_from(&mut self, src: &[u8], offset: u32, len: u32) -> Result<(), DataIOError>;
+    fn write_from(&mut self, src: &[u8], offset: u32, len: u32) -> Result<(), RuntimeError>;
 }
 impl<T> ReadableCursorExt for Cursor<T>
 where
@@ -71,7 +71,7 @@ where
         limit.saturating_sub(position)
     }
 
-    fn read_to(&mut self, dest: &mut [u8], offset: u32, len: u32) -> Result<(), DataIOError> {
+    fn read_to(&mut self, dest: &mut [u8], offset: u32, len: u32) -> Result<(), RuntimeError> {
         let position = self.position();
         perform_read(
             self.get_ref().as_ref(),
@@ -90,7 +90,7 @@ where
         offset: usize,
         position: u64,
         len: usize,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         perform_read(self.get_ref().as_ref(), dest, offset, position, len)
     }
 }
@@ -99,12 +99,12 @@ impl<T> WritableCursorExt for Cursor<T>
 where
     T: AsRef<[u8]> + AsMut<[u8]>,
 {
-    fn write_from_slice(&mut self, src: &[u8]) -> Result<(), DataIOError> {
+    fn write_from_slice(&mut self, src: &[u8]) -> Result<(), RuntimeError> {
         let position = self.position() as usize;
         let len = src.len();
 
         if position + len > self.get_ref().as_ref().len() {
-            return Err(DataIOError::illegal_argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "Buffer out of bounds: position={}, len={}, total={}",
                 position,
                 len,
@@ -123,7 +123,7 @@ where
         Ok(())
     }
 
-    fn write_from(&mut self, src: &[u8], offset: u32, len: u32) -> Result<(), DataIOError> {
+    fn write_from(&mut self, src: &[u8], offset: u32, len: u32) -> Result<(), RuntimeError> {
         let src_slice = &src[offset as usize..(offset + len) as usize];
         self.write_from_slice(src_slice)
     }
@@ -134,17 +134,17 @@ fn perform_read(
     offset: usize,
     position: u64,
     len: usize,
-) -> Result<(), DataIOError> {
+) -> Result<(), RuntimeError> {
     let total = source.len() as u64;
 
     if position > total || position + len as u64 > total {
-        return Err(DataIOError::illegal_argument(format!(
+        return Err(RuntimeError::illegal_argument(format!(
             "Read out of bounds: position={}, len={}, total={}",
             position, len, total
         )));
     }
     if offset + len > dest.len() {
-        return Err(DataIOError::illegal_argument(format!(
+        return Err(RuntimeError::illegal_argument(format!(
             "Destination buffer out of bounds: offset={}, len={}, total={}",
             offset,
             len,

@@ -21,7 +21,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 
-use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::data_io_error_enum::RuntimeError;
 use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
 use std::collections::{BTreeSet, HashSet};
 
@@ -216,7 +216,7 @@ impl MSBRadixSorterImpl {
 }
 
 impl MSBRadixSorterBase for MSBRadixSorterImpl {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, DataIOError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, RuntimeError> {
         assert!(
             k < self.final_max_length,
             "Index out of bounds: k={} exceeds final_max_length={}",

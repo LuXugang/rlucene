@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::DataOutput;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::packed::abstract_block_packed_writer::{
     write_values, AbstractBlockPackedWriterBase,
 };
@@ -55,7 +55,7 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
         off: &mut usize,
         values: &mut [i64],
         blocks: &mut Vec<u8>,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         let avg = if *off == 1 {
             0.0f32
         } else {

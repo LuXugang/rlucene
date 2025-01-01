@@ -16,7 +16,7 @@
  */
 use crate::store::data_output::DataOutput;
 use crate::store::{ByteBuffersDataOutput, DataInput, IndexOutput};
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crc32fast::Hasher;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -59,31 +59,36 @@ impl<'a> ByteBuffersIndexOutput<'a> {
 }
 
 impl DataOutput for ByteBuffersIndexOutput<'_> {
-    fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
+    fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError> {
         self.delegate.write_byte(b)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), DataIOError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), RuntimeError> {
         self.delegate.write_bytes_with_len(b, len)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), DataIOError> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: u32,
+        length: u32,
+    ) -> Result<(), RuntimeError> {
         self.delegate.write_bytes_range(b, offset, length)
     }
 
-    fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
+    fn write_int(&mut self, i: i32) -> Result<(), RuntimeError> {
         self.delegate.write_int(i)
     }
 
-    fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
+    fn write_short(&mut self, i: i16) -> Result<(), RuntimeError> {
         self.delegate.write_short(i)
     }
 
-    fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
+    fn write_long(&mut self, i: i64) -> Result<(), RuntimeError> {
         self.delegate.write_long(i)
     }
 
-    fn write_string(&mut self, s: &str) -> Result<(), DataIOError> {
+    fn write_string(&mut self, s: &str) -> Result<(), RuntimeError> {
         self.delegate.write_string(s)
     }
 
@@ -91,11 +96,11 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         &mut self,
         input: &mut T,
         num_bytes: u64,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         self.delegate.copy_bytes(input, num_bytes)
     }
 
-    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), DataIOError> {
+    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<(), RuntimeError> {
         self.delegate.write_map_of_strings(map)
     }
 }

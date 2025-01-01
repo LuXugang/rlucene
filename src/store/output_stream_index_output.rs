@@ -17,7 +17,7 @@
 use crate::store::data_output::DataOutput;
 use crate::store::index_output::IndexOutput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 
 use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher;
@@ -51,9 +51,9 @@ where
         name: &str,
         inner: W,
         buffer_size: u32,
-    ) -> Result<OutputStreamIndexOutput<W>, DataIOError> {
+    ) -> Result<OutputStreamIndexOutput<W>, RuntimeError> {
         if (buffer_size as usize) < BitUtil::LONG_BYTES {
-            return Err(DataIOError::illegal_argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "Buffer size too small, need: {}, got: {}",
                 BitUtil::LONG_BYTES,
                 buffer_size
@@ -73,28 +73,33 @@ impl<W: Write> DataOutput for OutputStreamIndexOutput<W>
 where
     W: Write,
 {
-    fn write_byte(&mut self, b: u8) -> Result<(), DataIOError> {
+    fn write_byte(&mut self, b: u8) -> Result<(), RuntimeError> {
         self.bytes_written += 1;
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), DataIOError> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: u32,
+        length: u32,
+    ) -> Result<(), RuntimeError> {
         let end = offset + length;
         self.bytes_written += length as u64;
         self.os.write_bytes(&b[offset as usize..end as usize])
     }
 
-    fn write_int(&mut self, i: i32) -> Result<(), DataIOError> {
+    fn write_int(&mut self, i: i32) -> Result<(), RuntimeError> {
         self.bytes_written += 4;
         self.os.write_i32(i)
     }
 
-    fn write_short(&mut self, i: i16) -> Result<(), DataIOError> {
+    fn write_short(&mut self, i: i16) -> Result<(), RuntimeError> {
         self.bytes_written += 2;
         self.os.write_i16(i)
     }
 
-    fn write_long(&mut self, i: i64) -> Result<(), DataIOError> {
+    fn write_long(&mut self, i: i64) -> Result<(), RuntimeError> {
         self.bytes_written += 8;
         self.os.write_i64(i)
     }
@@ -152,32 +157,32 @@ impl<W: Write> XBufferedOutputStream<W> {
         self.hasher.update(buf);
     }
 
-    pub fn write_u8(&mut self, value: u8) -> Result<(), DataIOError> {
+    pub fn write_u8(&mut self, value: u8) -> Result<(), RuntimeError> {
         self.inner.write_u8(value)?;
         self.update_checksum(&[value]);
         Ok(())
     }
 
-    pub fn write_bytes(&mut self, buf: &[u8]) -> Result<(), DataIOError> {
+    pub fn write_bytes(&mut self, buf: &[u8]) -> Result<(), RuntimeError> {
         debug_assert!(buf.len() <= u32::MAX as usize);
         self.inner.write_all(buf)?;
         self.update_checksum(buf);
         Ok(())
     }
 
-    pub fn write_i16(&mut self, value: i16) -> Result<(), DataIOError> {
+    pub fn write_i16(&mut self, value: i16) -> Result<(), RuntimeError> {
         self.inner.write_i16::<LittleEndian>(value)?;
         self.update_checksum(&value.to_le_bytes());
         Ok(())
     }
 
-    pub fn write_i32(&mut self, value: i32) -> Result<(), DataIOError> {
+    pub fn write_i32(&mut self, value: i32) -> Result<(), RuntimeError> {
         self.inner.write_i32::<LittleEndian>(value)?;
         self.update_checksum(&value.to_le_bytes());
         Ok(())
     }
 
-    pub fn write_i64(&mut self, value: i64) -> Result<(), DataIOError> {
+    pub fn write_i64(&mut self, value: i64) -> Result<(), RuntimeError> {
         self.inner.write_i64::<LittleEndian>(value)?;
         self.update_checksum(&value.to_le_bytes());
         Ok(())

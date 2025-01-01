@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 
 pub trait BytesRefIterator {
     /// Increments the iteration to the next [`BytesRef`] in the iterator.
@@ -28,13 +28,13 @@ pub trait BytesRefIterator {
     ///
     /// # Errors
     /// Returns an `std::io::Error` if there is a low-level I/O error.
-    fn next(&mut self) -> Result<Option<BytesRef>, DataIOError>;
+    fn next(&mut self) -> Result<Option<BytesRef>, RuntimeError>;
 }
 
 pub struct EmptyBytesRefIterator;
 
 impl BytesRefIterator for EmptyBytesRefIterator {
-    fn next(&mut self) -> Result<Option<BytesRef>, DataIOError> {
+    fn next(&mut self) -> Result<Option<BytesRef>, RuntimeError> {
         Ok(None)
     }
 }

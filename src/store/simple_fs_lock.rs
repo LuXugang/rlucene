@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::lock::Lock;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::fmt::{Display, Formatter};
 
 pub struct SimpleFSLock;
@@ -27,7 +27,7 @@ impl Display for SimpleFSLock {
 }
 
 impl Lock for SimpleFSLock {
-    fn ensure_valid(&self) -> Result<(), DataIOError> {
+    fn ensure_valid(&self) -> Result<(), RuntimeError> {
         todo!()
     }
 }

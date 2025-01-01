@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 
 /// Random Access Index API. Unlike [`IndexInput`](crate::store::IndexInput), this has no concept of file position; all
 /// reads are absolute. However, like `IndexInput`, it is only intended for use by a single thread.
@@ -22,7 +22,7 @@ pub trait RandomAccessInput {
     /// The number of bytes in the file.
     fn length(&self) -> u64;
     /// Reads a byte at the given position in the file
-    fn read_byte(&mut self, pos: u64) -> Result<u8, DataIOError>;
+    fn read_byte(&mut self, pos: u64) -> Result<u8, RuntimeError>;
     /// Reads a specified number of bytes starting at a given position into an array at the specified offset.
     fn read_bytes(
         &mut self,
@@ -30,18 +30,18 @@ pub trait RandomAccessInput {
         buf: &mut [u8],
         offset: u32,
         len: u32,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         for i in 0..len {
             buf[(offset + i) as usize] = self.read_byte(pos + i as u64)?;
         }
         Ok(())
     }
     ///  Reads an i16 (LE byte order) at the given position in the file.
-    fn read_short(&mut self, pos: u64) -> Result<i16, DataIOError>;
+    fn read_short(&mut self, pos: u64) -> Result<i16, RuntimeError>;
     /// Reads an i32 (LE byte order) at the given position in the file.
-    fn read_int(&mut self, pos: u64) -> Result<i32, DataIOError>;
+    fn read_int(&mut self, pos: u64) -> Result<i32, RuntimeError>;
     /// Reads a long (LE byte order) at the given position in the file.
-    fn read_long(&mut self, pos: u64) -> Result<i64, DataIOError>;
+    fn read_long(&mut self, pos: u64) -> Result<i64, RuntimeError>;
     ///  Prefetch data in the background.
-    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), DataIOError>;
+    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), RuntimeError>;
 }

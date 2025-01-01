@@ -17,7 +17,7 @@
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IOContext;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::fmt::Display;
 use std::path::Path;
 
@@ -28,5 +28,5 @@ pub trait FSDirectoryBase: Display {
         name: &str,
         context: IOContext,
         path: &Path,
-    ) -> Result<Self::Output, DataIOError>;
+    ) -> Result<Self::Output, RuntimeError>;
 }

@@ -18,7 +18,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, VecCopyOps};
 use byteorder::{ByteOrder, LE};
@@ -80,7 +80,7 @@ impl<'a> ByteBuffersDataInput<'a> {
         output: &mut [T],
         type_size: u32,
         converter: C,
-    ) -> Result<(), DataIOError>
+    ) -> Result<(), RuntimeError>
     where
         C: Fn(&[u8]) -> T,
         T: Copy,
@@ -97,7 +97,7 @@ impl<'a> ByteBuffersDataInput<'a> {
             if block_index as usize >= self.blocks.len()
                 || pos + bytes_read as u64 > self.length + self.offset
             {
-                return Err(DataIOError::eof(format!("{}", pos)));
+                return Err(RuntimeError::eof(format!("{}", pos)));
             }
 
             let block = self.blocks.get_mut(block_index as usize).unwrap();
@@ -133,37 +133,41 @@ impl<'a> ByteBuffersDataInput<'a> {
 
         Ok(())
     }
-    fn read_longs(&mut self, pos: u64, len: u32, output: &mut [i64]) -> Result<(), DataIOError> {
+    fn read_longs(&mut self, pos: u64, len: u32, output: &mut [i64]) -> Result<(), RuntimeError> {
         self.read_buffer(pos, len, output, BitUtil::LONG_BYTES as u32, LE::read_i64)
     }
-    fn read_bytes(&mut self, pos: u64, len: u32, output: &mut [u8]) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, pos: u64, len: u32, output: &mut [u8]) -> Result<(), RuntimeError> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
-    fn read_ints(&mut self, pos: u64, len: u32, output: &mut [i32]) -> Result<(), DataIOError> {
+    fn read_ints(&mut self, pos: u64, len: u32, output: &mut [i32]) -> Result<(), RuntimeError> {
         self.read_buffer(pos, len, output, BitUtil::INT_BYTES as u32, LE::read_i32)
     }
-    fn read_shorts(&mut self, pos: u64, len: u32, output: &mut [i16]) -> Result<(), DataIOError> {
+    fn read_shorts(&mut self, pos: u64, len: u32, output: &mut [i16]) -> Result<(), RuntimeError> {
         self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES as u32, LE::read_i16)
     }
-    fn read_floats(&mut self, pos: u64, len: u32, output: &mut [f32]) -> Result<(), DataIOError> {
+    fn read_floats(&mut self, pos: u64, len: u32, output: &mut [f32]) -> Result<(), RuntimeError> {
         self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES as u32, LE::read_f32)
     }
 
-    pub fn seek(&mut self, position: u64) -> Result<(), DataIOError> {
+    pub fn seek(&mut self, position: u64) -> Result<(), RuntimeError> {
         self.pos = position + self.offset;
         if position > self.length() {
             self.pos = self.length;
-            return Err(DataIOError::eof(format!("{}", self.pos)));
+            return Err(RuntimeError::eof(format!("{}", self.pos)));
         }
         Ok(())
     }
     pub fn position(&self) -> u64 {
         self.pos - self.offset
     }
-    pub fn slice(&self, offset: u64, length: u64) -> Result<ByteBuffersDataInput<'a>, DataIOError> {
+    pub fn slice(
+        &self,
+        offset: u64,
+        length: u64,
+    ) -> Result<ByteBuffersDataInput<'a>, RuntimeError> {
         if offset + length > self.length {
-            return Err(DataIOError::illegal_argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
                 offset, length, self.length
             )));
@@ -195,33 +199,33 @@ impl Display for ByteBuffersDataInput<'_> {
 }
 
 impl DataInput for ByteBuffersDataInput<'_> {
-    fn read_byte(&mut self) -> Result<u8, DataIOError> {
+    fn read_byte(&mut self) -> Result<u8, RuntimeError> {
         let mut bytes = [0; 1];
         self.read_bytes(self.pos, 1, &mut bytes)?;
         self.pos += 1;
         Ok(bytes[0])
     }
-    fn read_bytes(&mut self, arr: &mut [u8], off: u32, len: u32) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, arr: &mut [u8], off: u32, len: u32) -> Result<(), RuntimeError> {
         self.read_bytes(self.pos, len, &mut arr[off as usize..(off + len) as usize])?;
         self.pos += len as u64;
         Ok(())
     }
 
-    fn read_short(&mut self) -> Result<i16, DataIOError> {
+    fn read_short(&mut self) -> Result<i16, RuntimeError> {
         let mut output = [0; 1];
         self.read_shorts(self.pos, 1, &mut output)?;
         self.pos += BitUtil::SHORT_BYTES as u64;
         Ok(output[0])
     }
 
-    fn read_int(&mut self) -> Result<i32, DataIOError> {
+    fn read_int(&mut self) -> Result<i32, RuntimeError> {
         let mut output = [0; 1];
         self.read_ints(self.pos, 1, &mut output)?;
         self.pos += BitUtil::INT_BYTES as u64;
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), DataIOError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), RuntimeError> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
         let block = self.blocks.get_mut(block_index as usize).unwrap();
@@ -237,14 +241,14 @@ impl DataInput for ByteBuffersDataInput<'_> {
         self.pos += len as u64;
         Ok(())
     }
-    fn read_long(&mut self) -> Result<i64, DataIOError> {
+    fn read_long(&mut self) -> Result<i64, RuntimeError> {
         let mut output = [0; 1];
         self.read_longs(self.pos, 1, &mut output)?;
         self.pos += BitUtil::LONG_BYTES as u64;
         Ok(output[0])
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), DataIOError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), RuntimeError> {
         self.read_longs(
             self.pos,
             len,
@@ -254,7 +258,7 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(())
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), DataIOError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), RuntimeError> {
         self.read_floats(
             self.pos,
             len,
@@ -264,7 +268,7 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), DataIOError> {
+    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), RuntimeError> {
         let skip_to = self.position() + num_bytes;
         self.seek(skip_to)
     }
@@ -276,35 +280,35 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
         self.length
     }
 
-    fn read_byte(&mut self, pos: u64) -> Result<u8, DataIOError> {
+    fn read_byte(&mut self, pos: u64) -> Result<u8, RuntimeError> {
         let pos = pos + self.offset;
         let mut bytes = [0; 1];
         self.read_bytes(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_short(&mut self, pos: u64) -> Result<i16, DataIOError> {
+    fn read_short(&mut self, pos: u64) -> Result<i16, RuntimeError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::SHORT_BYTES];
         self.read_shorts(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_int(&mut self, pos: u64) -> Result<i32, DataIOError> {
+    fn read_int(&mut self, pos: u64) -> Result<i32, RuntimeError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::INT_BYTES];
         self.read_ints(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_long(&mut self, pos: u64) -> Result<i64, DataIOError> {
+    fn read_long(&mut self, pos: u64) -> Result<i64, RuntimeError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::LONG_BYTES];
         self.read_longs(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), DataIOError> {
+    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), RuntimeError> {
         Ok(())
     }
 }

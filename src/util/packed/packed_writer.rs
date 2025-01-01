@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::DataOutput;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::packed::bulk_operation::{of, BulkOperation};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
@@ -68,7 +68,7 @@ where
             data_output,
         }
     }
-    pub fn flush(&mut self) -> Result<(), DataIOError> {
+    pub fn flush(&mut self) -> Result<(), RuntimeError> {
         self.encoder.encode_i64_to_u8(
             &self.next_values,
             0,
@@ -100,14 +100,14 @@ where
         &self.format
     }
 
-    fn add(&mut self, v: i64) -> Result<(), DataIOError> {
+    fn add(&mut self, v: i64) -> Result<(), RuntimeError> {
         assert!(
             PackedInts::unsigned_bits_required(v) <= self.bits_per_value,
             "Value exceeds allowed bits per value"
         );
         assert!(!self.finished, "Cannot add values after finishing writing");
         if self.value_count != -1 && (self.written as i32) >= self.value_count {
-            return Err(DataIOError::eof("Writing past end of stream".to_string()));
+            return Err(RuntimeError::eof("Writing past end of stream".to_string()));
         }
         self.next_values[self.off] = v;
         self.off += 1;
@@ -122,7 +122,7 @@ where
         self.bits_per_value
     }
 
-    fn finish(&mut self) -> Result<(), DataIOError> {
+    fn finish(&mut self) -> Result<(), RuntimeError> {
         debug_assert!(!self.finished, "Already finished");
         if self.value_count != -1 {
             while (self.written as i32) < self.value_count {

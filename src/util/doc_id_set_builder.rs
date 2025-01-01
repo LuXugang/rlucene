@@ -21,7 +21,7 @@ use crate::util::bit_doc_id_set::BitDocIdSet;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
 use std::cmp::min;
@@ -130,7 +130,7 @@ impl DocIdSetBuilder {
         self.counter = counter;
         self.buffer.clear();
     }
-    pub fn build(&mut self) -> Result<DocIdSetBuilderEnum, DataIOError> {
+    pub fn build(&mut self) -> Result<DocIdSetBuilderEnum, RuntimeError> {
         if self.bit_set.is_some() {
             debug_assert!(self.counter >= 0);
             let cost = (self.counter as f64 / self.num_values_per_doc).round();

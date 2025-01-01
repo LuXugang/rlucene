@@ -23,7 +23,7 @@ use rlucene::store::index_input::IndexInput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput, BUFFER_SIZE};
 use rlucene::util::bit_util::BitUtil;
-use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::data_io_error_enum::RuntimeError;
 use rlucene::util::ReadableCursorExt;
 use std::io::Cursor;
 
@@ -530,7 +530,7 @@ impl Clone for MyBufferedIndexInput {
 }
 
 impl BufferedIndexInputBase for MyBufferedIndexInput {
-    fn seek_internal(&mut self, pos: u64) -> Result<(), DataIOError> {
+    fn seek_internal(&mut self, pos: u64) -> Result<(), RuntimeError> {
         self.pos = pos;
         Ok(())
     }
@@ -540,7 +540,7 @@ impl BufferedIndexInputBase for MyBufferedIndexInput {
         b: &mut Cursor<Vec<u8>>,
         len: u64,
         _file_pointer: u64,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         let mut i = 0;
         self.read_count += 1;
         while b.remain() > 0 && i < len {
@@ -556,12 +556,12 @@ impl BufferedIndexInputBase for MyBufferedIndexInput {
         _slice_description: &str,
         _offset: u64,
         _length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
         // Used by the compiler to infer the returned type
         if false {
             return Ok(DummyIndexInput);
         }
-        Err(DataIOError::unsupported_operation(
+        Err(RuntimeError::unsupported_operation(
             "MyBufferedIndexInput method is not supported".to_string(),
         ))
     }

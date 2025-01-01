@@ -18,7 +18,7 @@ use crate::store::data_input::DataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 
 // the maximum length of a single group-varint is 4 integers + 1 byte flag.
 pub const MAX_LENGTH_PER_GROUP: usize = 17;
@@ -41,7 +41,7 @@ impl GroupVIntUtil {
         data_input: &mut D,
         dst: &mut [i64],
         limit: i32,
-    ) -> Result<(), DataIOError>
+    ) -> Result<(), RuntimeError>
     where
         D: DataInput,
     {
@@ -68,7 +68,7 @@ impl GroupVIntUtil {
         data_input: &mut D,
         dst: &mut [i64],
         offset: u32,
-    ) -> Result<(), DataIOError>
+    ) -> Result<(), RuntimeError>
     where
         D: DataInput,
     {
@@ -91,7 +91,7 @@ impl GroupVIntUtil {
     fn read_long_in_group<D>(
         data_input: &mut D,
         num_bytes_minus1: usize,
-    ) -> Result<i64, DataIOError>
+    ) -> Result<i64, RuntimeError>
     where
         D: DataInput,
     {
@@ -134,7 +134,7 @@ impl GroupVIntUtil {
         mut pos: u64,
         dst: &mut [i64],
         offset: u32,
-    ) -> Result<i32, DataIOError>
+    ) -> Result<i32, RuntimeError>
     where
         D: DataInput + RandomAccessInput,
     {
@@ -181,9 +181,9 @@ impl GroupVIntUtil {
     }
     /// Converts an i64 value to an i32, ensuring it fits within the valid range.
     /// Throws an error if the value is not within 0 to 0xFFFFFFFF.
-    fn get_int(value: i64) -> Result<i32, DataIOError> {
+    fn get_int(value: i64) -> Result<i32, RuntimeError> {
         if value > 0xFFFFFFFF {
-            Err(DataIOError::integer_overflow(format!(
+            Err(RuntimeError::integer_overflow(format!(
                 "value: {} is too large to be converted to i32",
                 value
             )))
@@ -197,7 +197,7 @@ impl GroupVIntUtil {
         scratch: &mut [u8],
         values: &mut [i64],
         limit: u32,
-    ) -> Result<(), DataIOError>
+    ) -> Result<(), RuntimeError>
     where
         D: DataOutput,
     {

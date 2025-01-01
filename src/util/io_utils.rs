@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
@@ -29,11 +29,11 @@ impl IOUtils {
     /// * `file_to_sync` - The path to the file or directory to sync.
     /// * `is_dir` - If `true`, the given path is a directory. On platforms where directory syncing
     ///   is unsupported (like Windows), this will be ignored for directories.
-    pub fn fsync(file_to_sync: &PathBuf, is_dir: bool) -> Result<(), DataIOError> {
+    pub fn fsync(file_to_sync: &PathBuf, is_dir: bool) -> Result<(), RuntimeError> {
         if is_dir {
             if cfg!(windows) {
                 if !file_to_sync.exists() {
-                    return Err(DataIOError::not_found(format!(
+                    return Err(RuntimeError::not_found(format!(
                         "Directory not found: {}",
                         file_to_sync.display()
                     )));
@@ -46,13 +46,14 @@ impl IOUtils {
                     .read(true)
                     .open(file_to_sync)
                     .map_err(|e| match e.kind() {
-                        io::ErrorKind::NotFound => DataIOError::not_found(format!(
+                        io::ErrorKind::NotFound => RuntimeError::not_found(format!(
                             "Directory not found: {}",
                             file_to_sync.display()
                         )),
-                        _ => {
-                            DataIOError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
-                        }
+                        _ => RuntimeError::io_with_path(
+                            file_to_sync.to_string_lossy().to_string(),
+                            e,
+                        ),
                     })?;
 
             if let Err(_e) = dir_file.sync_all() {
@@ -69,11 +70,11 @@ impl IOUtils {
                 .write(true)
                 .open(file_to_sync)
                 .map_err(|e| {
-                    DataIOError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
+                    RuntimeError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
                 })?;
 
             file.sync_all().map_err(|e| {
-                DataIOError::io_with_path(
+                RuntimeError::io_with_path(
                     file_to_sync.to_string_lossy().to_string(),
                     io::Error::new(e.kind(), format!("Failed to sync file: {}", e)),
                 )

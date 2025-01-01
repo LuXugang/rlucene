@@ -19,7 +19,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
 
@@ -163,10 +163,13 @@ impl FixedBitSet {
     /// # Arguments
     /// * `stored_bits` - The array to use as the backing store (`Vec<i64>`).
     /// * `num_bits` - The number of bits actually needed.
-    pub fn with_capacity(stored_bits: Vec<u64>, num_bits: i32) -> Result<FixedBitSet, DataIOError> {
+    pub fn with_capacity(
+        stored_bits: Vec<u64>,
+        num_bits: i32,
+    ) -> Result<FixedBitSet, RuntimeError> {
         let num_words = Self::bits2words(num_bits);
         if num_words as usize > stored_bits.len() {
-            return Err(DataIOError::illegal_argument(format!(
+            return Err(RuntimeError::illegal_argument(format!(
                 "The given long array is too small  to hold {} bits",
                 num_words
             )));
@@ -645,7 +648,7 @@ impl BitSet for FixedBitSet {
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), DataIOError> {
+    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), RuntimeError> {
         //TODO: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
         let mut doc = iter.next_doc();

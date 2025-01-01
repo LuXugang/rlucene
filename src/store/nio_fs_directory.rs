@@ -17,7 +17,7 @@
 use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::nio_fs_index_input::NIOFSIndexInput;
 use crate::store::{BufferedIndexInput, IOContext};
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::path::Path;
@@ -57,13 +57,13 @@ impl FSDirectoryBase for NIOFSDirectory {
         name: &str,
         context: IOContext,
         path: &Path,
-    ) -> Result<Self::Output, DataIOError> {
+    ) -> Result<Self::Output, RuntimeError> {
         let file_path = path.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         let file = match File::open(file_path) {
             Ok(file) => file,
             Err(err) => {
-                return Err(DataIOError::io_with_path(file_name, err));
+                return Err(RuntimeError::io_with_path(file_name, err));
             }
         };
         let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());

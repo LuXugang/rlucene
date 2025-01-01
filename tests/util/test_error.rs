@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use rlucene::util::error::corrupt_index::CorruptIndexError;
-use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::data_io_error_enum::RuntimeError;
 use rlucene::util::error::eof::Eof;
 use rlucene::util::error::illegal_argument::IllegalArgumentError;
 use rlucene::util::error::illegal_state::IllegalStateError;
@@ -53,8 +53,9 @@ pub enum TestError {
 
     #[error("{0}")]
     IllegalState(#[from] IllegalStateError),
+
     #[error("{0}")]
-    DataIOError(#[from] DataIOError),
+    DataIOError(#[from] RuntimeError),
 
     #[error("{0}")]
     VersionError(#[from] VersionError),

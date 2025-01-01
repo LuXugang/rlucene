@@ -18,21 +18,21 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use rlucene::store::data_output::DataOutput;
 use rlucene::store::index_output::IndexOutput;
 use rlucene::store::output_stream_index_output::OutputStreamIndexOutput;
-use rlucene::util::error::data_io_error_enum::DataIOError;
+use rlucene::util::error::data_io_error_enum::RuntimeError;
 use std::io::Cursor;
 
 #[allow(dead_code)] // for quick search
 struct TestOutputStreamIndexOutput;
 
 #[test]
-fn test_data_types() -> Result<(), DataIOError> {
+fn test_data_types() -> Result<(), RuntimeError> {
     for offset in 0..12 {
         do_test_data_types(offset)?;
     }
     Ok(())
 }
 
-fn do_test_data_types(offset: usize) -> Result<(), DataIOError> {
+fn do_test_data_types(offset: usize) -> Result<(), RuntimeError> {
     use crc32fast::Hasher;
 
     let mut buffer = Vec::new();
@@ -73,7 +73,7 @@ fn do_test_data_types(offset: usize) -> Result<(), DataIOError> {
 }
 
 #[test]
-fn test_write_exceeding_buffer() -> Result<(), DataIOError> {
+fn test_write_exceeding_buffer() -> Result<(), RuntimeError> {
     use crc32fast::Hasher;
 
     let buffer_size = 8;
@@ -100,7 +100,7 @@ fn test_write_exceeding_buffer() -> Result<(), DataIOError> {
     Ok(())
 }
 #[test]
-fn test_multiple_writes_with_checksum() -> Result<(), DataIOError> {
+fn test_multiple_writes_with_checksum() -> Result<(), RuntimeError> {
     use crc32fast::Hasher;
 
     let mut buffer = Vec::new();

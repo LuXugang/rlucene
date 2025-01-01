@@ -16,21 +16,21 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput};
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use std::fmt::{Display, Formatter};
 
 pub struct DummyIndexInput;
 
 impl DataInput for DummyIndexInput {
-    fn read_byte(&mut self) -> Result<u8, DataIOError> {
+    fn read_byte(&mut self) -> Result<u8, RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: u32, _len: u32) -> Result<(), DataIOError> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: u32, _len: u32) -> Result<(), RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn skip_bytes(&mut self, _num_bytes: u64) -> Result<(), DataIOError> {
+    fn skip_bytes(&mut self, _num_bytes: u64) -> Result<(), RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 
@@ -56,7 +56,7 @@ impl IndexInput for DummyIndexInput {
         unreachable!("DummyIndexInput")
     }
 
-    fn seek(&mut self, _pos: u64) -> Result<(), DataIOError> {
+    fn seek(&mut self, _pos: u64) -> Result<(), RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 
@@ -70,12 +70,12 @@ impl IndexInput for DummyIndexInput {
         _slice_description: &str,
         _offset: u64,
         _length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
         // Used by the compiler to infer the returned type
         if false {
             return Ok(DummyIndexInput);
         }
-        Err(DataIOError::unsupported_operation(
+        Err(RuntimeError::unsupported_operation(
             "slice method is not supported".to_string(),
         ))
     }
@@ -85,12 +85,12 @@ impl IndexInput for DummyIndexInput {
         &self,
         _offset: u64,
         _length: u64,
-    ) -> Result<impl IndexInput + RandomAccessInput, DataIOError> {
+    ) -> Result<impl IndexInput + RandomAccessInput, RuntimeError> {
         // Used by the compiler to infer the returned type
         if false {
             return Ok(DummyIndexInput);
         }
-        Err(DataIOError::unsupported_operation(
+        Err(RuntimeError::unsupported_operation(
             "random_access_slice method is not supported".to_string(),
         ))
     }
@@ -100,23 +100,23 @@ impl RandomAccessInput for DummyIndexInput {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_byte(&mut self, _pos: u64) -> Result<u8, DataIOError> {
+    fn read_byte(&mut self, _pos: u64) -> Result<u8, RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_short(&mut self, _pos: u64) -> Result<i16, DataIOError> {
+    fn read_short(&mut self, _pos: u64) -> Result<i16, RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_int(&mut self, _pos: u64) -> Result<i32, DataIOError> {
+    fn read_int(&mut self, _pos: u64) -> Result<i32, RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn read_long(&mut self, _pos: u64) -> Result<i64, DataIOError> {
+    fn read_long(&mut self, _pos: u64) -> Result<i64, RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 
-    fn pre_fetch(&mut self, __pos: u64, _len: u64) -> Result<(), DataIOError> {
+    fn pre_fetch(&mut self, __pos: u64, _len: u64) -> Result<(), RuntimeError> {
         unreachable!("DummyIndexInput")
     }
 }

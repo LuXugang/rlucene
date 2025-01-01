@@ -16,7 +16,7 @@
  */
 use crate::store::DataInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::abstract_block_packed_writer::{
     BPV_SHIFT, MAX_BLOCK_SIZE, MIN_BLOCK_SIZE, MIN_VALUE_EQUALS_0,
@@ -55,7 +55,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// # Errors
     ///
     /// Returns an `IoError` if the reading fails.
-    pub fn read_vlong(data_input: &mut T) -> Result<i64, DataIOError> {
+    pub fn read_vlong(data_input: &mut T) -> Result<i64, RuntimeError> {
         let mut l = 0u64;
         for shift in (0..56).step_by(7) {
             let b = data_input.read_byte()?;
@@ -73,7 +73,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         packed_ints_version: u32,
         block_size: u32,
         value_count: u64,
-    ) -> Result<Self, DataIOError> {
+    ) -> Result<Self, RuntimeError> {
         PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let values = vec![0; block_size as usize];
         let long_ref = LongsRef::from_slice(values, 0, 0);
@@ -111,9 +111,9 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// # Errors
     ///
     /// Returns a `DataIOError` if `count` is invalid or if there is an issue reading the input.
-    pub fn skip(&mut self, mut count: u64) -> Result<(), DataIOError> {
+    pub fn skip(&mut self, mut count: u64) -> Result<(), RuntimeError> {
         if self.ord + count > self.value_count {
-            return Err(DataIOError::eof("Attempt to skip past end of file"));
+            return Err(RuntimeError::eof("Attempt to skip past end of file"));
         }
 
         // 1. Skip buffered values
@@ -132,7 +132,9 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
             let bits_per_value = (token >> BPV_SHIFT) as u32;
 
             if bits_per_value > 64 {
-                return Err(DataIOError::corrupt_index("Corrupted: bits_per_value > 64"));
+                return Err(RuntimeError::corrupt_index(
+                    "Corrupted: bits_per_value > 64",
+                ));
             }
 
             if (token as u32 & MIN_VALUE_EQUALS_0) == 0 {
@@ -160,7 +162,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
 
         Ok(())
     }
-    pub fn skip_bytes(&mut self, count: u64) -> Result<(), DataIOError> {
+    pub fn skip_bytes(&mut self, count: u64) -> Result<(), RuntimeError> {
         if self.data_input.is_index_input() {
             let new_position = self.data_input.get_file_pointer_in_data_input() + count;
             self.data_input.seek_in_data_input(new_position)?;
@@ -192,9 +194,9 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// - If the current block is exhausted (`off == block_size`), it will refill the block.
     /// - Increments the `ord` to track the current position in the stream.
     /// - Returns the next value from the `values` buffer.
-    pub fn next_value(&mut self) -> Result<i64, DataIOError> {
+    pub fn next_value(&mut self) -> Result<i64, RuntimeError> {
         if self.ord == self.value_count {
-            return Err(DataIOError::eof("Reached end of value stream"));
+            return Err(RuntimeError::eof("Reached end of value stream"));
         }
         if self.off == self.block_size as usize {
             self.refill()?;
@@ -218,9 +220,9 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// # Errors
     ///
     /// Returns an `EOFError` if the reader has reached the end of the value stream.
-    pub fn next_batch(&mut self, mut count: u32) -> Result<&LongsRef, DataIOError> {
+    pub fn next_batch(&mut self, mut count: u32) -> Result<&LongsRef, RuntimeError> {
         if self.ord == self.value_count {
-            return Err(DataIOError::eof("Reached end of value stream"));
+            return Err(RuntimeError::eof("Reached end of value stream"));
         }
         if self.off == self.block_size as usize {
             self.refill()?;
@@ -241,13 +243,15 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         Ok(&self.values_ref)
     }
 
-    pub fn refill(&mut self) -> Result<(), DataIOError> {
+    pub fn refill(&mut self) -> Result<(), RuntimeError> {
         let token = self.data_input.read_byte()?;
         let min_equals_0 = (token as u32 & MIN_VALUE_EQUALS_0) != 0;
         let bits_per_value = (token >> BPV_SHIFT) as u32;
 
         if bits_per_value > 64 {
-            return Err(DataIOError::corrupt_index("Corrupted: bits_per_value > 64"));
+            return Err(RuntimeError::corrupt_index(
+                "Corrupted: bits_per_value > 64",
+            ));
         }
         let min_value = if min_equals_0 {
             0

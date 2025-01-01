@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::format_behavior::{FormatBehavior, PackedImpl};
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
@@ -100,7 +100,7 @@ impl Packed64 {
 }
 
 impl Reader for Packed64 {
-    fn get(&mut self, index: usize) -> Result<i64, DataIOError> {
+    fn get(&mut self, index: usize) -> Result<i64, RuntimeError> {
         // The abstract index in a bit stream
         let major_bit_pos = (index as u64) * (self.bits_per_value as u64);
 
@@ -130,7 +130,7 @@ impl Reader for Packed64 {
         arr: &mut [i64],
         mut off: usize,
         mut len: usize,
-    ) -> Result<u32, DataIOError> {
+    ) -> Result<u32, RuntimeError> {
         assert!(index < self.value_count as usize, "index out of bounds");
         len = len.min(self.value_count as usize - index);
         assert!(
@@ -215,7 +215,7 @@ impl Mutable for Packed64 {
         self.bits_per_value
     }
 
-    fn set(&mut self, index: usize, value: i64) -> Result<(), DataIOError> {
+    fn set(&mut self, index: usize, value: i64) -> Result<(), RuntimeError> {
         // The abstract index in a contiguous bit stream
         let major_bit_pos = (index as u64) * self.bits_per_value as u64;
         // The index in the backing blocks array
@@ -246,7 +246,7 @@ impl Mutable for Packed64 {
         arr: &[i64],
         mut off: usize,
         mut len: usize,
-    ) -> Result<u32, DataIOError> {
+    ) -> Result<u32, RuntimeError> {
         assert!(index < self.value_count as usize, "index out of bounds");
         len = len.min(self.value_count as usize - index);
         assert!(
@@ -315,7 +315,7 @@ impl Mutable for Packed64 {
         mut from_index: usize,
         to_index: usize,
         val: i64,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
             "Value requires more bits than allowed by bits_per_value"
@@ -372,7 +372,7 @@ impl Mutable for Packed64 {
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), DataIOError> {
+    fn clear(&mut self) -> Result<(), RuntimeError> {
         self.blocks.fill(0);
         Ok(())
     }

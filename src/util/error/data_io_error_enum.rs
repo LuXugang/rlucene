@@ -31,7 +31,7 @@ use std::string::FromUtf8Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum DataIOError {
+pub enum RuntimeError {
     #[error("IO error: {0}")]
     Io(#[from] Error),
 
@@ -80,9 +80,9 @@ pub enum DataIOError {
     #[error("UTF-8 decoding error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
 }
-impl DataIOError {
+impl RuntimeError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
-        DataIOError::IoWithPath {
+        RuntimeError::IoWithPath {
             source: err,
             path: path.into(),
         }
@@ -92,50 +92,50 @@ impl DataIOError {
     }
 
     pub fn utf8(err: FromUtf8Error) -> Self {
-        DataIOError::FromUtf8Error(err)
+        RuntimeError::FromUtf8Error(err)
     }
     pub fn illegal_argument(msg: impl Into<String>) -> Self {
-        DataIOError::IllegalArgument(IllegalArgumentError::new(msg))
+        RuntimeError::IllegalArgument(IllegalArgumentError::new(msg))
     }
     pub fn illegal_state(msg: impl Into<String>) -> Self {
-        DataIOError::IllegalState(IllegalStateError::new(msg))
+        RuntimeError::IllegalState(IllegalStateError::new(msg))
     }
 
     pub fn eof(msg: impl Into<String>) -> Self {
-        DataIOError::Eof(Eof::new(msg))
+        RuntimeError::Eof(Eof::new(msg))
     }
 
     pub fn integer_overflow(msg: impl Into<String>) -> Self {
-        DataIOError::IntegerOverflow(IntegerOverflow::new(msg))
+        RuntimeError::IntegerOverflow(IntegerOverflow::new(msg))
     }
 
     pub fn corrupt_index(msg: impl Into<String>) -> Self {
-        DataIOError::CorruptIndex(CorruptIndexError::new(msg))
+        RuntimeError::CorruptIndex(CorruptIndexError::new(msg))
     }
 
     pub fn index_format_too_new(msg: impl Into<String>) -> Self {
-        DataIOError::IndexFormatTooNew(IndexFormatTooNewError::new(msg))
+        RuntimeError::IndexFormatTooNew(IndexFormatTooNewError::new(msg))
     }
     pub fn index_format_too_old(msg: impl Into<String>) -> Self {
-        DataIOError::IndexFormatTooOld(IndexFormatTooOldError::new(msg))
+        RuntimeError::IndexFormatTooOld(IndexFormatTooOldError::new(msg))
     }
 
     pub fn unsupported_operation(msg: impl Into<String>) -> Self {
-        DataIOError::UnsupportedOperation(UnsupportedOperationError::new(msg))
+        RuntimeError::UnsupportedOperation(UnsupportedOperationError::new(msg))
     }
     pub fn not_found(msg: impl Into<String>) -> Self {
-        DataIOError::NotFound(NotFoundError::new(msg))
+        RuntimeError::NotFound(NotFoundError::new(msg))
     }
     pub fn lock_already_held(msg: impl Into<String>) -> Self {
-        DataIOError::LockAlreadyHeld(LockAlreadyHeldError::new(msg))
+        RuntimeError::LockAlreadyHeld(LockAlreadyHeldError::new(msg))
     }
     pub fn lock_held_by_other(msg: impl Into<String>) -> Self {
-        DataIOError::LockHeldByOther(LockHeldByOtherError::new(msg))
+        RuntimeError::LockHeldByOther(LockHeldByOtherError::new(msg))
     }
     pub fn array_index_out_of_bounds(msg: impl Into<String>) -> Self {
-        DataIOError::ArrayIndexOutOfBounds(ArrayIndexOutOfBoundsError::new(msg))
+        RuntimeError::ArrayIndexOutOfBounds(ArrayIndexOutOfBoundsError::new(msg))
     }
     pub fn utf8_error(err: std::str::Utf8Error) -> Self {
-        DataIOError::Utf8Error(err)
+        RuntimeError::Utf8Error(err)
     }
 }

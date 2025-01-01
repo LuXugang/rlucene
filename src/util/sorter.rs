@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 
 /// Base class for sorting algorithm implementations.
 ///
@@ -34,7 +34,7 @@ pub trait Sorter {
     // Below this size threshold, the sub-range is sorted using Insertion sort.
     const INSERTION_SORT_THRESHOLD: i32 = 16;
     /// Compare entries found in slots i and j
-    fn compare(&mut self, _i: i32, _j: i32) -> Result<i32, DataIOError> {
+    fn compare(&mut self, _i: i32, _j: i32) -> Result<i32, RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
@@ -44,22 +44,22 @@ pub trait Sorter {
     }
 
     /// Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
-    fn set_pivot(&mut self, _i: i32) -> Result<(), DataIOError> {
+    fn set_pivot(&mut self, _i: i32) -> Result<(), RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
     /// Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
     /// compare(i, j).
-    fn compare_pivot(&mut self, _i: i32) -> Result<i32, DataIOError> {
+    fn compare_pivot(&mut self, _i: i32) -> Result<i32, RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
     /// Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), DataIOError> {
+    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), RuntimeError> {
         unimplemented!(" Override this in your implementation if needed")
     }
 
-    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) -> Result<(), DataIOError> {
+    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) -> Result<(), RuntimeError> {
         if from == mid || mid == to || self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
         } else if to - from == 2 {
@@ -95,7 +95,7 @@ pub trait Sorter {
         Ok(())
     }
 
-    fn lower(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32, DataIOError> {
+    fn lower(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32, RuntimeError> {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 1;
@@ -110,7 +110,7 @@ pub trait Sorter {
         Ok(from)
     }
 
-    fn upper(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32, DataIOError> {
+    fn upper(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32, RuntimeError> {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 1;
@@ -125,7 +125,7 @@ pub trait Sorter {
         Ok(from)
     }
     // faster than lower when val is at the end of [from:to[
-    fn lower2(&mut self, from: i32, to: i32, val: i32) -> Result<i32, DataIOError> {
+    fn lower2(&mut self, from: i32, to: i32, val: i32) -> Result<i32, RuntimeError> {
         let mut f = to - 1;
         let mut t = to;
 
@@ -142,7 +142,7 @@ pub trait Sorter {
     }
 
     // faster than upper when val is at the beginning of [from:to[
-    fn upper2(&mut self, from: i32, to: i32, val: i32) -> Result<i32, DataIOError> {
+    fn upper2(&mut self, from: i32, to: i32, val: i32) -> Result<i32, RuntimeError> {
         let mut f = from;
         let mut t = f + 1;
 
@@ -196,7 +196,7 @@ pub trait Sorter {
     /// when the number of items to sort becomes smaller than `BINARY_SORT_THRESHOLD`.
     ///
     /// This algorithm is **stable**.
-    fn binary_sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
+    fn binary_sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         self.binary_sort_with_start(from, to, from + 1)
     }
 
@@ -205,7 +205,7 @@ pub trait Sorter {
         from: i32,
         to: i32,
         mut i: i32,
-    ) -> Result<(), DataIOError> {
+    ) -> Result<(), RuntimeError> {
         while i < to {
             self.set_pivot(i)?;
             let mut l = from;
@@ -232,7 +232,7 @@ pub trait Sorter {
     /// Sorts between `from` (inclusive) and `to` (exclusive) with insertion sort. Runs in `O(n^2)`.
     /// It is typically used by more sophisticated implementations as a fall-back when the number of
     /// items to sort becomes less than `INSERTION_SORT_THRESHOLD`. This algorithm is stable.
-    fn insertion_sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
+    fn insertion_sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         let mut i = from + 1;
         while i < to {
             let mut current = i;
@@ -255,7 +255,7 @@ pub trait Sorter {
     /// Uses heap sort to sort items between `from` (inclusive) and `to` (exclusive). This runs
     /// in `O(n * log(n))` and is used as a fall-back by [`IntroSorter`](crate::util::intro_sorter).
     /// This algorithm is NOT stable.
-    fn heap_sort(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
+    fn heap_sort(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         if to - from <= 1 {
             return Ok(());
         }
@@ -269,7 +269,7 @@ pub trait Sorter {
         Ok(())
     }
 
-    fn heapify(&mut self, from: i32, to: i32) -> Result<(), DataIOError> {
+    fn heapify(&mut self, from: i32, to: i32) -> Result<(), RuntimeError> {
         let mut i = Self::heap_parent(from, to - 1);
         while i >= from {
             self.sift_down(i, from, to)?;
@@ -278,7 +278,7 @@ pub trait Sorter {
         Ok(())
     }
 
-    fn sift_down(&mut self, mut i: i32, from: i32, to: i32) -> Result<(), DataIOError> {
+    fn sift_down(&mut self, mut i: i32, from: i32, to: i32) -> Result<(), RuntimeError> {
         let mut left_child = Self::heap_child(from, i);
         while left_child < to {
             let right_child = left_child + 1;
@@ -308,9 +308,9 @@ pub trait Sorter {
         ((i - from) << 1) + 1 + from
     }
 }
-pub fn check_range(from: i32, to: i32) -> Result<(), DataIOError> {
+pub fn check_range(from: i32, to: i32) -> Result<(), RuntimeError> {
     if to < from {
-        return Err(DataIOError::illegal_argument(format!(
+        return Err(RuntimeError::illegal_argument(format!(
             "'to' must be >= 'from', got from= {} and to= {}",
             from, to
         )));

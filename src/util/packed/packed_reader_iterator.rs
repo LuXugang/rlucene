@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::DataInput;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::{of, BulkOperation};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
@@ -86,7 +86,7 @@ impl<'a, D> ReaderIterator for PackedReaderIterator<'a, D>
 where
     D: DataInput + 'a,
 {
-    fn next_batch(&mut self, mut count: u32) -> Result<&mut LongsRef, DataIOError> {
+    fn next_batch(&mut self, mut count: u32) -> Result<&mut LongsRef, RuntimeError> {
         debug_assert!(
             self.next_values.offset + self.next_values.length <= self.next_values.longs.len(),
             "Offset and length should be within the bounds of longs"
@@ -95,7 +95,7 @@ where
 
         let remaining = self.value_count as i32 - self.position - 1;
         if remaining <= 0 {
-            return Err(DataIOError::eof("No more values to read"));
+            return Err(RuntimeError::eof("No more values to read"));
         }
 
         count = count.min(remaining as u32);

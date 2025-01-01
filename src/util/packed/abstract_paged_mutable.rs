@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::data_io_error_enum::DataIOError;
+use crate::util::error::data_io_error_enum::RuntimeError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::mutable_enum::MutableEnum;
 use crate::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
@@ -49,7 +49,7 @@ where
         size: u64,
         page_size: u32,
         sub_reader: T,
-    ) -> Result<AbstractPagedMutable<T>, DataIOError> {
+    ) -> Result<AbstractPagedMutable<T>, RuntimeError> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let page_mask = page_size - 1;
         let num_pages = PackedInts::num_blocks(size, page_size)?;
@@ -71,7 +71,7 @@ where
         };
         Ok(result)
     }
-    pub fn fill_pages(&mut self) -> Result<(), DataIOError> {
+    pub fn fill_pages(&mut self) -> Result<(), RuntimeError> {
         let num_pages = PackedInts::num_blocks(self.size, self.page_size())?;
         for i in 0..num_pages {
             // do not allocate for more entries than necessary on the last page
@@ -108,7 +108,7 @@ where
         (index & self.page_mask as u64) as u32
     }
     /// Sets the value at the specified index.
-    pub fn set(&mut self, index: u64, value: i64) -> Result<(), DataIOError> {
+    pub fn set(&mut self, index: u64, value: i64) -> Result<(), RuntimeError> {
         debug_assert!(
             index < self.size,
             "Index out of bounds: index={} size={}",
@@ -124,7 +124,7 @@ where
     }
     /// Create a new copy of size <code>newSize</code> based on the content of this buffer. This
     /// is much more efficient than creating a new instance and copying values one by one.
-    pub fn resize(&mut self, new_size: u64) -> Result<AbstractPagedMutable<T>, DataIOError> {
+    pub fn resize(&mut self, new_size: u64) -> Result<AbstractPagedMutable<T>, RuntimeError> {
         let mut copy = self
             .sub_reader
             .new_unfilled_copy(new_size, self.page_size())?;
@@ -161,7 +161,7 @@ where
     pub fn grow_with_size(
         &mut self,
         min_size: u64,
-    ) -> Result<Option<AbstractPagedMutable<T>>, DataIOError> {
+    ) -> Result<Option<AbstractPagedMutable<T>>, RuntimeError> {
         if min_size <= self.size {
             return Ok(None);
         }
@@ -172,7 +172,7 @@ where
         let new_size = min_size + extra;
         Ok(Some(self.resize(new_size)?))
     }
-    pub fn grow(&mut self) -> Result<Option<AbstractPagedMutable<T>>, DataIOError> {
+    pub fn grow(&mut self) -> Result<Option<AbstractPagedMutable<T>>, RuntimeError> {
         self.grow_with_size(self.size() << 1)
     }
 }
@@ -180,7 +180,7 @@ impl<T> LongValues for AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    fn get(&mut self, index: u64) -> Result<i64, DataIOError> {
+    fn get(&mut self, index: u64) -> Result<i64, RuntimeError> {
         debug_assert!(index < self.size, "index={} size={}", index, self.size);
         let page_index = self.page_index(index);
         let index_in_page = self.index_in_page(index);
@@ -218,13 +218,13 @@ pub trait AbstractPagedMutableBase {
         &self,
         value_count: u32,
         bits_per_value: u32,
-    ) -> Result<MutableEnum, DataIOError>;
+    ) -> Result<MutableEnum, RuntimeError>;
     type PagedMutableBase: AbstractPagedMutableBase;
     fn new_unfilled_copy(
         &self,
         new_size: u64,
         page_size: u32,
-    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, DataIOError>;
+    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, RuntimeError>;
     fn base_ram_bytes_used_base(&self) -> u64;
     fn fill_pages(&self) -> bool;
 }
