@@ -21,6 +21,7 @@ pub use bytes_ref::*;
 pub mod bytes_ref_builder;
 pub use bytes_ref_builder::*;
 pub mod binary_doc_values;
+mod binary_doc_values_field_updates;
 pub mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_type;

@@ -147,7 +147,7 @@ impl DocIdSetIterator for AllDocIdSetIterator {
     }
 
     fn next_doc(&mut self) -> Result<i32, LuceneError> {
-        self.advance(self.doc + 1);
+        self.advance(self.doc + 1)?;
         Ok(self.doc)
     }
 

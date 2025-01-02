@@ -35,7 +35,7 @@ use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::Sorter;
 use std::sync::{Arc, Mutex};
 
-const PAGE_SIZE: u32 = 1024;
+pub(crate) const PAGE_SIZE: u32 = 1024;
 const HAS_VALUE_MASK: u64 = 1;
 const HAS_NO_VALUE_MASK: u64 = 0;
 // we use the first bit of each value to mark if the doc has a value or not
@@ -56,7 +56,8 @@ where
     inner: Arc<Mutex<DocValuesFieldInner>>,
     sub: D,
 }
-struct DocValuesFieldInner {
+#[derive(Default)]
+pub struct DocValuesFieldInner {
     pub finished: bool,
     pub docs: AbstractPagedMutable<PagedMutable>,
     pub size: u32,
@@ -131,14 +132,15 @@ where
     }
     /// Returns an iterator for updated documents and their values.
     fn iterator(&mut self) -> Result<impl Iterator + use<'_, D>, LuceneError> {
-        self.sub.iterator()
+        self.ensure_finished()?;
+        self.sub.iterator(self.inner.clone(), self.del_gen)
     }
     /// Adds the value for the given `doc_id`.
     ///
     /// This method prevents conditional calls to [`IteratorBase::long_value`] or
     /// [`IteratorBase::binary_value`], since the implementation knows whether it is
     /// a long value iterator or a binary value iterator.
-    fn add_iterator<T>(&mut self, doc_id: u32, iterator: T)
+    fn add_iterator<T>(&mut self, doc_id: u32, iterator: T) -> Result<(), LuceneError>
     where
         T: Iterator,
     {
@@ -156,6 +158,7 @@ where
         // shrink wrap
         if (inner.size as u64) < inner.docs.size() {
             inner.resize(size)?;
+            self.sub.resize(size)?;
         }
 
         if inner.size > 0 {
@@ -221,7 +224,7 @@ where
         size += 1;
         Ok(size - 1)
     }
-    pub(crate) fn swap(&self, i: u32, j: u32) -> Result<(), LuceneError> {
+    pub(crate) fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
         self.sub.swap(i, j)?;
         let mut inner = self.inner.lock().unwrap();
         inner.swap(i, j)?;
@@ -283,17 +286,21 @@ where
 pub trait DocValuesFieldUpdatesBase: Accountable {
     fn add_value(&mut self, doc: u32, value: i64, index: u32) -> Result<(), LuceneError>;
     fn add_byte_ref(&mut self, doc: u32, value: BytesRef, index: u32) -> Result<(), LuceneError>;
-    fn add_iterator<T: Iterator>(&mut self, doc_id: u32, iterator: T);
+    fn add_iterator<T: Iterator>(&mut self, doc_id: u32, iterator: T) -> Result<(), LuceneError>;
     /// Returns an iterator for updated documents and their values.
-    fn iterator(&mut self) -> Result<impl Iterator, LuceneError>;
-    fn swap(&self, _i: u32, _j: u32) -> Result<(), LuceneError> {
+    fn iterator(
+        &mut self,
+        inner: Arc<Mutex<DocValuesFieldInner>>,
+        del_gen: u64,
+    ) -> Result<impl Iterator, LuceneError>;
+    fn swap(&mut self, _i: u32, _j: u32) -> Result<(), LuceneError> {
         unimplemented!("any must be implemented if you need to use it")
     }
     fn grow(&mut self, _size: u32) -> Result<(), LuceneError> {
         unimplemented!("any must be implemented if you need to use it")
     }
     fn resize(&mut self, _size: u32) -> Result<(), LuceneError> {
-        unimplemented!("any must be implemented if you need to use it")
+        Ok(())
     }
     fn reset(&mut self, _doc: u32) -> Result<(), LuceneError> {
         unimplemented!("any must be implemented if you need to use it")
@@ -634,6 +641,105 @@ where
     }
 }
 
+#[derive(Default)]
+pub struct AbstractIterator<A>
+where
+    A: AbstractIteratorBase + Default,
+{
+    inner: Arc<Mutex<DocValuesFieldInner>>,
+    idx: u64,
+    doc: i32,
+    del_gen: u64,
+    has_value: bool,
+    sub: A,
+}
+
+impl<A> AbstractIterator<A>
+where
+    A: AbstractIteratorBase + Default,
+{
+    pub fn new(inner: Arc<Mutex<DocValuesFieldInner>>, del_gen: u64, sub: A) -> Self {
+        AbstractIterator {
+            inner,
+            idx: 0,
+            doc: -1,
+            del_gen,
+            has_value: false,
+            sub,
+        }
+    }
+}
+
+impl<A> DocValuesIterator for AbstractIterator<A> where A: AbstractIteratorBase + Default {}
+
+impl<A> DocIdSetIterator for AbstractIterator<A>
+where
+    A: AbstractIteratorBase + Default,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc
+    }
+
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+        let mut inner = self.inner.lock().unwrap();
+        if self.idx >= inner.size as u64 {
+            self.doc = NO_MORE_DOCS;
+            return Ok(self.doc);
+        }
+        let mut long_doc = inner.docs.get(self.idx)?;
+        self.idx += 1;
+
+        while self.idx < inner.size as u64 {
+            // Scan forward to last update to this doc
+            let next_long_doc = inner.docs.get(self.idx)?;
+            if (long_doc as u64 >> 1) != (next_long_doc as u64 >> 1) {
+                break;
+            }
+            long_doc = next_long_doc;
+            self.idx += 1;
+        }
+
+        self.has_value = (long_doc & HAS_VALUE_MASK as i64) > 0;
+        if self.has_value {
+            self.sub.set(self.idx - 1)?;
+        }
+        debug_assert!((long_doc as u64 >> SHIFT) <= i32::MAX as u64);
+        self.doc = (long_doc as u64 >> SHIFT) as i32;
+        Ok(self.doc)
+    }
+}
+
+impl<A> Iterator for AbstractIterator<A>
+where
+    A: AbstractIteratorBase + Default,
+{
+    fn long_value(&mut self) -> Result<i64, LuceneError> {
+        self.sub.long_value()
+    }
+
+    fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
+        self.sub.binary_value()
+    }
+
+    fn del_gen(&self) -> u64 {
+        self.del_gen
+    }
+
+    fn has_value(&mut self) -> bool {
+        self.has_value
+    }
+}
+pub trait AbstractIteratorBase {
+    /// Called when the iterator moves to the next document.
+    ///
+    /// # Arguments
+    ///
+    /// * `idx` - The internal index to set the value to.
+    fn set(&mut self, idx: u64) -> Result<(), LuceneError>;
+    fn long_value(&mut self) -> Result<i64, LuceneError>;
+    fn binary_value(&mut self) -> Result<BytesRef, LuceneError>;
+}
+
 pub struct SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
@@ -650,7 +756,7 @@ impl<S> SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
 {
-    pub fn new(sub: S, max_doc: u32, del_gen: u64) -> Result<(Self), LuceneError> {
+    pub fn new(sub: S, max_doc: u32, del_gen: u64) -> Result<Self, LuceneError> {
         Ok(Self {
             sub,
             bit_set: SparseFixedBitSet::new(max_doc as i32)?,
@@ -704,11 +810,15 @@ where
         Ok(())
     }
 
-    fn add_iterator<T: Iterator>(&mut self, _doc_id: u32, _iterator: T) {
+    fn add_iterator<T: Iterator>(&mut self, _doc_id: u32, _iterator: T) -> Result<(), LuceneError> {
         unreachable!("add_iterator is not supported")
     }
 
-    fn iterator(&mut self) -> Result<impl Iterator, LuceneError> {
+    fn iterator(
+        &mut self,
+        _inner: Arc<Mutex<DocValuesFieldInner>>,
+        _del_gen: u64,
+    ) -> Result<impl Iterator, LuceneError> {
         let iterator = BitSetIterator::new(&self.bit_set, self.max_doc as i64)?;
         SingleValueDocValuesFieldUpdatesIterator::new(
             Some(iterator),
@@ -747,7 +857,8 @@ pub trait SingleValueDocValuesFieldUpdatesBase {
     fn binary_value(&self) -> Result<BytesRef, LuceneError>;
     fn long_value(&self) -> Result<i64, LuceneError>;
 }
-
+/// # Note
+/// To implement Default, we wrap the mutable reference fields here with Option.
 pub struct SingleValueDocValuesFieldUpdatesIterator<'a, S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
@@ -766,7 +877,7 @@ where
     /// # Note
     /// Avoid using the `Default` trait. This constructor should be used instead.
     pub fn new(
-        iterator: Option<(BitSetIterator<'a, SparseFixedBitSet>)>,
+        iterator: Option<BitSetIterator<'a, SparseFixedBitSet>>,
         del_gen: u64,
         has_no_value: Option<&'a mut SparseFixedBitSet>,
         single: Option<&'a mut S>,

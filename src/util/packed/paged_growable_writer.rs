@@ -28,6 +28,7 @@ use crate::util::packed::mutable_enum::MutableEnum;
 ///
 /// # Lucene Internal
 /// This is an internal utility for use within the Lucene system.
+#[derive(Default)]
 pub struct PagedGrowableWriter {
     acceptable_overhead_ratio: f32,
     bits_per_value: u32,

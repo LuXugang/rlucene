@@ -28,6 +28,7 @@ const MAX_BLOCK_SIZE: u32 = 1 << 30;
 ///
 /// # Lucene Internal
 /// This is an internal utility for use within the Lucene system.
+#[derive(Default)]
 pub struct AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase,

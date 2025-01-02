@@ -425,6 +425,11 @@ pub enum Format {
     /// This format is deprecated; use `Packed` instead.
     PackedSingleBlock(PackedSingleBlockImpl),
 }
+impl Default for Format {
+    fn default() -> Self {
+        Format::Packed(PackedImpl::new(0))
+    }
+}
 /// Represents a combination of Format and bitsPerValue.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FormatAndBits {

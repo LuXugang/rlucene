@@ -24,6 +24,7 @@ use crate::util::packed::{fastest_format_and_bits, Format, FormatAndBits, Packed
 ///
 /// # Lucene Internal
 /// This is an internal utility for use within the Lucene system.
+#[derive(Default)]
 pub struct PagedMutable {
     format: Format,
     bits_per_value: u32,

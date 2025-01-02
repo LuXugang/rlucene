@@ -57,7 +57,7 @@ pub trait FormatBehavior {
         self.overhead_per_value(bits_per_value) / bits_per_value as f32
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PackedImpl {
     id: u32,
 }
@@ -75,7 +75,7 @@ impl FormatBehavior for PackedImpl {
         ((value_count as f64 * bits_per_value as f64) / 8f64).ceil() as u64
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PackedSingleBlockImpl {
     id: u32,
 }
