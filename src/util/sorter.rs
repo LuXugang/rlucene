@@ -63,7 +63,7 @@ pub trait Sorter {
         if from == mid || mid == to || self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
         } else if to - from == 2 {
-            self.swap(mid - 1, mid);
+            self.swap(mid - 1, mid)?;
             return Ok(());
         }
 
@@ -88,7 +88,7 @@ pub trait Sorter {
             (first_cut, second_cut, len11, len22)
         };
 
-        self.rotate(first_cut, mid, second_cut);
+        self.rotate(first_cut, mid, second_cut)?;
         let new_mid = first_cut + len22;
         self.merge_in_place(from, first_cut, new_mid)?;
         self.merge_in_place(new_mid, second_cut, to)?;
@@ -158,35 +158,37 @@ pub trait Sorter {
         self.upper(f, to, val)
     }
 
-    fn reverse(&mut self, mut from: i32, to: i32) {
+    fn reverse(&mut self, mut from: i32, to: i32) -> Result<(), LuceneError> {
         let mut to = to - 1;
         while from < to {
-            self.swap(from, to);
+            self.swap(from, to)?;
             from += 1;
             to -= 1;
         }
+        Ok(())
     }
 
-    fn rotate(&mut self, lo: i32, mid: i32, hi: i32) {
+    fn rotate(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), LuceneError> {
         debug_assert!(lo <= mid && mid <= hi);
         if lo == mid || mid == hi {
-            return;
+            return Ok(());
         }
-        self.do_rotate(lo, mid, hi);
+        self.do_rotate(lo, mid, hi)
     }
 
-    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) {
+    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) -> Result<(), LuceneError> {
         if mid - lo == hi - mid {
             while mid < hi {
-                self.swap(lo, mid);
+                self.swap(lo, mid)?;
                 lo += 1;
                 mid += 1;
             }
         } else {
-            self.reverse(lo, mid);
-            self.reverse(mid, hi);
-            self.reverse(lo, hi);
+            self.reverse(lo, mid)?;
+            self.reverse(mid, hi)?;
+            self.reverse(lo, hi)?;
         }
+        Ok(())
     }
 
     /// A binary sort implementation.
@@ -221,7 +223,7 @@ pub trait Sorter {
             }
             let mut j = i;
             while j > l {
-                self.swap(j - 1, j);
+                self.swap(j - 1, j)?;
                 j -= 1;
             }
             i += 1;
@@ -240,7 +242,7 @@ pub trait Sorter {
             loop {
                 let previous = current - 1;
                 if self.compare(previous, current)? > 0 {
-                    self.swap(previous, current);
+                    self.swap(previous, current)?;
                     if previous == from {
                         break;
                     }
@@ -262,7 +264,7 @@ pub trait Sorter {
         self.heapify(from, to)?;
         let mut end = to - 1;
         while end > from {
-            self.swap(from, end);
+            self.swap(from, end)?;
             self.sift_down(from, from, end)?;
             end -= 1;
         }
@@ -284,14 +286,14 @@ pub trait Sorter {
             let right_child = left_child + 1;
             if self.compare(i, left_child)? < 0 {
                 if right_child < to && self.compare(left_child, right_child)? < 0 {
-                    self.swap(i, right_child);
+                    self.swap(i, right_child)?;
                     i = right_child;
                 } else {
-                    self.swap(i, left_child);
+                    self.swap(i, left_child)?;
                     i = left_child;
                 }
             } else if right_child < to && self.compare(i, right_child)? < 0 {
-                self.swap(i, right_child);
+                self.swap(i, right_child)?;
                 i = right_child;
             } else {
                 break;

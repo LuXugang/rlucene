@@ -448,7 +448,7 @@ pub trait MSBRadixSorterBase: Sorter {
                 let b = self.get_bucket(from + h1, k)?;
                 let h2 = start_offsets[b as usize];
                 start_offsets[b as usize] += 1;
-                self.swap(from + h1, from + h2);
+                self.swap(from + h1, from + h2)?;
             }
         }
         Ok(())

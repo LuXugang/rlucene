@@ -65,7 +65,7 @@ pub trait DocIdSetIterator {
     /// This method may be called with [`NO_MORE_DOCS`] for efficiency
     /// by some Scorers. If your implementation cannot efficiently determine that it should exhaust, it
     /// is recommended to check for this value in each call to this method.
-    fn advance(&mut self, target: i32) -> i32 {
+    fn advance(&mut self, _target: i32) -> i32 {
         unimplemented!("advance() must be implemented if it need to be used")
     }
     /// A slow (linear) implementation of [`advance`](DocIdSetIterator::advance) that relies on

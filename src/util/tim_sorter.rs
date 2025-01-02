@@ -103,7 +103,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             while o < self.to && self.compare(o - 1, o)? > 0 {
                 o += 1;
             }
-            self.reverse(run_base, o);
+            self.reverse(run_base, o)?;
         } else {
             while o < self.to && self.compare(o - 1, o)? <= 0 {
                 o += 1;
@@ -397,13 +397,13 @@ where
         Ok(())
     }
 
-    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) {
+    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) -> Result<(), LuceneError> {
         let len1 = mid - lo;
         let len2 = hi - mid;
 
         if len1 == len2 {
             while mid < hi {
-                self.swap(lo, mid);
+                self.swap(lo, mid)?;
                 lo += 1;
                 mid += 1;
             }
@@ -440,10 +440,11 @@ where
                 j += 1;
             }
         } else {
-            self.reverse(lo, mid);
-            self.reverse(mid, hi);
-            self.reverse(lo, hi);
+            self.reverse(lo, mid)?;
+            self.reverse(mid, hi)?;
+            self.reverse(lo, hi)?;
         }
+        Ok(())
     }
 }
 
