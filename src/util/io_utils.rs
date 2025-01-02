@@ -50,10 +50,9 @@ impl IOUtils {
                             "Directory not found: {}",
                             file_to_sync.display()
                         )),
-                        _ => LuceneError::io_with_path(
-                            file_to_sync.to_string_lossy().to_string(),
-                            e,
-                        ),
+                        _ => {
+                            LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
+                        }
                     })?;
 
             if let Err(_e) = dir_file.sync_all() {

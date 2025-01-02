@@ -408,7 +408,7 @@ pub trait MSBRadixSorterBase: Sorter {
     /// # Note
     /// In Rust, this method might return a signed integer (`i32`) to accommodate the `-1` case, which differs from Java's default integer handling.
     fn byte_at(&mut self, _i: i32, _k: i32) -> Result<i32, LuceneError> {
-        unimplemented!(" Override this in your implementation if needed")
+        unimplemented!("byte_at() must be implemented if it need to be used")
     }
 
     fn get_fallback_sorter(&mut self, k: i32, length: i32) -> impl Sorter

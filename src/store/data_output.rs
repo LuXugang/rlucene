@@ -56,8 +56,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_bytes`].
-    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32)
-        -> Result<(), LuceneError>;
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError>;
 
     /// Writes an `int` as four bytes (little-endian byte order).
     ///

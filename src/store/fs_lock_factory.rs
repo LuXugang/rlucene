@@ -37,8 +37,7 @@ pub trait FSLockFactory: LockFactory {
     ///
     /// # Note
     /// Implement this method to define how the lock should be acquired.
-    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str)
-        -> Result<FSLockEnum, LuceneError>;
+    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum, LuceneError>;
 }
 #[allow(unused)]
 pub(crate) fn get_default() -> impl FSLockFactory {

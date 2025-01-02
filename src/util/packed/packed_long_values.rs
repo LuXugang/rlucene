@@ -136,12 +136,7 @@ impl PackedLongValues {
         }
     }
 
-    fn get_value(
-        &mut self,
-        block: usize,
-        element: usize,
-        _value: u64,
-    ) -> Result<i64, LuceneError> {
+    fn get_value(&mut self, block: usize, element: usize, _value: u64) -> Result<i64, LuceneError> {
         let value = if self.sub_long_values.is_some() {
             self.sub_long_values
                 .as_mut()
@@ -256,9 +251,7 @@ impl PackedLongValuesBuilder {
     }
     pub fn add(&mut self, l: i64) -> Result<&mut Self, LuceneError> {
         if self.pending.is_none() {
-            return Err(LuceneError::illegal_state(
-                "Cannot be reused after build()",
-            ));
+            return Err(LuceneError::illegal_state("Cannot be reused after build()"));
         }
 
         if self.pending_off as usize == self.pending.as_ref().unwrap().len() {

@@ -67,12 +67,7 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_bytes_with_len(b, len)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: u32,
-        length: u32,
-    ) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError> {
         self.delegate.write_bytes_range(b, offset, length)
     }
 

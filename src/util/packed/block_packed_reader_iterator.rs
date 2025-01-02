@@ -132,9 +132,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
             let bits_per_value = (token >> BPV_SHIFT) as u32;
 
             if bits_per_value > 64 {
-                return Err(LuceneError::corrupt_index(
-                    "Corrupted: bits_per_value > 64",
-                ));
+                return Err(LuceneError::corrupt_index("Corrupted: bits_per_value > 64"));
             }
 
             if (token as u32 & MIN_VALUE_EQUALS_0) == 0 {
@@ -249,9 +247,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         let bits_per_value = (token >> BPV_SHIFT) as u32;
 
         if bits_per_value > 64 {
-            return Err(LuceneError::corrupt_index(
-                "Corrupted: bits_per_value > 64",
-            ));
+            return Err(LuceneError::corrupt_index("Corrupted: bits_per_value > 64"));
         }
         let min_value = if min_equals_0 {
             0

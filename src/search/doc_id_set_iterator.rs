@@ -66,7 +66,7 @@ pub trait DocIdSetIterator {
     /// by some Scorers. If your implementation cannot efficiently determine that it should exhaust, it
     /// is recommended to check for this value in each call to this method.
     fn advance(&mut self, target: i32) -> i32 {
-        unimplemented!("advance is not implemented for this DocIdSetIterator")
+        unimplemented!("advance() must be implemented if it need to be used")
     }
     /// A slow (linear) implementation of [`advance`](DocIdSetIterator::advance) that relies on
     /// [`next_doc`](DocIdSetIterator::next_doc) to move beyond the target position.
@@ -85,7 +85,7 @@ pub trait DocIdSetIterator {
     /// This is generally an upper bound on the number of documents this iterator might match, but
     /// it may also be a rough heuristic, a hardcoded value, or otherwise completely inaccurate.
     fn cost(&self) -> i64 {
-        unimplemented!("cost is not implemented for this DocIdSetIterator")
+        unimplemented!("cost() must be implemented if it need to be used")
     }
 }
 

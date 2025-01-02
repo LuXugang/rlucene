@@ -163,10 +163,7 @@ impl FixedBitSet {
     /// # Arguments
     /// * `stored_bits` - The array to use as the backing store (`Vec<i64>`).
     /// * `num_bits` - The number of bits actually needed.
-    pub fn with_capacity(
-        stored_bits: Vec<u64>,
-        num_bits: i32,
-    ) -> Result<FixedBitSet, LuceneError> {
+    pub fn with_capacity(stored_bits: Vec<u64>, num_bits: i32) -> Result<FixedBitSet, LuceneError> {
         let num_words = Self::bits2words(num_bits);
         if num_words as usize > stored_bits.len() {
             return Err(LuceneError::illegal_argument(format!(

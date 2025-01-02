@@ -24,7 +24,7 @@ pub mod index_format_too_old;
 pub mod integer_overflow;
 mod lock_already_held;
 mod lock_held_by_other;
+pub mod lucene_error;
 mod not_found;
 pub mod parse;
-pub mod lucene_error;
 mod unsupported_operation;

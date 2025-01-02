@@ -99,11 +99,7 @@ pub trait DataInput: Sized + Display {
     fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), LuceneError> {
         self.default_read_group_vint(dst, offset)
     }
-    fn default_read_group_vint(
-        &mut self,
-        dst: &mut [i64],
-        offset: u32,
-    ) -> Result<(), LuceneError> {
+    fn default_read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), LuceneError> {
         GroupVIntUtil::read_group_vint(self, dst, offset)
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,

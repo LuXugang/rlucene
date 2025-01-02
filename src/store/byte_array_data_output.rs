@@ -83,12 +83,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
         Ok(())
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: u32,
-        length: u32,
-    ) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError> {
         debug_assert!(
             self.pos + length <= self.limit,
             "Write exceeds the allowed limit: pos={}, length={}, limit={}",

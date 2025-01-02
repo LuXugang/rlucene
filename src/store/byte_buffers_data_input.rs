@@ -161,11 +161,7 @@ impl<'a> ByteBuffersDataInput<'a> {
     pub fn position(&self) -> u64 {
         self.pos - self.offset
     }
-    pub fn slice(
-        &self,
-        offset: u64,
-        length: u64,
-    ) -> Result<ByteBuffersDataInput<'a>, LuceneError> {
+    pub fn slice(&self, offset: u64, length: u64) -> Result<ByteBuffersDataInput<'a>, LuceneError> {
         if offset + length > self.length {
             return Err(LuceneError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",

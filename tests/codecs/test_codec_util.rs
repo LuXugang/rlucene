@@ -362,12 +362,7 @@ impl DataOutput for FakeOutput<'_> {
         self.output.write_byte(b)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: u32,
-        length: u32,
-    ) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError> {
         self.output.write_bytes_range(b, offset, length)
     }
 }

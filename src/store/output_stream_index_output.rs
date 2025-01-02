@@ -78,12 +78,7 @@ where
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: u32,
-        length: u32,
-    ) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError> {
         let end = offset + length;
         self.bytes_written += length as u64;
         self.os.write_bytes(&b[offset as usize..end as usize])
