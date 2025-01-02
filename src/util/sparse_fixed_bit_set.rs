@@ -301,7 +301,7 @@ impl SparseFixedBitSet {
         // The goal here is to try to take advantage of the ordering of documents
         // to build the data-structure more efficiently
         // NOTE: this heavily relies on the fact that shifts are mod 64
-        let first_doc = it.next_doc();
+        let first_doc = it.next_doc()?;
         if first_doc == NO_MORE_DOCS {
             return Ok(());
         }
@@ -314,7 +314,7 @@ impl SparseFixedBitSet {
         longs.resize(64, 0);
         let mut num_longs = 0;
 
-        let mut doc = it.next_doc();
+        let mut doc = it.next_doc()?;
         while doc != NO_MORE_DOCS {
             let doc64 = doc >> 6;
             if doc64 == i64 {
@@ -339,7 +339,7 @@ impl SparseFixedBitSet {
                 i64 = doc4096;
                 current_long = 1_u64 << (doc % 64);
             }
-            doc = it.next_doc();
+            doc = it.next_doc()?;
         }
         // flush
         longs[num_longs] = current_long;
@@ -579,10 +579,10 @@ impl BitSet for SparseFixedBitSet {
     fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), LuceneError> {
         //TODO: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
-        let mut doc = iter.next_doc();
+        let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
             self.set(doc);
-            doc = iter.next_doc();
+            doc = iter.next_doc()?;
         }
         Ok(())
     }

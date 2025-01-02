@@ -293,12 +293,13 @@ impl FixedBitSet {
         }
     }
 
-    pub fn and_not_iter(&mut self, mut iter: impl DocIdSetIterator) {
-        let mut doc = iter.next_doc();
+    pub fn and_not_iter(&mut self, mut iter: impl DocIdSetIterator) -> Result<(), LuceneError> {
+        let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
             self.clear_with_index(doc);
-            doc = iter.next_doc();
+            doc = iter.next_doc()?;
         }
+        Ok(())
     }
 
     /// this = this AND NOT other
@@ -648,10 +649,10 @@ impl BitSet for FixedBitSet {
     fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), LuceneError> {
         //TODO: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
-        let mut doc = iter.next_doc();
+        let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
             self.set(doc);
-            doc = iter.next_doc();
+            doc = iter.next_doc()?;
         }
         Ok(())
     }

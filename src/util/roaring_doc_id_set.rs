@@ -151,12 +151,13 @@ impl RoaringDocIdSetBuilder {
         Ok(())
     }
     /// Add the content of the provided DocIdSetIterator.
-    pub fn add_disi<T: DocIdSetIterator>(&mut self, mut disi: T) {
-        let mut doc = disi.next_doc();
+    pub fn add_disi<T: DocIdSetIterator>(&mut self, mut disi: T) -> Result<(), LuceneError> {
+        let mut doc = disi.next_doc()?;
         while doc != NO_MORE_DOCS {
             let _ = self.add(doc);
-            doc = disi.next_doc();
+            doc = disi.next_doc()?;
         }
+        Ok(())
     }
     pub fn build(&mut self) -> RoaringDocIdSet {
         let _ = self.flush();
@@ -277,23 +278,23 @@ impl DocIdSetIterator for ShortArrayDISI<'_> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         self.i += 1;
         if self.i as usize >= self.doc_ids.len() {
             self.doc = NO_MORE_DOCS;
-            return self.doc;
+            return Ok(self.doc);
         }
         self.doc = self.doc_id_index(self.i);
-        self.doc
+        Ok(self.doc)
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
         let mut lo = self.i + 1;
         let mut hi = self.doc_ids.len() as i32 - 1;
         while lo <= hi {
             let mid = (lo + hi) >> 1;
             let mid_doc = self.doc_id_index(mid);
-            if mid_doc < target {
+            if mid_doc < _target {
                 lo = mid + 1;
             } else {
                 hi = mid - 1;
@@ -306,7 +307,7 @@ impl DocIdSetIterator for ShortArrayDISI<'_> {
             self.i = lo;
             self.doc = self.doc_id_index(self.i);
         }
-        self.doc
+        Ok(self.doc)
     }
 
     fn cost(&self) -> i64 {
@@ -334,7 +335,7 @@ impl<'a> Iterator<'a> {
             cardinality,
         }
     }
-    fn first_doc_from_next_block(&mut self) -> i32 {
+    fn first_doc_from_next_block(&mut self) -> Result<i32, LuceneError> {
         loop {
             self.block += 1;
             if self.block >= self.set_length as i32 {
@@ -345,13 +346,13 @@ impl<'a> Iterator<'a> {
                     .as_ref()
                     .unwrap()
                     .iterator();
-                let sub_next = self.sub.as_mut().unwrap().next_doc();
+                let sub_next = self.sub.as_mut().unwrap().next_doc()?;
                 debug_assert!(sub_next != NO_MORE_DOCS);
                 self.doc = (self.block << 16) | sub_next;
                 break;
             }
         }
-        self.doc
+        Ok(self.doc)
     }
 }
 impl DocIdSetIterator for Iterator<'_> {
@@ -359,23 +360,23 @@ impl DocIdSetIterator for Iterator<'_> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> i32 {
-        let sub_next = self.sub.as_mut().unwrap().next_doc();
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+        let sub_next = self.sub.as_mut().unwrap().next_doc()?;
         if sub_next == NO_MORE_DOCS {
             return self.first_doc_from_next_block();
         }
         self.doc = (self.block << 16) | sub_next;
-        self.doc
+        Ok(self.doc)
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
-        let target_block = target >> 16;
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+        let target_block = _target >> 16;
         if target_block != self.block {
             self.block = target_block;
             if self.block > self.doc_id_sets.len() as i32 {
                 self.sub = None;
                 self.doc = NO_MORE_DOCS;
-                return self.doc;
+                return Ok(self.doc);
             }
             if self.doc_id_sets[self.block as usize].is_none() {
                 return self.first_doc_from_next_block();
@@ -385,12 +386,12 @@ impl DocIdSetIterator for Iterator<'_> {
                 .unwrap()
                 .iterator()
         }
-        let sub_next = self.sub.as_mut().unwrap().advance(target & 0xFFFF);
+        let sub_next = self.sub.as_mut().unwrap().advance(_target & 0xFFFF)?;
         if sub_next == NO_MORE_DOCS {
             return self.first_doc_from_next_block();
         }
         self.doc = (self.block << 16) | sub_next;
-        self.doc
+        Ok(self.doc)
     }
 
     fn cost(&self) -> i64 {
@@ -446,7 +447,7 @@ impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
         }
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         match self {
             DocIdSetIteratorEnum::Sparse(s) => s.next_doc(),
             DocIdSetIteratorEnum::Medium(m) => m.next_doc(),
@@ -455,12 +456,12 @@ impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
         }
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
         match self {
-            DocIdSetIteratorEnum::Sparse(s) => s.advance(target),
-            DocIdSetIteratorEnum::Medium(m) => m.advance(target),
-            DocIdSetIteratorEnum::Dense(d) => d.advance(target),
-            DocIdSetIteratorEnum::Empty(e) => e.advance(target),
+            DocIdSetIteratorEnum::Sparse(s) => s.advance(_target),
+            DocIdSetIteratorEnum::Medium(m) => m.advance(_target),
+            DocIdSetIteratorEnum::Dense(d) => d.advance(_target),
+            DocIdSetIteratorEnum::Empty(e) => e.advance(_target),
         }
     }
 

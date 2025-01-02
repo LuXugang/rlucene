@@ -260,7 +260,7 @@ where
         let mut queue = PriorityQueue::new(subs.len() as i32, IteratorPQCmp::new())?;
 
         for mut sub in subs {
-            if sub.next_doc() != NO_MORE_DOCS {
+            if sub.next_doc()? != NO_MORE_DOCS {
                 queue.add(sub);
             }
         }
@@ -430,12 +430,12 @@ where
         self.iterator.doc_id()
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         self.iterator.next_doc()
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
-        self.iterator.advance(target)
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+        self.iterator.advance(_target)
     }
 
     fn cost(&self) -> i64 {
@@ -485,12 +485,12 @@ where
         self.iterator.doc_id()
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         self.iterator.next_doc()
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
-        self.iterator.advance(target)
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+        self.iterator.advance(_target)
     }
 
     fn cost(&self) -> i64 {
@@ -598,7 +598,7 @@ where
         self.doc
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         loop {
             if self.queue.size() == 0 {
                 self.doc = NO_MORE_DOCS;
@@ -613,13 +613,13 @@ where
                 break;
             }
 
-            if self.queue.top().next_doc() == NO_MORE_DOCS {
+            if self.queue.top().next_doc()? == NO_MORE_DOCS {
                 self.queue.pop();
             } else {
                 self.queue.update_top();
             }
         }
-        self.doc
+        Ok(self.doc)
     }
 }
 impl<T> Default for IteratorPQImpl<T>
@@ -847,7 +847,7 @@ where
         }
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         self.iterator.as_mut().unwrap().next_doc()
     }
 }

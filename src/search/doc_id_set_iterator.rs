@@ -35,7 +35,7 @@ pub trait DocIdSetIterator {
     /// # Note
     /// After the iterator has been exhausted, you should not call this method, as it may result in
     /// undefined behavior.
-    fn next_doc(&mut self) -> i32;
+    fn next_doc(&mut self) -> Result<i32, LuceneError>;
     /// Advances to the first document beyond the current one whose document number is greater than or
     /// equal to the `target`, and returns the document number itself. If `target` is greater than the
     /// highest document number in the set, the iterator is exhausted, and [`NO_MORE_DOCS`]
@@ -65,21 +65,21 @@ pub trait DocIdSetIterator {
     /// This method may be called with [`NO_MORE_DOCS`] for efficiency
     /// by some Scorers. If your implementation cannot efficiently determine that it should exhaust, it
     /// is recommended to check for this value in each call to this method.
-    fn advance(&mut self, _target: i32) -> i32 {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
         unimplemented!("advance() must be implemented if it need to be used")
     }
     /// A slow (linear) implementation of [`advance`](DocIdSetIterator::advance) that relies on
     /// [`next_doc`](DocIdSetIterator::next_doc) to move beyond the target position.
-    fn slow_advance(&mut self, target: i32) -> i32 {
+    fn slow_advance(&mut self, target: i32) -> Result<i32, LuceneError> {
         debug_assert!(self.doc_id() < target);
         let mut doc;
         loop {
-            doc = self.next_doc();
+            doc = self.next_doc()?;
             if doc >= target {
                 break;
             }
         }
-        doc
+        Ok(doc)
     }
     /// Returns the estimated cost of this [`DocIdSetIterator`].
     /// This is generally an upper bound on the number of documents this iterator might match, but
@@ -113,17 +113,17 @@ impl DocIdSetIterator for EmptyDISI {
         }
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         debug_assert!(!self.exhausted);
         self.exhausted = true;
-        NO_MORE_DOCS
+        Ok(NO_MORE_DOCS)
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
         debug_assert!(!self.exhausted);
-        debug_assert!(target >= 0);
+        debug_assert!(_target >= 0);
         self.exhausted = true;
-        NO_MORE_DOCS
+        Ok(NO_MORE_DOCS)
     }
 
     fn cost(&self) -> i64 {
@@ -146,16 +146,17 @@ impl DocIdSetIterator for AllDocIdSetIterator {
         self.doc
     }
 
-    fn next_doc(&mut self) -> i32 {
-        self.advance(self.doc + 1)
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+        self.advance(self.doc + 1);
+        Ok(self.doc)
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
-        self.doc = target;
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+        self.doc = _target;
         if self.doc >= self.max_doc {
             self.doc = NO_MORE_DOCS
         }
-        self.doc
+        Ok(self.doc)
     }
 
     fn cost(&self) -> i64 {
@@ -203,19 +204,19 @@ impl DocIdSetIterator for Range {
         self.doc
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
-        if target < self.min_doc {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+        if _target < self.min_doc {
             self.doc = self.min_doc;
-        } else if target >= self.max_doc {
+        } else if _target >= self.max_doc {
             self.doc = NO_MORE_DOCS
         } else {
-            self.doc = target
+            self.doc = _target
         }
-        self.doc
+        Ok(self.doc)
     }
 
     fn cost(&self) -> i64 {

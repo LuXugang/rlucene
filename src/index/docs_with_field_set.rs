@@ -92,17 +92,17 @@ impl<T: BitSet> DocIdSetIterator for DocsWithFieldSetEnum<'_, T> {
         }
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         match self {
             DocsWithFieldSetEnum::Dense(d) => d.next_doc(),
             DocsWithFieldSetEnum::Sparse(s) => s.next_doc(),
         }
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
         match self {
-            DocsWithFieldSetEnum::Dense(d) => d.advance(target),
-            DocsWithFieldSetEnum::Sparse(s) => s.advance(target),
+            DocsWithFieldSetEnum::Dense(d) => d.advance(_target),
+            DocsWithFieldSetEnum::Sparse(s) => s.advance(_target),
         }
     }
 

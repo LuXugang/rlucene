@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::common::{is_night_mode, my_random, rarely};
+use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
@@ -32,39 +33,54 @@ use rlucene::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
 #[allow(dead_code)] // for quick search
 struct TestDocIdSetBuilder {}
 #[test]
-fn test_empty() {
+fn test_empty() -> Result<(), TestError> {
     let mut random = my_random("test_empty".to_string());
     let max_doc = random.gen_range(1..1000);
     let doc_id_set: Option<IntArrayDocIdSet> = None;
     assert_equals(
         doc_id_set,
         Some(DocIdSetBuilder::new(max_doc).build().unwrap()),
-    );
+    )?;
+    Ok(())
 }
 
-fn assert_equals<T1: DocIdSet, T2: DocIdSet>(mut d1: Option<T1>, mut d2: Option<T2>) {
+fn assert_equals<T1: DocIdSet, T2: DocIdSet>(
+    mut d1: Option<T1>,
+    mut d2: Option<T2>,
+) -> Result<(), TestError> {
     if d1.is_none() {
         if d2.is_none() {
             assert_eq!(
-                d2.as_mut().unwrap().iterator().as_mut().unwrap().next_doc(),
+                d2.as_mut()
+                    .unwrap()
+                    .iterator()
+                    .as_mut()
+                    .unwrap()
+                    .next_doc()?,
                 NO_MORE_DOCS
             );
         }
     } else if d2.is_none() {
         assert_eq!(
-            d1.as_mut().unwrap().iterator().as_mut().unwrap().next_doc(),
+            d1.as_mut()
+                .unwrap()
+                .iterator()
+                .as_mut()
+                .unwrap()
+                .next_doc()?,
             NO_MORE_DOCS
         );
     } else {
         let mut i1 = d1.as_mut().unwrap().iterator().unwrap();
         let mut i2 = d2.as_mut().unwrap().iterator().unwrap();
-        let mut doc = i1.next_doc();
+        let mut doc = i1.next_doc()?;
         while doc != NO_MORE_DOCS {
-            assert_eq!(doc, i2.next_doc());
-            doc = i1.next_doc();
+            assert_eq!(doc, i2.next_doc()?);
+            doc = i1.next_doc()?;
         }
-        assert_eq!(i2.next_doc(), NO_MORE_DOCS);
-    }
+        assert_eq!(i2.next_doc()?, NO_MORE_DOCS);
+    };
+    Ok(())
 }
 
 #[test]
@@ -130,7 +146,7 @@ fn test_dense() {
 }
 
 #[test]
-fn test_random() {
+fn test_random() -> Result<(), TestError> {
     let mut random = my_random("test_random".to_string());
     let max_doc = if is_night_mode() {
         random.gen_range(1..10000000)
@@ -152,11 +168,11 @@ fn test_random() {
         let mut array = vec![0; num_docs as usize + random.gen_range(0..100)];
         let mut it = BitSetIterator::new(&docs, 0).unwrap();
         let mut j = 0;
-        let mut doc = it.next_doc();
+        let mut doc = it.next_doc()?;
         while doc != NO_MORE_DOCS {
             array[j] = doc;
             j += 1;
-            doc = it.next_doc();
+            doc = it.next_doc()?;
         }
         assert_eq!(num_docs, j as i32);
         // add some duplicates
@@ -189,10 +205,11 @@ fn test_random() {
             }
         }
         i <<= 1;
-        let expected = BitDocIdSet::new(Some(docs)).unwrap();
-        let actual = builder.build().unwrap();
-        assert_equals(Some(expected), Some(actual));
+        let expected = BitDocIdSet::new(Some(docs))?;
+        let actual = builder.build()?;
+        assert_equals(Some(expected), Some(actual))?;
     }
+    Ok(())
 }
 #[test]
 fn test_misleading_disi_cost() {

@@ -14,20 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::test_error::TestError;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
 
 #[allow(dead_code)] // for quick search
 struct TestDocIdSetIterator {}
 #[test]
-fn test_range_basic() {
+fn test_range_basic() -> Result<(), TestError> {
     let result = Range::new(5, 8);
     assert!(result.is_ok());
     let mut disi = result.unwrap();
     assert_eq!(-1, disi.doc_id());
-    assert_eq!(5, disi.next_doc());
-    assert_eq!(6, disi.next_doc());
-    assert_eq!(7, disi.next_doc());
-    assert_eq!(NO_MORE_DOCS, disi.next_doc());
+    assert_eq!(5, disi.next_doc()?);
+    assert_eq!(6, disi.next_doc()?);
+    assert_eq!(7, disi.next_doc()?);
+    assert_eq!(NO_MORE_DOCS, disi.next_doc()?);
+    Ok(())
 }
 
 #[test]
@@ -49,14 +51,15 @@ fn test_empty() {
 }
 
 #[test]
-fn test_advance() {
+fn test_advance() -> Result<(), TestError> {
     let disi_result = Range::new(5, 20);
     assert!(disi_result.is_ok());
     let mut disi = disi_result.unwrap();
     assert_eq!(-1, disi.doc_id());
-    assert_eq!(5, disi.next_doc());
-    assert_eq!(17, disi.advance(17));
-    assert_eq!(18, disi.next_doc());
-    assert_eq!(19, disi.next_doc());
-    assert_eq!(NO_MORE_DOCS, disi.next_doc());
+    assert_eq!(5, disi.next_doc()?);
+    assert_eq!(17, disi.advance(17)?);
+    assert_eq!(18, disi.next_doc()?);
+    assert_eq!(19, disi.next_doc()?);
+    assert_eq!(NO_MORE_DOCS, disi.next_doc()?);
+    Ok(())
 }

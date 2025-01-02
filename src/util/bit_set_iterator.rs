@@ -103,17 +103,17 @@ impl<T: BitSet> DocIdSetIterator for BitSetIterator<'_, T> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
-        if target >= self.length {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+        if _target >= self.length {
             self.doc = NO_MORE_DOCS;
-            return self.doc;
+            return Ok(self.doc);
         }
-        self.doc = self.bits.next_set_bit(target);
-        self.doc
+        self.doc = self.bits.next_set_bit(_target);
+        Ok(self.doc)
     }
 
     fn cost(&self) -> i64 {

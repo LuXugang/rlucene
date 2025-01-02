@@ -19,6 +19,7 @@ use rand::prelude::StdRng;
 use rand::Rng;
 
 use crate::util::base_bit_set_test_case::random_set;
+use crate::util::test_error::TestError;
 use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use rlucene::util::bits::Bits;
@@ -115,7 +116,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    ) {
+    ) -> Result<(), TestError> {
         // nextDoc
         let mut it2 = ds2.iterator();
         if it2.is_none() {
@@ -125,10 +126,10 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let mut disi = ds2.iterator().unwrap();
             let iter = ds1.iter();
             for doc in iter {
-                assert_eq!(doc, disi.next_doc() as usize);
+                assert_eq!(doc, disi.next_doc()? as usize);
                 assert_eq!(doc, disi.doc_id() as usize);
             }
-            assert_eq!(disi.next_doc(), NO_MORE_DOCS);
+            assert_eq!(disi.next_doc()?, NO_MORE_DOCS);
             assert_eq!(disi.doc_id(), NO_MORE_DOCS);
         }
 
@@ -145,7 +146,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let mut _doc = 0;
             while index < docs.len() {
                 if random.gen_bool(0.5) {
-                    assert_eq!(docs[index], disi.next_doc() as usize);
+                    assert_eq!(docs[index], disi.next_doc()? as usize);
                     assert_eq!(docs[index], disi.doc_id() as usize);
                     index += 1;
                 } else {
@@ -162,7 +163,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                         _doc = NO_MORE_DOCS as usize;
                         break;
                     }
-                    assert_eq!(_doc as i32, disi.advance(target as i32));
+                    assert_eq!(_doc as i32, disi.advance(target as i32)?);
                     assert_eq!(_doc as i32, disi.doc_id());
                 }
             }
@@ -176,7 +177,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let mut disi = ds2.iterator().unwrap();
             while doc != NO_MORE_DOCS {
                 let mut _i = 0;
-                doc = disi.next_doc();
+                doc = disi.next_doc()?;
                 let max = if doc == NO_MORE_DOCS {
                     bits.length()
                 } else {
@@ -194,5 +195,6 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                 assert!(bits.get(doc));
             }
         }
+        Ok(())
     }
 }

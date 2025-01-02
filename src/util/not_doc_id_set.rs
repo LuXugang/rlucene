@@ -18,6 +18,7 @@ use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
+use crate::util::error::lucene_error::LuceneError;
 use std::sync::Arc;
 
 #[allow(unused)]
@@ -119,14 +120,14 @@ impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
-        self.doc = target;
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+        self.doc = _target;
         if self.doc > self.next_skipped_doc {
-            self.next_skipped_doc = self.in_iterator.advance(self.doc);
+            self.next_skipped_doc = self.in_iterator.advance(self.doc)?;
         }
         loop {
             if self.doc >= self.max_doc {
@@ -135,12 +136,12 @@ impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
             }
             debug_assert!(self.doc <= self.next_skipped_doc);
             if self.doc != self.next_skipped_doc {
-                return self.doc;
+                return Ok(self.doc);
             }
             self.doc += 1;
-            self.next_skipped_doc = self.in_iterator.next_doc();
+            self.next_skipped_doc = self.in_iterator.next_doc()?;
         }
-        self.doc
+        Ok(self.doc)
     }
 
     fn cost(&self) -> i64 {

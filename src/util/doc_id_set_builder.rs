@@ -80,26 +80,30 @@ impl DocIdSetBuilder {
             counter: 0,
         }
     }
-    pub fn add_disi<D: DocIdSetIterator>(&mut self, mut iter: impl DocIdSetIterator) {
+    pub fn add_disi<D: DocIdSetIterator>(
+        &mut self,
+        mut iter: impl DocIdSetIterator,
+    ) -> Result<(), LuceneError> {
         let cost = min(iter.cost(), i32::MAX as i64);
         self.grow(cost as i32);
         if self.bit_set.is_some() {
             let _ = BitSet::or(self.bit_set.as_mut().unwrap(), iter);
-            return;
+            return Ok(());
         }
         for _i in 0..cost {
-            let doc = iter.next_doc();
+            let doc = iter.next_doc()?;
             if doc == NO_MORE_DOCS {
-                return;
+                return Ok(());
             }
             self.add_doc(doc);
         }
-        let mut doc = iter.next_doc();
+        let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
             self.grow(1);
             self.add_doc(doc);
-            doc = iter.next_doc();
+            doc = iter.next_doc()?;
         }
+        Ok(())
     }
     pub fn add_doc(&mut self, doc: i32) {
         if self.bit_set.is_none() {
@@ -206,17 +210,17 @@ impl DocIdSetIterator for DocIdSetBuilderIterator<'_> {
         }
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         match self {
             DocIdSetBuilderIterator::F(bit_set) => bit_set.next_doc(),
             DocIdSetBuilderIterator::I(int_array) => int_array.next_doc(),
         }
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
         match self {
-            DocIdSetBuilderIterator::F(bit_set) => bit_set.advance(target),
-            DocIdSetBuilderIterator::I(int_array) => int_array.advance(target),
+            DocIdSetBuilderIterator::F(bit_set) => bit_set.advance(_target),
+            DocIdSetBuilderIterator::I(int_array) => int_array.advance(_target),
         }
     }
 

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::common::my_random;
+use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::index::docs_with_field_set::DocsWithFieldSet;
 use rlucene::search::doc_id_set::DocIdSet;
@@ -23,16 +24,16 @@ use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 #[allow(dead_code)] // for quick search
 struct TestDocsWithFieldSet {}
 #[test]
-fn test_dense() {
+fn test_dense() -> Result<(), TestError> {
     let _random = my_random("test_dense".to_string());
     let mut set = DocsWithFieldSet::new();
     let mut it = set.iterator().unwrap();
-    assert_eq!(it.next_doc(), NO_MORE_DOCS);
+    assert_eq!(it.next_doc()?, NO_MORE_DOCS);
 
     let _ = set.add(0);
     it = set.iterator().unwrap();
-    assert_eq!(0, it.next_doc());
-    assert_eq!(it.next_doc(), NO_MORE_DOCS);
+    assert_eq!(0, it.next_doc()?);
+    assert_eq!(it.next_doc()?, NO_MORE_DOCS);
 
     //TODO
     // let ram_bytes_used = set.ram_bytes_used();
@@ -43,30 +44,32 @@ fn test_dense() {
     // assert_eq!(ram_bytes_used, set.ram_bytes_used());
     it = set.iterator().unwrap();
     for i in 0..1000 {
-        assert_eq!(i, it.next_doc());
+        assert_eq!(i, it.next_doc()?);
     }
-    assert_eq!(NO_MORE_DOCS, it.next_doc());
+    assert_eq!(NO_MORE_DOCS, it.next_doc()?);
+    Ok(())
 }
 
 #[test]
-fn test_sparse() {
+fn test_sparse() -> Result<(), TestError> {
     let mut random = my_random("test_sparse".to_string());
     let mut set = DocsWithFieldSet::new();
     let doc = random.gen_range(0..10000);
     let _ = set.add(doc);
     let mut it = set.iterator().unwrap();
-    assert_eq!(doc, it.next_doc());
-    assert_eq!(it.next_doc(), NO_MORE_DOCS);
+    assert_eq!(doc, it.next_doc()?);
+    assert_eq!(it.next_doc()?, NO_MORE_DOCS);
     let doc2 = doc + random.gen_range(1..100);
     let _ = set.add(doc2);
     it = set.iterator().unwrap();
-    assert_eq!(doc, it.next_doc());
-    assert_eq!(doc2, it.next_doc());
-    assert_eq!(it.next_doc(), NO_MORE_DOCS);
+    assert_eq!(doc, it.next_doc()?);
+    assert_eq!(doc2, it.next_doc()?);
+    assert_eq!(it.next_doc()?, NO_MORE_DOCS);
+    Ok(())
 }
 
 #[test]
-fn test_dense_then_sparse() {
+fn test_dense_then_sparse() -> Result<(), TestError> {
     let mut random = my_random("test_dense_then_sparse".to_string());
     let dense_count = random.gen_range(1..10000);
     let next_doc = dense_count + random.gen_range(1..10000);
@@ -77,8 +80,9 @@ fn test_dense_then_sparse() {
     let _ = set.add(next_doc);
     let mut it = set.iterator().unwrap();
     for i in 0..dense_count {
-        assert_eq!(i, it.next_doc());
+        assert_eq!(i, it.next_doc()?);
     }
-    assert_eq!(next_doc, it.next_doc());
-    assert_eq!(NO_MORE_DOCS, it.next_doc());
+    assert_eq!(next_doc, it.next_doc()?);
+    assert_eq!(NO_MORE_DOCS, it.next_doc()?);
+    Ok(())
 }

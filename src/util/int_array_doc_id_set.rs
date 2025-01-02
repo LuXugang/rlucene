@@ -106,29 +106,29 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> i32 {
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
         self.doc = self.docs[self.i as usize];
         self.i += 1;
-        self.doc
+        Ok(self.doc)
     }
 
-    fn advance(&mut self, target: i32) -> i32 {
+    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
         let mut bound = 1;
         // given that we use this for small arrays only, this is very unlikely to overflow
         while (self.i + bound < self.length)
-            && (self.docs[self.i as usize + bound as usize] < target)
+            && (self.docs[self.i as usize + bound as usize] < _target)
         {
             bound *= 2;
         }
         let mut start = self.i as usize + (bound / 2) as usize;
         let end = min(self.i + bound + 1, self.length - 1) as usize;
         let index = self.docs[start..end]
-            .binary_search(&target)
+            .binary_search(&_target)
             .unwrap_or_else(|index| index);
         start += index;
         self.doc = self.docs[start];
         self.i = start as i32 + 1;
-        self.doc
+        Ok(self.doc)
     }
 
     fn cost(&self) -> i64 {

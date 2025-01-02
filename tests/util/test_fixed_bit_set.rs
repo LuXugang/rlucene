@@ -27,6 +27,7 @@ use rlucene::util::bit_set_iterator::BitSetIterator;
 use rlucene::util::bits::Bits;
 use rlucene::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
 
+use crate::util::test_error::TestError;
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::fixed_bit_set::FixedBitSet;
 use rlucene::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
@@ -233,42 +234,49 @@ fn do_prev_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
     assert_eq!(b.cardinality(), count);
 }
 
-fn do_iterate(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet, mode: i32) {
+fn do_iterate(
+    random: &mut StdRng,
+    a: &bit_set::BitSet,
+    b: &FixedBitSet,
+    mode: i32,
+) -> Result<(), TestError> {
     match mode {
         1 => do_iterate1(random, a, b),
         2 => do_iterate2(random, a, b),
-        _ => (),
+        _ => Ok(()),
     }
 }
 
-fn do_iterate1(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) {
+fn do_iterate1(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<(), TestError> {
     assert_eq!(a.len(), b.cardinality() as usize);
     let mut iterator = BitSetIterator::new(b, 0).unwrap();
     let iter = a.iter();
     for index in iter {
         let bb = if random.gen_bool(0.5) {
-            iterator.next_doc()
+            iterator.next_doc()?
         } else {
-            iterator.advance(index as i32)
+            iterator.advance(index as i32)?
         };
         assert_eq!(index, bb as usize);
     }
-    assert_eq!(iterator.next_doc(), NO_MORE_DOCS);
+    assert_eq!(iterator.next_doc()?, NO_MORE_DOCS);
+    Ok(())
 }
 
-fn do_iterate2(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) {
+fn do_iterate2(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<(), TestError> {
     assert_eq!(a.len(), b.cardinality() as usize);
     let mut iterator = BitSetIterator::new(b, 0).unwrap();
     let iter = a.iter();
     for index in iter {
         let bb = if random.gen_bool(0.5) {
-            iterator.next_doc()
+            iterator.next_doc()?
         } else {
-            iterator.advance(index as i32)
+            iterator.advance(index as i32)?
         };
         assert_eq!(index, bb as usize);
     }
-    assert_eq!(iterator.next_doc(), NO_MORE_DOCS);
+    assert_eq!(iterator.next_doc()?, NO_MORE_DOCS);
+    Ok(())
 }
 
 fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
