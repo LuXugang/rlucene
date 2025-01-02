@@ -118,15 +118,15 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     }
 
     fn resize(&mut self, _size: u32) -> Result<(), LuceneError> {
-        self.offsets.resize(_size as u64)?;
-        self.lengths.resize(_size as u64)?;
+        self.offsets = self.offsets.resize(_size as u64)?;
+        self.lengths = self.lengths.resize(_size as u64)?;
         Ok(())
     }
 }
 
 /// # Note
 /// To implement Default, we wrap the mutable reference fields here with Option.
-/// 
+///
 /// Implementing Default is solely for enabling sorting within the PriorityQueue.
 #[derive(Default)]
 pub struct BinaryDocValuesIterator<'a> {
@@ -151,7 +151,7 @@ impl<'a> BinaryDocValuesIterator<'a> {
         }
     }
 }
-impl<'a> AbstractIteratorBase for BinaryDocValuesIterator<'a> {
+impl AbstractIteratorBase for BinaryDocValuesIterator<'_> {
     fn set(&mut self, idx: u64) -> Result<(), LuceneError> {
         debug_assert!(self.offsets.is_some());
         debug_assert!(self.lengths.is_some());

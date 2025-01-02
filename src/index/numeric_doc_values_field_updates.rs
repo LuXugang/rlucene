@@ -1,0 +1,196 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::index::doc_values_field_updates::{
+    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldUpdatesBase,
+    Iterator, SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
+};
+use crate::index::BytesRef;
+use crate::util::accountable::Accountable;
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::long_values::LongValues;
+use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
+use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
+use crate::util::packed::paged_mutable::PagedMutable;
+use crate::util::packed::PackedInts;
+use std::sync::{Arc, Mutex};
+
+pub struct NumericDocValuesFieldUpdates<T>
+where
+    T: AbstractPagedMutableBase,
+{
+    values: AbstractPagedMutable<T>,
+    min_value: i64,
+    lock: Arc<Mutex<()>>,
+}
+impl<T> NumericDocValuesFieldUpdates<T>
+where
+    T: AbstractPagedMutableBase,
+{
+    pub fn new() -> Result<NumericDocValuesFieldUpdates<impl AbstractPagedMutableBase>, LuceneError>
+    {
+        let sub_reader = PagedGrowableWriter::new_with_fill_page(1, PackedInts::FAST);
+        let values = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader)?;
+        Ok(NumericDocValuesFieldUpdates {
+            values,
+            min_value: 0,
+            lock: Arc::new(Mutex::new(())),
+        })
+    }
+    pub fn new_with_range(
+        min_value: i64,
+        max_value: i64,
+    ) -> Result<NumericDocValuesFieldUpdates<impl AbstractPagedMutableBase>, LuceneError> {
+        let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
+        let sub_reader =
+            PagedMutable::new_with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
+        let values = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader)?;
+        Ok(NumericDocValuesFieldUpdates {
+            values,
+            min_value,
+            lock: Arc::new(Mutex::new(())),
+        })
+    }
+}
+
+impl<T> Accountable for NumericDocValuesFieldUpdates<T>
+where
+    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+{
+    fn ram_bytes_used(&self) -> u64 {
+        todo!()
+    }
+}
+
+impl<T> DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates<T>
+where
+    T: AbstractPagedMutableBase<PagedMutableBase = T> + Default,
+{
+    fn add_value(&mut self, _doc: u32, value: i64, index: u32) -> Result<(), LuceneError> {
+        let _guard = self.lock.lock().unwrap();
+        self.values.set(index as u64, value)
+    }
+
+    fn add_byte_ref(
+        &mut self,
+        _doc: u32,
+        _value: BytesRef,
+        _index: u32,
+    ) -> Result<(), LuceneError> {
+        unreachable!("NumericDocValuesFieldUpdates does not support add_byte_ref")
+    }
+
+    fn add_iterator<I: Iterator>(
+        &mut self,
+        doc_id: u32,
+        mut iterator: I,
+    ) -> Result<(), LuceneError> {
+        self.add_value(doc_id, iterator.long_value()?, 0)
+    }
+
+    fn iterator(
+        &mut self,
+        inner: Arc<Mutex<DocValuesFieldInner>>,
+        del_gen: u64,
+    ) -> Result<impl Iterator, LuceneError> {
+        let sub_iterator =
+            NumericDocValuesFieldUpdatesIterator::new(Some(&mut self.values), 0, self.min_value);
+        Ok(AbstractIterator::new(inner, del_gen, sub_iterator))
+    }
+
+    fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
+        let temp_offset = self.values.get(j as u64)?;
+        let value = self.values.get(i as u64)?;
+        self.values.set(j as u64, value)?;
+        self.values.set(i as u64, temp_offset)?;
+        Ok(())
+    }
+
+    fn grow(&mut self, _size: u32) -> Result<(), LuceneError> {
+        let value_result = self.values.grow_with_size(_size as u64)?;
+        if value_result.is_some() {
+            self.values = value_result.unwrap();
+        }
+        Ok(())
+    }
+
+    fn resize(&mut self, _size: u32) -> Result<(), LuceneError> {
+        self.values = self.values.resize(_size as u64)?;
+        Ok(())
+    }
+}
+#[derive(Default)]
+pub struct NumericDocValuesFieldUpdatesIterator<'a, T>
+where
+    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+{
+    values: Option<&'a mut AbstractPagedMutable<T>>,
+    value: i64,
+    min_value: i64,
+}
+impl<'a, T> NumericDocValuesFieldUpdatesIterator<'a, T>
+where
+    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+{
+    pub fn new(
+        values: Option<&'a mut AbstractPagedMutable<T>>,
+        value: i64,
+        min_value: i64,
+    ) -> Self {
+        debug_assert!(values.is_some());
+        NumericDocValuesFieldUpdatesIterator {
+            values,
+            value,
+            min_value,
+        }
+    }
+}
+impl<'a, T> AbstractIteratorBase for NumericDocValuesFieldUpdatesIterator<'a, T>
+where
+    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+{
+    fn set(&mut self, idx: u64) -> Result<(), LuceneError> {
+        self.value = self.values.as_mut().unwrap().get(idx)? + self.min_value;
+        Ok(())
+    }
+
+    fn long_value(&mut self) -> Result<i64, LuceneError> {
+        Ok(self.value)
+    }
+
+    fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
+        unreachable!("NumericDocValuesFieldUpdatesIterator does not support binary_value")
+    }
+}
+
+#[derive(Default)]
+pub struct SingleValueNumericDocValuesFieldUpdates {
+    value: i64,
+}
+impl SingleValueNumericDocValuesFieldUpdates {
+    fn new(value: i64) -> SingleValueNumericDocValuesFieldUpdates {
+        SingleValueNumericDocValuesFieldUpdates { value }
+    }
+}
+impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUpdates {
+    fn binary_value(&self) -> Result<BytesRef, LuceneError> {
+        unreachable!("SingleValueNumericDocValuesFieldUpdates does not support binary_value")
+    }
+
+    fn long_value(&self) -> Result<i64, LuceneError> {
+        Ok(self.value)
+    }
+}

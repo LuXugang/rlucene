@@ -327,7 +327,7 @@ where
     inner: &'a mut DocValuesFieldInner,
 }
 
-impl<'a, D> Sorter for IntroSorterImpl<'a, D>
+impl<D> Sorter for IntroSorterImpl<'_, D>
 where
     D: DocValuesFieldUpdatesBase,
 {
@@ -892,7 +892,7 @@ where
     }
 }
 
-impl<'a, S> DocValuesIterator for SingleValueDocValuesFieldUpdatesIterator<'a, S> where
+impl<S> DocValuesIterator for SingleValueDocValuesFieldUpdatesIterator<'_, S> where
     S: SingleValueDocValuesFieldUpdatesBase + Default
 {
 }
