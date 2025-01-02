@@ -21,7 +21,7 @@ pub use bytes_ref::*;
 pub mod bytes_ref_builder;
 pub use bytes_ref_builder::*;
 pub mod binary_doc_values;
-mod binary_doc_values_field_updates;
+pub mod binary_doc_values_field_updates;
 pub mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_type;
@@ -31,6 +31,6 @@ pub mod index_file_names;
 pub mod index_options;
 pub mod leaf_reader_context;
 pub mod numeric_doc_values;
-mod numeric_doc_values_field_updates;
+pub mod numeric_doc_values_field_updates;
 
 pub use index_file_names::*;

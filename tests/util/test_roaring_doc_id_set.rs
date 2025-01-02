@@ -21,31 +21,32 @@ use crate::util::base_doc_id_set_test_case::{
 use rand::prelude::StdRng;
 use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
+use crate::util::test_error::TestError;
 
 struct TestRoaringDocIdSet;
 #[test]
-fn test_bit_0() {
+fn test_bit_0()  ->Result<(),TestError>{
     let test_case = TestRoaringDocIdSet;
     let mut random = my_random("test_roaring_doc_id_set".to_string());
-    test_case.test_bit_0(&mut random);
+    test_case.test_bit_0(&mut random)
 }
 #[test]
-fn test_bit_1() {
+fn test_bit_1() ->Result<(),TestError> {
     let test_case = TestRoaringDocIdSet;
     let mut random = my_random("test_roaring_doc_id_set".to_string());
-    test_case.test_bit_1(&mut random);
+    test_case.test_bit_1(&mut random)
 }
 #[test]
-fn test_bit_2() {
+fn test_bit_2() ->Result<(),TestError>{
     let test_case = TestRoaringDocIdSet;
     let mut random = my_random("test_roaring_doc_id_set".to_string());
-    test_case.test_bit_2(&mut random);
+    test_case.test_bit_2(&mut random)
 }
 #[test]
-fn test_against_bit_set() {
+fn test_against_bit_set() -> Result<(),TestError> {
     let test_case = TestRoaringDocIdSet;
     let mut random = my_random("test_roaring_doc_id_set".to_string());
-    test_case.test_against_bit_set(&mut random);
+    test_case.test_against_bit_set(&mut random)
 }
 #[test]
 fn test_ram_bytes_used() {
@@ -69,8 +70,8 @@ impl BaseDocIdSetTestCase for TestRoaringDocIdSet {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    ) {
-        BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2);
+    ) ->Result<(),TestError>{
+        BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
     }
 }
 impl BaseDocIdSetTestCaseSupperImpl for TestRoaringDocIdSet {}

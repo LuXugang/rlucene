@@ -18,6 +18,7 @@ use crate::index::doc_values_field_updates::{
     AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldUpdatesBase,
     Iterator, PAGE_SIZE,
 };
+use crate::index::doc_values_type::DocValuesType;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
@@ -121,6 +122,10 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         self.offsets = self.offsets.resize(_size as u64)?;
         self.lengths = self.lengths.resize(_size as u64)?;
         Ok(())
+    }
+
+    fn sub_type(&self) -> DocValuesType {
+        DocValuesType::Binary
     }
 }
 

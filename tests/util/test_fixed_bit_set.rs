@@ -279,7 +279,7 @@ fn do_iterate2(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Res
     Ok(())
 }
 
-fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
+fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32)->Result<(),TestError> {
     // let max_size = random.gen_range(1200..=i32::MAX);
     let max_size = random.gen_range(1200..=100000);
     let mut a0: bit_set::BitSet = Default::default();
@@ -331,7 +331,7 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
         let mut bb = b.clone();
         bb.flip_range(from_index, to_index);
 
-        do_iterate(random, &aa, &bb, mode); //  a problem here is from flip or doIterate
+        do_iterate(random, &aa, &bb, mode)?; //  a problem here is from flip or doIterate
 
         from_index = random.gen_range(0..(sz / 2));
         to_index = from_index + random.gen_range(0..(sz - from_index));
@@ -385,10 +385,10 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
             assert_eq!(a_andn.len(), b_andn.cardinality() as usize);
             assert_eq!(a_xor.len(), b_xor.cardinality() as usize);
 
-            do_iterate(random, &a_and, &b_and, mode);
-            do_iterate(random, &a_xor, &b_xor, mode);
-            do_iterate(random, &a_or, &b_or, mode);
-            do_iterate(random, &a_andn, &b_andn, mode);
+            do_iterate(random, &a_and, &b_and, mode)?;
+            do_iterate(random, &a_xor, &b_xor, mode)?;
+            do_iterate(random, &a_or, &b_or, mode)?;
+            do_iterate(random, &a_andn, &b_andn, mode)?;
 
             a0 = a;
             b0 = b;
@@ -398,18 +398,20 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) {
             b0 = b;
         }
     }
+    Ok(())
 }
 
 #[test]
-fn test_small() {
+fn test_small() ->Result<(),TestError>{
     let mut random = my_random("test_small".to_string());
     let iters = if is_night_mode() {
         random.gen_range(1000..100000)
     } else {
         100
     };
-    do_random_sets(&mut random, iters, 1);
-    do_random_sets(&mut random, iters, 2);
+    do_random_sets(&mut random, iters, 1)?;
+    do_random_sets(&mut random, iters, 2)?;
+    Ok(())
 }
 
 #[test]
@@ -623,7 +625,7 @@ fn test_intersection_count() {
 }
 
 #[test]
-fn test_and_not() {
+fn test_and_not() ->Result<(),TestError>{
     let mut random = my_random("test_and_not".to_string());
 
     let num_bits2 = random.gen_range(1000..=2000);
@@ -644,31 +646,32 @@ fn test_and_not() {
 
     {
         // test BitSetIterator
-        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
-        let fixed_bit = make_fixed_bitset(&mut random, &bits1, num_bits1).unwrap();
-        let disi = BitSetIterator::new(&fixed_bit, count1 as i64).unwrap();
-        fixed_bit_set2.and_not_iter(disi);
+        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
+        let fixed_bit = make_fixed_bitset(&mut random, &bits1, num_bits1)?;
+        let disi = BitSetIterator::new(&fixed_bit, count1 as i64)?;
+        fixed_bit_set2.and_not_iter(disi)?;
         do_get(&bitset2, &fixed_bit_set2);
     }
     {
         // test DocBaseBitSetIterator
-        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
+        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
         let offset_bits: Vec<i32> = bits1.iter().map(|&i| i - offset1).collect();
-        let fixed_bit = make_fixed_bitset(&mut random, &offset_bits, num_bits1 - offset1).unwrap();
-        let disi = DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1).unwrap();
-        fixed_bit_set2.and_not_iter(disi);
+        let fixed_bit = make_fixed_bitset(&mut random, &offset_bits, num_bits1 - offset1)?;
+        let disi = DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1)?;
+        fixed_bit_set2.and_not_iter(disi)?;
         do_get(&bitset2, &fixed_bit_set2);
     }
     {
         // test other
-        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
+        let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
         let mut sorted = bits1.clone();
         sorted.push(0);
         sorted[bits1.len()] = NO_MORE_DOCS;
         let disi = IntArrayDocIdSetIterator::new(&sorted, count1);
-        fixed_bit_set2.and_not_iter(disi);
+        fixed_bit_set2.and_not_iter(disi)?;
         do_get(&bitset2, &fixed_bit_set2);
     }
+    Ok(())
 }
 
 // Demonstrates that the presence of ghost bits in the last used word can cause spurious failures

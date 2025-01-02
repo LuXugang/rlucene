@@ -18,6 +18,7 @@ use crate::index::doc_values_field_updates::{
     AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldUpdatesBase,
     Iterator, SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
 };
+use crate::index::doc_values_type::DocValuesType;
 use crate::index::BytesRef;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
@@ -36,13 +37,9 @@ where
     min_value: i64,
     lock: Arc<Mutex<()>>,
 }
-impl<T> NumericDocValuesFieldUpdates<T>
-where
-    T: AbstractPagedMutableBase,
-{
-    pub fn new() -> Result<NumericDocValuesFieldUpdates<impl AbstractPagedMutableBase>, LuceneError>
-    {
-        let sub_reader = PagedGrowableWriter::new_with_fill_page(1, PackedInts::FAST);
+impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
+    pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>, LuceneError> {
+        let sub_reader = PagedGrowableWriter::new_with_fill_page(1, PackedInts::DEFAULT);
         let values = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
@@ -50,10 +47,17 @@ where
             lock: Arc::new(Mutex::new(())),
         })
     }
+}
+impl NumericDocValuesFieldUpdates<PagedMutable> {
     pub fn new_with_range(
         min_value: i64,
         max_value: i64,
-    ) -> Result<NumericDocValuesFieldUpdates<impl AbstractPagedMutableBase>, LuceneError> {
+    ) -> Result<
+        NumericDocValuesFieldUpdates<
+            impl AbstractPagedMutableBase<PagedMutableBase = PagedMutable>,
+        >,
+        LuceneError,
+    > {
         let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
         let sub_reader =
             PagedMutable::new_with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
@@ -81,7 +85,7 @@ where
 {
     fn add_value(&mut self, _doc: u32, value: i64, index: u32) -> Result<(), LuceneError> {
         let _guard = self.lock.lock().unwrap();
-        self.values.set(index as u64, value)
+        self.values.set(index as u64, value - self.min_value)
     }
 
     fn add_byte_ref(
@@ -112,10 +116,10 @@ where
     }
 
     fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
-        let temp_offset = self.values.get(j as u64)?;
+        let tmp_val = self.values.get(j as u64)?;
         let value = self.values.get(i as u64)?;
         self.values.set(j as u64, value)?;
-        self.values.set(i as u64, temp_offset)?;
+        self.values.set(i as u64, tmp_val)?;
         Ok(())
     }
 
@@ -130,6 +134,10 @@ where
     fn resize(&mut self, _size: u32) -> Result<(), LuceneError> {
         self.values = self.values.resize(_size as u64)?;
         Ok(())
+    }
+
+    fn sub_type(&self) -> DocValuesType {
+        DocValuesType::Numeric
     }
 }
 #[derive(Default)]
@@ -158,7 +166,7 @@ where
         }
     }
 }
-impl<'a, T> AbstractIteratorBase for NumericDocValuesFieldUpdatesIterator<'a, T>
+impl<T> AbstractIteratorBase for NumericDocValuesFieldUpdatesIterator<'_, T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
@@ -181,8 +189,11 @@ pub struct SingleValueNumericDocValuesFieldUpdates {
     value: i64,
 }
 impl SingleValueNumericDocValuesFieldUpdates {
-    fn new(value: i64) -> SingleValueNumericDocValuesFieldUpdates {
+    pub fn new(value: i64) -> SingleValueNumericDocValuesFieldUpdates {
         SingleValueNumericDocValuesFieldUpdates { value }
+    }
+    fn doc_values_type(&self) -> DocValuesType {
+        DocValuesType::Numeric
     }
 }
 impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUpdates {
@@ -192,5 +203,9 @@ impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUp
 
     fn long_value(&self) -> Result<i64, LuceneError> {
         Ok(self.value)
+    }
+
+    fn sub_type(&self) -> DocValuesType {
+        DocValuesType::Numeric
     }
 }

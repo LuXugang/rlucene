@@ -28,22 +28,22 @@ use std::cmp::max;
 pub trait BaseDocIdSetTestCase {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet;
     /// Test length=0.
-    fn test_bit_0(&self, random: &mut StdRng) {
+    fn test_bit_0(&self, random: &mut StdRng)->Result<(),TestError> {
         let bs = bit_set::BitSet::with_capacity(1);
         let copy = self.copy_of(&bs, 1);
-        self.assert_equals(random, 1, &bs, copy);
+        self.assert_equals(random, 1, &bs, copy)
     }
     /// Test length=1.
-    fn test_bit_1(&self, random: &mut StdRng) {
+    fn test_bit_1(&self, random: &mut StdRng)->Result<(),TestError> {
         let mut bs = bit_set::BitSet::with_capacity(1);
         if random.gen_bool(0.5) {
             bs.insert(0);
         }
         let copy = self.copy_of(&bs, 1);
-        self.assert_equals(random, 1, &bs, copy);
+        self.assert_equals(random, 1, &bs, copy)
     }
     /// Test length=2.
-    fn test_bit_2(&self, random: &mut StdRng) {
+    fn test_bit_2(&self, random: &mut StdRng)->Result<(),TestError> {
         let mut bs = bit_set::BitSet::with_capacity(2);
         if random.gen_bool(0.5) {
             bs.insert(0);
@@ -52,26 +52,26 @@ pub trait BaseDocIdSetTestCase {
             bs.insert(1);
         }
         let copy = self.copy_of(&bs, 2);
-        self.assert_equals(random, 2, &bs, copy);
+        self.assert_equals(random, 2, &bs, copy)
     }
     /// Compare the content of the set against a {@link BitSet}.
-    fn test_against_bit_set(&self, random: &mut StdRng) {
+    fn test_against_bit_set(&self, random: &mut StdRng)->Result<(),TestError> {
         let num_bits = random.gen_range(100..1 << 20);
         let random_float: f32 = random.gen();
         for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
             let set = random_set(random, num_bits, percent_set);
             let copy = self.copy_of(&set, num_bits);
-            self.assert_equals(random, num_bits, &set, copy);
+            self.assert_equals(random, num_bits, &set, copy)?;
         }
         // test one doc
         let mut set = bit_set::BitSet::with_capacity(num_bits as usize);
         set.insert(0); // 0 first
         let mut copy = self.copy_of(&set, num_bits);
-        self.assert_equals(random, num_bits, &set, copy);
+        self.assert_equals(random, num_bits, &set, copy)?;
         set.remove(0);
         set.insert(random.gen_range(0..num_bits as usize));
         copy = self.copy_of(&set, num_bits);
-        self.assert_equals(random, num_bits, &set, copy);
+        self.assert_equals(random, num_bits, &set, copy)?;
         // rest regular increments
         let max_iterations = if is_night_mode() { i32::MAX } else { 10 };
         let mut iterations = 0;
@@ -89,9 +89,10 @@ pub trait BaseDocIdSetTestCase {
                 d += inc;
             }
             copy = self.copy_of(&set, num_bits);
-            self.assert_equals(random, num_bits, &set, copy);
+            self.assert_equals(random, num_bits, &set, copy)?;
             inc += random.gen_range(1..=100);
         }
+        Ok(())
     }
     //TODO
     /// Test ram usage estimation.
@@ -102,7 +103,7 @@ pub trait BaseDocIdSetTestCase {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    );
+    )->Result<(),TestError>;
 }
 // todo
 #[allow(unused)]

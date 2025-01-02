@@ -84,7 +84,7 @@ fn assert_equals<T1: DocIdSet, T2: DocIdSet>(
 }
 
 #[test]
-fn test_sparse() {
+fn test_sparse()->Result<(),TestError> {
     let mut random = my_random("test_sparse".to_string());
     let max_doc = 1000000 + random.gen_range(0..1000000);
     let mut builder = DocIdSetBuilder::new(max_doc);
@@ -101,9 +101,9 @@ fn test_sparse() {
         }
         let roaring_doc_id_set = b.build();
         let iter = roaring_doc_id_set.iterator().unwrap();
-        builder.add_disi::<DocIdSetBuilderIterator>(iter);
+        builder.add_disi::<DocIdSetBuilderIterator>(iter)?;
     }
-    let result = builder.build().unwrap();
+    let result = builder.build()?;
     let enum_type1 = "BitDocIdSet<FixedBitSet>";
     let enum_type2 = "IntArrayDocIdSet";
     let doc_id_set_type = match result {
@@ -111,11 +111,12 @@ fn test_sparse() {
         DocIdSetBuilderEnum::I(_) => enum_type2,
     };
     assert_eq!(doc_id_set_type, enum_type2);
-    let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit)).unwrap();
-    assert_equals(Some(bit_doc_id_set), Some(result));
+    let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit))?;
+    assert_equals(Some(bit_doc_id_set), Some(result))?;
+    Ok(())
 }
 #[test]
-fn test_dense() {
+fn test_dense()->Result<(),TestError> {
     let mut random = my_random("test_dense".to_string());
     let max_doc = 1000000 + random.gen_range(0..1000000);
     let mut builder = DocIdSetBuilder::new(max_doc);
@@ -131,9 +132,9 @@ fn test_dense() {
         }
         let roaring_doc_id_set = b.build();
         let iter = roaring_doc_id_set.iterator().unwrap();
-        builder.add_disi::<DocIdSetBuilderIterator>(iter);
+        builder.add_disi::<DocIdSetBuilderIterator>(iter)?;
     }
-    let result = builder.build().unwrap();
+    let result = builder.build()?;
     let enum_type1 = "BitDocIdSet<FixedBitSet>";
     let enum_type2 = "IntArrayDocIdSet";
     let doc_id_set_type = match result {
@@ -141,8 +142,9 @@ fn test_dense() {
         DocIdSetBuilderEnum::I(_) => enum_type2,
     };
     assert_eq!(doc_id_set_type, enum_type1);
-    let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit)).unwrap();
-    assert_equals(Some(bit_doc_id_set), Some(result));
+    let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit))?;
+    assert_equals(Some(bit_doc_id_set), Some(result))?;
+    Ok(())
 }
 
 #[test]
@@ -212,7 +214,7 @@ fn test_random() -> Result<(), TestError> {
     Ok(())
 }
 #[test]
-fn test_misleading_disi_cost() {
+fn test_misleading_disi_cost()->Result<(),TestError> {
     let mut random = my_random("test_misleading_disi_cost".to_string());
     let max_doc = random.gen_range(1000..=10000);
     let mut builder = DocIdSetBuilder::new(max_doc);
@@ -226,11 +228,12 @@ fn test_misleading_disi_cost() {
         }
         expected.or(&docs);
         // We provide a cost of 0 here to make sure the builder can deal with wrong costs
-        let bit_doc_id_set = BitSetIterator::new(&docs, 0).unwrap();
-        builder.add_disi::<DocIdSetBuilderIterator>(bit_doc_id_set);
+        let bit_doc_id_set = BitSetIterator::new(&docs, 0)?;
+        builder.add_disi::<DocIdSetBuilderIterator>(bit_doc_id_set)?;
     }
-    let bit_doc_id_set = BitDocIdSet::new(Some(expected)).unwrap();
-    assert_equals(Some(bit_doc_id_set), Some(builder.build().unwrap()));
+    let bit_doc_id_set = BitDocIdSet::new(Some(expected))?;
+    assert_equals(Some(bit_doc_id_set), Some(builder.build()?))?;
+    Ok(())
 }
 
 #[test]
@@ -286,13 +289,13 @@ fn test_leverage_stats() {
 }
 
 #[test]
-fn test_cost_is_correct_after_bit_set_upgrade() {
+fn test_cost_is_correct_after_bit_set_upgrade() ->Result<(),TestError>{
     let max_doc = 1000000;
     let mut builder = DocIdSetBuilder::new(max_doc);
     for i in 0..1000000 >> 6 {
-        builder.add_disi::<Range>(Range::new(i, i + 1).unwrap());
+        builder.add_disi::<Range>(Range::new(i, i + 1)?)?;
     }
-    let set = builder.build().unwrap();
+    let set = builder.build()?;
     let enum_type1 = "BitDocIdSet<FixedBitSet>";
     let enum_type2 = "IntArrayDocIdSet";
     let doc_id_set_type = match set {
@@ -301,4 +304,5 @@ fn test_cost_is_correct_after_bit_set_upgrade() {
     };
     assert_eq!(doc_id_set_type, enum_type1);
     assert_eq!(set.iterator().unwrap().cost(), 1000000 >> 6);
+    Ok(())
 }

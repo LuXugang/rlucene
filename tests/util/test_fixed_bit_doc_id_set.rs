@@ -23,6 +23,7 @@ use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::util::bit_doc_id_set::BitDocIdSet;
 use rlucene::util::bit_set::BitSet;
 use rlucene::util::fixed_bit_set::FixedBitSet;
+use crate::util::test_error::TestError;
 
 impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {
@@ -42,36 +43,36 @@ impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    ) {
-        BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2);
+    )->Result<(),TestError> {
+        BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
     }
 }
 
 pub struct TestFixedBitDocIdSet;
 
 #[test]
-fn test_bit_0() {
+fn test_bit_0() ->Result<(),TestError> {
     let test_case = TestFixedBitDocIdSet;
     let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
-    test_case.test_bit_0(&mut random);
+    test_case.test_bit_0(&mut random)
 }
 #[test]
-fn test_bit_1() {
+fn test_bit_1() ->Result<(),TestError> {
     let test_case = TestFixedBitDocIdSet;
     let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
-    test_case.test_bit_1(&mut random);
+    test_case.test_bit_1(&mut random)
 }
 #[test]
-fn test_bit_2() {
+fn test_bit_2() ->Result<(),TestError> {
     let test_case = TestFixedBitDocIdSet;
     let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
-    test_case.test_bit_2(&mut random);
+    test_case.test_bit_2(&mut random)
 }
 #[test]
-fn test_against_bit_set() {
+fn test_against_bit_set()  ->Result<(),TestError>{
     let test_case = TestFixedBitDocIdSet;
     let mut random = my_random("test_fixed_bit_doc_id_set".to_string());
-    test_case.test_against_bit_set(&mut random);
+    test_case.test_against_bit_set(&mut random)
 }
 #[test]
 fn test_ram_bytes_used() {

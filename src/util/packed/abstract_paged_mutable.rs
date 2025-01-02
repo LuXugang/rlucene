@@ -214,7 +214,7 @@ where
         )
     }
 }
-pub trait AbstractPagedMutableBase {
+pub trait AbstractPagedMutableBase: Default {
     fn new_mutable(
         &self,
         value_count: u32,
