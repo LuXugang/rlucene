@@ -20,6 +20,7 @@ use crate::index::doc_values_type::DocValuesType;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::long_values::LongValues;
@@ -27,46 +28,211 @@ use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_mutable::PagedMutable;
 use crate::util::packed::{Mutable, MutablePacked64Enum, PackedInts, Reader};
 use crate::util::priority_queue::{Compare, PriorityQueue};
+use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::Sorter;
+use std::sync::{Arc, Mutex};
 
 const PAGE_SIZE: u32 = 1024;
 const HAS_VALUE_MASK: u64 = 1;
 const HAS_NO_VALUE_MASK: u64 = 0;
 // we use the first bit of each value to mark if the doc has a value or not
 const SHIFT: u32 = 1;
-pub struct DocValuesFieldUpdates {
+pub struct DocValuesFieldUpdates<D>
+where
+    D: DocValuesFieldUpdatesBase,
+{
     pub field: String,
     pub doc_values_type: DocValuesType,
     pub del_gen: u64,
     bits_per_value: u32,
-    finished: bool,
     max_doc: u32,
-    docs: AbstractPagedMutable<PagedMutable>,
-    size: u32,
+    inner: Arc<Mutex<DocValuesFieldInner>>,
+    sub: D,
 }
-impl DocValuesFieldUpdates {
+struct DocValuesFieldInner {
+    pub finished: bool,
+    pub docs: AbstractPagedMutable<PagedMutable>,
+    pub size: u32,
+}
+impl DocValuesFieldInner {
+    pub(crate) fn new(bits_per_value: u32) -> Result<Self, LuceneError> {
+        let sub_mutable =
+            PagedMutable::new_with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
+        let writer = AbstractPagedMutable::new(bits_per_value, 1, PAGE_SIZE, sub_mutable)?;
+        Ok(Self {
+            finished: false,
+            docs: writer,
+            size: 0,
+        })
+    }
+    pub fn resize(&mut self, size: u32) -> Result<(), LuceneError> {
+        self.docs = self.docs.resize(size as u64)?;
+        Ok(())
+    }
+    pub fn grow(&mut self, size: u32) -> Result<(), LuceneError> {
+        let result = self.docs.grow_with_size(size as u64)?;
+        if result.is_some() {
+            self.docs = result.unwrap();
+        }
+        Ok(())
+    }
+    pub fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
+        let tmp_doc = self.docs.get(j as u64)?;
+        let value_i = self.docs.get(i as u64)?;
+        self.docs.set(j as u64, value_i)?;
+        self.docs.set(i as u64, tmp_doc)?;
+        Ok(())
+    }
+}
+impl<D> DocValuesFieldUpdates<D>
+where
+    D: DocValuesFieldUpdatesBase,
+{
     pub fn new(
         max_doc: u32,
         del_gen: u64,
         field: String,
         doc_values_type: DocValuesType,
+        sub: D,
     ) -> Result<Self, LuceneError> {
         let bits_per_value = PackedInts::bits_required(max_doc as i64 - 1)? + SHIFT;
-        let sub_mutable =
-            PagedMutable::new_with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
-        let writer = AbstractPagedMutable::new(bits_per_value, 1, PAGE_SIZE, sub_mutable)?;
+        let inner = DocValuesFieldInner::new(bits_per_value)?;
         Ok(Self {
             field,
             doc_values_type,
             del_gen,
             bits_per_value,
-            finished: false,
             max_doc,
-            docs: writer,
-            size: 0,
+            inner: Arc::new(Mutex::new(inner)),
+            sub,
         })
     }
+    fn get_finished(&self) -> bool {
+        self.inner.lock().unwrap().finished
+    }
+    /// # Warning
+    /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
+    fn add_value(&mut self, doc: u32, value: i64) -> Result<(), LuceneError> {
+        self.add(doc)?;
+        self.sub.add_value(doc, value)
+    }
+    /// # Warning
+    /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
+    fn add_byte_ref(&mut self, doc: u32, value: BytesRef) -> Result<(), LuceneError> {
+        self.add(doc)?;
+        self.sub.add_byte_ref(doc, value)
+    }
+    /// Returns an iterator for updated documents and their values.
+    fn iterator<T>(&self) -> Iterator<T>
+    where
+        T: IteratorBase + DocIdSetIterator + Default,
+    {
+        todo!()
+    }
+    /// Adds the value for the given `doc_id`.
+    ///
+    /// This method prevents conditional calls to [`IteratorBase::long_value`] or
+    /// [`IteratorBase::binary_value`], since the implementation knows whether it is
+    /// a long value iterator or a binary value iterator.
+    fn add_iterator<T>(&mut self, doc_id: u32, iterator: Iterator<T>)
+    where
+        T: IteratorBase + DocIdSetIterator + Default,
+    {
+        todo!()
+    }
+    pub fn finish(&mut self) -> Result<(), LuceneError> {
+        let mut inner = self.inner.lock().unwrap();
+        if inner.finished {
+            return Err(LuceneError::illegal_argument(
+                "already finished".to_string(),
+            ));
+        }
+        inner.finished = true;
+        let size = inner.size;
+        // shrink wrap
+        if (inner.size as u64) < inner.docs.size() {
+            inner.resize(size)?;
+        }
 
+        if inner.size > 0 {
+            let mut ords =
+                PackedInts::get_mutable(inner.size, self.bits_per_value, PackedInts::DEFAULT)?;
+            for i in 0..inner.size {
+                ords.set(i as usize, i as i64)?
+            }
+            let mut sorter = IntroSorterImpl {
+                ords: &mut ords,
+                docs: &mut inner.docs,
+                pivot_doc: 0,
+                pivot_ord: 0,
+                size,
+            };
+            sorter.sort(0, size as i32)?;
+        }
+        Ok(())
+    }
+    /// Returns true if this instance contains any updates.
+    pub(crate) fn any(&self) -> bool {
+        let inner = self.inner.lock().unwrap();
+        inner.size > 0
+    }
+    /// Adds an update that resets the documents value.
+    pub(crate) fn reset(&mut self, doc: u32) -> Result<(), LuceneError> {
+        self.add_internal(doc, HAS_NO_VALUE_MASK).map(|_| ())
+    }
+
+    pub(crate) fn add(&mut self, doc: u32) -> Result<usize, LuceneError> {
+        self.add_internal(doc, HAS_VALUE_MASK)
+    }
+    fn add_internal(&mut self, doc: u32, has_value_mask: u64) -> Result<usize, LuceneError> {
+        let mut inner = self.inner.lock().unwrap();
+        if inner.finished {
+            return Err(LuceneError::illegal_argument(
+                "already finished".to_string(),
+            ));
+        }
+        let mut size = inner.size;
+        assert!(doc < self.max_doc, "doc must be less than max_doc");
+        // TODO: if the Sorter interface changes to take long indexes, we can remove that limitation
+        if size == i32::MAX as u32 {
+            return Err(LuceneError::illegal_state(
+                "cannot support more than Integer.MAX_VALUE doc/value entries".to_string(),
+            ));
+        }
+        // grow the structures to have room for more elements
+        if inner.docs.size() == size as u64 {
+            inner.grow(size + 1)?;
+        }
+        let value = ((doc as u64) << 1) | has_value_mask;
+        inner.docs.set(size as u64, value as i64)?;
+        size += 1;
+        Ok(size as usize - 1)
+    }
+    pub(crate) fn swap(&self, i: u32, j: u32) -> Result<(), LuceneError> {
+        self.sub.swap(i, j)?;
+        let mut inner = self.inner.lock().unwrap();
+        inner.swap(i, j)?;
+        Ok(())
+    }
+    pub fn grow(&mut self, size: u32) -> Result<(), LuceneError> {
+        self.sub.grow(size)?;
+        let mut inner = self.inner.lock().unwrap();
+        inner.grow(size)?;
+        Ok(())
+    }
+    pub fn resize(&mut self, size: u32) -> Result<(), LuceneError> {
+        self.sub.resize(size)?;
+        let mut inner = self.inner.lock().unwrap();
+        inner.resize(size)?;
+        Ok(())
+    }
+    pub(crate) fn ensure_finished(&self) -> Result<(), LuceneError> {
+        let inner = self.inner.lock().unwrap();
+        if !inner.finished {
+            return Err(LuceneError::illegal_state("call finish first".to_string()));
+        }
+        Ok(())
+    }
     pub fn merged_iterator<T>(
         subs: Vec<Iterator<T>>,
     ) -> Result<Option<Iterator<IteratorPQImpl<T>>>, LuceneError>
@@ -95,9 +261,30 @@ impl DocValuesFieldUpdates {
         let result = Iterator::new(value);
         Ok(Some(result))
     }
-
-    fn get_finished(&self) -> bool {
-        self.finished
+}
+impl<D> Accountable for DocValuesFieldUpdates<D>
+where
+    D: DocValuesFieldUpdatesBase,
+{
+    fn ram_bytes_used(&self) -> u64 {
+        todo!()
+    }
+}
+pub trait DocValuesFieldUpdatesBase {
+    fn add_value(&mut self, doc: u32, value: i64) -> Result<(), LuceneError>;
+    fn add_byte_ref(&mut self, doc: u32, value: BytesRef) -> Result<(), LuceneError>;
+    /// Returns an iterator for updated documents and their values.
+    fn iterator<T>(&self) -> Iterator<T>
+    where
+        T: IteratorBase + DocIdSetIterator + Default;
+    fn swap(&self, _i: u32, _j: u32) -> Result<(), LuceneError> {
+        Ok(())
+    }
+    fn grow(&mut self, _size: u32) -> Result<(), LuceneError> {
+        Ok(())
+    }
+    fn resize(&mut self, _size: u32) -> Result<(), LuceneError> {
+        Ok(())
     }
 }
 
@@ -133,6 +320,7 @@ impl<'a> Sorter for IntroSorterImpl<'a> {
         let value = self.ords.get(j as usize)?;
         self.ords.set(i as usize, value)?;
         self.ords.set(j as usize, tmp_ord)?;
+        // TODO
         Ok(())
     }
 
@@ -157,23 +345,6 @@ impl<'a> Sorter for IntroSorterImpl<'a> {
 }
 
 impl IntroSorter for IntroSorterImpl<'_> {}
-
-pub trait DocValuesFieldUpdatesBase {
-    fn add(&mut self, doc: u32, value: i64);
-    fn add_byte_ref(&mut self, doc: u32, value: BytesRef);
-    /// Adds the value for the given `doc_id`.
-    ///
-    /// This method prevents conditional calls to [`IteratorBase::long_value`] or
-    /// [`IteratorBase::binary_value`], since the implementation knows whether it is
-    /// a long value iterator or a binary value iterator.
-    fn add_iterator<T>(&mut self, doc_id: u32, iterator: Iterator<T>)
-    where
-        T: IteratorBase + DocIdSetIterator + Default;
-    /// Returns an iterator for updated documents and their values.
-    fn iterator<T>(&self) -> Iterator<T>
-    where
-        T: IteratorBase + DocIdSetIterator + Default;
-}
 
 /// An iterator over documents and their updated values.
 ///
@@ -486,3 +657,12 @@ where
         }
     }
 }
+
+pub(crate) struct SingleValueDocValuesFieldUpdates<S>
+where
+    S: SingleValueDocValuesFieldUpdatesBase,
+{
+    sub: S,
+    bit_set: SparseFixedBitSet,
+}
+pub(crate) trait SingleValueDocValuesFieldUpdatesBase {}
