@@ -16,7 +16,6 @@
  */
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 
-#[allow(unused)]
 pub trait DocValuesIterator: DocIdSetIterator {
     /// Advances the iterator to exactly `target` and returns whether `target` has a value.
     ///
@@ -30,5 +29,7 @@ pub trait DocValuesIterator: DocIdSetIterator {
     ///
     /// # Notes
     /// After this method returns, [`doc_id()`](DocIdSetIterator::doc_id) will return the value of `target`.
-    fn advance_exact(&self, target: i32) -> bool;
+    fn advance_exact(&self, _target: i32) -> bool {
+        unimplemented!("advance_exact needs to be implemented if you need to use it")
+    }
 }
