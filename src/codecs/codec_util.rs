@@ -22,7 +22,7 @@ use crate::store::index_input::IndexInput;
 use crate::store::{DataInput, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::version::MIN_SUPPORTED_MAJOR;
-use crate::util::{id_to_string, ID_LENGTH};
+use crate::util::StringHelper;
 use std::cmp::Ordering;
 
 /// Utility class for reading and writing versioned headers.
@@ -130,14 +130,14 @@ pub fn write_index_header(
     id: &[u8],
     suffix: &str,
 ) -> Result<(), LuceneError> {
-    if id.len() != ID_LENGTH as usize {
+    if id.len() != StringHelper::ID_LENGTH as usize {
         return Err(LuceneError::illegal_argument(format!(
             "Invalid id: {}",
-            id_to_string(Option::from(id))
+            StringHelper::id_to_string(Option::from(id))
         )));
     }
     write_header(out, codec, version)?;
-    out.write_bytes_range(id, 0, ID_LENGTH)?;
+    out.write_bytes_range(id, 0, StringHelper::ID_LENGTH)?;
     let suffix_bytes = BytesRef::new_from_string(suffix);
     if !suffix.is_ascii() || suffix_bytes.length >= 256 {
         return Err(LuceneError::illegal_argument(format!(
@@ -177,7 +177,7 @@ pub fn header_length(codec: &str) -> u32 {
 /// # See Also
 /// - [`write_index_header`]
 pub fn index_header_length(codec: &str, suffix: &str) -> u32 {
-    header_length(codec) + ID_LENGTH + 1 + (suffix.len() as u32)
+    header_length(codec) + StringHelper::ID_LENGTH + 1 + (suffix.len() as u32)
 }
 /// Reads and validates a header previously written with [`write_header`].
 ///
@@ -335,7 +335,7 @@ pub fn verify_and_copy_index_header(
     write_be_int(data_out, CodecUtil::CODEC_MAGIC)?;
     data_out.write_string(&codec)?;
     write_be_int(data_out, version)?;
-    data_out.write_bytes_range(expected_id, 0, ID_LENGTH)?;
+    data_out.write_bytes_range(expected_id, 0, StringHelper::ID_LENGTH)?;
     data_out.write_byte(suffix_length)?;
     data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as u32)?;
     Ok(())
@@ -355,9 +355,10 @@ pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>, Lu
     }
     let codec = data_input.read_string()?;
     read_be_int(data_input)?;
-    data_input.seek(data_input.get_file_pointer() + ID_LENGTH as u64)?;
+    data_input.seek(data_input.get_file_pointer() + StringHelper::ID_LENGTH as u64)?;
     let suffix_length = data_input.read_byte()?;
-    let bytes_len = (header_length(&codec) + ID_LENGTH + 1 + suffix_length as u32) as usize;
+    let bytes_len =
+        (header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length as u32) as usize;
     let mut bytes: Vec<u8> = vec![0u8; bytes_len];
     data_input.seek(0)?;
     data_input.read_bytes(&mut bytes, 0, bytes_len as u32)?;
@@ -389,13 +390,13 @@ pub fn check_index_header_id(
     data_input: &mut impl DataInput,
     expected_id: &[u8],
 ) -> Result<(), LuceneError> {
-    let mut id: Vec<u8> = vec![0u8; ID_LENGTH as usize];
-    data_input.read_bytes(&mut id, 0, ID_LENGTH)?;
+    let mut id: Vec<u8> = vec![0u8; StringHelper::ID_LENGTH as usize];
+    data_input.read_bytes(&mut id, 0, StringHelper::ID_LENGTH)?;
     if id != expected_id {
         return Err(LuceneError::corrupt_index(format!(
             "file mismatch, expected id={}, got={} (resource={})",
-            id_to_string(Option::from(expected_id)),
-            id_to_string(Option::from(&id[0..id.len()])),
+            StringHelper::id_to_string(Option::from(expected_id)),
+            StringHelper::id_to_string(Option::from(&id[0..id.len()])),
             data_input
         )));
     }

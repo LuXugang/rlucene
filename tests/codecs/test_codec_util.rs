@@ -27,7 +27,7 @@ use rlucene::store::{
     ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput, IndexOutput,
 };
 use rlucene::util::error::lucene_error::LuceneError;
-use rlucene::util::random_id;
+use rlucene::util::StringHelper;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::AtomicI64;
 
@@ -209,7 +209,7 @@ fn test_segment_header_length() -> Result<(), TestError> {
     let mut out = ByteBuffersDataOutput::new_resettable_instance()?;
     {
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
-        let id = random_id();
+        let id = StringHelper::random_id();
         write_index_header(&mut output, "FooBar", 5, &id, "xyz")?;
         output.write_string("this is the data")?;
     }
@@ -228,7 +228,13 @@ fn test_write_too_long_suffix() {
     let mut out = ByteBuffersDataOutput::new_resettable_instance().unwrap();
     let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 
-    let result = write_index_header(&mut output, "foobar", 5, &random_id(), &too_long);
+    let result = write_index_header(
+        &mut output,
+        "foobar",
+        5,
+        &StringHelper::random_id(),
+        &too_long,
+    );
     assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 }
 #[test]
@@ -236,7 +242,7 @@ fn test_write_very_long_suffix() -> Result<(), TestError> {
     let just_long_enough: String = "a".repeat(255);
 
     let mut out = ByteBuffersDataOutput::new_resettable_instance()?;
-    let id = random_id();
+    let id = StringHelper::random_id();
     {
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
         write_index_header(&mut output, "foobar", 5, &id, &just_long_enough)?;
@@ -260,7 +266,13 @@ fn test_write_non_ascii_suffix() {
 
     let non_ascii_suffix = "\u{1234}";
 
-    let result = write_index_header(&mut output, "foobar", 5, &random_id(), non_ascii_suffix);
+    let result = write_index_header(
+        &mut output,
+        "foobar",
+        5,
+        &StringHelper::random_id(),
+        non_ascii_suffix,
+    );
     assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 }
 #[test]
