@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[derive(Debug, PartialEq, Eq, Clone)]
+use derive_getters::Getters;
+
+#[derive(Debug, PartialEq, Eq, Clone, Getters)]
 pub struct MergeInfo {
     total_max_doc: u32,
-    pub estimated_merge_bytes: u64,
+    estimated_merge_bytes: u64,
     is_external: bool,
     merge_max_num_segments: i32,
 }

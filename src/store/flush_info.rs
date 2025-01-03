@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use derive_getters::Getters;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Getters)]
 pub struct FlushInfo {
     num_docs: u32,
-    pub estimated_segment_size: u64,
+    estimated_segment_size: u64,
 }
 
 impl FlushInfo {
