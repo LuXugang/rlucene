@@ -16,7 +16,7 @@
  */
 use crate::index::doc_values_field_updates::{
     AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldUpdatesBase,
-    Iterator, PAGE_SIZE,
+    DocValuesFieldIterator, PAGE_SIZE,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -73,7 +73,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         Ok(())
     }
 
-    fn add_iterator<T: Iterator>(
+    fn add_iterator<T: DocValuesFieldIterator>(
         &mut self,
         doc_id: u32,
         mut iterator: T,
@@ -85,7 +85,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: u64,
-    ) -> Result<impl Iterator, LuceneError> {
+    ) -> Result<impl DocValuesFieldIterator, LuceneError> {
         let sub_iterator = BinaryDocValuesIterator::new(
             Some(&mut self.offsets),
             Some(&mut self.lengths),

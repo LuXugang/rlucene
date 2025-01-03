@@ -16,7 +16,7 @@
  */
 use crate::index::doc_values_field_updates::{
     AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldUpdatesBase,
-    Iterator, SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
+    DocValuesFieldIterator, SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::BytesRef;
@@ -97,7 +97,7 @@ where
         unreachable!("NumericDocValuesFieldUpdates does not support add_byte_ref")
     }
 
-    fn add_iterator<I: Iterator>(
+    fn add_iterator<I: DocValuesFieldIterator>(
         &mut self,
         doc_id: u32,
         mut iterator: I,
@@ -109,7 +109,7 @@ where
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: u64,
-    ) -> Result<impl Iterator, LuceneError> {
+    ) -> Result<impl DocValuesFieldIterator, LuceneError> {
         let sub_iterator =
             NumericDocValuesFieldUpdatesIterator::new(Some(&mut self.values), 0, self.min_value);
         Ok(AbstractIterator::new(inner, del_gen, sub_iterator))

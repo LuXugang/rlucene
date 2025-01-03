@@ -133,7 +133,7 @@ where
         self.sub_update.add_byte_ref(doc, value, index)
     }
     /// Returns an iterator for updated documents and their values.
-    pub fn iterator(&mut self) -> Result<impl Iterator + use<'_, D>, LuceneError> {
+    pub fn iterator(&mut self) -> Result<impl DocValuesFieldIterator + use<'_, D>, LuceneError> {
         self.ensure_finished()?;
         self.sub_update.iterator(self.inner.clone(), self.del_gen)
     }
@@ -144,7 +144,7 @@ where
     /// a long value iterator or a binary value iterator.
     fn add_iterator<T>(&mut self, doc_id: u32, iterator: T) -> Result<(), LuceneError>
     where
-        T: Iterator,
+        T: DocValuesFieldIterator,
     {
         self.sub_update.add_iterator(doc_id, iterator)
     }
@@ -263,7 +263,7 @@ where
 }
 pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<PriorityQueueIterator<T>>, LuceneError>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     // Due to the characteristics of the Rust language, in order to reduce complexity,
     // we add the element to the queue for processing even if there is only one element.
@@ -297,13 +297,13 @@ where
 pub trait DocValuesFieldUpdatesBase: Accountable {
     fn add_value(&mut self, doc: u32, value: i64, index: u32) -> Result<(), LuceneError>;
     fn add_byte_ref(&mut self, doc: u32, value: BytesRef, index: u32) -> Result<(), LuceneError>;
-    fn add_iterator<T: Iterator>(&mut self, doc_id: u32, iterator: T) -> Result<(), LuceneError>;
+    fn add_iterator<T: DocValuesFieldIterator>(&mut self, doc_id: u32, iterator: T) -> Result<(), LuceneError>;
     /// Returns an iterator for updated documents and their values.
     fn iterator(
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: u64,
-    ) -> Result<impl Iterator, LuceneError>;
+    ) -> Result<impl DocValuesFieldIterator, LuceneError>;
     fn swap(&mut self, _i: u32, _j: u32) -> Result<(), LuceneError> {
         unimplemented!("any must be implemented if you need to use it")
     }
@@ -405,11 +405,11 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 ///
 /// Only documents with updates are returned by this iterator, and the documents are returned
 /// in increasing order.
-pub trait Iterator: DocValuesIterator + Default + PartialEq {
-    fn get_binary_doc_values<T: Iterator>(iterator: T) {
+pub trait DocValuesFieldIterator: DocValuesIterator + Default + PartialEq {
+    fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
         BinaryDocValuesImpl::new(iterator);
     }
-    fn get_numeric_doc_values<T: Iterator>(iterator: T) {
+    fn get_numeric_doc_values<T: DocValuesFieldIterator>(iterator: T) {
         NumericDocValuesImpl::new(iterator);
     }
     /// Returns a long value for the current document if this iterator is a long iterator.
@@ -427,13 +427,13 @@ pub trait Iterator: DocValuesIterator + Default + PartialEq {
 /// Wraps the given iterator as a BinaryDocValues instance.
 pub struct BinaryDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     iterator: T,
 }
 impl<T> BinaryDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     pub fn new(iterator: T) -> Self {
         Self { iterator }
@@ -442,7 +442,7 @@ where
 
 impl<T> DocValuesIterator for BinaryDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn advance_exact(&self, target: i32) -> bool {
         self.iterator.advance_exact(target)
@@ -451,7 +451,7 @@ where
 
 impl<T> DocIdSetIterator for BinaryDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn doc_id(&self) -> i32 {
         self.iterator.doc_id()
@@ -472,7 +472,7 @@ where
 
 impl<T> BinaryDocValues for BinaryDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
         self.iterator.binary_value()
@@ -482,13 +482,13 @@ where
 /// Wraps the given iterator as a NumericDocValues instance.
 pub struct NumericDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     iterator: T,
 }
 impl<T> NumericDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     pub fn new(iterator: T) -> Self {
         Self { iterator }
@@ -497,7 +497,7 @@ where
 
 impl<T> DocValuesIterator for NumericDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn advance_exact(&self, target: i32) -> bool {
         self.iterator.advance_exact(target)
@@ -506,7 +506,7 @@ where
 
 impl<T> DocIdSetIterator for NumericDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn doc_id(&self) -> i32 {
         self.iterator.doc_id()
@@ -527,7 +527,7 @@ where
 
 impl<T> NumericDocValues for NumericDocValuesImpl<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn long_value(&mut self) -> Result<i64, LuceneError> {
         self.iterator.long_value()
@@ -536,13 +536,13 @@ where
 
 pub struct IteratorPQCmp<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     _t: std::marker::PhantomData<T>,
 }
 impl<T> Default for IteratorPQCmp<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn default() -> Self {
         Self::new()
@@ -551,7 +551,7 @@ where
 
 impl<T> IteratorPQCmp<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     pub fn new() -> Self {
         Self {
@@ -561,7 +561,7 @@ where
 }
 impl<T> Compare<T> for IteratorPQCmp<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn less_than(&self, a: &T, b: &T) -> bool {
         // Sort by smaller doc_id
@@ -578,34 +578,34 @@ where
 
 pub struct PriorityQueueIterator<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     queue: PriorityQueue<T, IteratorPQCmp<T>>,
     doc: i32,
 }
 impl<T> PriorityQueueIterator<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     pub fn new(queue: PriorityQueue<T, IteratorPQCmp<T>>) -> Result<Self, LuceneError> {
         Ok(Self { queue, doc: -1 })
     }
 }
 
-impl<T> DocValuesIterator for PriorityQueueIterator<T> where T: Iterator {}
+impl<T> DocValuesIterator for PriorityQueueIterator<T> where T: DocValuesFieldIterator {}
 
 impl<T> PartialEq for PriorityQueueIterator<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn eq(&self, other: &Self) -> bool {
         todo!()
     }
 }
 
-impl<T> Iterator for PriorityQueueIterator<T>
+impl<T> DocValuesFieldIterator for PriorityQueueIterator<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn long_value(&mut self) -> Result<i64, LuceneError> {
         self.queue.top().long_value()
@@ -625,7 +625,7 @@ where
 }
 impl<T> DocIdSetIterator for PriorityQueueIterator<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -657,7 +657,7 @@ where
 }
 impl<T> Default for PriorityQueueIterator<T>
 where
-    T: Iterator,
+    T: DocValuesFieldIterator,
 {
     fn default() -> Self {
         Self {
@@ -744,7 +744,7 @@ where
     }
 }
 
-impl<A> Iterator for AbstractIterator<A>
+impl<A> DocValuesFieldIterator for AbstractIterator<A>
 where
     A: AbstractIteratorBase + Default,
 {
@@ -858,7 +858,7 @@ where
         Ok(())
     }
 
-    fn add_iterator<T: Iterator>(&mut self, _doc_id: u32, _iterator: T) -> Result<(), LuceneError> {
+    fn add_iterator<T: DocValuesFieldIterator>(&mut self, _doc_id: u32, _iterator: T) -> Result<(), LuceneError> {
         unreachable!("add_iterator is not supported")
     }
 
@@ -866,7 +866,7 @@ where
         &mut self,
         _inner: Arc<Mutex<DocValuesFieldInner>>,
         _del_gen: u64,
-    ) -> Result<impl Iterator, LuceneError> {
+    ) -> Result<impl DocValuesFieldIterator, LuceneError> {
         let iterator = BitSetIterator::new(&self.bit_set, self.max_doc as i64)?;
         SingleValueDocValuesFieldUpdatesIterator::new(
             Some(iterator),
@@ -979,7 +979,7 @@ where
     }
 }
 
-impl<S> Iterator for SingleValueDocValuesFieldUpdatesIterator<'_, S>
+impl<S> DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator<'_, S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
 {

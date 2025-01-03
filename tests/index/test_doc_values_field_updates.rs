@@ -19,7 +19,7 @@ use crate::util::test_error::TestError;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use rlucene::index::doc_values_field_updates::{
-    merged_iterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase, Iterator,
+    merged_iterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase, DocValuesFieldIterator,
     SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,
 };
 use rlucene::index::numeric_doc_values_field_updates::{
