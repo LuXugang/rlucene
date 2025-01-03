@@ -18,6 +18,7 @@ use crate::common::my_random;
 use crate::util::base_doc_id_set_test_case::{
     BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
+use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rlucene::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
 use rlucene::util::bit_doc_id_set::BitDocIdSet;
@@ -27,7 +28,6 @@ use rlucene::util::fixed_bit_set::FixedBitSet;
 use rlucene::util::not_doc_id_set::NotDocIdSet;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
-use crate::util::test_error::TestError;
 
 struct TestNotDocIdSet;
 impl BaseDocIdSetTestCase for TestNotDocIdSet {
@@ -48,7 +48,7 @@ impl BaseDocIdSetTestCase for TestNotDocIdSet {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    )->Result<(),TestError> {
+    ) -> Result<(), TestError> {
         let bits2_wrap = ds2.bits();
         assert!(bits2_wrap.is_some());
         let bits = bits2_wrap.unwrap();
@@ -61,25 +61,25 @@ impl BaseDocIdSetTestCase for TestNotDocIdSet {
 }
 
 #[test]
-fn test_bit_0() ->Result<(),TestError> {
+fn test_bit_0() -> Result<(), TestError> {
     let test_case = TestNotDocIdSet;
     let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_bit_0(&mut random)
 }
 #[test]
-fn test_bit_1() ->Result<(),TestError> {
+fn test_bit_1() -> Result<(), TestError> {
     let test_case = TestNotDocIdSet;
     let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_bit_1(&mut random)
 }
 #[test]
-fn test_bit_2() ->Result<(),TestError> {
+fn test_bit_2() -> Result<(), TestError> {
     let test_case = TestNotDocIdSet;
     let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_bit_2(&mut random)
 }
 #[test]
-fn test_against_bit_set() ->Result<(),TestError> {
+fn test_against_bit_set() -> Result<(), TestError> {
     let test_case = TestNotDocIdSet;
     let mut random = my_random("test_not_doc_id_set".to_string());
     test_case.test_against_bit_set(&mut random)

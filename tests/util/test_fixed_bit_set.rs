@@ -279,7 +279,7 @@ fn do_iterate2(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Res
     Ok(())
 }
 
-fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32)->Result<(),TestError> {
+fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) -> Result<(), TestError> {
     // let max_size = random.gen_range(1200..=i32::MAX);
     let max_size = random.gen_range(1200..=100000);
     let mut a0: bit_set::BitSet = Default::default();
@@ -402,7 +402,7 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32)->Result<(),TestErro
 }
 
 #[test]
-fn test_small() ->Result<(),TestError>{
+fn test_small() -> Result<(), TestError> {
     let mut random = my_random("test_small".to_string());
     let iters = if is_night_mode() {
         random.gen_range(1000..100000)
@@ -625,7 +625,7 @@ fn test_intersection_count() {
 }
 
 #[test]
-fn test_and_not() ->Result<(),TestError>{
+fn test_and_not() -> Result<(), TestError> {
     let mut random = my_random("test_and_not".to_string());
 
     let num_bits2 = random.gen_range(1000..=2000);

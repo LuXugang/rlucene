@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::index::doc_values_field_updates::{
-    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldUpdatesBase,
-    DocValuesFieldIterator, SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
+    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
+    DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::BytesRef;
@@ -191,9 +191,6 @@ pub struct SingleValueNumericDocValuesFieldUpdates {
 impl SingleValueNumericDocValuesFieldUpdates {
     pub fn new(value: i64) -> SingleValueNumericDocValuesFieldUpdates {
         SingleValueNumericDocValuesFieldUpdates { value }
-    }
-    fn doc_values_type(&self) -> DocValuesType {
-        DocValuesType::Numeric
     }
 }
 impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUpdates {

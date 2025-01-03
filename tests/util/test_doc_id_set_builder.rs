@@ -84,7 +84,7 @@ fn assert_equals<T1: DocIdSet, T2: DocIdSet>(
 }
 
 #[test]
-fn test_sparse()->Result<(),TestError> {
+fn test_sparse() -> Result<(), TestError> {
     let mut random = my_random("test_sparse".to_string());
     let max_doc = 1000000 + random.gen_range(0..1000000);
     let mut builder = DocIdSetBuilder::new(max_doc);
@@ -116,7 +116,7 @@ fn test_sparse()->Result<(),TestError> {
     Ok(())
 }
 #[test]
-fn test_dense()->Result<(),TestError> {
+fn test_dense() -> Result<(), TestError> {
     let mut random = my_random("test_dense".to_string());
     let max_doc = 1000000 + random.gen_range(0..1000000);
     let mut builder = DocIdSetBuilder::new(max_doc);
@@ -214,7 +214,7 @@ fn test_random() -> Result<(), TestError> {
     Ok(())
 }
 #[test]
-fn test_misleading_disi_cost()->Result<(),TestError> {
+fn test_misleading_disi_cost() -> Result<(), TestError> {
     let mut random = my_random("test_misleading_disi_cost".to_string());
     let max_doc = random.gen_range(1000..=10000);
     let mut builder = DocIdSetBuilder::new(max_doc);
@@ -289,7 +289,7 @@ fn test_leverage_stats() {
 }
 
 #[test]
-fn test_cost_is_correct_after_bit_set_upgrade() ->Result<(),TestError>{
+fn test_cost_is_correct_after_bit_set_upgrade() -> Result<(), TestError> {
     let max_doc = 1000000;
     let mut builder = DocIdSetBuilder::new(max_doc);
     for i in 0..1000000 >> 6 {

@@ -28,13 +28,13 @@ use std::cmp::max;
 pub trait BaseDocIdSetTestCase {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet;
     /// Test length=0.
-    fn test_bit_0(&self, random: &mut StdRng)->Result<(),TestError> {
+    fn test_bit_0(&self, random: &mut StdRng) -> Result<(), TestError> {
         let bs = bit_set::BitSet::with_capacity(1);
         let copy = self.copy_of(&bs, 1);
         self.assert_equals(random, 1, &bs, copy)
     }
     /// Test length=1.
-    fn test_bit_1(&self, random: &mut StdRng)->Result<(),TestError> {
+    fn test_bit_1(&self, random: &mut StdRng) -> Result<(), TestError> {
         let mut bs = bit_set::BitSet::with_capacity(1);
         if random.gen_bool(0.5) {
             bs.insert(0);
@@ -43,7 +43,7 @@ pub trait BaseDocIdSetTestCase {
         self.assert_equals(random, 1, &bs, copy)
     }
     /// Test length=2.
-    fn test_bit_2(&self, random: &mut StdRng)->Result<(),TestError> {
+    fn test_bit_2(&self, random: &mut StdRng) -> Result<(), TestError> {
         let mut bs = bit_set::BitSet::with_capacity(2);
         if random.gen_bool(0.5) {
             bs.insert(0);
@@ -55,7 +55,7 @@ pub trait BaseDocIdSetTestCase {
         self.assert_equals(random, 2, &bs, copy)
     }
     /// Compare the content of the set against a {@link BitSet}.
-    fn test_against_bit_set(&self, random: &mut StdRng)->Result<(),TestError> {
+    fn test_against_bit_set(&self, random: &mut StdRng) -> Result<(), TestError> {
         let num_bits = random.gen_range(100..1 << 20);
         let random_float: f32 = random.gen();
         for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
@@ -103,7 +103,7 @@ pub trait BaseDocIdSetTestCase {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    )->Result<(),TestError>;
+    ) -> Result<(), TestError>;
 }
 // todo
 #[allow(unused)]

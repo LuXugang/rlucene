@@ -113,6 +113,7 @@ where
             sub_update,
         })
     }
+    #[allow(unused)]
     fn get_finished(&self) -> bool {
         self.inner.lock().unwrap().finished
     }
@@ -128,6 +129,7 @@ where
     }
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
+    #[allow(unused)]
     fn add_byte_ref(&mut self, doc: u32, value: BytesRef) -> Result<(), LuceneError> {
         let index = self.add(doc)?;
         self.sub_update.add_byte_ref(doc, value, index)
@@ -142,6 +144,7 @@ where
     /// This method prevents conditional calls to [`IteratorBase::long_value`] or
     /// [`IteratorBase::binary_value`], since the implementation knows whether it is
     /// a long value iterator or a binary value iterator.
+    #[allow(unused)]
     fn add_iterator<T>(&mut self, doc_id: u32, iterator: T) -> Result<(), LuceneError>
     where
         T: DocValuesFieldIterator,
@@ -235,12 +238,12 @@ where
         inner.size += 1;
         Ok(inner.size - 1)
     }
-    pub(crate) fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
-        self.sub_update.swap(i, j)?;
-        let mut inner = self.inner.lock().unwrap();
-        inner.swap(i, j)?;
-        Ok(())
-    }
+    // pub(crate) fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
+    //     self.sub_update.swap(i, j)?;
+    //     let mut inner = self.inner.lock().unwrap();
+    //     inner.swap(i, j)?;
+    //     Ok(())
+    // }
     pub fn grow(&mut self, size: u32) -> Result<(), LuceneError> {
         self.sub_update.grow(size)?;
         let mut inner = self.inner.lock().unwrap();
@@ -297,7 +300,11 @@ where
 pub trait DocValuesFieldUpdatesBase: Accountable {
     fn add_value(&mut self, doc: u32, value: i64, index: u32) -> Result<(), LuceneError>;
     fn add_byte_ref(&mut self, doc: u32, value: BytesRef, index: u32) -> Result<(), LuceneError>;
-    fn add_iterator<T: DocValuesFieldIterator>(&mut self, doc_id: u32, iterator: T) -> Result<(), LuceneError>;
+    fn add_iterator<T: DocValuesFieldIterator>(
+        &mut self,
+        doc_id: u32,
+        iterator: T,
+    ) -> Result<(), LuceneError>;
     /// Returns an iterator for updated documents and their values.
     fn iterator(
         &mut self,
@@ -598,8 +605,8 @@ impl<T> PartialEq for PriorityQueueIterator<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn eq(&self, other: &Self) -> bool {
-        todo!()
+    fn eq(&self, _other: &Self) -> bool {
+        unimplemented!("eq must be implemented if you need to use it")
     }
 }
 
@@ -739,8 +746,8 @@ impl<A> PartialEq for AbstractIterator<A>
 where
     A: AbstractIteratorBase + Default,
 {
-    fn eq(&self, other: &Self) -> bool {
-        todo!()
+    fn eq(&self, _other: &Self) -> bool {
+        unimplemented!("eq must be implemented if you need to use it")
     }
 }
 
@@ -858,7 +865,11 @@ where
         Ok(())
     }
 
-    fn add_iterator<T: DocValuesFieldIterator>(&mut self, _doc_id: u32, _iterator: T) -> Result<(), LuceneError> {
+    fn add_iterator<T: DocValuesFieldIterator>(
+        &mut self,
+        _doc_id: u32,
+        _iterator: T,
+    ) -> Result<(), LuceneError> {
         unreachable!("add_iterator is not supported")
     }
 
@@ -974,8 +985,8 @@ impl<S> PartialEq for SingleValueDocValuesFieldUpdatesIterator<'_, S>
 where
     S: Default + SingleValueDocValuesFieldUpdatesBase,
 {
-    fn eq(&self, other: &Self) -> bool {
-        todo!()
+    fn eq(&self, _other: &Self) -> bool {
+        unimplemented!("eq must be implemented if you need to use it")
     }
 }
 

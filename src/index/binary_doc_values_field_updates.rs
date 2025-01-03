@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::index::doc_values_field_updates::{
-    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldUpdatesBase,
-    DocValuesFieldIterator, PAGE_SIZE,
+    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
+    DocValuesFieldUpdatesBase, PAGE_SIZE,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -39,6 +39,7 @@ pub struct BinaryDocValuesFieldUpdates {
     lock: Arc<Mutex<()>>,
 }
 impl BinaryDocValuesFieldUpdates {
+    #[allow(unused)]
     fn new() -> Result<BinaryDocValuesFieldUpdates, LuceneError> {
         let sub_reader1 = PagedGrowableWriter::new_with_fill_page(1, PackedInts::FAST);
         let offsets = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader1)?;

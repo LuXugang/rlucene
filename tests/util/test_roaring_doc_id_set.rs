@@ -18,32 +18,32 @@ use crate::common::my_random;
 use crate::util::base_doc_id_set_test_case::{
     BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
+use crate::util::test_error::TestError;
 use rand::prelude::StdRng;
 use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
-use crate::util::test_error::TestError;
 
 struct TestRoaringDocIdSet;
 #[test]
-fn test_bit_0()  ->Result<(),TestError>{
+fn test_bit_0() -> Result<(), TestError> {
     let test_case = TestRoaringDocIdSet;
     let mut random = my_random("test_roaring_doc_id_set".to_string());
     test_case.test_bit_0(&mut random)
 }
 #[test]
-fn test_bit_1() ->Result<(),TestError> {
+fn test_bit_1() -> Result<(), TestError> {
     let test_case = TestRoaringDocIdSet;
     let mut random = my_random("test_roaring_doc_id_set".to_string());
     test_case.test_bit_1(&mut random)
 }
 #[test]
-fn test_bit_2() ->Result<(),TestError>{
+fn test_bit_2() -> Result<(), TestError> {
     let test_case = TestRoaringDocIdSet;
     let mut random = my_random("test_roaring_doc_id_set".to_string());
     test_case.test_bit_2(&mut random)
 }
 #[test]
-fn test_against_bit_set() -> Result<(),TestError> {
+fn test_against_bit_set() -> Result<(), TestError> {
     let test_case = TestRoaringDocIdSet;
     let mut random = my_random("test_roaring_doc_id_set".to_string());
     test_case.test_against_bit_set(&mut random)
@@ -70,7 +70,7 @@ impl BaseDocIdSetTestCase for TestRoaringDocIdSet {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    ) ->Result<(),TestError>{
+    ) -> Result<(), TestError> {
         BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
     }
 }

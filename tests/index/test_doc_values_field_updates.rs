@@ -19,7 +19,7 @@ use crate::util::test_error::TestError;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use rlucene::index::doc_values_field_updates::{
-    merged_iterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase, DocValuesFieldIterator,
+    merged_iterator, DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
     SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,
 };
 use rlucene::index::numeric_doc_values_field_updates::{
@@ -170,14 +170,14 @@ fn test_updates_and_reset_random() -> Result<(), TestError> {
     let num_updates = 10 + random.gen_range(0..100);
     let mut values: [Option<i32>; 5] = [None; 5];
 
-    for i in 0..5 {
+    for (i, value) in values.iter_mut().enumerate() {
         if random.gen_bool(0.5) {
-            values[i] = None;
+            *value = None;
             updates.reset(i as u32)?;
         } else {
-            let value = random.gen_range(0..100);
-            values[i] = Some(value);
-            updates.add_value(i as u32, value as i64)?;
+            let val = random.gen_range(0..100);
+            *value = Some(val);
+            updates.add_value(i as u32, val as i64)?;
         }
     }
 
@@ -232,28 +232,28 @@ fn test_shared_value_updates() -> Result<(), TestError> {
     let mut any = false;
     let no_reset = random.gen_bool(0.5);
 
-    for i in 0..max_doc as usize {
+    for (i, tmp_value) in values.iter_mut().enumerate() {
         if random.gen_bool(0.5) {
-            values[i] = Some(true);
+            *tmp_value = Some(true);
             any = true;
             update.add_value(i as u32, value)?;
         } else if random.gen_bool(0.5) && !no_reset {
-            values[i] = None;
+            *tmp_value = None;
             any = true;
             update.reset(i as u32)?;
         } else {
-            values[i] = Some(false);
+            *tmp_value = Some(false);
         }
     }
 
     if !no_reset {
-        for i in 0..values.len() {
+        for (i, tmp_value) in values.iter_mut().enumerate() {
             if rarely(&mut random) {
-                if values[i].is_none() {
-                    values[i] = Some(true);
+                if tmp_value.is_none() {
+                    *tmp_value = Some(true);
                     update.add_value(i as u32, value)?;
-                } else if values[i] == Some(true) {
-                    values[i] = None;
+                } else if *tmp_value == Some(true) {
+                    *tmp_value = None;
                     update.reset(i as u32)?;
                 }
             }
@@ -271,9 +271,9 @@ fn test_shared_value_updates() -> Result<(), TestError> {
         let doc = iterator.doc_id() as usize;
 
         if index < doc {
-            for idx in index..doc {
-                assert_eq!(values[idx], Some(false));
-            }
+            values[index..doc]
+                .iter()
+                .for_each(|value| assert_eq!(*value, Some(false)));
             index = doc;
         }
 
