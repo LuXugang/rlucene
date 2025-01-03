@@ -190,19 +190,19 @@ fn test_eof() -> Result<(), TestError> {
 
     // Test block read past end of file
     let mut result = check_read_bytes(&mut input, 11, pos as u64, &mut buffer);
-    assert!(matches!(result, Err(TestError::DataIOError(_))));
+    assert!(matches!(result, Err(TestError::LuceneError(_))));
 
     input.seek(pos as u64)?;
 
     result = check_read_bytes(&mut input, 50, pos as u64, &mut buffer);
     // Test large block read past end of file
-    assert!(matches!(result, Err(TestError::DataIOError(_))));
+    assert!(matches!(result, Err(TestError::LuceneError(_))));
 
     input.seek(pos as u64)?;
 
     result = check_read_bytes(&mut input, 100000, pos as u64, &mut buffer);
     // Test massive block read past end of file
-    assert!(matches!(result, Err(TestError::DataIOError(_))));
+    assert!(matches!(result, Err(TestError::LuceneError(_))));
 
     Ok(())
 }

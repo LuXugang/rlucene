@@ -55,7 +55,7 @@ pub enum TestError {
     IllegalState(#[from] IllegalStateError),
 
     #[error("{0}")]
-    DataIOError(#[from] LuceneError),
+    LuceneError(#[from] LuceneError),
 
     #[error("{0}")]
     VersionError(#[from] VersionError),

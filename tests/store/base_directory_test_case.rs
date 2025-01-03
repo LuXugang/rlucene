@@ -775,7 +775,7 @@ pub trait BaseDirectoryTestCase {
                                 // 忽略 AccessDenied 错误
                             }
                             Err(e) => {
-                                return Err(TestError::DataIOError(LuceneError::IoWithPath {
+                                return Err(TestError::LuceneError(LuceneError::IoWithPath {
                                     path: file.to_string(),
                                     source: Error::new(ErrorKind::Other, format!("{:?}", e)),
                                 }));
@@ -1721,25 +1721,25 @@ pub trait BaseDirectoryTestCase {
         // // Ensure `file_length` claims it's deleted
         // assert!(matches!(
         //     dir.file_length(&file_name),
-        //     Err(DataIOError::IoWithPath { .. })
+        //     Err(LuceneError::IoWithPath { .. })
         // ));
         //
         // // Ensure `rename` fails
         // assert!(matches!(
         //     dir.rename(&file_name, "file2"),
-        //     Err(DataIOError::IoWithPath { .. })
+        //     Err(LuceneError::IoWithPath { .. })
         // ));
         //
         // // Ensure `delete_file` fails
         // assert!(matches!(
         //     dir.delete_file(&file_name),
-        //     Err(DataIOError::IoWithPath { .. })
+        //     Err(LuceneError::IoWithPath { .. })
         // ));
         //
         // // Ensure we cannot open it for reading
         // assert!(matches!(
         //     dir.open_input(&file_name, IOContext::default_io_context()?),
-        //     Err(DataIOError::IoWithPath { .. })
+        //     Err(LuceneError::IoWithPath { .. })
         // ));
 
         Ok(())

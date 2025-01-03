@@ -110,7 +110,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     ///
     /// # Errors
     ///
-    /// Returns a `DataIOError` if `count` is invalid or if there is an issue reading the input.
+    /// Returns a `LuceneError` if `count` is invalid or if there is an issue reading the input.
     pub fn skip(&mut self, mut count: u64) -> Result<(), LuceneError> {
         if self.ord + count > self.value_count {
             return Err(LuceneError::eof("Attempt to skip past end of file"));

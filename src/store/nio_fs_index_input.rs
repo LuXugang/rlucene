@@ -93,7 +93,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
     ///
     /// # Errors
     ///
-    /// This method returns a `DataIOError` in the following cases:
+    /// This method returns a `LuceneError` in the following cases:
     ///
     /// * [`LuceneError::Eof`] - If the requested read range exceeds the file's bounds or if the file
     ///   unexpectedly reaches EOF during a read.

@@ -119,7 +119,7 @@ where
     ///
     /// # Returns
     /// * `Ok(())` - If the buffer is successfully refilled.
-    /// * `Err(DataIOError)` - If an error occurs during the refill operation, such as reaching EOF.
+    /// * `Err(LuceneError)` - If an error occurs during the refill operation, such as reaching EOF.
     ///
     /// # Behavior
     /// 1. Calculates the range `[start, end)` for data to be read from the underlying input.
@@ -133,7 +133,7 @@ where
     /// - The new valid data length is the sum of the unaligned bytes and the newly read bytes.
     ///
     /// # Errors
-    /// * Returns `DataIOError::eof` if no new data can be read from the underlying input.
+    /// * Returns `LuceneError::eof` if no new data can be read from the underlying input.
     fn refill(&mut self, remain_unaligned_bytes: u32, start: u64) -> Result<(), LuceneError> {
         // After the last read, some unaligned bytes remain in the buffer.
         let mut end = start + (self.buffer_size - remain_unaligned_bytes) as u64;
@@ -256,7 +256,7 @@ where
     ///
     /// # Returns
     /// * `Ok(())` - If the requested data is successfully read and converted.
-    /// * `Err(DataIOError)` - If an error occurs during reading, such as reaching EOF.
+    /// * `Err(LuceneError)` - If an error occurs during reading, such as reaching EOF.
     ///
     /// # Behavior
     /// - If `use_buffer` is `true` and the requested data fits in the buffer, it will be read directly from the buffer.
@@ -267,7 +267,7 @@ where
     ///
     /// # Errors
     /// This method may return the following errors:
-    /// * `DataIOError::eof` - If attempting to read beyond the end of the file or stream.
+    /// * `LuceneError::eof` - If attempting to read beyond the end of the file or stream.
     ///
     /// # Notes
     /// - The method assumes that the buffer's `refill` method ensures enough data is available for reading,
@@ -480,7 +480,7 @@ where
     ///
     /// # Returns
     /// * `Ok(pos)` - If the position is resolved successfully.
-    /// * `Err(DataIOError)` - If an error occurs while seeking or refilling the buffer.
+    /// * `Err(LuceneError)` - If an error occurs while seeking or refilling the buffer.
     ///
     /// # Behavior
     /// - If the position `pos` is within the current buffer and there is enough data for `width` bytes,

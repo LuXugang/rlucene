@@ -143,7 +143,7 @@ where
     ///
     /// # Errors
     ///
-    /// Returns a `DataIOError` if the file cannot be found or synchronized.
+    /// Returns a `LuceneError` if the file cannot be found or synchronized.
     pub fn fsync(&self, name: &str) -> Result<(), LuceneError> {
         IOUtils::fsync(&self.directory.join(name), false)
     }

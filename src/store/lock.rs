@@ -40,7 +40,7 @@ pub trait Lock: Display {
     /// filesystem is in use.
     ///
     /// # Errors
-    /// Returns an `DataIOError` if the lock is no longer valid.
+    /// Returns an `LuceneError` if the lock is no longer valid.
     fn ensure_valid(&self) -> Result<(), LuceneError>;
 }
 
