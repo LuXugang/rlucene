@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::codecs::Codec;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
@@ -25,6 +24,12 @@ use std::collections::HashSet;
 
 pub struct Lucene90LiveDocsFormat;
 
+impl Default for Lucene90LiveDocsFormat {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Lucene90LiveDocsFormat {
     pub fn new() -> Lucene90LiveDocsFormat {
         Lucene90LiveDocsFormat {}
@@ -32,29 +37,29 @@ impl Lucene90LiveDocsFormat {
 }
 
 impl LiveDocsFormat for Lucene90LiveDocsFormat {
-    fn read_live_docs<D: Directory, B: Bits, C: Codec>(
+    fn read_live_docs<D: Directory, B: Bits>(
         &self,
         dir: &D,
-        info: &SegmentCommitInfo<D, C>,
+        info: &SegmentCommitInfo<D>,
         context: &IOContext,
     ) -> Result<B, LuceneError> {
         todo!()
     }
 
-    fn write_live_docs<D: Directory, B: Bits, C: Codec>(
+    fn write_live_docs<D: Directory, B: Bits>(
         &self,
         bits: &B,
         dir: &mut D,
-        info: &SegmentCommitInfo<D, C>,
+        info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,
     ) -> Result<(), LuceneError> {
         todo!()
     }
 
-    fn files<D: Directory, C: Codec>(
+    fn files<D: Directory>(
         &self,
-        info: &SegmentCommitInfo<D, C>,
+        info: &SegmentCommitInfo<D>,
         files: &mut HashSet<String>,
     ) -> Result<(), LuceneError> {
         todo!()

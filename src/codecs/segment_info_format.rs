@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::Codec;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
@@ -40,21 +39,21 @@ pub trait SegmentInfoFormat {
     /// # Errors
     ///
     /// Returns an error if an I/O error occurs.
-    fn read<'a,D: Directory, C: Codec>(
+    fn read<'a, D: Directory>(
         &self,
         directory: &'a mut D,
         segment_name: &str,
         segment_id: Vec<u8>,
         context: &IOContext,
-    ) -> Result<SegmentInfo<'a,D, C>, LuceneError>;
+    ) -> Result<SegmentInfo<'a, D>, LuceneError>;
 
     /// Write [`SegmentInfo`] data.
     ///
     /// The codec must add its SegmentInfo filename(s) to `info` before doing I/O.
-    fn write<D: Directory, C: Codec>(
+    fn write<D: Directory>(
         &self,
         directory: &mut D,
-        info: &mut SegmentInfo<D, C>,
+        info: &mut SegmentInfo<D>,
         context: IOContext,
     ) -> Result<(), LuceneError>;
 }

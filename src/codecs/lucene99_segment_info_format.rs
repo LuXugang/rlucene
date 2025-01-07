@@ -17,7 +17,6 @@
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{
     check_footer, check_footer_with_error, check_index_header, write_footer, write_index_header,
-    Codec,
 };
 use crate::index::index_sorter::IndexSorter;
 use crate::index::segment_info::{SegmentInfo, NO, YES};
@@ -73,12 +72,12 @@ pub const VERSION_START: u32 = 0;
 pub const VERSION_CURRENT: u32 = VERSION_START;
 
 impl Lucene99SegmentInfoFormat {
-    fn parse_segment_info<'a, D: Directory, T: DataInput, C: Codec>(
+    fn parse_segment_info<'a, D: Directory, T: DataInput>(
         dir: &'a mut D,
         input: &mut T,
         segment: &str,
         segment_id: Vec<u8>,
-    ) -> Result<SegmentInfo<'a, D, C>, LuceneError> {
+    ) -> Result<SegmentInfo<'a, D>, LuceneError> {
         let major = input.read_int()?;
         debug_assert!(major >= 0);
         let minor = input.read_int()?;
@@ -160,9 +159,9 @@ impl Lucene99SegmentInfoFormat {
         si.set_files(files);
         Ok(si)
     }
-    fn write_segment_info<T: DataOutput, D: Directory, C: Codec>(
+    fn write_segment_info<T: DataOutput, D: Directory>(
         output: &mut T,
-        si: &SegmentInfo<D, C>,
+        si: &SegmentInfo<D>,
     ) -> Result<(), LuceneError> {
         let version_wrap = si.get_version();
         debug_assert!(version_wrap.is_some());
@@ -238,18 +237,18 @@ impl Lucene99SegmentInfoFormat {
 }
 
 impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
-    fn read<'a, D: Directory, C: Codec>(
+    fn read<'a, D: Directory>(
         &self,
         dir: &'a mut D,
         segment: &str,
         segment_id: Vec<u8>,
         _context: &IOContext,
-    ) -> Result<SegmentInfo<'a,D, C>, LuceneError> {
+    ) -> Result<SegmentInfo<'a, D>, LuceneError> {
         let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
         let mut input = dir.open_checksum_input(&file_name)?;
 
         let mut prior_e: Option<LuceneError> = None;
-        let mut si: Option<SegmentInfo<D, C>> = None;
+        let mut si: Option<SegmentInfo<D>> = None;
         {
             let result = {
                 let check_result = check_index_header(
@@ -282,13 +281,15 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         } else {
             check_footer(&mut input)?;
         }
-        si.ok_or_else(|| LuceneError::corrupt_index(format!("Failed to parse segment info for {}", segment)))
+        si.ok_or_else(|| {
+            LuceneError::corrupt_index(format!("Failed to parse segment info for {}", segment))
+        })
     }
 
-    fn write<D: Directory, C: Codec>(
+    fn write<D: Directory>(
         &self,
         dir: &mut D,
-        si: &mut SegmentInfo<D, C>,
+        si: &mut SegmentInfo<D>,
         io_context: IOContext,
     ) -> Result<(), LuceneError> {
         let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);

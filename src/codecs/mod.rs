@@ -20,7 +20,7 @@ pub mod compound_format;
 pub mod doc_values_format;
 pub mod field_infos_format;
 pub mod live_docs_format;
-mod lucene101_codec;
+pub mod lucene101_codec;
 mod lucene90_live_docs_format;
 mod lucene99_segment_info_format;
 mod segment_info_format;

@@ -23,13 +23,12 @@ use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
 
-pub struct SegmentCommitInfo<'a, D, C>
+pub struct SegmentCommitInfo<'a, D>
 where
     D: Directory,
-    C: Codec,
 {
     /// The SegmentInfo that we wrap.
-    pub info: &'a mut SegmentInfo<'a, D, C>,
+    pub info: &'a mut SegmentInfo<'a, D>,
 
     /// Id that uniquely identifies this segment commit.
     pub id: Vec<u8>,
@@ -70,10 +69,9 @@ where
     /// Used in memory by IndexWriter to track buffered deletes. Not persisted to disk.
     pub buffered_deletes_gen: i64,
 }
-impl<'a, D, C> SegmentCommitInfo<'a, D, C>
+impl<'a, D> SegmentCommitInfo<'a, D>
 where
     D: Directory,
-    C: Codec,
 {
     /// Sole constructor.
     ///
@@ -86,7 +84,7 @@ where
     /// - `Doc_values_gen`: DocValues generation number (used to name doc-values updates files).
     /// - `Id`: Id that uniquely identifies this segment commit.
     pub fn new(
-        info: &'a mut SegmentInfo<'a, D, C>,
+        info: &'a mut SegmentInfo<'a, D>,
         del_count: i32,
         soft_del_count: i32,
         del_gen: i64,
@@ -458,10 +456,9 @@ where
 }
 
 /// Implement `Display` for `SegmentCommitInfo`.
-impl<D, C> std::fmt::Display for SegmentCommitInfo<'_, D, C>
+impl<D> std::fmt::Display for SegmentCommitInfo<'_, D>
 where
     D: Directory,
-    C: Codec,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let result = self.to_string_with_pending_del_count(0);

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::Codec;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
@@ -33,28 +32,28 @@ pub trait LiveDocsFormat {
     ///
     /// # Returns
     /// A `Bits` implementation representing the live docs.
-    fn read_live_docs<D: Directory, B: Bits, C: Codec>(
+    fn read_live_docs<D: Directory, B: Bits>(
         &self,
         dir: &D,
-        info: &SegmentCommitInfo<D, C>,
+        info: &SegmentCommitInfo<D>,
         context: &IOContext,
     ) -> Result<B, LuceneError>;
 
     /// Persist live docs bits. Use [`SegmentCommitInfo#getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine the generation
     /// of the deletes file you should write to.
-    fn write_live_docs<D: Directory, B: Bits, C: Codec>(
+    fn write_live_docs<D: Directory, B: Bits>(
         &self,
         bits: &B,
         dir: &mut D,
-        info: &SegmentCommitInfo<D, C>,
+        info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,
     ) -> Result<(), LuceneError>;
 
     /// Records all files in use by this [`SegmentCommitInfo`](SegmentCommitInfo) into the files argument.
-    fn files<D: Directory, C: Codec>(
+    fn files<D: Directory>(
         &self,
-        info: &SegmentCommitInfo<D, C>,
+        info: &SegmentCommitInfo<D>,
         files: &mut HashSet<String>,
     ) -> Result<(), LuceneError>;
 }
