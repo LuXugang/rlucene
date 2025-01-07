@@ -101,7 +101,7 @@ impl Version {
             return Err(IllegalArgumentError::new(format!("Prerelease version only supported with major release (got prerelease: {}, minor: {}, bug_fix: {})", prerelease, minor, bug_fix)));
         }
         let encoded_value = (major << 18) | (minor << 10) | (bug_fix << 2) | prerelease;
-        debug_assert!(encoded_is_valid(
+        debug_assert!(Self::encoded_is_valid(
             major,
             minor,
             bug_fix,
@@ -120,6 +120,175 @@ impl Version {
     pub fn on_or_after(&self, other: Version) -> bool {
         self.encoded_value >= other.encoded_value
     }
+    /// Parses a version number of the form `"major.minor.bugfix.prerelease"`.
+    ///
+    /// The `.bugfix` and `.prerelease` parts are optional. Note that this is
+    /// forwards compatible: the parsed version does not have to exist as a constant.
+    ///
+    /// # Note
+    /// This is an internal API.
+    pub fn parse(version: &str) -> Result<Version, VersionError> {
+        let mut tokens = StrictStringTokenizer::new(version, '.');
+        if !tokens.has_more_tokens() {
+            return Err(VersionError::parse_error_with_pos(
+                format!(
+                    "Version is not in form major.minor.bugfix(.prerelease) (got: {})",
+                    version
+                ),
+                0,
+            ));
+        }
+        let mut token = tokens.next_token()?;
+        let major = token.parse::<u32>();
+        if major.is_err() {
+            return Err(VersionError::parse_int_error(
+                format!(
+                    "Failed to parse major version from {} (got: {})",
+                    token, version
+                ),
+                major.unwrap_err(),
+            ));
+        }
+        token = tokens.next_token()?;
+        let minor = token.parse::<u32>();
+        if minor.is_err() {
+            return Err(VersionError::parse_int_error(
+                format!(
+                    "Failed to parse minor version from {} (got: {})",
+                    token, version
+                ),
+                minor.unwrap_err(),
+            ));
+        }
+        let mut bug_fix_value: u32 = 0;
+        if tokens.has_more_tokens() {
+            token = tokens.next_token()?;
+            let bug_fix = token.parse::<u32>();
+            if bug_fix.is_err() {
+                return Err(VersionError::parse_int_error(
+                    format!(
+                        "Failed to parse bug fix version from {} (got: {})",
+                        token, version
+                    ),
+                    bug_fix.unwrap_err(),
+                ));
+            }
+            bug_fix_value = bug_fix.unwrap();
+        }
+        let mut prerelease_value: u32 = 0;
+        if tokens.has_more_tokens() {
+            token = tokens.next_token()?;
+            let prerelease = token.parse::<u32>();
+            if prerelease.is_err() {
+                return Err(VersionError::parse_int_error(
+                    format!(
+                        "Failed to parse pre-release version from {} (got: {})",
+                        token, version
+                    ),
+                    prerelease.unwrap_err(),
+                ));
+            }
+            prerelease_value = prerelease.unwrap();
+            if prerelease_value == 0 {
+                return Err(VersionError::parse_error_with_pos(
+                    format!(
+                        "Invalid value {}  for prerelease; should be 1 or 2 (got: {})",
+                        prerelease_value, version
+                    ),
+                    0,
+                ));
+            }
+            if tokens.has_more_tokens() {
+                // too many tokens!
+                return Err(VersionError::parse_error_with_pos(
+                    format!(
+                        "Version is not in form major.minor.bugfix(.prerelease) (got: {})",
+                        version
+                    ),
+                    0,
+                ));
+            }
+        }
+        let result = Version::new_with_prerelease(
+            major.unwrap(),
+            minor.unwrap(),
+            bug_fix_value,
+            prerelease_value,
+        );
+        if result.is_err() {
+            return Err(VersionError::parse_error_with_error(
+                format!("failed to parse version string {}", version),
+                result.unwrap_err(),
+            ));
+        }
+        debug_assert!(result.is_ok());
+        Ok(result?)
+    }
+    /// Parses the given version number as a constant or dot-based version.
+    ///
+    /// This method allows using `"LUCENE_X_Y"` constant names, or version numbers in the
+    /// format `"x.y.z"`.
+    ///
+    /// # Note
+    /// This is an internal API.
+    pub fn parse_leniently(version: &str) -> Result<Version, VersionError> {
+        let version_orig = version.to_string();
+        let version_upper = version.to_uppercase();
+
+        match version_upper.as_str() {
+            "LATEST" | "LUCENE_CURRENT" => Ok(LATEST.clone()),
+            _ => {
+                let mut version = version_upper.clone();
+                let patterns = [
+                    (r"^LUCENE_(\d+)_(\d+)_(\d+)$", "$1.$2.$3"),
+                    (r"^LUCENE_(\d+)_(\d+)$", "$1.$2.0"),
+                    (r"^LUCENE_(\d)(\d)$", "$1.$2.0"),
+                ];
+
+                for (pattern, replacement) in patterns.iter() {
+                    let re = Regex::new(pattern).unwrap();
+                    version = re.replace_all(&version, *replacement).to_string();
+                }
+
+                // Try parsing the modified version string
+                match Self::parse(&version) {
+                    Ok(v) => Ok(v),
+                    Err(e) => Err(VersionError::parse_error_with_pos(
+                        format!(
+                            "failed to parse lenient version string {}: {}",
+                            version_orig, e
+                        ),
+                        0,
+                    )),
+                }
+            }
+        }
+    }
+    /// Returns a new version based on raw numbers.
+    ///
+    /// # Note
+    /// This is an internal API.
+    pub fn from_bits(
+        major: u32,
+        minor: u32,
+        bug_fix: u32,
+    ) -> Result<Version, IllegalArgumentError> {
+        Version::new(major, minor, bug_fix)
+    }
+
+    fn encoded_is_valid(
+        major: u32,
+        minor: u32,
+        bug_fix: u32,
+        prerelease: u32,
+        encoded_value: u32,
+    ) -> bool {
+        debug_assert_eq!(major, (encoded_value >> 18) & 0xFF);
+        debug_assert_eq!(minor, (encoded_value >> 10) & 0xFF);
+        debug_assert_eq!(bug_fix, (encoded_value >> 2) & 0xFF);
+        debug_assert_eq!(prerelease, encoded_value & 0x03);
+        true
+    }
 }
 impl Display for Version {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -133,171 +302,6 @@ impl Display for Version {
             )
         }
     }
-}
-/// Parses a version number of the form `"major.minor.bugfix.prerelease"`.
-///
-/// The `.bugfix` and `.prerelease` parts are optional. Note that this is
-/// forwards compatible: the parsed version does not have to exist as a constant.
-///
-/// # Note
-/// This is an internal API.
-pub fn parse(version: &str) -> Result<Version, VersionError> {
-    let mut tokens = StrictStringTokenizer::new(version, '.');
-    if !tokens.has_more_tokens() {
-        return Err(VersionError::parse_error_with_pos(
-            format!(
-                "Version is not in form major.minor.bugfix(.prerelease) (got: {})",
-                version
-            ),
-            0,
-        ));
-    }
-    let mut token = tokens.next_token()?;
-    let major = token.parse::<u32>();
-    if major.is_err() {
-        return Err(VersionError::parse_int_error(
-            format!(
-                "Failed to parse major version from {} (got: {})",
-                token, version
-            ),
-            major.unwrap_err(),
-        ));
-    }
-    token = tokens.next_token()?;
-    let minor = token.parse::<u32>();
-    if minor.is_err() {
-        return Err(VersionError::parse_int_error(
-            format!(
-                "Failed to parse minor version from {} (got: {})",
-                token, version
-            ),
-            minor.unwrap_err(),
-        ));
-    }
-    let mut bug_fix_value: u32 = 0;
-    if tokens.has_more_tokens() {
-        token = tokens.next_token()?;
-        let bug_fix = token.parse::<u32>();
-        if bug_fix.is_err() {
-            return Err(VersionError::parse_int_error(
-                format!(
-                    "Failed to parse bug fix version from {} (got: {})",
-                    token, version
-                ),
-                bug_fix.unwrap_err(),
-            ));
-        }
-        bug_fix_value = bug_fix.unwrap();
-    }
-    let mut prerelease_value: u32 = 0;
-    if tokens.has_more_tokens() {
-        token = tokens.next_token()?;
-        let prerelease = token.parse::<u32>();
-        if prerelease.is_err() {
-            return Err(VersionError::parse_int_error(
-                format!(
-                    "Failed to parse pre-release version from {} (got: {})",
-                    token, version
-                ),
-                prerelease.unwrap_err(),
-            ));
-        }
-        prerelease_value = prerelease.unwrap();
-        if prerelease_value == 0 {
-            return Err(VersionError::parse_error_with_pos(
-                format!(
-                    "Invalid value {}  for prerelease; should be 1 or 2 (got: {})",
-                    prerelease_value, version
-                ),
-                0,
-            ));
-        }
-        if tokens.has_more_tokens() {
-            // too many tokens!
-            return Err(VersionError::parse_error_with_pos(
-                format!(
-                    "Version is not in form major.minor.bugfix(.prerelease) (got: {})",
-                    version
-                ),
-                0,
-            ));
-        }
-    }
-    let result = Version::new_with_prerelease(
-        major.unwrap(),
-        minor.unwrap(),
-        bug_fix_value,
-        prerelease_value,
-    );
-    if result.is_err() {
-        return Err(VersionError::parse_error_with_error(
-            format!("failed to parse version string {}", version),
-            result.unwrap_err(),
-        ));
-    }
-    debug_assert!(result.is_ok());
-    Ok(result?)
-}
-/// Parses the given version number as a constant or dot-based version.
-///
-/// This method allows using `"LUCENE_X_Y"` constant names, or version numbers in the
-/// format `"x.y.z"`.
-///
-/// # Note
-/// This is an internal API.
-pub fn parse_leniently(version: &str) -> Result<Version, VersionError> {
-    let version_orig = version.to_string();
-    let version_upper = version.to_uppercase();
-
-    match version_upper.as_str() {
-        "LATEST" | "LUCENE_CURRENT" => Ok(LATEST.clone()),
-        _ => {
-            let mut version = version_upper.clone();
-            let patterns = [
-                (r"^LUCENE_(\d+)_(\d+)_(\d+)$", "$1.$2.$3"),
-                (r"^LUCENE_(\d+)_(\d+)$", "$1.$2.0"),
-                (r"^LUCENE_(\d)(\d)$", "$1.$2.0"),
-            ];
-
-            for (pattern, replacement) in patterns.iter() {
-                let re = Regex::new(pattern).unwrap();
-                version = re.replace_all(&version, *replacement).to_string();
-            }
-
-            // Try parsing the modified version string
-            match parse(&version) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(VersionError::parse_error_with_pos(
-                    format!(
-                        "failed to parse lenient version string {}: {}",
-                        version_orig, e
-                    ),
-                    0,
-                )),
-            }
-        }
-    }
-}
-/// Returns a new version based on raw numbers.
-///
-/// # Note
-/// This is an internal API.
-pub fn from_bits(major: u32, minor: u32, bug_fix: u32) -> Result<Version, IllegalArgumentError> {
-    Version::new(major, minor, bug_fix)
-}
-
-fn encoded_is_valid(
-    major: u32,
-    minor: u32,
-    bug_fix: u32,
-    prerelease: u32,
-    encoded_value: u32,
-) -> bool {
-    debug_assert_eq!(major, (encoded_value >> 18) & 0xFF);
-    debug_assert_eq!(minor, (encoded_value >> 10) & 0xFF);
-    debug_assert_eq!(bug_fix, (encoded_value >> 2) & 0xFF);
-    debug_assert_eq!(prerelease, encoded_value & 0x03);
-    true
 }
 
 #[derive(Debug, Error)]

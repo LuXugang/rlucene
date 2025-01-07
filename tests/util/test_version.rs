@@ -18,8 +18,7 @@ use crate::common::my_random;
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::util::version::{
-    from_bits, parse, parse_leniently, LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0,
-    LUCENE_CURRENT,
+    Version, LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0, LUCENE_CURRENT,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -38,14 +37,14 @@ fn test_on_or_after() -> Result<(), TestError> {
         );
     }
 
-    assert!(LUCENE_11_0_0.on_or_after(from_bits(9, 0, 0)?));
+    assert!(LUCENE_11_0_0.on_or_after(Version::from_bits(9, 0, 0)?));
     assert!(LUCENE_11_0_0.on_or_after(LUCENE_10_0_0.clone()));
     assert!(LUCENE_11_0_0.on_or_after(LUCENE_10_1_0.clone()));
     Ok(())
 }
 #[test]
 fn test_to_string() -> Result<(), TestError> {
-    assert_eq!(from_bits(9, 0, 0)?.to_string(), "9.0.0");
+    assert_eq!(Version::from_bits(9, 0, 0)?.to_string(), "9.0.0");
     assert_eq!(LUCENE_10_0_0.to_string(), "10.0.0");
     assert_eq!(LUCENE_10_1_0.to_string(), "10.1.0");
     assert_eq!(LUCENE_11_0_0.to_string(), "11.0.0");
@@ -54,26 +53,26 @@ fn test_to_string() -> Result<(), TestError> {
 
 #[test]
 fn test_parse_leniently() -> Result<(), TestError> {
-    assert_eq!(parse_leniently("11.0")?, *LUCENE_11_0_0);
-    assert_eq!(parse_leniently("11.0.0")?, *LUCENE_11_0_0);
-    assert_eq!(parse_leniently("LUCENE_11_0")?, *LUCENE_11_0_0);
-    assert_eq!(parse_leniently("LUCENE_11_0_0")?, *LUCENE_11_0_0);
+    assert_eq!(Version::parse_leniently("11.0")?, *LUCENE_11_0_0);
+    assert_eq!(Version::parse_leniently("11.0.0")?, *LUCENE_11_0_0);
+    assert_eq!(Version::parse_leniently("LUCENE_11_0")?, *LUCENE_11_0_0);
+    assert_eq!(Version::parse_leniently("LUCENE_11_0_0")?, *LUCENE_11_0_0);
 
-    assert_eq!(parse_leniently("10.0")?, *LUCENE_10_0_0);
-    assert_eq!(parse_leniently("10.0.0")?, *LUCENE_10_0_0);
-    assert_eq!(parse_leniently("LUCENE_10_0")?, *LUCENE_10_0_0);
-    assert_eq!(parse_leniently("LUCENE_10_0_0")?, *LUCENE_10_0_0);
+    assert_eq!(Version::parse_leniently("10.0")?, *LUCENE_10_0_0);
+    assert_eq!(Version::parse_leniently("10.0.0")?, *LUCENE_10_0_0);
+    assert_eq!(Version::parse_leniently("LUCENE_10_0")?, *LUCENE_10_0_0);
+    assert_eq!(Version::parse_leniently("LUCENE_10_0_0")?, *LUCENE_10_0_0);
 
-    assert_eq!(parse_leniently("LATEST")?, *LATEST);
-    assert_eq!(parse_leniently("latest")?, *LATEST);
-    assert_eq!(parse_leniently("LUCENE_CURRENT")?, *LATEST);
-    assert_eq!(parse_leniently("lucene_current")?, *LATEST);
+    assert_eq!(Version::parse_leniently("LATEST")?, *LATEST);
+    assert_eq!(Version::parse_leniently("latest")?, *LATEST);
+    assert_eq!(Version::parse_leniently("LUCENE_CURRENT")?, *LATEST);
+    assert_eq!(Version::parse_leniently("lucene_current")?, *LATEST);
 
     Ok(())
 }
 #[test]
 fn test_parse_leniently_exceptions() {
-    let result = parse_leniently("LUCENE");
+    let result = Version::parse_leniently("LUCENE");
     assert!(result.is_err(), "Expected 'LUCENE' to return an error");
     let error = result.unwrap_err();
     assert!(
@@ -82,7 +81,7 @@ fn test_parse_leniently_exceptions() {
         error
     );
 
-    let result = parse_leniently("LUCENE_610");
+    let result = Version::parse_leniently("LUCENE_610");
     assert!(result.is_err(), "Expected 'LUCENE_610' to return an error");
     let error = result.unwrap_err();
     assert!(
@@ -91,7 +90,7 @@ fn test_parse_leniently_exceptions() {
         error
     );
 
-    let result = parse_leniently("LUCENE61");
+    let result = Version::parse_leniently("LUCENE61");
     assert!(result.is_err(), "Expected 'LUCENE61' to return an error");
     let error = result.unwrap_err();
     assert!(
@@ -100,7 +99,7 @@ fn test_parse_leniently_exceptions() {
         error
     );
 
-    let result = parse_leniently("LUCENE_7.0.0");
+    let result = Version::parse_leniently("LUCENE_7.0.0");
     assert!(
         result.is_err(),
         "Expected 'LUCENE_7.0.0' to return an error"
@@ -128,19 +127,19 @@ fn test_parse_leniently_on_all_constants() -> Result<(), TestError> {
         at_least_one = true;
         assert_eq!(
             *version,
-            parse_leniently(name)?,
+            Version::parse_leniently(name)?,
             "parse_leniently failed for {}",
             name
         );
         assert_eq!(
             *version,
-            parse_leniently(&name.to_lowercase())?,
+            Version::parse_leniently(&name.to_lowercase())?,
             "parse_leniently failed for {}",
             name.to_lowercase()
         );
         assert_eq!(
             *version,
-            parse_leniently(&version.to_string())?,
+            Version::parse_leniently(&version.to_string())?,
             "parse_leniently failed for {}",
             version
         );
@@ -151,19 +150,19 @@ fn test_parse_leniently_on_all_constants() -> Result<(), TestError> {
 }
 #[test]
 fn test_parse() -> Result<(), TestError> {
-    assert_eq!(parse("10.0.0")?, *LUCENE_10_0_0);
-    assert_eq!(parse("11.0.0")?, *LUCENE_11_0_0);
+    assert_eq!(Version::parse("10.0.0")?, *LUCENE_10_0_0);
+    assert_eq!(Version::parse("11.0.0")?, *LUCENE_11_0_0);
 
-    assert_eq!(parse("1.0")?.major, 1);
-    assert_eq!(parse("7.0.0")?.major, 7);
+    assert_eq!(Version::parse("1.0")?.major, 1);
+    assert_eq!(Version::parse("7.0.0")?.major, 7);
     Ok(())
 }
 
 #[test]
 fn test_forwards_compatibility() -> Result<(), TestError> {
-    assert!(parse("11.10.20")?.on_or_after(LUCENE_11_0_0.clone()));
-    assert!(parse("10.10.20")?.on_or_after(LUCENE_10_0_0.clone()));
-    assert!(parse("9.10.20")?.on_or_after(from_bits(9, 0, 0)?));
+    assert!(Version::parse("11.10.20")?.on_or_after(LUCENE_11_0_0.clone()));
+    assert!(Version::parse("10.10.20")?.on_or_after(LUCENE_10_0_0.clone()));
+    assert!(Version::parse("9.10.20")?.on_or_after(Version::from_bits(9, 0, 0)?));
     Ok(())
 }
 #[test]
@@ -188,7 +187,7 @@ fn test_parse_exceptions() {
     }
 }
 fn check_parse_error(input: &str) {
-    let result = parse(input);
+    let result = Version::parse(input);
     assert!(
         result.is_err(),
         "Expected '{}' to return an error, but it succeeded",
@@ -204,31 +203,31 @@ fn check_parse_error(input: &str) {
 }
 #[test]
 fn test_non_floating_point_compliant_version_numbers() -> Result<(), TestError> {
-    let version800 = parse("8.0.0")?;
+    let version800 = Version::parse("8.0.0")?;
     assert!(
-        parse("8.10.0")?.on_or_after(version800.clone()),
+        Version::parse("8.10.0")?.on_or_after(version800.clone()),
         "Expected 8.10.0 to be on or after 8.0.0"
     );
     assert!(
-        parse("8.10.0")?.on_or_after(parse("8.9.255")?),
+        Version::parse("8.10.0")?.on_or_after(Version::parse("8.9.255")?),
         "Expected 8.10.0 to be on or after 8.9.255"
     );
     assert!(
-        parse("8.128.0")?.on_or_after(version800.clone()),
+        Version::parse("8.128.0")?.on_or_after(version800.clone()),
         "Expected 8.128.0 to be on or after 8.0.0"
     );
     assert!(
-        parse("8.255.0")?.on_or_after(version800.clone()),
+        Version::parse("8.255.0")?.on_or_after(version800.clone()),
         "Expected 8.255.0 to be on or after 8.0.0"
     );
 
-    let version400 = parse("4.0.0")?;
+    let version400 = Version::parse("4.0.0")?;
     assert!(
         version800.on_or_after(version400.clone()),
         "Expected 8.0.0 to be on or after 4.0.0"
     );
     assert!(
-        parse("8.128.0")?.on_or_after(version400.clone()),
+        Version::parse("8.128.0")?.on_or_after(version400.clone()),
         "Expected 8.128.0 to be on or after 4.0.0"
     );
     assert!(
@@ -250,8 +249,8 @@ fn test_equals_hash_code() -> Result<(), TestError> {
         random.gen_range(0..10)
     );
 
-    let v1 = parse_leniently(&version)?;
-    let v2 = parse_leniently(&version)?;
+    let v1 = Version::parse_leniently(&version)?;
+    let v2 = Version::parse_leniently(&version)?;
     let mut hasher1 = DefaultHasher::new();
     let mut hasher2 = DefaultHasher::new();
     v1.hash(&mut hasher1);
@@ -269,7 +268,7 @@ fn test_equals_hash_code() -> Result<(), TestError> {
         );
 
         if v == version {
-            let version = parse_leniently(&v)?;
+            let version = Version::parse_leniently(&v)?;
             let mut hasher_3 = DefaultHasher::new();
             version.hash(&mut hasher_3);
 
@@ -280,14 +279,14 @@ fn test_equals_hash_code() -> Result<(), TestError> {
                 v
             );
             assert_eq!(
-                parse_leniently(&v)?,
+                Version::parse_leniently(&v)?,
                 v1,
                 "Expected parsed '{}' to equal v1",
                 v
             );
         } else {
             assert_ne!(
-                parse_leniently(&v)?,
+                Version::parse_leniently(&v)?,
                 v1,
                 "Expected parsed '{}' not to equal v1",
                 v
