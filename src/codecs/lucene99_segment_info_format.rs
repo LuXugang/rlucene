@@ -14,17 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod codec;
-pub mod codec_util;
-pub mod compound_format;
-pub mod doc_values_format;
-pub mod field_infos_format;
-pub mod live_docs_format;
-mod lucene101_codec;
-mod lucene90_live_docs_format;
-mod lucene99_segment_info_format;
-mod segment_info_format;
-pub mod simple_text_live_docs_format;
+use crate::codecs::segment_info_format::SegmentInfoFormat;
+use crate::codecs::Codec;
+use crate::index::segment_info::SegmentInfo;
+use crate::store::directory::Directory;
+use crate::store::IOContext;
+use crate::util::error::lucene_error::LuceneError;
 
-pub use codec::*;
-pub use codec_util::*;
+#[allow(dead_code)]
+pub struct Lucene99SegmentInfoFormat;
+
+impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
+    fn read<D: Directory, C: Codec>(
+        &self,
+        directory: &D,
+        segment_name: &str,
+        segment_id: &[u8],
+        context: &IOContext,
+    ) -> Result<SegmentInfo<D, C>, LuceneError> {
+        todo!()
+    }
+
+    fn write<D: Directory, C: Codec>(
+        &self,
+        directory: &D,
+        info: &SegmentInfo<D, C>,
+        context: &IOContext,
+    ) -> Result<(), LuceneError> {
+        todo!()
+    }
+}

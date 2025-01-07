@@ -14,17 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod codec;
-pub mod codec_util;
-pub mod compound_format;
-pub mod doc_values_format;
-pub mod field_infos_format;
-pub mod live_docs_format;
-mod lucene101_codec;
-mod lucene90_live_docs_format;
-mod lucene99_segment_info_format;
-mod segment_info_format;
-pub mod simple_text_live_docs_format;
+use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
+use crate::codecs::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
+use crate::codecs::Codec;
 
-pub use codec::*;
-pub use codec_util::*;
+pub struct Lucene101Codec;
+
+impl Codec for Lucene101Codec {
+    type SegmentInfoFormat = Lucene99SegmentInfoFormat;
+    type LiveDocsFormat = Lucene90LiveDocsFormat;
+
+    fn segment_info_format(&self) -> &Self::SegmentInfoFormat {
+        todo!()
+    }
+
+    fn live_docs_format(&self) -> &Self::LiveDocsFormat {
+        todo!()
+    }
+
+    fn get_name(&self) -> &str {
+        todo!()
+    }
+}

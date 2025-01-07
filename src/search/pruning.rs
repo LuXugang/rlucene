@@ -14,17 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod codec;
-pub mod codec_util;
-pub mod compound_format;
-pub mod doc_values_format;
-pub mod field_infos_format;
-pub mod live_docs_format;
-mod lucene101_codec;
-mod lucene90_live_docs_format;
-mod lucene99_segment_info_format;
-mod segment_info_format;
-pub mod simple_text_live_docs_format;
-
-pub use codec::*;
-pub use codec_util::*;
+/// Controls how [`LeafFieldComparator`](crate::search::leaf_field_comparator::LeafFieldComparator) skips documents.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Pruning {
+    /// Not allowed to skip documents.
+    None,
+    /// Allowed to skip documents that compare strictly better than the top value,
+    /// or strictly worse than the bottom value.
+    GreaterThan,
+    /// Allowed to skip documents that compare better than the top value,
+    /// or worse than or equal to the bottom value.
+    GreaterThanOrEqualTo,
+}

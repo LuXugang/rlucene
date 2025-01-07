@@ -224,6 +224,17 @@ impl DocIdSetIterator for Range {
     }
 }
 
+pub struct DummyDISI;
+impl DocIdSetIterator for DummyDISI {
+    fn doc_id(&self) -> i32 {
+        unreachable!()
+    }
+
+    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+        unreachable!()
+    }
+}
+
 /// When returned by [`next_doc`](DocIdSetIterator::next_doc), [`advance`](DocIdSetIterator::advance), and [`doc_id`](DocIdSetIterator::doc_id),
 /// it means there are no more documents in the iterator.
 pub const NO_MORE_DOCS: i32 = i32::MAX;

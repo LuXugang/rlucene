@@ -30,6 +30,7 @@ mod documents_writer_delete_queue;
 pub mod index_deletion_policy;
 pub mod index_file_names;
 pub mod index_options;
+pub mod index_sorter;
 pub mod index_writer;
 mod leaf_metadata;
 pub mod leaf_reader_context;

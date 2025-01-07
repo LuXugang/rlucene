@@ -16,4 +16,11 @@
  */
 pub mod doc_id_set;
 pub mod doc_id_set_iterator;
+pub mod field_comparator;
+pub mod field_comparator_source;
+mod field_value_hit_queue;
+pub mod leaf_field_comparator;
+mod pruning;
+pub mod scorable;
 pub mod score_mode;
+pub mod sort_field;
