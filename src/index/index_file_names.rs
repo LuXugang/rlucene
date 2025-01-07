@@ -46,9 +46,12 @@ impl IndexFileNames {
     /// * `base` - Main part of the file name.
     /// * `ext` - Extension of the filename.
     /// * `gen` - Generation.
-    pub fn file_name_from_generation(base: &str, ext: &str, gen: u64) -> String {
+    pub fn file_name_from_generation(base: &str, ext: &str, gen: i64) -> Option<String> {
+        if gen == -1 {
+            return None;
+        }
         if gen == 0 {
-            IndexFileNames::segment_file_name(base, "", ext)
+            Option::from(IndexFileNames::segment_file_name(base, "", ext))
         } else {
             // base-36
             let gen_str = format!("{:x}", gen);
@@ -61,7 +64,7 @@ impl IndexFileNames {
                 res.push('.');
                 res.push_str(ext);
             }
-            res
+            Option::from(res)
         }
     }
     /// Returns a file name that includes the given `segment_name`, your own custom `name`, and `extension`.

@@ -17,8 +17,11 @@
 pub mod codec;
 pub mod codec_util;
 pub mod compound_format;
+pub mod doc_values_format;
+pub mod field_infos_format;
 pub mod live_docs_format;
-mod simple_text_codec;
-mod simple_text_live_docs_format;
+pub mod simple_text_codec;
+pub mod simple_text_live_docs_format;
 
 pub use codec::*;
+pub use codec_util::*;

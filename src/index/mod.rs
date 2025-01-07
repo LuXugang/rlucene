@@ -27,14 +27,17 @@ pub mod doc_values_iterator;
 pub mod doc_values_type;
 pub mod docs_with_field_set;
 mod documents_writer_delete_queue;
+pub mod index_deletion_policy;
 pub mod index_file_names;
 pub mod index_options;
+pub mod index_writer;
 mod leaf_metadata;
 pub mod leaf_reader_context;
 pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
 pub mod segment_commit_info;
 pub mod segment_info;
+pub mod segment_infos;
 pub mod sort;
 
 pub use index_file_names::*;

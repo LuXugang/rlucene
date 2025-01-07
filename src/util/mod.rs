@@ -83,3 +83,4 @@ pub use strict_string_tokenizer::*;
 pub use string_helper::*;
 pub use string_sorter::*;
 pub use vec_copy_ops::*;
+pub use version::*;

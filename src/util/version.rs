@@ -43,6 +43,11 @@ pub static ref LATEST:Version = LUCENE_11_0_0.clone();
 pub static ref LUCENE_CURRENT:Version =  LATEST.clone();
 pub static ref MIN_SUPPORTED_MAJOR:u32= LATEST.major - 1;
 }
+impl Display for LATEST {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.bug_fix)
+    }
+}
 /// Used by certain classes to match version compatibility across releases of Lucene.
 ///
 /// # Warning

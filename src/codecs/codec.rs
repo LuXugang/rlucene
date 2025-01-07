@@ -18,4 +18,6 @@ use crate::codecs::live_docs_format::LiveDocsFormat;
 
 pub trait Codec {
     fn live_docs_format(&self) -> impl LiveDocsFormat;
+
+    fn get_name(&self) -> &str;
 }
