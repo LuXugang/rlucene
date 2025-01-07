@@ -122,7 +122,7 @@ impl Version {
         })
     }
     /// Returns true if this version is the same or after the version from the argument.
-    pub fn on_or_after(&self, other: Version) -> bool {
+    pub fn on_or_after(&self, other: &Version) -> bool {
         self.encoded_value >= other.encoded_value
     }
     /// Parses a version number of the form `"major.minor.bugfix.prerelease"`.

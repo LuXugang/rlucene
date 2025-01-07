@@ -31,15 +31,15 @@ fn test_on_or_after() -> Result<(), TestError> {
 
     for version in versions {
         assert!(
-            LATEST.on_or_after(version.clone()),
+            LATEST.on_or_after(version),
             "LATEST must always be on_or_after({})",
             version
         );
     }
 
-    assert!(LUCENE_11_0_0.on_or_after(Version::from_bits(9, 0, 0)?));
-    assert!(LUCENE_11_0_0.on_or_after(LUCENE_10_0_0.clone()));
-    assert!(LUCENE_11_0_0.on_or_after(LUCENE_10_1_0.clone()));
+    assert!(LUCENE_11_0_0.on_or_after(&Version::from_bits(9, 0, 0)?));
+    assert!(LUCENE_11_0_0.on_or_after(&LUCENE_10_0_0));
+    assert!(LUCENE_11_0_0.on_or_after(&LUCENE_10_1_0));
     Ok(())
 }
 #[test]
@@ -160,9 +160,9 @@ fn test_parse() -> Result<(), TestError> {
 
 #[test]
 fn test_forwards_compatibility() -> Result<(), TestError> {
-    assert!(Version::parse("11.10.20")?.on_or_after(LUCENE_11_0_0.clone()));
-    assert!(Version::parse("10.10.20")?.on_or_after(LUCENE_10_0_0.clone()));
-    assert!(Version::parse("9.10.20")?.on_or_after(Version::from_bits(9, 0, 0)?));
+    assert!(Version::parse("11.10.20")?.on_or_after(&LUCENE_11_0_0));
+    assert!(Version::parse("10.10.20")?.on_or_after(&LUCENE_10_0_0));
+    assert!(Version::parse("9.10.20")?.on_or_after(&Version::from_bits(9, 0, 0)?));
     Ok(())
 }
 #[test]
@@ -205,33 +205,33 @@ fn check_parse_error(input: &str) {
 fn test_non_floating_point_compliant_version_numbers() -> Result<(), TestError> {
     let version800 = Version::parse("8.0.0")?;
     assert!(
-        Version::parse("8.10.0")?.on_or_after(version800.clone()),
+        Version::parse("8.10.0")?.on_or_after(&version800),
         "Expected 8.10.0 to be on or after 8.0.0"
     );
     assert!(
-        Version::parse("8.10.0")?.on_or_after(Version::parse("8.9.255")?),
+        Version::parse("8.10.0")?.on_or_after(&Version::parse("8.9.255")?),
         "Expected 8.10.0 to be on or after 8.9.255"
     );
     assert!(
-        Version::parse("8.128.0")?.on_or_after(version800.clone()),
+        Version::parse("8.128.0")?.on_or_after(&version800),
         "Expected 8.128.0 to be on or after 8.0.0"
     );
     assert!(
-        Version::parse("8.255.0")?.on_or_after(version800.clone()),
+        Version::parse("8.255.0")?.on_or_after(&version800),
         "Expected 8.255.0 to be on or after 8.0.0"
     );
 
     let version400 = Version::parse("4.0.0")?;
     assert!(
-        version800.on_or_after(version400.clone()),
+        version800.on_or_after(&version400),
         "Expected 8.0.0 to be on or after 4.0.0"
     );
     assert!(
-        Version::parse("8.128.0")?.on_or_after(version400.clone()),
+        Version::parse("8.128.0")?.on_or_after(&version400),
         "Expected 8.128.0 to be on or after 4.0.0"
     );
     assert!(
-        !version400.on_or_after(version800.clone()),
+        !version400.on_or_after(&version800),
         "Expected 4.0.0 not to be on or after 8.0.0"
     );
 
