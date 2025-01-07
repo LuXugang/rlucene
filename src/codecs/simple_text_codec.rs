@@ -14,5 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[allow(unused)]
-pub struct Codec;
+use crate::codecs::codec::Codec;
+use crate::codecs::live_docs_format::LiveDocsFormat;
+use crate::codecs::simple_text_live_docs_format::SimpleTextLiveDocsFormat;
+
+pub struct SimpleTextCodec;
+impl Codec for SimpleTextCodec {
+    fn live_docs_format(&self) -> impl LiveDocsFormat {
+        SimpleTextLiveDocsFormat
+    }
+}

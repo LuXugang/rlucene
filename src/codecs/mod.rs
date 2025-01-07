@@ -14,5 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod codec;
 pub mod codec_util;
 pub mod compound_format;
+pub mod live_docs_format;
+mod simple_text_codec;
+mod simple_text_live_docs_format;
+
+pub use codec::*;

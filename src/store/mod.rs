@@ -29,7 +29,6 @@ pub mod byte_buffers_index_input;
 pub mod byte_buffers_index_output;
 pub mod check_sum_index_input;
 pub mod checksum;
-pub mod codec;
 pub mod data_input;
 pub mod data_input_type;
 pub mod data_output;

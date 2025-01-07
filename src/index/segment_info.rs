@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::codec::Codec;
 use crate::index::sort::Sort;
 use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
-use crate::store::codec::Codec;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::version::Version;
@@ -35,9 +35,10 @@ pub const YES: i32 = 1; // e.g. have norms; have deletes;
 ///
 /// # Experimental
 /// This API is experimental and may change in future releases.
-pub struct SegmentInfo<'a, D>
+pub struct SegmentInfo<'a, D, C>
 where
     D: Directory,
+    C: Codec,
 {
     /// Unique segment name in the directory.
     pub name: String,
@@ -47,7 +48,7 @@ where
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
     id: Vec<u8>,
-    codec: Option<Codec>,
+    pub(crate) codec: Option<C>,
     diagnostics: HashMap<String, String>,
     attributes: Arc<Mutex<HashMap<String, String>>>,
     index_sort: Option<Sort>,
@@ -66,9 +67,10 @@ where
     set_files: Option<HashSet<String>>,
 }
 
-impl<'a, D> SegmentInfo<'a, D>
+impl<'a, D, C> SegmentInfo<'a, D, C>
 where
     D: Directory,
+    C: Codec,
 {
     /// Constructs a new complete `SegmentInfo` instance from input.
     ///
@@ -100,12 +102,12 @@ where
         max_doc: Option<u32>,
         is_compound_file: bool,
         has_blocks: bool,
-        codec: Option<Codec>,
+        codec: Option<C>,
         diagnostics: HashMap<String, String>,
         id: Vec<u8>,
         attributes: HashMap<String, String>,
         index_sort: Option<Sort>,
-    ) -> Result<SegmentInfo<D>, LuceneError> {
+    ) -> Result<SegmentInfo<D, C>, LuceneError> {
         // debug_assert!(
         //     !dir.is::<TrackingDirectoryWrapper>(),
         //     "dir should not be a TrackingDirectoryWrapper"
@@ -130,9 +132,10 @@ where
         })
     }
 }
-impl<'a, D> SegmentInfo<'a, D>
+impl<D, C> SegmentInfo<'_, D, C>
 where
     D: Directory,
+    C: Codec,
 {
     /// Sets the diagnostics map. The given map is cloned to ensure immutability.
     pub fn set_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
@@ -183,7 +186,7 @@ where
         self.has_blocks = true;
     }
     /// Can only be called once to set the codec
-    pub fn set_codec(&mut self, codec: Codec) -> Result<(), LuceneError> {
+    pub fn set_codec(&mut self, codec: C) -> Result<(), LuceneError> {
         if self.codec.is_some() {
             return Err(LuceneError::illegal_argument(
                 "Codec was already set".to_string(),
@@ -194,7 +197,7 @@ where
     }
 
     /// Returns the Codec that wrote this segment
-    pub fn get_codec(&self) -> &Option<Codec> {
+    pub fn get_codec(&self) -> &Option<C> {
         &self.codec
     }
 
@@ -392,9 +395,10 @@ where
         self.index_sort.as_ref()
     }
 }
-impl<D> Display for SegmentInfo<'_, D>
+impl<D, C> Display for SegmentInfo<'_, D, C>
 where
     D: Directory,
+    C: Codec,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.to_string(0) {
@@ -403,14 +407,27 @@ where
         }
     }
 }
-impl<D: Directory> PartialEq for SegmentInfo<'_, D> {
+impl<D, C> PartialEq for SegmentInfo<'_, D, C>
+where
+    D: Directory,
+    C: Codec,
+{
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.dir, other.dir) && self.name == other.name
     }
 }
 
-impl<D: Directory> Eq for SegmentInfo<'_, D> {}
-impl<D: Directory> Hash for SegmentInfo<'_, D> {
+impl<D, C> Eq for SegmentInfo<'_, D, C>
+where
+    D: Directory,
+    C: Codec,
+{
+}
+impl<D, C> Hash for SegmentInfo<'_, D, C>
+where
+    D: Directory,
+    C: Codec,
+{
     fn hash<H: Hasher>(&self, state: &mut H) {
         let dir_address = (self.dir as *const D) as usize;
         state.write_usize(dir_address);
