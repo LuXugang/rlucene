@@ -19,6 +19,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::LuceneError;
+
 /// Expert: Controls the format of the [`SegmentInfo`] (segment metadata file).
 ///
 /// # See Also
@@ -39,21 +40,21 @@ pub trait SegmentInfoFormat {
     /// # Errors
     ///
     /// Returns an error if an I/O error occurs.
-    fn read<D: Directory, C: Codec>(
+    fn read<'a,D: Directory, C: Codec>(
         &self,
-        directory: &D,
+        directory: &'a mut D,
         segment_name: &str,
-        segment_id: &[u8],
+        segment_id: Vec<u8>,
         context: &IOContext,
-    ) -> Result<SegmentInfo<D, C>, LuceneError>;
+    ) -> Result<SegmentInfo<'a,D, C>, LuceneError>;
 
     /// Write [`SegmentInfo`] data.
     ///
     /// The codec must add its SegmentInfo filename(s) to `info` before doing I/O.
     fn write<D: Directory, C: Codec>(
         &self,
-        directory: &D,
-        info: &SegmentInfo<D, C>,
-        context: &IOContext,
+        directory: &mut D,
+        info: &mut SegmentInfo<D, C>,
+        context: IOContext,
     ) -> Result<(), LuceneError>;
 }

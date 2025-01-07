@@ -59,11 +59,11 @@ pub struct Version {
     /// Major version, the difference between stable and trunk.
     pub major: u32,
     /// Minor version, incremented within the stable branch.
-    minor: u32,
+    pub minor: u32,
     /// Bugfix number, incremented on release branches.
-    bug_fix: u32,
+    pub bug_fix: u32,
     /// Prerelease version, currently 0 (alpha), 1 (beta), or 2 (final).
-    prerelease: u32,
+    pub(crate) prerelease: u32,
     encoded_value: u32,
 }
 impl Version {

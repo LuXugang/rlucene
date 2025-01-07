@@ -15,9 +15,12 @@
  * limitations under the License.
  */
 use crate::index::index_sorter::{
-    DoubleSorter, FloatSorter, IndexSortEnum, IndexSorter, IntSorter, LongSorter, StringSorter,
+    DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
 };
+use crate::index::sort_field_provider::SortFieldProvider;
+use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
+use std::fmt::Display;
 
 pub struct SortField {
     fields: String,
@@ -52,29 +55,48 @@ impl SortField {
     pub fn get_index_sorter(&self) -> Option<IndexSortEnum> {
         match self.field_type {
             Type::Int => Some(IndexSortEnum::ISorter(IntSorter {
-                provider_name: Provider::NAME.to_string(),
+                provider_name: Provider::SORT_FIELD_NAME.to_string(),
             })),
             Type::Float => Some(IndexSortEnum::FSorter(FloatSorter {
-                provider_name: Provider::NAME.to_string(),
+                provider_name: Provider::SORT_FIELD_NAME.to_string(),
             })),
             Type::Long => Some(IndexSortEnum::LSorter(LongSorter {
-                provider_name: Provider::NAME.to_string(),
+                provider_name: Provider::SORT_FIELD_NAME.to_string(),
             })),
             Type::Double => Some(IndexSortEnum::DSorter(DoubleSorter {
-                provider_name: Provider::NAME.to_string(),
+                provider_name: Provider::SORT_FIELD_NAME.to_string(),
             })),
             Type::String => Some(IndexSortEnum::SSorter(StringSorter {
-                provider_name: Provider::NAME.to_string(),
+                provider_name: Provider::SORT_FIELD_NAME.to_string(),
             })),
             _ => None,
         }
     }
 }
 
+impl Display for SortField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 pub struct Provider;
 impl Provider {
     /// The name this Provider is registered under.
-    pub const NAME: &'static str = "SortField";
+    pub const SORT_FIELD_NAME: &'static str = "SortField";
+}
+impl SortFieldProvider for Provider {
+    fn read_sort_field<D: DataInput>(&self, data_input: &mut D) -> Result<SortField, LuceneError> {
+        todo!()
+    }
+
+    fn write_sort_field<D: DataOutput>(
+        &self,
+        sf: &SortField,
+        output: &mut D,
+    ) -> Result<(), LuceneError> {
+        todo!()
+    }
 }
 
 /// Specifies the type of the terms to be sorted, or special types such as `CUSTOM`.

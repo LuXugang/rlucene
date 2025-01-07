@@ -157,8 +157,8 @@ where
 
     /// Returns diagnostics saved into the segment when it was written.
     /// The map is immutable.
-    pub fn get_diagnostics(&self) -> HashMap<String, String> {
-        self.diagnostics.clone()
+    pub fn get_diagnostics(&self) -> &HashMap<String, String> {
+        &self.diagnostics
     }
     /// Marks whether this segment is stored as a compound file.
     ///

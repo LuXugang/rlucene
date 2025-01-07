@@ -39,5 +39,6 @@ pub mod numeric_doc_values_field_updates;
 pub mod segment_commit_info;
 pub mod segment_info;
 pub mod sort;
+pub mod sort_field_provider;
 
 pub use index_file_names::*;
