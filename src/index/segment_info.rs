@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 use crate::index::sort::Sort;
+use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
 use crate::store::codec::Codec;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::version::Version;
 use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
-use std::task::Poll;
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
 
 /// Used by some member fields to mean not present (e.g., norms, deletions).
 pub const NO: i32 = -1; // e.g. no norms; no deletes;
@@ -46,14 +49,14 @@ where
     id: Vec<u8>,
     codec: Option<Codec>,
     diagnostics: HashMap<String, String>,
-    attributes: HashMap<String, String>,
+    attributes: Arc<Mutex<HashMap<String, String>>>,
     index_sort: Option<Sort>,
     /// Tracks the Lucene version this segment was created with, since 3.1.
     /// Null indicates an older than 3.0 index, and it's used to detect a too-old index.
     /// The format expected is "x.y" - "2.x" for pre-3.0 indexes (or null), and
     /// specific versions afterwards ("3.0.0", "3.1.0" etc.).
     /// See `Version` for details.
-    version: Version,
+    version: Option<Version>,
     /// Tracks the minimum version that contributed documents to a segment.
     /// For flush segments, that is the version that wrote it.
     /// For merged segments, this is the minimum `min_version` of all the segments that have been merged
@@ -91,7 +94,7 @@ where
     /// * `dir` is a `TrackingDirectoryWrapper`.
     pub fn new(
         dir: &'a mut D,
-        version: Version,
+        version: Option<Version>,
         min_version: Option<Version>,
         name: String,
         max_doc: Option<u32>,
@@ -121,7 +124,7 @@ where
             codec,
             diagnostics,
             id,
-            attributes,
+            attributes: Arc::new(Mutex::new(attributes)),
             index_sort,
             set_files: None,
         })
@@ -234,5 +237,183 @@ where
     /// Sets the files for this segment
     pub fn set_files(&mut self, files: HashSet<String>) {
         self.set_files = Some(files);
+    }
+    /// Converts this segment information into a formatted string with deletions count.
+    ///
+    /// # Arguments
+    ///
+    /// * `del_count` - Number of deletions in the segment.
+    ///
+    /// # Format
+    ///
+    /// `_a(3.1):c45/4:[sorter=<long: "timestamp">!]`
+    ///
+    /// - `_a`: The segment's name.
+    /// - `(3.1)`: Lucene version used to create the segment (`?` if unknown).
+    /// - `c`: Indicates the compound file format (`C` if not compound).
+    /// - `45`: Number of documents in the segment.
+    /// - `/4`: Number of deletions (only present if deletions exist).
+    /// - `[sorter=<long: "timestamp">!]`: Indicates the segment is sorted by the `timestamp` field in descending order (optional, omitted for unsorted segments).
+    pub fn to_string(&self, del_count: i32) -> Result<String, LuceneError> {
+        let mut s = String::new();
+        s.push_str(&self.name);
+
+        // 处理 version 字段
+        s.push('(');
+        s.push_str(
+            &self
+                .version
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "?".to_string()),
+        );
+        s.push(')');
+
+        let cfs = if self.is_compound_file { 'c' } else { 'C' };
+        s.push(':');
+        s.push(cfs);
+
+        s.push_str(&self.max_doc.as_ref().unwrap().to_string());
+
+        if del_count != 0 {
+            s.push('/');
+            s.push_str(&del_count.to_string());
+        }
+
+        if let Some(index_sort) = &self.index_sort {
+            s.push_str(":[indexSort=");
+            s.push_str(&index_sort.to_string());
+            s.push(']');
+        }
+
+        if !self.diagnostics.is_empty() {
+            s.push_str(":[diagnostics=");
+            s.push_str(&format!("{:?}", self.diagnostics));
+            s.push(']');
+        }
+
+        if !self.attributes.lock().unwrap().is_empty() {
+            s.push_str(":[attributes=");
+            s.push_str(&format!("{:?}", self.attributes));
+            s.push(']');
+        }
+        Ok(s)
+    }
+    /// Returns the version of the code which wrote the segment.
+    pub fn get_version(&self) -> Option<&Version> {
+        self.version.as_ref()
+    }
+
+    /// Returns the minimum Lucene version that contributed documents to this segment, or `None`
+    /// if it is unknown.
+    pub fn get_min_version(&self) -> Option<&Version> {
+        self.min_version.as_ref()
+    }
+
+    /// Returns the id that uniquely identifies this segment.
+    pub fn get_id(&self) -> Vec<u8> {
+        self.id.clone()
+    }
+
+    /// Add these files to the set of files written for this segment.
+    pub fn add_files(&mut self, files: HashSet<String>) -> Result<(), LuceneError> {
+        self.check_file_names(&files)?;
+        debug_assert!(self.set_files.is_some());
+        let transformed_files: HashSet<String> = files
+            .into_iter()
+            .map(|file| self.named_for_this_segment(file))
+            .collect();
+        if let Some(set_files) = &mut self.set_files {
+            for file in transformed_files {
+                set_files.insert(file);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Add this file to the set of files written for this segment.
+    pub fn add_file(&mut self, file: String) -> Result<(), LuceneError> {
+        self.add_files(HashSet::from([file]))
+    }
+
+    fn check_file_names(&self, files: &HashSet<String>) -> Result<(), LuceneError> {
+        for file in files {
+            // Check if the file name matches the codec file pattern
+            if !CODEC_FILE_PATTERN.is_match(file) {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Invalid codec filename '{}', must match: {}",
+                    file,
+                    CODEC_FILE_PATTERN.as_str()
+                )));
+            }
+
+            if file.to_lowercase().ends_with(".tmp") {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Invalid codec filename '{}', cannot end with .tmp extension",
+                    file
+                )));
+            }
+        }
+
+        Ok(())
+    }
+    /// Strips any segment name from the file and renames it with this segment.
+    /// This is because "segment names" can change, e.g., by addIndexes(Dir).
+    pub fn named_for_this_segment(&self, file: String) -> String {
+        format!("{}{}", self.name, IndexFileNames::strip_segment_name(&file))
+    }
+    /// Get a codec attribute value, or None if it does not exist.
+    pub fn get_attribute(&self, key: &str) -> Option<String> {
+        let attributes = self.attributes.lock().unwrap();
+        attributes.get(key).cloned()
+    }
+    /// Puts a codec attribute value.
+    ///
+    /// This is a key-value mapping for the field that the codec can use to store additional
+    /// metadata, and will be available to the codec when reading the segment via `get_attribute`.
+    ///
+    /// If a value already exists for the field, it will be replaced with the new value. This method
+    /// ensures thread safety by making a copy-on-write for every attribute change.
+    pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
+        // This needs to be thread-safe because multiple threads may be updating (different) attributes
+        // at the same time due to concurrent merging, plus some threads may be calling toString() on
+        // segment info while other threads are updating attributes.
+        self.attributes.lock().unwrap().insert(key, value)
+    }
+    /// Returns the internal codec attributes map.
+    pub fn get_attributes(&self) -> HashMap<String, String> {
+        let attributes = self.attributes.lock().unwrap();
+        attributes.clone()
+    }
+
+    /// Returns the sort order of this segment, or None if the index has no sort.
+    pub fn get_index_sort(&self) -> Option<&Sort> {
+        self.index_sort.as_ref()
+    }
+}
+impl<D> Display for SegmentInfo<'_, D>
+where
+    D: Directory,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.to_string(0) {
+            Ok(result) => write!(f, "{}", result),
+            Err(e) => write!(f, "SegmentInfo display Error: {:?}", e),
+        }
+    }
+}
+impl<D: Directory> PartialEq for SegmentInfo<'_, D> {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.dir, other.dir) && self.name == other.name
+    }
+}
+
+impl<D: Directory> Eq for SegmentInfo<'_, D> {}
+impl<D: Directory> Hash for SegmentInfo<'_, D> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let dir_address = (self.dir as *const D) as usize;
+        state.write_usize(dir_address);
+        self.name.hash(state);
     }
 }
