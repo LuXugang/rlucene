@@ -183,7 +183,7 @@ fn test_check_footer_invalid() -> Result<(), TestError> {
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
         CodecUtil::write_header(&mut output, "FooBar", 5)?;
         output.write_string("this is the data")?;
-        CodecUtil::write_be_int(&mut output, CodecUtil::FOOTER_MAGIC)?;
+        CodecUtil::write_be_int(&mut output, CodecUtil::FOOTER_MAGIC as i32)?;
         CodecUtil::write_be_int(&mut output, 0)?;
         CodecUtil::write_be_long(&mut output, 1234567)?; // write a bogus checksum
     }

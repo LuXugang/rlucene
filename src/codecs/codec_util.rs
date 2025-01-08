@@ -83,9 +83,9 @@ impl CodecUtil {
                 codec
             )));
         }
-        Self::write_be_int(out, CodecUtil::CODEC_MAGIC)?;
+        Self::write_be_int(out, CodecUtil::CODEC_MAGIC as i32)?;
         out.write_string(codec)?;
-        Self::write_be_int(out, version)?;
+        Self::write_be_int(out, version as i32)?;
         Ok(())
     }
 
@@ -331,9 +331,9 @@ impl CodecUtil {
         let suffix_length = data_in.read_byte()?;
         let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_length as usize];
         data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as u32)?;
-        Self::write_be_int(data_out, CodecUtil::CODEC_MAGIC)?;
+        Self::write_be_int(data_out, CodecUtil::CODEC_MAGIC as i32)?;
         data_out.write_string(&codec)?;
-        Self::write_be_int(data_out, version)?;
+        Self::write_be_int(data_out, version as i32)?;
         data_out.write_bytes_range(expected_id, 0, StringHelper::ID_LENGTH)?;
         data_out.write_byte(suffix_length)?;
         data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as u32)?;
@@ -443,7 +443,7 @@ impl CodecUtil {
     /// # Errors
     /// - `IoError`: If there is an I/O error writing to the underlying medium.
     pub fn write_footer(out: &mut impl IndexOutput) -> Result<(), LuceneError> {
-        Self::write_be_int(out, CodecUtil::FOOTER_MAGIC)?;
+        Self::write_be_int(out, CodecUtil::FOOTER_MAGIC as i32)?;
         Self::write_be_int(out, 0)?;
         Self::write_crc(out)?;
         Ok(())
@@ -715,7 +715,7 @@ impl CodecUtil {
     }
 
     /// Writes an integer value to the header or footer in big-endian order.
-    pub fn write_be_int(out: &mut impl DataOutput, i: u32) -> Result<(), LuceneError> {
+    pub fn write_be_int(out: &mut impl DataOutput, i: i32) -> Result<(), LuceneError> {
         let bytes = [
             ((i >> 24) & 0xFF) as u8,
             ((i >> 16) & 0xFF) as u8,
