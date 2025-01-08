@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::segment_info_format::SegmentInfoFormat;
-use crate::codecs::{
-    check_footer, check_footer_with_error, check_index_header, write_footer, write_index_header,
-};
+use crate::codecs::CodecUtil;
 use crate::index::index_sorter::IndexSorter;
 use crate::index::segment_info::{SegmentInfo, NO, YES};
 use crate::index::sort::Sort;
@@ -37,16 +35,16 @@ use crate::util::Version;
 /// # Data Types
 ///
 /// - **Header** --> [`CodecUtil::write_index_header`](crate::codecs::codec_util::write_index_header)
-/// - **SegSize** --> [`DataOutput::write_int`](crate::store::data_output::DataOutput::write_int) (Int32)
-/// - **SegVersion** --> [`DataOutput::write_string`](crate::store::data_output::DataOutput::write_string) (String)
-/// - **SegMinVersion** --> [`DataOutput::write_string`](crate::store::data_output::DataOutput::write_string) (String)
-/// - **Files** --> [`DataOutput::write_set_of_strings`](crate::store::data_output::DataOutput::write_set_of_strings) (Set<String>)
-/// - **Diagnostics**, **Attributes** --> [`DataOutput::write_map_of_strings`](crate::store::data_output::DataOutput::write_map_of_strings) (Map<String, String>)
-/// - **IsCompoundFile** --> [`DataOutput::write_byte`](crate::store::data_output::DataOutput::write_byte) (Int8)
-/// - **HasBlocks** --> [`DataOutput::write_byte`](crate::store::data_output::DataOutput::write_byte) (Int8)
-/// - **IndexSort** --> [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint) (Int32) count, followed by `count` SortField
-/// - **SortField** --> [`DataOutput::write_string`](crate::store::data_output::DataOutput::write_string) (String) sort class, followed by a per-sort bytestream
-///   (see [`SortFieldProvider::read_sort_field`](crate::index::sort_field_provider::SortFieldProvider::read_sort_field))
+/// - **SegSize** --> [`DataOutput::write_int`](DataOutput::write_int) (Int32)
+/// - **SegVersion** --> [`DataOutput::write_string`](DataOutput::write_string) (String)
+/// - **SegMinVersion** --> [`DataOutput::write_string`](DataOutput::write_string) (String)
+/// - **Files** --> [`DataOutput::write_set_of_strings`](DataOutput::write_set_of_strings) (Set<String>)
+/// - **Diagnostics**, **Attributes** --> [`DataOutput::write_map_of_strings`](DataOutput::write_map_of_strings) (Map<String, String>)
+/// - **IsCompoundFile** --> [`DataOutput::write_byte`](DataOutput::write_byte) (Int8)
+/// - **HasBlocks** --> [`DataOutput::write_byte`](DataOutput::write_byte) (Int8)
+/// - **IndexSort** --> [`DataOutput::write_vint`](DataOutput::write_vint) (Int32) count, followed by `count` SortField
+/// - **SortField** --> [`DataOutput::write_string`](DataOutput::write_string) (String) sort class, followed by a per-sort bytestream
+///   (see [`SortFieldProvider::read_sort_field`](SortFieldProvider::read_sort_field))
 /// - **Footer** --> [`CodecUtil::write_footer`](crate::codecs::codec_util::write_footer)
 ///
 /// # Field Descriptions
@@ -251,7 +249,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         let mut si: Option<SegmentInfo<D>> = None;
         {
             let result = {
-                let check_result = check_index_header(
+                let check_result = CodecUtil::check_index_header(
                     &mut input,
                     CODEC_NAME,
                     VERSION_START,
@@ -277,9 +275,9 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
             }
         }
         if prior_e.is_some() {
-            check_footer_with_error(&mut input, &mut prior_e.unwrap())?;
+            CodecUtil::check_footer_with_error(&mut input, &mut prior_e.unwrap())?;
         } else {
-            check_footer(&mut input)?;
+            CodecUtil::check_footer(&mut input)?;
         }
         si.ok_or_else(|| {
             LuceneError::corrupt_index(format!("Failed to parse segment info for {}", segment))
@@ -295,7 +293,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
         let mut output = dir.create_output(&file_name, io_context)?;
         si.add_file(file_name.clone())?;
-        write_index_header(
+        CodecUtil::write_index_header(
             &mut output,
             CODEC_NAME,
             VERSION_CURRENT,
@@ -303,8 +301,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
             "",
         )?;
         Self::write_segment_info(&mut output, si)?;
-        write_footer(&mut output)?;
-
+        CodecUtil::write_footer(&mut output)?;
         Ok(())
     }
 }
