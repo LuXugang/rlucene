@@ -32,7 +32,7 @@ pub mod index_file_names;
 pub mod index_options;
 pub mod index_sorter;
 pub mod index_writer;
-mod leaf_metadata;
+pub mod leaf_metadata;
 pub mod leaf_reader_context;
 pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;

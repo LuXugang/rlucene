@@ -18,7 +18,7 @@ use crate::search::field_comparator::FieldComparator;
 use crate::search::pruning::Pruning;
 use crate::util::error::lucene_error::LuceneError;
 
-/// Provides a [`FieldComparator`](FieldComparator)
+/// Provides a [`FieldComparator`]
 /// for custom field sorting.
 ///
 /// # Lucene Experimental
@@ -33,7 +33,7 @@ pub trait FieldComparatorSource {
     /// - `reversed`: Whether the sorting should be reversed.
     ///
     /// # Returns
-    /// A new [`FieldComparator`](FieldComparator) instance.
+    /// A new [`FieldComparator`] instance.
     ///
     /// # Errors
     /// Returns an error if the comparator could not be created due to I/O issues or invalid parameters.

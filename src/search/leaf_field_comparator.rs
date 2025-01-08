@@ -31,11 +31,11 @@ use crate::util::error::lucene_error::LuceneError;
 ///   the queue.
 /// - [`compare_top`](LeafFieldComparator::compare_top) Compare a new hit (docID) against the top value previously set by a
 ///   call to [`FieldComparator::set_top_value`](crate::search::field_comparator::FieldComparator::set_top_value).
-/// - [`copy`] Installs a new hit into the priority queue. The [`FieldValueHitQueue`](crate::search::field_value_hit_queue::FieldValueHitQueue)
+/// - [`copy`](LeafFieldComparator::copy) Installs a new hit into the priority queue. The [`FieldValueHitQueue`](crate::search::field_value_hit_queue::FieldValueHitQueue)
 ///   calls this method when a new hit is competitive.
 ///
 /// # See Also
-/// - [`FieldComparator`]
+/// - [`FieldComparator`](crate::search::field_comparator::FieldComparator)
 ///
 /// # Lucene Experimental
 /// This API is experimental and may change in future versions.

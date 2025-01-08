@@ -24,7 +24,7 @@ use regex::Regex;
 /// [`segment_file_name`](IndexFileNames::segment_file_name)).
 ///
 /// # Note
-/// Extensions used by codecs are not listed here. You must interact with the [`Codec`](crate::store::codec::Codec) directly.
+/// Extensions used by codecs are not listed here. You must interact with the [`Codec`](crate::codecs::Codec) directly.
 ///
 /// # Note
 /// This is an internal API.

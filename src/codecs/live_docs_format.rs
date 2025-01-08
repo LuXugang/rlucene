@@ -50,7 +50,7 @@ pub trait LiveDocsFormat {
         context: &IOContext,
     ) -> Result<(), LuceneError>;
 
-    /// Records all files in use by this [`SegmentCommitInfo`](SegmentCommitInfo) into the files argument.
+    /// Records all files in use by this [`SegmentCommitInfo`] into the files argument.
     fn files<D: Directory>(
         &self,
         info: &SegmentCommitInfo<D>,

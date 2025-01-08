@@ -39,7 +39,7 @@ impl CodecUtil {
     /// Constant to identify the start of a codec footer.
     pub const FOOTER_MAGIC: u32 = !Self::CODEC_MAGIC;
     /// Writes a codec header, which records both a string to identify the file and a version number.
-    /// This header can be parsed and validated with [`check_header`].
+    /// This header can be parsed and validated with [`check_header`](CodecUtil::check_header).
     ///
     /// # Format
     /// `CodecHeader -> Magic, CodecName, Version`
@@ -56,7 +56,7 @@ impl CodecUtil {
     ///
     /// # Notes
     /// The length of a codec header depends only on the name of the codec. This length can be computed
-    /// at any time with [`header_length`].
+    /// at any time with [`header_length`](CodecUtil::header_length).
     ///
     /// # Parameters
     /// - `out`: The output stream to write to.
@@ -69,8 +69,8 @@ impl CodecUtil {
     /// - `IllegalArgumentError`: If the codec name is not simple ASCII or is more than 127 characters in length.
     ///
     /// # See Also
-    /// - [`check_header`]
-    /// - [`header_length`]
+    /// - [`check_header`](CodecUtil::check_header)
+    /// - [`header_length`](CodecUtil::header_length)
     pub fn write_header(
         out: &mut impl DataOutput,
         codec: &str,
@@ -90,7 +90,7 @@ impl CodecUtil {
     }
 
     /// Writes a codec header, which records both a string to identify the file and a version number.
-    /// This header can be parsed and validated with [`check_header`].
+    /// This header can be parsed and validated with [`check_header`](CodecUtil::check_header).
     ///
     /// # Format
     /// `CodecHeader -> Magic, CodecName, Version`
@@ -107,7 +107,7 @@ impl CodecUtil {
     ///
     /// # Notes
     /// The length of a codec header depends only on the name of the codec. This length can be computed
-    /// at any time with [`header_length`].
+    /// at any time with [`header_length`](CodecUtil::header_length).
     ///
     /// # Parameters
     /// - `out`: The output stream.
@@ -120,8 +120,8 @@ impl CodecUtil {
     /// - Returns an error if the codec name is not simple ASCII or exceeds 127 characters in length.
     ///
     /// # See Also
-    /// - [`check_header`]
-    /// - [`header_length`]
+    /// - [`check_header`](CodecUtil::check_header)
+    /// - [`header_length`](CodecUtil::header_length)
     pub fn write_index_header(
         out: &mut impl DataOutput,
         codec: &str,
@@ -161,7 +161,7 @@ impl CodecUtil {
     /// The length of the entire codec header.
     ///
     /// # See Also
-    /// - [`write_header`]
+    /// - [`write_header`](CodecUtil::write_header)
     pub fn header_length(codec: &str) -> u32 {
         9 + codec.len() as u32
     }
@@ -174,11 +174,11 @@ impl CodecUtil {
     /// The length of the entire index header.
     ///
     /// # See Also
-    /// - [`write_index_header`]
+    /// - [`write_index_header`](CodecUtil::write_index_header)
     pub fn index_header_length(codec: &str, suffix: &str) -> u32 {
         Self::header_length(codec) + StringHelper::ID_LENGTH + 1 + (suffix.len() as u32)
     }
-    /// Reads and validates a header previously written with [`write_header`].
+    /// Reads and validates a header previously written with [`write_header`](CodecUtil::write_header).
     ///
     /// When reading a file, supply the expected `codec` and an expected version range
     /// (`min_version` to `max_version`).
@@ -201,7 +201,7 @@ impl CodecUtil {
     /// - `IoError`: If there is an I/O error reading from the underlying medium.
     ///
     /// # See Also
-    /// - [`write_header`]
+    /// - [`write_header`](CodecUtil::write_header)
     pub fn check_header(
         data_input: &mut impl DataInput,
         codec: &str,
@@ -218,11 +218,11 @@ impl CodecUtil {
         }
         Self::check_header_no_magic(data_input, codec, min_version, max_version)
     }
-    /// Similar to [`check_header`], except this version assumes the first `u32`
+    /// Similar to [`check_header`](CodecUtil::check_header), except this version assumes the first `u32`
     /// has already been read and validated from the input.
     ///
     /// # See Also
-    /// - [`check_header`]
+    /// - [`check_header`](CodecUtil::check_header)
     pub fn check_header_no_magic(
         data_input: &mut impl DataInput,
         codec: &str,
@@ -248,7 +248,7 @@ impl CodecUtil {
         }
         Ok(actual_version)
     }
-    /// Reads and validates a header previously written with [`write_index_header`].
+    /// Reads and validates a header previously written with [`write_index_header`](CodecUtil::write_index_header).
     ///
     /// When reading a file, supply the expected `codec`, expected version range (`min_version` to
     /// `max_version`), object ID, and suffix.
@@ -274,7 +274,7 @@ impl CodecUtil {
     /// - `IoError`: If there is an I/O error reading from the underlying medium.
     ///
     /// # See Also
-    /// - [`write_index_header`]
+    /// - [`write_index_header`](CodecUtil::write_index_header)
     pub fn check_index_header(
         data_input: &mut impl DataInput,
         codec: &str,
@@ -420,7 +420,7 @@ impl CodecUtil {
         Ok(())
     }
     /// Writes a codec footer, which records both a checksum algorithm ID and a checksum.
-    /// This footer can be parsed and validated with [`check_footer`].
+    /// This footer can be parsed and validated with [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Format
     /// `CodecFooter -> Magic, AlgorithmID, Checksum`
@@ -455,12 +455,12 @@ impl CodecUtil {
     /// The length of the entire codec footer.
     ///
     /// # See Also
-    /// - [`write_footer`]
+    /// - [`write_footer`](CodecUtil::write_footer)
     pub fn footer_length() -> u32 {
         16
     }
 
-    /// Validates the codec footer previously written by [`write_footer`].
+    /// Validates the codec footer previously written by [`write_footer`](CodecUtil::write_footer).
     ///
     /// # Returns
     /// The actual checksum value.
@@ -481,12 +481,12 @@ impl CodecUtil {
         Ok(actual_checksum)
     }
 
-    /// Validates the codec footer previously written by [`write_footer`], optionally handling
+    /// Validates the codec footer previously written by [`write_footer`](CodecUtil::write_footer), optionally handling
     /// an unexpected exception that has already occurred.
     ///
     /// When a `prior_exception` is provided, this method will add a suppressed exception indicating
     /// whether the checksum for the stream passes, fails, or cannot be computed, and rethrow it.
-    /// Otherwise, it behaves the same as [`check_footer`].
+    /// Otherwise, it behaves the same as [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Parameters
     /// - `input`: The input stream to validate.
@@ -555,7 +555,7 @@ impl CodecUtil {
         Err(LuceneError::corrupt_index(error_message))
     }
 
-    /// Returns (but does not validate) the checksum previously written by [`check_footer`].
+    /// Returns (but does not validate) the checksum previously written by [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Returns
     /// The actual checksum value.
@@ -576,7 +576,7 @@ impl CodecUtil {
         Self::read_crc(input)
     }
 
-    /// Returns (but does not validate) the checksum previously written by [`check_footer`].
+    /// Returns (but does not validate) the checksum previously written by [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Returns
     /// The actual checksum value.
@@ -656,11 +656,11 @@ impl CodecUtil {
         Ok(())
     }
 
-    /// Clones the provided input, reads all bytes from the file, and calls [`check_footer`].
+    /// Clones the provided input, reads all bytes from the file, and calls [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Notes
     /// This method may be slow, as it must process the entire file.  
-    /// If you just need to extract the checksum value, call [`retrieve_checksum`].
+    /// If you just need to extract the checksum value, call [`retrieve_checksum`](CodecUtil::retrieve_checksum).
     pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<u64, LuceneError> {
         let mut clone = input.clone();
         clone.seek(0)?;
