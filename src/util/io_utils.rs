@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use std::fs::File;
 use std::io;
@@ -22,6 +23,17 @@ use std::path::PathBuf;
 
 pub struct IOUtils;
 impl IOUtils {
+    /// Deletes all given files, suppressing all thrown errors.
+    ///
+    /// Note: The `files` collection should not be empty or contain `None`.
+    pub fn delete_files_ignoring_exceptions<D: Directory>(dir: &mut D, files: &[String]) {
+        for name in files {
+            if let Err(_) = dir.delete_file(name) {
+                // Ignore the error and continue with the next file.
+            }
+        }
+    }
+
     /// Ensure that any writes to the given file are written to the storage device.
     ///
     /// # Arguments

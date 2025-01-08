@@ -23,15 +23,15 @@ use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
 
-pub struct SegmentCommitInfo<'a, D>
+pub struct SegmentCommitInfo<D>
 where
     D: Directory,
 {
     /// The SegmentInfo that we wrap.
-    pub info: &'a mut SegmentInfo<'a, D>,
+    pub info: SegmentInfo<D>,
 
     /// Id that uniquely identifies this segment commit.
-    pub id: Vec<u8>,
+    pub id: Option<Vec<u8>>,
 
     /// How many deleted docs in the segment.
     pub del_count: i32,
@@ -69,7 +69,7 @@ where
     /// Used in memory by IndexWriter to track buffered deletes. Not persisted to disk.
     pub buffered_deletes_gen: i64,
 }
-impl<'a, D> SegmentCommitInfo<'a, D>
+impl<'a, D> SegmentCommitInfo<D>
 where
     D: Directory,
 {
@@ -84,19 +84,19 @@ where
     /// - `Doc_values_gen`: DocValues generation number (used to name doc-values updates files).
     /// - `Id`: Id that uniquely identifies this segment commit.
     pub fn new(
-        info: &'a mut SegmentInfo<'a, D>,
+        info: SegmentInfo<D>,
         del_count: i32,
         soft_del_count: i32,
         del_gen: i64,
         field_infos_gen: i64,
         doc_values_gen: i64,
-        id: Vec<u8>,
+        id: Option<Vec<u8>>,
     ) -> Result<Self, LuceneError> {
         // Validate the ID length
-        if id.len() != StringHelper::ID_LENGTH as usize {
+        if id.is_some() && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH as usize {
             return Err(LuceneError::illegal_argument(format!(
                 "Invalid ID: {:?}",
-                id
+                id.unwrap()
             )));
         }
 
@@ -235,7 +235,7 @@ where
         }
         let mut sum = 0;
         for file_name in self.files()? {
-            sum += self.info.dir.file_length(&file_name)?;
+            sum += self.info.dir.lock().unwrap().file_length(&file_name)?;
         }
         self.size_in_bytes.store(sum as i64, Ordering::SeqCst);
 
@@ -375,11 +375,8 @@ where
         Ok(())
     }
     /// Returns a description of this segment.
-    pub fn to_string_with_pending_del_count(
-        &self,
-        pending_del_count: i32,
-    ) -> Result<String, LuceneError> {
-        let mut s = SegmentInfo::to_string(self.info, self.del_count + pending_del_count)?;
+    pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> String {
+        let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count);
 
         if self.del_gen != -1 {
             s.push_str(&format!(":delGen={}", self.del_gen));
@@ -393,26 +390,65 @@ where
         if self.soft_del_count > 0 {
             s.push_str(&format!(" :softDel={}", self.soft_del_count));
         }
-        if !self.id.is_empty() {
+        if self.id.is_some() {
             s.push_str(&format!(
                 " :id={}",
-                StringHelper::id_to_string(Option::from(self.id.as_slice()))
+                StringHelper::id_to_string(Option::from(self.id.as_ref().unwrap().as_slice()))
             ));
         }
-        Ok(s)
+        s
     }
-    /// Clones this `SegmentCommitInfo`.
-    pub fn clone_info(&'a mut self) -> Self {
+    /// Returns the number of deleted documents in the segment.
+    /// If `include_soft_deletes` is `true`, it includes soft-deleted documents.
+    pub fn get_del_count_with_soft_deletes(&self, include_soft_deletes: bool) -> i32 {
+        if include_soft_deletes {
+            self.get_del_count() + self.get_soft_del_count()
+        } else {
+            self.get_del_count()
+        }
+    }
+
+    /// Advances the generation, resetting `size_in_bytes` and generating a new `id`.
+    pub fn generation_advanced(&mut self) {
+        self.size_in_bytes.store(-1, Ordering::SeqCst);
+        self.id = Option::from(Vec::from(StringHelper::random_id()));
+    }
+
+    /// Returns an ID that uniquely identifies this segment commit.
+    /// If no ID is assigned, returns `None`.
+    pub fn get_id(&self) -> Option<Vec<u8>> {
+        if self.id.is_none() {
+            None
+        } else {
+            Some(self.id.clone()?)
+        }
+    }
+}
+
+/// Implement `Display` for `SegmentCommitInfo`.
+impl<D> std::fmt::Display for SegmentCommitInfo<D>
+where
+    D: Directory,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string_with_pending_del_count(0))
+    }
+}
+impl<D> Clone for SegmentCommitInfo<D>
+where
+    D: Directory,
+{
+    fn clone(&self) -> Self {
         let mut cloned_dv_updates_files = HashMap::new();
 
         for (key, value) in &self.dv_updates_files {
             cloned_dv_updates_files.insert(*key, value.clone());
         }
 
-        let id = self.get_id().unwrap();
+        let id = self.get_id();
         // Create the cloned instance
         SegmentCommitInfo {
-            info: self.info,
+            info: self.info.clone(),
             id,
             del_count: self.del_count,
             soft_del_count: self.soft_del_count,
@@ -428,44 +464,12 @@ where
             buffered_deletes_gen: self.buffered_deletes_gen,
         }
     }
-    /// Returns the number of deleted documents in the segment.
-    /// If `include_soft_deletes` is `true`, it includes soft-deleted documents.
-    pub fn get_del_count_with_soft_deletes(&self, include_soft_deletes: bool) -> i32 {
-        if include_soft_deletes {
-            self.get_del_count() + self.get_soft_del_count()
-        } else {
-            self.get_del_count()
-        }
-    }
-
-    /// Advances the generation, resetting `size_in_bytes` and generating a new `id`.
-    pub fn generation_advanced(&mut self) {
-        self.size_in_bytes.store(-1, Ordering::SeqCst);
-        self.id = Vec::from(StringHelper::random_id());
-    }
-
-    /// Returns an ID that uniquely identifies this segment commit.
-    /// If no ID is assigned, returns `None`.
-    pub fn get_id(&self) -> Option<Vec<u8>> {
-        if self.id.is_empty() {
-            None
-        } else {
-            Some(self.id.clone())
-        }
-    }
 }
-
-/// Implement `Display` for `SegmentCommitInfo`.
-impl<D> std::fmt::Display for SegmentCommitInfo<'_, D>
+impl<D> PartialEq for SegmentCommitInfo<D>
 where
-    D: Directory,
+    D: PartialEq + Directory,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let result = self.to_string_with_pending_del_count(0);
-        if let Ok(s) = result {
-            write!(f, "{}", s)
-        } else {
-            write!(f, "failed to get SegmentCommitInfo infos")
-        }
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self, other)
     }
 }

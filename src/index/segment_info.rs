@@ -35,7 +35,7 @@ pub const YES: i32 = 1; // e.g. have norms; have deletes;
 ///
 /// # Experimental
 /// This API is experimental and may change in future releases.
-pub struct SegmentInfo<'a, D>
+pub struct SegmentInfo<D>
 where
     D: Directory,
 {
@@ -43,7 +43,7 @@ where
     pub name: String,
     max_doc: Option<u32>, // number of docs in seg
     /// Where this segment resides.
-    pub dir: &'a mut D,
+    pub dir: Arc<Mutex<D>>,
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
     id: Vec<u8>,
@@ -56,17 +56,17 @@ where
     /// The format expected is "x.y" - "2.x" for pre-3.0 indexes (or null), and
     /// specific versions afterwards ("3.0.0", "3.1.0" etc.).
     /// See `Version` for details.
-    version: Option<Version>,
+    pub(crate) version: Option<Version>,
     /// Tracks the minimum version that contributed documents to a segment.
     /// For flush segments, that is the version that wrote it.
     /// For merged segments, this is the minimum `min_version` of all the segments that have been merged
     /// into this segment.
-    min_version: Option<Version>,
+    pub(crate) min_version: Option<Version>,
     has_blocks: bool,
     set_files: Option<HashSet<String>>,
 }
 
-impl<'a, D> SegmentInfo<'a, D>
+impl<D> SegmentInfo<D>
 where
     D: Directory,
 {
@@ -93,7 +93,7 @@ where
     /// * `id` length does not match the expected `ID_LENGTH`.
     /// * `dir` is a `TrackingDirectoryWrapper`.
     pub fn new(
-        dir: &'a mut D,
+        dir: Arc<Mutex<D>>,
         version: Option<Version>,
         min_version: Option<Version>,
         name: String,
@@ -133,7 +133,7 @@ where
         })
     }
 }
-impl<D> SegmentInfo<'_, D>
+impl<D> SegmentInfo<D>
 where
     D: Directory,
 {
@@ -257,7 +257,7 @@ where
     /// - `45`: Number of documents in the segment.
     /// - `/4`: Number of deletions (only present if deletions exist).
     /// - `[sorter=<long: "timestamp">!]`: Indicates the segment is sorted by the `timestamp` field in descending order (optional, omitted for unsorted segments).
-    pub fn to_string(&self, del_count: i32) -> Result<String, LuceneError> {
+    pub fn to_string(&self, del_count: i32) -> String {
         let mut s = String::new();
         s.push_str(&self.name);
 
@@ -300,7 +300,7 @@ where
             s.push_str(&format!("{:?}", self.attributes));
             s.push(']');
         }
-        Ok(s)
+        s
     }
     /// Returns the version of the code which wrote the segment.
     pub fn get_version(&self) -> Option<&Version> {
@@ -395,34 +395,53 @@ where
         self.index_sort.as_ref()
     }
 }
-impl<D> Display for SegmentInfo<'_, D>
+impl<D> Display for SegmentInfo<D>
 where
     D: Directory,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.to_string(0) {
-            Ok(result) => write!(f, "{}", result),
-            Err(e) => write!(f, "SegmentInfo display Error: {:?}", e),
-        }
+        write!(f, "{}", self.to_string(0))
     }
 }
-impl<D> PartialEq for SegmentInfo<'_, D>
+impl<D> PartialEq for SegmentInfo<D>
 where
     D: Directory,
 {
     fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.dir, other.dir) && self.name == other.name
+        Arc::ptr_eq(&self.dir, &other.dir) && self.name == other.name
     }
 }
 
-impl<D> Eq for SegmentInfo<'_, D> where D: Directory {}
-impl<D> Hash for SegmentInfo<'_, D>
+impl<D> Eq for SegmentInfo<D> where D: Directory {}
+impl<D> Hash for SegmentInfo<D>
 where
     D: Directory,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let dir_address = (self.dir as *const D) as usize;
+        let dir_address = Arc::as_ptr(&self.dir) as usize;
         state.write_usize(dir_address);
         self.name.hash(state);
+    }
+}
+impl<D> Clone for SegmentInfo<D>
+where
+    D: Directory,
+{
+    fn clone(&self) -> Self {
+        SegmentInfo {
+            name: self.name.clone(),
+            max_doc: self.max_doc,
+            dir: self.dir.clone(),
+            is_compound_file: self.is_compound_file,
+            id: self.id.clone(),
+            codec: self.codec.clone(),
+            diagnostics: self.diagnostics.clone(),
+            attributes: self.attributes.clone(),
+            index_sort: self.index_sort.clone(),
+            version: self.version.clone(),
+            min_version: self.min_version.clone(),
+            has_blocks: self.has_blocks,
+            set_files: self.set_files.clone(),
+        }
     }
 }

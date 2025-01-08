@@ -25,6 +25,7 @@ use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::Version;
+use std::sync::{Arc, Mutex};
 
 /// Lucene 9.9 Segment info format.
 ///
@@ -70,12 +71,12 @@ pub const VERSION_START: u32 = 0;
 pub const VERSION_CURRENT: u32 = VERSION_START;
 
 impl Lucene99SegmentInfoFormat {
-    fn parse_segment_info<'a, D: Directory, T: DataInput>(
-        dir: &'a mut D,
+    fn parse_segment_info<D: Directory, T: DataInput>(
+        dir: Arc<Mutex<D>>,
         input: &mut T,
         segment: &str,
         segment_id: Vec<u8>,
-    ) -> Result<SegmentInfo<'a, D>, LuceneError> {
+    ) -> Result<SegmentInfo<D>, LuceneError> {
         let major = input.read_int()?;
         debug_assert!(major >= 0);
         let minor = input.read_int()?;
@@ -141,7 +142,7 @@ impl Lucene99SegmentInfoFormat {
         };
 
         let mut si = SegmentInfo::new(
-            dir,
+            dir.clone(),
             Option::from(version),
             min_version,
             segment.to_string(),
@@ -235,15 +236,15 @@ impl Lucene99SegmentInfoFormat {
 }
 
 impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
-    fn read<'a, D: Directory>(
+    fn read<D: Directory>(
         &self,
-        dir: &'a mut D,
+        dir: Arc<Mutex<D>>,
         segment: &str,
         segment_id: Vec<u8>,
         _context: &IOContext,
-    ) -> Result<SegmentInfo<'a, D>, LuceneError> {
+    ) -> Result<SegmentInfo<D>, LuceneError> {
         let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
-        let mut input = dir.open_checksum_input(&file_name)?;
+        let mut input = dir.lock().unwrap().open_checksum_input(&file_name)?;
 
         let mut prior_e: Option<LuceneError> = None;
         let mut si: Option<SegmentInfo<D>> = None;

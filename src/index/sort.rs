@@ -18,6 +18,7 @@ use crate::search::sort_field::{SortField, Type};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt::Display;
 
+#[derive(Clone)]
 pub struct Sort {
     fields: Vec<SortField>,
 }

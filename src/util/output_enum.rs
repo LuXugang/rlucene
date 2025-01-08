@@ -14,17 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod codec;
-pub mod codec_util;
-pub mod compound_format;
-pub mod doc_values_format;
-pub mod field_infos_format;
-pub mod live_docs_format;
-pub mod lucene101_codec;
-pub mod lucene90_live_docs_format;
-pub mod lucene99_segment_info_format;
-pub mod segment_info_format;
-pub mod simple_text_live_docs_format;
+use std::fs::File;
+use std::io;
+use std::io::Write;
 
-pub use codec::*;
-pub use codec_util::*;
+pub enum OutputEnum {
+    File(File),
+    Stdout,
+    Stderr,
+}
+
+impl Write for OutputEnum {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self {
+            OutputEnum::File(file) => file.write(buf),
+            OutputEnum::Stdout => io::stdout().write(buf),
+            OutputEnum::Stderr => io::stderr().write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match self {
+            OutputEnum::File(file) => file.flush(),
+            OutputEnum::Stdout => io::stdout().flush(),
+            OutputEnum::Stderr => io::stderr().flush(),
+        }
+    }
+}

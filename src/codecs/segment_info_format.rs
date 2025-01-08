@@ -18,6 +18,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::LuceneError;
+use std::sync::{Arc, Mutex};
 
 /// Expert: Controls the format of the [`SegmentInfo`] (segment metadata file).
 ///
@@ -41,11 +42,11 @@ pub trait SegmentInfoFormat {
     /// Returns an error if an I/O error occurs.
     fn read<'a, D: Directory>(
         &self,
-        directory: &'a mut D,
+        directory: Arc<Mutex<D>>,
         segment_name: &str,
         segment_id: Vec<u8>,
         context: &IOContext,
-    ) -> Result<SegmentInfo<'a, D>, LuceneError>;
+    ) -> Result<SegmentInfo<D>, LuceneError>;
 
     /// Write [`SegmentInfo`] data.
     ///

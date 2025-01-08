@@ -22,6 +22,7 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt::Display;
 
+#[derive(Clone)]
 pub struct SortField {
     fields: String,
     field_type: Type,

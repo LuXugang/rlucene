@@ -31,7 +31,6 @@ use std::cmp::Ordering;
 ///
 /// # Experimental
 /// This is an experimental API and may be subject to change in future versions.
-#[allow(dead_code)] // for quick search
 pub struct CodecUtil;
 impl CodecUtil {
     /// Constant to identify the start of a codec header.
@@ -237,10 +236,10 @@ impl CodecUtil {
             )));
         }
         let actual_version = Self::read_be_int(data_input)?;
-        if (actual_version as u32) < min_version {
+        if actual_version < min_version {
             return Err(LuceneError::index_format_too_old(format!("Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later", data_input, actual_version, min_version, max_version, *MIN_SUPPORTED_MAJOR)));
         }
-        if (actual_version as u32) > max_version {
+        if actual_version > max_version {
             return Err(LuceneError::index_format_too_new(format!(
                 "Format version is not supported (resource {}): {} (needs to be between {} and {}) ",
                 data_input, actual_version, min_version, max_version
