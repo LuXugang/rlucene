@@ -74,7 +74,7 @@ pub trait DataInput: Sized + Display {
     fn default_read_short(&mut self) -> Result<i16, LuceneError> {
         let b1 = self.read_byte()?;
         let b2 = self.read_byte()?;
-        Ok(i16::from_le_bytes([b2, b1]))
+        Ok(i16::from_le_bytes([b1, b2]))
     }
     /// # See
     /// [`DataInput::default_read_int`].
@@ -91,7 +91,7 @@ pub trait DataInput: Sized + Display {
         let b2 = self.read_byte()?;
         let b3 = self.read_byte()?;
         let b4 = self.read_byte()?;
-        Ok(i32::from_le_bytes([b4, b3, b2, b1]))
+        Ok(i32::from_le_bytes([b1, b2, b3, b4]))
     }
 
     /// Override if you have an efficient implementation. In general this is when the input supports
