@@ -23,7 +23,7 @@ struct TestDocIdSetIterator {}
 fn test_range_basic() -> Result<(), TestError> {
     let result = Range::new(5, 8);
     assert!(result.is_ok());
-    let mut disi = result.unwrap();
+    let mut disi = result?;
     assert_eq!(-1, disi.doc_id());
     assert_eq!(5, disi.next_doc()?);
     assert_eq!(6, disi.next_doc()?);
@@ -54,7 +54,7 @@ fn test_empty() {
 fn test_advance() -> Result<(), TestError> {
     let disi_result = Range::new(5, 20);
     assert!(disi_result.is_ok());
-    let mut disi = disi_result.unwrap();
+    let mut disi = disi_result?;
     assert_eq!(-1, disi.doc_id());
     assert_eq!(5, disi.next_doc()?);
     assert_eq!(17, disi.advance(17)?);

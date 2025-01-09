@@ -49,10 +49,10 @@ fn test_data_types() -> Result<(), TestError> {
 
     let mut buf: Cursor<&[u8]> = Cursor::new(&bytes[..size as usize]);
 
-    assert_eq!(buf.read_u8().unwrap(), 43);
-    assert_eq!(buf.read_i16::<LittleEndian>().unwrap(), 12345);
-    assert_eq!(buf.read_i32::<LittleEndian>().unwrap(), 1234567890);
-    assert_eq!(buf.read_i64::<LittleEndian>().unwrap(), 1234567890123456789);
+    assert_eq!(buf.read_u8()?, 43);
+    assert_eq!(buf.read_i16::<LittleEndian>()?, 12345);
+    assert_eq!(buf.read_i32::<LittleEndian>()?, 1234567890);
+    assert_eq!(buf.read_i64::<LittleEndian>()?, 1234567890123456789);
     assert_eq!(buf.position() as usize, size as usize);
     assert_eq!(buf.get_ref().len() - buf.position() as usize, 0);
 
