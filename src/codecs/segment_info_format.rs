@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::segment_info::SegmentInfo;
+use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::LuceneError;
@@ -40,21 +41,21 @@ pub trait SegmentInfoFormat {
     /// # Errors
     ///
     /// Returns an error if an I/O error occurs.
-    fn read<'a, D: Directory>(
+    fn read<'a, D: Directory, F: FieldComparatorSource>(
         &self,
         directory: Arc<Mutex<D>>,
         segment_name: &str,
         segment_id: Vec<u8>,
         context: &IOContext,
-    ) -> Result<SegmentInfo<D>, LuceneError>;
+    ) -> Result<SegmentInfo<D, F>, LuceneError>;
 
     /// Write [`SegmentInfo`] data.
     ///
     /// The codec must add its SegmentInfo filename(s) to `info` before doing I/O.
-    fn write<D: Directory>(
+    fn write<D: Directory, F: FieldComparatorSource>(
         &self,
-        directory: &mut D,
-        info: &mut SegmentInfo<D>,
+        directory: Arc<Mutex<D>>,
+        info: &mut SegmentInfo<D, F>,
         context: IOContext,
     ) -> Result<(), LuceneError>;
 }

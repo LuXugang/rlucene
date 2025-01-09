@@ -14,33 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
 
-mod buffered_updates;
-pub mod bytes_ref;
-pub use bytes_ref::*;
-pub mod bytes_ref_builder;
-pub use bytes_ref_builder::*;
-pub mod binary_doc_values;
-pub mod binary_doc_values_field_updates;
-pub mod doc_values_field_updates;
-pub mod doc_values_iterator;
-pub mod doc_values_type;
-pub mod docs_with_field_set;
-mod documents_writer_delete_queue;
-mod index_commit;
-pub mod index_deletion_policy;
-pub mod index_file_names;
-pub mod index_options;
-pub mod index_sorter;
-pub mod index_writer;
-pub mod leaf_metadata;
-pub mod leaf_reader_context;
-pub mod numeric_doc_values;
-pub mod numeric_doc_values_field_updates;
-pub mod segment_commit_info;
-pub mod segment_info;
-pub mod segment_infos;
-pub mod sort;
-pub mod sort_field_provider;
+#[derive(Debug)]
+pub struct IndexNotFound {
+    pub message: String,
+}
 
-pub use index_file_names::*;
+impl IndexNotFound {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
+    }
+
+    pub fn with_format(args: impl fmt::Display) -> Self {
+        Self {
+            message: args.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for IndexNotFound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Index Not Found: {}", self.message)
+    }
+}
+
+impl std::error::Error for IndexNotFound {}

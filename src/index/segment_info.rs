@@ -17,6 +17,7 @@
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::index::sort::Sort;
 use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
+use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::version::Version;
@@ -35,9 +36,10 @@ pub const YES: i32 = 1; // e.g. have norms; have deletes;
 ///
 /// # Experimental
 /// This API is experimental and may change in future releases.
-pub struct SegmentInfo<D>
+pub struct SegmentInfo<D, F = DummyFieldComparatorSource>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     /// Unique segment name in the directory.
     pub name: String,
@@ -50,7 +52,7 @@ where
     pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
     attributes: Arc<Mutex<HashMap<String, String>>>,
-    index_sort: Option<Sort>,
+    index_sort: Option<Sort<F>>,
     /// Tracks the Lucene version this segment was created with, since 3.1.
     /// Null indicates an older than 3.0 index, and it's used to detect a too-old index.
     /// The format expected is "x.y" - "2.x" for pre-3.0 indexes (or null), and
@@ -66,9 +68,10 @@ where
     set_files: Option<HashSet<String>>,
 }
 
-impl<D> SegmentInfo<D>
+impl<D, F> SegmentInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     /// Constructs a new complete `SegmentInfo` instance from input.
     ///
@@ -102,10 +105,11 @@ where
         has_blocks: bool,
         codec: Option<Lucene101Codec>,
         diagnostics: HashMap<String, String>,
+        //TODO: type should be [u8,16],avoid heap allocation?
         id: Vec<u8>,
         attributes: HashMap<String, String>,
-        index_sort: Option<Sort>,
-    ) -> Result<SegmentInfo<D>, LuceneError> {
+        index_sort: Option<Sort<F>>,
+    ) -> Result<SegmentInfo<D, F>, LuceneError> {
         // debug_assert!(
         //     !dir.is::<TrackingDirectoryWrapper>(),
         //     "dir should not be a TrackingDirectoryWrapper"
@@ -133,9 +137,10 @@ where
         })
     }
 }
-impl<D> SegmentInfo<D>
+impl<D, F> SegmentInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     /// Sets the diagnostics map. The given map is cloned to ensure immutability.
     pub fn set_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
@@ -257,7 +262,7 @@ where
     /// - `45`: Number of documents in the segment.
     /// - `/4`: Number of deletions (only present if deletions exist).
     /// - `[sorter=<long: "timestamp">!]`: Indicates the segment is sorted by the `timestamp` field in descending order (optional, omitted for unsorted segments).
-    pub fn to_string(&self, del_count: i32) -> String {
+    pub fn to_string(&self, del_count: i32) -> Result<String, LuceneError> {
         let mut s = String::new();
         s.push_str(&self.name);
 
@@ -295,12 +300,15 @@ where
             s.push(']');
         }
 
-        if !self.attributes.lock().unwrap().is_empty() {
+        let attributes = self.attributes.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
+        })?;
+        if !attributes.is_empty() {
             s.push_str(":[attributes=");
-            s.push_str(&format!("{:?}", self.attributes));
+            s.push_str(&format!("{:?}", *attributes));
             s.push(']');
         }
-        s
+        Ok(s)
     }
     /// Returns the version of the code which wrote the segment.
     pub fn get_version(&self) -> Option<&Version> {
@@ -367,9 +375,11 @@ where
         format!("{}{}", self.name, IndexFileNames::strip_segment_name(&file))
     }
     /// Get a codec attribute value, or None if it does not exist.
-    pub fn get_attribute(&self, key: &str) -> Option<String> {
-        let attributes = self.attributes.lock().unwrap();
-        attributes.get(key).cloned()
+    pub fn get_attribute(&self, key: &str) -> Result<Option<String>, LuceneError> {
+        let attributes = self.attributes.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
+        })?;
+        Ok(attributes.get(key).cloned())
     }
     /// Puts a codec attribute value.
     ///
@@ -378,44 +388,61 @@ where
     ///
     /// If a value already exists for the field, it will be replaced with the new value. This method
     /// ensures thread safety by making a copy-on-write for every attribute change.
-    pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
+    pub fn put_attribute(&self, key: String, value: String) -> Result<Option<String>, LuceneError> {
         // This needs to be thread-safe because multiple threads may be updating (different) attributes
         // at the same time due to concurrent merging, plus some threads may be calling toString() on
         // segment info while other threads are updating attributes.
-        self.attributes.lock().unwrap().insert(key, value)
+        let mut attributes = self.attributes.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
+        })?;
+        Ok(attributes.insert(key, value))
     }
     /// Returns the internal codec attributes map.
-    pub fn get_attributes(&self) -> HashMap<String, String> {
-        let attributes = self.attributes.lock().unwrap();
-        attributes.clone()
+    pub fn get_attributes(&self) -> Result<HashMap<String, String>, LuceneError> {
+        let attributes = self.attributes.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
+        })?;
+        Ok(attributes.clone())
     }
 
     /// Returns the sort order of this segment, or None if the index has no sort.
-    pub fn get_index_sort(&self) -> Option<&Sort> {
+    pub fn get_index_sort(&self) -> Option<&Sort<F>> {
         self.index_sort.as_ref()
     }
 }
-impl<D> Display for SegmentInfo<D>
+impl<D, F> Display for SegmentInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string(0))
+        let result = self.to_string(0);
+        match result {
+            Ok(s) => write!(f, "{}", s),
+            Err(e) => write!(f, "fmt Error: {}", e),
+        }
     }
 }
-impl<D> PartialEq for SegmentInfo<D>
+impl<D, F> PartialEq for SegmentInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.dir, &other.dir) && self.name == other.name
     }
 }
 
-impl<D> Eq for SegmentInfo<D> where D: Directory {}
-impl<D> Hash for SegmentInfo<D>
+impl<D, F> Eq for SegmentInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
+{
+}
+impl<D, F> Hash for SegmentInfo<D, F>
+where
+    D: Directory,
+    F: FieldComparatorSource,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let dir_address = Arc::as_ptr(&self.dir) as usize;
@@ -423,9 +450,10 @@ where
         self.name.hash(state);
     }
 }
-impl<D> Clone for SegmentInfo<D>
+impl<D, F> Clone for SegmentInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     fn clone(&self) -> Self {
         SegmentInfo {

@@ -21,6 +21,7 @@ pub mod illegal_argument;
 pub mod illegal_state;
 pub mod index_format_too_new;
 pub mod index_format_too_old;
+mod index_not_found;
 pub mod integer_overflow;
 mod lock_already_held;
 mod lock_held_by_other;

@@ -16,19 +16,22 @@
  */
 use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
+use crate::index::leaf_metadata::LeafMetaData;
 use crate::index::segment_info::SegmentInfo;
+use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
 
-pub struct SegmentCommitInfo<D>
+pub struct SegmentCommitInfo<D, F = DummyFieldComparatorSource>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     /// The SegmentInfo that we wrap.
-    pub info: SegmentInfo<D>,
+    pub info: SegmentInfo<D, F>,
 
     /// Id that uniquely identifies this segment commit.
     pub id: Option<Vec<u8>>,
@@ -69,9 +72,10 @@ where
     /// Used in memory by IndexWriter to track buffered deletes. Not persisted to disk.
     pub buffered_deletes_gen: i64,
 }
-impl<'a, D> SegmentCommitInfo<D>
+impl<D, F> SegmentCommitInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     /// Sole constructor.
     ///
@@ -84,7 +88,7 @@ where
     /// - `Doc_values_gen`: DocValues generation number (used to name doc-values updates files).
     /// - `Id`: Id that uniquely identifies this segment commit.
     pub fn new(
-        info: SegmentInfo<D>,
+        info: SegmentInfo<D, F>,
         del_count: i32,
         soft_del_count: i32,
         del_gen: i64,
@@ -234,8 +238,11 @@ where
             return Ok(current_size as u64);
         }
         let mut sum = 0;
+        let directory = self.info.dir.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
+        })?;
         for file_name in self.files()? {
-            sum += self.info.dir.lock().unwrap().file_length(&file_name)?;
+            sum += directory.file_length(&file_name)?;
         }
         self.size_in_bytes.store(sum as i64, Ordering::SeqCst);
 
@@ -375,8 +382,11 @@ where
         Ok(())
     }
     /// Returns a description of this segment.
-    pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> String {
-        let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count);
+    pub fn to_string_with_pending_del_count(
+        &self,
+        pending_del_count: i32,
+    ) -> Result<String, LuceneError> {
+        let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count)?;
 
         if self.del_gen != -1 {
             s.push_str(&format!(":delGen={}", self.del_gen));
@@ -396,7 +406,7 @@ where
                 StringHelper::id_to_string(Option::from(self.id.as_ref().unwrap().as_slice()))
             ));
         }
-        s
+        Ok(s)
     }
     /// Returns the number of deleted documents in the segment.
     /// If `include_soft_deletes` is `true`, it includes soft-deleted documents.
@@ -426,17 +436,23 @@ where
 }
 
 /// Implement `Display` for `SegmentCommitInfo`.
-impl<D> std::fmt::Display for SegmentCommitInfo<D>
+impl<D, F> std::fmt::Display for SegmentCommitInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string_with_pending_del_count(0))
+        let result = self.to_string_with_pending_del_count(0);
+        match result {
+            Ok(s) => write!(f, "{}", s),
+            Err(e) => write!(f, "fmt Error {}", e),
+        }
     }
 }
-impl<D> Clone for SegmentCommitInfo<D>
+impl<D, F> Clone for SegmentCommitInfo<D, F>
 where
     D: Directory,
+    F: FieldComparatorSource,
 {
     fn clone(&self) -> Self {
         let mut cloned_dv_updates_files = HashMap::new();
@@ -465,9 +481,10 @@ where
         }
     }
 }
-impl<D> PartialEq for SegmentCommitInfo<D>
+impl<D, F> PartialEq for SegmentCommitInfo<D, F>
 where
     D: PartialEq + Directory,
+    F: FieldComparatorSource,
 {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self, other)

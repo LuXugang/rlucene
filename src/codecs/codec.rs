@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::live_docs_format::LiveDocsFormat;
+use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 
 pub trait Codec {
@@ -45,7 +46,7 @@ pub trait Codec {
     // fn field_infos_format(&self) -> &Self::FieldInfosFormat;
 
     /// Encodes/decodes segment info file
-    fn segment_info_format(&self) -> &Self::SegmentInfoFormat;
+    fn segment_info_format(&self) -> Self::SegmentInfoFormat;
 
     // /// Encodes/decodes document normalization values
     // fn norms_format(&self) -> &Self::NormsFormat;
@@ -63,4 +64,7 @@ pub trait Codec {
     // fn knn_vectors_format(&self) -> &Self::KnnVectorsFormat;
 
     fn get_name(&self) -> &str;
+}
+pub fn get_default_code() -> Lucene101Codec {
+    Lucene101Codec
 }

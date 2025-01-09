@@ -17,13 +17,14 @@
 use crate::search::field_comparator::FieldComparator;
 use crate::search::pruning::Pruning;
 use crate::util::error::lucene_error::LuceneError;
+use std::fmt::{Display, Formatter};
 
 /// Provides a [`FieldComparator`]
 /// for custom field sorting.
 ///
 /// # Lucene Experimental
 /// This API is experimental and may change in future versions.
-pub trait FieldComparatorSource {
+pub trait FieldComparatorSource: Display + Clone {
     /// Creates a comparator for the field in the given index.
     ///
     /// # Arguments
@@ -44,4 +45,30 @@ pub trait FieldComparatorSource {
         pruning: Pruning,
         reversed: bool,
     ) -> Result<F, LuceneError>;
+}
+
+pub struct DummyFieldComparatorSource;
+
+impl Display for DummyFieldComparatorSource {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        unreachable!()
+    }
+}
+
+impl Clone for DummyFieldComparatorSource {
+    fn clone(&self) -> Self {
+        unreachable!()
+    }
+}
+
+impl FieldComparatorSource for DummyFieldComparatorSource {
+    fn new_comparator<F: FieldComparator>(
+        &self,
+        _field_name: &str,
+        _num_hits: usize,
+        _pruning: Pruning,
+        _reversed: bool,
+    ) -> Result<F, LuceneError> {
+        todo!()
+    }
 }

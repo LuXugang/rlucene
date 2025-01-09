@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 mod test_doc_values_field_updates;
+mod test_segment_infos;

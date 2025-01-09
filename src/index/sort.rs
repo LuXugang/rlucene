@@ -14,15 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::search::sort_field::{SortField, Type};
 use crate::util::error::lucene_error::LuceneError;
+use std::fmt;
 use std::fmt::Display;
 
 #[derive(Clone)]
-pub struct Sort {
-    fields: Vec<SortField>,
+pub struct Sort<F>
+where
+    F: FieldComparatorSource,
+{
+    fields: Vec<SortField<F>>,
 }
-impl Sort {
+impl<F> Sort<F>
+where
+    F: FieldComparatorSource,
+{
     /// Sorts by computed relevance.
     ///
     /// This is the same sort criteria as calling `IndexSearcher::search` without a sort criteria,
@@ -43,7 +51,7 @@ impl Sort {
     ///
     /// # Errors
     /// Returns an error if the provided `fields` vector is empty.
-    pub fn new_with_fields(fields: Vec<SortField>) -> Result<Self, LuceneError> {
+    pub fn new_with_fields(fields: Vec<SortField<F>>) -> Result<Self, LuceneError> {
         if fields.is_empty() {
             Err(LuceneError::illegal_argument(
                 "There must be at least 1 sort field".to_string(),
@@ -52,17 +60,36 @@ impl Sort {
             Ok(Self { fields })
         }
     }
+    /// Replace Java's `Sort.INDEXORDER` with this method.
+    pub fn get_index_order() -> Result<Self, LuceneError> {
+        let sort_field = SortField::get_field_doc()?;
+        Self::new_with_fields(vec![sort_field])
+    }
+    /// Replace Java's `Sort.RELEVANCE` with this method.
+    pub fn get_relevance() -> Result<Self, LuceneError> {
+        Self::new()
+    }
+
     /// Representation of the sort criteria.
     ///
     /// # Returns
     /// Array (Vec) of `SortField` objects used in this sort criteria.
-    pub fn get_sort(&self) -> &[SortField] {
+    pub fn get_sort(&self) -> &[SortField<F>] {
         &self.fields
     }
 }
 
-impl Display for Sort {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Sort")
+impl<F> Display for Sort<F>
+where
+    F: FieldComparatorSource,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let fields_string = self
+            .fields
+            .iter()
+            .map(|field| field.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        write!(f, "{}", fields_string)
     }
 }

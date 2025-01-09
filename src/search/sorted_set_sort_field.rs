@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::sort_field_provider::SortFieldProvider;
+use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::search::sort_field::SortField;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
@@ -27,13 +28,16 @@ impl crate::search::sort_field::Provider {
     pub const SET_NAME: &'static str = "SortedSetSortField";
 }
 impl SortFieldProvider for SetProvider {
-    fn read_sort_field<D: DataInput>(&self, data_input: &mut D) -> Result<SortField, LuceneError> {
+    fn read_sort_field<D: DataInput, F: FieldComparatorSource>(
+        &self,
+        data_input: &mut D,
+    ) -> Result<SortField<F>, LuceneError> {
         todo!()
     }
 
-    fn write_sort_field<D: DataOutput>(
+    fn write_sort_field<D: DataOutput, F: FieldComparatorSource>(
         &self,
-        sf: &SortField,
+        sf: &SortField<F>,
         output: &mut D,
     ) -> Result<(), LuceneError> {
         todo!()

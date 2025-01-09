@@ -46,7 +46,6 @@ fn test_random() {
     for _ in 0..iterations {
         match rng.gen_range(0..4) {
             0 => {
-                // update(&[u8], usize, usize)
                 let length = rng.gen_range(0..1024);
                 let mut bytes = vec![0; length];
                 rng.fill(bytes.as_mut_slice());
@@ -54,24 +53,21 @@ fn test_random() {
                 buffered.update_bytes(&bytes, 0, length as u32);
             }
             1 => {
-                // update(u8)
                 let b = rng.gen_range(0..=255) as u8;
                 raw_crc.update(&[b]);
                 buffered.update(b);
             }
             2 => {
-                // reset()
-                raw_crc = Hasher::new(); // 重新创建 CRC32 Hasher
+                raw_crc = Hasher::new();
                 buffered.reset();
             }
             3 => {
-                // get_value()
                 assert_eq!(buffered.get_value(), raw_crc.clone().finalize() as u64);
             }
             _ => unreachable!(),
         }
     }
 
-    // 最终验证两者的值是否一致
     assert_eq!(buffered.get_value(), raw_crc.finalize() as u64);
 }
+// TODO: not finished

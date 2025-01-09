@@ -21,6 +21,7 @@ use crate::index::segment_info::{SegmentInfo, NO, YES};
 use crate::index::sort::Sort;
 use crate::index::sort_field_provider::{for_name, write, SortFieldProvider};
 use crate::index::IndexFileNames;
+use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::error::lucene_error::LuceneError;
@@ -71,12 +72,12 @@ pub const VERSION_START: u32 = 0;
 pub const VERSION_CURRENT: u32 = VERSION_START;
 
 impl Lucene99SegmentInfoFormat {
-    fn parse_segment_info<D: Directory, T: DataInput>(
+    fn parse_segment_info<D: Directory, T: DataInput, F: FieldComparatorSource>(
         dir: Arc<Mutex<D>>,
         input: &mut T,
         segment: &str,
         segment_id: Vec<u8>,
-    ) -> Result<SegmentInfo<D>, LuceneError> {
+    ) -> Result<SegmentInfo<D, F>, LuceneError> {
         let major = input.read_int()?;
         debug_assert!(major >= 0);
         let minor = input.read_int()?;
@@ -142,7 +143,7 @@ impl Lucene99SegmentInfoFormat {
         };
 
         let mut si = SegmentInfo::new(
-            dir.clone(),
+            dir,
             Option::from(version),
             min_version,
             segment.to_string(),
@@ -158,9 +159,9 @@ impl Lucene99SegmentInfoFormat {
         si.set_files(files);
         Ok(si)
     }
-    fn write_segment_info<T: DataOutput, D: Directory>(
+    fn write_segment_info<T: DataOutput, D: Directory, F: FieldComparatorSource>(
         output: &mut T,
-        si: &SegmentInfo<D>,
+        si: &SegmentInfo<D, F>,
     ) -> Result<(), LuceneError> {
         let version_wrap = si.get_version();
         debug_assert!(version_wrap.is_some());
@@ -210,7 +211,7 @@ impl Lucene99SegmentInfoFormat {
             }
         }
         output.write_set_of_strings(files)?;
-        output.write_map_of_strings(&si.get_attributes())?;
+        output.write_map_of_strings(&si.get_attributes()?)?;
 
         if let Some(index_sort) = si.get_index_sort() {
             let sort_fields = index_sort.get_sort();
@@ -236,18 +237,21 @@ impl Lucene99SegmentInfoFormat {
 }
 
 impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
-    fn read<D: Directory>(
+    fn read<D: Directory, F: FieldComparatorSource>(
         &self,
         dir: Arc<Mutex<D>>,
         segment: &str,
         segment_id: Vec<u8>,
         _context: &IOContext,
-    ) -> Result<SegmentInfo<D>, LuceneError> {
+    ) -> Result<SegmentInfo<D, F>, LuceneError> {
         let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
-        let mut input = dir.lock().unwrap().open_checksum_input(&file_name)?;
+        let directory = dir.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
+        })?;
+        let mut input = directory.open_checksum_input(&file_name)?;
 
         let mut prior_e: Option<LuceneError> = None;
-        let mut si: Option<SegmentInfo<D>> = None;
+        let mut si: Option<SegmentInfo<D, F>> = None;
         {
             let result = {
                 let check_result = CodecUtil::check_index_header(
@@ -259,13 +263,16 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
                     "",
                 );
                 match check_result {
-                    Ok(_) => match Self::parse_segment_info(dir, &mut input, segment, segment_id) {
-                        Ok(parsed_info) => {
-                            si = Some(parsed_info);
-                            Ok(())
+                    Ok(_) => {
+                        match Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id)
+                        {
+                            Ok(parsed_info) => {
+                                si = Some(parsed_info);
+                                Ok(())
+                            }
+                            Err(e) => Err(e),
                         }
-                        Err(e) => Err(e),
-                    },
+                    }
                     Err(e) => Err(e),
                 }
             };
@@ -285,14 +292,17 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         })
     }
 
-    fn write<D: Directory>(
+    fn write<D: Directory, F: FieldComparatorSource>(
         &self,
-        dir: &mut D,
-        si: &mut SegmentInfo<D>,
+        dir: Arc<Mutex<D>>,
+        si: &mut SegmentInfo<D, F>,
         io_context: IOContext,
     ) -> Result<(), LuceneError> {
         let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
-        let mut output = dir.create_output(&file_name, io_context)?;
+        let mut directory = dir.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
+        })?;
+        let mut output = directory.create_output(&file_name, io_context)?;
         si.add_file(file_name.clone())?;
         CodecUtil::write_index_header(
             &mut output,

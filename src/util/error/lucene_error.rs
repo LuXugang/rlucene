@@ -21,6 +21,7 @@ use crate::util::error::illegal_argument::IllegalArgumentError;
 use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::index_format_too_new::IndexFormatTooNewError;
 use crate::util::error::index_format_too_old::IndexFormatTooOldError;
+use crate::util::error::index_not_found::IndexNotFound;
 use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::lock_already_held::LockAlreadyHeldError;
 use crate::util::error::lock_held_by_other::LockHeldByOtherError;
@@ -79,6 +80,10 @@ pub enum LuceneError {
 
     #[error("UTF-8 decoding error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
+
+    #[error("{0}")]
+    IndexNotFound(#[from] IndexNotFound),
+    // TODO: A lock unwrap error handling should be added.
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -137,5 +142,9 @@ impl LuceneError {
     }
     pub fn utf8_error(err: std::str::Utf8Error) -> Self {
         LuceneError::Utf8Error(err)
+    }
+
+    pub fn index_not_found(msg: impl Into<String>) -> Self {
+        LuceneError::IndexNotFound(IndexNotFound::new(msg))
     }
 }

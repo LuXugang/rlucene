@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::bits::Bits;
@@ -32,28 +33,28 @@ pub trait LiveDocsFormat {
     ///
     /// # Returns
     /// A `Bits` implementation representing the live docs.
-    fn read_live_docs<D: Directory, B: Bits>(
+    fn read_live_docs<D: Directory, B: Bits, F: FieldComparatorSource>(
         &self,
         dir: &D,
-        info: &SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D, F>,
         context: &IOContext,
     ) -> Result<B, LuceneError>;
 
     /// Persist live docs bits. Use [`SegmentCommitInfo#getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine the generation
     /// of the deletes file you should write to.
-    fn write_live_docs<D: Directory, B: Bits>(
+    fn write_live_docs<D: Directory, B: Bits, F: FieldComparatorSource>(
         &self,
         bits: &B,
         dir: &mut D,
-        info: &SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D, F>,
         new_del_count: i32,
         context: &IOContext,
     ) -> Result<(), LuceneError>;
 
     /// Records all files in use by this [`SegmentCommitInfo`] into the files argument.
-    fn files<D: Directory>(
+    fn files<D: Directory, F: FieldComparatorSource>(
         &self,
-        info: &SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D, F>,
         files: &mut HashSet<String>,
     ) -> Result<(), LuceneError>;
 }

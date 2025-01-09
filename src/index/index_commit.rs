@@ -14,33 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::directory::Directory;
+use std::sync::{Arc, Mutex};
 
-mod buffered_updates;
-pub mod bytes_ref;
-pub use bytes_ref::*;
-pub mod bytes_ref_builder;
-pub use bytes_ref_builder::*;
-pub mod binary_doc_values;
-pub mod binary_doc_values_field_updates;
-pub mod doc_values_field_updates;
-pub mod doc_values_iterator;
-pub mod doc_values_type;
-pub mod docs_with_field_set;
-mod documents_writer_delete_queue;
-mod index_commit;
-pub mod index_deletion_policy;
-pub mod index_file_names;
-pub mod index_options;
-pub mod index_sorter;
-pub mod index_writer;
-pub mod leaf_metadata;
-pub mod leaf_reader_context;
-pub mod numeric_doc_values;
-pub mod numeric_doc_values_field_updates;
-pub mod segment_commit_info;
-pub mod segment_info;
-pub mod segment_infos;
-pub mod sort;
-pub mod sort_field_provider;
+pub trait IndexCommit {
+    fn get_directory<D>(&self) -> Arc<Mutex<D>>
+    where
+        D: Directory;
 
-pub use index_file_names::*;
+    fn get_segments_file_name(&self) -> String;
+}
+
+pub struct DummyIndexCommit;
+impl IndexCommit for DummyIndexCommit {
+    fn get_directory<D>(&self) -> Arc<Mutex<D>>
+    where
+        D: Directory,
+    {
+        todo!()
+    }
+
+    fn get_segments_file_name(&self) -> String {
+        todo!()
+    }
+}

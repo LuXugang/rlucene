@@ -25,8 +25,8 @@ impl Codec for Lucene101Codec {
     type SegmentInfoFormat = Lucene99SegmentInfoFormat;
     type LiveDocsFormat = Lucene90LiveDocsFormat;
 
-    fn segment_info_format(&self) -> &Self::SegmentInfoFormat {
-        todo!()
+    fn segment_info_format(&self) -> Self::SegmentInfoFormat {
+        Lucene99SegmentInfoFormat
     }
 
     fn live_docs_format(&self) -> &Self::LiveDocsFormat {
@@ -34,6 +34,6 @@ impl Codec for Lucene101Codec {
     }
 
     fn get_name(&self) -> &str {
-        todo!()
+        "Lucene101"
     }
 }

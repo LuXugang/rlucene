@@ -18,17 +18,28 @@ use crate::index::index_sorter::{
     DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
 };
 use crate::index::sort_field_provider::SortFieldProvider;
+use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
+use std::fmt;
 use std::fmt::Display;
 
 #[derive(Clone)]
-pub struct SortField {
-    fields: String,
+pub struct SortField<F>
+where
+    F: FieldComparatorSource,
+{
+    fields: Option<String>,
     field_type: Type,
+    comparator_source: Option<F>,
+    reverse: bool,
+    missing_value: Option<MissingValueEnum>,
 }
 
-impl SortField {
+impl<F> SortField<F>
+where
+    F: FieldComparatorSource,
+{
     /// Creates a sort by terms in the given field with the type of term values explicitly given.
     ///
     /// # Arguments
@@ -40,6 +51,14 @@ impl SortField {
     pub fn new(field: Option<String>, field_type: Type) -> Result<Self, LuceneError> {
         SortField::init_field_type(field, field_type)
     }
+    /// Replace Java's `SortField.FIELD_SCORE` with this method.
+    pub fn get_field_score() -> Result<Self, LuceneError> {
+        SortField::new(None, Type::Score)
+    }
+    /// Replace Java's `SortField.FIELD_DOC` with this method.
+    pub fn get_field_doc() -> Result<Self, LuceneError> {
+        SortField::new(None, Type::Doc)
+    }
     // Sets field & type, and ensures field is not NULL unless
     // type is SCORE or DOC
     pub fn init_field_type(field: Option<String>, field_type: Type) -> Result<Self, LuceneError> {
@@ -49,8 +68,11 @@ impl SortField {
             ));
         }
         Ok(Self {
-            fields: field.unwrap(),
+            fields: field,
             field_type,
+            comparator_source: None,
+            reverse: false,
+            missing_value: None,
         })
     }
     pub fn get_index_sorter(&self) -> Option<IndexSortEnum> {
@@ -75,9 +97,84 @@ impl SortField {
     }
 }
 
-impl Display for SortField {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+impl<F> Display for SortField<F>
+where
+    F: FieldComparatorSource,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut buffer = String::new();
+        match self.field_type {
+            Type::Score => buffer.push_str("<score>"),
+            Type::Doc => buffer.push_str("<doc>"),
+            Type::String => {
+                buffer.push_str("<string: \"");
+                if let Some(ref field) = self.fields {
+                    buffer.push_str(field);
+                }
+                buffer.push_str("\">");
+            }
+            Type::Int => {
+                buffer.push_str("<int: \"");
+                if let Some(ref field) = self.fields {
+                    buffer.push_str(field);
+                }
+                buffer.push_str("\">");
+            }
+            Type::Long => {
+                buffer.push_str("<long: \"");
+                if let Some(ref field) = self.fields {
+                    buffer.push_str(field);
+                }
+                buffer.push_str("\">");
+            }
+            Type::Float => {
+                buffer.push_str("<float: \"");
+                if let Some(ref field) = self.fields {
+                    buffer.push_str(field);
+                }
+                buffer.push_str("\">");
+            }
+            Type::Double => {
+                buffer.push_str("<double: \"");
+                if let Some(ref field) = self.fields {
+                    buffer.push_str(field);
+                }
+                buffer.push_str("\">");
+            }
+            Type::Custom => {
+                buffer.push_str("<custom: \"");
+                if let Some(ref field) = self.fields {
+                    buffer.push_str(field);
+                }
+                buffer.push_str("\": ");
+                if let Some(ref comparator) = self.comparator_source {
+                    buffer.push_str(&format!("{}", comparator));
+                }
+                buffer.push('>');
+            }
+            Type::StringVal => {
+                buffer.push_str("<string_val: \"");
+                if let Some(ref field) = self.fields {
+                    buffer.push_str(field);
+                }
+                buffer.push_str("\">");
+            }
+            Type::Rewriteable => {
+                buffer.push_str("<rewriteable: \"");
+                if let Some(ref field) = self.fields {
+                    buffer.push_str(field);
+                }
+                buffer.push_str("\">");
+            }
+        }
+        if self.reverse {
+            buffer.push('!');
+        }
+        if let Some(ref missing_value) = self.missing_value {
+            buffer.push_str(" missingValue=");
+            buffer.push_str(&format!("{}", missing_value));
+        }
+        write!(f, "{}", buffer)
     }
 }
 
@@ -87,13 +184,16 @@ impl Provider {
     pub const SORT_FIELD_NAME: &'static str = "SortField";
 }
 impl SortFieldProvider for Provider {
-    fn read_sort_field<D: DataInput>(&self, data_input: &mut D) -> Result<SortField, LuceneError> {
+    fn read_sort_field<D: DataInput, F: FieldComparatorSource>(
+        &self,
+        data_input: &mut D,
+    ) -> Result<SortField<F>, LuceneError> {
         todo!()
     }
 
-    fn write_sort_field<D: DataOutput>(
+    fn write_sort_field<D: DataOutput, F: FieldComparatorSource>(
         &self,
-        sf: &SortField,
+        sf: &SortField<F>,
         output: &mut D,
     ) -> Result<(), LuceneError> {
         todo!()
@@ -138,4 +238,13 @@ pub enum Type {
 
     /// Force rewriting of `SortField` using `SortField::rewrite` before it can be used for sorting.
     Rewriteable,
+}
+
+#[derive(Clone)]
+pub enum MissingValueEnum {}
+
+impl Display for MissingValueEnum {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
 }

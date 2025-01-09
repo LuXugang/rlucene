@@ -16,6 +16,7 @@
  */
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::bits::Bits;
@@ -37,29 +38,29 @@ impl Lucene90LiveDocsFormat {
 }
 
 impl LiveDocsFormat for Lucene90LiveDocsFormat {
-    fn read_live_docs<D: Directory, B: Bits>(
+    fn read_live_docs<D: Directory, B: Bits, F: FieldComparatorSource>(
         &self,
         dir: &D,
-        info: &SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D, F>,
         context: &IOContext,
     ) -> Result<B, LuceneError> {
         todo!()
     }
 
-    fn write_live_docs<D: Directory, B: Bits>(
+    fn write_live_docs<D: Directory, B: Bits, F: FieldComparatorSource>(
         &self,
         bits: &B,
         dir: &mut D,
-        info: &SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D, F>,
         new_del_count: i32,
         context: &IOContext,
     ) -> Result<(), LuceneError> {
         todo!()
     }
 
-    fn files<D: Directory>(
+    fn files<D: Directory, F: FieldComparatorSource>(
         &self,
-        info: &SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D, F>,
         files: &mut HashSet<String>,
     ) -> Result<(), LuceneError> {
         todo!()
