@@ -26,6 +26,7 @@ use rlucene::index::segment_infos::SegmentInfos;
 use rlucene::index::sort::Sort;
 use rlucene::index::IndexFileNames;
 use rlucene::search::field_comparator_source::DummyFieldComparatorSource;
+use rlucene::search::sort_field::DummySortFieldBase;
 use rlucene::store::directory::Directory;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
 use rlucene::store::nio_fs_index_input::NIOFSIndexInput;
@@ -43,6 +44,7 @@ fn test_illegal_created_version() -> Result<(), TestError> {
     // Test for an indexCreatedVersionMajor less than 6
     let result = SegmentInfos::<
         FSDirectory<NativeFSLockFactory, NIOFSDirectory, NIOFSIndexInput>,
+        DummySortFieldBase,
         DummyFieldComparatorSource,
     >::new(5);
     assert!(result.is_err());
@@ -56,6 +58,7 @@ fn test_illegal_created_version() -> Result<(), TestError> {
     let future_version = LATEST.major + 1;
     let result = SegmentInfos::<
         FSDirectory<NativeFSLockFactory, NIOFSDirectory, NIOFSIndexInput>,
+        DummySortFieldBase,
         DummyFieldComparatorSource,
     >::new(future_version);
     assert!(result.is_err());
@@ -72,7 +75,8 @@ fn test_illegal_created_version() -> Result<(), TestError> {
 fn test_versions_no_segments() -> Result<(), TestError> {
     let mut random = my_random("test_versions_no_segments".to_string());
     let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
-    let mut sis = SegmentInfos::<_, DummyFieldComparatorSource>::new(LATEST.major)?;
+    let mut sis =
+        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(LATEST.major)?;
     sis.commit(directory.clone())?;
     let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
     assert!(result.is_some());
@@ -90,7 +94,8 @@ fn test_versions_one_segment() -> Result<(), TestError> {
     let directory = Arc::new(Mutex::new(dir));
     let id = StringHelper::random_id();
     let codec = get_default_code();
-    let mut sis = SegmentInfos::<_, DummyFieldComparatorSource>::new(LATEST.major)?;
+    let mut sis =
+        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(LATEST.major)?;
     let mut info = SegmentInfo::new(
         directory.clone(),
         Some((*LUCENE_11_0_0).clone()),
@@ -144,7 +149,8 @@ fn test_versions_two_segments() -> Result<(), TestError> {
     let directory = Arc::new(Mutex::new(dir));
     let id = StringHelper::random_id();
     let codec = get_default_code();
-    let mut sis = SegmentInfos::<_, DummyFieldComparatorSource>::new(LATEST.major)?;
+    let mut sis =
+        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(LATEST.major)?;
     // First Segment
     let mut info_0 = SegmentInfo::new(
         directory.clone(),
@@ -276,7 +282,7 @@ fn test_to_string() -> Result<(), TestError> {
         HashMap::new(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
     )?;
     assert_eq!(
         format!("TEST({}){}:[indexSort=<doc>]", LATEST, ":C10000"),
@@ -296,7 +302,7 @@ fn test_to_string() -> Result<(), TestError> {
         diagnostics.clone(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
     )?;
     assert_eq!(
         format!(
@@ -319,7 +325,7 @@ fn test_to_string() -> Result<(), TestError> {
         HashMap::new(),
         Vec::from(StringHelper::random_id()),
         attributes.clone(),
-        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
     )?;
     assert_eq!(
         format!(
@@ -342,7 +348,7 @@ fn test_to_string() -> Result<(), TestError> {
         diagnostics.clone(),
         Vec::from(StringHelper::random_id()),
         attributes.clone(),
-        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
     )?;
     assert_eq!(
         format!(
@@ -371,7 +377,7 @@ fn test_id_changes_on_advance() -> Result<(), TestError> {
         HashMap::new(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
     )?;
 
     let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
@@ -430,7 +436,8 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let id = StringHelper::random_id();
     let codec = get_default_code();
-    let mut sis = SegmentInfos::<_, DummyFieldComparatorSource>::new(LATEST.major)?;
+    let mut sis =
+        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(LATEST.major)?;
     let mut info_0 = SegmentInfo::new(
         dir.clone(),
         Some((*LATEST).clone()),
@@ -553,7 +560,9 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
     assert!(corrupt, "No segments file found");
 
     let result =
-        SegmentInfos::<_, DummyFieldComparatorSource>::read_latest_commit(corrupt_dir.clone());
+        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::read_latest_commit(
+            corrupt_dir.clone(),
+        );
     assert!(result.is_err());
     match result {
         Err(LuceneError::CorruptIndex(_))
@@ -594,7 +603,7 @@ fn test_add_diagnostics() -> Result<(), TestError> {
         diagnostics.clone(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
     )?;
     si.add_diagnostics(
         [("key3".to_string(), "value3".to_string())]
@@ -625,7 +634,7 @@ fn test_add_diagnostics() -> Result<(), TestError> {
         diagnostics.clone(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
     )?;
     si.add_diagnostics(
         [("key2".to_string(), "foo".to_string())]

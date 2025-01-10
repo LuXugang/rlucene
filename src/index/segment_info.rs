@@ -18,6 +18,7 @@ use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::index::sort::Sort;
 use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
 use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
+use crate::search::sort_field::SortFieldBase;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::version::Version;
@@ -36,9 +37,10 @@ pub const YES: i32 = 1; // e.g. have norms; have deletes;
 ///
 /// # Experimental
 /// This API is experimental and may change in future releases.
-pub struct SegmentInfo<D, F = DummyFieldComparatorSource>
+pub struct SegmentInfo<D, S, F = DummyFieldComparatorSource>
 where
     D: Directory,
+    S: SortFieldBase,
     F: FieldComparatorSource,
 {
     /// Unique segment name in the directory.
@@ -52,7 +54,7 @@ where
     pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
     attributes: Arc<Mutex<HashMap<String, String>>>,
-    index_sort: Option<Sort<F>>,
+    index_sort: Option<Sort<F, S>>,
     /// Tracks the Lucene version this segment was created with, since 3.1.
     /// Null indicates an older than 3.0 index, and it's used to detect a too-old index.
     /// The format expected is "x.y" - "2.x" for pre-3.0 indexes (or null), and
@@ -68,9 +70,10 @@ where
     set_files: Option<HashSet<String>>,
 }
 
-impl<D, F> SegmentInfo<D, F>
+impl<D, S, F> SegmentInfo<D, S, F>
 where
     D: Directory,
+    S: SortFieldBase,
     F: FieldComparatorSource,
 {
     /// Constructs a new complete `SegmentInfo` instance from input.
@@ -108,8 +111,8 @@ where
         //TODO: type should be [u8,16],avoid heap allocation?
         id: Vec<u8>,
         attributes: HashMap<String, String>,
-        index_sort: Option<Sort<F>>,
-    ) -> Result<SegmentInfo<D, F>, LuceneError> {
+        index_sort: Option<Sort<F, S>>,
+    ) -> Result<SegmentInfo<D, S, F>, LuceneError> {
         // debug_assert!(
         //     !dir.is::<TrackingDirectoryWrapper>(),
         //     "dir should not be a TrackingDirectoryWrapper"
@@ -137,9 +140,10 @@ where
         })
     }
 }
-impl<D, F> SegmentInfo<D, F>
+impl<D, S, F> SegmentInfo<D, S, F>
 where
     D: Directory,
+    S: SortFieldBase,
     F: FieldComparatorSource,
 {
     /// Sets the diagnostics map. The given map is cloned to ensure immutability.
@@ -406,13 +410,14 @@ where
     }
 
     /// Returns the sort order of this segment, or None if the index has no sort.
-    pub fn get_index_sort(&self) -> Option<&Sort<F>> {
+    pub fn get_index_sort(&self) -> Option<&Sort<F, S>> {
         self.index_sort.as_ref()
     }
 }
-impl<D, F> Display for SegmentInfo<D, F>
+impl<D, S, F> Display for SegmentInfo<D, S, F>
 where
     D: Directory,
+    S: SortFieldBase,
     F: FieldComparatorSource,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -423,9 +428,10 @@ where
         }
     }
 }
-impl<D, F> PartialEq for SegmentInfo<D, F>
+impl<D, S, F> PartialEq for SegmentInfo<D, S, F>
 where
     D: Directory,
+    S: SortFieldBase,
     F: FieldComparatorSource,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -433,15 +439,17 @@ where
     }
 }
 
-impl<D, F> Eq for SegmentInfo<D, F>
+impl<D, S, F> Eq for SegmentInfo<D, S, F>
 where
     D: Directory,
+    S: SortFieldBase,
     F: FieldComparatorSource,
 {
 }
-impl<D, F> Hash for SegmentInfo<D, F>
+impl<D, S, F> Hash for SegmentInfo<D, S, F>
 where
     D: Directory,
+    S: SortFieldBase,
     F: FieldComparatorSource,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -450,9 +458,10 @@ where
         self.name.hash(state);
     }
 }
-impl<D, F> Clone for SegmentInfo<D, F>
+impl<D, S, F> Clone for SegmentInfo<D, S, F>
 where
     D: Directory,
+    S: SortFieldBase,
     F: FieldComparatorSource,
 {
     fn clone(&self) -> Self {

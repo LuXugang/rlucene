@@ -49,11 +49,23 @@ fn is_copy_type(ty: &Type) -> bool {
     match ty {
         Type::Path(type_path) => {
             if let Some(segment) = type_path.path.segments.last() {
-                match segment.ident.to_string().as_str() {
-                    "bool" | "u8" | "u16" | "u32" | "u64" | "usize" | "i8" | "i16" | "i32"
-                    | "i64" | "isize" | "f32" | "f64" | "char" => true,
-                    _ => false,
-                }
+                matches!(
+                    segment.ident.to_string().as_str(),
+                    "bool"
+                        | "u8"
+                        | "u16"
+                        | "u32"
+                        | "u64"
+                        | "usize"
+                        | "i8"
+                        | "i16"
+                        | "i32"
+                        | "i64"
+                        | "isize"
+                        | "f32"
+                        | "f64"
+                        | "char"
+                )
             } else {
                 false
             }

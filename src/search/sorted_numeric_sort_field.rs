@@ -16,7 +16,7 @@
  */
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::field_comparator_source::FieldComparatorSource;
-use crate::search::sort_field::SortField;
+use crate::search::sort_field::{SortField, SortFieldBase};
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
 
@@ -28,18 +28,25 @@ impl crate::search::sort_field::Provider {
     pub const NUMERIC_NAME: &'static str = "SortedNumericSortField";
 }
 impl SortFieldProvider for NumericProvider {
-    fn read_sort_field<D: DataInput, F: FieldComparatorSource>(
-        &self,
-        data_input: &mut D,
-    ) -> Result<SortField<F>, LuceneError> {
+    fn read_sort_field<D, F, S>(&self, data_input: &mut D) -> Result<SortField<F, S>, LuceneError>
+    where
+        D: DataInput,
+        F: FieldComparatorSource,
+        S: SortFieldBase,
+    {
         todo!()
     }
 
-    fn write_sort_field<D: DataOutput, F: FieldComparatorSource>(
+    fn write_sort_field<D, F, S>(
         &self,
-        sf: &SortField<F>,
+        sf: &SortField<F, S>,
         output: &mut D,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<(), LuceneError>
+    where
+        D: DataOutput,
+        F: FieldComparatorSource,
+        S: SortFieldBase,
+    {
         todo!()
     }
 }

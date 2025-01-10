@@ -15,28 +15,30 @@
  * limitations under the License.
  */
 use crate::search::field_comparator_source::FieldComparatorSource;
-use crate::search::sort_field::{SortField, Type};
+use crate::search::sort_field::{SortField, SortFieldBase, Type};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
 use std::fmt::Display;
 
 #[derive(Clone)]
-pub struct Sort<F>
+pub struct Sort<F, S>
 where
     F: FieldComparatorSource,
+    S: SortFieldBase,
 {
-    fields: Vec<SortField<F>>,
+    fields: Vec<SortField<F, S>>,
 }
-impl<F> Sort<F>
+impl<F, S> Sort<F, S>
 where
     F: FieldComparatorSource,
+    S: SortFieldBase,
 {
     /// Sorts by computed relevance.
     ///
     /// This is the same sort criteria as calling `IndexSearcher::search` without a sort criteria,
     /// only with slightly more overhead.
     pub fn new() -> Result<Self, LuceneError> {
-        let sort_field = SortField::new(None, Type::Score)?;
+        let sort_field = SortField::get_field_score()?;
         Self::new_with_fields(vec![sort_field])
     }
 
@@ -51,7 +53,7 @@ where
     ///
     /// # Errors
     /// Returns an error if the provided `fields` vector is empty.
-    pub fn new_with_fields(fields: Vec<SortField<F>>) -> Result<Self, LuceneError> {
+    pub fn new_with_fields(fields: Vec<SortField<F, S>>) -> Result<Self, LuceneError> {
         if fields.is_empty() {
             Err(LuceneError::illegal_argument(
                 "There must be at least 1 sort field".to_string(),
@@ -74,14 +76,15 @@ where
     ///
     /// # Returns
     /// Array (Vec) of `SortField` objects used in this sort criteria.
-    pub fn get_sort(&self) -> &[SortField<F>] {
+    pub fn get_sort(&self) -> &[SortField<F, S>] {
         &self.fields
     }
 }
 
-impl<F> Display for Sort<F>
+impl<F, S> Display for Sort<F, S>
 where
     F: FieldComparatorSource,
+    S: SortFieldBase,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let fields_string = self

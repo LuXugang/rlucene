@@ -24,44 +24,146 @@ use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
 use std::fmt::Display;
 
+/// Stores information about how to sort documents by terms in an individual field.
+/// Fields must be indexed in order to sort by them.
+///
+/// Sorting on a numeric field that is indexed with both doc values and points may
+/// use an optimization to skip non-competitive documents. This optimization relies
+/// on the assumption that the same data is stored in these points and doc values.
+///
+/// Sorting on a SORTED(_SET) field that is indexed with both doc values and term
+/// index may use an optimization to skip non-competitive documents. This optimization
+/// relies on the assumption that the same data is stored in these term index and
+/// doc values.
 #[derive(Clone)]
-pub struct SortField<F>
+pub struct SortField<F, S>
 where
     F: FieldComparatorSource,
+    S: SortFieldBase,
 {
+    sub_sort_field: Option<S>,
     fields: Option<String>,
     field_type: Type,
     comparator_source: Option<F>,
+    /// defaults to natural order
     reverse: bool,
+    /// Used for 'sortMissingFirst/Last'
     missing_value: Option<MissingValueEnum>,
+    /// Indicates if sort should be optimized with indexed data. Set to true by default.
+    #[deprecated(since = "10.0.0")]
+    optimize_sort_with_indexed_data: bool,
 }
 
-impl<F> SortField<F>
+impl<F, S> SortField<F, S>
 where
     F: FieldComparatorSource,
+    S: SortFieldBase,
 {
     /// Creates a sort by terms in the given field with the type of term values explicitly given.
     ///
     /// # Arguments
-    /// - `field`: Name of the field to sort by. Can be `None` if `field_type` is `SCORE` or `DOC`.
+    ///
+    /// - `Field`: Name of the field to sort by. Can be `None` if `field_type` is `SCORE` or `DOC`.
     /// - `field_type`: Type of values in the terms.
+    /// - `sub_sort_field`: Provides additional (or customized) sorting functionality.
+    ///   This could be a trait or type that encapsulates more advanced logic.
     ///
     /// # Errors
+    ///
     /// Returns an error if the field is `None` and the type is not `SCORE` or `DOC`.
-    pub fn new(field: Option<String>, field_type: Type) -> Result<Self, LuceneError> {
-        SortField::init_field_type(field, field_type)
+    pub fn new(
+        field: Option<String>,
+        field_type: Type,
+        sub_sort_field: Option<S>,
+    ) -> Result<Self, LuceneError> {
+        SortField::init_field_type(field, field_type, sub_sort_field)
     }
+    /// Creates a sort, possibly in reverse, by terms in the given field with the type of term values
+    /// explicitly given.
+    ///
+    /// # Arguments
+    ///
+    /// - `Field`: Name of the field to sort by. Can be `None` if `field_type` is `SCORE` or `DOC`.
+    /// - `field_type`: Type of values in the terms.
+    /// - `reverse`: `true` if natural order should be reversed.
+    /// - `Sub_sort_field`: An additional sorting criterion or a custom implementation that provides
+    ///   extended sorting logic. It can be used to define advanced or secondary sorting behavior.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
+    pub fn new_with_reverse(
+        field: Option<String>,
+        field_type: Type,
+        reverse: bool,
+        sub_sort_field: Option<S>,
+    ) -> Result<Self, LuceneError> {
+        let mut result = Self::new(field, field_type, sub_sort_field)?;
+        result.reverse = reverse;
+        Ok(result)
+    }
+    /// Creates a sort with a custom comparison function and an optional sub-sort field.
+    ///
+    /// # Arguments
+    ///
+    /// - `Field`: Name of the field to sort by.
+    /// - `comparator`: A source that returns a comparator for sorting hits; cannot be `None`
+    /// - `sub_sort_field`: An additional sorting criterion or a custom implementation that provides
+    ///   extended sorting logic. It can be used to define advanced or secondary sorting behavior.
+    /// # Errors
+    ///
+    /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
+    pub fn new_with_comparator(
+        field: Option<String>,
+        comparator: Option<F>,
+        sub_sort_field: Option<S>,
+    ) -> Result<Self, LuceneError> {
+        let mut result = SortField::init_field_type(field, Type::Custom, sub_sort_field)?;
+        debug_assert!(comparator.is_some());
+        result.comparator_source = comparator;
+        Ok(result)
+    }
+    /// Creates a sort, possibly in reverse, with a custom comparison function and an optional sub-sort field.
+    ///
+    /// # Arguments
+    ///
+    /// - `Field`: Name of the field to sort by.
+    /// - `comparator`: A source that returns a comparator for sorting hits. cannot be `None`
+    /// - `reverse`: `true` if natural order should be reversed.
+    /// - `Sub_sort_field`: An additional sorting criterion or a custom implementation that provides
+    ///   extended sorting logic. It can be used to define advanced or secondary sorting behavior.
+    /// # Errors
+    ///
+    /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
+    pub fn new_with_comparator_reverse(
+        field: Option<String>,
+        comparator: Option<F>,
+        reverse: bool,
+        sub_sort_field: Option<S>,
+    ) -> Result<Self, LuceneError> {
+        let mut result = Self::new_with_comparator(field, comparator, sub_sort_field)?;
+        result.reverse = reverse;
+        Ok(result)
+    }
+    /// Represents sorting by document score (relevance)
+    /// # Note
     /// Replace Java's `SortField.FIELD_SCORE` with this method.
     pub fn get_field_score() -> Result<Self, LuceneError> {
-        SortField::new(None, Type::Score)
+        SortField::new(None, Type::Score, None)
     }
+    /// Represents sorting by document number (index order).
+    /// # Note
     /// Replace Java's `SortField.FIELD_DOC` with this method.
     pub fn get_field_doc() -> Result<Self, LuceneError> {
-        SortField::new(None, Type::Doc)
+        SortField::new(None, Type::Doc, None)
     }
     // Sets field & type, and ensures field is not NULL unless
     // type is SCORE or DOC
-    pub fn init_field_type(field: Option<String>, field_type: Type) -> Result<Self, LuceneError> {
+    fn init_field_type(
+        field: Option<String>,
+        field_type: Type,
+        sub_sort_field: Option<S>,
+    ) -> Result<Self, LuceneError> {
         if field.is_none() && field_type != Type::Score && field_type != Type::Doc {
             return Err(LuceneError::illegal_argument(
                 "field can only be None when type is SCORE or DOC".to_string(),
@@ -73,6 +175,8 @@ where
             comparator_source: None,
             reverse: false,
             missing_value: None,
+            optimize_sort_with_indexed_data: true,
+            sub_sort_field,
         })
     }
     pub fn get_index_sorter(&self) -> Option<IndexSortEnum> {
@@ -97,9 +201,10 @@ where
     }
 }
 
-impl<F> Display for SortField<F>
+impl<F, S> Display for SortField<F, S>
 where
     F: FieldComparatorSource,
+    S: SortFieldBase,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buffer = String::new();
@@ -159,7 +264,7 @@ where
                 }
                 buffer.push_str("\">");
             }
-            Type::Rewriteable => {
+            Type::Rewritable => {
                 buffer.push_str("<rewriteable: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
@@ -178,24 +283,42 @@ where
     }
 }
 
+pub trait SortFieldBase: Clone {}
+pub struct DummySortFieldBase;
+
+impl Clone for DummySortFieldBase {
+    fn clone(&self) -> Self {
+        unreachable!()
+    }
+}
+
+impl SortFieldBase for DummySortFieldBase {}
+
 pub struct Provider;
 impl Provider {
     /// The name this Provider is registered under.
     pub const SORT_FIELD_NAME: &'static str = "SortField";
 }
 impl SortFieldProvider for Provider {
-    fn read_sort_field<D: DataInput, F: FieldComparatorSource>(
-        &self,
-        data_input: &mut D,
-    ) -> Result<SortField<F>, LuceneError> {
+    fn read_sort_field<D, F, S>(&self, data_input: &mut D) -> Result<SortField<F, S>, LuceneError>
+    where
+        D: DataInput,
+        F: FieldComparatorSource,
+        S: SortFieldBase,
+    {
         todo!()
     }
 
-    fn write_sort_field<D: DataOutput, F: FieldComparatorSource>(
+    fn write_sort_field<D, F, S>(
         &self,
-        sf: &SortField<F>,
+        sf: &SortField<F, S>,
         output: &mut D,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<(), LuceneError>
+    where
+        D: DataOutput,
+        F: FieldComparatorSource,
+        S: SortFieldBase,
+    {
         todo!()
     }
 }
@@ -237,7 +360,34 @@ pub enum Type {
     StringVal,
 
     /// Force rewriting of `SortField` using `SortField::rewrite` before it can be used for sorting.
-    Rewriteable,
+    Rewritable,
+}
+impl Type {
+    pub fn value_of(type_str: &str) -> Result<Self, LuceneError> {
+        match type_str {
+            "Score" => Ok(Type::Score),
+            "Doc" => Ok(Type::Doc),
+            "String" => Ok(Type::String),
+            "Int" => Ok(Type::Int),
+            "Float" => Ok(Type::Float),
+            "Long" => Ok(Type::Long),
+            "Double" => Ok(Type::Double),
+            "Custom" => Ok(Type::Custom),
+            "StringVal" => Ok(Type::StringVal),
+            "Rewritable" => Ok(Type::Rewritable),
+            _ => Err(LuceneError::illegal_argument(format!(
+                "Can't deserialize SortField - unknown type {}",
+                type_str
+            ))),
+        }
+    }
+    pub fn read_type<D>(input: &mut D) -> Result<Self, LuceneError>
+    where
+        D: DataInput,
+    {
+        let type_str = input.read_string()?;
+        Type::value_of(&type_str)
+    }
 }
 
 #[derive(Clone)]

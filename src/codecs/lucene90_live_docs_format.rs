@@ -17,6 +17,7 @@
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::search::field_comparator_source::FieldComparatorSource;
+use crate::search::sort_field::SortFieldBase;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::bits::Bits;
@@ -38,31 +39,48 @@ impl Lucene90LiveDocsFormat {
 }
 
 impl LiveDocsFormat for Lucene90LiveDocsFormat {
-    fn read_live_docs<D: Directory, B: Bits, F: FieldComparatorSource>(
+    fn read_live_docs<D, B, F, S>(
         &self,
         dir: &D,
-        info: &SegmentCommitInfo<D, F>,
+        info: &SegmentCommitInfo<D, S, F>,
         context: &IOContext,
-    ) -> Result<B, LuceneError> {
+    ) -> Result<B, LuceneError>
+    where
+        D: Directory,
+        B: Bits,
+        F: FieldComparatorSource,
+        S: SortFieldBase,
+    {
         todo!()
     }
 
-    fn write_live_docs<D: Directory, B: Bits, F: FieldComparatorSource>(
+    fn write_live_docs<D, B, F, S>(
         &self,
         bits: &B,
         dir: &mut D,
-        info: &SegmentCommitInfo<D, F>,
+        info: &SegmentCommitInfo<D, S, F>,
         new_del_count: i32,
         context: &IOContext,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<(), LuceneError>
+    where
+        D: Directory,
+        B: Bits,
+        F: FieldComparatorSource,
+        S: SortFieldBase,
+    {
         todo!()
     }
 
-    fn files<D: Directory, F: FieldComparatorSource>(
+    fn files<D, F, S>(
         &self,
-        info: &SegmentCommitInfo<D, F>,
+        info: &SegmentCommitInfo<D, S, F>,
         files: &mut HashSet<String>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<(), LuceneError>
+    where
+        D: Directory,
+        F: FieldComparatorSource,
+        S: SortFieldBase,
+    {
         todo!()
     }
 }
