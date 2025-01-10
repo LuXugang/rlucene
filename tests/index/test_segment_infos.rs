@@ -32,7 +32,7 @@ use rlucene::store::nio_fs_index_input::NIOFSIndexInput;
 use rlucene::store::{DataInput, DataOutput};
 use rlucene::store::{FSDirectory, IOContext, IndexInput, NativeFSLockFactory};
 use rlucene::util::error::lucene_error::LuceneError;
-use rlucene::util::{StringHelper, Version, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
+use rlucene::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
@@ -40,7 +40,6 @@ use std::sync::{Arc, Mutex};
 pub struct TestSegmentInfos;
 #[test]
 fn test_illegal_created_version() -> Result<(), TestError> {
-    let mut random = my_random("test_illegal_created_version".to_string());
     // Test for an indexCreatedVersionMajor less than 6
     let result = SegmentInfos::<
         FSDirectory<NativeFSLockFactory, NIOFSDirectory, NIOFSIndexInput>,
@@ -102,7 +101,7 @@ fn test_versions_one_segment() -> Result<(), TestError> {
         false,
         Some(get_default_code()),
         HashMap::new(),
-        Vec::from(id.clone()),
+        Vec::from(id),
         HashMap::new(),
         None,
     )?;
@@ -142,7 +141,7 @@ fn test_versions_one_segment() -> Result<(), TestError> {
 fn test_versions_two_segments() -> Result<(), TestError> {
     let mut random = my_random("test_versions_two_segments".to_string());
     let dir = new_directory(&mut random)?;
-    let mut directory = Arc::new(Mutex::new(dir));
+    let directory = Arc::new(Mutex::new(dir));
     let id = StringHelper::random_id();
     let codec = get_default_code();
     let mut sis = SegmentInfos::<_, DummyFieldComparatorSource>::new(LATEST.major)?;
@@ -157,7 +156,7 @@ fn test_versions_two_segments() -> Result<(), TestError> {
         false,
         Some(get_default_code()),
         HashMap::new(),
-        Vec::from(id.clone()),
+        Vec::from(id),
         HashMap::new(),
         None,
     )?;
@@ -190,7 +189,7 @@ fn test_versions_two_segments() -> Result<(), TestError> {
         false,
         Some(get_default_code()),
         HashMap::new(),
-        Vec::from(id.clone()),
+        Vec::from(id),
         HashMap::new(),
         None,
     )?;
@@ -282,7 +281,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]",
-            LATEST.to_string(),
+            LATEST,
             ":C10000"
         ),
         format!("{}", si)
@@ -306,7 +305,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[diagnostics={:?}]",
-            LATEST.to_string(),
+            LATEST,
             ":C10000",
             diagnostics
         ),
@@ -331,7 +330,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[attributes={:?}]",
-            LATEST.to_string(),
+            LATEST,
             ":C10000",
             attributes
         ),
@@ -356,7 +355,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[diagnostics={:?}]:[attributes={:?}]",
-            LATEST.to_string(),
+            LATEST,
             ":C10000",
             diagnostics,
             attributes
@@ -387,7 +386,7 @@ fn test_id_changes_on_advance() -> Result<(), TestError> {
     )?;
 
     let mut commit_info =
-        SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(Vec::from(id.clone())))?;
+        SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
     assert_eq!(
         StringHelper::id_to_string(Some(id.as_slice())),
         StringHelper::id_to_string(commit_info.get_id().as_deref())
@@ -486,7 +485,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
         false,
         Some(codec.clone()),
         HashMap::new(),
-        Vec::from(id.clone()),
+        Vec::from(id),
         HashMap::new(),
         None,
     )?;
@@ -523,7 +522,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
                     let mut output =
                         corrupt_directory.create_output(&file, IOContext::default_io_context()?)?;
 
-                    let mut input_length = IndexInput::length(&mut input);
+                    let mut input_length = IndexInput::length(&input);
                     let corrupt_index = random.gen_range(0..input_length - 1);
                     output.copy_bytes(&mut input, corrupt_index)?;
 
@@ -531,7 +530,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
                     let value = random.gen_range(0x01..0xff);
                     let corrupt_byte = byte.wrapping_add(value);
                     output.write_byte(corrupt_byte)?;
-                    input_length = IndexInput::length(&mut input);
+                    input_length = IndexInput::length(&input);
                     let file_pointer = input.get_file_pointer();
                     output.copy_bytes(&mut input, input_length - file_pointer)?;
                 }
@@ -539,7 +538,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
                     corrupt_directory.open_input(&file, IOContext::read_once_io_context()?)?;
                 match CodecUtil::checksum_entire_file(&mut input) {
                     Ok(_) => {
-                        if cfg!(verbose) {
+                        if cfg!(feature = "verbose") {
                             println!(
                                 "TEST: Altering the file did not update the checksum, aborting..."
                             );
@@ -577,5 +576,82 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
         }
     }
 
+    Ok(())
+}
+#[test]
+fn test_add_diagnostics() -> Result<(), TestError> {
+    let mut random = my_random("test_add_diagnostics".to_string());
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+    let codec = get_default_code();
+
+    // Diagnostics map
+    let diagnostics: HashMap<String, String> = [
+        ("key1".to_string(), "value1".to_string()),
+        ("key2".to_string(), "value2".to_string()),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    // Test adding a new key-value pair
+    let mut si = SegmentInfo::new(
+        dir.clone(),
+        Some((*LATEST).clone()),
+        Some((*LATEST).clone()),
+        "TEST".to_string(),
+        Some(10000),
+        false,
+        false,
+        Some(codec.clone()),
+        diagnostics.clone(),
+        Vec::from(StringHelper::random_id()),
+        HashMap::new(),
+        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+    )?;
+    si.add_diagnostics(
+        [("key3".to_string(), "value3".to_string())]
+            .iter()
+            .cloned()
+            .collect(),
+    );
+    let expected_diagnostics: HashMap<String, String> = [
+        ("key1".to_string(), "value1".to_string()),
+        ("key2".to_string(), "value2".to_string()),
+        ("key3".to_string(), "value3".to_string()),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+    assert_eq!(si.get_diagnostics(), &expected_diagnostics);
+
+    // Test modifying an existing key-value pair
+    let mut si = SegmentInfo::new(
+        dir.clone(),
+        Some((*LATEST).clone()),
+        Some((*LATEST).clone()),
+        "TEST".to_string(),
+        Some(10000),
+        false,
+        false,
+        Some(codec.clone()),
+        diagnostics.clone(),
+        Vec::from(StringHelper::random_id()),
+        HashMap::new(),
+        Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
+    )?;
+    si.add_diagnostics(
+        [("key2".to_string(), "foo".to_string())]
+            .iter()
+            .cloned()
+            .collect(),
+    );
+    let expected_diagnostics: HashMap<String, String> = [
+        ("key1".to_string(), "value1".to_string()),
+        ("key2".to_string(), "foo".to_string()),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+    assert_eq!(si.get_diagnostics(), &expected_diagnostics);
     Ok(())
 }

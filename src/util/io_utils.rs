@@ -28,7 +28,7 @@ impl IOUtils {
     /// Note: The `files` collection should not be empty or contain `None`.
     pub fn delete_files_ignoring_exceptions<D: Directory>(dir: &mut D, files: &[String]) {
         for name in files {
-            if let Err(_) = dir.delete_file(name) {
+            if dir.delete_file(name).is_err() {
                 // Ignore the error and continue with the next file.
             }
         }

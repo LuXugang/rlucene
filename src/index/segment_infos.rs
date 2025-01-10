@@ -612,7 +612,7 @@ where
                     || !segment_version
                         .as_ref()
                         .unwrap()
-                        .on_or_after(&min_segment_version.as_ref().unwrap())
+                        .on_or_after(min_segment_version.as_ref().unwrap())
                 {
                     min_segment_version = segment_version;
                 }
@@ -820,7 +820,7 @@ where
         let mut success_rename_and_sync = false;
 
         let result = (|| {
-            let dest;
+            
             let src = IndexFileNames::file_name_from_generation(
                 IndexFileNames::PENDING_SEGMENTS,
                 "",
@@ -829,7 +829,7 @@ where
             .ok_or_else(|| {
                 LuceneError::illegal_state("Failed to generate source file name.".to_string())
             })?;
-            dest = IndexFileNames::file_name_from_generation(
+            let dest = IndexFileNames::file_name_from_generation(
                 IndexFileNames::SEGMENTS,
                 "",
                 self.generation,
@@ -1318,7 +1318,7 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64, LuceneError> 
     for file in files {
         if file.starts_with(IndexFileNames::SEGMENTS)
             // skipping this file here helps deliver the right exception when opening an old index
-            && file.starts_with(OLD_SEGMENTS_GEN) == false
+            && !file.starts_with(OLD_SEGMENTS_GEN)
         {
             let gen = generation_from_segments_file_name(file)?;
             if gen > max {

@@ -16,7 +16,6 @@
  */
 use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::index::leaf_metadata::LeafMetaData;
 use crate::index::segment_info::SegmentInfo;
 use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
 use crate::store::directory::Directory;

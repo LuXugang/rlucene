@@ -18,7 +18,6 @@ use crate::index::sort::Sort;
 use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::version::{Version, LATEST};
-use derive_getters::Getters;
 
 pub struct LeafMetaData<F>
 where
