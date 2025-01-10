@@ -49,26 +49,27 @@ pub trait BaseDirectoryTestCase {
 
     fn test_copy_from(&self, random: &mut StdRng) -> Result<(), TestError> {
         let mut temp_dir = Builder::new().prefix("testCopy").tempdir()?;
-        let mut source = self.get_directory(temp_dir.into_path())?;
+        let source = Arc::new(Mutex::new(self.get_directory(temp_dir.into_path())?));
         let mut dest = new_directory(random)?;
-        Self::run_copy_from(&mut source, &mut dest, random)?;
+        Self::run_copy_from(source, &mut dest, random)?;
 
-        let mut source = new_directory(random)?;
+        let source = Arc::new(Mutex::new(new_directory(random)?));
         temp_dir = Builder::new().prefix("testCopyDestination").tempdir()?;
         let mut dest = self.get_directory(temp_dir.into_path())?;
-        Self::run_copy_from(&mut source, &mut dest, random)?;
+        Self::run_copy_from(source, &mut dest, random)?;
         Ok(())
     }
 
-    fn run_copy_from(
-        source: &mut impl Directory,
+    fn run_copy_from<T: Directory>(
+        source: Arc<Mutex<T>>,
         dest: &mut impl Directory,
         random: &mut StdRng,
     ) -> Result<(), TestError> {
         let mut bytes = vec![0u8; 20000];
         random.fill(&mut bytes[..]);
         {
-            let mut output = source.create_output("foobar", new_io_context(random)?)?;
+            let mut source_dir = source.lock().unwrap();
+            let mut output = source_dir.create_output("foobar", new_io_context(random)?)?;
 
             output.write_bytes_with_len(&bytes, bytes.len() as u32)?;
         }

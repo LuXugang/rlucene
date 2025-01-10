@@ -24,6 +24,7 @@ use crate::store::{IOContext, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::sync::{Arc, Mutex};
 
 /// A `Directory` provides an abstraction layer for storing a list of files. A directory contains only files (no sub-folder hierarchy).
 ///
@@ -181,9 +182,9 @@ pub trait Directory: Display + Sized {
     /// * `from` - The directory containing the source file.
     /// * `dest` - The destination file in this directory.
     /// * `io_context` - The I/O context used for opening the destination file.
-    fn copy_from(
+    fn copy_from<T: Directory>(
         &mut self,
-        from: &impl Directory,
+        from: Arc<Mutex<T>>,
         src: &str,
         dest: &str,
         context: IOContext,
@@ -191,7 +192,10 @@ pub trait Directory: Display + Sized {
         let mut success = false;
 
         let result = (|| -> Result<(), LuceneError> {
-            let mut is = from.open_input(src, IOContext::read_once_io_context()?)?;
+            let dir = from.lock().map_err(|_| {
+                LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
+            })?;
+            let mut is = dir.open_input(src, IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context)?;
             let length = IndexInput::length(&is);
             os.copy_bytes(&mut is, length)?;
