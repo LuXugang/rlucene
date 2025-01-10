@@ -30,7 +30,7 @@ test_only = []
 not_required_in_rlucene = []
 wait_other_impl = []
 nightly = []
-verbose = []
+test_log_verbose = []
 [workspace]
 members = [
     ".",

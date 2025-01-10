@@ -533,7 +533,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
                     corrupt_directory.open_input(&file, IOContext::read_once_io_context()?)?;
                 match CodecUtil::checksum_entire_file(&mut input) {
                     Ok(_) => {
-                        if cfg!(feature = "verbose") {
+                        if cfg!(feature = "test_log_verbose") {
                             println!(
                                 "TEST: Altering the file did not update the checksum, aborting..."
                             );
