@@ -36,18 +36,18 @@ use std::sync::{Arc, Mutex};
 ///
 /// # Data Types
 ///
-/// - **Header** --> [`CodecUtil::write_index_header`](crate::codecs::codec_util::write_index_header)
-/// - **SegSize** --> [`DataOutput::write_int`](DataOutput::write_int) (Int32)
-/// - **SegVersion** --> [`DataOutput::write_string`](DataOutput::write_string) (String)
-/// - **SegMinVersion** --> [`DataOutput::write_string`](DataOutput::write_string) (String)
-/// - **Files** --> [`DataOutput::write_set_of_strings`](DataOutput::write_set_of_strings) (Set<String>)
-/// - **Diagnostics**, **Attributes** --> [`DataOutput::write_map_of_strings`](DataOutput::write_map_of_strings) (Map<String, String>)
-/// - **IsCompoundFile** --> [`DataOutput::write_byte`](DataOutput::write_byte) (Int8)
-/// - **HasBlocks** --> [`DataOutput::write_byte`](DataOutput::write_byte) (Int8)
-/// - **IndexSort** --> [`DataOutput::write_vint`](DataOutput::write_vint) (Int32) count, followed by `count` SortField
-/// - **SortField** --> [`DataOutput::write_string`](DataOutput::write_string) (String) sort class, followed by a per-sort bytestream
-///   (see [`SortFieldProvider::read_sort_field`](SortFieldProvider::read_sort_field))
-/// - **Footer** --> [`CodecUtil::write_footer`](crate::codecs::codec_util::write_footer)
+/// - **Header** --> [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
+/// - **SegSize** --> [`DataOutput::write_int`] (Int32)
+/// - **SegVersion** --> [`DataOutput::write_string`] (String)
+/// - **SegMinVersion** --> [`DataOutput::write_string`] (String)
+/// - **Files** --> [`DataOutput::write_set_of_strings`] (Set\<String>)
+/// - **Diagnostics**, **Attributes** --> [`DataOutput::write_map_of_strings`] (Map<String, String>)
+/// - **IsCompoundFile** --> [`DataOutput::write_byte`] (Int8)
+/// - **HasBlocks** --> [`DataOutput::write_byte`] (Int8)
+/// - **IndexSort** --> [`DataOutput::write_vint`] (Int32) count, followed by `count` SortField
+/// - **SortField** --> [`DataOutput::write_string`] (String) sort class, followed by a per-sort bytestream
+///   (see [`SortFieldProvider::read_sort_field`])
+/// - **Footer** --> [`CodecUtil::write_footer`](CodecUtil::write_footer)
 ///
 /// # Field Descriptions
 ///

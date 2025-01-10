@@ -41,7 +41,7 @@ pub trait SegmentInfoFormat {
     /// # Errors
     ///
     /// Returns an error if an I/O error occurs.
-    fn read<'a, D: Directory, F: FieldComparatorSource>(
+    fn read<D: Directory, F: FieldComparatorSource>(
         &self,
         directory: Arc<Mutex<D>>,
         segment_name: &str,

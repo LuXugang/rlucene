@@ -279,11 +279,7 @@ fn test_to_string() -> Result<(), TestError> {
         Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
     )?;
     assert_eq!(
-        format!(
-            "TEST({}){}:[indexSort=<doc>]",
-            LATEST,
-            ":C10000"
-        ),
+        format!("TEST({}){}:[indexSort=<doc>]", LATEST, ":C10000"),
         format!("{}", si)
     );
 
@@ -305,9 +301,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[diagnostics={:?}]",
-            LATEST,
-            ":C10000",
-            diagnostics
+            LATEST, ":C10000", diagnostics
         ),
         format!("{}", si)
     );
@@ -330,9 +324,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[attributes={:?}]",
-            LATEST,
-            ":C10000",
-            attributes
+            LATEST, ":C10000", attributes
         ),
         format!("{}", si)
     );
@@ -355,10 +347,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[diagnostics={:?}]:[attributes={:?}]",
-            LATEST,
-            ":C10000",
-            diagnostics,
-            attributes
+            LATEST, ":C10000", diagnostics, attributes
         ),
         format!("{}", si)
     );
@@ -385,8 +374,7 @@ fn test_id_changes_on_advance() -> Result<(), TestError> {
         Some(Sort::<DummyFieldComparatorSource>::get_index_order()?),
     )?;
 
-    let mut commit_info =
-        SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
+    let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
     assert_eq!(
         StringHelper::id_to_string(Some(id.as_slice())),
         StringHelper::id_to_string(commit_info.get_id().as_deref())

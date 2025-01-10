@@ -63,10 +63,10 @@ pub const OLD_SEGMENTS_GEN: &str = "segments.gen";
 ///
 /// Data types:
 ///
-/// - `Header` -> [`IndexHeader`](crate::codecs::codec_util::write_index_header)
-/// - `LuceneVersion` -> Which Lucene code [`Version`](crate::util::version::Version) was used for this commit,
+/// - `Header` -> [`IndexHeader`](CodecUtil::write_index_header)
+/// - `LuceneVersion` -> Which Lucene code [`Version`] was used for this commit,
 ///   written as three [`DataOutput::writeVInt`](crate::store::data_output::DataOutput::write_vint): major, minor, bugfix
-/// - `MinSegmentLuceneVersion` -> Lucene code [`Version`](crate::util::version::Version) of the oldest segment,
+/// - `MinSegmentLuceneVersion` -> Lucene code [`Version`] of the oldest segment,
 ///   written as three [`DataOutput::writeVInt`](crate::store::data_output::DataOutput::write_vint): major, minor, bugfix;
 ///   this is only written only if there's at least one segment
 /// - `NameCounter`, `SegCount`, `DeletionCount` -> [`DataOutput::writeInt`](crate::store::data_output::DataOutput::write_int)
@@ -76,7 +76,7 @@ pub const OLD_SEGMENTS_GEN: &str = "segments.gen";
 /// - `SegName`, `SegCodec` -> [`DataOutput::writeString`](crate::store::data_output::DataOutput::write_string)
 /// - `CommitUserData` -> [`DataOutput::writeMapOfStrings`](crate::store::data_output::DataOutput::write_map_of_strings)
 /// - `UpdatesFiles` -> Map<[`DataOutput::writeInt`](crate::store::data_output::DataOutput::write_int), [`DataOutput::writeSetOfStrings`](crate::store::data_output::DataOutput::write_set_of_strings)>
-/// - `Footer` -> [`CodecUtil::writeFooter`](crate::codecs::codec_util::write_footer)
+/// - `Footer` -> [`CodecUtil::writeFooter`](CodecUtil::write_footer)
 ///
 /// Field Descriptions:
 ///
@@ -258,7 +258,7 @@ where
         }
     }
 
-    /// Read the commit from the provided [`ChecksumIndexInput`](ChecksumIndexInput).
+    /// Read the commit from the provided [`ChecksumIndexInput`].
     pub fn read_commit_with_input<I: ChecksumIndexInput>(
         directory: Arc<Mutex<D>>,
         input: &mut I,
@@ -266,7 +266,7 @@ where
     ) -> Result<Self, LuceneError> {
         Self::read_commit_impl(directory, input, generation, *MIN_SUPPORTED_MAJOR)
     }
-    /// Read the commit from the provided [`ChecksumIndexInput`](ChecksumIndexInput).
+    /// Read the commit from the provided [`ChecksumIndexInput`].
     pub fn read_commit_impl<I: ChecksumIndexInput>(
         directory: Arc<Mutex<D>>,
         input: &mut I,
@@ -781,7 +781,7 @@ where
     /// at the end, so that it is not visible to readers. Once this is called you must call [`finish_commit`](SegmentInfos::finish_commit)
     /// to complete the commit or [`rollback_commit`](SegmentInfos::rollback_commit) to abort it.
     ///
-    /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`](SegmentInfos) instance.
+    /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
     pub fn prepare_commit(&mut self, dir: Arc<Mutex<D>>) -> Result<(), LuceneError> {
         if self.pending_commit {
             return Err(LuceneError::illegal_state(
@@ -820,7 +820,6 @@ where
         let mut success_rename_and_sync = false;
 
         let result = (|| {
-            
             let src = IndexFileNames::file_name_from_generation(
                 IndexFileNames::PENDING_SEGMENTS,
                 "",
@@ -866,7 +865,7 @@ where
     }
     /// Writes and syncs to the Directory, taking care to remove the segments file on exception.
     ///
-    /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`](SegmentInfos) instance.
+    /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
     pub fn commit(&mut self, dir: Arc<Mutex<D>>) -> Result<(), LuceneError> {
         self.prepare_commit(dir.clone())?;
         self.finish_commit(dir.clone())?;
@@ -1016,7 +1015,7 @@ where
         Ok(())
     }
 
-    /// Appends the provided [`SegmentCommitInfo`](SegmentCommitInfo)s.
+    /// Appends the provided [`SegmentCommitInfo`]s.
     pub fn add_all(
         &mut self,
         sis: impl IntoIterator<Item = SegmentCommitInfo<D, F>>,
