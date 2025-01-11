@@ -23,7 +23,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex};
 
 /// A `Directory` provides an abstraction layer for storing a list of files. A directory contains only files (no sub-folder hierarchy).

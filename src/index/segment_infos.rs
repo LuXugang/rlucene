@@ -103,7 +103,7 @@ pub const OLD_SEGMENTS_GEN: &str = "segments.gen";
 ///
 /// # Notes
 /// This module is experimental and subject to change.
-pub struct SegmentInfos<D, S, F = DummyFieldComparatorSource>
+pub struct SegmentInfos<D, S, F>
 where
     D: Directory,
     S: SortFieldBase,

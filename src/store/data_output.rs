@@ -261,7 +261,7 @@ pub trait DataOutput: Sized {
     /// # Note
     /// This is an experimental API.
     fn write_group_vints(&mut self, values: &mut [i64], limit: u32) -> Result<(), LuceneError> {
-        let mut group_vint_bytes: Vec<u8> = vec![0; MAX_LENGTH_PER_GROUP];
+        let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
         GroupVIntUtil::write_group_vints(self, &mut group_vint_bytes, values, limit)?;
         Ok(())
     }

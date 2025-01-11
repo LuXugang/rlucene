@@ -20,14 +20,14 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 
-// the maximum length of a single group-varint is 4 integers + 1 byte flag.
-pub const MAX_LENGTH_PER_GROUP: usize = 17;
 // we use long array instead of int array to make negative integer to be read as positive long.
 const MASKS: [u64; 4] = [0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF];
 
 pub struct GroupVIntUtil;
 
 impl GroupVIntUtil {
+    // the maximum length of a single group-varint is 4 integers + 1 byte flag.
+    pub const MAX_LENGTH_PER_GROUP: usize = 17;
     /// Reads all the group varints, including the tail vints. We need a `Vec<i64>` because this is what
     /// postings are using, and all longs are actually required to be integers.
     ///

@@ -25,7 +25,7 @@ use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
 
-pub struct SegmentCommitInfo<D, S, F = DummyFieldComparatorSource>
+pub struct SegmentCommitInfo<D, S, F>
 where
     D: Directory,
     F: FieldComparatorSource,

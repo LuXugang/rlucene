@@ -37,7 +37,7 @@ pub const YES: i32 = 1; // e.g. have norms; have deletes;
 ///
 /// # Experimental
 /// This API is experimental and may change in future releases.
-pub struct SegmentInfo<D, S, F = DummyFieldComparatorSource>
+pub struct SegmentInfo<D, S, F>
 where
     D: Directory,
     S: SortFieldBase,

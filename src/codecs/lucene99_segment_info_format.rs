@@ -67,10 +67,10 @@ use std::sync::{Arc, Mutex};
 /// This API is experimental and may change in future versions.
 pub struct Lucene99SegmentInfoFormat;
 
-pub const SI_EXTENSION: &str = "si";
-pub const CODEC_NAME: &str = "Lucene90SegmentInfo";
-pub const VERSION_START: u32 = 0;
-pub const VERSION_CURRENT: u32 = VERSION_START;
+const SI_EXTENSION: &str = "si";
+const CODEC_NAME: &str = "Lucene90SegmentInfo";
+const VERSION_START: u32 = 0;
+const VERSION_CURRENT: u32 = VERSION_START;
 
 impl Lucene99SegmentInfoFormat {
     fn parse_segment_info<D, T, F, S>(

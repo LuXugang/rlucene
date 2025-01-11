@@ -37,8 +37,8 @@ const MIN_PAGE_SIZE: u32 = 64;
 // More than 1M doesn't really makes sense with these appending buffers
 // since their goal is to try to have small numbers of bits per value
 const MAX_PAGE_SIZE: u32 = 1 << 20;
-pub const DEFAULT_PAGE_SIZE: u32 = 256;
 impl PackedLongValues {
+    pub const DEFAULT_PAGE_SIZE: u32 = 256;
     /// Return a new [`PackedLongValuesBuilder`] that will compress efficiently positive integers.
     pub fn packed_long_values_builder(
         page_size: u32,
@@ -50,7 +50,7 @@ impl PackedLongValues {
     pub fn packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, LuceneError> {
-        Self::packed_long_values_builder(DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
+        Self::packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
     /// Return a new [`DeltaPackedLongValuesBuilder`] that will compress efficiently integers that are close to each other.
@@ -70,7 +70,7 @@ impl PackedLongValues {
     pub fn delta_packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, LuceneError> {
-        Self::delta_packed_long_values_builder(DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
+        Self::delta_packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
     /// Return a new [`MonotonicLongValuesBuilder`] that will compress efficiently integers that would be a monotonic function of their index.
@@ -93,7 +93,7 @@ impl PackedLongValues {
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, LuceneError> {
         PackedLongValues::monotonic_long_values_builder(
-            DEFAULT_PAGE_SIZE,
+            Self::DEFAULT_PAGE_SIZE,
             acceptable_overhead_ratio,
         )
     }
