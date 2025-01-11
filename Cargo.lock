@@ -359,6 +359,7 @@ dependencies = [
  "fs2",
  "lazy_static",
  "num-bigint",
+ "num-traits",
  "rand",
  "rand_xoshiro",
  "regex",
