@@ -138,7 +138,7 @@ impl GroupVIntUtil {
     where
         D: DataInput + RandomAccessInput,
     {
-        if remaining < MAX_LENGTH_PER_GROUP as u64 {
+        if remaining < Self::MAX_LENGTH_PER_GROUP as u64 {
             Self::read_group_vint(data_input, dst, offset)?;
             return Ok(0);
         }

@@ -22,9 +22,10 @@ use crate::index::index_writer::IndexWriter;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::IndexFileNames;
 use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
-use crate::search::sort_field::SortFieldBase;
+use crate::search::sort_field::{DummySortFieldBase, SortFieldBase};
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
+use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::{DataInput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::output_enum::OutputEnum;
@@ -133,7 +134,11 @@ where
     // before finishCommit is called
     pending_commit: bool,
 }
-
+impl SegmentInfos<DummyDirectory, DummySortFieldBase, DummyFieldComparatorSource> {
+    pub fn new_with_defaults(index_created_version_major: u32) -> Result<Self, LuceneError> {
+        SegmentInfos::new(index_created_version_major)
+    }
+}
 impl<D, S, F> SegmentInfos<D, S, F>
 where
     D: Directory,

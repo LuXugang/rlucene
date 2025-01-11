@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::field_comparator_source::FieldComparatorSource;
-use crate::search::sort_field::{SortField, SortFieldBase, Type};
+use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
+use crate::search::sort_field::{DummySortFieldBase, SortField, SortFieldBase, Type};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
 use std::fmt::Display;
 
 #[derive(Clone)]
-pub struct Sort<F, S>
+pub struct Sort<F=DummyFieldComparatorSource, S=DummySortFieldBase>
 where
     F: FieldComparatorSource,
     S: SortFieldBase,

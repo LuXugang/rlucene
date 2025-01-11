@@ -18,7 +18,7 @@ use crate::index::BytesRef;
 use crate::store::data_input::DataInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::group_vint_util::{GroupVIntUtil, MAX_LENGTH_PER_GROUP};
+use crate::util::group_vint_util::GroupVIntUtil;
 use std::collections::{HashMap, HashSet};
 
 /// Abstract base trait for performing write operations on Lucene's low-level data types.
