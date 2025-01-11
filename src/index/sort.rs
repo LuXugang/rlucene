@@ -21,13 +21,26 @@ use std::fmt;
 use std::fmt::Display;
 
 #[derive(Clone)]
-pub struct Sort<F=DummyFieldComparatorSource, S=DummySortFieldBase>
+pub struct Sort<F = DummyFieldComparatorSource, S = DummySortFieldBase>
 where
     F: FieldComparatorSource,
     S: SortFieldBase,
 {
     fields: Vec<SortField<F, S>>,
 }
+
+impl Sort<DummyFieldComparatorSource, DummySortFieldBase> {
+    /// Replace Java's `Sort.INDEXORDER` with this method.
+    pub fn get_index_order() -> Result<Self, LuceneError> {
+        let sort_field = SortField::get_field_doc()?;
+        Self::new_with_fields(vec![sort_field])
+    }
+    /// Replace Java's `Sort.RELEVANCE` with this method.
+    pub fn get_relevance() -> Result<Self, LuceneError> {
+        Self::new()
+    }
+}
+
 impl<F, S> Sort<F, S>
 where
     F: FieldComparatorSource,
@@ -61,15 +74,6 @@ where
         } else {
             Ok(Self { fields })
         }
-    }
-    /// Replace Java's `Sort.INDEXORDER` with this method.
-    pub fn get_index_order() -> Result<Self, LuceneError> {
-        let sort_field = SortField::get_field_doc()?;
-        Self::new_with_fields(vec![sort_field])
-    }
-    /// Replace Java's `Sort.RELEVANCE` with this method.
-    pub fn get_relevance() -> Result<Self, LuceneError> {
-        Self::new()
     }
 
     /// Representation of the sort criteria.

@@ -24,11 +24,11 @@ use std::cmp::min;
 /// After this many levels of recursion, we fall back to introsort.
 /// This protects against poor performance when there are long common prefixes,
 /// likely due to cache locality issues.
-pub const LEVEL_THRESHOLD: usize = 8;
+pub(crate) const LEVEL_THRESHOLD: usize = 8;
 /// Size of histograms: 256 + 1 to indicate that the string is finished.
-pub const HISTOGRAM_SIZE: usize = 257;
+pub(crate) const HISTOGRAM_SIZE: usize = 257;
 /// Buckets below this size will be sorted with the fallback sorter.
-pub const LENGTH_THRESHOLD: usize = 100;
+pub(crate) const LENGTH_THRESHOLD: usize = 100;
 pub struct MSBRadixSorter<T>
 where
     T: Sorter + MSBRadixSorterBase,

@@ -21,7 +21,7 @@ use rand::Rng;
 use rlucene::store::dummy_index_input::DummyIndexInput;
 use rlucene::store::index_input::IndexInput;
 use rlucene::store::random_access_input::RandomAccessInput;
-use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput, BUFFER_SIZE};
+use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput};
 use rlucene::util::bit_util::BitUtil;
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::ReadableCursorExt;
@@ -43,9 +43,9 @@ fn test_read_byte() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input,
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
-    for i in 0..BUFFER_SIZE * 10 {
+    for i in 0..BufferedIndexInput::BUFFER_SIZE * 10 {
         assert_eq!(byten(i as u64), DataInput::read_byte(&mut input)?);
     }
 
@@ -60,14 +60,14 @@ fn test_read_bytes() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input,
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
 
     let mut pos = 0;
 
     // Gradually increasing size
     let mut size = 1;
-    while size < BUFFER_SIZE * 10 {
+    while size < BufferedIndexInput::BUFFER_SIZE * 10 {
         let mut buffer: Vec<u8> = vec![0; 10];
         check_read_bytes(&mut input, size as usize, pos as u64, &mut buffer)?;
         pos += size;
@@ -93,7 +93,7 @@ fn test_read_bytes() -> Result<(), TestError> {
     }
 
     // Constant small size (7 bytes)
-    for _ in 0..BUFFER_SIZE {
+    for _ in 0..BufferedIndexInput::BUFFER_SIZE {
         let mut buffer: Vec<u8> = vec![0; 10];
         check_read_bytes(&mut input, 7, pos as u64, &mut buffer)?;
         pos += 7;
@@ -170,7 +170,7 @@ fn test_eof() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input,
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
     let mut buffer = vec![];
 
@@ -215,7 +215,7 @@ fn test_backwards_byte_reads() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input,
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
 
     let mut i: i64 = 2048;
@@ -240,7 +240,7 @@ fn test_backwards_int_reads() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input,
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
 
     let mut i = 2048;
@@ -277,7 +277,7 @@ fn test_backwards_long_reads() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input,
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
 
     let mut i = 2048;
@@ -320,7 +320,7 @@ fn test_read_floats() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input.clone(),
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
     let mut float_buffer = vec![0f32; buffer_length];
 
@@ -382,7 +382,7 @@ fn test_read_ints() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input.clone(),
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
     let mut int_buffer = vec![0i32; buffer_length];
 
@@ -441,7 +441,7 @@ fn test_read_longs() -> Result<(), TestError> {
     let mut input = BufferedIndexInput::new_with_buffer_size(
         sub_index_input.clone(),
         &resource_description,
-        BUFFER_SIZE,
+        BufferedIndexInput::BUFFER_SIZE,
     )?;
     let mut bb = vec![0u8; BitUtil::LONG_BYTES];
     let mut long_buffer = vec![0i64; buffer_length];

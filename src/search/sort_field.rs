@@ -25,7 +25,7 @@ use std::fmt;
 use std::fmt::Display;
 
 /// Stores information about how to sort documents by terms in an individual field.
-/// Fields must be indexed in order to sort by them.
+/// Fields must be indexed to sort by them.
 ///
 /// Sorting on a numeric field that is indexed with both doc values and points may
 /// use an optimization to skip non-competitive documents. This optimization relies
@@ -336,19 +336,19 @@ pub enum Type {
     String,
 
     /// Sort using term values as encoded `i32`. Sort values are `i32` and lower values are at the front.
-    /// Fields must either be not indexed, or indexed with `IntPoint`.
+    /// Fields must either be not indexed or indexed with `IntPoint`.
     Int,
 
     /// Sort using term values as encoded `f32`. Sort values are `f32` and lower values are at the front.
-    /// Fields must either be not indexed, or indexed with `FloatPoint`.
+    /// Fields must either be not indexed or indexed with `FloatPoint`.
     Float,
 
     /// Sort using term values as encoded `i64`. Sort values are `i64` and lower values are at the front.
-    /// Fields must either be not indexed, or indexed with `LongPoint`.
+    /// Fields must either be not indexed or indexed with `LongPoint`.
     Long,
 
     /// Sort using term values as encoded `f64`. Sort values are `f64` and lower values are at the front.
-    /// Fields must either be not indexed, or indexed with `DoublePoint`.
+    /// Fields must either be not indexed or indexed with `DoublePoint`.
     Double,
 
     /// Sort using a custom comparator. Sort values are any `Comparable` and sorting is done according

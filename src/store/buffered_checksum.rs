@@ -17,8 +17,6 @@
 use crate::store::Checksum;
 use crate::util::VecCopyOps;
 
-/// Default buffer size: 1024
-pub const DEFAULT_BUFFER_SIZE: u32 = 1024;
 /// Wraps another [`Checksum`] with an internal buffer to speed up checksum calculations.
 pub struct BufferedChecksum<T: Checksum> {
     buffer: Vec<u8>,
@@ -27,9 +25,11 @@ pub struct BufferedChecksum<T: Checksum> {
 }
 
 impl<T: Checksum> BufferedChecksum<T> {
+    /// Default buffer size: 1024
+    pub const DEFAULT_BUFFER_SIZE: u32 = 1024;
     pub fn new(checksum: T) -> Self {
         Self {
-            buffer: vec![0; DEFAULT_BUFFER_SIZE as usize],
+            buffer: vec![0; Self::DEFAULT_BUFFER_SIZE as usize],
             upto: 0,
             checksum,
         }

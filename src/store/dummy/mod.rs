@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod dummy_buffered_index_input_base;
 pub mod dummy_directory;
 pub mod dummy_index_input;
 pub mod dummy_index_output;

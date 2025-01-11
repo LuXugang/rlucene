@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::dummy::dummy_buffered_index_input_base::DummyBufferedIndexInputBase;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
@@ -24,21 +25,6 @@ use crate::util::{ReadableCursorExt, VecCopyOps};
 use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
-
-/// Default buffer size set to `BUFFER_SIZE`.
-pub const BUFFER_SIZE: u32 = 1024;
-/// Minimum buffer size allowed
-pub const MIN_BUFFER_SIZE: u32 = 8;
-
-/// A buffer size for merges set to `MERGE_BUFFER_SIZE`. */
-/// The normal read buffer size defaults to 1024, but
-/// increasing this during merging seems to yield
-/// performance gains.  However, we don't want to increase
-/// it too much because there are quite a few
-/// BufferedIndexInputs created during merging.  See
-/// LUCENE-888 for details.
-pub const MERGE_BUFFER_SIZE: u32 = 4096;
-
 /// Base implementation class for buffered [`IndexInput`]. */
 pub struct BufferedIndexInput<T>
 where
@@ -53,6 +39,21 @@ where
     pos: u64,
     /// valid data length in the buffer
     length: u32,
+}
+impl BufferedIndexInput<DummyBufferedIndexInputBase> {
+    /// Default buffer size set to `BUFFER_SIZE`.
+    pub const BUFFER_SIZE: u32 = 1024;
+    /// Minimum buffer size allowed
+    pub const MIN_BUFFER_SIZE: u32 = 8;
+
+    /// A buffer size for merges set to `MERGE_BUFFER_SIZE`. */
+    /// The normal read buffer size defaults to 1024, but
+    /// increasing this during merging seems to yield
+    /// performance gains.  However, we don't want to increase
+    /// it too much because there are quite a few
+    /// BufferedIndexInputs created during merging.  See
+    /// LUCENE-888 for details.
+    pub const MERGE_BUFFER_SIZE: u32 = 4096;
 }
 impl<T> BufferedIndexInput<T>
 where
@@ -79,7 +80,11 @@ where
         sub_index_input: T,
         resource_desc: &str,
     ) -> Result<BufferedIndexInput<T>, LuceneError> {
-        Self::new_with_buffer_size(sub_index_input, resource_desc, BUFFER_SIZE)
+        Self::new_with_buffer_size(
+            sub_index_input,
+            resource_desc,
+            BufferedIndexInput::BUFFER_SIZE,
+        )
     }
 
     pub fn new_with_io_context(
@@ -93,13 +98,13 @@ where
     /// Returns default buffer sizes for the given [`IOContext`].
     pub fn buffer_size(io_context: IOContext) -> u32 {
         match io_context.context {
-            Context::Merge => MERGE_BUFFER_SIZE,
-            Context::Default | Context::Flush => BUFFER_SIZE,
+            Context::Merge => BufferedIndexInput::MERGE_BUFFER_SIZE,
+            Context::Default | Context::Flush => BufferedIndexInput::BUFFER_SIZE,
         }
     }
 
     fn check_buffer_size(buffer_size: u32) -> Result<(), LuceneError> {
-        if buffer_size < MIN_BUFFER_SIZE {
+        if buffer_size < BufferedIndexInput::MIN_BUFFER_SIZE {
             return Err(LuceneError::illegal_argument(format!(
                 "bufferSize must be at least MIN_BUFFER_SIZE (got {})",
                 buffer_size

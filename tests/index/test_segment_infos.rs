@@ -274,7 +274,7 @@ fn test_to_string() -> Result<(), TestError> {
         HashMap::new(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
+        Some(Sort::get_index_order()?),
     )?;
     assert_eq!(
         format!("TEST({}){}:[indexSort=<doc>]", LATEST, ":C10000"),
@@ -294,7 +294,7 @@ fn test_to_string() -> Result<(), TestError> {
         diagnostics.clone(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
+        Some(Sort::get_index_order()?),
     )?;
     assert_eq!(
         format!(
@@ -317,7 +317,7 @@ fn test_to_string() -> Result<(), TestError> {
         HashMap::new(),
         Vec::from(StringHelper::random_id()),
         attributes.clone(),
-        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
+        Some(Sort::get_index_order()?),
     )?;
     assert_eq!(
         format!(
@@ -340,7 +340,7 @@ fn test_to_string() -> Result<(), TestError> {
         diagnostics.clone(),
         Vec::from(StringHelper::random_id()),
         attributes.clone(),
-        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
+        Some(Sort::get_index_order()?),
     )?;
     assert_eq!(
         format!(
@@ -369,7 +369,7 @@ fn test_id_changes_on_advance() -> Result<(), TestError> {
         HashMap::new(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
+        Some(Sort::get_index_order()?),
     )?;
 
     let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
@@ -595,7 +595,7 @@ fn test_add_diagnostics() -> Result<(), TestError> {
         diagnostics.clone(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
+        Some(Sort::get_index_order()?),
     )?;
     si.add_diagnostics(
         [("key3".to_string(), "value3".to_string())]
@@ -626,7 +626,7 @@ fn test_add_diagnostics() -> Result<(), TestError> {
         diagnostics.clone(),
         Vec::from(StringHelper::random_id()),
         HashMap::new(),
-        Some(Sort::<DummyFieldComparatorSource, DummySortFieldBase>::get_index_order()?),
+        Some(Sort::get_index_order()?),
     )?;
     si.add_diagnostics(
         [("key2".to_string(), "foo".to_string())]

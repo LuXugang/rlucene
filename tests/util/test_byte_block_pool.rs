@@ -19,8 +19,7 @@ use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::{
-    new_counter, AllocatorEnum, ByteBlockPool, DirectAllocator, DirectTrackingAllocator,
-    VecCopyOps, BYTE_BLOCK_SIZE,
+    new_counter, AllocatorEnum, ByteBlockPool, DirectAllocator, DirectTrackingAllocator, VecCopyOps,
 };
 use std::sync::{Arc, Mutex};
 
@@ -131,7 +130,7 @@ fn test_read_and_write() {
         }
         pool.reset(random.gen_bool(0.5), reuse_first);
         if reuse_first {
-            assert_eq!(BYTE_BLOCK_SIZE as i64, pool.get_bytes_used())
+            assert_eq!(ByteBlockPool::BYTE_BLOCK_SIZE as i64, pool.get_bytes_used())
         } else {
             assert_eq!(0, pool.get_bytes_used());
             pool.next_buffer();

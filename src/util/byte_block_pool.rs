@@ -19,35 +19,6 @@ use crate::util::{Counter, CounterEnum, VecCopyOps};
 use std::cmp::min;
 use std::sync::{Arc, Mutex};
 
-//TODO
-#[allow(unused)]
-const BASE_RAM_BYTES: i64 = 0;
-/// Finds the index of the buffer containing a byte, given an offset to that byte.
-///
-/// The calculation for `buffer_upto` is as follows:
-///
-/// - `buffer_upto = global_offset >> BYTE_BLOCK_SHIFT`
-/// - `buffer_upto = global_offset / BYTE_BLOCK_SIZE`
-///
-/// # Parameters
-/// - `global_offset`: The offset to the target byte.
-const BYTE_BLOCK_SHIFT: i32 = 15;
-/// The size of each buffer in the pool.
-pub const BYTE_BLOCK_SIZE: i32 = 1 << BYTE_BLOCK_SHIFT;
-/// Use this to find the position of a global offset in a particular buffer.
-///
-/// # Formula
-/// `position_in_current_buffer = global_offset & BYTE_BLOCK_MASK`
-///
-/// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
-const BYTE_BLOCK_MASK: i32 = BYTE_BLOCK_SIZE - 1;
-/// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
-/// Allocation is done through the use of an [`Allocator`] which can be customized,
-/// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
-/// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.
-///
-/// # Note
-/// This is an internal API.
 pub struct ByteBlockPool {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
@@ -60,13 +31,43 @@ pub struct ByteBlockPool {
     byte_up_to: i32,
 }
 impl ByteBlockPool {
+    //TODO
+    #[allow(unused)]
+    const BASE_RAM_BYTES: i64 = 0;
+    /// Finds the index of the buffer containing a byte, given an offset to that byte.
+    ///
+    /// The calculation for `buffer_upto` is as follows:
+    ///
+    /// - `buffer_upto = global_offset >> Self::BYTE_BLOCK_SHIFT`
+    /// - `buffer_upto = global_offset / BYTE_BLOCK_SIZE`
+    ///
+    /// # Parameters
+    /// - `global_offset`: The offset to the target byte.
+    const BYTE_BLOCK_SHIFT: i32 = 15;
+    /// The size of each buffer in the pool.
+    pub const BYTE_BLOCK_SIZE: i32 = 1 << Self::BYTE_BLOCK_SHIFT;
+    /// Use this to find the position of a global offset in a particular buffer.
+    ///
+    /// # Formula
+    /// `position_in_current_buffer = global_offset & BYTE_BLOCK_MASK`
+    ///
+    /// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
+    const BYTE_BLOCK_MASK: i32 = Self::BYTE_BLOCK_SIZE - 1;
+    /// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
+    /// Allocation is done through the use of an [`Allocator`] which can be customized,
+    /// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
+    /// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.
+    ///
+    /// # Note
+    /// This is an internal API.
+    ///
     pub fn new(allocator: AllocatorEnum) -> Self {
         ByteBlockPool {
             buffers: vec![],
             buffer_upto: -1,
             allocator,
-            byte_offset: -BYTE_BLOCK_SIZE,
-            byte_up_to: BYTE_BLOCK_SIZE,
+            byte_offset: -Self::BYTE_BLOCK_SIZE,
+            byte_up_to: Self::BYTE_BLOCK_SIZE,
         }
     }
     /// Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
@@ -100,8 +101,8 @@ impl ByteBlockPool {
                 self.byte_offset = 0;
             } else {
                 self.buffer_upto = -1;
-                self.byte_up_to = BYTE_BLOCK_SIZE;
-                self.byte_offset = -BYTE_BLOCK_SIZE;
+                self.byte_up_to = Self::BYTE_BLOCK_SIZE;
+                self.byte_offset = -Self::BYTE_BLOCK_SIZE;
             }
         }
     }
@@ -116,7 +117,7 @@ impl ByteBlockPool {
         // Allocate new buffer and advance the pool to it
         self.buffer_upto += 1;
         self.byte_up_to = 0;
-        self.byte_offset = self.byte_offset.checked_add(BYTE_BLOCK_SIZE)?;
+        self.byte_offset = self.byte_offset.checked_add(Self::BYTE_BLOCK_SIZE)?;
         None
     }
 
@@ -140,9 +141,9 @@ impl ByteBlockPool {
             result.bytes = vec![0; length as usize];
         }
         result.length = length;
-        let buffer_index = (offset >> BYTE_BLOCK_SHIFT) as i32;
-        let pos = (offset & BYTE_BLOCK_MASK as u64) as u32;
-        if pos + length <= BYTE_BLOCK_SIZE as u32 {
+        let buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT) as i32;
+        let pos = (offset & Self::BYTE_BLOCK_MASK as u64) as u32;
+        if pos + length <= Self::BYTE_BLOCK_SIZE as u32 {
             // Common case: The slice lives in a single block.
             result.bytes.copy_from(
                 &self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize],
@@ -176,7 +177,7 @@ impl ByteBlockPool {
     ) {
         let mut bytes_left = length;
         while bytes_left > 0 {
-            let buffer_left = BYTE_BLOCK_SIZE - self.byte_up_to;
+            let buffer_left = Self::BYTE_BLOCK_SIZE - self.byte_up_to;
             if bytes_left < buffer_left {
                 // fits within current buffer
                 self.append_bytes_single_buffer(src_pool, src_offset, bytes_left);
@@ -198,12 +199,12 @@ impl ByteBlockPool {
         mut src_offset: i64,
         mut length: i32,
     ) {
-        debug_assert!(length <= BYTE_BLOCK_SIZE - self.byte_up_to);
+        debug_assert!(length <= Self::BYTE_BLOCK_SIZE - self.byte_up_to);
         while length > 0 {
-            let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
-            let bytes_to_copy = min(BYTE_BLOCK_SIZE - src_pos as i32, length);
+            let src_pos = src_offset & Self::BYTE_BLOCK_MASK as i64;
+            let bytes_to_copy = min(Self::BYTE_BLOCK_SIZE - src_pos as i32, length);
             self.buffers[self.buffer_upto as usize].copy_from(
-                &src_pool.buffers[(src_offset >> BYTE_BLOCK_SHIFT) as usize]
+                &src_pool.buffers[(src_offset >> Self::BYTE_BLOCK_SHIFT) as usize]
                     [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
                 self.byte_up_to as usize,
             );
@@ -231,7 +232,7 @@ impl ByteBlockPool {
     pub fn append_range(&mut self, bytes: &[u8], mut offset: i32, length: i32) {
         let mut bytes_left = length;
         while bytes_left > 0 {
-            let buffer_left = BYTE_BLOCK_SIZE - self.byte_up_to;
+            let buffer_left = Self::BYTE_BLOCK_SIZE - self.byte_up_to;
             if bytes_left < buffer_left {
                 // fits within current buffer
                 self.buffers[self.buffer_upto as usize].copy_from(
@@ -268,10 +269,10 @@ impl ByteBlockPool {
         bytes_length: u32,
     ) -> Option<()> {
         let mut bytes_left = bytes_length;
-        let mut buffer_index = (offset >> BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
-        let mut pos = (offset & BYTE_BLOCK_MASK as u64) as u32;
+        let mut buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
+        let mut pos = (offset & Self::BYTE_BLOCK_MASK as u64) as u32;
         while bytes_left > 0 {
-            let chunk = min(BYTE_BLOCK_SIZE as u32 - pos, bytes_left);
+            let chunk = min(Self::BYTE_BLOCK_SIZE as u32 - pos, bytes_left);
             self.buffers[buffer_index].copy_to(
                 &mut bytes[bytes_offset as usize..(bytes_offset + chunk) as usize],
                 pos as usize,
@@ -292,8 +293,8 @@ impl ByteBlockPool {
     /// # Returns
     /// The byte at the specified offset.
     pub fn read_byte(&self, offset: i64) -> Option<u8> {
-        let buffer_index = (offset >> BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
-        let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
+        let buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
+        let pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
         Some(self.buffers[buffer_index][pos as usize])
     }
     /// the current position (in absolute value) of this byte pool .
@@ -327,7 +328,7 @@ impl Default for DirectAllocator {
 impl DirectAllocator {
     pub fn new() -> Self {
         DirectAllocator {
-            block_size: BYTE_BLOCK_SIZE,
+            block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
         }
     }
 }
@@ -349,7 +350,7 @@ pub struct DirectTrackingAllocator {
 impl DirectTrackingAllocator {
     pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Self {
         DirectTrackingAllocator {
-            block_size: BYTE_BLOCK_SIZE,
+            block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
             byte_used,
         }
     }

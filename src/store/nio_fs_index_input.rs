@@ -16,7 +16,7 @@
  */
 use crate::store::index_input::{get_full_slice_description, IndexInput};
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{BufferedIndexInput, BufferedIndexInputBase, BUFFER_SIZE};
+use crate::store::{BufferedIndexInput, BufferedIndexInputBase};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
@@ -44,7 +44,7 @@ impl NIOFSIndexInput {
             off: 0,
             end: len,
             resource_desc: resource_desc.to_string(),
-            buffer_size: BUFFER_SIZE,
+            buffer_size: BufferedIndexInput::BUFFER_SIZE,
         }
     }
     pub fn new_with_range(

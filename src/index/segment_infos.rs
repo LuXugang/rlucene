@@ -39,14 +39,6 @@ use std::{fmt, io};
 lazy_static! {
     static ref INFO_STREAM: Mutex<Option<Arc<Mutex<OutputEnum>>>> = Mutex::new(None);
 }
-/// The version at the time when 8.0 was released.
-pub const VERSION_74: u32 = 9;
-/// The version that recorded SegmentCommitInfo IDs.
-pub const VERSION_86: u32 = 10;
-/// Current version of SegmentInfos.
-pub const VERSION_CURRENT: u32 = VERSION_86;
-/// Name of the generation reference file name.
-pub const OLD_SEGMENTS_GEN: &str = "segments.gen";
 /// A collection of `SegmentInfo` objects with methods for operating on those segments
 /// in relation to the file system.
 ///
@@ -135,6 +127,14 @@ where
     pending_commit: bool,
 }
 impl SegmentInfos<DummyDirectory, DummySortFieldBase, DummyFieldComparatorSource> {
+    /// The version at the time when 8.0 was released.
+    pub const VERSION_74: u32 = 9;
+    /// The version that recorded SegmentCommitInfo IDs.
+    pub const VERSION_86: u32 = 10;
+    /// Current version of SegmentInfos.
+    pub const VERSION_CURRENT: u32 = Self::VERSION_86;
+    /// Name of the generation reference file name.
+    pub const OLD_SEGMENTS_GEN: &'static str = "segments.gen";
     pub fn new_with_defaults(index_created_version_major: u32) -> Result<Self, LuceneError> {
         SegmentInfos::new(index_created_version_major)
     }
@@ -288,8 +288,12 @@ where
         if magic != CodecUtil::CODEC_MAGIC {
             return Err(LuceneError::index_format_too_old(format!("Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later", input, magic, CodecUtil::CODEC_MAGIC, CodecUtil::CODEC_MAGIC, *MIN_SUPPORTED_MAJOR)));
         }
-        let format =
-            CodecUtil::check_header_no_magic(input, "segments", VERSION_74, VERSION_CURRENT)?;
+        let format = CodecUtil::check_header_no_magic(
+            input,
+            "segments",
+            SegmentInfos::VERSION_74,
+            SegmentInfos::VERSION_CURRENT,
+        )?;
 
         // Read the ID
         let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
@@ -335,7 +339,7 @@ where
             prior_error = Some(e);
         }
 
-        if format >= VERSION_74 {
+        if format >= SegmentInfos::VERSION_74 {
             if prior_error.is_none() {
                 CodecUtil::check_footer(input)?;
             } else {
@@ -422,7 +426,7 @@ where
                 )));
             }
 
-            let sci_id = if format > VERSION_74 {
+            let sci_id = if format > SegmentInfos::VERSION_74 {
                 match input.read_byte()? {
                     1 => {
                         let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
@@ -595,7 +599,7 @@ where
         CodecUtil::write_index_header(
             out,
             "segments",
-            VERSION_CURRENT,
+            SegmentInfos::VERSION_CURRENT,
             &StringHelper::random_id(),
             &format!("{:x}", self.generation),
         )?;
@@ -1335,7 +1339,7 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64, LuceneError> 
     for file in files {
         if file.starts_with(IndexFileNames::SEGMENTS)
             // skipping this file here helps deliver the right exception when opening an old index
-            && !file.starts_with(OLD_SEGMENTS_GEN)
+            && !file.starts_with( SegmentInfos::OLD_SEGMENTS_GEN)
         {
             let gen = generation_from_segments_file_name(file)?;
             if gen > max {
@@ -1377,10 +1381,10 @@ pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
 }
 /// Parse the generation off the segments file name and return it.
 pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64, LuceneError> {
-    if file_name == OLD_SEGMENTS_GEN {
+    if file_name == SegmentInfos::OLD_SEGMENTS_GEN {
         Err(LuceneError::illegal_argument(format!(
             "\"{}\" is not a valid segment file name since 4.0",
-            OLD_SEGMENTS_GEN
+            SegmentInfos::OLD_SEGMENTS_GEN
         )))
     } else if file_name == IndexFileNames::SEGMENTS {
         Ok(0)

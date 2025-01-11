@@ -18,8 +18,9 @@ use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::index::sort::Sort;
 use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
 use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
-use crate::search::sort_field::SortFieldBase;
+use crate::search::sort_field::{DummySortFieldBase, SortFieldBase};
 use crate::store::directory::Directory;
+use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::version::Version;
 use crate::util::StringHelper;
@@ -28,11 +29,6 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
-/// Used by some member fields to mean not present (e.g., norms, deletions).
-pub const NO: i32 = -1; // e.g. no norms; no deletes;
-
-/// Used by some member fields to mean present (e.g., norms, deletions).
-pub const YES: i32 = 1; // e.g. have norms; have deletes;
 /// Information about a segment such as its name, directory, and files related to the segment.
 ///
 /// # Experimental
@@ -68,6 +64,13 @@ where
     pub(crate) min_version: Option<Version>,
     has_blocks: bool,
     set_files: Option<HashSet<String>>,
+}
+
+impl SegmentInfo<DummyDirectory, DummySortFieldBase, DummyFieldComparatorSource> {
+    /// Used by some member fields to mean not present (e.g., norms, deletions).
+    pub const NO: i32 = -1; // e.g. no norms; no deletes;
+    /// Used by some member fields to mean present (e.g., norms, deletions).
+    pub const YES: i32 = 1; // e.g. have norms; have deletes;
 }
 
 impl<D, S, F> SegmentInfo<D, S, F>
