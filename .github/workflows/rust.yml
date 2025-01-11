@@ -16,6 +16,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+           toolchain: 1.84.0
+           override: true
       - name: Generate Random Seed
         run: |
           echo "Generating random seed with Rust..."
