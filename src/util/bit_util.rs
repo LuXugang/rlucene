@@ -24,8 +24,8 @@ impl BitUtil {
     pub const FLOAT_BYTES: usize = mem::size_of::<f32>();
     pub const DOUBLE_BYTES: usize = mem::size_of::<f64>();
     pub const USIZE_BYTES: usize = mem::size_of::<usize>();
-    pub const FLOAT_NAN_BITS: u32 = 0x7fc0_0000;
-    pub const DOUBLE_NAN_BITS: u64 = 0x7ff8_0000_0000_0000;
+    pub const FLOAT_NAN_BITS: u32 = 0x7fc00000;
+    pub const DOUBLE_NAN_BITS: u64 = 0x7ff8000000000000;
     // i16 little_endian
     #[cfg(target_endian = "little")]
     pub fn get_i16_le(bytes: &[u8], pos: usize) -> i16 {

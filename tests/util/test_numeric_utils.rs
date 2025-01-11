@@ -17,7 +17,7 @@
 use crate::common::my_random;
 use crate::util::test_error::TestError;
 use num_bigint::{BigInt, Sign};
-use num_traits::FromPrimitive;
+use num_traits::{Float, FromPrimitive};
 use rand::prelude::StdRng;
 use rand::Rng;
 use rlucene::index::BytesRef;
@@ -754,8 +754,8 @@ fn test_floats_compare() -> Result<(), TestError> {
     let mut left = BytesRef::new_from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
     let mut right = BytesRef::new_from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
     for _ in 0..10_000 {
-        let left_value = f32::from_bits(random.gen::<u32>());
-        let right_value = f32::from_bits(random.gen::<u32>());
+        let left_value = to_positive_nan::<f32>(f32::from_bits(random.gen::<u32>()));
+        let right_value = to_positive_nan::<f32>(f32::from_bits(random.gen::<u32>()));
         NumericUtils::int_to_sortable_bytes(
             NumericUtils::float_to_sortable_int(left_value),
             left.bytes.as_mut_slice(),
@@ -767,9 +767,6 @@ fn test_floats_compare() -> Result<(), TestError> {
             right.offset as usize,
         );
         let expected_order = left_value.total_cmp(&right_value);
-        if left_value.is_nan() && !right_value.is_nan() {
-            assert_eq!(expected_order, Ordering::Greater);
-        }
         let actual_order = left.cmp(&right);
         assert_eq!(
             expected_order, actual_order,
@@ -792,8 +789,8 @@ fn test_doubles_compare() -> Result<(), TestError> {
     let mut right = BytesRef::new_from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
 
     for _ in 0..10_000 {
-        let left_value = f64::from_bits(random.gen::<u64>());
-        let right_value = f64::from_bits(random.gen::<u64>());
+        let left_value = to_positive_nan::<f64>(f64::from_bits(random.gen::<u64>()));
+        let right_value = to_positive_nan::<f64>(f64::from_bits(random.gen::<u64>()));
         NumericUtils::long_to_sortable_bytes(
             NumericUtils::double_to_sortable_long(left_value),
             &mut left.bytes,
@@ -858,4 +855,12 @@ fn next_big_integer(random: &mut StdRng, max_bytes: usize) -> BigInt {
     let mut buffer = vec![0u8; length];
     random.fill(&mut buffer[..]);
     BigInt::from_signed_bytes_be(&buffer)
+}
+
+fn to_positive_nan<T: Float>(value: T) -> T {
+    if value.is_nan() {
+        Float::nan()
+    } else {
+        value
+    }
 }
