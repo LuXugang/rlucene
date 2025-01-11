@@ -29,7 +29,7 @@ impl Eof {
 
 impl std::fmt::Display for Eof {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "End of File : {}", self.message)
+        write!(f, "{}", self.message)
     }
 }
 

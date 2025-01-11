@@ -18,13 +18,14 @@ use std::{mem, ptr};
 
 pub struct BitUtil {}
 impl BitUtil {
-    #[cfg(not(target_endian = "little"))]
-    compile_error!("This code can only be compiled on little-endian systems.");
     pub const SHORT_BYTES: usize = mem::size_of::<i16>();
     pub const INT_BYTES: usize = mem::size_of::<i32>();
     pub const LONG_BYTES: usize = mem::size_of::<i64>();
     pub const FLOAT_BYTES: usize = mem::size_of::<f32>();
+    pub const DOUBLE_BYTES: usize = mem::size_of::<f64>();
     pub const USIZE_BYTES: usize = mem::size_of::<usize>();
+    pub const FLOAT_NAN_BITS: u32 = 0x7fc0_0000;
+    pub const DOUBLE_NAN_BITS: u64 = 0x7ff8_0000_0000_0000;
     // i16 little_endian
     #[cfg(target_endian = "little")]
     pub fn get_i16_le(bytes: &[u8], pos: usize) -> i16 {
@@ -229,4 +230,6 @@ impl BitUtil {
     pub fn zig_zag_encode_i64(l: i64) -> i64 {
         (((l >> 63) as u64) ^ ((l << 1) as u64)) as i64
     }
+    #[cfg(not(target_endian = "little"))]
+    compile_error!("This code can only be compiled on little-endian systems.");
 }

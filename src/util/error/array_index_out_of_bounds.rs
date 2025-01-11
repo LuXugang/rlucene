@@ -38,7 +38,7 @@ impl ArrayIndexOutOfBoundsError {
 
 impl Display for ArrayIndexOutOfBoundsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Array Index out of Bounds: {}", self.message)
+        write!(f, "{}", self.message)
     }
 }
 

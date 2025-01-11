@@ -30,10 +30,21 @@ impl NumericUtils {
     /// The sort order (including [`f64::NAN`]) is defined by [`f64::total_cmp`].
     /// `NaN` is greater than positive infinity.
     ///
+    /// # WARN
+    /// This implementation normalizes all `NaN` values to a canonical representation
+    /// (`0x7ff8000000000000`) to ensure consistent sorting and behavior, similar to
+    /// Java's `Double.doubleToLongBits`. Non-standard `NaN` representations are not preserved.
+    ///
     /// # See Also
     /// [`sortable_long_to_double`](NumericUtils::sortable_long_to_double)
     pub fn double_to_sortable_long(value: f64) -> i64 {
-        Self::sortable_double_bits(value.to_bits() as i64)
+        let bits = if value.is_nan() {
+            // Normalize NaN to a canonical representation
+            f64::from_bits(BitUtil::DOUBLE_NAN_BITS).to_bits()
+        } else {
+            value.to_bits()
+        };
+        Self::sortable_double_bits(bits as i64)
     }
     /// Converts a sortable `i64` back to an `f64`.
     ///
@@ -50,10 +61,21 @@ impl NumericUtils {
     ///
     /// The sort order (including [`f32::NAN`]) is defined by [`f32::total_cmp`].
     ///
+    /// # WARN
+    /// This implementation normalizes all `NaN` values to a canonical representation
+    /// (`0x7fc00000`) to ensure consistent sorting and behavior. similar to
+    /// Java's `Float.floatToIntBits`. Non-standard `NaN` representations are not preserved.
+    ///
     /// # See Also
     /// [`sortable_int_to_float`]
     pub fn float_to_sortable_int(value: f32) -> i32 {
-        Self::sortable_float_bits(value.to_bits() as i32)
+        let bits = if value.is_nan() {
+            // Normalize NaN to a canonical representation
+            f32::from_bits(BitUtil::FLOAT_NAN_BITS).to_bits()
+        } else {
+            value.to_bits()
+        };
+        Self::sortable_float_bits(bits as i32)
     }
     /// Converts a sortable `i32` back to an `f32`.
     ///
@@ -215,13 +237,13 @@ impl NumericUtils {
         big_int_size: usize,
         result: &mut [u8],
         offset: usize,
-    ) -> Result<(), String> {
+    ) -> Result<(), LuceneError> {
         let big_int_bytes = big_int.to_signed_bytes_be();
         if big_int_size < big_int_bytes.len() {
-            return Err(format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "BigInt {} requires more than {} bytes of storage",
                 big_int, big_int_size
-            ));
+            )));
         }
         let mut full_big_int_bytes = vec![0u8; big_int_size];
         let padding_size = big_int_size - big_int_bytes.len();
@@ -231,7 +253,9 @@ impl NumericUtils {
         }
         full_big_int_bytes[0] ^= 0x80;
         if offset + big_int_size > result.len() {
-            return Err("Index out of bounds in result array".to_string());
+            return Err(LuceneError::illegal_argument(
+                "Index out of bounds in result array".to_string(),
+            ));
         }
         result[offset..offset + big_int_size].copy_from_slice(&full_big_int_bytes);
 
@@ -257,9 +281,11 @@ impl NumericUtils {
         encoded: &[u8],
         offset: usize,
         length: usize,
-    ) -> Result<BigInt, String> {
+    ) -> Result<BigInt, LuceneError> {
         if offset + length > encoded.len() {
-            return Err("Index out of bounds in encoded array".to_string());
+            return Err(LuceneError::illegal_argument(
+                "Index out of bounds in encoded array".to_string(),
+            ));
         }
         let mut big_int_bytes = encoded[offset..offset + length].to_vec();
         // Flip the sign bit back to restore the original value

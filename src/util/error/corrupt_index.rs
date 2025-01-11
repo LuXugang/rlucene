@@ -29,7 +29,7 @@ impl CorruptIndexError {
 
 impl std::fmt::Display for CorruptIndexError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "corrupt index: {}", self.message)
+        write!(f, "{}", self.message)
     }
 }
 

@@ -32,7 +32,7 @@ impl IndexFormatTooNewError {
 
 impl Display for IndexFormatTooNewError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, ": {}", self.message)
+        write!(f, "{}", self.message)
     }
 }
 

@@ -33,6 +33,7 @@ mod test_intro_sorter;
 mod test_longs_ref;
 mod test_most_significant_bit_radix_sort;
 mod test_not_doc_id_set;
+mod test_numeric_utils;
 mod test_packed_ints;
 mod test_priority_queue;
 mod test_roaring_doc_id_set;

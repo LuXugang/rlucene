@@ -29,7 +29,7 @@ impl UnsupportedOperationError {
 
 impl std::fmt::Display for UnsupportedOperationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Unsupported Operation: {}", self.message)
+        write!(f, "{}", self.message)
     }
 }
 

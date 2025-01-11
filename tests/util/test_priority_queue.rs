@@ -217,7 +217,7 @@ fn test_add_all_does_not_fit_into_queue() {
     let result = pq.add_all(list).unwrap_err().to_string();
     assert_eq!(
         result,
-        "Array Index out of Bounds: Cannot add 11 elements to a queue with remaining capacity: 9"
+        "Cannot add 11 elements to a queue with remaining capacity: 9"
     );
 }
 

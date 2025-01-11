@@ -30,7 +30,7 @@ impl IllegalArgumentError {
 
 impl std::fmt::Display for IllegalArgumentError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Illegal Argument: {}", self.message)
+        write!(f, "{}", self.message)
     }
 }
 

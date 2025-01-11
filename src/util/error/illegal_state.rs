@@ -37,7 +37,7 @@ impl IllegalStateError {
 
 impl fmt::Display for IllegalStateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Illegal State: {}", self.message)
+        write!(f, "{}", self.message)
     }
 }
 

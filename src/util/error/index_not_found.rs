@@ -37,7 +37,7 @@ impl IndexNotFound {
 
 impl fmt::Display for IndexNotFound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Index Not Found: {}", self.message)
+        write!(f, "{}", self.message)
     }
 }
 
