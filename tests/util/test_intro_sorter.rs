@@ -39,7 +39,7 @@ impl<T, C: Comparator<T>> BaseSortTestCase for TestIntroSorter<T, C>
 where
     T: Ord,
 {
-    fn new_sorter<'a>(&self, _random: &mut StdRng, arr: &'a mut Vec<Entry>) -> impl Sorter {
+    fn new_sorter(&self, _random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter {
         ArrayIntroSorter::new(arr, NaturalOrder::new())
     }
 

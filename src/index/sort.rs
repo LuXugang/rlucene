@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
-use crate::search::sort_field::{DummySortFieldBase, SortField, SortFieldBase, Type};
+use crate::search::sort_field::{DummySortFieldBase, SortField, SortFieldBase};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
 use std::fmt::Display;

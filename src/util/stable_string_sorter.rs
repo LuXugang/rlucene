@@ -99,7 +99,7 @@ where
     }
 }
 
-impl<'a, T, C> MSBRadixSorterBase for StableMSBRadixSorterImpl<'a, T, C>
+impl<T, C> MSBRadixSorterBase for StableMSBRadixSorterImpl<'_, T, C>
 where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
@@ -197,7 +197,7 @@ where
     }
 }
 
-impl<'a, T, C> MSBRadixSorterBase for MergeSorterStableImpl<'a, T, C>
+impl<T, C> MSBRadixSorterBase for MergeSorterStableImpl<'_, T, C>
 where
     C: BytesRefComparator + Comparator<BytesRef>,
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,

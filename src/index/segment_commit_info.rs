@@ -17,7 +17,7 @@
 use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::index::segment_info::SegmentInfo;
-use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
+use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::search::sort_field::SortFieldBase;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
