@@ -16,6 +16,7 @@
  */
 use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
+use crate::codecs::LATEST_CODEC;
 use crate::index::segment_info::SegmentInfo;
 use crate::search::field_comparator_source::FieldComparatorSource;
 use crate::search::sort_field::SortFieldBase;
@@ -258,13 +259,8 @@ where
         // updates) and then maybe even be able to remove LiveDocsFormat.files().
         // Must separately add any live docs files:
         if self.has_deletions() {
-            debug_assert!(self.info.codec.is_some());
-            self.info
-                .codec
-                .as_ref()
-                .unwrap()
-                .live_docs_format()
-                .files(self, &mut files)?;
+            // debug_assert!(self.info.codec.is_some());
+            LATEST_CODEC.live_docs_format().files(self, &mut files)?;
         }
         for update_files in self.dv_updates_files.values() {
             files.extend(update_files.clone());

@@ -47,7 +47,9 @@ where
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
     id: Vec<u8>,
-    pub(crate) codec: Option<Lucene101Codec>,
+    // We need to ensure that there is only one Codec in the index
+    // Therefore, we do not need to explicitly define the Codec in the SegmentInfo.
+    // pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
     attributes: Arc<Mutex<HashMap<String, String>>>,
     index_sort: Option<Sort<F, S>>,
@@ -109,7 +111,6 @@ where
         max_doc: Option<u32>,
         is_compound_file: bool,
         has_blocks: bool,
-        codec: Option<Lucene101Codec>,
         diagnostics: HashMap<String, String>,
         //TODO: type should be [u8,16],avoid heap allocation?
         id: Vec<u8>,
@@ -134,7 +135,6 @@ where
             max_doc,
             is_compound_file,
             has_blocks,
-            codec,
             diagnostics,
             id,
             attributes: Arc::new(Mutex::new(attributes)),
@@ -197,21 +197,21 @@ where
     pub fn set_has_blocks(&mut self) {
         self.has_blocks = true;
     }
-    /// Can only be called once to set the codec
-    pub fn set_codec(&mut self, codec: Lucene101Codec) -> Result<(), LuceneError> {
-        if self.codec.is_some() {
-            return Err(LuceneError::illegal_argument(
-                "Codec was already set".to_string(),
-            ));
-        }
-        self.codec = Some(codec);
-        Ok(())
-    }
-
-    /// Returns the Codec that wrote this segment
-    pub fn get_codec(&self) -> &Option<Lucene101Codec> {
-        &self.codec
-    }
+    // /// Can only be called once to set the codec
+    // pub fn set_codec(&mut self, codec: Lucene101Codec) -> Result<(), LuceneError> {
+    //     if self.codec.is_some() {
+    //         return Err(LuceneError::illegal_argument(
+    //             "Codec was already set".to_string(),
+    //         ));
+    //     }
+    //     self.codec = Some(codec);
+    //     Ok(())
+    // }
+    //
+    // /// Returns the Codec that wrote this segment
+    // pub fn get_codec(&self) -> &Option<Lucene101Codec> {
+    //     &self.codec
+    // }
 
     /// Returns the number of documents in this segment (deletions are not taken into account)
     pub fn max_doc(&self) -> Result<u32, LuceneError> {
@@ -474,7 +474,6 @@ where
             dir: self.dir.clone(),
             is_compound_file: self.is_compound_file,
             id: self.id.clone(),
-            codec: self.codec.clone(),
             diagnostics: self.diagnostics.clone(),
             attributes: self.attributes.clone(),
             index_sort: self.index_sort.clone(),

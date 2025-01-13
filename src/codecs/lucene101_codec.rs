@@ -17,6 +17,7 @@
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::codecs::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
 use crate::codecs::Codec;
+use once_cell::sync::Lazy;
 
 #[derive(Clone)]
 pub struct Lucene101Codec;

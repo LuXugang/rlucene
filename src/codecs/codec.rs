@@ -17,7 +17,8 @@
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
-
+use once_cell::sync::Lazy;
+pub static LATEST_CODEC: Lazy<Lucene101Codec> = Lazy::new(|| Lucene101Codec);
 pub trait Codec {
     // type PostingsFormat;
     // type DocValuesFormat;

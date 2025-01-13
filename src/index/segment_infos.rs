@@ -16,7 +16,7 @@
  */
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
-use crate::codecs::{Codec, CodecUtil};
+use crate::codecs::{Codec, CodecUtil, LATEST_CODEC};
 use crate::index::index_commit::{DummyIndexCommit, IndexCommit};
 use crate::index::index_writer::IndexWriter;
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -393,7 +393,7 @@ where
                 segment_id,
                 &IOContext::default_io_context()?,
             )?;
-            info.set_codec(codec)?;
+            // info.set_codec(codec)?;
 
             let max_doc = info.max_doc()?;
             total_docs += max_doc;
@@ -653,7 +653,7 @@ where
             }
             debug_assert!(segment_id_len <= u32::MAX as usize);
             out.write_bytes_with_len(segment_id, segment_id_len as u32)?;
-            out.write_string(si.codec.as_ref().unwrap().get_name())?;
+            out.write_string(LATEST_CODEC.get_name())?;
 
             CodecUtil::write_be_long(out, si_per_commit.del_gen)?;
             let del_count = si_per_commit.del_count;
@@ -725,7 +725,7 @@ where
         };
 
         for segment_commit_info in &self.segments {
-            debug_assert!(segment_commit_info.info.codec.is_some());
+            // debug_assert!(segment_commit_info.info.codec.is_some());
             cloned.add(segment_commit_info.clone())?;
         }
         Ok(cloned)
@@ -985,11 +985,11 @@ where
     ) -> Result<Vec<SegmentCommitInfo<D, S, F>>, LuceneError> {
         let mut backup_list = Vec::with_capacity(self.segments.len());
         for segment_commit_info in &self.segments {
-            debug_assert!(
-                segment_commit_info.info.codec.is_some(),
-                "Codec is None for segment {}",
-                segment_commit_info.info.name
-            );
+            // debug_assert!(
+            //     segment_commit_info.info.codec.is_some(),
+            //     "Codec is None for segment {}",
+            //     segment_commit_info.info.name
+            // );
             backup_list.push(segment_commit_info.clone());
         }
         Ok(backup_list)

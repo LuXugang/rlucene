@@ -157,7 +157,6 @@ impl Lucene99SegmentInfoFormat {
             Option::from(doc_count as u32),
             is_compound_file,
             has_blocks,
-            None,
             diagnostics,
             segment_id,
             attributes,
