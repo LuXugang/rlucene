@@ -391,10 +391,16 @@ impl Type {
 }
 
 #[derive(Clone)]
-pub enum MissingValueEnum {}
+pub enum MissingValueEnum {
+    StringFirst,
+    StringLast,
+}
 
 impl Display for MissingValueEnum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
+        match self {
+            MissingValueEnum::StringFirst => write!(f, "SortField.STRING_FIRST"),
+            MissingValueEnum::StringLast => write!(f, "SortField.STRING_LAST"),
+        }
     }
 }
