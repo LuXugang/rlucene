@@ -30,15 +30,14 @@ use crate::store::{DataInput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::output_enum::OutputEnum;
 use crate::util::{IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::{fmt, io};
 
-lazy_static! {
-    static ref INFO_STREAM: Mutex<Option<Arc<Mutex<OutputEnum>>>> = Mutex::new(None);
-}
+static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
+
 /// A collection of `SegmentInfo` objects with methods for operating on those segments
 /// in relation to the file system.
 ///
@@ -321,7 +320,7 @@ where
             let reason = format!(
                 "This index was initially created with Lucene {}.x while the current version is {} and Lucene only supports reading {}",
                 index_created_version,
-                LATEST,
+                *LATEST,
                 if min_supported_major_version == *MIN_SUPPORTED_MAJOR{
                     "the current and previous major versions".to_string()
                 } else {

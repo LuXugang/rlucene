@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// This class contains useful constants representing filenames and extensions used by Lucene, as
@@ -185,7 +186,5 @@ impl IndexFileNames {
     }
 }
 
-lazy_static::lazy_static! {
-    ///   All files created by codecs much match this pattern (checked in SegmentInfo).
-    pub static ref CODEC_FILE_PATTERN: Regex = Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap();
-}
+pub static CODEC_FILE_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());

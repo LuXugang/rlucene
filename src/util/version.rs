@@ -18,18 +18,20 @@ use crate::util::error::illegal_argument::IllegalArgumentError;
 use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::parse::Parse;
 use crate::util::StrictStringTokenizer;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
 use thiserror::Error;
 
-lazy_static! {
-pub static ref LUCENE_10_0_0:Version = Version::new(10, 0, 0).unwrap();
+pub static LUCENE_10_0_0: Lazy<Version> = Lazy::new(|| Version::new(10, 0, 0).unwrap());
+
 /// Match settings and bugs in Lucene's 10.1.0 release.
-pub static ref LUCENE_10_1_0:Version = Version::new(10,1,0).unwrap();
- /// Match settings and bugs in Lucene's 11.0.0 release.
-pub static ref LUCENE_11_0_0:Version = Version::new(11,0,0).unwrap();
+pub static LUCENE_10_1_0: Lazy<Version> = Lazy::new(|| Version::new(10, 1, 0).unwrap());
+
+/// Match settings and bugs in Lucene's 11.0.0 release.
+pub static LUCENE_11_0_0: Lazy<Version> = Lazy::new(|| Version::new(11, 0, 0).unwrap());
+
 /// # Warning
 /// If you use this setting, and then upgrade to a newer release of Lucene, sizable
 /// changes may happen. If backwards compatibility is important, you should instead explicitly
@@ -39,15 +41,9 @@ pub static ref LUCENE_11_0_0:Version = Version::new(11,0,0).unwrap();
 /// upgrading Lucene, as the way text is indexed may have changed. Additionally, you may need to
 /// **re-test your entire application** to ensure it behaves as expected, as some defaults may
 /// have changed and may break functionality in your application.
-pub static ref LATEST:Version = LUCENE_11_0_0.clone();
-pub static ref LUCENE_CURRENT:Version =  LATEST.clone();
-pub static ref MIN_SUPPORTED_MAJOR:u32= LATEST.major - 1;
-}
-impl Display for LATEST {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}.{}", self.major, self.minor, self.bug_fix)
-    }
-}
+pub static LATEST: Lazy<Version> = Lazy::new(|| LUCENE_11_0_0.clone());
+pub static LUCENE_CURRENT: Lazy<Version> = Lazy::new(|| LATEST.clone());
+pub static MIN_SUPPORTED_MAJOR: Lazy<u32> = Lazy::new(|| LATEST.major - 1);
 /// Used by certain classes to match version compatibility across releases of Lucene.
 ///
 /// # Warning

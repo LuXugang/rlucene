@@ -275,7 +275,7 @@ fn test_to_string() -> Result<(), TestError> {
         Some(Sort::get_index_order()?),
     )?;
     assert_eq!(
-        format!("TEST({}){}:[indexSort=<doc>]", LATEST, ":C10000"),
+        format!("TEST({}){}:[indexSort=<doc>]", *LATEST, ":C10000"),
         format!("{}", si)
     );
 
@@ -297,7 +297,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[diagnostics={:?}]",
-            LATEST, ":C10000", diagnostics
+            *LATEST, ":C10000", diagnostics
         ),
         format!("{}", si)
     );
@@ -320,7 +320,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[attributes={:?}]",
-            LATEST, ":C10000", attributes
+            *LATEST, ":C10000", attributes
         ),
         format!("{}", si)
     );
@@ -343,7 +343,7 @@ fn test_to_string() -> Result<(), TestError> {
     assert_eq!(
         format!(
             "TEST({}){}:[indexSort=<doc>]:[diagnostics={:?}]:[attributes={:?}]",
-            LATEST, ":C10000", diagnostics, attributes
+            *LATEST, ":C10000", diagnostics, attributes
         ),
         format!("{}", si)
     );
