@@ -199,6 +199,70 @@ where
             _ => None,
         }
     }
+    /// Set the value to use for documents that don't have a value.
+    pub fn set_missing_value(
+        &mut self,
+        missing_value: Option<MissingValueEnum>,
+    ) -> Result<(), LuceneError> {
+        match self.field_type {
+            Type::String | Type::StringVal => {
+                if let Some(MissingValueEnum::StringFirst | MissingValueEnum::StringLast) =
+                    missing_value
+                {
+                    self.missing_value = missing_value;
+                } else {
+                    return Err(LuceneError::illegal_argument(
+                        "For STRING type, missing value must be either STRING_FIRST or STRING_LAST"
+                            .to_string(),
+                    ));
+                }
+            }
+            Type::Int => {
+                if let Some(MissingValueEnum::Int(_)) = missing_value {
+                    self.missing_value = missing_value;
+                } else {
+                    return Err(LuceneError::illegal_argument(
+                        "Missing values for Type.INT can only be of type MissingValueEnum::Int"
+                            .to_string(),
+                    ));
+                }
+            }
+            Type::Long => {
+                if let Some(MissingValueEnum::Long(_)) = missing_value {
+                    self.missing_value = missing_value;
+                } else {
+                    return Err(LuceneError::illegal_argument(
+                        "Missing values for Type.LONG can only be of type MissingValueEnum::Long"
+                            .to_string(),
+                    ));
+                }
+            }
+            Type::Float => {
+                if let Some(MissingValueEnum::Float(_)) = missing_value {
+                    self.missing_value = missing_value;
+                } else {
+                    return Err(LuceneError::illegal_argument(
+                        "Missing values for Type.FLOAT can only be of type MissingValueEnum::Float"
+                            .to_string(),
+                    ));
+                }
+            }
+            Type::Double => {
+                if let Some(MissingValueEnum::Double(_)) = missing_value {
+                    self.missing_value = missing_value;
+                } else {
+                    return Err(LuceneError::illegal_argument("Missing values for Type.DOUBLE can only be of type MissingValueEnum::Double".to_string()));
+                }
+            }
+            _ => {
+                return Err(LuceneError::illegal_argument(
+                    "Missing value only works for numeric or STRING types".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl<F, S> Display for SortField<F, S>
@@ -394,6 +458,10 @@ impl Type {
 pub enum MissingValueEnum {
     StringFirst,
     StringLast,
+    Int(i32),
+    Long(i64),
+    Float(f32),
+    Double(f64),
 }
 
 impl Display for MissingValueEnum {
@@ -401,6 +469,10 @@ impl Display for MissingValueEnum {
         match self {
             MissingValueEnum::StringFirst => write!(f, "SortField.STRING_FIRST"),
             MissingValueEnum::StringLast => write!(f, "SortField.STRING_LAST"),
+            MissingValueEnum::Int(val) => write!(f, "SortField.INT({})", val),
+            MissingValueEnum::Long(val) => write!(f, "SortField.LONG({})", val),
+            MissingValueEnum::Float(val) => write!(f, "SortField.FLOAT({})", val),
+            MissingValueEnum::Double(val) => write!(f, "SortField.DOUBLE({})", val),
         }
     }
 }
