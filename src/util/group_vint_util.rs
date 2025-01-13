@@ -191,7 +191,7 @@ impl GroupVIntUtil {
             Ok(value as i32)
         }
     }
-    /// The implementation for group-varint encoding. It uses a maximum of [`MAX_LENGTH_PER_GROUP`] bytes scratch buffer.
+    /// The implementation for group-varint encoding. It uses a maximum of [`MAX_LENGTH_PER_GROUP`](GroupVIntUtil::MAX_LENGTH_PER_GROUP) bytes scratch buffer.
     pub fn write_group_vints<D>(
         data_output: &mut D,
         scratch: &mut [u8],

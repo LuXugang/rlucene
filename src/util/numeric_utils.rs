@@ -67,7 +67,7 @@ impl NumericUtils {
     /// Java's `Float.floatToIntBits`. Non-standard `NaN` representations are not preserved.
     ///
     /// # See Also
-    /// [`sortable_int_to_float`]
+    /// [`sortable_int_to_float`](NumericUtils::sortable_int_to_float)
     pub fn float_to_sortable_int(value: f32) -> i32 {
         let bits = if value.is_nan() {
             // Normalize NaN to a canonical representation
@@ -80,7 +80,7 @@ impl NumericUtils {
     /// Converts a sortable `i32` back to an `f32`.
     ///
     /// # See Also
-    /// [`float_to_sortable_int`]
+    /// [`float_to_sortable_int`](NumericUtils::float_to_sortable_int)
     pub fn sortable_int_to_float(encoded: i32) -> f32 {
         f32::from_bits(Self::sortable_float_bits(encoded) as u32)
     }
