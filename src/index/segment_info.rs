@@ -47,7 +47,7 @@ where
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
     id: Vec<u8>,
-    // We need to ensure that there is only one Codec in the index
+    // Diff to Java Lucene: We need to ensure that there is only one Codec in the index
     // Therefore, we do not need to explicitly define the Codec in the SegmentInfo.
     // pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
@@ -405,11 +405,8 @@ where
         Ok(attributes.insert(key, value))
     }
     /// Returns the internal codec attributes map.
-    pub fn get_attributes(&self) -> Result<HashMap<String, String>, LuceneError> {
-        let attributes = self.attributes.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
-        })?;
-        Ok(attributes.clone())
+    pub fn get_attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>, LuceneError> {
+        Ok(self.attributes.clone())
     }
 
     /// Returns the sort order of this segment, or None if the index has no sort.

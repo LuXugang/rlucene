@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod base_index_file_format_test_case;
-pub(crate) mod base_segment_info_format_test_case;
-mod test_doc_values_field_updates;
-mod test_segment_infos;
+use rlucene::codecs::lucene101_codec::Lucene101Codec;
+use rlucene::codecs::Codec;
+
+pub trait BaseIndexFileFormatTestCase {}

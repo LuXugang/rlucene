@@ -68,11 +68,11 @@ use std::sync::{Arc, Mutex};
 pub struct Lucene99SegmentInfoFormat;
 
 const SI_EXTENSION: &str = "si";
-const CODEC_NAME: &str = "Lucene90SegmentInfo";
-const VERSION_START: u32 = 0;
-const VERSION_CURRENT: u32 = VERSION_START;
 
 impl Lucene99SegmentInfoFormat {
+    const CODEC_NAME: &'static str = "Lucene90SegmentInfo";
+    const VERSION_START: u32 = 0;
+    const VERSION_CURRENT: u32 = Lucene99SegmentInfoFormat::VERSION_START;
     fn parse_segment_info<D, T, F, S>(
         dir: Arc<Mutex<D>>,
         input: &mut T,
@@ -223,7 +223,13 @@ impl Lucene99SegmentInfoFormat {
             }
         }
         output.write_set_of_strings(files)?;
-        output.write_map_of_strings(&si.get_attributes()?)?;
+        {
+            let attributes = si.get_attributes()?;
+            let values = attributes.lock().map_err(|_| {
+                LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
+            })?;
+            output.write_map_of_strings(&values)?;
+        }
 
         if let Some(index_sort) = si.get_index_sort() {
             let sort_fields = index_sort.get_sort();
@@ -273,9 +279,9 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
             let result = {
                 let check_result = CodecUtil::check_index_header(
                     &mut input,
-                    CODEC_NAME,
-                    VERSION_START,
-                    VERSION_CURRENT,
+                    Lucene99SegmentInfoFormat::CODEC_NAME,
+                    Lucene99SegmentInfoFormat::VERSION_START,
+                    Lucene99SegmentInfoFormat::VERSION_CURRENT,
                     &segment_id,
                     "",
                 );
@@ -328,8 +334,8 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         si.add_file(file_name.clone())?;
         CodecUtil::write_index_header(
             &mut output,
-            CODEC_NAME,
-            VERSION_CURRENT,
+            Lucene99SegmentInfoFormat::CODEC_NAME,
+            Lucene99SegmentInfoFormat::VERSION_CURRENT,
             si.get_id().as_slice(),
             "",
         )?;
