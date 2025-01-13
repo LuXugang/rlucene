@@ -25,8 +25,6 @@ use rlucene::index::segment_info::SegmentInfo;
 use rlucene::index::segment_infos::SegmentInfos;
 use rlucene::index::sort::Sort;
 use rlucene::index::IndexFileNames;
-use rlucene::search::field_comparator_source::DummyFieldComparatorSource;
-use rlucene::search::sort_field::DummySortFieldBase;
 use rlucene::store::directory::Directory;
 use rlucene::store::{DataInput, DataOutput};
 use rlucene::store::{IOContext, IndexInput};
@@ -65,8 +63,7 @@ fn test_illegal_created_version() -> Result<(), TestError> {
 fn test_versions_no_segments() -> Result<(), TestError> {
     let mut random = my_random("test_versions_no_segments".to_string());
     let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
-    let mut sis =
-        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(LATEST.major)?;
+    let mut sis = SegmentInfos::new(LATEST.major)?;
     sis.commit(directory.clone())?;
     let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
     assert!(result.is_some());
@@ -84,8 +81,7 @@ fn test_versions_one_segment() -> Result<(), TestError> {
     let directory = Arc::new(Mutex::new(dir));
     let id = StringHelper::random_id();
     let codec = get_default_code();
-    let mut sis =
-        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(LATEST.major)?;
+    let mut sis = SegmentInfos::new(LATEST.major)?;
     let mut info = SegmentInfo::new(
         directory.clone(),
         Some((*LUCENE_11_0_0).clone()),
@@ -138,8 +134,7 @@ fn test_versions_two_segments() -> Result<(), TestError> {
     let directory = Arc::new(Mutex::new(dir));
     let id = StringHelper::random_id();
     let codec = get_default_code();
-    let mut sis =
-        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(LATEST.major)?;
+    let mut sis = SegmentInfos::new(LATEST.major)?;
     // First Segment
     let mut info_0 = SegmentInfo::new(
         directory.clone(),
@@ -418,8 +413,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let id = StringHelper::random_id();
     let codec = get_default_code();
-    let mut sis =
-        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(LATEST.major)?;
+    let mut sis = SegmentInfos::new(LATEST.major)?;
     let mut info_0 = SegmentInfo::new(
         dir.clone(),
         Some((*LATEST).clone()),
@@ -539,10 +533,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
 
     assert!(corrupt, "No segments file found");
 
-    let result =
-        SegmentInfos::<_, DummySortFieldBase, DummyFieldComparatorSource>::read_latest_commit(
-            corrupt_dir.clone(),
-        );
+    let result = SegmentInfos::read_latest_commit(corrupt_dir.clone());
     assert!(result.is_err());
     match result {
         Err(LuceneError::CorruptIndex(_))

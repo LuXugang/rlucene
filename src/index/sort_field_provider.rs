@@ -15,36 +15,26 @@
  * limitations under the License.
  */
 use crate::index::index_sorter::IndexSorter;
-use crate::search::field_comparator_source::FieldComparatorSource;
-use crate::search::sort_field::{Provider, SortField, SortFieldBase};
+
+use crate::search::sort_field::{Provider, SortField};
 use crate::search::sorted_numeric_sort_field::NumericProvider;
 use crate::search::sorted_set_sort_field::SetProvider;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
 
 pub trait SortFieldProvider {
-    fn read_sort_field<D, F, S>(&self, data_input: &mut D) -> Result<SortField<F, S>, LuceneError>
+    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortField, LuceneError>
     where
-        D: DataInput,
-        F: FieldComparatorSource,
-        S: SortFieldBase;
+        D: DataInput;
     /// Writes a SortField to a DataOutput
     /// This is used to record index sort information in segment headers
-    fn write_sort_field<D, F, S>(
-        &self,
-        sf: &SortField<F, S>,
-        output: &mut D,
-    ) -> Result<(), LuceneError>
+    fn write_sort_field<D>(&self, sf: &SortField, output: &mut D) -> Result<(), LuceneError>
     where
-        D: DataOutput,
-        F: FieldComparatorSource,
-        S: SortFieldBase;
+        D: DataOutput;
 }
-pub fn write<D, F, S>(sf: &SortField<F, S>, output: &mut D) -> Result<(), LuceneError>
+pub fn write<D>(sf: &SortField, output: &mut D) -> Result<(), LuceneError>
 where
     D: DataOutput,
-    F: FieldComparatorSource,
-    S: SortFieldBase,
 {
     if let Some(index_sort) = sf.get_index_sorter() {
         let provider = for_name(index_sort.get_provider_name());
@@ -66,11 +56,9 @@ pub enum SortFieldProviderEnum {
     SortProvider(Provider),
 }
 impl SortFieldProvider for SortFieldProviderEnum {
-    fn read_sort_field<D, F, S>(&self, data_input: &mut D) -> Result<SortField<F, S>, LuceneError>
+    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortField, LuceneError>
     where
         D: DataInput,
-        F: FieldComparatorSource,
-        S: SortFieldBase,
     {
         match self {
             SortFieldProviderEnum::SortedNumericProvider(provider) => {
@@ -83,15 +71,9 @@ impl SortFieldProvider for SortFieldProviderEnum {
         }
     }
 
-    fn write_sort_field<D, F, S>(
-        &self,
-        sf: &SortField<F, S>,
-        output: &mut D,
-    ) -> Result<(), LuceneError>
+    fn write_sort_field<D>(&self, sf: &SortField, output: &mut D) -> Result<(), LuceneError>
     where
         D: DataOutput,
-        F: FieldComparatorSource,
-        S: SortFieldBase,
     {
         match self {
             SortFieldProviderEnum::SortedNumericProvider(provider) => {

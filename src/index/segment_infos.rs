@@ -21,8 +21,8 @@ use crate::index::index_commit::{DummyIndexCommit, IndexCommit};
 use crate::index::index_writer::IndexWriter;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::IndexFileNames;
-use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
-use crate::search::sort_field::{DummySortFieldBase, SortFieldBase};
+use crate::search::field_comparator_source::FieldComparatorSource;
+
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
@@ -95,11 +95,9 @@ static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| M
 ///
 /// # Notes
 /// This module is experimental and subject to change.
-pub struct SegmentInfos<D, S, F>
+pub struct SegmentInfos<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     /// Used to name new segments.
     pub counter: u64,
@@ -112,7 +110,7 @@ where
     /// Opaque `HashMap<String, String>` that user can specify during `IndexWriter.commit`.
     pub user_data: HashMap<String, String>,
     /// List of `SegmentCommitInfo` objects.
-    pub segments: Vec<SegmentCommitInfo<D, S, F>>,
+    pub segments: Vec<SegmentCommitInfo<D>>,
     /// Id for this commit; only written starting with Lucene 5.0.
     pub id: Option<Vec<u8>>,
     /// Which Lucene version wrote this commit.
@@ -125,7 +123,7 @@ where
     // before finishCommit is called
     pending_commit: bool,
 }
-impl SegmentInfos<DummyDirectory, DummySortFieldBase, DummyFieldComparatorSource> {
+impl SegmentInfos<DummyDirectory> {
     /// The version at the time when 8.0 was released.
     pub const VERSION_74: u32 = 9;
     /// The version that recorded SegmentCommitInfo IDs.
@@ -138,18 +136,16 @@ impl SegmentInfos<DummyDirectory, DummySortFieldBase, DummyFieldComparatorSource
         SegmentInfos::new(index_created_version_major)
     }
 }
-impl<D, S, F> SegmentInfos<D, S, F>
+impl<D> SegmentInfos<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     /// Sole constructor.
     ///
     /// # Arguments
     /// - `index_created_version_major`: The Lucene version major at index creation time,
     ///   or 6 if the index was created before 7.0.
-    pub fn new(index_created_version_major: u32) -> Result<SegmentInfos<D, S, F>, LuceneError> {
+    pub fn new(index_created_version_major: u32) -> Result<SegmentInfos<D>, LuceneError> {
         if index_created_version_major > LATEST.major {
             return Err(LuceneError::illegal_argument(format!(
                 "indexCreatedVersionMajor is in the future: {}",
@@ -178,7 +174,7 @@ where
         })
     }
     /// Returns [`SegmentCommitInfo`] at the provided index.
-    pub fn info(&self, i: usize) -> Option<&SegmentCommitInfo<D, S, F>> {
+    pub fn info(&self, i: usize) -> Option<&SegmentCommitInfo<D>> {
         self.segments.get(i)
     }
 
@@ -219,7 +215,7 @@ where
     pub fn read_commit(
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D, S, F>, LuceneError> {
+    ) -> Result<SegmentsFileEnum<D>, LuceneError> {
         Self::read_commit_with_file_min_version(directory, segment_file_name, *MIN_SUPPORTED_MAJOR)
     }
 
@@ -233,7 +229,7 @@ where
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
         min_supported_major_version: u32,
-    ) -> Result<SegmentsFileEnum<D, S, F>, LuceneError> {
+    ) -> Result<SegmentsFileEnum<D>, LuceneError> {
         let generation = generation_from_segments_file_name(segment_file_name)?;
         let mut input = match directory
             .lock()
@@ -353,7 +349,7 @@ where
     pub fn parse_segment_infos<I: DataInput>(
         directory: Arc<Mutex<D>>,
         input: &mut I,
-        infos: &mut SegmentInfos<D, S, F>,
+        infos: &mut SegmentInfos<D>,
         format: u32,
     ) -> Result<(), LuceneError> {
         infos.version = CodecUtil::read_be_long(input)?;
@@ -530,7 +526,7 @@ where
     /// Find the latest commit (`segments_N` file) and load all `SegmentCommitInfo`s.
     pub fn read_latest_commit(
         directory: Arc<Mutex<D>>,
-    ) -> Result<SegmentsFileEnum<D, S, F>, LuceneError> {
+    ) -> Result<SegmentsFileEnum<D>, LuceneError> {
         Self::read_latest_commit_with_min_version(directory, *MIN_SUPPORTED_MAJOR)
     }
 
@@ -539,7 +535,7 @@ where
     pub fn read_latest_commit_with_min_version(
         directory: Arc<Mutex<D>>,
         min_supported_major_version: u32,
-    ) -> Result<SegmentsFileEnum<D, S, F>, LuceneError> {
+    ) -> Result<SegmentsFileEnum<D>, LuceneError> {
         let sub = FindSegmentsFileImpl {
             min_supported_major_version,
         };
@@ -745,13 +741,13 @@ where
         self.last_generation
     }
     /// Carry over generation numbers from another `SegmentInfos`.
-    pub fn update_generation(&mut self, other: &SegmentInfos<D, S, F>) {
+    pub fn update_generation(&mut self, other: &SegmentInfos<D>) {
         self.last_generation = other.last_generation;
         self.generation = other.generation;
     }
 
     /// Carry over generation numbers, and version/counter, from another `SegmentInfos`.
-    pub fn update_generation_version_and_counter(&mut self, other: &SegmentInfos<D, S, F>) {
+    pub fn update_generation_version_and_counter(&mut self, other: &SegmentInfos<D>) {
         self.update_generation(other);
         self.version = other.version;
         self.counter = other.counter;
@@ -980,9 +976,7 @@ where
     //
     //     Ok(())
     // }
-    pub fn create_backup_segment_infos(
-        &self,
-    ) -> Result<Vec<SegmentCommitInfo<D, S, F>>, LuceneError> {
+    pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>, LuceneError> {
         let mut backup_list = Vec::with_capacity(self.segments.len());
         for segment_commit_info in &self.segments {
             // debug_assert!(
@@ -995,17 +989,17 @@ where
         Ok(backup_list)
     }
 
-    pub fn rollback_segment_infos(&mut self, infos: Vec<SegmentCommitInfo<D, S, F>>) {
+    pub fn rollback_segment_infos(&mut self, infos: Vec<SegmentCommitInfo<D>>) {
         self.segments.clear();
         self.segments.extend(infos);
     }
     /// Returns an iterator over the contained segments in order.
-    pub fn iter(&self) -> impl Iterator<Item = &SegmentCommitInfo<D, S, F>> {
+    pub fn iter(&self) -> impl Iterator<Item = &SegmentCommitInfo<D>> {
         self.segments.iter()
     }
 
     /// Returns all contained segments as a non-mutable reference to the internal vector.
-    pub fn as_list(&self) -> &[SegmentCommitInfo<D, S, F>] {
+    pub fn as_list(&self) -> &[SegmentCommitInfo<D>] {
         &self.segments
     }
 
@@ -1017,7 +1011,7 @@ where
     }
 
     /// Appends the provided `SegmentCommitInfo` to the `segments` list.
-    pub fn add(&mut self, si: SegmentCommitInfo<D, S, F>) -> Result<(), LuceneError> {
+    pub fn add(&mut self, si: SegmentCommitInfo<D>) -> Result<(), LuceneError> {
         if self.index_created_version_major >= 7 && si.info.min_version.is_none() {
             return Err(LuceneError::illegal_argument(format!(
                 "All segments must record the minVersion for indices created on or after Lucene 7, but minVersion is missing for segment: {}",
@@ -1031,7 +1025,7 @@ where
     /// Appends the provided [`SegmentCommitInfo`]s.
     pub fn add_all(
         &mut self,
-        sis: impl IntoIterator<Item = SegmentCommitInfo<D, S, F>>,
+        sis: impl IntoIterator<Item = SegmentCommitInfo<D>>,
     ) -> Result<(), LuceneError> {
         for si in sis {
             self.add(si)?;
@@ -1047,7 +1041,7 @@ where
     /// Removes the provided `SegmentCommitInfo`.
     ///
     /// **Warning**: O(N) cost
-    pub fn remove(&mut self, si: &SegmentCommitInfo<D, S, F>) -> bool
+    pub fn remove(&mut self, si: &SegmentCommitInfo<D>) -> bool
     where
         D: PartialEq,
     {
@@ -1071,7 +1065,7 @@ where
     /// Returns true if the provided `SegmentCommitInfo` is contained.
     ///
     /// **Warning**: O(N) cost
-    pub fn contains(&self, si: &SegmentCommitInfo<D, S, F>) -> bool
+    pub fn contains(&self, si: &SegmentCommitInfo<D>) -> bool
     where
         D: PartialEq,
     {
@@ -1081,7 +1075,7 @@ where
     /// Returns the index of the provided `SegmentCommitInfo`.
     ///
     /// **Warning**: O(N) cost
-    pub fn index_of(&self, si: &SegmentCommitInfo<D, S, F>) -> Option<usize>
+    pub fn index_of(&self, si: &SegmentCommitInfo<D>) -> Option<usize>
     where
         D: PartialEq,
     {
@@ -1109,11 +1103,9 @@ where
     pub fn make_complies_happy(&self, _dir: &mut D) {}
 }
 
-impl<D, S, F> fmt::Display for SegmentInfos<D, S, F>
+impl<D> fmt::Display for SegmentInfos<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     /// Returns a readable description of this segment.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1149,19 +1141,12 @@ where
     pub fn new(directory: Arc<Mutex<D>>, sub: FB) -> Self {
         FindSegmentsFile { directory, sub }
     }
-    pub fn run<F: FieldComparatorSource, S: SortFieldBase>(
-        &self,
-    ) -> Result<SegmentsFileEnum<D, S, F>, LuceneError> {
+    pub fn run(&self) -> Result<SegmentsFileEnum<D>, LuceneError> {
         self.run_with_commit(None::<DummyIndexCommit>)
     }
-    pub fn run_with_commit<I, F, S>(
-        &self,
-        commit: Option<I>,
-    ) -> Result<SegmentsFileEnum<D, S, F>, LuceneError>
+    pub fn run_with_commit<I>(&self, commit: Option<I>) -> Result<SegmentsFileEnum<D>, LuceneError>
     where
         I: IndexCommit,
-        F: FieldComparatorSource,
-        S: SortFieldBase,
     {
         if let Some(commit) = commit {
             if !Arc::ptr_eq(&self.directory, &commit.get_directory()) {
@@ -1254,32 +1239,26 @@ where
     }
 }
 pub trait FindSegmentsFileBase {
-    fn do_body<D, S, F>(
+    fn do_body<D>(
         &self,
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D, S, F>, LuceneError>
+    ) -> Result<SegmentsFileEnum<D>, LuceneError>
     where
-        D: Directory,
-        S: SortFieldBase,
-        F: FieldComparatorSource;
+        D: Directory;
 }
 
-pub enum SegmentsFileEnum<D, S, F>
+pub enum SegmentsFileEnum<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
-    Segment(SegmentInfos<D, S, F>),
+    Segment(SegmentInfos<D>),
 }
-impl<D, S, F> SegmentsFileEnum<D, S, F>
+impl<D> SegmentsFileEnum<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
-    pub fn into_segment_infos(self) -> Option<SegmentInfos<D, S, F>> {
+    pub fn into_segment_infos(self) -> Option<SegmentInfos<D>> {
         match self {
             SegmentsFileEnum::Segment(si) => Some(si),
         }
@@ -1311,15 +1290,13 @@ pub struct FindSegmentsFileImpl {
     pub(crate) min_supported_major_version: u32,
 }
 impl FindSegmentsFileBase for FindSegmentsFileImpl {
-    fn do_body<D, S, F>(
+    fn do_body<D>(
         &self,
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D, S, F>, LuceneError>
+    ) -> Result<SegmentsFileEnum<D>, LuceneError>
     where
         D: Directory,
-        S: SortFieldBase,
-        F: FieldComparatorSource,
     {
         SegmentInfos::read_commit_with_file_min_version(
             directory,

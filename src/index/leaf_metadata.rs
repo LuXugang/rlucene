@@ -15,38 +15,29 @@
  * limitations under the License.
  */
 use crate::index::sort::Sort;
-use crate::search::field_comparator_source::FieldComparatorSource;
-use crate::search::sort_field::SortFieldBase;
+
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::version::{Version, LATEST};
 use derive_getters::Getters;
 
 #[derive(Getters)]
-pub struct LeafMetaData<F, S>
-where
-    F: FieldComparatorSource,
-    S: SortFieldBase,
-{
+pub struct LeafMetaData {
     /// The major version of the Lucene format used to create this segment.
     pub created_version_major: u32,
     /// The minimum version of Lucene that contributed to this segment.
     pub min_version: Option<Version>,
     /// The sort order of documents in this segment, if any.
-    pub sort: Option<Sort<F, S>>,
+    pub sort: Option<Sort>,
     /// Indicates whether this segment contains documents written as blocks.
     pub has_blocks: bool,
 }
 
-impl<F, S> LeafMetaData<F, S>
-where
-    F: FieldComparatorSource,
-    S: SortFieldBase,
-{
+impl LeafMetaData {
     /// Constructs a new `LeafMetaData` instance.
     pub fn new(
         created_version_major: u32,
         min_version: Option<Version>,
-        sort: Option<Sort<F, S>>,
+        sort: Option<Sort>,
         has_blocks: bool,
     ) -> Result<Self, LuceneError> {
         if created_version_major > LATEST.major {

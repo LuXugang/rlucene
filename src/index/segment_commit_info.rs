@@ -18,22 +18,19 @@ use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::LATEST_CODEC;
 use crate::index::segment_info::SegmentInfo;
-use crate::search::field_comparator_source::FieldComparatorSource;
-use crate::search::sort_field::SortFieldBase;
+
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
 
-pub struct SegmentCommitInfo<D, S, F>
+pub struct SegmentCommitInfo<D>
 where
     D: Directory,
-    F: FieldComparatorSource,
-    S: SortFieldBase,
 {
     /// The SegmentInfo that we wrap.
-    pub info: SegmentInfo<D, S, F>,
+    pub info: SegmentInfo<D>,
 
     /// Id that uniquely identifies this segment commit.
     pub id: Option<Vec<u8>>,
@@ -74,11 +71,9 @@ where
     /// Used in memory by IndexWriter to track buffered deletes. Not persisted to disk.
     pub buffered_deletes_gen: i64,
 }
-impl<D, S, F> SegmentCommitInfo<D, S, F>
+impl<D> SegmentCommitInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     /// Sole constructor.
     ///
@@ -91,7 +86,7 @@ where
     /// - `Doc_values_gen`: DocValues generation number (used to name doc-values updates files).
     /// - `Id`: Id that uniquely identifies this segment commit.
     pub fn new(
-        info: SegmentInfo<D, S, F>,
+        info: SegmentInfo<D>,
         del_count: i32,
         soft_del_count: i32,
         del_gen: i64,
@@ -434,11 +429,9 @@ where
 }
 
 /// Implement `Display` for `SegmentCommitInfo`.
-impl<D, S, F> std::fmt::Display for SegmentCommitInfo<D, S, F>
+impl<D> std::fmt::Display for SegmentCommitInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let result = self.to_string_with_pending_del_count(0);
@@ -448,11 +441,9 @@ where
         }
     }
 }
-impl<D, S, F> Clone for SegmentCommitInfo<D, S, F>
+impl<D> Clone for SegmentCommitInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     fn clone(&self) -> Self {
         let mut cloned_dv_updates_files = HashMap::new();
@@ -481,11 +472,9 @@ where
         }
     }
 }
-impl<D, S, F> PartialEq for SegmentCommitInfo<D, S, F>
+impl<D> PartialEq for SegmentCommitInfo<D>
 where
     D: PartialEq + Directory,
-    F: FieldComparatorSource,
-    S: SortFieldBase,
 {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self, other)

@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::index::sort::Sort;
 use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
-use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
-use crate::search::sort_field::{DummySortFieldBase, SortFieldBase};
+
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::util::error::lucene_error::LuceneError;
@@ -33,11 +31,9 @@ use std::sync::{Arc, Mutex};
 ///
 /// # Experimental
 /// This API is experimental and may change in future releases.
-pub struct SegmentInfo<D, S, F>
+pub struct SegmentInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     /// Unique segment name in the directory.
     pub name: String,
@@ -52,7 +48,7 @@ where
     // pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
     attributes: Arc<Mutex<HashMap<String, String>>>,
-    index_sort: Option<Sort<F, S>>,
+    index_sort: Option<Sort>,
     /// Tracks the Lucene version this segment was created with, since 3.1.
     /// Null indicates an older than 3.0 index, and it's used to detect a too-old index.
     /// The format expected is "x.y" - "2.x" for pre-3.0 indexes (or null), and
@@ -68,18 +64,16 @@ where
     set_files: Option<HashSet<String>>,
 }
 
-impl SegmentInfo<DummyDirectory, DummySortFieldBase, DummyFieldComparatorSource> {
+impl SegmentInfo<DummyDirectory> {
     /// Used by some member fields to mean not present (e.g., norms, deletions).
     pub const NO: i32 = -1; // e.g. no norms; no deletes;
     /// Used by some member fields to mean present (e.g., norms, deletions).
     pub const YES: i32 = 1; // e.g. have norms; have deletes;
 }
 
-impl<D, S, F> SegmentInfo<D, S, F>
+impl<D> SegmentInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     /// Constructs a new complete `SegmentInfo` instance from input.
     ///
@@ -115,8 +109,8 @@ where
         //TODO: type should be [u8,16],avoid heap allocation?
         id: Vec<u8>,
         attributes: HashMap<String, String>,
-        index_sort: Option<Sort<F, S>>,
-    ) -> Result<SegmentInfo<D, S, F>, LuceneError> {
+        index_sort: Option<Sort>,
+    ) -> Result<SegmentInfo<D>, LuceneError> {
         // debug_assert!(
         //     !dir.is::<TrackingDirectoryWrapper>(),
         //     "dir should not be a TrackingDirectoryWrapper"
@@ -143,11 +137,9 @@ where
         })
     }
 }
-impl<D, S, F> SegmentInfo<D, S, F>
+impl<D> SegmentInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     /// Sets the diagnostics map. The given map is cloned to ensure immutability.
     pub fn set_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
@@ -410,15 +402,13 @@ where
     }
 
     /// Returns the sort order of this segment, or None if the index has no sort.
-    pub fn get_index_sort(&self) -> Option<&Sort<F, S>> {
+    pub fn get_index_sort(&self) -> Option<&Sort> {
         self.index_sort.as_ref()
     }
 }
-impl<D, S, F> Display for SegmentInfo<D, S, F>
+impl<D> Display for SegmentInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let result = self.to_string(0);
@@ -428,29 +418,19 @@ where
         }
     }
 }
-impl<D, S, F> PartialEq for SegmentInfo<D, S, F>
+impl<D> PartialEq for SegmentInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.dir, &other.dir) && self.name == other.name
     }
 }
 
-impl<D, S, F> Eq for SegmentInfo<D, S, F>
+impl<D> Eq for SegmentInfo<D> where D: Directory {}
+impl<D> Hash for SegmentInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
-{
-}
-impl<D, S, F> Hash for SegmentInfo<D, S, F>
-where
-    D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let dir_address = Arc::as_ptr(&self.dir) as usize;
@@ -458,11 +438,9 @@ where
         self.name.hash(state);
     }
 }
-impl<D, S, F> Clone for SegmentInfo<D, S, F>
+impl<D> Clone for SegmentInfo<D>
 where
     D: Directory,
-    S: SortFieldBase,
-    F: FieldComparatorSource,
 {
     fn clone(&self) -> Self {
         SegmentInfo {

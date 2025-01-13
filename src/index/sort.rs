@@ -14,22 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::field_comparator_source::{DummyFieldComparatorSource, FieldComparatorSource};
-use crate::search::sort_field::{DummySortFieldBase, SortField, SortFieldBase};
+use crate::search::field_comparator_source::FieldComparatorSource;
+use crate::search::sort_field::SortField;
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
 use std::fmt::Display;
 
 #[derive(Clone)]
-pub struct Sort<F = DummyFieldComparatorSource, S = DummySortFieldBase>
-where
-    F: FieldComparatorSource,
-    S: SortFieldBase,
-{
-    fields: Vec<SortField<F, S>>,
+pub struct Sort {
+    fields: Vec<SortField>,
 }
 
-impl Sort<DummyFieldComparatorSource, DummySortFieldBase> {
+impl Sort {
     /// Replace Java's `Sort.INDEXORDER` with this method.
     pub fn get_index_order() -> Result<Self, LuceneError> {
         let sort_field = SortField::get_field_doc()?;
@@ -41,11 +37,7 @@ impl Sort<DummyFieldComparatorSource, DummySortFieldBase> {
     }
 }
 
-impl<F, S> Sort<F, S>
-where
-    F: FieldComparatorSource,
-    S: SortFieldBase,
-{
+impl Sort {
     /// Sorts by computed relevance.
     ///
     /// This is the same sort criteria as calling `IndexSearcher::search` without a sort criteria,
@@ -66,7 +58,7 @@ where
     ///
     /// # Errors
     /// Returns an error if the provided `fields` vector is empty.
-    pub fn new_with_fields(fields: Vec<SortField<F, S>>) -> Result<Self, LuceneError> {
+    pub fn new_with_fields(fields: Vec<SortField>) -> Result<Self, LuceneError> {
         if fields.is_empty() {
             Err(LuceneError::illegal_argument(
                 "There must be at least 1 sort field".to_string(),
@@ -80,16 +72,12 @@ where
     ///
     /// # Returns
     /// Array (Vec) of `SortField` objects used in this sort criteria.
-    pub fn get_sort(&self) -> &[SortField<F, S>] {
+    pub fn get_sort(&self) -> &[SortField] {
         &self.fields
     }
 }
 
-impl<F, S> Display for Sort<F, S>
-where
-    F: FieldComparatorSource,
-    S: SortFieldBase,
-{
+impl Display for Sort {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let fields_string = self
             .fields

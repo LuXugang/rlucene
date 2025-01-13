@@ -18,7 +18,9 @@ use crate::index::index_sorter::{
     DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
 };
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::search::field_comparator_source::FieldComparatorSource;
+use crate::search::field_comparator_source::{FieldComparatorSource, FieldComparatorSourceEnum};
+use crate::search::sorted_numeric_sort_field::SortedNumericSortField;
+use crate::search::sorted_set_sort_field::SortedSetSortField;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
@@ -36,15 +38,11 @@ use std::fmt::Display;
 /// relies on the assumption that the same data is stored in these term index and
 /// doc values.
 #[derive(Clone)]
-pub struct SortField<F, S>
-where
-    F: FieldComparatorSource,
-    S: SortFieldBase,
-{
-    sub_sort_field: Option<S>,
+pub struct SortField {
+    sub_sort_field: Option<SubSortFieldEnum>,
     fields: Option<String>,
     field_type: Type,
-    comparator_source: Option<F>,
+    comparator_source: Option<FieldComparatorSourceEnum>,
     /// defaults to natural order
     reverse: bool,
     /// Used for 'sortMissingFirst/Last'
@@ -54,11 +52,7 @@ where
     optimize_sort_with_indexed_data: bool,
 }
 
-impl<F, S> SortField<F, S>
-where
-    F: FieldComparatorSource,
-    S: SortFieldBase,
-{
+impl SortField {
     /// Creates a sort by terms in the given field with the type of term values explicitly given.
     ///
     /// # Arguments
@@ -74,7 +68,7 @@ where
     pub fn new(
         field: Option<String>,
         field_type: Type,
-        sub_sort_field: Option<S>,
+        sub_sort_field: Option<SubSortFieldEnum>,
     ) -> Result<Self, LuceneError> {
         SortField::init_field_type(field, field_type, sub_sort_field)
     }
@@ -96,7 +90,7 @@ where
         field: Option<String>,
         field_type: Type,
         reverse: bool,
-        sub_sort_field: Option<S>,
+        sub_sort_field: Option<SubSortFieldEnum>,
     ) -> Result<Self, LuceneError> {
         let mut result = Self::new(field, field_type, sub_sort_field)?;
         result.reverse = reverse;
@@ -115,8 +109,8 @@ where
     /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
     pub fn new_with_comparator(
         field: Option<String>,
-        comparator: Option<F>,
-        sub_sort_field: Option<S>,
+        comparator: Option<FieldComparatorSourceEnum>,
+        sub_sort_field: Option<SubSortFieldEnum>,
     ) -> Result<Self, LuceneError> {
         let mut result = SortField::init_field_type(field, Type::Custom, sub_sort_field)?;
         debug_assert!(comparator.is_some());
@@ -137,9 +131,9 @@ where
     /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
     pub fn new_with_comparator_reverse(
         field: Option<String>,
-        comparator: Option<F>,
+        comparator: Option<FieldComparatorSourceEnum>,
         reverse: bool,
-        sub_sort_field: Option<S>,
+        sub_sort_field: Option<SubSortFieldEnum>,
     ) -> Result<Self, LuceneError> {
         let mut result = Self::new_with_comparator(field, comparator, sub_sort_field)?;
         result.reverse = reverse;
@@ -162,7 +156,7 @@ where
     fn init_field_type(
         field: Option<String>,
         field_type: Type,
-        sub_sort_field: Option<S>,
+        sub_sort_field: Option<SubSortFieldEnum>,
     ) -> Result<Self, LuceneError> {
         if field.is_none() && field_type != Type::Score && field_type != Type::Doc {
             return Err(LuceneError::illegal_argument(
@@ -265,11 +259,7 @@ where
     }
 }
 
-impl<F, S> Display for SortField<F, S>
-where
-    F: FieldComparatorSource,
-    S: SortFieldBase,
-{
+impl Display for SortField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buffer = String::new();
         match self.field_type {
@@ -347,41 +337,22 @@ where
     }
 }
 
-pub trait SortFieldBase: Clone {}
-pub struct DummySortFieldBase;
-
-impl Clone for DummySortFieldBase {
-    fn clone(&self) -> Self {
-        unreachable!()
-    }
-}
-
-impl SortFieldBase for DummySortFieldBase {}
-
 pub struct Provider;
 impl Provider {
     /// The name this Provider is registered under.
     pub const SORT_FIELD_NAME: &'static str = "SortField";
 }
 impl SortFieldProvider for Provider {
-    fn read_sort_field<D, F, S>(&self, data_input: &mut D) -> Result<SortField<F, S>, LuceneError>
+    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortField, LuceneError>
     where
         D: DataInput,
-        F: FieldComparatorSource,
-        S: SortFieldBase,
     {
         todo!()
     }
 
-    fn write_sort_field<D, F, S>(
-        &self,
-        sf: &SortField<F, S>,
-        output: &mut D,
-    ) -> Result<(), LuceneError>
+    fn write_sort_field<D>(&self, sf: &SortField, output: &mut D) -> Result<(), LuceneError>
     where
         D: DataOutput,
-        F: FieldComparatorSource,
-        S: SortFieldBase,
     {
         todo!()
     }
@@ -475,4 +446,10 @@ impl Display for MissingValueEnum {
             MissingValueEnum::Double(val) => write!(f, "SortField.DOUBLE({})", val),
         }
     }
+}
+
+#[derive(Clone)]
+pub enum SubSortFieldEnum {
+    SortedNumeric(SortedNumericSortField),
+    SortedSet(SortedSetSortField),
 }

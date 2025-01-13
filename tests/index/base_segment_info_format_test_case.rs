@@ -17,13 +17,16 @@
 use crate::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::util::lucene_test_case::new_directory;
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::codecs::segment_info_format::SegmentInfoFormat;
 use rlucene::codecs::{Codec, LATEST_CODEC};
 use rlucene::index::segment_info::SegmentInfo;
-use rlucene::search::field_comparator_source::DummyFieldComparatorSource;
-use rlucene::search::sort_field::DummySortFieldBase;
+use rlucene::search::field_comparator_source::FieldComparatorSource;
+use rlucene::search::sort_field::{MissingValueEnum, SortField, Type};
+use rlucene::search::sorted_numeric_sort_field::SortedNumericSortField;
+use rlucene::search::sorted_set_sort_field::SortedSetSortField;
 use rlucene::store::IOContext;
 use rlucene::util::{StringHelper, Version};
 use std::collections::{HashMap, HashSet};
@@ -33,7 +36,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     fn test_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
-        let mut info = SegmentInfo::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(
+        let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
             Option::from(self.get_versions()[0].clone()),
@@ -52,13 +55,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             &mut info,
             IOContext::default_io_context()?,
         )?;
-        let info2: SegmentInfo<_, DummySortFieldBase, DummyFieldComparatorSource> =
-            LATEST_CODEC.segment_info_format().read(
-                dir.clone(),
-                "_123",
-                Vec::from(&id),
-                &IOContext::default_io_context()?,
-            )?;
+        let info2 = LATEST_CODEC.segment_info_format().read(
+            dir.clone(),
+            "_123",
+            Vec::from(&id),
+            &IOContext::default_io_context()?,
+        )?;
         assert_eq!(info.files()?, info2.files()?);
         Ok(())
     }
@@ -67,7 +69,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let has_blocks = random.gen_bool(0.5);
-        let mut info = SegmentInfo::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(
+        let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
             Option::from(self.get_versions()[0].clone()),
@@ -86,13 +88,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             &mut info,
             IOContext::default_io_context()?,
         )?;
-        let info2: SegmentInfo<_, DummySortFieldBase, DummyFieldComparatorSource> =
-            LATEST_CODEC.segment_info_format().read(
-                dir.clone(),
-                "_123",
-                Vec::from(&id),
-                &IOContext::default_io_context()?,
-            )?;
+        let info2 = LATEST_CODEC.segment_info_format().read(
+            dir.clone(),
+            "_123",
+            Vec::from(&id),
+            &IOContext::default_io_context()?,
+        )?;
         assert_eq!(info.get_has_blocks(), info2.get_has_blocks());
         Ok(())
     }
@@ -100,7 +101,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     fn test_adds_self_to_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
-        let mut info = SegmentInfo::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(
+        let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
             Option::from(self.get_versions()[0].clone()),
@@ -126,13 +127,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             modified_files.len() > original_files.len(),
             "did you forget to add yourself to files()?"
         );
-        let info2: SegmentInfo<_, DummySortFieldBase, DummyFieldComparatorSource> =
-            LATEST_CODEC.segment_info_format().read(
-                dir.clone(),
-                "_123",
-                Vec::from(&id),
-                &IOContext::default_io_context()?,
-            )?;
+        let info2 = LATEST_CODEC.segment_info_format().read(
+            dir.clone(),
+            "_123",
+            Vec::from(&id),
+            &IOContext::default_io_context()?,
+        )?;
         assert_eq!(info.files()?, info2.files()?);
         // In Rust Lucene, SegmentInfo::files return a immutable Set, so we do not need to verify this
         // let immutable_files = info2.files()?;
@@ -149,7 +149,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let mut diagnostics: HashMap<String, String> = HashMap::new();
         diagnostics.insert("key1".to_string(), "value1".to_string());
         diagnostics.insert("key2".to_string(), "value2".to_string());
-        let mut info = SegmentInfo::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(
+        let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
             Option::from(self.get_versions()[0].clone()),
@@ -168,13 +168,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             &mut info,
             IOContext::default_io_context()?,
         )?;
-        let info2: SegmentInfo<_, DummySortFieldBase, DummyFieldComparatorSource> =
-            LATEST_CODEC.segment_info_format().read(
-                dir.clone(),
-                "_123",
-                Vec::from(&id),
-                &IOContext::default_io_context()?,
-            )?;
+        let info2 = LATEST_CODEC.segment_info_format().read(
+            dir.clone(),
+            "_123",
+            Vec::from(&id),
+            &IOContext::default_io_context()?,
+        )?;
         assert_eq!(diagnostics, *info2.get_diagnostics());
         // In Rust Lucene, SegmentInfo::get_diagnostics return a immutable Set, so we do not need to verify this
         // let mut immutable_diagnostics = info2.get_diagnostics();
@@ -192,7 +191,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let mut attributes: HashMap<String, String> = HashMap::new();
         attributes.insert("key1".to_string(), "value1".to_string());
         attributes.insert("key2".to_string(), "value2".to_string());
-        let mut info = SegmentInfo::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(
+        let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
             Option::from(self.get_versions()[0].clone()),
@@ -211,13 +210,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             &mut info,
             IOContext::default_io_context()?,
         )?;
-        let info2: SegmentInfo<_, DummySortFieldBase, DummyFieldComparatorSource> =
-            LATEST_CODEC.segment_info_format().read(
-                dir.clone(),
-                "_123",
-                Vec::from(&id),
-                &IOContext::default_io_context()?,
-            )?;
+        let info2 = LATEST_CODEC.segment_info_format().read(
+            dir.clone(),
+            "_123",
+            Vec::from(&id),
+            &IOContext::default_io_context()?,
+        )?;
         let info2_attributes = info2.get_attributes()?;
         let info2_values = info2_attributes.lock().unwrap();
         assert_eq!(attributes, *info2_values);
@@ -236,7 +234,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     fn test_unique_id(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
-        let mut info = SegmentInfo::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(
+        let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
             Option::from(self.get_versions()[0].clone()),
@@ -255,13 +253,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             &mut info,
             IOContext::default_io_context()?,
         )?;
-        let info2: SegmentInfo<_, DummySortFieldBase, DummyFieldComparatorSource> =
-            LATEST_CODEC.segment_info_format().read(
-                dir.clone(),
-                "_123",
-                Vec::from(&id),
-                &IOContext::default_io_context()?,
-            )?;
+        let info2 = LATEST_CODEC.segment_info_format().read(
+            dir.clone(),
+            "_123",
+            Vec::from(&id),
+            &IOContext::default_io_context()?,
+        )?;
         assert_eq!(id, info2.get_id().as_slice());
 
         Ok(())
@@ -272,33 +269,31 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             for min_version in [Some(version.clone()), None] {
                 let dir = Arc::new(Mutex::new(new_directory(random)?));
                 let id = StringHelper::random_id();
-                let mut info =
-                    SegmentInfo::<_, DummySortFieldBase, DummyFieldComparatorSource>::new(
-                        dir.clone(),
-                        Some(version.clone()),
-                        min_version.clone(),
-                        "_123".parse().unwrap(),
-                        Some(1),
-                        false,
-                        false,
-                        HashMap::new(),
-                        Vec::from(id.clone()),
-                        HashMap::new(),
-                        None,
-                    )?;
+                let mut info = SegmentInfo::new(
+                    dir.clone(),
+                    Some(version.clone()),
+                    min_version.clone(),
+                    "_123".parse().unwrap(),
+                    Some(1),
+                    false,
+                    false,
+                    HashMap::new(),
+                    Vec::from(id.clone()),
+                    HashMap::new(),
+                    None,
+                )?;
                 info.set_files(HashSet::new());
                 LATEST_CODEC.segment_info_format().write(
                     dir.clone(),
                     &mut info,
                     IOContext::default_io_context()?,
                 )?;
-                let info2: SegmentInfo<_, DummySortFieldBase, DummyFieldComparatorSource> =
-                    LATEST_CODEC.segment_info_format().read(
-                        dir.clone(),
-                        "_123",
-                        Vec::from(&id),
-                        &IOContext::default_io_context()?,
-                    )?;
+                let info2 = LATEST_CODEC.segment_info_format().read(
+                    dir.clone(),
+                    "_123",
+                    Vec::from(&id),
+                    &IOContext::default_io_context()?,
+                )?;
                 assert!(info2.get_version().is_some());
                 assert_eq!(*info2.get_version().unwrap(), version.clone());
                 if self.supports_min_version() {
@@ -315,6 +310,141 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
         Ok(())
     }
+
+    // fn random_index_sort_field<F: FieldComparatorSource, S: SortFieldBase>(
+    //     random: &mut StdRng,
+    // ) -> Result<Option<SortField<F, S>>, TestError> {
+    //     let reversed = random.gen_bool(0.5);
+    //     let case = random.gen_range(0..10);
+    //     match case {
+    //         0 => {
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::Int,
+    //                 reversed,
+    //                 None,
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::Int(random.gen())))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         1 => {
+    //             let sub = SortedNumericSortField;
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::Int,
+    //                 reversed,
+    //                 Some(sub),
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::Int(random.gen())))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         2 => {
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::Long,
+    //                 reversed,
+    //                 None,
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::Long(random.gen())))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         3 => {
+    //             let sub = SortedNumericSortField;
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::Long,
+    //                 reversed,
+    //                 Some(sub),
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::Long(random.gen())))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         4 => {
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::Float,
+    //                 reversed,
+    //                 None,
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::Float(random.gen())))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         5 => {
+    //             let sub = SortedNumericSortField;
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::Float,
+    //                 reversed,
+    //                 Some(sub),
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::Float(random.gen())))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         6 => {
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::Double,
+    //                 reversed,
+    //                 None,
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::Double(random.gen())))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         7 => {
+    //             let sub = SortedNumericSortField;
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::Double,
+    //                 reversed,
+    //                 Some(sub),
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::Double(random.gen())))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         8 => {
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::String,
+    //                 reversed,
+    //                 None,
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         9 => {
+    //             let sub = SortedSetSortField;
+    //             let mut sort_field = SortField::new_with_reverse(
+    //                 Some(TestUtil::random_simple_string(random)),
+    //                 Type::String,
+    //                 reversed,
+    //                 Some(sub),
+    //             )?;
+    //             if random.gen_bool(0.5) {
+    //                 sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
+    //             }
+    //             Ok(Some(sort_field))
+    //         }
+    //         _ => Ok(None),
+    //     }
+    // }
 
     fn get_versions(&self) -> Vec<Version>;
 

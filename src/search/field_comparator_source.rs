@@ -47,28 +47,10 @@ pub trait FieldComparatorSource: Display + Clone {
     ) -> Result<F, LuceneError>;
 }
 
-pub struct DummyFieldComparatorSource;
-
-impl Display for DummyFieldComparatorSource {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!()
-    }
-}
-
-impl Clone for DummyFieldComparatorSource {
-    fn clone(&self) -> Self {
-        unreachable!()
-    }
-}
-
-impl FieldComparatorSource for DummyFieldComparatorSource {
-    fn new_comparator<F: FieldComparator>(
-        &self,
-        _field_name: &str,
-        _num_hits: usize,
-        _pruning: Pruning,
-        _reversed: bool,
-    ) -> Result<F, LuceneError> {
+#[derive(Clone)]
+pub enum FieldComparatorSourceEnum {}
+impl Display for FieldComparatorSourceEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
