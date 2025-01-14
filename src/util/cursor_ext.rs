@@ -31,7 +31,7 @@ pub trait ReadableCursorExt {
     fn remain_between(&self, position: u64, limit: u64) -> u64;
 
     /// Reads data from the cursor's buffer to the destination slice, starting at the current position.
-    fn read_to(&mut self, dest: &mut [u8], offset: u32, len: u32) -> Result<(), LuceneError>;
+    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError>;
 
     /// Reads data from a specific position in the cursor into the destination buffer.
     fn read_to_buffer(
@@ -48,7 +48,7 @@ pub trait WritableCursorExt: ReadableCursorExt {
     fn write_from_slice(&mut self, src: &[u8]) -> Result<(), LuceneError>;
 
     /// Writes data from the source slice into the cursor's buffer, starting from the given offset.
-    fn write_from(&mut self, src: &[u8], offset: u32, len: u32) -> Result<(), LuceneError>;
+    fn write_from(&mut self, src: &[u8], offset: i32, len: i32) -> Result<(), LuceneError>;
 }
 impl<T> ReadableCursorExt for Cursor<T>
 where
@@ -71,7 +71,7 @@ where
         limit.saturating_sub(position)
     }
 
-    fn read_to(&mut self, dest: &mut [u8], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
         let position = self.position();
         perform_read(
             self.get_ref().as_ref(),
@@ -123,7 +123,7 @@ where
         Ok(())
     }
 
-    fn write_from(&mut self, src: &[u8], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn write_from(&mut self, src: &[u8], offset: i32, len: i32) -> Result<(), LuceneError> {
         let src_slice = &src[offset as usize..(offset + len) as usize];
         self.write_from_slice(src_slice)
     }

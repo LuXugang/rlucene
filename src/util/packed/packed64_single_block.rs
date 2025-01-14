@@ -28,24 +28,24 @@ where
     T: Packed64SingleBlockBase,
 {
     blocks: Vec<u64>,
-    value_count: u32,
-    bits_per_value: u32,
+    value_count: i32,
+    bits_per_value: i32,
     sub_reader: T,
 }
 /// Checks if the given `bits_per_value` is supported.
-const SUPPORTED_BITS_PER_VALUE: [u32; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
-pub fn is_supported(bits_per_value: u32) -> bool {
+const SUPPORTED_BITS_PER_VALUE: [i32; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
+pub fn is_supported(bits_per_value: i32) -> bool {
     SUPPORTED_BITS_PER_VALUE
-        .binary_search(&bits_per_value)
+        .binary_search(&{ bits_per_value })
         .is_ok()
 }
-pub const MAX_SUPPORTED_BITS_PER_VALUE: u32 = 32;
+pub const MAX_SUPPORTED_BITS_PER_VALUE: i32 = 32;
 impl<T> Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
     /// Supported bits per value
-    fn required_capacity(value_count: u32, values_per_block: u32) -> u32 {
+    fn required_capacity(value_count: i32, values_per_block: i32) -> i32 {
         value_count / values_per_block
             + if value_count % values_per_block == 0 {
                 0
@@ -53,7 +53,7 @@ where
                 1
             }
     }
-    pub fn new(bits_per_value: u32, value_count: u32, sub_reader: T) -> Self {
+    pub fn new(bits_per_value: i32, value_count: i32, sub_reader: T) -> Self {
         debug_assert!(
             bits_per_value > 0 && bits_per_value <= 64,
             "bitsPerValue must be > 0 and <= 64"
@@ -78,21 +78,22 @@ impl<T> Reader for Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
-    fn get(&mut self, _index: usize) -> Result<i64, LuceneError> {
+    fn get(&mut self, _index: i32) -> Result<i64, LuceneError> {
         Ok(self.sub_reader.get(_index, &mut self.blocks))
     }
 
     fn get_bulk(
         &mut self,
-        mut index: usize,
+        mut index: i32,
         arr: &mut [i64],
-        mut off: usize,
-        mut len: usize,
-    ) -> Result<u32, LuceneError> {
-        assert!(index < self.value_count as usize, "index out of bounds");
-        len = len.min(self.value_count as usize - index);
+        mut off: i32,
+        mut len: i32,
+    ) -> Result<i32, LuceneError> {
+        assert!(len > 0, "len must be > 0 (got {})", len);
+        assert!(index < self.value_count, "index out of bounds");
+        len = len.min(self.value_count - index);
         assert!(
-            off + len <= arr.len(),
+            (off + len) as usize <= arr.len(),
             "not enough space in destination array"
         );
 
@@ -100,27 +101,25 @@ where
 
         // Go to the next block boundary
         let values_per_block = 64 / self.bits_per_value;
-        let offset_in_block = index % values_per_block as usize;
+        let offset_in_block = index % values_per_block;
         if offset_in_block != 0 {
-            for _ in offset_in_block..values_per_block as usize {
+            for _ in offset_in_block..values_per_block {
                 if len == 0 {
-                    debug_assert!((index - original_index) <= u32::MAX as usize);
-                    return Ok((index - original_index) as u32);
+                    return Ok(index - original_index);
                 }
-                arr[off] = self.sub_reader.get(index, &mut self.blocks);
+                arr[off as usize] = self.sub_reader.get(index, &mut self.blocks);
                 off += 1;
                 index += 1;
                 len -= 1;
             }
             if len == 0 {
-                debug_assert!((index - original_index) <= u32::MAX as usize);
-                return Ok((index - original_index) as u32);
+                return Ok(index - original_index);
             }
         }
 
         // Bulk get
         assert_eq!(
-            index % values_per_block as usize,
+            index % values_per_block,
             0,
             "index not aligned with block boundary"
         );
@@ -138,17 +137,22 @@ where
             values_per_block,
             "Decoder longValueCount mismatch"
         );
-        let block_index = index / values_per_block as usize;
-        let nblocks = (index + len) / values_per_block as usize - block_index;
-        decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, nblocks as u32);
-        let diff = nblocks * values_per_block as usize;
+        let block_index = index / values_per_block;
+        let nblocks = (index + len) / values_per_block - block_index;
+        decoder.decode_u64_to_i64(
+            &self.blocks,
+            block_index as usize,
+            arr,
+            off as usize,
+            nblocks,
+        );
+        let diff = nblocks * values_per_block;
         index += diff;
         len -= diff;
 
         if index > original_index {
             // Stay at the block boundary
-            debug_assert!(index - original_index <= u32::MAX as usize);
-            Ok((index - original_index) as u32)
+            Ok(index - original_index)
         } else {
             // No progress so far => already at a block boundary but no full block to get
             assert_eq!(index, original_index, "Index mismatch");
@@ -156,11 +160,11 @@ where
         }
     }
 
-    fn size(&self) -> u32 {
+    fn size(&self) -> i32 {
         self.value_count
     }
 }
-pub fn create(value_count: u32, bits_per_value: u32) -> Result<MutablePacked64Enum, LuceneError> {
+pub fn create(value_count: i32, bits_per_value: i32) -> Result<MutablePacked64Enum, LuceneError> {
     match bits_per_value {
         1 => {
             let sub_reader =
@@ -280,52 +284,55 @@ impl<T> Mutable for Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
-    fn get_bits_per_value(&self) -> u32 {
+    fn get_bits_per_value(&self) -> i32 {
         self.bits_per_value
     }
 
-    fn set(&mut self, index: usize, value: i64) -> Result<(), LuceneError> {
+    fn set(&mut self, index: i32, value: i64) -> Result<(), LuceneError> {
         self.sub_reader.set(index, value, &mut self.blocks);
         Ok(())
     }
 
     fn set_bulk(
         &mut self,
-        mut index: usize,
+        mut index: i32,
         arr: &[i64],
-        mut off: usize,
-        mut len: usize,
-    ) -> Result<u32, LuceneError> {
-        assert!(index < self.value_count as usize, "index out of bounds");
-        len = len.min(self.value_count as usize - index);
-        assert!(off + len <= arr.len(), "not enough space in source array");
+        mut off: i32,
+        mut len: i32,
+    ) -> Result<i32, LuceneError> {
+        assert!(len > 0, "len must be > 0 (got {})", len);
+        assert!(index < self.value_count, "index out of bounds");
+        len = len.min(self.value_count - index);
+        assert!(
+            (off + len) as usize <= arr.len(),
+            "not enough space in source array"
+        );
 
         let original_index = index;
 
         // go to the next block boundary
         let values_per_block = 64 / self.bits_per_value;
-        let offset_in_block = index % values_per_block as usize;
+        let offset_in_block = index % values_per_block;
 
         if offset_in_block != 0 {
-            for _ in offset_in_block..values_per_block as usize {
+            for _ in offset_in_block..values_per_block {
                 if len == 0 {
-                    debug_assert!((index - original_index) <= u32::MAX as usize);
-                    return Ok((index - original_index) as u32);
+                    return Ok(index - original_index);
                 }
-                self.sub_reader.set(index, arr[off], &mut self.blocks);
+                self.sub_reader
+                    .set(index, arr[off as usize], &mut self.blocks);
                 off += 1;
                 index += 1;
                 len -= 1;
             }
             if len == 0 {
-                debug_assert!((index - original_index) <= u32::MAX as usize);
-                return Ok((index - original_index) as u32);
+                return Ok(index - original_index);
             }
         }
 
         // Bulk set
         assert_eq!(
-            index % values_per_block as usize,
+            index % values_per_block,
             0,
             "index not aligned with block boundary"
         );
@@ -341,25 +348,24 @@ where
             "longValueCount mismatch"
         );
 
-        let block_index = index / values_per_block as usize;
-        let nblocks = (index + len) / values_per_block as usize - block_index;
+        let block_index = index / values_per_block;
+        let nblocks = (index + len) / values_per_block - block_index;
 
         op.encode_i64_to_u64(
-            &arr[off..],
+            &arr[off as usize..],
             0,
             &mut self.blocks,
-            block_index,
-            nblocks as u32,
+            block_index as usize,
+            nblocks,
         );
 
-        let diff = nblocks * values_per_block as usize;
+        let diff = nblocks * values_per_block;
         index += diff;
         len -= diff;
 
         if index > original_index {
             // Stay at the block boundary
-            debug_assert!(index - original_index <= u32::MAX as usize);
-            Ok((index - original_index) as u32)
+            Ok(index - original_index)
         } else {
             // No progress so far => already at a block boundary but no full block to set
             assert_eq!(index, original_index, "Index mismatch");
@@ -367,12 +373,7 @@ where
         }
     }
 
-    fn fill(
-        &mut self,
-        mut from_index: usize,
-        to_index: usize,
-        val: i64,
-    ) -> Result<(), LuceneError> {
+    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<(), LuceneError> {
         assert!(from_index <= to_index, "from_index must be <= to_index");
         assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
@@ -382,7 +383,7 @@ where
         let values_per_block = 64 / self.bits_per_value;
 
         // If the range is too small, fallback to naive setting
-        if to_index - from_index <= (values_per_block * 2) as usize {
+        if to_index - from_index <= (values_per_block * 2) {
             for _ in from_index..to_index {
                 self.default_fill(from_index, to_index, val)?;
             }
@@ -390,29 +391,29 @@ where
         }
 
         // set values naively until the next block start
-        let from_offset_in_block = from_index % values_per_block as usize;
+        let from_offset_in_block = from_index % values_per_block;
         if from_offset_in_block != 0 {
-            for _ in from_offset_in_block..values_per_block as usize {
+            for _ in from_offset_in_block..values_per_block {
                 self.set(from_index, val)?;
                 from_index += 1;
             }
-            assert_eq!(from_index % values_per_block as usize, 0);
+            assert_eq!(from_index % values_per_block, 0);
         }
 
         // Bulk set of inner blocks
-        let from_block = from_index / values_per_block as usize;
-        let to_block = to_index / values_per_block as usize;
-        assert_eq!(from_block * values_per_block as usize, from_index);
+        let from_block = from_index / values_per_block;
+        let to_block = to_index / values_per_block;
+        assert_eq!(from_block * values_per_block, from_index);
 
         let mut block_value: u64 = 0;
         for i in 0..values_per_block {
             block_value |= (val as u64) << (i * self.bits_per_value);
         }
 
-        self.blocks[from_block..to_block].fill(block_value);
+        self.blocks[from_block as usize..to_block as usize].fill(block_value);
 
         // Fill the gap at the end
-        for i in (values_per_block as usize * to_block)..to_index {
+        for i in (values_per_block * to_block)..to_index {
             self.set(i, val)?;
         }
         Ok(())
@@ -427,243 +428,244 @@ where
 #[allow(dead_code)]
 pub struct Packed64SingleBlock1 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock1 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index >> 6;
         let b = index & 63;
         let shift = b;
-        ((blocks[o] >> shift) & 1) as i64
+        ((blocks[o as usize] >> shift) & 1) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index >> 6;
         let b = index & 63;
         let shift = b;
-        blocks[o] = (blocks[o] & !(1 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(1 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock2 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock2 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index >> 5;
         let b = index & 31;
         let shift = b << 1;
-        ((blocks[o] >> shift) & 3) as i64
+        ((blocks[o as usize] >> shift) & 3) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index >> 5;
         let b = index & 31;
         let shift = b << 1;
-        blocks[o] = (blocks[o] & !(3 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(3 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock3 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock3 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index / 21;
         let b = index % 21;
         let shift = b * 3;
-        ((blocks[o] >> shift) & 7) as i64
+        ((blocks[o as usize] >> shift) & 7) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index / 21;
         let b = index % 21;
         let shift = b * 3;
-        blocks[o] = (blocks[o] & !(7 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(7 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock4 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock4 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index >> 4;
         let b = index & 15;
         let shift = b << 2;
-        ((blocks[o] >> shift) & 15) as i64
+        ((blocks[o as usize] >> shift) & 15) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index >> 4;
         let b = index & 15;
         let shift = b << 2;
-        blocks[o] = (blocks[o] & !(15 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(15 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock5 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock5 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index / 12;
         let b = index % 12;
         let shift = b * 5;
-        ((blocks[o] >> shift) & 31) as i64
+        ((blocks[o as usize] >> shift) & 31) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index / 12;
         let b = index % 12;
         let shift = b * 5;
-        blocks[o] = (blocks[o] & !(31 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(31 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock6 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock6 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index / 10;
         let b = index % 10;
         let shift = b * 6;
-        ((blocks[o] >> shift) & 63) as i64
+        ((blocks[o as usize] >> shift) & 63) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index / 10;
         let b = index % 10;
         let shift = b * 6;
-        blocks[o] = (blocks[o] & !(63 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(63 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock7 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock7 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index / 9;
         let b = index % 9;
         let shift = b * 7;
-        ((blocks[o] >> shift) & 127) as i64
+        ((blocks[o as usize] >> shift) & 127) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index / 9;
         let b = index % 9;
         let shift = b * 7;
-        blocks[o] = (blocks[o] & !(127 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(127 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock8 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock8 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index >> 3;
         let b = index & 7;
         let shift = b << 3;
-        ((blocks[o] >> shift) & 255) as i64
+        ((blocks[o as usize] >> shift) & 255) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index >> 3;
         let b = index & 7;
         let shift = b << 3;
-        blocks[o] = (blocks[o] & !(255 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(255 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock9 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock9 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index / 7;
         let b = index % 7;
         let shift = b * 9;
-        ((blocks[o] >> shift) & 511) as i64
+        ((blocks[o as usize] >> shift) & 511) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index / 7;
         let b = index % 7;
         let shift = b * 9;
-        blocks[o] = (blocks[o] & !(511 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(511 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock10 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock10 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index / 6;
         let b = index % 6;
         let shift = b * 10;
-        ((blocks[o] >> shift) & 1023) as i64
+        ((blocks[o as usize] >> shift) & 1023) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index / 6;
         let b = index % 6;
         let shift = b * 10;
-        blocks[o] = (blocks[o] & !(1023 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(1023 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock12 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock12 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index / 5;
         let b = index % 5;
         let shift = b * 12;
-        ((blocks[o] >> shift) & 4095) as i64
+        ((blocks[o as usize] >> shift) & 4095) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index / 5;
         let b = index % 5;
         let shift = b * 12;
-        blocks[o] = (blocks[o] & !(4095 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(4095 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock16 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock16 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index >> 2;
         let b = index & 3;
         let shift = b << 4;
-        ((blocks[o] >> shift) & 65535) as i64
+        ((blocks[o as usize] >> shift) & 65535) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index >> 2;
         let b = index & 3;
         let shift = b << 4;
-        blocks[o] = (blocks[o] & !(65535 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(65535 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock21 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock21 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index / 3;
         let b = index % 3;
         let shift = b * 21;
-        ((blocks[o] >> shift) & 2097151) as i64
+        ((blocks[o as usize] >> shift) & 2097151) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index / 3;
         let b = index % 3;
         let shift = b * 21;
-        blocks[o] = (blocks[o] & !(2097151 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(2097151 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
 pub struct Packed64SingleBlock32 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock32 {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64 {
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64 {
         let o = index >> 1;
         let b = index & 1;
         let shift = b << 5;
-        ((blocks[o] >> shift) & 4294967295) as i64
+        ((blocks[o as usize] >> shift) & 4294967295) as i64
     }
 
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]) {
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]) {
         let o = index >> 1;
         let b = index & 1;
         let shift = b << 5;
-        blocks[o] = (blocks[o] & !(4294967295 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] =
+            (blocks[o as usize] & !(4294967295 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub trait Packed64SingleBlockBase {
-    fn get(&self, index: usize, blocks: &mut [u64]) -> i64;
-    fn set(&mut self, index: usize, value: i64, blocks: &mut [u64]);
+    fn get(&self, index: i32, blocks: &mut [u64]) -> i64;
+    fn set(&mut self, index: i32, value: i64, blocks: &mut [u64]);
 }

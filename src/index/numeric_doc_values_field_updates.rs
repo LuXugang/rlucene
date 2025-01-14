@@ -83,26 +83,26 @@ impl<T> DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T> + Default,
 {
-    fn add_value(&mut self, _doc: u32, value: i64, index: u32) -> Result<(), LuceneError> {
+    fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<(), LuceneError> {
         let _guard = self
             .lock
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
-        self.values.set(index as u64, value - self.min_value)
+        self.values.set(index as i64, value - self.min_value)
     }
 
     fn add_byte_ref(
         &mut self,
-        _doc: u32,
+        _doc: i32,
         _value: BytesRef,
-        _index: u32,
+        _index: i32,
     ) -> Result<(), LuceneError> {
         unreachable!("NumericDocValuesFieldUpdates does not support add_byte_ref")
     }
 
     fn add_iterator<I: DocValuesFieldIterator>(
         &mut self,
-        doc_id: u32,
+        doc_id: i32,
         mut iterator: I,
     ) -> Result<(), LuceneError> {
         self.add_value(doc_id, iterator.long_value()?, 0)
@@ -111,31 +111,31 @@ where
     fn iterator(
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
-        del_gen: u64,
+        del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator, LuceneError> {
         let sub_iterator =
             NumericDocValuesFieldUpdatesIterator::new(Some(&mut self.values), 0, self.min_value);
         Ok(AbstractIterator::new(inner, del_gen, sub_iterator))
     }
 
-    fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
-        let tmp_val = self.values.get(j as u64)?;
-        let value = self.values.get(i as u64)?;
-        self.values.set(j as u64, value)?;
-        self.values.set(i as u64, tmp_val)?;
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        let tmp_val = self.values.get(j as i64)?;
+        let value = self.values.get(i as i64)?;
+        self.values.set(j as i64, value)?;
+        self.values.set(i as i64, tmp_val)?;
         Ok(())
     }
 
-    fn grow(&mut self, _size: u32) -> Result<(), LuceneError> {
-        let value_result = self.values.grow_with_size(_size as u64)?;
+    fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
+        let value_result = self.values.grow_with_size(size as i64)?;
         if value_result.is_some() {
             self.values = value_result.unwrap();
         }
         Ok(())
     }
 
-    fn resize(&mut self, _size: u32) -> Result<(), LuceneError> {
-        self.values = self.values.resize(_size as u64)?;
+    fn resize(&mut self, _size: i32) -> Result<(), LuceneError> {
+        self.values = self.values.resize(_size as i64)?;
         Ok(())
     }
 
@@ -173,7 +173,7 @@ impl<T> AbstractIteratorBase for NumericDocValuesFieldUpdatesIterator<'_, T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    fn set(&mut self, idx: u64) -> Result<(), LuceneError> {
+    fn set(&mut self, idx: i64) -> Result<(), LuceneError> {
         self.value = self.values.as_mut().unwrap().get(idx)? + self.min_value;
         Ok(())
     }

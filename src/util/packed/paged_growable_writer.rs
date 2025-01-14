@@ -31,26 +31,26 @@ use crate::util::packed::mutable_enum::MutableEnum;
 #[derive(Default)]
 pub struct PagedGrowableWriter {
     acceptable_overhead_ratio: f32,
-    bits_per_value: u32,
+    bits_per_value: i32,
     fill_page: bool,
 }
 impl PagedGrowableWriter {
-    pub fn new(start_bits_per_value: u32, acceptable_overhead_ratio: f32, fill_page: bool) -> Self {
+    pub fn new(start_bits_per_value: i32, acceptable_overhead_ratio: f32, fill_page: bool) -> Self {
         PagedGrowableWriter {
             acceptable_overhead_ratio,
             bits_per_value: start_bits_per_value,
             fill_page,
         }
     }
-    pub fn new_with_fill_page(start_bits_per_value: u32, acceptable_overhead_ratio: f32) -> Self {
+    pub fn new_with_fill_page(start_bits_per_value: i32, acceptable_overhead_ratio: f32) -> Self {
         PagedGrowableWriter::new(start_bits_per_value, acceptable_overhead_ratio, true)
     }
 }
 impl AbstractPagedMutableBase for PagedGrowableWriter {
     fn new_mutable(
         &self,
-        value_count: u32,
-        bits_per_value: u32,
+        value_count: i32,
+        bits_per_value: i32,
     ) -> Result<MutableEnum, LuceneError> {
         Ok(MutableEnum::GrowableW(GrowableWriter::new(
             bits_per_value,
@@ -62,15 +62,15 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
     type PagedMutableBase = PagedGrowableWriter;
     fn new_unfilled_copy(
         &self,
-        new_size: u64,
-        page_size: u32,
+        new_size: i64,
+        page_size: i32,
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, LuceneError> {
         let sub_read =
             PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false);
         AbstractPagedMutable::new(self.bits_per_value, new_size, page_size, sub_read)
     }
 
-    fn base_ram_bytes_used_base(&self) -> u64 {
+    fn base_ram_bytes_used_base(&self) -> i64 {
         0
     }
 

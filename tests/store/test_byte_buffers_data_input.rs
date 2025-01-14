@@ -78,14 +78,14 @@ fn test_random_reads_on_slices() -> Result<(), TestError> {
     for _i in 0..=reps {
         let mut dst = ByteBuffersDataOutput::new_resettable_instance()?;
         let prefix: Vec<u8> = vec![0; random.gen_range(0..=1024 * 8)];
-        let prefix_len = prefix.len() as u64;
+        let prefix_len = prefix.len() as i64;
         dst.write_bytes(prefix)?;
         let seed: u64 = random.gen();
         let max = 10000;
         let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
         let reply = add_random_data::<ByteBuffersDataInput>(&mut dst, &mut random1, max);
         let suffix: Vec<u8> = vec![0; random.gen_range(0..=1024 * 8)];
-        let suffix_len = suffix.len() as u64;
+        let suffix_len = suffix.len() as i64;
         dst.write_bytes(suffix)?;
         let size = dst.size();
         let mut src = dst
@@ -123,11 +123,11 @@ fn test_seek_and_skip() -> Result<(), TestError> {
     for _i in 0..reps {
         let mut dst = ByteBuffersDataOutput::new_resettable_instance()?;
         let prefix: Vec<u8>;
-        let mut prefix_len: u64 = 0;
+        let mut prefix_len: i64 = 0;
         if random.gen_bool(0.5) {
             let len = random.gen_range(1..=1024 * 8);
             prefix = vec![0; len];
-            prefix_len = prefix.len() as u64;
+            prefix_len = prefix.len() as i64;
             dst.write_bytes(prefix)?;
         }
         let seed: u64 = random.gen();
@@ -148,8 +148,8 @@ fn test_seek_and_skip() -> Result<(), TestError> {
         }
         for _i in 0..1000 {
             let offs = random.gen_range(0..=array.len() - 1);
-            data_input.seek(offs as u64)?;
-            assert_eq!(offs as u64, data_input.position());
+            data_input.seek(offs as i64)?;
+            assert_eq!(offs as i64, data_input.position());
             assert_eq!(array[offs], DataInput::read_byte(&mut data_input)?);
         }
         // test skipping
@@ -160,7 +160,7 @@ fn test_seek_and_skip() -> Result<(), TestError> {
         while curr < max_skip_to {
             let skip_to = random.gen_range(curr..=max_skip_to);
             let step = skip_to - curr;
-            data_input.skip_bytes(step as u64)?;
+            data_input.skip_bytes(step as i64)?;
             assert_eq!(array[skip_to], DataInput::read_byte(&mut data_input)?);
             curr = skip_to + 1;
         }
@@ -226,7 +226,7 @@ fn test_slicing_large_buffers() -> Result<(), TestError> {
         remaining -= len as i64;
     }
     let data_input = dst.get_data_input();
-    assert_eq!(simulated_length as u64, data_input.length());
+    assert_eq!(simulated_length, data_input.length());
     let max = data_input.length();
     let mut offset = 0;
     while offset < max {
@@ -238,12 +238,11 @@ fn test_slicing_large_buffers() -> Result<(), TestError> {
         assert_eq!(window, slice.length());
         // Sanity check of the content against original pages.
         for i in 0..window {
-            let index = (offset + i) % page_bytes.len() as u64;
-            assert!(index <= u32::MAX as u64);
+            let index = (offset + i) % page_bytes.len() as i64;
             let expected = page_bytes[index as usize];
             assert_eq!(expected, RandomAccessInput::read_byte(&mut slice, i)?);
         }
-        offset += random.gen_range(mb..4 * mb) as u64;
+        offset += random.gen_range(mb..4 * mb) as i64;
     }
     Ok(())
 }

@@ -71,8 +71,8 @@ const SI_EXTENSION: &str = "si";
 
 impl Lucene99SegmentInfoFormat {
     const CODEC_NAME: &'static str = "Lucene90SegmentInfo";
-    const VERSION_START: u32 = 0;
-    const VERSION_CURRENT: u32 = Lucene99SegmentInfoFormat::VERSION_START;
+    const VERSION_START: i32 = 0;
+    const VERSION_CURRENT: i32 = Lucene99SegmentInfoFormat::VERSION_START;
     fn parse_segment_info<D, T>(
         dir: Arc<Mutex<D>>,
         input: &mut T,
@@ -89,7 +89,7 @@ impl Lucene99SegmentInfoFormat {
         debug_assert!(minor >= 0);
         let bug_fix = input.read_int()?;
         debug_assert!(bug_fix >= 0);
-        let version = Version::from_bits(major as u32, minor as u32, bug_fix as u32)?;
+        let version = Version::from_bits(major, minor, bug_fix)?;
 
         let has_min_version = input.read_byte()?;
         let min_version = match has_min_version {
@@ -101,11 +101,7 @@ impl Lucene99SegmentInfoFormat {
                 debug_assert!(minor >= 0);
                 let bug_fix = input.read_int()?;
                 debug_assert!(bug_fix >= 0);
-                Some(Version::from_bits(
-                    major as u32,
-                    minor as u32,
-                    bug_fix as u32,
-                )?)
+                Some(Version::from_bits(major, minor, bug_fix)?)
             }
             _ => {
                 return Err(LuceneError::corrupt_index(format!(
@@ -152,7 +148,7 @@ impl Lucene99SegmentInfoFormat {
             Option::from(version),
             min_version,
             segment.to_string(),
-            Option::from(doc_count as u32),
+            Option::from(doc_count),
             is_compound_file,
             has_blocks,
             diagnostics,
@@ -177,22 +173,22 @@ impl Lucene99SegmentInfoFormat {
                 version.major, si
             )));
         }
-        output.write_int(version.major as i32)?;
-        output.write_int(version.minor as i32)?;
-        output.write_int(version.bug_fix as i32)?;
+        output.write_int(version.major)?;
+        output.write_int(version.minor)?;
+        output.write_int(version.bug_fix)?;
 
         // Write the min Lucene version that contributed docs to the segment, since 7.0
         if let Some(min_version) = si.get_min_version() {
             output.write_byte(1)?;
-            output.write_int(min_version.major as i32)?;
-            output.write_int(min_version.minor as i32)?;
-            output.write_int(min_version.bug_fix as i32)?;
+            output.write_int(min_version.major)?;
+            output.write_int(min_version.minor)?;
+            output.write_int(min_version.bug_fix)?;
         } else {
             output.write_byte(0)?;
         }
 
         debug_assert_eq!(version.prerelease, 0);
-        output.write_int(si.max_doc()? as i32)?;
+        output.write_int(si.max_doc()?)?;
 
         output.write_byte(if si.get_use_compound_file() {
             SegmentInfo::YES as u8

@@ -174,7 +174,7 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
     ///
     /// # Returns
     /// The number of iterations to perform.
-    fn compute_iterations(&self, value_count: u32, ram_budget: u32) -> u32 {
+    fn compute_iterations(&self, value_count: i32, ram_budget: i32) -> i32 {
         let byte_value_count = Decoder::byte_value_count(self);
         let iterations = ram_budget / (Decoder::byte_block_count(self) + 8 * byte_value_count);
         if iterations == 0 {
@@ -182,13 +182,13 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
             1
         } else if (iterations - 1) * byte_value_count >= value_count {
             // Don't allocate for more than the size of the reader
-            value_count.div_ceil(byte_value_count)
+            (value_count as f64 / byte_value_count as f64).ceil() as i32
         } else {
             iterations
         }
     }
 }
-pub fn of(format: Format, bits_per_value: u32) -> &'static BulkOperationPackedEnum {
+pub fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
     match format {
         Format::Packed(..) => {
             assert!(

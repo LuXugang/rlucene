@@ -19,12 +19,12 @@ use crate::util::error::illegal_argument::IllegalArgumentError;
 #[derive(Debug)]
 pub struct Parse {
     pub message: String,
-    pub position: u32,
+    pub position: i32,
     pub error: Option<IllegalArgumentError>,
 }
 
 impl Parse {
-    pub fn new(msg: impl Into<String>, position: u32) -> Self {
+    pub fn new(msg: impl Into<String>, position: i32) -> Self {
         Self {
             message: msg.into(),
             position,

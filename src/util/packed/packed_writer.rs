@@ -30,11 +30,11 @@ where
     encoder: &'static BulkOperationPackedEnum,
     next_blocks: Vec<u8>,
     next_values: Vec<i64>,
-    iterations: u32,
-    off: usize,
-    written: u32,
+    iterations: i32,
+    off: i32,
+    written: i32,
     value_count: i32,
-    pub bits_per_value: u32,
+    pub bits_per_value: i32,
     data_output: &'a mut T,
 }
 impl<'a, T> PackedWriter<'a, T>
@@ -45,12 +45,12 @@ where
         format: Format,
         data_output: &'a mut T,
         value_count: i32,
-        bits_per_value: u32,
-        mem: u32,
+        bits_per_value: i32,
+        mem: i32,
     ) -> Self {
         let encoder = of(format, bits_per_value);
         debug_assert!(value_count >= 0);
-        let iterations = encoder.compute_iterations(value_count as u32, mem);
+        let iterations = encoder.compute_iterations(value_count, mem);
         let next_blocks = vec![0; (iterations * Encoder::byte_block_count(encoder)) as usize];
         let next_values = vec![0; (iterations * Encoder::byte_value_count(encoder)) as usize];
 
@@ -76,16 +76,14 @@ where
             0,
             self.iterations,
         );
-        let block_count = self.format.byte_count(
-            PackedInts::VERSION_CURRENT,
-            self.off as u32,
-            self.bits_per_value,
-        );
+        let block_count =
+            self.format
+                .byte_count(PackedInts::VERSION_CURRENT, self.off, self.bits_per_value);
 
-        debug_assert!(block_count <= u32::MAX as u64);
+        debug_assert!(block_count <= i32::MAX as i64);
         self.data_output.write_bytes_with_len(
             &self.next_blocks[0..block_count as usize],
-            block_count as u32,
+            block_count as i32,
         )?;
         self.next_values.fill(0);
         self.off = 0;
@@ -101,31 +99,31 @@ where
     }
 
     fn add(&mut self, v: i64) -> Result<(), LuceneError> {
-        assert!(
+        debug_assert!(
             PackedInts::unsigned_bits_required(v) <= self.bits_per_value,
             "Value exceeds allowed bits per value"
         );
-        assert!(!self.finished, "Cannot add values after finishing writing");
-        if self.value_count != -1 && (self.written as i32) >= self.value_count {
+        debug_assert!(!self.finished, "Cannot add values after finishing writing");
+        if self.value_count != -1 && self.written >= self.value_count {
             return Err(LuceneError::eof("Writing past end of stream".to_string()));
         }
-        self.next_values[self.off] = v;
+        self.next_values[self.off as usize] = v;
         self.off += 1;
-        if self.off == self.next_values.len() {
+        if self.off as usize == self.next_values.len() {
             self.flush()?;
         }
         self.written += 1;
         Ok(())
     }
 
-    fn bits_per_values(&self) -> u32 {
+    fn bits_per_values(&self) -> i32 {
         self.bits_per_value
     }
 
     fn finish(&mut self) -> Result<(), LuceneError> {
         debug_assert!(!self.finished, "Already finished");
         if self.value_count != -1 {
-            while (self.written as i32) < self.value_count {
+            while self.written < self.value_count {
                 self.add(0)?;
             }
         }
@@ -135,6 +133,6 @@ where
     }
 
     fn ord(&self) -> i32 {
-        self.written as i32 - 1
+        self.written - 1
     }
 }

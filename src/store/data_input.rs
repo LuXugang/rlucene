@@ -17,6 +17,7 @@
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::group_vint_util::GroupVIntUtil;
+use crate::util::CommonUtil;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
@@ -39,7 +40,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_bytes_range`](crate::store::data_output::DataOutput::write_bytes_range)
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), LuceneError>;
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError>;
     /// Reads a specified number of bytes into an array at the specified offset, with control over
     /// whether the read should be buffered. Callers who have their own buffer should pass `false`
     /// for `use_buffer`. Currently, only `BufferedIndexInput` respects this parameter.
@@ -55,8 +56,8 @@ pub trait DataInput: Sized + Display {
     fn read_bytes_with_buffer(
         &mut self,
         b: &mut [u8],
-        offset: u32,
-        len: u32,
+        offset: i32,
+        len: i32,
         _use_buffer: bool,
     ) -> Result<(), LuceneError> {
         self.read_bytes(b, offset, len)
@@ -97,10 +98,10 @@ pub trait DataInput: Sized + Display {
     /// Override if you have an efficient implementation.
     /// In general, this is when the input supports
     /// random access.
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), LuceneError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<(), LuceneError> {
         self.default_read_group_vint(dst, offset)
     }
-    fn default_read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), LuceneError> {
+    fn default_read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<(), LuceneError> {
         GroupVIntUtil::read_group_vint(self, dst, offset)
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,
@@ -150,7 +151,9 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Note
     /// This is an experimental API.
-    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<(), LuceneError> {
+        debug_assert!(dst.len() <= i32::MAX as usize);
+        CommonUtil::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = self.read_long()?;
@@ -164,7 +167,9 @@ pub trait DataInput: Sized + Display {
     /// * `dst` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `int` values.
     /// * `length` - The number of `int` values to read.
-    fn read_ints(&mut self, dst: &mut [i32], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<(), LuceneError> {
+        debug_assert!(dst.len() <= i32::MAX as usize);
+        CommonUtil::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = self.read_int()?;
@@ -179,7 +184,9 @@ pub trait DataInput: Sized + Display {
     /// * `floats` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `float` values.
     /// * `len` - The number of `float` values to read.
-    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<(), LuceneError> {
+        debug_assert!(dst.len() <= i32::MAX as usize);
+        CommonUtil::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = f32::from_bits(self.read_int()? as u32);
@@ -223,7 +230,7 @@ pub trait DataInput: Sized + Display {
         let length = self.read_vint()?;
         debug_assert!(length >= 0, "Length must be positive: {}", length);
         let mut bytes = vec![0u8; length as usize];
-        self.read_bytes(&mut bytes, 0, length as u32)?;
+        self.read_bytes(&mut bytes, 0, length)?;
         Ok(String::from_utf8(bytes)?)
     }
 
@@ -303,7 +310,7 @@ pub trait DataInput: Sized + Display {
     }
     /// Skips over `num_bytes` bytes. This method may skip bytes in whatever way is most optimal,
     /// and may not behave the same as reading the skipped bytes.
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), LuceneError>;
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError>;
 
     /// To determine at compile time whether the current struct implements the IndexInput trait.
     /// In Java Lucene, could cast to IndexInput, though this is possible in Rust but needs dyn.
@@ -312,11 +319,11 @@ pub trait DataInput: Sized + Display {
     fn is_index_input(&self) -> bool {
         false
     }
-    fn seek_in_data_input(&mut self, _pos: u64) -> Result<(), LuceneError> {
+    fn seek_in_data_input(&mut self, _pos: i64) -> Result<(), LuceneError> {
         debug_assert!(self.is_index_input());
         unimplemented!("Seek is not implemented for this DataInput")
     }
-    fn get_file_pointer_in_data_input(&self) -> u64 {
+    fn get_file_pointer_in_data_input(&self) -> i64 {
         debug_assert!(self.is_index_input());
         unimplemented!("get_file_pointer is not implemented for this DataInput")
     }

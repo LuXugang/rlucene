@@ -47,7 +47,7 @@ impl DataInput for DataInputType<'_> {
         }
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, length: u32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, length: i32) -> Result<(), LuceneError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_bytes(b, offset, length),
             DataInputType::ByteBuffers(data_input) => data_input.read_bytes(b, offset, length),
@@ -96,7 +96,7 @@ impl DataInput for DataInputType<'_> {
         }
     }
 
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.skip_bytes(num_bytes),
             DataInputType::ByteBuffers(data_input) => data_input.skip_bytes(num_bytes),

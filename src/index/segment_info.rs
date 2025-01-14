@@ -37,7 +37,7 @@ where
 {
     /// Unique segment name in the directory.
     pub name: String,
-    max_doc: Option<u32>, // number of docs in seg
+    max_doc: Option<i32>, // number of docs in seg
     /// Where this segment resides.
     pub dir: Arc<Mutex<D>>,
     is_compound_file: bool,
@@ -103,7 +103,7 @@ where
         version: Option<Version>,
         min_version: Option<Version>,
         name: String,
-        max_doc: Option<u32>,
+        max_doc: Option<i32>,
         is_compound_file: bool,
         has_blocks: bool,
         diagnostics: HashMap<String, String>,
@@ -207,7 +207,7 @@ where
     // }
 
     /// Returns the number of documents in this segment (deletions are not taken into account)
-    pub fn max_doc(&self) -> Result<u32, LuceneError> {
+    pub fn max_doc(&self) -> Result<i32, LuceneError> {
         if self.max_doc.is_none() {
             return Err(LuceneError::illegal_argument(
                 "maxDoc isn't set yet".to_string(),
@@ -217,7 +217,7 @@ where
     }
 
     /// Sets the max_doc value, can only be called once
-    pub fn set_max_doc(&mut self, max_doc: u32) -> Result<(), LuceneError> {
+    pub fn set_max_doc(&mut self, max_doc: i32) -> Result<(), LuceneError> {
         if self.max_doc.is_some() {
             return Err(LuceneError::illegal_argument(format!(
                 "maxDoc was already set: this.maxDoc={} vs maxDoc {}",

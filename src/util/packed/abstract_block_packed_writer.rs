@@ -19,16 +19,16 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::Format::Packed;
 use crate::util::packed::{Encoder, FormatBehavior, PackedImpl, PackedInts};
 
-pub(crate) const MIN_BLOCK_SIZE: u32 = 64;
-pub(crate) const MAX_BLOCK_SIZE: u32 = 1 << (30 - 3);
-pub(crate) const MIN_VALUE_EQUALS_0: u32 = 1 << 0;
-pub(crate) const BPV_SHIFT: u32 = 1;
+pub(crate) const MIN_BLOCK_SIZE: i32 = 64;
+pub(crate) const MAX_BLOCK_SIZE: i32 = 1 << (30 - 3);
+pub(crate) const MIN_VALUE_EQUALS_0: i32 = 1 << 0;
+pub(crate) const BPV_SHIFT: i32 = 1;
 pub struct AbstractBlockPackedWriter<'a, T: DataOutput, D: AbstractBlockPackedWriterBase> {
     out: &'a mut T,
     values: Vec<i64>,
     blocks: Vec<u8>,
-    off: usize,
-    ord: u64,
+    off: i32,
+    ord: i64,
     finished: bool,
     sub_writer: D,
 }
@@ -44,7 +44,7 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     /// # Errors
     ///
     /// Returns an error if `block_size` is not valid.
-    pub fn new(block_size: u32, sub_writer: D, out: &'a mut T) -> Result<Self, LuceneError> {
+    pub fn new(block_size: i32, sub_writer: D, out: &'a mut T) -> Result<Self, LuceneError> {
         PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
 
         Ok(Self {
@@ -88,11 +88,11 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     pub fn add(&mut self, value: i64) -> Result<(), LuceneError> {
         self.sub_writer.add(value);
         self.check_not_finished()?;
-        if self.off == self.values.len() {
+        if self.off as usize == self.values.len() {
             self.sub_writer
                 .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
         }
-        self.values[self.off] = value;
+        self.values[self.off as usize] = value;
         self.off += 1;
         self.ord += 1;
         Ok(())
@@ -105,16 +105,17 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     #[cfg(feature = "test_only")]
     pub fn add_block_of_zeros(&mut self) -> Result<(), LuceneError> {
         self.check_not_finished()?;
-        if self.off != 0 && self.off != self.values.len() {
+        if self.off != 0 && self.off as usize != self.values.len() {
             return Err(LuceneError::illegal_state(format!("{}", self.off)));
         }
-        if self.off == self.values.len() {
+        if self.off as usize == self.values.len() {
             self.sub_writer
                 .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
         }
         self.values.fill(0);
-        self.off = self.values.len();
-        self.ord += self.values.len() as u64;
+        debug_assert!(self.values.len() <= i32::MAX as usize);
+        self.off = self.values.len() as i32;
+        self.ord += self.values.len() as i64;
         Ok(())
     }
     /// Flushes all buffered data to the output stream. After calling this method,
@@ -133,7 +134,7 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
         Ok(())
     }
     /// Returns the number of values that have been added.
-    pub fn ord(&self) -> u64 {
+    pub fn ord(&self) -> i64 {
         self.ord
     }
     /// Encodes and writes the current values to the output stream.
@@ -146,11 +147,11 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     ///
     /// Returns an error if writing to the output stream fails.
     pub fn write_values<O: DataOutput>(
-        bits_required: u32,
+        bits_required: i32,
         out: &mut O,
         blocks: &mut Vec<u8>,
         values: &mut [i64],
-        off: usize,
+        off: i32,
     ) -> Result<(), LuceneError> {
         let encoder = PackedInts::get_encoder(
             Packed(PackedImpl::new(0)),
@@ -162,21 +163,17 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
         if blocks.len() < block_size {
             *blocks = vec![0u8; block_size];
         }
-        if off < values.len() {
-            for value in values.iter_mut().skip(off) {
+        if (off as usize) < values.len() {
+            for value in values.iter_mut().skip(off as usize) {
                 *value = 0;
             }
         }
-        debug_assert!(iterations <= u32::MAX as usize);
-        encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as u32);
-        debug_assert!(off <= u32::MAX as usize);
-        let block_count = Packed(PackedImpl::new(0)).byte_count(
-            PackedInts::VERSION_CURRENT,
-            off as u32,
-            bits_required,
-        );
-        debug_assert!(block_count <= u32::MAX as u64);
-        out.write_bytes_with_len(blocks, block_count as u32)?;
+        debug_assert!(iterations <= i32::MAX as usize);
+        encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
+        let block_count =
+            Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
+        debug_assert!(block_count <= i32::MAX as i64);
+        out.write_bytes_with_len(blocks, block_count as i32)?;
         Ok(())
     }
 }
@@ -190,11 +187,11 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
 ///
 /// Returns an error if writing to the output stream fails.
 pub(crate) fn write_values<O: DataOutput>(
-    bits_required: u32,
+    bits_required: i32,
     out: &mut O,
     blocks: &mut Vec<u8>,
     values: &mut [i64],
-    off: usize,
+    off: i32,
 ) -> Result<(), LuceneError> {
     let encoder = PackedInts::get_encoder(
         Packed(PackedImpl::new(0)),
@@ -206,21 +203,17 @@ pub(crate) fn write_values<O: DataOutput>(
     if blocks.len() < block_size {
         *blocks = vec![0u8; block_size];
     }
-    if off < values.len() {
-        for value in values.iter_mut().skip(off) {
+    if (off as usize) < values.len() {
+        for value in values.iter_mut().skip(off as usize) {
             *value = 0;
         }
     }
-    debug_assert!(iterations <= u32::MAX as usize);
-    encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as u32);
-    debug_assert!(off <= u32::MAX as usize);
-    let block_count = Packed(PackedImpl::new(0)).byte_count(
-        PackedInts::VERSION_CURRENT,
-        off as u32,
-        bits_required,
-    );
-    debug_assert!(block_count <= u32::MAX as u64);
-    out.write_bytes_with_len(blocks, block_count as u32)?;
+    debug_assert!(iterations <= i32::MAX as usize);
+    encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
+    let block_count =
+        Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
+    debug_assert!(block_count <= i32::MAX as i64);
+    out.write_bytes_with_len(blocks, block_count as i32)?;
     Ok(())
 }
 /// Same as DataOutput::writeVLong but accepts negative values.
@@ -238,7 +231,7 @@ pub trait AbstractBlockPackedWriterBase {
     fn flush<T: DataOutput>(
         &mut self,
         out: &mut T,
-        off: &mut usize,
+        off: &mut i32,
         values: &mut [i64],
         blocks: &mut Vec<u8>,
     ) -> Result<(), LuceneError>;

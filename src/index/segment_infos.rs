@@ -99,9 +99,9 @@ where
     D: Directory,
 {
     /// Used to name new segments.
-    pub counter: u64,
+    pub counter: i64,
     /// Counts how often the index has been changed.
-    pub version: u64,
+    pub version: i64,
     /// Generation of the "segments_N" for the next commit.
     pub generation: i64,
     /// Generation of the "segments_N" file we last successfully read or wrote.
@@ -117,21 +117,21 @@ where
     /// Version of the oldest segment in the index, or `None` if there are no segments.
     pub min_segment_lucene_version: Option<Version>,
     /// The Lucene version major that was used to create the index.
-    pub index_created_version_major: u32,
+    pub index_created_version_major: i32,
     // Only true after prepareCommit has been called and
     // before finishCommit is called
     pending_commit: bool,
 }
 impl SegmentInfos<DummyDirectory> {
     /// The version at the time when 8.0 was released.
-    pub const VERSION_74: u32 = 9;
+    pub const VERSION_74: i32 = 9;
     /// The version that recorded SegmentCommitInfo IDs.
-    pub const VERSION_86: u32 = 10;
+    pub const VERSION_86: i32 = 10;
     /// Current version of SegmentInfos.
-    pub const VERSION_CURRENT: u32 = Self::VERSION_86;
+    pub const VERSION_CURRENT: i32 = Self::VERSION_86;
     /// Name of the generation reference file name.
     pub const OLD_SEGMENTS_GEN: &'static str = "segments.gen";
-    pub fn new_with_defaults(index_created_version_major: u32) -> Result<Self, LuceneError> {
+    pub fn new_with_defaults(index_created_version_major: i32) -> Result<Self, LuceneError> {
         SegmentInfos::new(index_created_version_major)
     }
 }
@@ -144,7 +144,7 @@ where
     /// # Arguments
     /// - `index_created_version_major`: The Lucene version major at index creation time,
     ///   or 6 if the index was created before 7.0.
-    pub fn new(index_created_version_major: u32) -> Result<SegmentInfos<D>, LuceneError> {
+    pub fn new(index_created_version_major: i32) -> Result<SegmentInfos<D>, LuceneError> {
         if index_created_version_major > LATEST.major {
             return Err(LuceneError::illegal_argument(format!(
                 "indexCreatedVersionMajor is in the future: {}",
@@ -229,7 +229,7 @@ where
     pub fn read_commit_with_file_min_version(
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
-        min_supported_major_version: u32,
+        min_supported_major_version: i32,
     ) -> Result<SegmentsFileEnum<D>, LuceneError> {
         let generation = generation_from_segments_file_name(segment_file_name)?;
         let mut input = match directory
@@ -275,7 +275,7 @@ where
         directory: Arc<Mutex<D>>,
         input: &mut I,
         generation: i64,
-        min_supported_major_version: u32,
+        min_supported_major_version: i32,
     ) -> Result<Self, LuceneError> {
         let mut prior_error: Option<LuceneError> = None;
 
@@ -294,26 +294,23 @@ where
         // Read the ID
         let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
         let id_len = id.len();
-        debug_assert!(id_len <= u32::MAX as usize);
-        input.read_bytes(&mut id, 0, id_len as u32)?;
+        debug_assert!(id_len <= i32::MAX as usize);
+        input.read_bytes(&mut id, 0, id_len as i32)?;
         CodecUtil::check_index_header_suffix(input, &format!("{:x}", generation))?;
 
-        let lucene_version = Version::from_bits(
-            input.read_vint()? as u32,
-            input.read_vint()? as u32,
-            input.read_vint()? as u32,
-        )?;
+        let lucene_version =
+            Version::from_bits(input.read_vint()?, input.read_vint()?, input.read_vint()?)?;
 
         let index_created_version = input.read_vint()?;
         debug_assert!(index_created_version >= 0);
-        if lucene_version.major < index_created_version as u32 {
+        if lucene_version.major < index_created_version {
             return Err(LuceneError::corrupt_index(format!(
                 "Creation version [{}] can't be greater than the version that wrote the segment infos: [{}]",
                 index_created_version, lucene_version
             )));
         }
 
-        if (index_created_version as u32) < min_supported_major_version {
+        if (index_created_version) < min_supported_major_version {
             let reason = format!(
                 "This index was initially created with Lucene {}.x while the current version is {} and Lucene only supports reading {}",
                 index_created_version,
@@ -326,7 +323,7 @@ where
             return Err(LuceneError::index_format_too_old(format!("Format version is not supported (resource {}): {}. This version of Lucene only supports indexes created with release {}.0 and later by default.", input, reason, *MIN_SUPPORTED_MAJOR)));
         }
 
-        let mut infos = Self::new(index_created_version as u32)?;
+        let mut infos = Self::new(index_created_version)?;
         infos.id = Some(id);
         infos.generation = generation;
         infos.last_generation = generation;
@@ -351,14 +348,14 @@ where
         directory: Arc<Mutex<D>>,
         input: &mut I,
         infos: &mut SegmentInfos<D>,
-        format: u32,
+        format: i32,
     ) -> Result<(), LuceneError> {
         infos.version = CodecUtil::read_be_long(input)?;
         let counter_value = input.read_vlong()?;
         debug_assert!(counter_value >= 0);
-        infos.counter = counter_value as u64;
+        infos.counter = counter_value;
 
-        let num_segments = CodecUtil::read_be_int(input)? as i32;
+        let num_segments = CodecUtil::read_be_int(input)?;
         if num_segments < 0 {
             return Err(LuceneError::corrupt_index(format!(
                 "Invalid segment count: {} (resource={})",
@@ -369,9 +366,9 @@ where
         if num_segments > 0 {
             // Read minSegmentLuceneVersion
             infos.min_segment_lucene_version = Some(Version::from_bits(
-                input.read_vint()? as u32,
-                input.read_vint()? as u32,
-                input.read_vint()? as u32,
+                input.read_vint()?,
+                input.read_vint()?,
+                input.read_vint()?,
             )?);
         }
 
@@ -381,8 +378,8 @@ where
             let seg_name = input.read_string()?;
             let mut segment_id = vec![0u8; StringHelper::ID_LENGTH as usize];
             let segment_id_len = segment_id.len();
-            debug_assert!(segment_id_len <= u32::MAX as usize);
-            input.read_bytes(&mut segment_id, 0, segment_id_len as u32)?;
+            debug_assert!(segment_id_len <= i32::MAX as usize);
+            input.read_bytes(&mut segment_id, 0, segment_id_len as i32)?;
             let codec = Self::read_codec(input)?;
             let info = codec.segment_info_format().read(
                 directory.clone(),
@@ -427,8 +424,8 @@ where
                     1 => {
                         let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
                         let id_len = id.len();
-                        debug_assert!(id_len <= u32::MAX as usize);
-                        input.read_bytes(&mut id, 0, id_len as u32)?;
+                        debug_assert!(id_len <= i32::MAX as usize);
+                        input.read_bytes(&mut id, 0, id_len as i32)?;
                         Some(id)
                     }
                     0 => None,
@@ -482,11 +479,11 @@ where
 
             let mut si_per_commit = SegmentCommitInfo::new(
                 info,
-                del_count as i32,
-                soft_del_count as i32,
-                del_gen as i64,
-                field_infos_gen as i64,
-                dv_gen as i64,
+                del_count,
+                soft_del_count,
+                del_gen,
+                field_infos_gen,
+                dv_gen,
                 sci_id,
             )?;
             si_per_commit.set_field_infos_files(input.read_set_of_strings()?);
@@ -496,10 +493,7 @@ where
             } else {
                 let mut map = HashMap::new();
                 for _ in 0..num_dv_fields {
-                    map.insert(
-                        CodecUtil::read_be_int(input)? as i32,
-                        input.read_set_of_strings()?,
-                    );
+                    map.insert(CodecUtil::read_be_int(input)?, input.read_set_of_strings()?);
                 }
                 map
             };
@@ -542,7 +536,7 @@ where
     /// and load all `SegmentCommitInfo`s.
     pub fn read_latest_commit_with_min_version(
         directory: Arc<Mutex<D>>,
-        min_supported_major_version: u32,
+        min_supported_major_version: i32,
     ) -> Result<SegmentsFileEnum<D>, LuceneError> {
         let sub = FindSegmentsFileImpl {
             min_supported_major_version,
@@ -605,14 +599,13 @@ where
             &StringHelper::random_id(),
             &format!("{:x}", self.generation),
         )?;
-        out.write_vint(LATEST.major as i32)?;
-        out.write_vint(LATEST.minor as i32)?;
-        out.write_vint(LATEST.bug_fix as i32)?;
+        out.write_vint(LATEST.major)?;
+        out.write_vint(LATEST.minor)?;
+        out.write_vint(LATEST.bug_fix)?;
 
-        out.write_vint(self.index_created_version_major as i32)?;
-        debug_assert!(self.version <= i64::MAX as u64);
-        CodecUtil::write_be_long(out, self.version as i64)?;
-        out.write_vlong(self.counter as i64)?;
+        out.write_vint(self.index_created_version_major)?;
+        CodecUtil::write_be_long(out, self.version)?;
+        out.write_vlong(self.counter)?;
         CodecUtil::write_be_int(out, self.segments.len() as i32)?;
 
         if self.size() > 0 {
@@ -633,9 +626,9 @@ where
             }
 
             let min_version = min_segment_version.as_ref().unwrap();
-            out.write_vint(min_version.major as i32)?;
-            out.write_vint(min_version.minor as i32)?;
-            out.write_vint(min_version.bug_fix as i32)?;
+            out.write_vint(min_version.major)?;
+            out.write_vint(min_version.minor)?;
+            out.write_vint(min_version.bug_fix)?;
         }
         for si_per_commit in &self.segments {
             let si = &si_per_commit.info;
@@ -654,14 +647,14 @@ where
                     si.name, segment_id
                 )));
             }
-            debug_assert!(segment_id_len <= u32::MAX as usize);
-            out.write_bytes_with_len(segment_id, segment_id_len as u32)?;
+            debug_assert!(segment_id_len <= i32::MAX as usize);
+            out.write_bytes_with_len(segment_id, segment_id_len as i32)?;
             out.write_string(LATEST_CODEC.get_name())?;
 
             CodecUtil::write_be_long(out, si_per_commit.del_gen)?;
             let del_count = si_per_commit.del_count;
             let max_doc = si.max_doc()?;
-            if del_count < 0 || del_count > max_doc as i32 {
+            if del_count < 0 || del_count > max_doc {
                 return Err(LuceneError::illegal_state(format!(
                     "Cannot write segment: invalid maxDoc segment={} maxDoc={} delCount={}",
                     si.name, max_doc, del_count
@@ -672,7 +665,7 @@ where
             CodecUtil::write_be_long(out, si_per_commit.doc_values_gen)?;
 
             let soft_del_count = si_per_commit.soft_del_count;
-            if soft_del_count < 0 || soft_del_count > max_doc as i32 {
+            if soft_del_count < 0 || soft_del_count > max_doc {
                 return Err(LuceneError::illegal_state(format!(
                     "Cannot write segment: invalid maxDoc segment={} maxDoc={} softDelCount={}",
                     si.name, max_doc, soft_del_count
@@ -689,8 +682,8 @@ where
                     "Invalid SegmentCommitInfo#id: {:?}",
                     sci_id
                 );
-                debug_assert!(sci_id_len <= u32::MAX as usize);
-                out.write_bytes_range(sci_id, 0, sci_id_len as u32)?;
+                debug_assert!(sci_id_len <= i32::MAX as usize);
+                out.write_bytes_range(sci_id, 0, sci_id_len as i32)?;
             } else {
                 out.write_byte(0)?;
             }
@@ -734,7 +727,7 @@ where
         Ok(cloned)
     }
     /// Returns the version number when this `SegmentInfos` was generated.
-    pub fn get_version(&self) -> u64 {
+    pub fn get_version(&self) -> i64 {
         self.version
     }
 
@@ -931,7 +924,7 @@ where
     }
 
     /// Set the version to a new value. The new version must be greater than or equal to the current version.
-    pub fn set_version(&mut self, new_version: u64) -> Result<(), LuceneError> {
+    pub fn set_version(&mut self, new_version: i64) -> Result<(), LuceneError> {
         if new_version < self.version {
             return Err(LuceneError::illegal_argument(format!(
                 "newVersion (={}) cannot be less than current version (={})",
@@ -1011,10 +1004,10 @@ where
     }
 
     /// Returns the number of `SegmentCommitInfo`s.
-    pub fn size(&self) -> u32 {
+    pub fn size(&self) -> i32 {
         let len = self.segments.len();
-        debug_assert!(len <= u32::MAX as usize);
-        len as u32
+        debug_assert!(len <= i32::MAX as usize);
+        len as i32
     }
 
     /// Appends the provided `SegmentCommitInfo` to the `segments` list.
@@ -1102,7 +1095,7 @@ where
     /// Returns the version major that was used to initially create the index.
     /// This version is set when the index is first created and then never changes.
     /// Older indices report 6 as the creation version.
-    pub fn get_index_created_version_major(&self) -> u32 {
+    pub fn get_index_created_version_major(&self) -> i32 {
         self.index_created_version_major
     }
     #[cfg(feature = "test_only")]
@@ -1186,7 +1179,6 @@ where
                 let dir = self.directory.lock().map_err(|_| {
                     LuceneError::illegal_state("Failed to acquire lock".to_string())
                 })?;
-                ();
                 files = dir.list_all()?;
                 files2 = dir.list_all()?;
             }
@@ -1308,7 +1300,7 @@ pub fn message(msg: &str) -> Result<(), LuceneError> {
     Ok(())
 }
 pub struct FindSegmentsFileImpl {
-    pub(crate) min_supported_major_version: u32,
+    pub(crate) min_supported_major_version: i32,
 }
 impl FindSegmentsFileBase for FindSegmentsFileImpl {
     fn do_body<D>(

@@ -65,7 +65,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &&io_context,
+            &io_context,
         )?;
         assert_eq!(info.files()?, info2.files()?);
         Ok(())
@@ -97,7 +97,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &&io_context,
+            &io_context,
         )?;
         assert_eq!(info.get_has_blocks(), info2.get_has_blocks());
         Ok(())
@@ -137,7 +137,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &&io_context,
+            &io_context,
         )?;
         assert_eq!(info.files()?, info2.files()?);
         // In Rust Lucene, SegmentInfo::files return an immutable Set,
@@ -180,7 +180,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &&io_context,
+            &io_context,
         )?;
         assert_eq!(diagnostics, *info2.get_diagnostics());
         // In Rust Lucene, SegmentInfo::get_diagnostics return an immutable Set, so we do not need to verify this
@@ -222,7 +222,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &&io_context,
+            &io_context,
         )?;
         let info2_attributes = info2.get_attributes()?;
         let info2_values = info2_attributes.lock().unwrap();
@@ -266,7 +266,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &&io_context,
+            &io_context,
         )?;
         assert_eq!(id, info2.get_id().as_slice());
 
@@ -301,7 +301,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     dir.clone(),
                     "_123",
                     Vec::from(&id),
-                    &&io_context,
+                    &io_context,
                 )?;
                 assert!(info2.get_version().is_some());
                 assert_eq!(*info2.get_version().unwrap(), version.clone());
@@ -480,7 +480,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 dir.clone(),
                 "_123",
                 Vec::from(&id),
-                &&io_context,
+                &io_context,
             )?;
             if info2.get_index_sort().is_some() {
                 assert!(info2.get_index_sort().is_some());
@@ -572,7 +572,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 dir.clone(),
                 &name,
                 id.clone(),
-                &&io_context,
+                &io_context,
             )?;
             Self::assert_equals(&info, &info2)?;
         }

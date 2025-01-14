@@ -61,24 +61,24 @@ impl Accountable for BinaryDocValuesFieldUpdates {
 }
 
 impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
-    fn add_value(&mut self, _doc: u32, _value: i64, _index: u32) -> Result<(), LuceneError> {
+    fn add_value(&mut self, _doc: i32, _value: i64, _index: i32) -> Result<(), LuceneError> {
         unreachable!("BinaryDocValuesFieldUpdates does not support add_value")
     }
 
-    fn add_byte_ref(&mut self, _doc: u32, value: BytesRef, index: u32) -> Result<(), LuceneError> {
+    fn add_byte_ref(&mut self, _doc: i32, value: BytesRef, index: i32) -> Result<(), LuceneError> {
         let _guard = self.lock.lock().map_err(|_| {
             LuceneError::illegal_state("Failed to acquire lock on lock.".to_string())
         })?;
         self.offsets
-            .set(index as u64, self.values.length() as i64)?;
-        self.lengths.set(index as u64, value.length as i64)?;
+            .set(index as i64, self.values.length() as i64)?;
+        self.lengths.set(index as i64, value.length as i64)?;
         self.values.append_ref(&value);
         Ok(())
     }
 
     fn add_iterator<T: DocValuesFieldIterator>(
         &mut self,
-        doc_id: u32,
+        doc_id: i32,
         mut iterator: T,
     ) -> Result<(), LuceneError> {
         self.add_byte_ref(doc_id, iterator.binary_value()?, 0)
@@ -87,7 +87,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     fn iterator(
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
-        del_gen: u64,
+        del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator, LuceneError> {
         let sub_iterator = BinaryDocValuesIterator::new(
             Some(&mut self.offsets),
@@ -96,34 +96,34 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         );
         Ok(AbstractIterator::new(inner, del_gen, sub_iterator))
     }
-    fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
-        let temp_offset = self.offsets.get(j as u64)?;
-        let value = self.offsets.get(i as u64)?;
-        self.offsets.set(j as u64, value)?;
-        self.offsets.set(i as u64, temp_offset)?;
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        let temp_offset = self.offsets.get(j as i64)?;
+        let value = self.offsets.get(i as i64)?;
+        self.offsets.set(j as i64, value)?;
+        self.offsets.set(i as i64, temp_offset)?;
 
-        let tem_length = self.lengths.get(j as u64)?;
-        let length = self.lengths.get(i as u64)?;
-        self.lengths.set(j as u64, length)?;
-        self.lengths.set(i as u64, tem_length)?;
+        let tem_length = self.lengths.get(j as i64)?;
+        let length = self.lengths.get(i as i64)?;
+        self.lengths.set(j as i64, length)?;
+        self.lengths.set(i as i64, tem_length)?;
         Ok(())
     }
 
-    fn grow(&mut self, _size: u32) -> Result<(), LuceneError> {
-        let offset_result = self.offsets.grow_with_size(_size as u64)?;
+    fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
+        let offset_result = self.offsets.grow_with_size(size as i64)?;
         if offset_result.is_some() {
             self.offsets = offset_result.unwrap();
         }
-        let length_result = self.lengths.grow_with_size(_size as u64)?;
+        let length_result = self.lengths.grow_with_size(size as i64)?;
         if length_result.is_some() {
             self.lengths = length_result.unwrap();
         }
         Ok(())
     }
 
-    fn resize(&mut self, _size: u32) -> Result<(), LuceneError> {
-        self.offsets = self.offsets.resize(_size as u64)?;
-        self.lengths = self.lengths.resize(_size as u64)?;
+    fn resize(&mut self, _size: i32) -> Result<(), LuceneError> {
+        self.offsets = self.offsets.resize(_size as i64)?;
+        self.lengths = self.lengths.resize(_size as i64)?;
         Ok(())
     }
 
@@ -139,9 +139,9 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 #[derive(Default)]
 pub struct BinaryDocValuesIterator<'a> {
     offsets: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
-    offset: u32,
+    offset: i32,
     lengths: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
-    length: u32,
+    length: i32,
     values: Option<&'a mut BytesRef>,
 }
 impl<'a> BinaryDocValuesIterator<'a> {
@@ -160,13 +160,13 @@ impl<'a> BinaryDocValuesIterator<'a> {
     }
 }
 impl AbstractIteratorBase for BinaryDocValuesIterator<'_> {
-    fn set(&mut self, idx: u64) -> Result<(), LuceneError> {
+    fn set(&mut self, idx: i64) -> Result<(), LuceneError> {
         debug_assert!(self.offsets.is_some());
         debug_assert!(self.lengths.is_some());
-        debug_assert!(self.offsets.as_mut().unwrap().get(idx)? <= u32::MAX as i64);
-        self.offset = self.offsets.as_mut().unwrap().get(idx)? as u32;
-        debug_assert!(self.lengths.as_mut().unwrap().get(idx)? <= u32::MAX as i64);
-        self.length = self.lengths.as_mut().unwrap().get(idx)? as u32;
+        debug_assert!(self.offsets.as_mut().unwrap().get(idx)? <= i32::MAX as i64);
+        self.offset = self.offsets.as_mut().unwrap().get(idx)? as i32;
+        debug_assert!(self.lengths.as_mut().unwrap().get(idx)? <= i32::MAX as i64);
+        self.length = self.lengths.as_mut().unwrap().get(idx)? as i32;
         Ok(())
     }
 

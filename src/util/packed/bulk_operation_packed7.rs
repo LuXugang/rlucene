@@ -27,7 +27,7 @@ impl Decoder for BulkOperationPacked7 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block0 = blocks[blocks_offset];
@@ -132,7 +132,7 @@ impl Decoder for BulkOperationPacked7 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let byte0 = blocks[blocks_offset] as u64;
@@ -163,7 +163,7 @@ impl Decoder for BulkOperationPacked7 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block0 = blocks[blocks_offset];
@@ -249,7 +249,7 @@ impl Decoder for BulkOperationPacked7 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let byte0 = blocks[blocks_offset] as i32;

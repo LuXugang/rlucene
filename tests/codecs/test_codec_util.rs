@@ -40,7 +40,7 @@ fn test_header_length() -> Result<(), TestError> {
     }
 
     let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
-    input.seek(CodecUtil::header_length("FooBar") as u64)?;
+    input.seek(CodecUtil::header_length("FooBar") as i64)?;
     assert_eq!(input.read_string()?, "this is the data");
     Ok(())
 }
@@ -183,7 +183,7 @@ fn test_check_footer_invalid() -> Result<(), TestError> {
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
         CodecUtil::write_header(&mut output, "FooBar", 5)?;
         output.write_string("this is the data")?;
-        CodecUtil::write_be_int(&mut output, CodecUtil::FOOTER_MAGIC as i32)?;
+        CodecUtil::write_be_int(&mut output, CodecUtil::FOOTER_MAGIC)?;
         CodecUtil::write_be_int(&mut output, 0)?;
         CodecUtil::write_be_long(&mut output, 1234567)?; // write a bogus checksum
     }
@@ -211,7 +211,7 @@ fn test_segment_header_length() -> Result<(), TestError> {
     }
     let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
 
-    input.seek(CodecUtil::index_header_length("FooBar", "xyz") as u64)?;
+    input.seek(CodecUtil::index_header_length("FooBar", "xyz") as i64)?;
 
     let read_data = input.read_string()?;
     assert_eq!(read_data, "this is the data");
@@ -250,7 +250,7 @@ fn test_write_very_long_suffix() -> Result<(), TestError> {
     assert_eq!(input.get_file_pointer(), input.length());
     assert_eq!(
         input.get_file_pointer(),
-        CodecUtil::index_header_length("foobar", &just_long_enough) as u64
+        CodecUtil::index_header_length("foobar", &just_long_enough) as i64
     );
 
     Ok(())
@@ -370,7 +370,7 @@ impl DataOutput for FakeOutput<'_> {
         self.output.write_byte(b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), LuceneError> {
         self.output.write_bytes_range(b, offset, length)
     }
 }
@@ -382,13 +382,13 @@ impl Display for FakeOutput<'_> {
 }
 
 impl IndexOutput for FakeOutput<'_> {
-    fn get_file_pointer(&self) -> u64 {
+    fn get_file_pointer(&self) -> i64 {
         self.output.get_file_pointer()
     }
 
-    fn get_check_sum(&mut self) -> i64 {
+    fn get_check_sum(&mut self) -> u64 {
         self.fake_checksum
-            .load(std::sync::atomic::Ordering::Relaxed)
+            .load(std::sync::atomic::Ordering::Relaxed) as u64
     }
 
     fn get_name(&self) -> &str {

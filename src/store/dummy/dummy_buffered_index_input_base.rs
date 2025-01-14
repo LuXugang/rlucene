@@ -29,15 +29,15 @@ impl Clone for DummyBufferedIndexInputBase {
 }
 
 impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
-    fn seek_internal(&mut self, _pos: u64) -> Result<(), LuceneError> {
+    fn seek_internal(&mut self, _pos: i64) -> Result<(), LuceneError> {
         unreachable!("DummyBufferedIndexInputBase should not be called")
     }
 
     fn read_internal(
         &mut self,
         _b: &mut Cursor<Vec<u8>>,
-        _len: u64,
-        _file_pointer: u64,
+        _len: i64,
+        _file_pointer: i64,
     ) -> Result<(), LuceneError> {
         unreachable!("DummyBufferedIndexInputBase should not be called")
     }
@@ -45,14 +45,14 @@ impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
     fn slice(
         &self,
         _slice_description: &str,
-        _offset: u64,
-        _length: u64,
+        _offset: i64,
+        _length: i64,
     ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
         unreachable!("DummyBufferedIndexInputBase should not be called");
         Ok(DummyIndexInput)
     }
 
-    fn length(&self) -> u64 {
+    fn length(&self) -> i64 {
         unreachable!("DummyBufferedIndexInputBase should not be called")
     }
 }

@@ -32,7 +32,7 @@ fn test_simple() {
     buffered.update(2);
     buffered.update(3);
 
-    assert_eq!(buffered.get_value(), crc.finalize() as u64);
+    assert_eq!(buffered.get_value(), crc.finalize() as i64);
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn test_random() {
                 let mut bytes = vec![0; length];
                 rng.fill(bytes.as_mut_slice());
                 raw_crc.update(&bytes);
-                buffered.update_bytes(&bytes, 0, length as u32);
+                buffered.update_bytes(&bytes, 0, length as i32);
             }
             1 => {
                 let b = rng.gen_range(0..=255) as u8;
@@ -62,12 +62,12 @@ fn test_random() {
                 buffered.reset();
             }
             3 => {
-                assert_eq!(buffered.get_value(), raw_crc.clone().finalize() as u64);
+                assert_eq!(buffered.get_value(), raw_crc.clone().finalize() as i64);
             }
             _ => unreachable!(),
         }
     }
 
-    assert_eq!(buffered.get_value(), raw_crc.finalize() as u64);
+    assert_eq!(buffered.get_value(), raw_crc.finalize() as i64);
 }
 // TODO: not finished

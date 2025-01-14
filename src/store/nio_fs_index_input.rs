@@ -28,31 +28,32 @@ pub struct NIOFSIndexInput {
     /// the file we will read from
     file: File,
     /// start offset: non-zero in the slice case
-    off: u64,
+    off: i64,
     /// end offset (start+length)
-    end: u64,
+    end: i64,
     resource_desc: String,
-    buffer_size: u32,
+    buffer_size: i32,
 }
 
 impl NIOFSIndexInput {
     pub fn new(file: File, resource_desc: &str) -> Self {
         let metadata = file.metadata().unwrap();
         let len = metadata.len();
+        debug_assert!(len <= i64::MAX as u64);
         Self {
             file,
             off: 0,
-            end: len,
+            end: len as i64,
             resource_desc: resource_desc.to_string(),
             buffer_size: BufferedIndexInput::BUFFER_SIZE,
         }
     }
     pub fn new_with_range(
         file: File,
-        off: u64,
-        length: u64,
+        off: i64,
+        length: i64,
         resource_desc: &str,
-        buffer_size: u32,
+        buffer_size: i32,
     ) -> Self {
         Self {
             file,
@@ -62,13 +63,13 @@ impl NIOFSIndexInput {
             buffer_size,
         }
     }
-    pub fn get_buffer_size(&self) -> u32 {
+    pub fn get_buffer_size(&self) -> i32 {
         self.buffer_size
     }
 }
 
 impl BufferedIndexInputBase for NIOFSIndexInput {
-    fn seek_internal(&mut self, pos: u64) -> Result<(), LuceneError> {
+    fn seek_internal(&mut self, pos: i64) -> Result<(), LuceneError> {
         if pos > self.length() {
             return Err(LuceneError::eof(format!(
                 "read past EOF: pos={} vs length={} in {}",
@@ -115,10 +116,10 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
     fn read_internal(
         &mut self,
         buffer: &mut Cursor<Vec<u8>>,
-        len: u64,
-        file_pointer: u64,
+        len: i64,
+        file_pointer: i64,
     ) -> Result<(), LuceneError> {
-        debug_assert!(buffer.remain() >= len, "buffer overflow");
+        debug_assert!(buffer.remain() >= len as u64, "buffer overflow");
         let mut pos = file_pointer + self.off;
 
         // Check if the requested read exceeds the file's end
@@ -136,7 +137,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
 
             // Seek to the correct position in the file
             self.file
-                .seek(SeekFrom::Start(pos))
+                .seek(SeekFrom::Start(pos as u64))
                 .map_err(LuceneError::io)?;
 
             // Prepare the buffer slice for writing
@@ -154,8 +155,9 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             }
 
             // Update the position and remaining length
-            pos += bytes_read as u64;
-            read_length -= bytes_read as u64;
+            debug_assert!(bytes_read <= i64::MAX as usize);
+            pos += bytes_read as i64;
+            read_length -= bytes_read as i64;
             // Update the buffer cursor position for next read
             buffer.set_position(buffer.position() + bytes_read as u64);
         }
@@ -171,10 +173,10 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
     fn slice(
         &self,
         slice_description: &str,
-        offset: u64,
-        length: u64,
+        offset: i64,
+        length: i64,
     ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
-        if offset + length > self.length() {
+        if offset < 0 || length < 0 || offset + length > self.length() {
             return Err(LuceneError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",
                 slice_description,
@@ -196,7 +198,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         );
         BufferedIndexInput::new_with_buffer_size(sub_index_input, &resource_desc, self.buffer_size)
     }
-    fn length(&self) -> u64 {
+    fn length(&self) -> i64 {
         self.end - self.off
     }
 }

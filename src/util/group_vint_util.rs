@@ -48,7 +48,7 @@ impl GroupVIntUtil {
         debug_assert!(limit >= 0);
         let mut i = 0;
         while i <= limit - 4 {
-            data_input.read_group_vint(dst, i as u32)?;
+            data_input.read_group_vint(dst, i)?;
             i += 4;
         }
         while i < limit {
@@ -67,7 +67,7 @@ impl GroupVIntUtil {
     pub fn read_group_vint<D>(
         data_input: &mut D,
         dst: &mut [i64],
-        offset: u32,
+        offset: i32,
     ) -> Result<(), LuceneError>
     where
         D: DataInput,
@@ -131,9 +131,9 @@ impl GroupVIntUtil {
     pub fn read_group_vint_with_reader<D>(
         data_input: &mut D,
         remaining: u64,
-        mut pos: u64,
+        mut pos: i64,
         dst: &mut [i64],
-        offset: u32,
+        offset: i32,
     ) -> Result<i32, LuceneError>
     where
         D: DataInput + RandomAccessInput,
@@ -154,22 +154,22 @@ impl GroupVIntUtil {
 
         dst[offset as usize] =
             (RandomAccessInput::read_int(data_input, pos)? as u64 & MASKS[n1_minus1]) as i64;
-        pos += 1 + n1_minus1 as u64;
+        pos += 1 + n1_minus1 as i64;
 
         dst[offset as usize + 1] =
             (RandomAccessInput::read_int(data_input, pos)? as u64 & MASKS[n2_minus1]) as i64;
-        pos += 1 + n2_minus1 as u64;
+        pos += 1 + n2_minus1 as i64;
 
         dst[offset as usize + 2] =
             (RandomAccessInput::read_int(data_input, pos)? as u64 & MASKS[n3_minus1]) as i64;
-        pos += 1 + n3_minus1 as u64;
+        pos += 1 + n3_minus1 as i64;
 
         dst[offset as usize + 3] =
             (RandomAccessInput::read_int(data_input, pos)? as u64 & MASKS[n4_minus1]) as i64;
-        pos += 1 + n4_minus1 as u64;
+        pos += 1 + n4_minus1 as i64;
         let result = pos - pos_start;
         debug_assert!(
-            result <= i32::MAX as u64,
+            result <= i32::MAX as i64,
             "result: {} exceeds i32::MAX",
             result
         );
@@ -196,7 +196,7 @@ impl GroupVIntUtil {
         data_output: &mut D,
         scratch: &mut [u8],
         values: &mut [i64],
-        limit: u32,
+        limit: i32,
     ) -> Result<(), LuceneError>
     where
         D: DataOutput,
@@ -250,8 +250,8 @@ impl GroupVIntUtil {
             );
             write_pos += (n4_minus1) as usize;
 
-            debug_assert!(write_pos <= u32::MAX as usize, "write_pos exceeds u32::MAX");
-            data_output.write_bytes_with_len(scratch, write_pos as u32)?;
+            debug_assert!(write_pos <= i32::MAX as usize, "write_pos exceeds u32::MAX");
+            data_output.write_bytes_with_len(scratch, write_pos as i32)?;
             read_pos += 4;
         }
 

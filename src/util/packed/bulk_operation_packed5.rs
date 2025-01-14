@@ -27,7 +27,7 @@ impl Decoder for BulkOperationPacked5 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block0 = blocks[blocks_offset];
@@ -127,7 +127,7 @@ impl Decoder for BulkOperationPacked5 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let byte0 = blocks[blocks_offset] as u64;
@@ -155,7 +155,7 @@ impl Decoder for BulkOperationPacked5 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block0 = blocks[blocks_offset];
@@ -234,38 +234,38 @@ impl Decoder for BulkOperationPacked5 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
-            let byte0 = blocks[blocks_offset] as u32;
+            let byte0 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
-            values[values_offset] = (byte0 >> 3) as i32;
+            values[values_offset] = byte0 >> 3;
             values_offset += 1;
 
-            let byte1 = blocks[blocks_offset] as u32;
+            let byte1 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
-            values[values_offset] = (((byte0 & 7) << 2) | (byte1 >> 6)) as i32;
+            values[values_offset] = ((byte0 & 7) << 2) | (byte1 >> 6);
             values_offset += 1;
-            values[values_offset] = ((byte1 >> 1) & 31) as i32;
+            values[values_offset] = (byte1 >> 1) & 31;
             values_offset += 1;
 
-            let byte2 = blocks[blocks_offset] as u32;
+            let byte2 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
-            values[values_offset] = (((byte1 & 1) << 4) | (byte2 >> 4)) as i32;
+            values[values_offset] = ((byte1 & 1) << 4) | (byte2 >> 4);
             values_offset += 1;
 
-            let byte3 = blocks[blocks_offset] as u32;
+            let byte3 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
-            values[values_offset] = (((byte2 & 15) << 1) | (byte3 >> 7)) as i32;
+            values[values_offset] = ((byte2 & 15) << 1) | (byte3 >> 7);
             values_offset += 1;
-            values[values_offset] = ((byte3 >> 2) & 31) as i32;
+            values[values_offset] = (byte3 >> 2) & 31;
             values_offset += 1;
 
-            let byte4 = blocks[blocks_offset] as u32;
+            let byte4 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
-            values[values_offset] = (((byte3 & 3) << 3) | (byte4 >> 5)) as i32;
+            values[values_offset] = ((byte3 & 3) << 3) | (byte4 >> 5);
             values_offset += 1;
-            values[values_offset] = (byte4 & 31) as i32;
+            values[values_offset] = byte4 & 31;
             values_offset += 1;
         }
     }

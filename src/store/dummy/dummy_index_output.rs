@@ -28,8 +28,8 @@ impl DataOutput for DummyIndexOutput {
     fn write_bytes_range(
         &mut self,
         _b: &[u8],
-        _offset: u32,
-        _length: u32,
+        _offset: i32,
+        _length: i32,
     ) -> Result<(), LuceneError> {
         unreachable!("DummyIndexOutput should not be called")
     }
@@ -42,11 +42,11 @@ impl Display for DummyIndexOutput {
 }
 
 impl IndexOutput for DummyIndexOutput {
-    fn get_file_pointer(&self) -> u64 {
+    fn get_file_pointer(&self) -> i64 {
         unreachable!("DummyIndexOutput should not be called")
     }
 
-    fn get_check_sum(&mut self) -> i64 {
+    fn get_check_sum(&mut self) -> u64 {
         unreachable!("DummyIndexOutput should not be called")
     }
 

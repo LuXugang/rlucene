@@ -39,7 +39,7 @@ impl Directory for DummyDirectory {
         unreachable!("DummyDirectory should not be called")
     }
 
-    fn file_length(&self, _name: &str) -> Result<u64, LuceneError> {
+    fn file_length(&self, _name: &str) -> Result<i64, LuceneError> {
         unreachable!("DummyDirectory should not be called")
     }
     #[allow(refining_impl_trait)]

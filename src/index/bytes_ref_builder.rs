@@ -39,26 +39,26 @@ impl BytesRefBuilder {
     }
 
     /// Return the number of bytes in this buffer.
-    pub fn length(&self) -> u32 {
+    pub fn length(&self) -> i32 {
         self.bytes_ref.length
     }
 
     /// Set the length.
-    pub fn set_length(&mut self, length: u32) {
+    pub fn set_length(&mut self, length: i32) {
         self.bytes_ref.length = length;
         self.bytes_ref.bytes.truncate(length as usize);
     }
 
     /// Return the byte at the given offset.
-    pub fn byte_at(&self, index: u32) -> u8 {
+    pub fn byte_at(&self, index: i32) -> u8 {
         self.bytes_ref.bytes[index as usize]
     }
 
     /// Set a byte.
-    pub fn set_byte_at(&mut self, offset: u32, value: u8) {
+    pub fn set_byte_at(&mut self, offset: i32, value: u8) {
         self.bytes_ref.bytes[offset as usize] = value;
     }
-    fn grow(&mut self, capacity: u32) {
+    fn grow(&mut self, capacity: i32) {
         let current_len = self.bytes_ref.bytes.len();
         if capacity as usize <= current_len {
             return;
@@ -67,7 +67,7 @@ impl BytesRefBuilder {
             self.bytes_ref.bytes.push(0);
         }
     }
-    pub fn grow_no_copy(&mut self, capacity: u32) {
+    pub fn grow_no_copy(&mut self, capacity: i32) {
         self.grow(capacity);
     }
 
@@ -78,7 +78,7 @@ impl BytesRefBuilder {
     }
 
     /// Append the provided bytes to this builder.
-    pub fn append(&mut self, b: &[u8], off: u32, len: u32) {
+    pub fn append(&mut self, b: &[u8], off: i32, len: i32) {
         self.bytes_ref
             .bytes
             .extend_from_slice(&b[off as usize..(off + len) as usize]);
@@ -113,7 +113,7 @@ impl BytesRefBuilder {
     /// # See Also
     /// - [`clear`](BytesRefBuilder::clear)
     /// - [`append`](BytesRefBuilder::append)
-    pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: u32, len: u32) {
+    pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: i32, len: i32) {
         self.grow(len);
         assert_eq!(self.bytes_ref.offset, 0);
         self.bytes_ref.length = len;
@@ -129,15 +129,15 @@ impl BytesRefBuilder {
         self.copy_bytes_with_ref(b.get());
     }
     pub fn copy_chars_with_string(&mut self, s: &str) {
-        debug_assert!(s.len() <= u32::MAX as usize);
-        self.copy_chars_range(s, 0, s.len() as u32);
+        debug_assert!(s.len() <= i32::MAX as usize);
+        self.copy_chars_range(s, 0, s.len() as i32);
     }
-    pub fn copy_chars_range(&mut self, s: &str, off: u32, len: u32) {
-        debug_assert!(s.len() <= u32::MAX as usize);
+    pub fn copy_chars_range(&mut self, s: &str, off: i32, len: i32) {
+        debug_assert!(s.len() <= i32::MAX as usize);
         let sub_bytes = s.as_bytes()[off as usize..(off + len) as usize].to_vec();
-        self.copy_chars_with_vec(&sub_bytes, 0, sub_bytes.len() as u32);
+        self.copy_chars_with_vec(&sub_bytes, 0, sub_bytes.len() as i32);
     }
-    pub fn copy_chars_with_vec(&mut self, s: &[u8], off: u32, len: u32) {
+    pub fn copy_chars_with_vec(&mut self, s: &[u8], off: i32, len: i32) {
         self.grow(len);
         self.bytes_ref
             .bytes

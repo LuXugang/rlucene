@@ -230,10 +230,10 @@ where
     }
 
     /// Returns the total size in bytes of all files for this segment.
-    pub fn size_in_bytes(&self) -> Result<u64, LuceneError> {
+    pub fn size_in_bytes(&self) -> Result<i64, LuceneError> {
         let current_size = self.size_in_bytes.load(Ordering::SeqCst);
         if current_size != -1 {
-            return Ok(current_size as u64);
+            return Ok(current_size);
         }
         let mut sum = 0;
         let directory = self.info.dir.lock().map_err(|_| {
@@ -242,7 +242,7 @@ where
         for file_name in self.files()? {
             sum += directory.file_length(&file_name)?;
         }
-        self.size_in_bytes.store(sum as i64, Ordering::SeqCst);
+        self.size_in_bytes.store(sum, Ordering::SeqCst);
 
         Ok(sum)
     }
@@ -333,8 +333,7 @@ where
     }
 
     pub fn set_del_count(&mut self, del_count: i32) -> Result<(), LuceneError> {
-        debug_assert!(self.info.max_doc()? <= i32::MAX as u32);
-        let max_doc = self.info.max_doc()? as i32;
+        let max_doc = self.info.max_doc()?;
         if del_count < 0 || del_count > max_doc {
             return Err(LuceneError::illegal_argument(format!(
                 "invalid delCount={} (maxDoc={})",
@@ -355,8 +354,7 @@ where
     }
 
     pub fn set_soft_del_count(&mut self, soft_del_count: i32) -> Result<(), LuceneError> {
-        debug_assert!(self.info.max_doc()? <= i32::MAX as u32);
-        let max_doc = self.info.max_doc()? as i32;
+        let max_doc = self.info.max_doc()?;
         if soft_del_count < 0 || soft_del_count > max_doc {
             return Err(LuceneError::illegal_argument(format!(
                 "invalid softDelCount={} (maxDoc={})",

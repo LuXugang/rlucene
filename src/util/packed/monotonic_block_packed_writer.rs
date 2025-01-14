@@ -52,27 +52,30 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
     fn flush<T: DataOutput>(
         &mut self,
         out: &mut T,
-        off: &mut usize,
+        off: &mut i32,
         values: &mut [i64],
         blocks: &mut Vec<u8>,
     ) -> Result<(), LuceneError> {
+        debug_assert!(*off > 0);
         let avg = if *off == 1 {
             0.0f32
         } else {
-            (values[*off - 1] - values[0]) as f32 / (*off as f32 - 1.0)
+            (values[*off as usize - 1] - values[0]) as f32 / (*off as f32 - 1.0)
         };
 
         let mut min = values[0];
         // adjust min so that all deltas will be positive
-        for (i, &actual) in values.iter().enumerate().skip(1).take(*off - 1) {
-            let expected = expected(min, avg, i);
+        for (i, &actual) in values.iter().enumerate().skip(1).take(*off as usize - 1) {
+            debug_assert!(i <= i32::MAX as usize);
+            let expected = expected(min, avg, i as i32);
             if expected > actual {
                 min -= expected - actual;
             }
         }
         let mut max_delta = 0;
-        for (i, value) in values.iter_mut().take(*off).enumerate() {
-            *value -= expected(min, avg, i);
+        for (i, value) in values.iter_mut().take(*off as usize).enumerate() {
+            debug_assert!(i <= i32::MAX as usize);
+            *value -= expected(min, avg, i as i32);
             max_delta = max_delta.max(*value);
         }
         out.write_zlong(min)?;
@@ -82,7 +85,7 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
             out.write_vint(0)?;
         } else {
             let bits_required = PackedInts::bits_required(max_delta)?;
-            out.write_vint(bits_required as i32)?;
+            out.write_vint(bits_required)?;
             write_values(bits_required, out, blocks, values, *off)?;
         }
         *off = 0;

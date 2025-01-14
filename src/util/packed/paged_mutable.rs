@@ -27,12 +27,12 @@ use crate::util::packed::{fastest_format_and_bits, Format, FormatAndBits, Packed
 #[derive(Default)]
 pub struct PagedMutable {
     format: Format,
-    bits_per_value: u32,
+    bits_per_value: i32,
 }
 impl PagedMutable {
     pub fn new_with_overhead_ratio(
-        page_size: u32,
-        bits_per_value: u32,
+        page_size: i32,
+        bits_per_value: i32,
         acceptable_overhead_ratio: f32,
     ) -> Self {
         let format_and_bits =
@@ -42,7 +42,7 @@ impl PagedMutable {
     fn new_with_format_and_bits(format_and_bits: FormatAndBits) -> Self {
         Self::new_with_bits_and_format(format_and_bits.bits_per_value, format_and_bits.format)
     }
-    fn new_with_bits_and_format(bits_per_value: u32, format: Format) -> Self {
+    fn new_with_bits_and_format(bits_per_value: i32, format: Format) -> Self {
         Self {
             format,
             bits_per_value,
@@ -52,8 +52,8 @@ impl PagedMutable {
 impl AbstractPagedMutableBase for PagedMutable {
     fn new_mutable(
         &self,
-        value_count: u32,
-        bits_per_value: u32,
+        value_count: i32,
+        bits_per_value: i32,
     ) -> Result<MutableEnum, LuceneError> {
         debug_assert!(self.bits_per_value >= bits_per_value);
         let sub_mutable =
@@ -65,14 +65,14 @@ impl AbstractPagedMutableBase for PagedMutable {
 
     fn new_unfilled_copy(
         &self,
-        new_size: u64,
-        page_size: u32,
+        new_size: i64,
+        page_size: i32,
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, LuceneError> {
         let sub_reader = PagedMutable::new_with_bits_and_format(self.bits_per_value, self.format);
         AbstractPagedMutable::new(self.bits_per_value, new_size, page_size, sub_reader)
     }
 
-    fn base_ram_bytes_used_base(&self) -> u64 {
+    fn base_ram_bytes_used_base(&self) -> i64 {
         0
     }
 

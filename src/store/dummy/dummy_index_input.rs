@@ -26,11 +26,11 @@ impl DataInput for DummyIndexInput {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: u32, _len: u32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<(), LuceneError> {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn skip_bytes(&mut self, _num_bytes: u64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, _num_bytes: i64) -> Result<(), LuceneError> {
         unreachable!("DummyIndexInput should not be called")
     }
 }
@@ -48,15 +48,15 @@ impl Clone for DummyIndexInput {
 }
 
 impl IndexInput for DummyIndexInput {
-    fn get_file_pointer(&self) -> u64 {
+    fn get_file_pointer(&self) -> i64 {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn seek(&mut self, _pos: u64) -> Result<(), LuceneError> {
+    fn seek(&mut self, _pos: i64) -> Result<(), LuceneError> {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn length(&self) -> u64 {
+    fn length(&self) -> i64 {
         unreachable!("DummyIndexInput should not be called")
     }
 
@@ -64,8 +64,8 @@ impl IndexInput for DummyIndexInput {
     fn slice(
         &self,
         _slice_description: &str,
-        _offset: u64,
-        _length: u64,
+        _offset: i64,
+        _length: i64,
     ) -> Result<DummyIndexInput, LuceneError> {
         unreachable!("DummyIndexInput should not be called");
     }
@@ -73,34 +73,34 @@ impl IndexInput for DummyIndexInput {
     #[allow(refining_impl_trait)]
     fn random_access_slice(
         &self,
-        _offset: u64,
-        _length: u64,
+        _offset: i64,
+        _length: i64,
     ) -> Result<DummyIndexInput, LuceneError> {
         unreachable!("DummyIndexInput should not be called");
     }
 }
 impl RandomAccessInput for DummyIndexInput {
-    fn length(&self) -> u64 {
+    fn length(&self) -> i64 {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn read_byte(&mut self, _pos: u64) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self, _pos: i64) -> Result<u8, LuceneError> {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn read_short(&mut self, _pos: u64) -> Result<i16, LuceneError> {
+    fn read_short(&mut self, _pos: i64) -> Result<i16, LuceneError> {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn read_int(&mut self, _pos: u64) -> Result<i32, LuceneError> {
+    fn read_int(&mut self, _pos: i64) -> Result<i32, LuceneError> {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn read_long(&mut self, _pos: u64) -> Result<i64, LuceneError> {
+    fn read_long(&mut self, _pos: i64) -> Result<i64, LuceneError> {
         unreachable!("DummyIndexInput should not be called")
     }
 
-    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), LuceneError> {
+    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<(), LuceneError> {
         unreachable!("DummyIndexInput should not be called")
     }
 }

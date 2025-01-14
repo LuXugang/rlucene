@@ -30,8 +30,8 @@ use std::fmt::{Display, Formatter};
 /// This is an experimental API.
 pub struct ByteArrayDataInput {
     bytes: Vec<u8>,
-    pos: u32,
-    limit: u32,
+    pos: i32,
+    limit: i32,
 }
 impl ByteArrayDataInput {
     pub fn new() -> Self {
@@ -40,10 +40,10 @@ impl ByteArrayDataInput {
 
     pub fn new_with_bytes(bytes: Vec<u8>) -> Self {
         let len = bytes.len();
-        debug_assert!(len <= u32::MAX as usize, "bytes length exceeds u32 range");
-        Self::new_with_range(bytes, 0, len as u32)
+        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
+        Self::new_with_range(bytes, 0, len as i32)
     }
-    pub fn new_with_range(bytes: Vec<u8>, offset: u32, length: u32) -> Self {
+    pub fn new_with_range(bytes: Vec<u8>, offset: i32, length: i32) -> Self {
         let mut data_input = Self::new();
         data_input.reset_with_range(bytes, offset, length);
         data_input
@@ -51,10 +51,10 @@ impl ByteArrayDataInput {
 
     pub fn reset(&mut self, bytes: Vec<u8>) {
         let len = bytes.len();
-        debug_assert!(len <= u32::MAX as usize, "bytes length exceeds u32 range");
-        self.reset_with_range(bytes, 0, len as u32);
+        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
+        self.reset_with_range(bytes, 0, len as i32);
     }
-    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: u32, length: u32) {
+    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: i32, length: i32) {
         self.bytes = bytes;
         self.pos = offset;
         self.limit = offset + length;
@@ -65,13 +65,13 @@ impl ByteArrayDataInput {
         self.pos = 0;
     }
 
-    pub fn get_position(&self) -> u32 {
+    pub fn get_position(&self) -> i32 {
         self.pos
     }
-    pub fn set_position(&mut self, pos: u32) {
+    pub fn set_position(&mut self, pos: i32) {
         self.pos = pos;
     }
-    pub fn length(&self) -> u32 {
+    pub fn length(&self) -> i32 {
         self.limit
     }
     pub fn eof(&self) -> bool {
@@ -96,7 +96,7 @@ impl DataInput for ByteArrayDataInput {
         Ok(value)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
         debug_assert!(
             (offset + len) as usize <= b.len(),
             "Offset and length exceed the destination buffer size"
@@ -132,9 +132,9 @@ impl DataInput for ByteArrayDataInput {
         Ok(value)
     }
 
-    fn skip_bytes(&mut self, count: u64) -> Result<(), LuceneError> {
-        debug_assert!(count <= u32::MAX as u64, "count exceeds usize range");
-        self.pos += count as u32;
+    fn skip_bytes(&mut self, count: i64) -> Result<(), LuceneError> {
+        debug_assert!(count <= i32::MAX as i64, "count exceeds usize range");
+        self.pos += count as i32;
         Ok(())
     }
 }

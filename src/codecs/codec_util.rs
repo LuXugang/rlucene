@@ -34,9 +34,9 @@ use std::cmp::Ordering;
 pub struct CodecUtil;
 impl CodecUtil {
     /// Constant to identify the start of a codec header.
-    pub const CODEC_MAGIC: u32 = 0x3fd76c17;
+    pub const CODEC_MAGIC: i32 = 0x3fd76c17;
     /// Constant to identify the start of a codec footer.
-    pub const FOOTER_MAGIC: u32 = !Self::CODEC_MAGIC;
+    pub const FOOTER_MAGIC: i32 = !Self::CODEC_MAGIC;
     /// Writes a codec header, which records both a string to identify the file and a version number.
     /// This header can be parsed and validated with [`check_header`](CodecUtil::check_header).
     ///
@@ -44,14 +44,14 @@ impl CodecUtil {
     /// `CodecHeader -> Magic, CodecName, Version`
     ///
     /// - **Magic**:  
-    ///   A `u32` (written using `write_int`). This identifies the start of the header.  
+    ///   A `i32` (written using `write_int`). This identifies the start of the header.  
     ///   It is always [`CodecUtil::CODEC_MAGIC`].
     ///
     /// - **CodecName**:  
     ///   A string (written using `write_string`). This is a string to identify this file.
     ///
     /// - **Version**:  
-    ///   A `u32` (written using `write_int`). Records the version of the file.
+    ///   A `i32` (written using `write_int`). Records the version of the file.
     ///
     /// # Note
     /// The length of a codec header depends only on the name of the codec. This length can be computed
@@ -73,7 +73,7 @@ impl CodecUtil {
     pub fn write_header(
         out: &mut impl DataOutput,
         codec: &str,
-        version: u32,
+        version: i32,
     ) -> Result<(), LuceneError> {
         let bytes = BytesRef::new_from_string(codec);
         if bytes.length as usize != codec.len() || bytes.length >= 128 {
@@ -82,9 +82,9 @@ impl CodecUtil {
                 codec
             )));
         }
-        Self::write_be_int(out, CodecUtil::CODEC_MAGIC as i32)?;
+        Self::write_be_int(out, CodecUtil::CODEC_MAGIC)?;
         out.write_string(codec)?;
-        Self::write_be_int(out, version as i32)?;
+        Self::write_be_int(out, version)?;
         Ok(())
     }
 
@@ -95,14 +95,14 @@ impl CodecUtil {
     /// `CodecHeader -> Magic, CodecName, Version`
     ///
     /// - **Magic**:  
-    ///   A `u32` (written using `write_int`). This identifies the start of the header.
+    ///   A `i32` (written using `write_int`). This identifies the start of the header.
     ///   It is always [`CodecUtil::CODEC_MAGIC`].
     ///
     /// - **CodecName**:  
     ///   A string (written using `write_string`). This is a string to identify this file.
     ///
     /// - **Version**:  
-    ///   A `u32` (written using `write_int`). Records the version of the file.
+    ///   A `i32` (written using `write_int`). Records the version of the file.
     ///
     /// # Note
     /// The length of a codec header depends only on the name of the codec. This length can be computed
@@ -124,7 +124,7 @@ impl CodecUtil {
     pub fn write_index_header(
         out: &mut impl DataOutput,
         codec: &str,
-        version: u32,
+        version: i32,
         id: &[u8],
         suffix: &str,
     ) -> Result<(), LuceneError> {
@@ -161,8 +161,8 @@ impl CodecUtil {
     ///
     /// # See Also
     /// - [`write_header`](CodecUtil::write_header)
-    pub fn header_length(codec: &str) -> u32 {
-        9 + codec.len() as u32
+    pub fn header_length(codec: &str) -> i32 {
+        9 + codec.len() as i32
     }
     /// Computes the length of an index header.
     ///
@@ -174,8 +174,9 @@ impl CodecUtil {
     ///
     /// # See Also
     /// - [`write_index_header`](CodecUtil::write_index_header)
-    pub fn index_header_length(codec: &str, suffix: &str) -> u32 {
-        Self::header_length(codec) + StringHelper::ID_LENGTH + 1 + (suffix.len() as u32)
+    pub fn index_header_length(codec: &str, suffix: &str) -> i32 {
+        debug_assert!(suffix.len() <= i32::MAX as usize);
+        Self::header_length(codec) + StringHelper::ID_LENGTH + 1 + (suffix.len() as i32)
     }
     /// Reads and validates a header previously written with [`write_header`](CodecUtil::write_header).
     ///
@@ -204,9 +205,9 @@ impl CodecUtil {
     pub fn check_header(
         data_input: &mut impl DataInput,
         codec: &str,
-        min_version: u32,
-        max_version: u32,
-    ) -> Result<u32, LuceneError> {
+        min_version: i32,
+        max_version: i32,
+    ) -> Result<i32, LuceneError> {
         let actual_header = Self::read_be_int(data_input)?;
         if actual_header != CodecUtil::CODEC_MAGIC {
             return Err(LuceneError::corrupt_index(format!(
@@ -217,7 +218,7 @@ impl CodecUtil {
         }
         Self::check_header_no_magic(data_input, codec, min_version, max_version)
     }
-    /// Similar to [`check_header`](CodecUtil::check_header), except this version assumes the first `u32`
+    /// Similar to [`check_header`](CodecUtil::check_header), except this version assumes the first `i32`
     /// has already been read and validated from the input.
     ///
     /// # See Also
@@ -225,9 +226,9 @@ impl CodecUtil {
     pub fn check_header_no_magic(
         data_input: &mut impl DataInput,
         codec: &str,
-        min_version: u32,
-        max_version: u32,
-    ) -> Result<u32, LuceneError> {
+        min_version: i32,
+        max_version: i32,
+    ) -> Result<i32, LuceneError> {
         let actual_codec = data_input.read_string()?;
         if actual_codec != codec {
             return Err(LuceneError::corrupt_index(format!(
@@ -277,11 +278,11 @@ impl CodecUtil {
     pub fn check_index_header(
         data_input: &mut impl DataInput,
         codec: &str,
-        min_version: u32,
-        max_version: u32,
+        min_version: i32,
+        max_version: i32,
         expected_id: &[u8],
         expected_suffix: &str,
-    ) -> Result<u32, LuceneError> {
+    ) -> Result<i32, LuceneError> {
         let version = Self::check_header(data_input, codec, min_version, max_version)?;
         Self::check_index_header_id(data_input, expected_id)?;
         Self::check_index_header_suffix(data_input, expected_suffix)?;
@@ -310,7 +311,7 @@ impl CodecUtil {
         data_out: &mut impl DataOutput,
         expected_id: &[u8],
     ) -> Result<(), LuceneError> {
-        if data_in.length() < (Self::footer_length() + Self::header_length("")) as u64 {
+        if data_in.length() < (Self::footer_length() + Self::header_length("")) as i64 {
             return Err(LuceneError::corrupt_index(format!(
                 "compound sub-files must have a valid codec header and footer: file is too small ({} bytes): (resource={})",
                 data_in.length(),data_in
@@ -329,13 +330,13 @@ impl CodecUtil {
         Self::check_index_header_id(data_in, expected_id)?;
         let suffix_length = data_in.read_byte()?;
         let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_length as usize];
-        data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as u32)?;
-        Self::write_be_int(data_out, CodecUtil::CODEC_MAGIC as i32)?;
+        data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as i32)?;
+        Self::write_be_int(data_out, CodecUtil::CODEC_MAGIC)?;
         data_out.write_string(&codec)?;
-        Self::write_be_int(data_out, version as i32)?;
+        Self::write_be_int(data_out, version)?;
         data_out.write_bytes_range(expected_id, 0, StringHelper::ID_LENGTH)?;
         data_out.write_byte(suffix_length)?;
-        data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as u32)?;
+        data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as i32)?;
         Ok(())
     }
     /// Retrieves the full index header from the provided [`IndexInput`].
@@ -343,6 +344,8 @@ impl CodecUtil {
     /// # Errors
     /// - `CorruptIndexError`: If the file does not appear to be a valid index file.
     pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>, LuceneError> {
+        // TODO: 跟Java版本确认下 要不要seek(0)
+        // data_input.seek(0)?;
         let actual_header = Self::read_be_int(data_input)?;
         if actual_header != CodecUtil::CODEC_MAGIC {
             return Err(LuceneError::corrupt_index(format!(
@@ -353,14 +356,14 @@ impl CodecUtil {
         }
         let codec = data_input.read_string()?;
         Self::read_be_int(data_input)?;
-        data_input.seek(data_input.get_file_pointer() + StringHelper::ID_LENGTH as u64)?;
+        data_input.seek(data_input.get_file_pointer() + StringHelper::ID_LENGTH as i64)?;
         let suffix_length = data_input.read_byte()?;
         let bytes_len =
-            (Self::header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length as u32)
-                as usize;
-        let mut bytes: Vec<u8> = vec![0u8; bytes_len];
+            Self::header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length as i32;
+
+        let mut bytes: Vec<u8> = vec![0u8; bytes_len as usize];
         data_input.seek(0)?;
-        data_input.read_bytes(&mut bytes, 0, bytes_len as u32)?;
+        data_input.read_bytes(&mut bytes, 0, bytes_len)?;
         Ok(bytes)
     }
 
@@ -369,7 +372,7 @@ impl CodecUtil {
     /// # Errors
     /// - `CorruptIndexError`: If the file does not have a valid footer.
     pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>, LuceneError> {
-        if data_input.length() < Self::footer_length() as u64 {
+        if data_input.length() < Self::footer_length() as i64 {
             return Err(LuceneError::corrupt_index(format!(
                 "misplaced codec footer (file truncated?): length={} but footerLength=={} (resource={})",
                 data_input.length(),
@@ -377,9 +380,9 @@ impl CodecUtil {
                 data_input
             )));
         }
-        data_input.seek(data_input.length() - Self::footer_length() as u64)?;
+        data_input.seek(data_input.length() - Self::footer_length() as i64)?;
         Self::validate_footer(data_input)?;
-        data_input.seek(data_input.length() - Self::footer_length() as u64)?;
+        data_input.seek(data_input.length() - Self::footer_length() as i64)?;
         let mut bytes: Vec<u8> = vec![0u8; Self::footer_length() as usize];
         data_input.read_bytes(&mut bytes, 0, Self::footer_length())?;
         Ok(bytes)
@@ -408,7 +411,7 @@ impl CodecUtil {
     ) -> Result<(), LuceneError> {
         let suffix_length = data_input.read_byte()?;
         let mut suffix: Vec<u8> = vec![0u8; suffix_length as usize];
-        data_input.read_bytes(&mut suffix, 0, suffix_length as u32)?;
+        data_input.read_bytes(&mut suffix, 0, suffix_length as i32)?;
         let actual_suffix = String::from_utf8(suffix)?;
         if actual_suffix != expected_suffix {
             return Err(LuceneError::corrupt_index(format!(
@@ -425,11 +428,11 @@ impl CodecUtil {
     /// `CodecFooter -> Magic, AlgorithmID, Checksum`
     ///
     /// - **Magic**:  
-    ///   A `u32` (written using `write_int`). This identifies the start of the footer.  
+    ///   A `i32` (written using `write_int`). This identifies the start of the footer.  
     ///   It is always [`CodecUtil::FOOTER_MAGIC`].
     ///
     /// - **AlgorithmID**:  
-    ///   A `u32` (written using `write_int`). This indicates the checksum algorithm used.  
+    ///   A `i32` (written using `write_int`). This indicates the checksum algorithm used.  
     ///   Currently, this is always 0 for zlib-crc32.
     ///
     /// - **Checksum**:  
@@ -442,7 +445,7 @@ impl CodecUtil {
     /// # Errors
     /// - `IoError`: If there is an I/O error writing to the underlying medium.
     pub fn write_footer(out: &mut impl IndexOutput) -> Result<(), LuceneError> {
-        Self::write_be_int(out, CodecUtil::FOOTER_MAGIC as i32)?;
+        Self::write_be_int(out, CodecUtil::FOOTER_MAGIC)?;
         Self::write_be_int(out, 0)?;
         Self::write_crc(out)?;
         Ok(())
@@ -455,7 +458,7 @@ impl CodecUtil {
     ///
     /// # See Also
     /// - [`write_footer`](CodecUtil::write_footer)
-    pub fn footer_length() -> u32 {
+    pub fn footer_length() -> i32 {
         16
     }
 
@@ -467,7 +470,7 @@ impl CodecUtil {
     /// # Errors
     /// - `IoError`: If the footer is invalid, the checksum does not match, or the input is not properly
     ///   positioned before the footer at the end of the stream.
-    pub fn check_footer(checksum_in: &mut impl ChecksumIndexInput) -> Result<u64, LuceneError> {
+    pub fn check_footer(checksum_in: &mut impl ChecksumIndexInput) -> Result<i64, LuceneError> {
         Self::validate_footer(checksum_in)?;
         let actual_checksum = checksum_in.get_checksum();
         let expected_checksum = Self::read_crc(checksum_in)?;
@@ -507,7 +510,7 @@ impl CodecUtil {
         let error = prior_error.to_string();
         let mut error_message: String = "".to_string();
         let remaining = checksum_in.length() - checksum_in.get_file_pointer();
-        if remaining < Self::footer_length() as u64 {
+        if remaining < Self::footer_length() as i64 {
             // corruption caused us to read into the checksum footer already: we can't proceed
             error_message = format!( "{} cause by checksum status indeterminate: remaining={}, ; please run check index for more details: {} ",
                                      error,
@@ -517,7 +520,7 @@ impl CodecUtil {
         } else {
             // otherwise, skip any unread bytes.
             let result =
-                DataInput::skip_bytes(checksum_in, remaining - Self::footer_length() as u64);
+                DataInput::skip_bytes(checksum_in, remaining - Self::footer_length() as i64);
             if result.is_err() {
                 error_message = format!(
                     "{} cause by: checksum status indeterminate: unexpected exception: {} {}",
@@ -561,8 +564,8 @@ impl CodecUtil {
     ///
     /// # Errors
     /// - `IoError`: If the footer is invalid.
-    pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<u64, LuceneError> {
-        if input.length() < Self::footer_length() as u64 {
+    pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<i64, LuceneError> {
+        if input.length() < Self::footer_length() as i64 {
             return Err(LuceneError::corrupt_index(format!(
                 "misplaced codec footer (file truncated?): length={} but footerLength=={} (resource={})",
                 input.length(),
@@ -570,7 +573,7 @@ impl CodecUtil {
                 input
             )));
         }
-        input.seek(input.length() - Self::footer_length() as u64)?;
+        input.seek(input.length() - Self::footer_length() as i64)?;
         Self::validate_footer(input)?;
         Self::read_crc(input)
     }
@@ -585,9 +588,9 @@ impl CodecUtil {
     #[allow(unused)]
     fn retrieve_checksum_with_expected(
         input: &mut impl IndexInput,
-        expected_length: u64,
-    ) -> Result<u64, LuceneError> {
-        if expected_length < Self::footer_length() as u64 {
+        expected_length: i64,
+    ) -> Result<i64, LuceneError> {
+        if expected_length < Self::footer_length() as i64 {
             return Err(LuceneError::illegal_argument(
                 "expectedLength cannot be less than the footer length".to_string(),
             ));
@@ -617,7 +620,7 @@ impl CodecUtil {
     fn validate_footer(input: &mut impl IndexInput) -> Result<(), LuceneError> {
         let remaining = input.length() - input.get_file_pointer();
         let expected = Self::footer_length();
-        match remaining.cmp(&(expected as u64)) {
+        match remaining.cmp(&(expected as i64)) {
             Ordering::Less => {
                 return Err(LuceneError::corrupt_index(format!(
                     "misplaced codec footer (file truncated?): remaining={}, expected={}, fp={} (resource={})",
@@ -660,12 +663,12 @@ impl CodecUtil {
     /// # Note
     /// This method may be slow, as it must process the entire file.  
     /// If you just need to extract the checksum value, call [`retrieve_checksum`](CodecUtil::retrieve_checksum).
-    pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<u64, LuceneError> {
+    pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<i64, LuceneError> {
         let mut clone = input.clone();
         clone.seek(0)?;
         let mut checksum_in = BufferedChecksumIndexInput::new(clone);
         assert_eq!(checksum_in.get_file_pointer(), 0);
-        if checksum_in.length() < Self::footer_length() as u64 {
+        if checksum_in.length() < Self::footer_length() as i64 {
             return Err(LuceneError::corrupt_index(format!(
                 "misplaced codec footer (file truncated?): length={} but footerLength=={} (resource={})",
                 checksum_in.length(),
@@ -676,7 +679,7 @@ impl CodecUtil {
         let checksum_len = checksum_in.length();
         IndexInput::seek(
             &mut checksum_in,
-            checksum_len - Self::footer_length() as u64,
+            checksum_len - Self::footer_length() as i64,
         )?;
         Self::check_footer(&mut checksum_in)
     }
@@ -686,9 +689,9 @@ impl CodecUtil {
     /// # Errors
     /// - `CorruptIndexError`: If the CRC is formatted incorrectly (wrong bits set).
     /// - `IoError`: If an I/O error occurs.
-    pub fn read_crc(input: &mut impl IndexInput) -> Result<u64, LuceneError> {
+    pub fn read_crc(input: &mut impl IndexInput) -> Result<i64, LuceneError> {
         let value = Self::read_be_long(input)?;
-        if value & 0xFFFFFFFF00000000 != 0 {
+        if (value as u64) & 0xFFFFFFFF00000000 != 0 {
             return Err(LuceneError::corrupt_index(format!(
                 "Illegal CRC-32 checksum: {} (resource={})",
                 value, input
@@ -704,13 +707,14 @@ impl CodecUtil {
     /// - `IoError`: If an I/O error occurs.
     pub fn write_crc(out: &mut impl IndexOutput) -> Result<(), LuceneError> {
         let value = out.get_check_sum();
-        if value as u64 & 0xFFFFFFFF00000000 != 0 {
+        if value & 0xFFFFFFFF00000000 != 0 {
             return Err(LuceneError::illegal_state(format!(
                 "Illegal CRC-32 checksum: {} +  (resource={})",
                 value, out
             )));
         }
-        Self::write_be_long(out, value)
+        debug_assert!(value <= i64::MAX as u64);
+        Self::write_be_long(out, value as i64)
     }
 
     /// Writes an integer value to the header or footer in big-endian order.
@@ -740,19 +744,19 @@ impl CodecUtil {
         Ok(())
     }
     /// Reads an integer value from the header or footer in big-endian order.
-    pub fn read_be_int(out: &mut impl DataInput) -> Result<u32, LuceneError> {
+    pub fn read_be_int(out: &mut impl DataInput) -> Result<i32, LuceneError> {
         let byte1 = out.read_byte()? as i32;
         let byte2 = out.read_byte()? as i32;
         let byte3 = out.read_byte()? as i32;
         let byte4 = out.read_byte()? as i32;
 
-        Ok(((byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4) as u32)
+        Ok((byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4)
     }
 
     /// Reads a long value from the header or footer in big-endian order.
-    pub fn read_be_long(out: &mut impl DataInput) -> Result<u64, LuceneError> {
+    pub fn read_be_long(out: &mut impl DataInput) -> Result<i64, LuceneError> {
         let mut buffer = [0u8; 8];
         out.read_bytes(&mut buffer, 0, 8)?;
-        Ok(u64::from_be_bytes(buffer))
+        Ok(i64::from_be_bytes(buffer))
     }
 }

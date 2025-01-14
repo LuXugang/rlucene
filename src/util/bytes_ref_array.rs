@@ -38,9 +38,9 @@ use std::sync::{Arc, Mutex};
 /// This is an internal and experimental component.
 pub struct BytesRefArray {
     pool: ByteBlockPool,
-    offsets: Vec<u32>,
+    offsets: Vec<i32>,
     last_element: i32,
-    current_offset: u32,
+    current_offset: i32,
     byte_used: Arc<Mutex<CounterEnum>>,
 }
 impl BytesRefArray {
@@ -92,7 +92,7 @@ impl BytesRefArray {
         spare.set_length(length);
 
         self.pool.read_bytes(
-            offset as u64,
+            offset as i64,
             spare.bytes_ref().bytes.as_mut_slice(),
             0,
             length,
@@ -125,7 +125,7 @@ impl BytesRefArray {
         };
 
         self.pool
-            .set_bytes_ref(spare, result, offset as u64, length);
+            .set_bytes_ref(spare, result, offset as i64, length);
         Ok(())
     }
 

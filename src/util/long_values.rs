@@ -18,20 +18,19 @@ use crate::util::error::lucene_error::LuceneError;
 
 /// Abstraction over an array of longs.
 pub trait LongValues {
-    fn get(&mut self, index: u64) -> Result<i64, LuceneError>;
+    fn get(&mut self, index: i64) -> Result<i64, LuceneError>;
 }
 
 #[derive(Clone)]
 pub struct Zeroes;
 impl LongValues for Zeroes {
-    fn get(&mut self, _index: u64) -> Result<i64, LuceneError> {
+    fn get(&mut self, _index: i64) -> Result<i64, LuceneError> {
         Ok(0)
     }
 }
 pub struct Identity;
 impl LongValues for Identity {
-    fn get(&mut self, index: u64) -> Result<i64, LuceneError> {
-        debug_assert!(index <= i64::MAX as u64);
-        Ok(index as i64)
+    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+        Ok(index)
     }
 }

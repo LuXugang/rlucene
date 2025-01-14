@@ -23,8 +23,8 @@ use std::fmt::{Display, Formatter};
 
 /// An [`IndexOutput`] writing to a [`ByteBuffersDataOutput`]
 pub struct ByteBuffersIndexOutput<'a> {
-    last_checksum_position: u64,
-    last_checksum: i64,
+    last_checksum_position: i64,
+    last_checksum: u64,
     delegate: &'a mut ByteBuffersDataOutput,
     name: String,
     resource_description: String,
@@ -63,11 +63,11 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_byte(b)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), LuceneError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<(), LuceneError> {
         self.delegate.write_bytes_with_len(b, len)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), LuceneError> {
         self.delegate.write_bytes_range(b, offset, length)
     }
 
@@ -90,7 +90,7 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
     fn copy_bytes<T: DataInput>(
         &mut self,
         input: &mut T,
-        num_bytes: u64,
+        num_bytes: i64,
     ) -> Result<(), LuceneError> {
         self.delegate.copy_bytes(input, num_bytes)
     }
@@ -107,11 +107,11 @@ impl Display for ByteBuffersIndexOutput<'_> {
 }
 
 impl IndexOutput for ByteBuffersIndexOutput<'_> {
-    fn get_file_pointer(&self) -> u64 {
+    fn get_file_pointer(&self) -> i64 {
         self.delegate.size()
     }
 
-    fn get_check_sum(&mut self) -> i64 {
+    fn get_check_sum(&mut self) -> u64 {
         if self.last_checksum_position != self.delegate.size() {
             self.last_checksum_position = self.delegate.size();
             self.checksum.reset();
@@ -124,13 +124,13 @@ impl IndexOutput for ByteBuffersIndexOutput<'_> {
                     //Each block has the same data length except for the last block.
                     // Therefore, we need to use last_block_len to get the data length
                     // of the last block.
-                    last_block_len -= block.get_ref().len() as u64;
+                    last_block_len -= block.get_ref().len() as i64;
                     self.checksum.update(block.get_ref());
                 }
                 self.checksum
                     .update(&last_block.get_ref()[0..last_block_len as usize]);
             }
-            self.last_checksum = self.checksum.clone().finalize() as i64;
+            self.last_checksum = self.checksum.clone().finalize() as u64;
         }
         self.last_checksum
     }

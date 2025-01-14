@@ -18,8 +18,8 @@ use crc32fast::Hasher;
 
 pub trait Checksum {
     fn update(&mut self, b: u8);
-    fn update_bytes(&mut self, bytes: &[u8], offset: u32, len: u32);
-    fn get_value(&mut self) -> u64;
+    fn update_bytes(&mut self, bytes: &[u8], offset: i32, len: i32);
+    fn get_value(&mut self) -> i64;
     fn reset(&mut self);
 }
 
@@ -42,14 +42,14 @@ impl Checksum for HasherChecksum {
         self.hasher.update(&[b]);
     }
 
-    fn update_bytes(&mut self, bytes: &[u8], offset: u32, len: u32) {
+    fn update_bytes(&mut self, bytes: &[u8], offset: i32, len: i32) {
         let offset = offset as usize;
         let len = len as usize;
         self.hasher.update(&bytes[offset..offset + len]);
     }
 
-    fn get_value(&mut self) -> u64 {
-        self.hasher.clone().finalize() as u64
+    fn get_value(&mut self) -> i64 {
+        self.hasher.clone().finalize() as i64
     }
 
     fn reset(&mut self) {

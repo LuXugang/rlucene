@@ -27,15 +27,15 @@ pub struct PackedReaderIterator<'a, D>
 where
     D: DataInput,
 {
-    packed_ints_version: u32,
+    packed_ints_version: i32,
     format: Format,
     bulk_operation: &'static BulkOperationPackedEnum,
     next_blocks: Vec<u8>,
     next_values: LongsRef,
-    iterations: u32,
+    iterations: i32,
     position: i32,
-    value_count: u32,
-    bits_per_value: u32,
+    value_count: i32,
+    bits_per_value: i32,
     data_input: &'a mut D,
 }
 impl<'a, D> PackedReaderIterator<'a, D>
@@ -44,11 +44,11 @@ where
 {
     pub fn new(
         format: Format,
-        packed_ints_version: u32,
-        value_count: u32,
-        bits_per_value: u32,
+        packed_ints_version: i32,
+        value_count: i32,
+        bits_per_value: i32,
         data_input: &'a mut D,
-        mem: u32,
+        mem: i32,
     ) -> Self {
         let bulk_operation = of(format, bits_per_value);
         let iterations = bulk_operation.compute_iterations(value_count, mem);
@@ -60,10 +60,9 @@ where
 
         let next_blocks =
             vec![0u8; iterations as usize * bulk_operation.byte_block_count() as usize];
-        let next_values_long_length =
-            iterations as usize * bulk_operation.byte_value_count() as usize;
+        let next_values_long_length = iterations * bulk_operation.byte_value_count();
         let next_values = LongsRef::from_slice(
-            vec![0i64; next_values_long_length],
+            vec![0i64; next_values_long_length as usize],
             next_values_long_length,
             0,
         );
@@ -86,36 +85,36 @@ impl<'a, D> ReaderIterator for PackedReaderIterator<'a, D>
 where
     D: DataInput + 'a,
 {
-    fn next_batch(&mut self, mut count: u32) -> Result<&mut LongsRef, LuceneError> {
+    fn next_batch(&mut self, mut count: i32) -> Result<&mut LongsRef, LuceneError> {
+        debug_assert!(count > 0);
         debug_assert!(
-            self.next_values.offset + self.next_values.length <= self.next_values.longs.len(),
+            (self.next_values.offset + self.next_values.length) as usize
+                <= self.next_values.longs.len(),
             "Offset and length should be within the bounds of longs"
         );
         self.next_values.offset += self.next_values.length;
 
-        let remaining = self.value_count as i32 - self.position - 1;
+        let remaining = self.value_count - self.position - 1;
         if remaining <= 0 {
             return Err(LuceneError::eof("No more values to read"));
         }
 
-        count = count.min(remaining as u32);
+        count = count.min(remaining);
 
-        if self.next_values.offset == self.next_values.longs.len() {
-            let remaining_blocks = self.format.byte_count(
-                self.packed_ints_version,
-                remaining as u32,
-                self.bits_per_value,
-            );
-            let blocks_to_read = remaining_blocks.min(self.next_blocks.len() as u64) as usize;
-
+        if self.next_values.offset as usize == self.next_values.longs.len() {
+            let remaining_blocks =
+                self.format
+                    .byte_count(self.packed_ints_version, remaining, self.bits_per_value);
+            let blocks_to_read = remaining_blocks.min(self.next_blocks.len() as i64);
+            debug_assert!(blocks_to_read <= i32::MAX as i64);
             self.data_input.read_bytes(
-                &mut self.next_blocks[..blocks_to_read],
+                &mut self.next_blocks[..blocks_to_read as usize],
                 0,
-                blocks_to_read as u32,
+                blocks_to_read as i32,
             )?;
 
-            if blocks_to_read < self.next_blocks.len() {
-                self.next_blocks[blocks_to_read..].fill(0);
+            if (blocks_to_read as usize) < self.next_blocks.len() {
+                self.next_blocks[blocks_to_read as usize..].fill(0);
             }
 
             self.bulk_operation.decode_u8_to_i64(
@@ -129,10 +128,9 @@ where
             self.next_values.offset = 0;
         }
 
-        self.next_values.length =
-            (self.next_values.longs.len() - self.next_values.offset).min(count as usize);
-        debug_assert!(self.next_values.length <= u32::MAX as usize);
-        self.position += self.next_values.length as i32;
+        self.next_values.length = (self.next_values.longs.len() - self.next_values.offset as usize)
+            .min(count as usize) as i32;
+        self.position += self.next_values.length;
 
         Ok(&mut self.next_values)
     }

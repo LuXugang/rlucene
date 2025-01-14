@@ -20,28 +20,28 @@ use crate::util::error::lucene_error::LuceneError;
 /// reads are absolute. However, like `IndexInput`, it is only intended for use by a single thread.
 pub trait RandomAccessInput {
     /// The number of bytes in the file.
-    fn length(&self) -> u64;
+    fn length(&self) -> i64;
     /// Reads a byte at the given position in the file
-    fn read_byte(&mut self, pos: u64) -> Result<u8, LuceneError>;
+    fn read_byte(&mut self, pos: i64) -> Result<u8, LuceneError>;
     /// Reads a specified number of bytes starting at a given position into an array at the specified offset.
     fn read_bytes(
         &mut self,
-        pos: u64,
+        pos: i64,
         buf: &mut [u8],
-        offset: u32,
-        len: u32,
+        offset: i32,
+        len: i32,
     ) -> Result<(), LuceneError> {
         for i in 0..len {
-            buf[(offset + i) as usize] = self.read_byte(pos + i as u64)?;
+            buf[(offset + i) as usize] = self.read_byte(pos + i as i64)?;
         }
         Ok(())
     }
     ///  Reads an i16 (LE byte order) at the given position in the file.
-    fn read_short(&mut self, pos: u64) -> Result<i16, LuceneError>;
+    fn read_short(&mut self, pos: i64) -> Result<i16, LuceneError>;
     /// Reads an i32 (LE byte order) at the given position in the file.
-    fn read_int(&mut self, pos: u64) -> Result<i32, LuceneError>;
+    fn read_int(&mut self, pos: i64) -> Result<i32, LuceneError>;
     /// Reads a long (LE byte order) at the given position in the file.
-    fn read_long(&mut self, pos: u64) -> Result<i64, LuceneError>;
+    fn read_long(&mut self, pos: i64) -> Result<i64, LuceneError>;
     ///  Prefetch data in the background.
-    fn pre_fetch(&mut self, pos: u64, len: u64) -> Result<(), LuceneError>;
+    fn pre_fetch(&mut self, pos: i64, len: i64) -> Result<(), LuceneError>;
 }

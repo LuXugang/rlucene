@@ -51,7 +51,7 @@ fn do_test_data_types(offset: usize) -> Result<(), LuceneError> {
 
         out.write_long(1234567890123456789)?;
         hasher.update(&1234567890123456789u64.to_le_bytes());
-        assert_eq!(out.get_file_pointer(), (offset + 14) as u64);
+        assert_eq!(out.get_file_pointer(), (offset + 14) as i64);
         assert_eq!(
             out.get_check_sum() as u32,
             hasher.finalize(),
@@ -84,13 +84,13 @@ fn test_write_exceeding_buffer() -> Result<(), LuceneError> {
 
         let mut hasher = Hasher::new();
 
-        out.write_bytes_range(&large_data, 0, large_data.len() as u32)?;
+        out.write_bytes_range(&large_data, 0, large_data.len() as i32)?;
         hasher.update(&large_data);
 
-        assert_eq!(out.get_file_pointer(), large_data.len() as u64);
+        assert_eq!(out.get_file_pointer(), large_data.len() as i64);
         assert_eq!(
-            out.get_check_sum() as u32,
-            hasher.finalize(),
+            out.get_check_sum(),
+            hasher.finalize() as u64,
             "Checksum mismatch"
         );
     }
@@ -112,17 +112,17 @@ fn test_multiple_writes_with_checksum() -> Result<(), LuceneError> {
         let data2 = b"World";
         let mut hasher = Hasher::new();
 
-        out.write_bytes_range(data1, 0, data1.len() as u32)?;
+        out.write_bytes_range(data1, 0, data1.len() as i32)?;
         hasher.update(data1);
         let sum1 = out.get_check_sum();
-        out.write_bytes_range(data2, 0, data2.len() as u32)?;
+        out.write_bytes_range(data2, 0, data2.len() as i32)?;
         hasher.update(data2);
         let sum2 = out.get_check_sum();
         assert_ne!(sum1, sum2, "Checksum mismatch");
 
         assert_eq!(
-            out.get_check_sum() as u32,
-            hasher.finalize(),
+            out.get_check_sum(),
+            hasher.finalize() as u64,
             "Checksum mismatch"
         );
         combined_data = [data1.as_slice(), data2.as_slice()].concat();

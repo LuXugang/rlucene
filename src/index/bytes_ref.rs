@@ -34,8 +34,8 @@ use std::hash::Hash;
 pub struct BytesRef {
     /// The contents of the BytesRef. Should never be `None`.
     pub bytes: Vec<u8>,
-    pub offset: u32,
-    pub length: u32,
+    pub offset: i32,
+    pub length: i32,
 }
 impl Default for BytesRef {
     fn default() -> Self {
@@ -51,7 +51,7 @@ impl BytesRef {
             length: 0,
         }
     }
-    pub fn new_from_vec(bytes: Vec<u8>, offset: u32, length: u32) -> BytesRef {
+    pub fn new_from_vec(bytes: Vec<u8>, offset: i32, length: i32) -> BytesRef {
         BytesRef {
             bytes,
             offset,
@@ -59,8 +59,8 @@ impl BytesRef {
         }
     }
     pub fn new_from_bytes(bytes: Vec<u8>) -> BytesRef {
-        debug_assert!(bytes.len() <= u32::MAX as usize);
-        let length = bytes.len() as u32;
+        debug_assert!(bytes.len() <= i32::MAX as usize);
+        let length = bytes.len() as i32;
         BytesRef {
             bytes,
             offset: 0,
@@ -75,11 +75,11 @@ impl BytesRef {
         }
     }
     pub fn new_from_string(s: &str) -> BytesRef {
-        debug_assert!(s.len() <= u32::MAX as usize);
+        debug_assert!(s.len() <= i32::MAX as usize);
         BytesRef {
             bytes: s.as_bytes().to_vec(),
             offset: 0,
-            length: s.len() as u32,
+            length: s.len() as i32,
         }
     }
     /// Expert: compares the bytes against another BytesRef, returning true if the bytes are equal.

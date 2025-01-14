@@ -33,52 +33,54 @@ pub struct ByteBuffersDataInput<'a> {
     /// where each ByteBuffer limits the readable data using the limit parameter.
     /// In Rust Lucene, however, this is managed by controlling the readable data using Cursor#setPosition.
     blocks: Vec<Cursor<&'a [u8]>>,
-    block_mask: u32,
-    block_bits: u32,
-    length: u64,
-    offset: u64,
-    pos: u64,
+    block_mask: i32,
+    block_bits: i32,
+    length: i64,
+    offset: i64,
+    pos: i64,
 }
 /// Reads data from a set of contiguous buffers.
 /// All data buffers except for the last one must have an identical number of remaining bytes (which must be a power of two).
 /// The last buffer can have an arbitrary remaining length.
 impl<'a> ByteBuffersDataInput<'a> {
-    pub fn new(blocks: Vec<Cursor<&'a [u8]>>, length: u64) -> Self {
+    pub fn new(blocks: Vec<Cursor<&'a [u8]>>, length: i64) -> Self {
         let (block_bits, block_mask) = if blocks.is_empty() {
             (32, !0)
         } else {
             let block_bytes = blocks[0].get_ref().len() as u64;
             let block_bits = block_bytes.trailing_zeros();
+            debug_assert!(block_bits <= i32::MAX as u32);
             (block_bits, (1 << block_bits) - 1)
         };
         // The initial "position" of this stream is shifted by the position of the first block.
         let offset = blocks.first().map_or(0, |block| block.position());
-
+        debug_assert!(offset <= i64::MAX as u64);
+        let offset = offset as i64;
         Self {
             blocks,
             block_mask,
-            block_bits,
+            block_bits: block_bits as i32,
             length,
             offset,
             pos: offset,
         }
     }
-    fn block_index(&self, pos: u64) -> u32 {
+    fn block_index(&self, pos: i64) -> i32 {
         let value = pos >> self.block_bits;
-        debug_assert!(value <= u32::MAX as u64);
-        value as u32
+        debug_assert!(value <= i32::MAX as i64);
+        value as i32
     }
-    fn block_offset(&self, pos: u64) -> u32 {
-        let value = pos & (self.block_mask as u64);
-        debug_assert!(value <= i32::MAX as u64,);
-        value as u32
+    fn block_offset(&self, pos: i64) -> i32 {
+        let value = pos & (self.block_mask as i64);
+        debug_assert!(value <= i32::MAX as i64,);
+        value as i32
     }
     fn read_buffer<T, C>(
         &mut self,
-        mut pos: u64,
-        len: u32,
+        mut pos: i64,
+        len: i32,
         output: &mut [T],
-        type_size: u32,
+        type_size: i32,
         converter: C,
     ) -> Result<(), LuceneError>
     where
@@ -95,7 +97,7 @@ impl<'a> ByteBuffersDataInput<'a> {
             let block_offset = self.block_offset(pos);
 
             if block_index as usize >= self.blocks.len()
-                || pos + bytes_read as u64 > self.length + self.offset
+                || pos + bytes_read as i64 > self.length + self.offset
             {
                 return Err(LuceneError::eof(format!("{}", pos)));
             }
@@ -103,10 +105,10 @@ impl<'a> ByteBuffersDataInput<'a> {
             let block = self.blocks.get_mut(block_index as usize).unwrap();
             let available = block.remain_between(block_offset as u64, block.get_ref().len() as u64);
 
-            debug_assert!(available <= u32::MAX as u64);
+            debug_assert!(available <= i32::MAX as u64);
 
             debug_assert!(available > 0);
-            let chunk = bytes_read.min(available as u32);
+            let chunk = bytes_read.min(available as i32);
             block.read_to_buffer(
                 &mut bytes,
                 bytes_offset as usize,
@@ -114,7 +116,7 @@ impl<'a> ByteBuffersDataInput<'a> {
                 chunk as usize,
             )?;
             bytes_offset += chunk;
-            pos += chunk as u64;
+            pos += chunk as i64;
             bytes_read -= chunk;
         }
 
@@ -133,24 +135,24 @@ impl<'a> ByteBuffersDataInput<'a> {
 
         Ok(())
     }
-    fn read_longs(&mut self, pos: u64, len: u32, output: &mut [i64]) -> Result<(), LuceneError> {
-        self.read_buffer(pos, len, output, BitUtil::LONG_BYTES as u32, LE::read_i64)
+    fn read_longs(&mut self, pos: i64, len: i32, output: &mut [i64]) -> Result<(), LuceneError> {
+        self.read_buffer(pos, len, output, BitUtil::LONG_BYTES as i32, LE::read_i64)
     }
-    fn read_bytes(&mut self, pos: u64, len: u32, output: &mut [u8]) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, pos: i64, len: i32, output: &mut [u8]) -> Result<(), LuceneError> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
-    fn read_ints(&mut self, pos: u64, len: u32, output: &mut [i32]) -> Result<(), LuceneError> {
-        self.read_buffer(pos, len, output, BitUtil::INT_BYTES as u32, LE::read_i32)
+    fn read_ints(&mut self, pos: i64, len: i32, output: &mut [i32]) -> Result<(), LuceneError> {
+        self.read_buffer(pos, len, output, BitUtil::INT_BYTES as i32, LE::read_i32)
     }
-    fn read_shorts(&mut self, pos: u64, len: u32, output: &mut [i16]) -> Result<(), LuceneError> {
-        self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES as u32, LE::read_i16)
+    fn read_shorts(&mut self, pos: i64, len: i32, output: &mut [i16]) -> Result<(), LuceneError> {
+        self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES as i32, LE::read_i16)
     }
-    fn read_floats(&mut self, pos: u64, len: u32, output: &mut [f32]) -> Result<(), LuceneError> {
-        self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES as u32, LE::read_f32)
+    fn read_floats(&mut self, pos: i64, len: i32, output: &mut [f32]) -> Result<(), LuceneError> {
+        self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES as i32, LE::read_f32)
     }
 
-    pub fn seek(&mut self, position: u64) -> Result<(), LuceneError> {
+    pub fn seek(&mut self, position: i64) -> Result<(), LuceneError> {
         self.pos = position + self.offset;
         if position > self.length() {
             self.pos = self.length;
@@ -158,11 +160,11 @@ impl<'a> ByteBuffersDataInput<'a> {
         }
         Ok(())
     }
-    pub fn position(&self) -> u64 {
+    pub fn position(&self) -> i64 {
         self.pos - self.offset
     }
-    pub fn slice(&self, offset: u64, length: u64) -> Result<ByteBuffersDataInput<'a>, LuceneError> {
-        if offset + length > self.length {
+    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<'a>, LuceneError> {
+        if offset < 0 || length < 0 || offset + length > self.length {
             return Err(LuceneError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
                 offset, length, self.length
@@ -201,27 +203,27 @@ impl DataInput for ByteBuffersDataInput<'_> {
         self.pos += 1;
         Ok(bytes[0])
     }
-    fn read_bytes(&mut self, arr: &mut [u8], off: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, arr: &mut [u8], off: i32, len: i32) -> Result<(), LuceneError> {
         self.read_bytes(self.pos, len, &mut arr[off as usize..(off + len) as usize])?;
-        self.pos += len as u64;
+        self.pos += len as i64;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16, LuceneError> {
         let mut output = [0; 1];
         self.read_shorts(self.pos, 1, &mut output)?;
-        self.pos += BitUtil::SHORT_BYTES as u64;
+        self.pos += BitUtil::SHORT_BYTES as i64;
         Ok(output[0])
     }
 
     fn read_int(&mut self) -> Result<i32, LuceneError> {
         let mut output = [0; 1];
         self.read_ints(self.pos, 1, &mut output)?;
-        self.pos += BitUtil::INT_BYTES as u64;
+        self.pos += BitUtil::INT_BYTES as i64;
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), LuceneError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<(), LuceneError> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
         let block = self.blocks.get_mut(block_index as usize).unwrap();
@@ -230,41 +232,41 @@ impl DataInput for ByteBuffersDataInput<'_> {
         let len = GroupVIntUtil::read_group_vint_with_reader(
             self,
             remain as u64,
-            block_offset as u64,
+            block_offset as i64,
             dst,
             offset,
         )?;
-        self.pos += len as u64;
+        self.pos += len as i64;
         Ok(())
     }
     fn read_long(&mut self) -> Result<i64, LuceneError> {
         let mut output = [0; 1];
         self.read_longs(self.pos, 1, &mut output)?;
-        self.pos += BitUtil::LONG_BYTES as u64;
+        self.pos += BitUtil::LONG_BYTES as i64;
         Ok(output[0])
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<(), LuceneError> {
         self.read_longs(
             self.pos,
             len,
             &mut dst[offset as usize..(offset + len) as usize],
         )?;
-        self.pos += len as u64;
+        self.pos += len as i64;
         Ok(())
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<(), LuceneError> {
         self.read_floats(
             self.pos,
             len,
             &mut dst[offset as usize..(offset + len) as usize],
         )?;
-        self.pos += len as u64;
+        self.pos += len as i64;
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
         let skip_to = self.position() + num_bytes;
         self.seek(skip_to)
     }
@@ -272,39 +274,39 @@ impl DataInput for ByteBuffersDataInput<'_> {
 // TODO: In the current implementation, after performing a random read of a specific value, it is not possible to use sequential reads to access the next value at the subsequent position.
 // TODO: should we support this feature?
 impl RandomAccessInput for ByteBuffersDataInput<'_> {
-    fn length(&self) -> u64 {
+    fn length(&self) -> i64 {
         self.length
     }
 
-    fn read_byte(&mut self, pos: u64) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self, pos: i64) -> Result<u8, LuceneError> {
         let pos = pos + self.offset;
         let mut bytes = [0; 1];
         self.read_bytes(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_short(&mut self, pos: u64) -> Result<i16, LuceneError> {
+    fn read_short(&mut self, pos: i64) -> Result<i16, LuceneError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::SHORT_BYTES];
         self.read_shorts(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_int(&mut self, pos: u64) -> Result<i32, LuceneError> {
+    fn read_int(&mut self, pos: i64) -> Result<i32, LuceneError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::INT_BYTES];
         self.read_ints(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_long(&mut self, pos: u64) -> Result<i64, LuceneError> {
+    fn read_long(&mut self, pos: i64) -> Result<i64, LuceneError> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::LONG_BYTES];
         self.read_longs(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, _pos: u64, _len: u64) -> Result<(), LuceneError> {
+    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<(), LuceneError> {
         Ok(())
     }
 }
@@ -317,13 +319,13 @@ impl Accountable for ByteBuffersDataInput<'_> {
 
 pub fn slice_buffer_list<'a>(
     blocks: &[Cursor<&'a [u8]>],
-    offset: u64,
-    length: u64,
+    offset: i64,
+    length: i64,
 ) -> Vec<Cursor<&'a [u8]>> {
     assert!(!blocks.is_empty(), "blocks cannot be empty");
 
-    let abs_start = blocks[0].position() + offset;
-    let abs_end = abs_start + length;
+    let abs_start = blocks[0].position() + offset as u64;
+    let abs_end = abs_start + length as u64;
 
     let block_bytes = blocks[0].get_ref().len() as u64;
     debug_assert!(block_bytes.is_power_of_two());

@@ -32,24 +32,29 @@ impl MonotonicLongValues {
     }
     pub(crate) fn decode_block(
         &mut self,
-        block: usize,
+        block: i32,
         dest: &mut [i64],
-        count: u32,
-    ) -> Result<u32, LuceneError> {
-        let average = self.averages[block];
+        count: i32,
+    ) -> Result<i32, LuceneError> {
+        let average = self.averages[block as usize];
         for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
-            *item += expected(0, average, i);
+            debug_assert!(i <= i32::MAX as usize);
+            *item += expected(0, average, i as i32);
         }
         Ok(count)
     }
 
     pub(crate) fn get_value(
         &mut self,
-        block: usize,
-        element: usize,
+        block: i32,
+        element: i32,
         value: u64,
     ) -> Result<i64, LuceneError> {
-        Ok(expected(value as i64, self.averages[block], element))
+        Ok(expected(
+            value as i64,
+            self.averages[block as usize],
+            element,
+        ))
     }
 }
 
@@ -70,12 +75,12 @@ impl MonotonicLongValuesBuilder {
 
     pub fn new() -> Self {
         Self {
-            averages: vec![0.0; INITIAL_PAGE_COUNT],
+            averages: vec![0.0; INITIAL_PAGE_COUNT as usize],
         }
     }
 
-    pub fn build(mut self, values_off: usize) -> Result<MonotonicLongValues, LuceneError> {
-        let _ = self.averages.split_off(values_off);
+    pub fn build(mut self, values_off: i32) -> Result<MonotonicLongValues, LuceneError> {
+        let _ = self.averages.split_off(values_off as usize);
 
         // TODO
         let _ram_bytes_used = 0;
@@ -91,8 +96,8 @@ impl MonotonicLongValuesBuilder {
     pub(crate) fn pack(
         &mut self,
         values: &mut [i64],
-        num_values: u32,
-        block: usize,
+        num_values: i32,
+        block: i32,
     ) -> Result<(), LuceneError> {
         let average = if num_values == 1 {
             0.0
@@ -101,13 +106,14 @@ impl MonotonicLongValuesBuilder {
         };
 
         for (i, value) in values.iter_mut().enumerate().take(num_values as usize) {
-            *value -= expected(0, average, i);
+            debug_assert!(i <= i32::MAX as usize);
+            *value -= expected(0, average, i as i32);
         }
-        self.averages[block] = average;
+        self.averages[block as usize] = average;
         Ok(())
     }
 
-    pub(crate) fn grow(&mut self, new_block_count: u32) {
+    pub(crate) fn grow(&mut self, new_block_count: i32) {
         if new_block_count as usize >= self.averages.len() {
             for _i in 0..new_block_count as usize / 2 {
                 self.averages.push(0.0);

@@ -27,7 +27,7 @@ impl Decoder for BulkOperationPacked6 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block0 = blocks[blocks_offset];
@@ -85,7 +85,7 @@ impl Decoder for BulkOperationPacked6 {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let byte0 = blocks[blocks_offset] as u64;
@@ -112,7 +112,7 @@ impl Decoder for BulkOperationPacked6 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block0 = blocks[blocks_offset];
@@ -170,24 +170,24 @@ impl Decoder for BulkOperationPacked6 {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
-            let byte0 = blocks[blocks_offset] as u32;
+            let byte0 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
 
-            values[values_offset] = (byte0 >> 2) as i32;
+            values[values_offset] = byte0 >> 2;
 
-            let byte1 = blocks[blocks_offset] as u32;
+            let byte1 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
 
-            values[values_offset + 1] = (((byte0 & 3) << 4) | (byte1 >> 4)) as i32;
+            values[values_offset + 1] = ((byte0 & 3) << 4) | (byte1 >> 4);
 
-            let byte2 = blocks[blocks_offset] as u32;
+            let byte2 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
 
-            values[values_offset + 2] = (((byte1 & 15) << 2) | (byte2 >> 6)) as i32;
-            values[values_offset + 3] = (byte2 & 63) as i32;
+            values[values_offset + 2] = ((byte1 & 15) << 2) | (byte2 >> 6);
+            values[values_offset + 3] = byte2 & 63;
 
             values_offset += 4;
         }

@@ -31,25 +31,25 @@ pub struct ByteBuffersDataOutput {
     // However, in Java Lucene, the valid data range can be controlled
     // by the `limit` parameter of the `java.nio.ByteBuffer` encapsulation.
     blocks: VecDeque<Cursor<Vec<u8>>>,
-    max_bits_per_block: u32,
-    block_bits: u32,
+    max_bits_per_block: i32,
+    block_bits: i32,
     ram_bytes_used: i64,
     // it is necessary when we want to reuse the data output
-    current_block_index: u32,
+    current_block_index: i32,
     reuse: bool,
 }
 impl ByteBuffersDataOutput {
     /// Smallest `minBitsPerBlock` allowed
-    pub const LIMIT_MIN_BITS_PER_BLOCK: u32 = 1;
+    pub const LIMIT_MIN_BITS_PER_BLOCK: i32 = 1;
     /// Largest `maxBitsPerBlock` allowed
-    pub const LIMIT_MAX_BITS_PER_BLOCK: u32 = 31;
+    pub const LIMIT_MAX_BITS_PER_BLOCK: i32 = 31;
     ///Maximum number of blocks at the current `blockBits` block size before we increase the
     ///block size (and thus decrease the number of blocks).
-    pub const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: u32 = 100;
+    pub const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: i32 = 100;
     ///Default `maxBitsPerBlock`
-    pub const DEFAULT_MAX_BITS_PER_BLOCK: u32 = 26;
+    pub const DEFAULT_MAX_BITS_PER_BLOCK: i32 = 26;
     /// Default `minBitsPerBlock`
-    pub const DEFAULT_MIN_BITS_PER_BLOCK: u32 = 10;
+    pub const DEFAULT_MIN_BITS_PER_BLOCK: i32 = 10;
 
     ///Creates a new output with all defaults.
     pub fn new_resettable_instance() -> Result<Self, LuceneError> {
@@ -66,8 +66,8 @@ impl ByteBuffersDataOutput {
     /// * `max_bits_per_block` - Maximum bits per block.
     /// * `reuse` - Reuse this Instance.
     pub fn new(
-        min_bits_per_block: u32,
-        max_bits_per_block: u32,
+        min_bits_per_block: i32,
+        max_bits_per_block: i32,
         reuse: bool,
     ) -> Result<Self, LuceneError> {
         if min_bits_per_block < Self::LIMIT_MIN_BITS_PER_BLOCK {
@@ -108,7 +108,7 @@ impl ByteBuffersDataOutput {
     ///
     /// # Arguments
     /// * `expected_size` - Estimated size of the output file.
-    pub fn new_with_expected_size(expected_size: u64) -> Result<Self, LuceneError> {
+    pub fn new_with_expected_size(expected_size: i64) -> Result<Self, LuceneError> {
         let block_bits = compute_block_size_bits_for(expected_size);
         Self::new(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
     }
@@ -135,7 +135,7 @@ impl ByteBuffersDataOutput {
         self.ram_bytes_used += 0;
         self.current_block_index += 1;
     }
-    fn rewrite_to_block_size(&mut self, target_block_bits: u32) {
+    fn rewrite_to_block_size(&mut self, target_block_bits: i32) {
         debug_assert!(target_block_bits <= self.max_bits_per_block);
         self.rewrite_blocks(target_block_bits);
         // TODO:
@@ -143,7 +143,7 @@ impl ByteBuffersDataOutput {
     }
     // create larger blocks and copy data from smaller blocks
     // TODO: the first old_block's data could be reused ,first do expansion by `push_back` and then move to tail and continue copy the second old_block's data to it
-    pub fn rewrite_blocks(&mut self, target_block_bits: u32) {
+    pub fn rewrite_blocks(&mut self, target_block_bits: i32) {
         debug_assert!(target_block_bits > self.block_bits);
         self.block_bits = target_block_bits;
         let block_size = 1 << self.block_bits;
@@ -179,8 +179,8 @@ impl ByteBuffersDataOutput {
         if new_block.position() > 0 {
             self.blocks.push_back(new_block);
         }
-        debug_assert!(self.blocks.len() <= u32::MAX as usize);
-        self.current_block_index = (self.blocks.len() - 1) as u32;
+        debug_assert!(self.blocks.len() <= i32::MAX as usize);
+        self.current_block_index = (self.blocks.len() - 1) as i32;
     }
     /// Copies the current content of this object into another [`DataOutput`].
     #[allow(unused)]
@@ -188,21 +188,22 @@ impl ByteBuffersDataOutput {
         unimplemented!("")
     }
     /// The number of bytes written to this output so far.
-    pub fn size(&self) -> u64 {
+    pub fn size(&self) -> i64 {
         let mut size = 0;
         let block_count = self.current_block_index + 1;
         if block_count >= 1 {
-            let full_block_size = (block_count - 1) as u64 * self.block_size();
+            let full_block_size = (block_count - 1) as i64 * self.block_size();
             let last_block_size = self
                 .blocks
                 .get(self.current_block_index as usize)
                 .unwrap()
                 .position();
-            size = full_block_size + last_block_size;
+            debug_assert!(last_block_size <= i64::MAX as u64);
+            size = full_block_size + last_block_size as i64;
         }
         size
     }
-    fn block_size(&self) -> u64 {
+    fn block_size(&self) -> i64 {
         1 << self.block_bits
     }
     /// Resets this object to a clean (zero-size) state and publishes any currently allocated buffers
@@ -223,7 +224,7 @@ impl ByteBuffersDataOutput {
 
     /// Returns a list of read-only views of [`Cursor<Vec<u8>>`](Cursor) blocks over the current content written
     /// to the output.
-    pub fn to_buffer_list(&self) -> (u64, Vec<Cursor<&[u8]>>) {
+    pub fn to_buffer_list(&self) -> (i64, Vec<Cursor<&[u8]>>) {
         let data = self
             .blocks
             .iter()
@@ -257,7 +258,7 @@ impl ByteBuffersDataOutput {
         ByteBuffersDataInput::new(data, length)
     }
 
-    fn append_block_if_needed(&mut self) -> u64 {
+    fn append_block_if_needed(&mut self) -> i64 {
         let mut last_block = self
             .blocks
             .get_mut(self.current_block_index as usize)
@@ -275,12 +276,14 @@ impl ByteBuffersDataOutput {
                 last_block = self.blocks.back_mut().unwrap();
             }
         }
-        last_block.remain()
+        let value = last_block.remain();
+        debug_assert!(value <= i64::MAX as u64);
+        value as i64
     }
     #[cfg(feature = "test_only")]
     pub fn write_bytes(&mut self, b: Vec<u8>) -> Result<(), LuceneError> {
         debug_assert!(b.len() <= u32::MAX as usize);
-        self.write_bytes_range(&b, 0, b.len() as u32)
+        self.write_bytes_range(&b, 0, b.len() as i32)
     }
 
     #[cfg(feature = "test_only")]
@@ -299,15 +302,15 @@ impl DataOutput for ByteBuffersDataOutput {
         Ok(last_block.write_u8(b)?)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: u32) -> Result<(), LuceneError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<(), LuceneError> {
         self.write_bytes_range(b, 0, len)
     }
 
     fn write_bytes_range(
         &mut self,
         b: &[u8],
-        mut offset: u32,
-        mut length: u32,
+        mut offset: i32,
+        mut length: i32,
     ) -> Result<(), LuceneError> {
         while length > 0 {
             let available_space = self.append_block_if_needed();
@@ -315,11 +318,11 @@ impl DataOutput for ByteBuffersDataOutput {
                 .blocks
                 .get_mut(self.current_block_index as usize)
                 .unwrap();
-            let chunk = available_space.min(length as u64);
-            debug_assert!(chunk <= u32::MAX as u64);
-            last_block.write_from(b, offset, chunk as u32)?;
-            length -= chunk as u32;
-            offset += chunk as u32;
+            let chunk = available_space.min(length as i64);
+            debug_assert!(chunk <= i32::MAX as i64);
+            last_block.write_from(b, offset, chunk as i32)?;
+            length -= chunk as i32;
+            offset += chunk as i32;
         }
         Ok(())
     }
@@ -342,15 +345,15 @@ impl DataOutput for ByteBuffersDataOutput {
     fn write_string(&mut self, s: &str) -> Result<(), LuceneError> {
         let bytes = s.as_bytes();
         let length = bytes.len();
-        debug_assert!(length <= u32::MAX as usize);
+        debug_assert!(length <= i32::MAX as usize);
         self.write_vint(length as i32)?;
-        self.write_bytes_range(bytes, 0, length as u32)
+        self.write_bytes_range(bytes, 0, length as i32)
     }
 
     fn copy_bytes<T: DataInput>(
         &mut self,
         input: &mut T,
-        mut num_bytes: u64,
+        mut num_bytes: i64,
     ) -> Result<(), LuceneError> {
         while num_bytes > 0 {
             let available_space = self.append_block_if_needed();
@@ -359,13 +362,13 @@ impl DataOutput for ByteBuffersDataOutput {
                 .get_mut(self.current_block_index as usize)
                 .unwrap();
             let bytes_to_copy = available_space.min(num_bytes);
-            debug_assert!(bytes_to_copy <= u32::MAX as u64);
+            debug_assert!(bytes_to_copy <= i32::MAX as i64);
 
             let current_pos = last_block.position();
             debug_assert!(current_pos <= u32::MAX as u64);
             let current_block_mut = last_block.get_mut();
-            input.read_bytes(current_block_mut, current_pos as u32, bytes_to_copy as u32)?;
-            last_block.set_position(current_pos + bytes_to_copy);
+            input.read_bytes(current_block_mut, current_pos as i32, bytes_to_copy as i32)?;
+            last_block.set_position(current_pos + bytes_to_copy as u64);
             num_bytes -= bytes_to_copy;
         }
         Ok(())
@@ -378,16 +381,18 @@ impl Accountable for ByteBuffersDataOutput {
     }
 }
 
-fn compute_block_size_bits_for(bytes: u64) -> u32 {
-    let avg_block_size = bytes / ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as u64;
+fn compute_block_size_bits_for(bytes: i64) -> i32 {
+    let avg_block_size =
+        (bytes / ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as i64) as u64;
     let power_of_two = avg_block_size.next_power_of_two();
     if power_of_two == 0 {
         return ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK;
     }
     let mut block_bits = power_of_two.trailing_zeros();
-    block_bits = block_bits.min(ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK);
-    block_bits = block_bits.max(ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK);
-    block_bits
+    block_bits = block_bits.min(ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK as u32);
+    block_bits = block_bits.max(ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK as u32);
+    debug_assert!(block_bits <= i32::MAX as u32);
+    block_bits as i32
 }
 
 #[cfg(feature = "not_required_in_rlucene")]

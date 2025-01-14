@@ -43,7 +43,7 @@ pub static LUCENE_11_0_0: Lazy<Version> = Lazy::new(|| Version::new(11, 0, 0).un
 /// have changed and may break functionality in your application.
 pub static LATEST: Lazy<Version> = Lazy::new(|| LUCENE_11_0_0.clone());
 pub static LUCENE_CURRENT: Lazy<Version> = Lazy::new(|| LATEST.clone());
-pub static MIN_SUPPORTED_MAJOR: Lazy<u32> = Lazy::new(|| LATEST.major - 1);
+pub static MIN_SUPPORTED_MAJOR: Lazy<i32> = Lazy::new(|| LATEST.major - 1);
 /// Used by certain classes to match version compatibility across releases of Lucene.
 ///
 /// # Warning
@@ -53,46 +53,46 @@ pub static MIN_SUPPORTED_MAJOR: Lazy<u32> = Lazy::new(|| LATEST.major - 1);
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Debug, Hash)]
 pub struct Version {
     /// Major version, the difference between stable and trunk.
-    pub major: u32,
+    pub major: i32,
     /// Minor version, incremented within the stable branch.
-    pub minor: u32,
+    pub minor: i32,
     /// Bugfix number, incremented on release branches.
-    pub bug_fix: u32,
+    pub bug_fix: i32,
     /// Prerelease version, currently 0 (alpha), 1 (beta), or 2 (final).
-    pub(crate) prerelease: u32,
-    encoded_value: u32,
+    pub(crate) prerelease: i32,
+    encoded_value: i32,
 }
 impl Version {
-    fn new(major: u32, minor: u32, bug_fix: u32) -> Result<Version, IllegalArgumentError> {
+    fn new(major: i32, minor: i32, bug_fix: i32) -> Result<Version, IllegalArgumentError> {
         Version::new_with_prerelease(major, minor, bug_fix, 0)
     }
     fn new_with_prerelease(
-        major: u32,
-        minor: u32,
-        bug_fix: u32,
-        prerelease: u32,
+        major: i32,
+        minor: i32,
+        bug_fix: i32,
+        prerelease: i32,
     ) -> Result<Version, IllegalArgumentError> {
         // NOTE: do not enforce major version so we remain future proof, except to
         // make sure it fits in the 8 bits we encode it into:
-        if major > 255 {
+        if !(0..=255).contains(&major) {
             return Err(IllegalArgumentError::new(format!(
                 "Illegal major version: {}",
                 major
             )));
         }
-        if minor > 255 {
+        if !(0..=255).contains(&minor) {
             return Err(IllegalArgumentError::new(format!(
                 "Illegal minor version: {}",
                 minor
             )));
         }
-        if bug_fix > 255 {
+        if !(0..=255).contains(&bug_fix) {
             return Err(IllegalArgumentError::new(format!(
                 "Illegal bug fix version: {}",
                 bug_fix
             )));
         }
-        if prerelease > 2 {
+        if !(0..=2).contains(&prerelease) {
             return Err(IllegalArgumentError::new(format!(
                 "Illegal pre-release version: {}",
                 prerelease
@@ -140,7 +140,7 @@ impl Version {
             ));
         }
         let mut token = tokens.next_token()?;
-        let major = token.parse::<u32>();
+        let major = token.parse::<i32>();
         if major.is_err() {
             return Err(VersionError::parse_int_error(
                 format!(
@@ -151,7 +151,7 @@ impl Version {
             ));
         }
         token = tokens.next_token()?;
-        let minor = token.parse::<u32>();
+        let minor = token.parse::<i32>();
         if minor.is_err() {
             return Err(VersionError::parse_int_error(
                 format!(
@@ -161,10 +161,10 @@ impl Version {
                 minor.unwrap_err(),
             ));
         }
-        let mut bug_fix_value: u32 = 0;
+        let mut bug_fix_value: i32 = 0;
         if tokens.has_more_tokens() {
             token = tokens.next_token()?;
-            let bug_fix = token.parse::<u32>();
+            let bug_fix = token.parse::<i32>();
             if bug_fix.is_err() {
                 return Err(VersionError::parse_int_error(
                     format!(
@@ -176,10 +176,10 @@ impl Version {
             }
             bug_fix_value = bug_fix.unwrap();
         }
-        let mut prerelease_value: u32 = 0;
+        let mut prerelease_value: i32 = 0;
         if tokens.has_more_tokens() {
             token = tokens.next_token()?;
-            let prerelease = token.parse::<u32>();
+            let prerelease = token.parse::<i32>();
             if prerelease.is_err() {
                 return Err(VersionError::parse_int_error(
                     format!(
@@ -270,23 +270,23 @@ impl Version {
     /// # Note
     /// This is an internal API.
     pub fn from_bits(
-        major: u32,
-        minor: u32,
-        bug_fix: u32,
+        major: i32,
+        minor: i32,
+        bug_fix: i32,
     ) -> Result<Version, IllegalArgumentError> {
         Version::new(major, minor, bug_fix)
     }
 
     fn encoded_is_valid(
-        major: u32,
-        minor: u32,
-        bug_fix: u32,
-        prerelease: u32,
-        encoded_value: u32,
+        major: i32,
+        minor: i32,
+        bug_fix: i32,
+        prerelease: i32,
+        encoded_value: i32,
     ) -> bool {
-        debug_assert_eq!(major, (encoded_value >> 18) & 0xFF);
-        debug_assert_eq!(minor, (encoded_value >> 10) & 0xFF);
-        debug_assert_eq!(bug_fix, (encoded_value >> 2) & 0xFF);
+        debug_assert_eq!(major, ((encoded_value as u32 >> 18) & 0xFF) as i32);
+        debug_assert_eq!(minor, ((encoded_value as u32 >> 10) & 0xFF) as i32);
+        debug_assert_eq!(bug_fix, ((encoded_value as u32 >> 2) & 0xFF) as i32);
         debug_assert_eq!(prerelease, encoded_value & 0x03);
         true
     }
@@ -325,7 +325,7 @@ pub enum VersionError {
 }
 
 impl VersionError {
-    pub fn parse_error_with_pos(msg: impl Into<String>, position: u32) -> Self {
+    pub fn parse_error_with_pos(msg: impl Into<String>, position: i32) -> Self {
         VersionError::Parse(Parse::new(msg, position))
     }
     pub fn parse_error_with_error(msg: impl Into<String>, error: IllegalArgumentError) -> Self {

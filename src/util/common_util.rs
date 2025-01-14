@@ -14,3 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::lucene_error::LuceneError;
+
+pub struct CommonUtil;
+impl CommonUtil {
+    pub fn check_from_index_size(
+        from_index: i32,
+        size: i32,
+        length: i32,
+    ) -> Result<i32, LuceneError> {
+        if from_index < 0 || size < 0 || length < 0 {
+            Err(LuceneError::array_index_out_of_bounds(format!(
+                "from_index: {}, size: {}, and length {} must be non-negative",
+                from_index, size, length
+            )))
+        } else if size > length - from_index {
+            Err(LuceneError::array_index_out_of_bounds(format!(
+                "size: {} is too large, from_index: {}, length: {}",
+                size, from_index, length
+            )))
+        } else {
+            Ok(from_index)
+        }
+    }
+}

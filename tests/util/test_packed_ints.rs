@@ -50,7 +50,7 @@ fn test_byte_count() {
     const ITERATIONS: usize = 3;
 
     for _ in 0..ITERATIONS {
-        let value_count = random.gen_range(1..i32::MAX) as u32;
+        let value_count = random.gen_range(1..i32::MAX);
 
         for format in &[
             Packed(PackedImpl::new(0)),
@@ -63,13 +63,13 @@ fn test_byte_count() {
                     format, byte_count, value_count, bpv
                 );
                 assert!(
-                    byte_count * 8 >= (value_count as u64) * (bpv as u64),
+                    byte_count * 8 >= (value_count as i64) * (bpv as i64),
                     "{}",
                     msg
                 );
                 if let Packed(_) = format {
                     assert!(
-                        (byte_count - 1) * 8 < (value_count as u64) * (bpv as u64),
+                        (byte_count - 1) * 8 < (value_count as i64) * (bpv as i64),
                         "{}",
                         msg
                     );
@@ -121,7 +121,7 @@ fn test_packed_ints() -> Result<(), TestError> {
             };
             let mut directory = new_directory(&mut random)?;
             let mut values = vec![0i64; value_count];
-            let fp: u64;
+            let fp: i64;
             {
                 let mut out = directory.create_output("out.bin", &io_context)?;
                 let mem = random.gen_range(0..2 * PackedInts::DEFAULT_BUFFER_SIZE);
@@ -158,7 +158,7 @@ fn test_packed_ints() -> Result<(), TestError> {
                 // Ensure that finish() added the missing values
                 let bytes = writer.get_format().byte_count(
                     PackedInts::VERSION_CURRENT,
-                    value_count as u32,
+                    value_count as i32,
                     writer.bits_per_value,
                 );
                 fp = out.get_file_pointer();
@@ -173,7 +173,7 @@ fn test_packed_ints() -> Result<(), TestError> {
                         &mut input,
                         Packed(PackedImpl::new(0)),
                         PackedInts::VERSION_CURRENT,
-                        value_count as u32,
+                        value_count as i32,
                         nbits,
                         buffer_size,
                     )?;
@@ -198,7 +198,7 @@ fn test_packed_ints() -> Result<(), TestError> {
                         &mut input,
                         Packed(PackedImpl::new(0)),
                         PackedInts::VERSION_CURRENT,
-                        value_count as u32,
+                        value_count as i32,
                         nbits,
                         buffer_size,
                     )?;
@@ -208,15 +208,15 @@ fn test_packed_ints() -> Result<(), TestError> {
                         let next = reader.next_batch(count)?;
                         for k in 0..next.length {
                             assert_eq!(
-                                values[i + k],
-                                next.longs[next.offset + k],
+                                values[i + k as usize],
+                                next.longs[(next.offset + k) as usize],
                                 "index={}, value_count={}, nbits={}",
                                 i,
                                 value_count,
                                 nbits
                             );
                         }
-                        i += next.length;
+                        i += next.length as usize;
                     }
                 }
                 assert_eq!(fp, input.get_file_pointer());
@@ -252,7 +252,7 @@ fn test_end_pointer() -> Result<(), TestError> {
                     continue;
                 }
 
-                let byte_count = format.byte_count(version, value_count as u32, bpv);
+                let byte_count = format.byte_count(version, value_count as i32, bpv);
 
                 let msg = format!(
                     "format={:?}, version={}, value_count={}, bpv={}",
@@ -266,7 +266,7 @@ fn test_end_pointer() -> Result<(), TestError> {
                         &mut input,
                         *format,
                         version,
-                        value_count as u32,
+                        value_count as i32,
                         bpv,
                         random.gen_range(1..=65536), // 缓冲区大小随机
                     )?;
@@ -289,17 +289,17 @@ fn test_end_pointer() -> Result<(), TestError> {
 }
 #[test]
 fn test_controlled_equality() -> Result<(), TestError> {
-    const VALUE_COUNT: usize = 255;
-    const BITS_PER_VALUE: u32 = 8;
+    const VALUE_COUNT: i32 = 255;
+    const BITS_PER_VALUE: i32 = 8;
 
-    let packed_ints = create_packed_ints(VALUE_COUNT as u32, BITS_PER_VALUE)?;
+    let packed_ints = create_packed_ints(VALUE_COUNT, BITS_PER_VALUE)?;
 
     for mut packed_int in packed_ints {
         for i in 0..packed_int.size() {
-            packed_int.set(i as usize, (i + 1) as i64)?;
+            packed_int.set(i, (i + 1) as i64)?;
         }
     }
-    let mut packed_ints = create_packed_ints(VALUE_COUNT as u32, BITS_PER_VALUE)?;
+    let mut packed_ints = create_packed_ints(VALUE_COUNT, BITS_PER_VALUE)?;
 
     assert_list_equality(&mut packed_ints)?;
 
@@ -324,8 +324,8 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
             std::mem::swap(&mut bits1, &mut bits2);
         }
 
-        let mut packed1 = PackedInts::get_mutable(value_count as u32, bits1, PackedInts::COMPACT)?;
-        let mut packed2 = PackedInts::get_mutable(value_count as u32, bits2, PackedInts::COMPACT)?;
+        let mut packed1 = PackedInts::get_mutable(value_count as i32, bits1, PackedInts::COMPACT)?;
+        let mut packed2 = PackedInts::get_mutable(value_count as i32, bits2, PackedInts::COMPACT)?;
 
         let max_value = PackedInts::max_value(bits1);
         for i in 0..value_count {
@@ -334,7 +334,7 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
             packed2.set(i, val)?;
         }
 
-        let mut buffer = vec![0i64; value_count];
+        let mut buffer = vec![0i64; value_count as usize];
 
         // Copy random slices over 20 times:
         for _ in 0..20 {
@@ -348,8 +348,8 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
 
             if random.gen_bool(0.5) {
                 let got = packed1.get_bulk(start, &mut buffer, offset, len)?;
-                assert!(got as usize <= len);
-                let sot = packed2.set_bulk(start, &buffer, offset, got as usize)?;
+                assert!(got as i32 <= len);
+                let sot = packed2.set_bulk(start, &buffer, offset, got as i32)?;
                 assert!(sot <= got);
             } else {
                 PackedInts::copy(
@@ -358,7 +358,7 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
                     &mut packed2,
                     offset,
                     len,
-                    random.gen_range(1..=(10 * len)) as u32,
+                    random.gen_range(1..=(10 * len)) as i32,
                 )?;
             }
         }
@@ -392,8 +392,8 @@ fn test_random_equality() -> Result<(), TestError> {
     Ok(())
 }
 fn assert_random_equality(
-    value_count: u32,
-    bits_per_value: u32,
+    value_count: i32,
+    bits_per_value: i32,
     random: u64,
 ) -> Result<(), TestError> {
     let mut packed_ints = create_packed_ints(value_count, bits_per_value)?;
@@ -408,8 +408,8 @@ fn assert_random_equality(
 }
 
 fn create_packed_ints(
-    value_count: u32,
-    bits_per_value: u32,
+    value_count: i32,
+    bits_per_value: i32,
 ) -> Result<Vec<MutablePacked64Enum>, TestError> {
     let mut packed_ints: Vec<MutablePacked64Enum> = Vec::new();
     let packed64 = Packed64::new(value_count, bits_per_value);
@@ -427,7 +427,7 @@ fn create_packed_ints(
 
 fn fill(
     packed_int: &mut MutablePacked64Enum,
-    bits_per_value: u32,
+    bits_per_value: i32,
     seed: u64,
 ) -> Result<(), TestError> {
     let max_value = if bits_per_value == 64 {
@@ -436,7 +436,7 @@ fn fill(
         (1 << bits_per_value) - 1
     };
     let mut random = StdRng::seed_from_u64(seed);
-    for i in 0..packed_int.size() as usize {
+    for i in 0..packed_int.size() {
         let value: i64 = if bits_per_value == 64 {
             random.gen()
         } else {
@@ -469,7 +469,7 @@ fn assert_list_equality_impl(
         return Ok(());
     }
     let length: usize;
-    let value_count: u32;
+    let value_count: i32;
     {
         length = packed_ints.len();
         let base = &mut packed_ints[0];
@@ -487,8 +487,8 @@ fn assert_list_equality_impl(
     for i in 0..value_count {
         for j in 1..length {
             assert_eq!(
-                packed_ints[0].get(i as usize)?,
-                packed_ints[j].get(i as usize)?,
+                packed_ints[0].get(i)?,
+                packed_ints[j].get(i)?,
                 "{}. The value at index {} should be the same ",
                 message,
                 i
@@ -525,7 +525,7 @@ fn test_fill() -> Result<(), TestError> {
 
     for bpv in 1..=64 {
         let val = random.gen_range(0..=PackedInts::max_value(bpv));
-        let mut packed_ints = create_packed_ints(value_count as u32, bpv)?;
+        let mut packed_ints = create_packed_ints(value_count, bpv)?;
 
         for packed in &mut packed_ints {
             let msg = format!(
@@ -533,10 +533,10 @@ fn test_fill() -> Result<(), TestError> {
                 packed, bpv, from, to, val
             );
 
-            packed.fill(0, packed.size() as usize, 1)?;
+            packed.fill(0, packed.size(), 1)?;
             packed.fill(from, to, val)?;
 
-            for i in 0..packed.size() as usize {
+            for i in 0..packed.size() {
                 let expected_value: i64 = if i >= from && i < to { val } else { 1 };
 
                 assert_eq!(packed.get(i)?, expected_value, "{}: i={}", msg, i);
@@ -554,13 +554,13 @@ fn test_packed_ints_null() -> Result<(), TestError> {
     let mut packed_ints = NullReader::for_count(size);
     let random_index = random.gen_range(0..size);
     assert_eq!(
-        packed_ints.get(random_index as usize)?,
+        packed_ints.get(random_index)?,
         0,
         "The value at random index {} should be 0",
         random_index
     );
     let mut arr = vec![1i64; (size + 10) as usize];
-    let r = packed_ints.get_bulk(0, &mut arr, 0, (size - 1) as usize)?;
+    let r = packed_ints.get_bulk(0, &mut arr, 0, size - 1)?;
     assert_eq!(
         r,
         (size - 1),
@@ -570,7 +570,7 @@ fn test_packed_ints_null() -> Result<(), TestError> {
         assert_eq!(value, 0, "The value at position {} should be 0", i);
     }
     arr.fill(1);
-    let r = packed_ints.get_bulk(10, &mut arr, 0, (size + 10) as usize)?;
+    let r = packed_ints.get_bulk(10, &mut arr, 0, size + 10)?;
     assert_eq!(
         r,
         (size - 10),
@@ -596,9 +596,9 @@ fn test_bulk_get() -> Result<(), TestError> {
 
     for bpv in 1..=64 {
         let mask = PackedInts::max_value(bpv);
-        let mut packed_ints = create_packed_ints(value_count as u32, bpv)?;
+        let mut packed_ints = create_packed_ints(value_count as i32, bpv)?;
         for ints in &mut packed_ints {
-            for i in 0..ints.size() as usize {
+            for i in 0..ints.size() {
                 ints.set(i, (31 * i as i64 - 1099) & mask)?;
             }
             let mut arr = vec![0i64; off + len];
@@ -606,15 +606,15 @@ fn test_bulk_get() -> Result<(), TestError> {
                 "{} valueCount={}, index={}, len={}, off={}",
                 ints, value_count, index, len, off
             );
-            let gets = ints.get_bulk(index, &mut arr, off, len)?;
+            let gets = ints.get_bulk(index as i32, &mut arr, off as i32, len as i32)?;
             assert!(gets > 0, "{}: gets should be greater than 0", msg);
             assert!(
-                gets <= len as u32,
+                gets <= len as i32,
                 "{}: gets should be less than or equal to len",
                 msg
             );
             assert!(
-                gets <= (ints.size() - index as u32),
+                gets <= (ints.size() - index as i32),
                 "{}: gets should be less than or equal to remaining values",
                 msg
             );
@@ -622,7 +622,7 @@ fn test_bulk_get() -> Result<(), TestError> {
                 let m = format!("{}, i={}", msg, i);
                 if i >= off && i < off + gets as usize {
                     assert_eq!(
-                        ints.get(i - off + index)?,
+                        ints.get((i - off + index) as i32)?,
                         item,
                         "{}: value mismatch at index {}",
                         m,
@@ -647,7 +647,7 @@ fn test_bulk_set() -> Result<(), TestError> {
 
     for bpv in 1..=64 {
         let mask = PackedInts::max_value(bpv);
-        let mut packed_ints = create_packed_ints(value_count as u32, bpv)?;
+        let mut packed_ints = create_packed_ints(value_count as i32, bpv)?;
         let mut arr = vec![0i64; off + len];
         let length = arr.len();
         for (i, item) in arr.iter_mut().enumerate().take(length) {
@@ -658,19 +658,19 @@ fn test_bulk_set() -> Result<(), TestError> {
                 "{} valueCount={}, index={}, len={}, off={}",
                 ints, value_count, index, len, off
             );
-            let sets = ints.set_bulk(index, &arr, off, len)?;
+            let sets = ints.set_bulk(index as i32, &arr, off as i32, len as i32)?;
             assert!(sets > 0, "{}: gets should be greater than 0", msg);
             assert!(
-                sets <= len as u32,
+                sets <= len as i32,
                 "{}: gets should be less than or equal to len",
                 msg
             );
-            for i in 0..ints.size() as usize {
+            for i in 0..ints.size() {
                 let m = format!("{}, i={}", msg, i);
-                if i >= index && i < index + sets as usize {
+                if i as usize >= index && (i as usize) < index + sets as usize {
                     assert_eq!(
                         ints.get(i)?,
-                        arr[off - index + i],
+                        arr[off - index + i as usize],
                         "{}: value mismatch at index {}",
                         m,
                         i
@@ -698,17 +698,17 @@ fn test_copy() -> Result<(), TestError> {
     let mem = random.gen_range(0..1024);
     for bpv in 1..=64 {
         let mask = PackedInts::max_value(bpv);
-        for mut r1 in create_packed_ints(value_count as u32, bpv)? {
-            for i in 0..r1.size() as usize {
+        for mut r1 in create_packed_ints(value_count as i32, bpv)? {
+            for i in 0..r1.size() {
                 r1.set(i, (31 * i as i64 - 1023) & mask)?;
             }
-            for mut r2 in create_packed_ints(value_count as u32, bpv)? {
+            for mut r2 in create_packed_ints(value_count as i32, bpv)? {
                 let msg = format!(
                     "src={}, dest={}, srcPos={}, destPos={}, len={}, mem={}",
                     r1, r2, off1, off2, len, mem
                 );
                 PackedInts::copy(&mut r1, off1, &mut r2, off2, len, mem)?;
-                for i in 0..r2.size() as usize {
+                for i in 0..r2.size() {
                     let m = format!("{}, i={}", msg, i);
                     if i >= off2 && i < off2 + len {
                         assert_eq!(
@@ -739,7 +739,7 @@ fn test_growable_writer() -> Result<(), TestError> {
     let mut random = my_random("test_growable_writer".to_string());
     let value_count = 113 + random.gen_range(0..1112);
 
-    let mut wrt = GrowableWriter::new(1, value_count as u32, PackedInts::DEFAULT)?;
+    let mut wrt = GrowableWriter::new(1, value_count as i32, PackedInts::DEFAULT)?;
 
     wrt.set(4, 2)?;
     wrt.set(7, 10)?;
@@ -1113,7 +1113,7 @@ fn equals(ints: &[i32], longs: &[i64]) -> bool {
         return false;
     }
     for i in 0..ints.len() {
-        if (ints[i] as u64 & 0xFFFFFFFF) as i64 != longs[i] {
+        if (ints[i] as i64 & 0xFFFFFFFF) != longs[i] {
             return false;
         }
     }
@@ -1209,7 +1209,7 @@ fn test_packed_long_values() -> Result<(), TestError> {
             assert_eq!(arr.len(), values.size() as usize);
 
             for (i, &value) in arr.iter().enumerate() {
-                assert_eq!(value, values.get(i as u64)?);
+                assert_eq!(value, values.get(i as i64)?);
             }
 
             let mut it = values.iterator()?;
@@ -1241,7 +1241,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
     let io_context = IOContext::default_io_context()?;
     for _ in 0..iters {
         let block_size = 1 << random.gen_range(6..=18);
-        let value_count: u32 = if is_night_mode() {
+        let value_count: i32 = if is_night_mode() {
             random.gen_range(0..(1 << 18))
         } else {
             random.gen_range(0..(1 << 15))
@@ -1275,14 +1275,14 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
         {
             let mut out = dir.create_output("out.bin", &io_context)?;
             let mut writer =
-                AbstractBlockPackedWriter::new(block_size as u32, BlockPackedWriter, &mut out)?;
+                AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter, &mut out)?;
             for (i, &value) in values.iter().enumerate() {
                 assert_eq!(i, writer.ord() as usize);
                 writer.add(value)?;
             }
-            assert_eq!(value_count as u64, writer.ord());
+            assert_eq!(value_count as i64, writer.ord());
             writer.finish()?;
-            assert_eq!(value_count as u64, writer.ord());
+            assert_eq!(value_count as i64, writer.ord());
             fp = out.get_file_pointer();
         }
 
@@ -1290,33 +1290,32 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
         // test in1
         {
             let mut in1 = dir.open_input("out.bin", &io_context)?;
-            DataInput::read_bytes(&mut in1, &mut buf, 0, fp as u32)?;
+            DataInput::read_bytes(&mut in1, &mut buf, 0, fp as i32)?;
             in1.seek(0)?;
             let mut in_ref = in1;
             let mut it = BlockPackedReaderIterator::new(
                 &mut in_ref,
                 PackedInts::VERSION_CURRENT,
                 block_size,
-                value_count as u64,
+                value_count as i64,
             )?;
 
-            let mut i = 0;
+            let mut i: i32 = 0;
             while i < value_count {
                 if random.gen_bool(0.5) {
                     assert_eq!(values[i as usize], it.next_value()?);
                     i += 1;
                 } else {
                     let next_values = it.next_batch(random.gen_range(1..=1024))?;
-                    for j in 0..next_values.length {
+                    for j in 0..next_values.length as usize {
                         assert_eq!(
                             values[i as usize + j],
-                            next_values.longs[j + next_values.offset]
+                            next_values.longs[j + next_values.offset as usize]
                         );
                     }
-                    assert!(next_values.length <= u32::MAX as usize);
-                    i += next_values.length as u32;
+                    i += next_values.length as i32;
                 }
-                assert_eq!(i as u64, it.ord());
+                assert_eq!(i as i64, it.ord());
             }
             let result = it.next_value();
             matches!(result, Err(LuceneError::Eof(_)));
@@ -1326,14 +1325,14 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 &mut in_ref,
                 PackedInts::VERSION_CURRENT,
                 block_size,
-                value_count as u64,
+                value_count as i64,
             )?;
             i = 0;
             loop {
                 let skip = random.gen_range(0..=value_count - i);
-                it2.skip(skip as u64)?;
+                it2.skip(skip as i64)?;
                 i += skip;
-                assert_eq!(i as u64, it2.ord());
+                assert_eq!(i as i64, it2.ord());
                 if i == value_count {
                     break;
                 } else {
@@ -1352,7 +1351,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 &mut in_ref,
                 PackedInts::VERSION_CURRENT,
                 block_size,
-                value_count as u64,
+                value_count as i64,
             )?;
 
             let mut i = 0;
@@ -1364,32 +1363,31 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                     let next_values = it.next_batch(random.gen_range(1..=1024))?;
                     for j in 0..next_values.length {
                         assert_eq!(
-                            values[i as usize + j],
-                            next_values.longs[j + next_values.offset]
+                            values[i as usize + j as usize],
+                            next_values.longs[(j + next_values.offset) as usize]
                         );
                     }
-                    assert!(next_values.length <= u32::MAX as usize);
-                    i += next_values.length as u32;
+                    i += next_values.length as i32;
                 }
-                assert_eq!(i as u64, it.ord());
+                assert_eq!(i as i64, it.ord());
             }
             let result = it.next_value();
             matches!(result, Err(LuceneError::Eof(_)));
-            assert_eq!(fp, in_ref.get_position() as u64);
+            assert_eq!(fp, in_ref.get_position() as i64);
 
             in_ref.set_position(0);
             let mut it2 = BlockPackedReaderIterator::new(
                 &mut in_ref,
                 PackedInts::VERSION_CURRENT,
                 block_size,
-                value_count as u64,
+                value_count as i64,
             )?;
             i = 0;
             loop {
                 let skip = random.gen_range(0..=value_count - i);
-                it2.skip(skip as u64)?;
+                it2.skip(skip as i64)?;
                 i += skip;
-                assert_eq!(i as u64, it2.ord());
+                assert_eq!(i as i64, it2.ord());
                 if i == value_count {
                     break;
                 } else {
@@ -1398,7 +1396,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
                 }
             }
             assert!(it2.skip(1).is_err());
-            assert_eq!(fp, in_ref.get_position() as u64);
+            assert_eq!(fp, in_ref.get_position() as i64);
         }
     }
     Ok(())
@@ -1434,17 +1432,17 @@ fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
         {
             let mut out = dir.create_output("out.bin", &io_context)?;
             let mut writer = AbstractBlockPackedWriter::new(
-                block_size as u32,
+                block_size as i32,
                 MonotonicBlockPackedWriter,
                 &mut out,
             )?;
             for (i, &value) in values.iter().enumerate().take(value_count) {
-                assert_eq!(i as u64, writer.ord());
+                assert_eq!(i as i64, writer.ord());
                 writer.add(value)?;
             }
-            assert_eq!(value_count as u64, writer.ord());
+            assert_eq!(value_count as i64, writer.ord());
             writer.finish()?;
-            assert_eq!(value_count as u64, writer.ord());
+            assert_eq!(value_count as i64, writer.ord());
             file_pointer = out.get_file_pointer();
         }
         let mut input = dir.open_input("out.bin", &io_context)?;
@@ -1452,11 +1450,11 @@ fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
             &mut input,
             PackedInts::VERSION_CURRENT,
             block_size,
-            value_count as u64,
+            value_count as i64,
         )?;
         assert_eq!(file_pointer, input.get_file_pointer());
         for (i, &value) in values.iter().enumerate().take(value_count) {
-            assert_eq!(value, reader.get(i as u64)?);
+            assert_eq!(value, reader.get(i as i64)?);
         }
     }
 
@@ -1476,11 +1474,11 @@ fn test_block_reader_overflow() -> Result<(), TestError> {
     {
         let mut out = dir.create_output("out.bin", &io_context)?;
         let mut writer =
-            AbstractBlockPackedWriter::new(block_size as u32, BlockPackedWriter, &mut out)?;
+            AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter, &mut out)?;
 
         let mut i = 0;
         while i < value_count {
-            assert_eq!(i as u64, writer.ord());
+            assert_eq!(i as i64, writer.ord());
             if (i & (block_size - 1)) == 0
                 && (i + block_size < value_offset
                     || (i > value_offset && i + block_size < value_count))
@@ -1502,11 +1500,11 @@ fn test_block_reader_overflow() -> Result<(), TestError> {
     let mut reader = BlockPackedReaderIterator::new(
         &mut input,
         PackedInts::VERSION_CURRENT,
-        block_size as u32,
-        value_count as u64,
+        block_size as i32,
+        value_count as i64,
     )?;
 
-    reader.skip(value_offset as u64)?;
+    reader.skip(value_offset as i64)?;
     assert_eq!(value, reader.next_value()?);
 
     Ok(())

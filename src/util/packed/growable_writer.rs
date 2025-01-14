@@ -29,14 +29,14 @@ use std::fmt::{Display, Formatter};
 /// # Internal
 /// This is an internal API and may change in future versions.
 pub struct GrowableWriter {
-    current_mask: u64,
+    current_mask: i64,
     current: MutablePacked64Enum,
     acceptable_overhead_ratio: f32,
 }
 impl GrowableWriter {
     pub fn new(
-        start_bits_per_value: u32,
-        value_count: u32,
+        start_bits_per_value: i32,
+        value_count: i32,
         acceptable_overhead_ratio: f32,
     ) -> Result<GrowableWriter, LuceneError> {
         let current =
@@ -48,18 +48,18 @@ impl GrowableWriter {
             acceptable_overhead_ratio,
         })
     }
-    fn mask(bits_per_value: u32) -> u64 {
+    fn mask(bits_per_value: i32) -> i64 {
         if bits_per_value == 64 {
-            !0u64
+            !0i64
         } else {
-            PackedInts::max_value(bits_per_value) as u64
+            PackedInts::max_value(bits_per_value)
         }
     }
     pub fn get_mutable(&self) -> &MutablePacked64Enum {
         &self.current
     }
     fn ensure_capacity(&mut self, value: i64) -> Result<(), LuceneError> {
-        if (value & self.current_mask as i64) == value {
+        if (value & self.current_mask) == value {
             return Ok(());
         }
         let bits_required = PackedInts::unsigned_bits_required(value);
@@ -73,7 +73,7 @@ impl GrowableWriter {
             0,
             &mut next,
             0,
-            value_count as usize,
+            value_count,
             PackedInts::DEFAULT_BUFFER_SIZE,
         )?;
 
@@ -81,7 +81,7 @@ impl GrowableWriter {
         self.current_mask = Self::mask(self.current.get_bits_per_value());
         Ok(())
     }
-    pub fn resize(&mut self, new_size: u32) -> Result<GrowableWriter, LuceneError> {
+    pub fn resize(&mut self, new_size: i32) -> Result<GrowableWriter, LuceneError> {
         let mut next = GrowableWriter::new(
             self.current.get_bits_per_value(),
             new_size,
@@ -93,7 +93,7 @@ impl GrowableWriter {
             0,
             &mut next,
             0,
-            limit as usize,
+            limit,
             PackedInts::DEFAULT_BUFFER_SIZE,
         )?;
         Ok(next)
@@ -101,21 +101,21 @@ impl GrowableWriter {
 }
 
 impl Reader for GrowableWriter {
-    fn get(&mut self, index: usize) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i32) -> Result<i64, LuceneError> {
         self.current.get(index)
     }
 
     fn get_bulk(
         &mut self,
-        index: usize,
+        index: i32,
         arr: &mut [i64],
-        off: usize,
-        len: usize,
-    ) -> Result<u32, LuceneError> {
+        off: i32,
+        len: i32,
+    ) -> Result<i32, LuceneError> {
         self.current.get_bulk(index, arr, off, len)
     }
 
-    fn size(&self) -> u32 {
+    fn size(&self) -> i32 {
         self.current.size()
     }
 }
@@ -133,11 +133,11 @@ impl Display for GrowableWriter {
 }
 
 impl Mutable for GrowableWriter {
-    fn get_bits_per_value(&self) -> u32 {
+    fn get_bits_per_value(&self) -> i32 {
         self.current.get_bits_per_value()
     }
 
-    fn set(&mut self, index: usize, value: i64) -> Result<(), LuceneError> {
+    fn set(&mut self, index: i32, value: i64) -> Result<(), LuceneError> {
         self.ensure_capacity(value)?;
         self.current.set(index, value)?;
         Ok(())
@@ -145,22 +145,22 @@ impl Mutable for GrowableWriter {
 
     fn set_bulk(
         &mut self,
-        index: usize,
+        index: i32,
         arr: &[i64],
-        off: usize,
-        len: usize,
-    ) -> Result<u32, LuceneError> {
+        off: i32,
+        len: i32,
+    ) -> Result<i32, LuceneError> {
         let mut max = 0i64;
         max |= arr
             .iter()
-            .skip(off)
-            .take(len)
+            .skip(off as usize)
+            .take(len as usize)
             .fold(0, |acc, &value| acc | value);
         self.ensure_capacity(max)?;
         self.current.set_bulk(index, arr, off, len)
     }
 
-    fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<(), LuceneError> {
+    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<(), LuceneError> {
         self.ensure_capacity(val)?;
         self.current.fill(from_index, to_index, val)?;
         Ok(())

@@ -29,9 +29,9 @@ use std::fmt::Display;
 /// [`IndexInput`](crate::store::index_input::IndexInput)
 pub trait IndexOutput: DataOutput + Display {
     /// Returns the current position in this file, where the next write will occur.
-    fn get_file_pointer(&self) -> u64;
+    fn get_file_pointer(&self) -> i64;
     /// Returns the current checksum of bytes written so far.
-    fn get_check_sum(&mut self) -> i64;
+    fn get_check_sum(&mut self) -> u64;
     /// Returns the name used to create this `IndexOutput`. This is especially useful when using
     /// [`Directory::create_temp_output`](crate::store::directory::Directory::create_temp_output).
     fn get_name(&self) -> &str;
@@ -47,7 +47,7 @@ pub trait IndexOutput: DataOutput + Display {
     ///
     /// # See Also
     /// [`align_offset`]
-    fn align_file_pointer(&mut self, alignment_bytes: u32) -> Result<u64, LuceneError> {
+    fn align_file_pointer(&mut self, alignment_bytes: i32) -> Result<i64, LuceneError> {
         let offset = self.get_file_pointer();
         let aligned_offset = align_offset(offset, alignment_bytes)?;
         let count = (aligned_offset - offset) as usize;
@@ -63,11 +63,11 @@ pub trait IndexOutput: DataOutput + Display {
 /// # Arguments
 /// * `offset` - The offset to be aligned.
 /// * `alignment_bytes` - The alignment to which it should be rounded (must be a power of 2).
-pub fn align_offset(offset: u64, alignment_bytes: u32) -> Result<u64, LuceneError> {
+pub fn align_offset(offset: i64, alignment_bytes: i32) -> Result<i64, LuceneError> {
     if alignment_bytes == 0 || alignment_bytes.count_ones() != 1 {
         return Err(LuceneError::illegal_argument(
             "Alignment must be a power of 2",
         ));
     }
-    Ok((offset + alignment_bytes as u64 - 1) & !(alignment_bytes as u64 - 1))
+    Ok((offset + alignment_bytes as i64 - 1) & !(alignment_bytes as i64 - 1))
 }

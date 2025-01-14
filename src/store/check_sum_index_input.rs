@@ -17,18 +17,18 @@
 use crate::store::index_input::IndexInput;
 use crate::util::error::lucene_error::LuceneError;
 
-const SKIP_BUFFER_SIZE: u32 = 1024;
+const SKIP_BUFFER_SIZE: i32 = 1024;
 /// An extension of [`IndexInput`] that computes a checksum as it reads data.
 /// Callers can retrieve the checksum using the `get_checksum` method from the implemented trait.
 pub trait ChecksumIndexInput: IndexInput {
     /// Returns the current checksum value.
-    fn get_checksum(&mut self) -> u64;
+    fn get_checksum(&mut self) -> i64;
     /// Inherits documentation from the parent implementation.
     ///
     /// # Note
     /// [`ChecksumIndexInput`] can only seek forward, and seeks are expensive because they require
     /// reading the bytes between the current position and the target position to update the checksum.
-    fn seek(&mut self, pos: u64) -> Result<(), LuceneError> {
+    fn seek(&mut self, pos: i64) -> Result<(), LuceneError> {
         let cur_fp = self.get_file_pointer();
         if pos < cur_fp {
             return Err(LuceneError::illegal_state(format!(
@@ -42,14 +42,14 @@ pub trait ChecksumIndexInput: IndexInput {
     /// The behavior of this method is equivalent to reading the same number of bytes into a buffer
     /// and discarding its content.
     ///
-    fn skip_by_reading(&mut self, num_bytes: u64) -> Result<(), LuceneError> {
+    fn skip_by_reading(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
         let mut skip_buffer = [0u8; SKIP_BUFFER_SIZE as usize];
         let mut skipped = 0;
         while skipped < num_bytes {
-            debug_assert!((num_bytes - skipped) <= u32::MAX as u64);
-            let step = SKIP_BUFFER_SIZE.min((num_bytes - skipped) as u32);
+            debug_assert!((num_bytes - skipped) <= i32::MAX as i64);
+            let step = SKIP_BUFFER_SIZE.min((num_bytes - skipped) as i32);
             self.read_bytes_with_buffer(&mut skip_buffer, 0, step, false)?;
-            skipped += step as u64;
+            skipped += step as i64;
         }
         Ok(())
     }

@@ -72,7 +72,7 @@ impl Lucene90LiveDocsFormat {
     ) -> Result<FixedBitSet, LuceneError> {
         let num_words = FixedBitSet::bits2words(length);
         let mut data = vec![0i64; num_words as usize];
-        input.read_longs(&mut data, 0, num_words as u32)?;
+        input.read_longs(&mut data, 0, num_words)?;
         FixedBitSet::with_capacity(data, length)
     }
     fn write_bits<I, B>(output: &mut I, bits: &B) -> Result<i32, LuceneError>
@@ -128,14 +128,13 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
             CodecUtil::check_index_header(
                 &mut input,
                 Lucene90LiveDocsFormat::CODEC_NAME,
-                Lucene90LiveDocsFormat::VERSION_START as u32,
-                Lucene90LiveDocsFormat::VERSION_CURRENT as u32,
+                Lucene90LiveDocsFormat::VERSION_START,
+                Lucene90LiveDocsFormat::VERSION_CURRENT,
                 info.info.get_id().as_slice(),
                 &BigInt::from(gen).to_str_radix(36).to_string(),
             )?;
 
-            debug_assert!(length <= i32::MAX as u32);
-            let fbs = Self::read_fixed_bit_set(&mut input, length as i32)?;
+            let fbs = Self::read_fixed_bit_set(&mut input, length)?;
 
             if fbs.length() - fbs.cardinality() != info.get_del_count() {
                 return Err(LuceneError::corrupt_index(format!(
@@ -187,7 +186,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
             CodecUtil::write_index_header(
                 &mut output,
                 Lucene90LiveDocsFormat::CODEC_NAME,
-                Lucene90LiveDocsFormat::VERSION_CURRENT as u32,
+                Lucene90LiveDocsFormat::VERSION_CURRENT,
                 info.info.get_id().as_slice(),
                 &BigInt::from(gen).to_str_radix(36).to_string(),
             )?;

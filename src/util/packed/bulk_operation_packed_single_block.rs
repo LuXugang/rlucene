@@ -17,16 +17,16 @@
 use crate::util::packed::bulk_operation::BulkOperation;
 use crate::util::packed::{Decoder, Encoder};
 
-const BLOCK_COUNT: u32 = 1;
+const BLOCK_COUNT: i32 = 1;
 /// Non-specialized `BulkOperation` for `PackedInts.Format::PACKED_SINGLE_BLOCK`.
 #[derive(Default)]
 pub struct BulkOperationPackedSingleBlock {
-    bits_per_value: u32,
-    value_count: u32,
+    bits_per_value: i32,
+    value_count: i32,
     mask: u64,
 }
 impl BulkOperationPackedSingleBlock {
-    pub const fn new(bits_per_value: u32) -> Self {
+    pub const fn new(bits_per_value: i32) -> Self {
         Self {
             bits_per_value,
             value_count: 64 / bits_per_value,
@@ -100,19 +100,19 @@ impl BulkOperationPackedSingleBlock {
     }
 }
 impl Decoder for BulkOperationPackedSingleBlock {
-    fn long_block_count(&self) -> u32 {
+    fn long_block_count(&self) -> i32 {
         BLOCK_COUNT
     }
 
-    fn long_value_count(&self) -> u32 {
+    fn long_value_count(&self) -> i32 {
         self.value_count
     }
 
-    fn byte_block_count(&self) -> u32 {
+    fn byte_block_count(&self) -> i32 {
         BLOCK_COUNT * 8
     }
 
-    fn byte_value_count(&self) -> u32 {
+    fn byte_value_count(&self) -> i32 {
         self.value_count
     }
 
@@ -122,7 +122,7 @@ impl Decoder for BulkOperationPackedSingleBlock {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block = blocks[blocks_offset];
@@ -137,7 +137,7 @@ impl Decoder for BulkOperationPackedSingleBlock {
         mut blocks_offset: usize,
         values: &mut [i64],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block = Self::read_long(blocks, blocks_offset);
@@ -152,7 +152,7 @@ impl Decoder for BulkOperationPackedSingleBlock {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         debug_assert!(
             self.bits_per_value <= 32,
@@ -172,7 +172,7 @@ impl Decoder for BulkOperationPackedSingleBlock {
         mut blocks_offset: usize,
         values: &mut [i32],
         mut values_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         debug_assert!(
             self.bits_per_value <= 32,
@@ -188,19 +188,19 @@ impl Decoder for BulkOperationPackedSingleBlock {
     }
 }
 impl Encoder for BulkOperationPackedSingleBlock {
-    fn long_block_count(&self) -> u32 {
+    fn long_block_count(&self) -> i32 {
         Decoder::long_block_count(self)
     }
 
-    fn long_value_count(&self) -> u32 {
+    fn long_value_count(&self) -> i32 {
         Decoder::long_value_count(self)
     }
 
-    fn byte_block_count(&self) -> u32 {
+    fn byte_block_count(&self) -> i32 {
         Decoder::byte_block_count(self)
     }
 
-    fn byte_value_count(&self) -> u32 {
+    fn byte_value_count(&self) -> i32 {
         Decoder::byte_value_count(self)
     }
 
@@ -210,7 +210,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
         mut values_offset: usize,
         blocks: &mut [u64],
         mut blocks_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             blocks[blocks_offset] = self.encode_from_i64(values, values_offset);
@@ -225,7 +225,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
         mut values_offset: usize,
         blocks: &mut [u8],
         mut blocks_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block = self.encode_from_i64(values, values_offset);
@@ -240,7 +240,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
         mut values_offset: usize,
         blocks: &mut [u64],
         mut blocks_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             blocks[blocks_offset] = self.encode_from_i32(values, values_offset);
@@ -255,7 +255,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
         mut values_offset: usize,
         blocks: &mut [u8],
         mut blocks_offset: usize,
-        iterations: u32,
+        iterations: i32,
     ) {
         for _ in 0..iterations {
             let block = self.encode_from_i32(values, values_offset);

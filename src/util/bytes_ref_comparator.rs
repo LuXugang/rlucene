@@ -25,11 +25,11 @@ pub trait BytesRefComparator {
     /// Returns the unsigned byte to use for comparison at index `i`, or `-1` if all bytes
     /// that are useful for comparisons are exhausted. This may only be called with a value of `i`
     /// between `0` (inclusive) and `compared_bytes_count` (exclusive).
-    fn byte_at(&self, _bytes_ref: &BytesRef, _i: u32) -> i32 {
+    fn byte_at(&self, _bytes_ref: &BytesRef, _i: i32) -> i32 {
         unimplemented!("byte_at must be implemented if it need to be used")
     }
-    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: u32) -> i32 {
-        for i in k..self.compared_bytes_count() as u32 {
+    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: i32) -> i32 {
+        for i in k..self.compared_bytes_count() {
             let b1 = self.byte_at(o1, i);
             let b2 = self.byte_at(o2, i);
             if b1 != b2 {
@@ -65,7 +65,7 @@ impl Comparator<BytesRef> for Natural {
 }
 
 impl BytesRefComparator for Natural {
-    fn byte_at(&self, bytes_ref: &BytesRef, i: u32) -> i32 {
+    fn byte_at(&self, bytes_ref: &BytesRef, i: i32) -> i32 {
         if bytes_ref.length <= i {
             -1
         } else {
@@ -73,7 +73,7 @@ impl BytesRefComparator for Natural {
         }
     }
 
-    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: u32) -> i32 {
+    fn compare_with_offset(&self, o1: &BytesRef, o2: &BytesRef, k: i32) -> i32 {
         let start1 = (o1.offset + k) as usize;
         let start2 = (o2.offset + k) as usize;
 

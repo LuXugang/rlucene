@@ -19,7 +19,6 @@ pub mod abstract_paged_mutable;
 pub mod block_packed_reader_iterator;
 pub mod block_packed_writer;
 pub mod bulk_operation;
-pub mod bulk_operation_enum;
 pub mod bulk_operation_packed;
 pub(crate) mod bulk_operation_packed1;
 pub mod bulk_operation_packed10;

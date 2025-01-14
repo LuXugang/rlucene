@@ -23,7 +23,7 @@ use std::fmt::Write;
 /// This is an internal API.
 pub struct StringHelper;
 impl StringHelper {
-    pub const ID_LENGTH: u32 = 16;
+    pub const ID_LENGTH: i32 = 16;
     pub fn random_id() -> [u8; 16] {
         let mut rng = rand::thread_rng();
         rng.gen::<[u8; 16]>()

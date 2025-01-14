@@ -52,13 +52,14 @@ impl AbstractBlockPackedWriterBase for BlockPackedWriter {
     fn flush<T: DataOutput>(
         &mut self,
         out: &mut T,
-        off: &mut usize,
+        off: &mut i32,
         values: &mut [i64],
         blocks: &mut Vec<u8>,
     ) -> Result<(), LuceneError> {
+        debug_assert!(*off > 0);
         let mut min = i64::MAX;
         let mut max = i64::MIN;
-        for &value in &values[..*off] {
+        for &value in &values[..*off as usize] {
             min = min.min(value);
             max = max.max(value);
         }
@@ -83,7 +84,7 @@ impl AbstractBlockPackedWriterBase for BlockPackedWriter {
             } else {
                 0
             };
-        debug_assert!(token <= u8::MAX as u32);
+        debug_assert!(token <= u8::MAX as i32);
         out.write_byte(token as u8)?;
 
         if min_adjusted != 0 {
@@ -92,7 +93,7 @@ impl AbstractBlockPackedWriterBase for BlockPackedWriter {
 
         if bits_required > 0 {
             if min_adjusted != 0 {
-                for value in values.iter_mut().take(*off) {
+                for value in values.iter_mut().take(*off as usize) {
                     *value -= min_adjusted;
                 }
             }

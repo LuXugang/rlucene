@@ -31,6 +31,7 @@ pub mod bit_set_type;
 pub mod bit_util;
 pub mod bits;
 pub mod bytes_ref_array;
+pub mod common_util;
 pub mod constants;
 pub mod counter;
 pub mod cursor_ext;
@@ -74,6 +75,7 @@ pub use sorter::*;
 
 pub use bytes_ref_array::*;
 pub use bytes_ref_comparator::*;
+pub use common_util::*;
 pub use counter::*;
 pub use cursor_ext::*;
 pub use io_utils::*;

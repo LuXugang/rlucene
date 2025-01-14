@@ -42,15 +42,15 @@ impl<T> IndexInput for BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
 {
-    fn get_file_pointer(&self) -> u64 {
+    fn get_file_pointer(&self) -> i64 {
         self.main.get_file_pointer()
     }
 
-    fn seek(&mut self, pos: u64) -> Result<(), LuceneError> {
+    fn seek(&mut self, pos: i64) -> Result<(), LuceneError> {
         ChecksumIndexInput::seek(self, pos)
     }
 
-    fn length(&self) -> u64 {
+    fn length(&self) -> i64 {
         self.main.length()
     }
 
@@ -58,8 +58,8 @@ where
     fn slice(
         &self,
         _slice_description: &str,
-        _offset: u64,
-        _length: u64,
+        _offset: i64,
+        _length: i64,
     ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
         // Used by the compiler to infer the returned type
         if false {
@@ -73,8 +73,8 @@ where
     #[allow(unreachable_code)]
     fn random_access_slice(
         &self,
-        _offset: u64,
-        _length: u64,
+        _offset: i64,
+        _length: i64,
     ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
         // Used by the compiler to infer the returned type
         if false {
@@ -97,13 +97,13 @@ where
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: u32, len: u32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
         self.main.read_bytes(b, offset, len)?;
         self.digest.update_bytes(b, offset, len);
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
         IndexInput::skip_bytes(self, num_bytes)
     }
 
@@ -111,12 +111,12 @@ where
         true
     }
 
-    fn seek_in_data_input(&mut self, pos: u64) -> Result<(), LuceneError> {
+    fn seek_in_data_input(&mut self, pos: i64) -> Result<(), LuceneError> {
         debug_assert!(self.is_index_input());
         IndexInput::seek(self, pos)
     }
 
-    fn get_file_pointer_in_data_input(&self) -> u64 {
+    fn get_file_pointer_in_data_input(&self) -> i64 {
         debug_assert!(self.is_index_input());
         IndexInput::get_file_pointer(self)
     }
@@ -144,7 +144,7 @@ impl<T> ChecksumIndexInput for BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
 {
-    fn get_checksum(&mut self) -> u64 {
+    fn get_checksum(&mut self) -> i64 {
         self.digest.get_value()
     }
 }

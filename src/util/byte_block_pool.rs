@@ -134,16 +134,16 @@ impl ByteBlockPool {
         &self,
         _builder: &mut BytesRefBuilder,
         result: &mut BytesRef,
-        offset: u64,
-        length: u32,
+        offset: i64,
+        length: i32,
     ) {
         if result.length < length {
             result.bytes = vec![0; length as usize];
         }
         result.length = length;
-        let buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT) as i32;
-        let pos = (offset & Self::BYTE_BLOCK_MASK as u64) as u32;
-        if pos + length <= Self::BYTE_BLOCK_SIZE as u32 {
+        let buffer_index = offset >> Self::BYTE_BLOCK_SHIFT;
+        let pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
+        if pos + length <= Self::BYTE_BLOCK_SIZE {
             // Common case: The slice lives in a single block.
             result.bytes.copy_from(
                 &self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize],
@@ -159,9 +159,7 @@ impl ByteBlockPool {
     }
     /// Appends the bytes in the provided BytesRef at the current position.
     pub fn append_bytes_ref(&mut self, bytes: &BytesRef) {
-        debug_assert!(bytes.offset <= i32::MAX as u32);
-        debug_assert!(bytes.length <= i32::MAX as u32);
-        self.append_range(&bytes.bytes, bytes.offset as i32, bytes.length as i32);
+        self.append_range(&bytes.bytes, bytes.offset, bytes.length);
     }
     /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and length.
     ///
@@ -263,16 +261,16 @@ impl ByteBlockPool {
     /// This method allows copying across block boundaries.
     pub fn read_bytes(
         &self,
-        offset: u64,
+        offset: i64,
         bytes: &mut [u8],
-        mut bytes_offset: u32,
-        bytes_length: u32,
+        mut bytes_offset: i32,
+        bytes_length: i32,
     ) -> Option<()> {
         let mut bytes_left = bytes_length;
         let mut buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
-        let mut pos = (offset & Self::BYTE_BLOCK_MASK as u64) as u32;
+        let mut pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
         while bytes_left > 0 {
-            let chunk = min(Self::BYTE_BLOCK_SIZE as u32 - pos, bytes_left);
+            let chunk = min(Self::BYTE_BLOCK_SIZE - pos, bytes_left);
             self.buffers[buffer_index].copy_to(
                 &mut bytes[bytes_offset as usize..(bytes_offset + chunk) as usize],
                 pos as usize,

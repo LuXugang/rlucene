@@ -370,19 +370,19 @@ where
     fn compare_pivot(&mut self, j: i32) -> Result<i32, LuceneError> {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
-            let b2 = self.delegate_sorter.byte_at(j, self.k + o as i32)?;
+            let b2 = self.delegate_sorter.byte_at(j, self.k + o)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             }
         }
 
-        if self.k + self.pivot.length() as i32 == self.max_length {
+        if self.k + self.pivot.length() == self.max_length {
             Ok(0)
         } else {
             Ok(-1
                 - self
                     .delegate_sorter
-                    .byte_at(j, self.k + self.pivot.length() as i32)?)
+                    .byte_at(j, self.k + self.pivot.length())?)
         }
     }
 

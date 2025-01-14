@@ -58,10 +58,10 @@ fn test_append_from_other_pool() {
     let mut result = vec![0; length];
     let result_length = result.len();
     another_pool.read_bytes(
-        existing_bytes.len() as u64,
+        existing_bytes.len() as i64,
         &mut result,
         0,
-        result_length as u32,
+        result_length as i32,
     );
     for i in 0..length {
         assert_eq!(bytes[offset + i], result[i], "byte @ index= {}", i);
@@ -94,7 +94,6 @@ fn test_read_and_write() {
         let mut builder = BytesRefBuilder::new();
         for expected in list.iter() {
             bytes_ref_builder.set_length(expected.length);
-            assert!(bytes_ref_builder.length() <= i32::MAX as u32);
             let bytes_ref_builder_length = bytes_ref_builder.length();
             let value = random.gen_range(0..2);
             match value {
@@ -126,7 +125,7 @@ fn test_read_and_write() {
                 }
             }
             assert!(bytes_ref_builder.get().bytes_equals(expected));
-            position += bytes_ref_builder.length() as u64;
+            position += bytes_ref_builder.length() as i64;
         }
         pool.reset(random.gen_bool(0.5), reuse_first);
         if reuse_first {
@@ -170,9 +169,9 @@ fn test_large_random_block() {
     for expected in iterms {
         let mut actual: Vec<u8> = vec![0; expected.len()];
         let actual_len = actual.len();
-        pool.read_bytes(position, &mut actual, 0, actual_len as u32);
+        pool.read_bytes(position, &mut actual, 0, actual_len as i32);
         assert_eq!(expected, actual);
-        position += expected.len() as u64;
+        position += expected.len() as i64;
     }
 }
 

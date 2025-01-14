@@ -23,7 +23,7 @@ use derive_getters::Getters;
 #[derive(Getters)]
 pub struct LeafMetaData {
     /// The major version of the Lucene format used to create this segment.
-    pub created_version_major: u32,
+    pub created_version_major: i32,
     /// The minimum version of Lucene that contributed to this segment.
     pub min_version: Option<Version>,
     /// The sort order of documents in this segment, if any.
@@ -35,7 +35,7 @@ pub struct LeafMetaData {
 impl LeafMetaData {
     /// Constructs a new `LeafMetaData` instance.
     pub fn new(
-        created_version_major: u32,
+        created_version_major: i32,
         min_version: Option<Version>,
         sort: Option<Sort>,
         has_blocks: bool,

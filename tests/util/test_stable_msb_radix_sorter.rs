@@ -35,7 +35,7 @@ fn test(refs: &[BytesRef], len: usize, random: &mut StdRng) -> Result<(), TestEr
 
     let mut max_length = 0;
     for ref_item in &refs[..len] {
-        max_length = max_length.max(ref_item.length as i32);
+        max_length = max_length.max(ref_item.length);
     }
 
     match random.gen_range(0..3) {
@@ -230,7 +230,7 @@ impl MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
         assert!(k < self.final_max_length, "k is out of bounds");
         let ref_item = &self.refs[i as usize];
 
-        if ref_item.length <= k as u32 {
+        if ref_item.length <= k {
             return Ok(-1);
         }
 

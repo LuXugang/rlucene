@@ -33,7 +33,7 @@ impl Accountable for PackedIntsReadEnum {
 }
 
 impl Reader for PackedIntsReadEnum {
-    fn get(&mut self, index: usize) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i32) -> Result<i64, LuceneError> {
         match self {
             PackedIntsReadEnum::PackedReader(op) => op.get(index),
             PackedIntsReadEnum::NullReader(op) => op.get(index),
@@ -42,18 +42,18 @@ impl Reader for PackedIntsReadEnum {
 
     fn get_bulk(
         &mut self,
-        index: usize,
+        index: i32,
         arr: &mut [i64],
-        off: usize,
-        len: usize,
-    ) -> Result<u32, LuceneError> {
+        off: i32,
+        len: i32,
+    ) -> Result<i32, LuceneError> {
         match self {
             PackedIntsReadEnum::PackedReader(op) => op.get_bulk(index, arr, off, len),
             PackedIntsReadEnum::NullReader(op) => op.get_bulk(index, arr, off, len),
         }
     }
 
-    fn size(&self) -> u32 {
+    fn size(&self) -> i32 {
         match self {
             PackedIntsReadEnum::PackedReader(op) => op.size(),
             PackedIntsReadEnum::NullReader(op) => op.size(),

@@ -30,7 +30,7 @@ where
     W: Write,
 {
     os: XBufferedOutputStream<W>,
-    bytes_written: u64,
+    bytes_written: i64,
     name: String,
     resource_description: String,
 }
@@ -50,7 +50,7 @@ where
         resource_description: &str,
         name: &str,
         inner: W,
-        buffer_size: u32,
+        buffer_size: i32,
     ) -> Result<OutputStreamIndexOutput<W>, LuceneError> {
         if (buffer_size as usize) < BitUtil::LONG_BYTES {
             return Err(LuceneError::illegal_argument(format!(
@@ -78,9 +78,9 @@ where
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), LuceneError> {
         let end = offset + length;
-        self.bytes_written += length as u64;
+        self.bytes_written += length as i64;
         self.os.write_bytes(&b[offset as usize..end as usize])
     }
 
@@ -113,13 +113,13 @@ impl<W: Write> IndexOutput for OutputStreamIndexOutput<W>
 where
     W: Write,
 {
-    fn get_file_pointer(&self) -> u64 {
+    fn get_file_pointer(&self) -> i64 {
         self.bytes_written
     }
 
-    fn get_check_sum(&mut self) -> i64 {
+    fn get_check_sum(&mut self) -> u64 {
         self.os.checksum = self.os.hasher.clone().finalize();
-        self.os.checksum as i64
+        self.os.checksum as u64
     }
 
     fn get_name(&self) -> &str {
@@ -134,7 +134,7 @@ pub struct XBufferedOutputStream<W: Write> {
 }
 
 impl<W: Write> XBufferedOutputStream<W> {
-    pub fn new(inner: W, buffer_size: u32) -> Self {
+    pub fn new(inner: W, buffer_size: i32) -> Self {
         Self {
             inner: BufWriter::with_capacity(buffer_size as usize, inner),
             hasher: Hasher::new(),

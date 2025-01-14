@@ -281,7 +281,7 @@ where
         Ok(())
     }
 
-    fn file_length(&self, name: &str) -> Result<u64, LuceneError> {
+    fn file_length(&self, name: &str) -> Result<i64, LuceneError> {
         if self.pending_deletes.lock().unwrap().contains(name) {
             return Err(LuceneError::not_found(format!(
                 "file \"{}\" is pending delete",
@@ -293,7 +293,9 @@ where
         let file_name = file_path.to_string_lossy().to_string();
         let metadata =
             fs::metadata(file_path).map_err(|e| LuceneError::io_with_path(file_name, e))?;
-        Ok(metadata.len())
+        let length = metadata.len();
+        debug_assert!(length <= i64::MAX as u64);
+        Ok(length as i64)
     }
     fn create_output(
         &mut self,
@@ -542,4 +544,4 @@ where
 ///
 /// As a result, in Rust, we can safely rely on `BufWriter` for efficient buffered writes without
 /// manually enforcing a chunk size limit.
-const CHUNK_SIZE: u32 = 8192;
+const CHUNK_SIZE: i32 = 8192;

@@ -173,11 +173,11 @@ fn test_updates_and_reset_random() -> Result<(), TestError> {
     for (i, value) in values.iter_mut().enumerate() {
         if random.gen_bool(0.5) {
             *value = None;
-            updates.reset(i as u32)?;
+            updates.reset(i as i32)?;
         } else {
             let val = random.gen_range(0..100);
             *value = Some(val);
-            updates.add_value(i as u32, val as i64)?;
+            updates.add_value(i as i32, val as i64)?;
         }
     }
 
@@ -185,11 +185,11 @@ fn test_updates_and_reset_random() -> Result<(), TestError> {
         let doc_id = random.gen_range(0..5);
         if random.gen_bool(0.5) {
             values[doc_id] = None;
-            updates.reset(doc_id as u32)?;
+            updates.reset(doc_id as i32)?;
         } else {
             let value = random.gen_range(0..100);
             values[doc_id] = Some(value);
-            updates.add_value(doc_id as u32, value as i64)?;
+            updates.add_value(doc_id as i32, value as i64)?;
         }
     }
 
@@ -215,8 +215,8 @@ fn test_updates_and_reset_random() -> Result<(), TestError> {
 fn test_shared_value_updates() -> Result<(), TestError> {
     let mut random = my_random("test_shared_value_updates".to_string());
 
-    let del_gen = random.gen::<u64>();
-    let max_doc: u32 = 1 + random.gen_range(0..1000);
+    let del_gen = random.gen::<i64>();
+    let max_doc: i32 = 1 + random.gen_range(0..1000);
     let value = random.gen::<i64>();
 
     let sub_update1 = SingleValueNumericDocValuesFieldUpdates::new(value);
@@ -236,11 +236,11 @@ fn test_shared_value_updates() -> Result<(), TestError> {
         if random.gen_bool(0.5) {
             *tmp_value = Some(true);
             any = true;
-            update.add_value(i as u32, value)?;
+            update.add_value(i as i32, value)?;
         } else if random.gen_bool(0.5) && !no_reset {
             *tmp_value = None;
             any = true;
-            update.reset(i as u32)?;
+            update.reset(i as i32)?;
         } else {
             *tmp_value = Some(false);
         }
@@ -251,10 +251,10 @@ fn test_shared_value_updates() -> Result<(), TestError> {
             if rarely(&mut random) {
                 if tmp_value.is_none() {
                     *tmp_value = Some(true);
-                    update.add_value(i as u32, value)?;
+                    update.add_value(i as i32, value)?;
                 } else if *tmp_value == Some(true) {
                     *tmp_value = None;
-                    update.reset(i as u32)?;
+                    update.reset(i as i32)?;
                 }
             }
         }

@@ -34,11 +34,11 @@ impl DeltaPackedLongValues {
     }
     pub(crate) fn decode_block(
         &mut self,
-        block: usize,
+        block: i32,
         dest: &mut [i64],
-        count: u32,
-    ) -> Result<u32, LuceneError> {
-        let min = self.mins[block];
+        count: i32,
+    ) -> Result<i32, LuceneError> {
+        let min = self.mins[block as usize];
         for item in dest.iter_mut().take(count as usize) {
             *item += min;
         }
@@ -50,11 +50,11 @@ impl DeltaPackedLongValues {
 
     pub(crate) fn get_value(
         &mut self,
-        block: usize,
-        element: usize,
+        block: i32,
+        element: i32,
         _value: u64,
     ) -> Result<i64, LuceneError> {
-        let current = self.mins[block];
+        let current = self.mins[block as usize];
         match self.sub_long_value {
             Some(ref mut reader) => Ok(reader.get_value(block, element, current as u64)?),
             None => Ok(current),
@@ -84,17 +84,17 @@ impl DeltaPackedLongValuesBuilder {
     ) -> DeltaPackedLongValuesBuilder {
         Self {
             sub_builder,
-            mins: vec![0; INITIAL_PAGE_COUNT],
+            mins: vec![0; INITIAL_PAGE_COUNT as usize],
         }
     }
 
-    pub fn build(mut self, values_off: usize) -> Result<DeltaPackedLongValues, LuceneError> {
+    pub fn build(mut self, values_off: i32) -> Result<DeltaPackedLongValues, LuceneError> {
         let sub_reader = if self.sub_builder.is_some() {
             Some(self.sub_builder.take().unwrap().build(values_off)?)
         } else {
             None
         };
-        let _ = self.mins.split_off(values_off);
+        let _ = self.mins.split_off(values_off as usize);
         // TODO:
         let _ram_bytes_used = 0;
         Ok(DeltaPackedLongValues::new(
@@ -105,8 +105,8 @@ impl DeltaPackedLongValuesBuilder {
     pub(crate) fn pack(
         &mut self,
         values: &mut [i64],
-        num_values: u32,
-        block: usize,
+        num_values: i32,
+        block: i32,
     ) -> Result<(), LuceneError> {
         if self.sub_builder.is_some() {
             self.sub_builder
@@ -121,11 +121,11 @@ impl DeltaPackedLongValuesBuilder {
         for value in values.iter_mut().take(num_values as usize) {
             *value -= min;
         }
-        self.mins[block] = min;
+        self.mins[block as usize] = min;
         Ok(())
     }
 
-    pub(crate) fn grow(&mut self, new_block_count: u32) {
+    pub(crate) fn grow(&mut self, new_block_count: i32) {
         if let Some(ref mut builder) = self.sub_builder {
             builder.grow(new_block_count)
         }

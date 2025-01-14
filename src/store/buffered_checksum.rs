@@ -20,7 +20,7 @@ use crate::util::VecCopyOps;
 /// Wraps another [`Checksum`] with an internal buffer to speed up checksum calculations.
 pub struct BufferedChecksum<T: Checksum> {
     buffer: Vec<u8>,
-    upto: u32,
+    upto: i32,
     checksum: T,
 }
 
@@ -51,33 +51,33 @@ impl<T: Checksum> BufferedChecksum<T> {
 }
 impl<T: Checksum> Checksum for BufferedChecksum<T> {
     fn update(&mut self, b: u8) {
-        debug_assert!(self.buffer.len() <= u32::MAX as usize);
-        if self.upto == self.buffer.len() as u32 {
+        debug_assert!(self.buffer.len() <= i32::MAX as usize);
+        if self.upto == self.buffer.len() as i32 {
             self.flush();
         }
         self.buffer[self.upto as usize] = b;
         self.upto += 1;
     }
 
-    fn update_bytes(&mut self, bytes: &[u8], offset: u32, len: u32) {
+    fn update_bytes(&mut self, bytes: &[u8], offset: i32, len: i32) {
         let offset = offset as usize;
         let len = len as usize;
 
         if len >= self.buffer.len() {
             self.flush();
             self.checksum
-                .update_bytes(&bytes[offset..offset + len], 0, len as u32);
+                .update_bytes(&bytes[offset..offset + len], 0, len as i32);
         } else {
             if self.upto as usize + len > self.buffer.len() {
                 self.flush();
             }
             self.buffer
                 .copy_from(&bytes[offset..offset + len], self.upto as usize);
-            self.upto += len as u32;
+            self.upto += len as i32;
         }
     }
 
-    fn get_value(&mut self) -> u64 {
+    fn get_value(&mut self) -> i64 {
         self.flush();
         self.checksum.get_value()
     }

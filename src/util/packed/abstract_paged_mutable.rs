@@ -22,8 +22,8 @@ use crate::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
 use std::cmp::min;
 use std::fmt::Display;
 
-const MIN_BLOCK_SIZE: u32 = 1 << 6;
-const MAX_BLOCK_SIZE: u32 = 1 << 30;
+const MIN_BLOCK_SIZE: i32 = 1 << 6;
+const MAX_BLOCK_SIZE: i32 = 1 << 30;
 /// Base implementation for [`PagedMutable`](crate::util::packed::paged_mutable::PagedMutable) and [`PagedGrowableWriter`](crate::util::packed::paged_growable_writer::PagedGrowableWriter).
 ///
 /// # Lucene Internal
@@ -34,11 +34,11 @@ where
     T: AbstractPagedMutableBase,
 {
     sub_reader: T,
-    size: u64,
-    page_shift: u32,
-    page_mask: u32,
+    size: i64,
+    page_shift: i32,
+    page_mask: i32,
     sub_mutables: Vec<MutableEnum>,
-    bits_per_value: u32,
+    bits_per_value: i32,
 }
 
 impl<T> AbstractPagedMutable<T>
@@ -46,9 +46,9 @@ where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
     pub fn new(
-        bits_per_value: u32,
-        size: u64,
-        page_size: u32,
+        bits_per_value: i32,
+        size: i64,
+        page_size: i32,
         sub_reader: T,
     ) -> Result<AbstractPagedMutable<T>, LuceneError> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
@@ -87,7 +87,7 @@ where
         }
         Ok(())
     }
-    fn last_page_size(&self, size: u64) -> u32 {
+    fn last_page_size(&self, size: i64) -> i32 {
         let sz = self.index_in_page(size);
         if sz == 0 {
             self.page_size()
@@ -95,21 +95,21 @@ where
             sz
         }
     }
-    fn page_size(&self) -> u32 {
+    fn page_size(&self) -> i32 {
         self.page_mask + 1
     }
-    pub fn size(&self) -> u64 {
+    pub fn size(&self) -> i64 {
         self.size
     }
-    fn page_index(&self, index: u64) -> usize {
+    fn page_index(&self, index: i64) -> usize {
         (index >> self.page_shift) as usize
     }
 
-    fn index_in_page(&self, index: u64) -> u32 {
-        (index & self.page_mask as u64) as u32
+    fn index_in_page(&self, index: i64) -> i32 {
+        (index & self.page_mask as i64) as i32
     }
     /// Sets the value at the specified index.
-    pub fn set(&mut self, index: u64, value: i64) -> Result<(), LuceneError> {
+    pub fn set(&mut self, index: i64, value: i64) -> Result<(), LuceneError> {
         debug_assert!(
             index < self.size,
             "Index out of bounds: index={} size={}",
@@ -118,14 +118,14 @@ where
         );
         let page_index = self.page_index(index);
         let index_in_page = self.index_in_page(index);
-        self.sub_mutables[page_index].set(index_in_page as usize, value)
+        self.sub_mutables[page_index].set(index_in_page, value)
     }
-    pub(crate) fn base_ram_bytes_used(&self) -> u64 {
+    pub(crate) fn base_ram_bytes_used(&self) -> i64 {
         self.sub_reader.base_ram_bytes_used_base()
     }
     /// Create a new copy of size <code>newSize</code> based on the content of this buffer. This
     /// is much more efficient than creating a new instance and copying values one by one.
-    pub fn resize(&mut self, new_size: u64) -> Result<AbstractPagedMutable<T>, LuceneError> {
+    pub fn resize(&mut self, new_size: i64) -> Result<AbstractPagedMutable<T>, LuceneError> {
         let mut copy = self
             .sub_reader
             .new_unfilled_copy(new_size, self.page_size())?;
@@ -152,7 +152,7 @@ where
                     0,
                     &mut copy.sub_mutables[i],
                     0,
-                    copy_length as usize,
+                    copy_length,
                     &mut copy_buffer,
                 )?;
             }
@@ -161,7 +161,7 @@ where
     }
     pub fn grow_with_size(
         &mut self,
-        min_size: u64,
+        min_size: i64,
     ) -> Result<Option<AbstractPagedMutable<T>>, LuceneError> {
         if min_size <= self.size {
             return Ok(None);
@@ -181,11 +181,11 @@ impl<T> LongValues for AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    fn get(&mut self, index: u64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index < self.size, "index={} size={}", index, self.size);
         let page_index = self.page_index(index);
         let index_in_page = self.index_in_page(index);
-        self.sub_mutables[page_index].get(index_in_page as usize)
+        self.sub_mutables[page_index].get(index_in_page)
     }
 }
 impl<T> Accountable for AbstractPagedMutable<T>
@@ -193,7 +193,7 @@ where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
     fn ram_bytes_used(&self) -> u64 {
-        let mut byte_used = self.base_ram_bytes_used();
+        let mut byte_used = self.base_ram_bytes_used() as u64;
         for sub_mutable in &self.sub_mutables {
             byte_used += sub_mutable.ram_bytes_used();
         }
@@ -217,15 +217,15 @@ where
 pub trait AbstractPagedMutableBase: Default {
     fn new_mutable(
         &self,
-        value_count: u32,
-        bits_per_value: u32,
+        value_count: i32,
+        bits_per_value: i32,
     ) -> Result<MutableEnum, LuceneError>;
     type PagedMutableBase: AbstractPagedMutableBase;
     fn new_unfilled_copy(
         &self,
-        new_size: u64,
-        page_size: u32,
+        new_size: i64,
+        page_size: i32,
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, LuceneError>;
-    fn base_ram_bytes_used_base(&self) -> u64;
+    fn base_ram_bytes_used_base(&self) -> i64;
     fn fill_pages(&self) -> bool;
 }

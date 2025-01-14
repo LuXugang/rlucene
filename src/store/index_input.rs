@@ -37,7 +37,7 @@ pub trait IndexInput: DataInput + Clone {
     ///
     /// # See Also
     /// [`seek`](IndexInput::seek)
-    fn get_file_pointer(&self) -> u64;
+    fn get_file_pointer(&self) -> i64;
 
     /// Sets the current position in this file, where the next read will occur.
     /// If this position is beyond the end of the file, it will return an `EOFError`,
@@ -45,7 +45,7 @@ pub trait IndexInput: DataInput + Clone {
     ///
     /// # See Also
     /// [`get_file_pointer`](IndexInput::get_file_pointer)
-    fn seek(&mut self, pos: u64) -> Result<(), LuceneError>;
+    fn seek(&mut self, pos: i64) -> Result<(), LuceneError>;
     /// Inherits documentation from the parent implementation.
     ///
     /// # Behavior
@@ -55,21 +55,27 @@ pub trait IndexInput: DataInput + Clone {
     /// [`get_file_pointer`](IndexInput::get_file_pointer)
     ///
     /// [`seek`](IndexInput::seek)
-    fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
+        if num_bytes < 0 {
+            return Err(LuceneError::illegal_argument(format!(
+                "num_bytes must be >= 0, got {}",
+                num_bytes
+            )));
+        }
         let skip_to = self.get_file_pointer() + num_bytes;
         self.seek(skip_to)?;
         Ok(())
     }
     /// The number of bytes in the file.
-    fn length(&self) -> u64;
+    fn length(&self) -> i64;
 
     /// Creates a slice of this index input, with the given description, offset, and length.
     /// The slice is positioned at the beginning.
     fn slice(
         &self,
         slice_description: &str,
-        offset: u64,
-        length: u64,
+        offset: i64,
+        length: i64,
     ) -> Result<impl IndexInput + RandomAccessInput, LuceneError>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used by
     /// [`CompoundFormat`](crate::codecs::compound_format) implementations to honor
@@ -85,8 +91,8 @@ pub trait IndexInput: DataInput + Clone {
     fn slice_with_read_advice(
         &self,
         description: &str,
-        offset: u64,
-        length: u64,
+        offset: i64,
+        length: i64,
         read_advice: ReadAdvice,
     ) -> Result<impl IndexInput, LuceneError> {
         self.default_slice_with_read_advice(description, offset, length, read_advice)
@@ -94,8 +100,8 @@ pub trait IndexInput: DataInput + Clone {
     fn default_slice_with_read_advice(
         &self,
         description: &str,
-        offset: u64,
-        length: u64,
+        offset: i64,
+        length: i64,
         _read_advice: ReadAdvice,
     ) -> Result<impl IndexInput, LuceneError> {
         self.slice(description, offset, length)
@@ -107,8 +113,8 @@ pub trait IndexInput: DataInput + Clone {
     /// It implements absolute reads as seek+read.
     fn random_access_slice(
         &self,
-        offset: u64,
-        length: u64,
+        offset: i64,
+        length: i64,
     ) -> Result<impl IndexInput + RandomAccessInput, LuceneError>;
 
     /// Optional method: Gives a hint to this input that some bytes will be read soon.
@@ -121,11 +127,11 @@ pub trait IndexInput: DataInput + Clone {
     ///
     /// # Note
     /// The default implementation is a no-op.
-    fn prefetch(&mut self, pos: u64, len: u64) -> Result<(), LuceneError> {
+    fn prefetch(&mut self, pos: i64, len: i64) -> Result<(), LuceneError> {
         self.default_prefetch(pos, len)
     }
 
-    fn default_prefetch(&mut self, _pos: u64, _len: u64) -> Result<(), LuceneError> {
+    fn default_prefetch(&mut self, _pos: i64, _len: i64) -> Result<(), LuceneError> {
         Ok(())
     }
 }

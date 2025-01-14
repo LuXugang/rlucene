@@ -27,8 +27,8 @@ use crate::util::error::lucene_error::LuceneError;
 /// This is an experimental API.
 pub struct ByteArrayDataOutput<'a> {
     bytes: &'a mut [u8],
-    pos: u32,
-    limit: u32,
+    pos: i32,
+    limit: i32,
 }
 
 impl<'a> ByteArrayDataOutput<'a> {
@@ -42,10 +42,10 @@ impl<'a> ByteArrayDataOutput<'a> {
 
     pub fn new_with_bytes(bytes: &'a mut [u8]) -> Self {
         let len = bytes.len();
-        debug_assert!(len <= u32::MAX as usize, "bytes length exceeds u32 range");
-        Self::new_with_range(bytes, 0, len as u32)
+        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
+        Self::new_with_range(bytes, 0, len as i32)
     }
-    pub fn new_with_range(bytes: &'a mut [u8], offset: u32, length: u32) -> Self {
+    pub fn new_with_range(bytes: &'a mut [u8], offset: i32, length: i32) -> Self {
         let mut data_input = Self::new(bytes);
         data_input.reset_with_range(offset, length);
         data_input
@@ -53,15 +53,15 @@ impl<'a> ByteArrayDataOutput<'a> {
     pub fn reset(&mut self, bytes: &'a mut [u8]) {
         let len = bytes.len();
         self.bytes = bytes;
-        debug_assert!(len <= u32::MAX as usize, "bytes length exceeds u32 range");
-        self.reset_with_range(0, len as u32);
+        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
+        self.reset_with_range(0, len as i32);
     }
-    pub fn reset_with_range(&mut self, offset: u32, length: u32) {
+    pub fn reset_with_range(&mut self, offset: i32, length: i32) {
         self.pos = offset;
         self.limit = offset + length;
     }
 
-    pub fn get_position(&self) -> u32 {
+    pub fn get_position(&self) -> i32 {
         self.pos
     }
 }
@@ -83,7 +83,7 @@ impl DataOutput for ByteArrayDataOutput<'_> {
         Ok(())
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: u32, length: u32) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), LuceneError> {
         debug_assert!(
             self.pos + length <= self.limit,
             "Write exceeds the allowed limit: pos={}, length={}, limit={}",
@@ -129,31 +129,31 @@ impl DataOutput for ByteArrayDataOutput<'_> {
 
     fn write_int(&mut self, i: i32) -> Result<(), LuceneError> {
         debug_assert!(
-            self.pos + BitUtil::INT_BYTES as u32 <= self.limit,
+            self.pos + BitUtil::INT_BYTES as i32 <= self.limit,
             "Write exceeds the allowed limit"
         );
         BitUtil::set_i32_le(self.bytes, self.pos as usize, i);
-        self.pos += BitUtil::INT_BYTES as u32;
+        self.pos += BitUtil::INT_BYTES as i32;
         Ok(())
     }
 
     fn write_short(&mut self, i: i16) -> Result<(), LuceneError> {
         debug_assert!(
-            self.pos + BitUtil::SHORT_BYTES as u32 <= self.limit,
+            self.pos + BitUtil::SHORT_BYTES as i32 <= self.limit,
             "Write exceeds the allowed limit"
         );
         BitUtil::set_i16_le(self.bytes, self.pos as usize, i);
-        self.pos += BitUtil::SHORT_BYTES as u32;
+        self.pos += BitUtil::SHORT_BYTES as i32;
         Ok(())
     }
 
     fn write_long(&mut self, i: i64) -> Result<(), LuceneError> {
         debug_assert!(
-            self.pos + BitUtil::LONG_BYTES as u32 <= self.limit,
+            self.pos + BitUtil::LONG_BYTES as i32 <= self.limit,
             "Write exceeds the allowed limit"
         );
         BitUtil::set_i64_le(self.bytes, self.pos as usize, i);
-        self.pos += BitUtil::LONG_BYTES as u32;
+        self.pos += BitUtil::LONG_BYTES as i32;
         Ok(())
     }
 }
