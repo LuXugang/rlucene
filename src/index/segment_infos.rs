@@ -1157,7 +1157,7 @@ where
                 .do_body(self.directory.clone(), &commit.get_segments_file_name());
         }
 
-        let mut last_gen: i64 = -1;
+        let mut last_gen: i64;
         let mut gen: i64 = -1;
         let mut exc: Option<LuceneError> = None;
         // Loop until we succeed in calling doBody() without

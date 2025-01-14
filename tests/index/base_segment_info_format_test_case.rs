@@ -18,23 +18,28 @@ use crate::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::util::lucene_test_case::new_directory;
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
+use num_bigint::BigInt;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::codecs::segment_info_format::SegmentInfoFormat;
 use rlucene::codecs::{Codec, LATEST_CODEC};
+use rlucene::index::index_writer::{MAX_DOCS};
 use rlucene::index::segment_info::SegmentInfo;
 use rlucene::index::sort::Sort;
+use rlucene::index::IndexFileNames;
 use rlucene::search::sort_field::{
     MissingValueEnum, SortField, SortFieldEnum, SortFieldType, SortFiledBase,
 };
 use rlucene::search::sorted_numeric_sort_field::SortedNumericSortField;
 use rlucene::search::sorted_set_sort_field::SortedSetSortField;
+use rlucene::store::directory::Directory;
 use rlucene::store::IOContext;
 use rlucene::util::{StringHelper, Version};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
+    /// Test files map
     fn test_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
@@ -100,6 +105,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
 
+    /// Tests SI writer adds itself to files...
     fn test_adds_self_to_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
@@ -146,6 +152,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         // );
         Ok(())
     }
+    /// Test diagnostics map
     fn test_diagnostics(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
@@ -187,7 +194,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         // );
         Ok(())
     }
-
+    /// Test attributes map
     fn test_attributes(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
@@ -234,6 +241,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
 
+    /// Test unique ID
     fn test_unique_id(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
@@ -266,7 +274,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
         Ok(())
     }
-
+    /// Test versions
     fn test_versions(&self, random: &mut StdRng) -> Result<(), TestError> {
         for version in self.get_versions() {
             for min_version in [Some(version.clone()), None] {
@@ -428,6 +436,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             _ => Ok(None),
         }
     }
+    /// Test sort
     fn test_sort(&self, random: &mut StdRng) -> Result<(), TestError> {
         assert!(
             self.supports_index_sort(),
@@ -482,6 +491,135 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 assert!(sort_clone.is_none())
             }
         }
+        Ok(())
+    }
+    fn test_exception_on_create_output(&self) -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    fn test_exception_on_close_output(&self) -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    fn test_exception_on_open_input(&self) -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    fn test_exception_on_close_input(&self) -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+
+    /// Sets some otherwise hard-to-test properties: random segment names, ID values, document count, etc and round-trips
+    fn test_random(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let versions = self.get_versions();
+        for _ in 0..10 {
+            let dir = Arc::new(Mutex::new(new_directory(random)?));
+            let version = versions[random.gen_range(0..versions.len())].clone();
+            let random_segment_index = random.gen::<i64>().abs();
+            let big_int = if random_segment_index != i64::MIN {
+                BigInt::from(random_segment_index)
+            } else {
+                BigInt::from(random.gen_range(0..i32::MAX) as i64)
+            };
+            let name = format!("_{}", big_int.to_str_radix(36));
+            let doc_count = random.gen_range(1..=MAX_DOCS);
+            let is_compound_file = random.gen_bool(0.5);
+            let mut files = HashSet::new();
+            let num_files = random.gen_range(0..10);
+            for j in 0..num_files {
+                let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
+                files.insert(file.clone());
+                let mut directory = dir.lock().unwrap();
+                directory.create_output(&file, IOContext::default_io_context()?)?;
+            }
+            let mut diagnostics = HashMap::new();
+            let num_diags = random.gen_range(0..10);
+            for _ in 0..num_diags {
+                diagnostics.insert(
+                    TestUtil::random_unicode_string(random),
+                    TestUtil::random_unicode_string(random),
+                );
+            }
+            let mut id = vec![0; StringHelper::ID_LENGTH as usize];
+            random.fill(&mut id[..]);
+            let mut attributes = HashMap::new();
+            let num_attributes = random.gen_range(0..10);
+            for _ in 0..num_attributes {
+                attributes.insert(
+                    TestUtil::random_unicode_string(random),
+                    TestUtil::random_unicode_string(random),
+                );
+            }
+            let mut info = SegmentInfo::new(
+                dir.clone(),
+                Some(version.clone()),
+                None,
+                name.clone(),
+                Some(doc_count),
+                is_compound_file,
+                false,
+                diagnostics,
+                id.clone(),
+                attributes,
+                None,
+            )?;
+            info.set_files(files.clone());
+            LATEST_CODEC.segment_info_format().write(
+                dir.clone(),
+                &mut info,
+                IOContext::default_io_context()?,
+            )?;
+            let info2 = LATEST_CODEC.segment_info_format().read(
+                dir.clone(),
+                &name,
+                id.clone(),
+                &IOContext::default_io_context()?,
+            )?;
+            Self::assert_equals(&info, &info2)?;
+        }
+        Ok(())
+    }
+    fn assert_equals<D: Directory>(
+        expected: &SegmentInfo<D>,
+        actual: &SegmentInfo<D>,
+    ) -> Result<(), TestError> {
+        assert!(
+            Arc::ptr_eq(&expected.dir, &actual.dir),
+            "Directory references are not the same"
+        );
+        assert_eq!(expected.name, actual.name, "Segment names do not match");
+        assert_eq!(expected.files()?, actual.files()?, "Files do not match");
+        assert_eq!(
+            *expected.get_diagnostics(),
+            *actual.get_diagnostics(),
+            "Diagnostics do not match"
+        );
+        assert_eq!(
+            expected.max_doc()?,
+            actual.max_doc()?,
+            "MaxDoc values do not match"
+        );
+        assert_eq!(
+            expected.get_id(),
+            actual.get_id(),
+            "Segment IDs do not match"
+        );
+        assert_eq!(
+            expected.get_use_compound_file(),
+            actual.get_use_compound_file(),
+            "UseCompoundFile values do not match"
+        );
+        assert_eq!(
+            expected.get_version().unwrap(),
+            actual.get_version().unwrap(),
+            "Versions do not match"
+        );
+        assert_eq!(
+            *expected.get_attributes()?.lock().unwrap(),
+            *actual.get_attributes()?.lock().unwrap(),
+            "Attributes do not match"
+        );
         Ok(())
     }
 

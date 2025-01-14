@@ -127,4 +127,48 @@ impl TestUtil {
         }
         result
     }
+    /// Returns random string, including full unicode range
+    pub fn random_unicode_string(random: &mut StdRng) -> String {
+        Self::random_unicode_string_with_length(random, 20)
+    }
+    /// Returns a random string up to a certain length.
+    pub fn random_unicode_string_with_length(random: &mut StdRng, max_length: usize) -> String {
+        let end = random.gen_range(0..=max_length);
+        if end == 0 {
+            return "".to_string();
+        }
+
+        let mut buffer: Vec<u16> = Vec::with_capacity(end);
+        Self::random_fixed_length_unicode_string(random, &mut buffer, end);
+        String::from_utf16_lossy(&buffer)
+    }
+    pub fn random_fixed_length_unicode_string(
+        random: &mut StdRng,
+        buffer: &mut Vec<u16>,
+        length: usize,
+    ) {
+        for _ in 0..length {
+            let t = random.gen_range(0..5);
+            match t {
+                0 => {
+                    // Generate a surrogate pair (high and low surrogate)
+                    buffer.push(random.gen_range(0xD800..=0xDBFF) as u16);
+                    buffer.push(random.gen_range(0xDC00..=0xDFFF) as u16);
+                }
+                1 => {
+                    buffer.push(random.gen_range(0x00..=0x7F) as u16);
+                }
+                2 => {
+                    buffer.push(random.gen_range(0x80..=0x7FF) as u16);
+                }
+                3 => {
+                    buffer.push(random.gen_range(0x800..=0xD7FF) as u16);
+                }
+                4 => {
+                    buffer.push(random.gen_range(0xE000..=0xFFFF) as u16);
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
 }

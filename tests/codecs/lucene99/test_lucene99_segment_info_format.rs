@@ -78,3 +78,29 @@ fn test_sort() -> Result<(), TestError> {
     let test = TestLucene99SegmentInfoFormat;
     test.test_sort(&mut random)
 }
+#[test]
+fn test_exception_on_create_output() -> Result<(), TestError> {
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_exception_on_create_output()
+}
+#[test]
+fn test_exception_on_close_output() -> Result<(), TestError> {
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_exception_on_close_output()
+}
+#[test]
+fn test_exception_on_open_input() -> Result<(), TestError> {
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_exception_on_open_input()
+}
+#[test]
+fn test_exception_on_close_input() -> Result<(), TestError> {
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_exception_on_close_input()
+}
+#[test]
+fn test_random() -> Result<(), TestError> {
+    let mut random = my_random("test_random".to_string());
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_random(&mut random)
+}
