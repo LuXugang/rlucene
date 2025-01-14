@@ -48,7 +48,7 @@ pub fn my_random_with_seed(seed: u64) -> StdRng {
 }
 
 pub fn is_night_mode() -> bool {
-    std::env::var("NIGHT_MODE").map_or(false, |v| v == "true")
+    std::env::var("NIGHT_MODE").is_ok_and(|v| v == "true")
 }
 
 pub fn rarely(random: &mut StdRng) -> bool {

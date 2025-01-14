@@ -21,7 +21,7 @@ use crate::index::sort_field_provider::SortFieldProvider;
 use std::fmt::Display;
 
 use crate::search::sort_field::{
-    MissingValueEnum, Provider, SortField, SortFieldEnum, SortFieldType, SortFiledBase,
+    MissingValueEnum, SortField, SortFieldEnum, SortFieldType, SortFiledBase,
 };
 use crate::search::sorted_numeric_selector::SortedNumericSelectorType;
 use crate::store::{DataInput, DataOutput};
@@ -198,7 +198,21 @@ impl SortFiledBase for SortedNumericSortField {
 }
 impl Display for SortedNumericSortField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SortedNumericSortField({})", self.sort_field)
+        let mut buffer = String::new();
+        debug_assert!(self.sort_field.get_field().is_some());
+        buffer.push_str(&format!(
+            "<sortednumeric: \"{}\">",
+            self.sort_field.get_field().unwrap()
+        ));
+        if self.sort_field.reverse {
+            buffer.push('!');
+        }
+        if let Some(missing_value) = &self.sort_field.missing_value {
+            buffer.push_str(&format!(" missingValue={}", missing_value));
+        }
+        buffer.push_str(&format!(" selector={:?}", self.selector));
+        buffer.push_str(&format!(" type={:?}", self.sort_field_type));
+        write!(f, "{}", buffer)
     }
 }
 

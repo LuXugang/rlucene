@@ -231,8 +231,6 @@ fn test_versions_two_segments() -> Result<(), TestError> {
 fn test_to_string() -> Result<(), TestError> {
     let mut random = my_random("test_to_string".to_string());
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
-    let codec = get_default_code();
-
     // Diagnostics map
     let diagnostics: HashMap<String, String> = [
         ("key1".to_string(), "value1".to_string()),
@@ -550,8 +548,6 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
 fn test_add_diagnostics() -> Result<(), TestError> {
     let mut random = my_random("test_add_diagnostics".to_string());
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
-    let codec = get_default_code();
-
     // Diagnostics map
     let diagnostics: HashMap<String, String> = [
         ("key1".to_string(), "value1".to_string()),

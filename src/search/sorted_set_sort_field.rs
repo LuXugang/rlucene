@@ -21,7 +21,6 @@ use std::fmt::Display;
 use crate::search::sort_field::{
     MissingValueEnum, SortField, SortFieldEnum, SortFieldType, SortFiledBase,
 };
-use crate::search::sorted_numeric_sort_field::NumericProvider;
 use crate::search::sorted_set_selector::SortedSetSelectorType;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
@@ -81,7 +80,20 @@ impl SortedSetSortField {
 }
 impl Display for SortedSetSortField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        let mut buffer = String::new();
+        debug_assert!(self.sort_field.get_field().is_some());
+        buffer.push_str(&format!(
+            "<sortedset: \"{}\">",
+            self.sort_field.get_field().unwrap()
+        ));
+        if self.sort_field.reverse {
+            buffer.push('!');
+        }
+        if let Some(missing_value) = &self.sort_field.missing_value {
+            buffer.push_str(&format!(" missingValue={}", missing_value));
+        }
+        buffer.push_str(&format!(" selector={:?}", self.selector));
+        write!(f, "{}", buffer)
     }
 }
 impl SortFiledBase for SortedSetSortField {

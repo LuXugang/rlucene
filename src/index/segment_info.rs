@@ -97,6 +97,7 @@ where
     /// This method panics if:
     /// * `id` length does not match the expected `ID_LENGTH`.
     /// * `dir` is a `TrackingDirectoryWrapper`.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         dir: Arc<Mutex<D>>,
         version: Option<Version>,

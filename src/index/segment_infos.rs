@@ -1215,7 +1215,7 @@ where
                             exc = Some(err);
                         }
 
-                        if let Some(_) = get_info_stream() {
+                        if get_info_stream().is_some() {
                             message(&format!(
                                 "primary Exception on '{}': {}; will retry: gen = {}",
                                 segment_file_name,
