@@ -127,7 +127,7 @@ where
     /// * `Err(LuceneError)` - If an error occurs during the refill operation, such as reaching EOF.
     ///
     /// # Behavior
-    /// 1. Calculates the range `[start, end)` for data to be read from the underlying input.
+    /// 1. Calculate the range `[start, end)` for data to be read from the underlying input.
     /// 2. Ensures that the read operation does not exceed the end of the file (EOF).
     /// 3. Copies the unaligned bytes to the start of the buffer.
     /// 4. Reads new data into the remaining space in the buffer.
@@ -505,7 +505,7 @@ where
             return Ok(());
         }
         if index < 0 {
-            // if we're moving backwards, then try and fill up the previous page rather than
+            // If we're moving backwards, then try and fill up the previous page rather than
             // starting again at the current pos, to avoid successive backwards reads reloading
             // the same data over and over again.  We also check that we can read `width`
             // bytes without going over the end of the buffer

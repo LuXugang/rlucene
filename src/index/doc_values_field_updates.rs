@@ -168,9 +168,9 @@ where
 
         if inner.size > 0 {
             // We need a stable sort but InPlaceMergeSorter performs lots of swaps
-            // which hurts performance due to all the packed ints we are using.
+            // which hurt performance due to all the packed ints we are using.
             // Another option would be TimSorter, but it needs additional API (copy to
-            // temp storage, compare with item in temp storage, etc.) so we instead
+            // temp storage, compare with item in temp storage, etc.), so we instead
             // use quicksort and record ords of each update to guarantee stability.
             let mut ords = PackedInts::get_mutable(
                 inner.size,
@@ -201,7 +201,7 @@ where
             result
         }
     }
-    /// Adds an update that resets the documents value.
+    /// Adds an update that resets the document value.
     pub fn reset(&mut self, doc: u32) -> Result<(), LuceneError> {
         if self.sub_update.need_reset() {
             self.sub_update.reset(doc)
@@ -268,7 +268,7 @@ pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<PriorityQueueIterator<T
 where
     T: DocValuesFieldIterator,
 {
-    // Due to the characteristics of the Rust language, in order to reduce complexity,
+    // Due to the characteristics of the Rust language, to reduce complexity,
     // we add the element to the queue for processing even if there is only one element.
     // if subs.len() == 1 {
     //
@@ -357,7 +357,7 @@ where
         // increasing docID order:
         // NOTE: we can have ties here, when the same docID was updated in the same segment, in
         // which case we rely on sort being
-        // stable and preserving original order so the last update to that docID wins
+        // stable and preserving the original order so the last update to that docID wins
         let cmp = (self.inner.docs.get(i as u64)? >> 1).cmp(&(self.inner.docs.get(j as u64)? >> 1));
 
         if cmp == std::cmp::Ordering::Equal {

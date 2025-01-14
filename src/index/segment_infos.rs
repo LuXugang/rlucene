@@ -76,14 +76,14 @@ static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| M
 /// - `NameCounter` is used to generate names for new segment files.
 /// - `SegName` is the name of the segment, and is used as the file name prefix for all
 ///   of the files that compose the segment's index.
-/// - `DelGen` is the generation count of the deletes file. If this is `-1`, there are no
+/// - `DelGen` is the generation count of the delete file. If this is `-1`, there are no
 ///   deletes. Anything above zero means there are deletes stored by
 ///   [`LiveDocsFormat`](crate::codecs::live_docs_format).
 /// - `DeletionCount` records the number of deleted documents in this segment.
-/// - `SegCodec` is the [`Codec::getName`](crate::codecs::Codec::get_name) of the Codec that encoded this segment.
+/// - `SegCodec` is the [`Codec::getName`](Codec::get_name) of the Codec that encoded this segment.
 /// - `SegID` is the identifier of the Codec that encoded this segment.
 /// - `CommitUserData` stores an optional user-supplied opaque `Map<String,String>` that was
-///   passed to [`IndexWriter::setLiveCommitData`](crate::index::index_writer::IndexWriter::set_live_commit_data).
+///   passed to [`IndexWriter::setLiveCommitData`](IndexWriter::set_live_commit_data).
 /// - `FieldInfosGen` is the generation count of the fieldInfos file. If this is `-1`,
 ///   there are no updates to the fieldInfos in that segment. Anything above zero means
 ///   there are updates to fieldInfos stored by [`FieldInfosFormat`](crate::codecs::field_infos_format::FieldInfosFormat).
@@ -110,9 +110,9 @@ where
     pub user_data: HashMap<String, String>,
     /// List of `SegmentCommitInfo` objects.
     pub segments: Vec<SegmentCommitInfo<D>>,
-    /// Id for this commit; only written starting with Lucene 5.0.
+    /// ID for this commit; only written starting with Lucene 5.0.
     pub id: Option<Vec<u8>>,
-    /// Which Lucene version wrote this commit.
+    /// Which Lucene version wrote this commit?
     pub lucene_version: Option<Version>,
     /// Version of the oldest segment in the index, or `None` if there are no segments.
     pub min_segment_lucene_version: Option<Version>,
@@ -203,8 +203,8 @@ where
     ///
     /// # Arguments
     ///
-    /// - `directory`: Directory containing the segments file.
-    /// - `segment_file_name`: The segment file to load.
+    /// - `Directory`: Directory containing the segment file.
+    /// - `Segment_file_name`: The segment file to load.
     ///
     /// # Errors
     ///
@@ -218,12 +218,14 @@ where
         Self::read_commit_with_file_min_version(directory, segment_file_name, *MIN_SUPPORTED_MAJOR)
     }
 
-    /// Reads a particular `segmentFileName`, as long as the commit's
+    /// Reads a particular `segmentFileName`, as long as the commits
     /// [`SegmentInfos::get_index_created_version_major`](SegmentInfos::get_index_created_version_major)
     /// is strictly greater than the provided minimum supported major version.
     ///
-    /// If the commit's version is older, an [`IndexFormatTooOldException`](LuceneError::index_format_too_old)
-    /// will be thrown. Note that this may return an `Err` if a commit is in process.
+    /// If the commits version is older,
+    /// an [`IndexFormatTooOldException`](LuceneError::index_format_too_old)
+    /// will be thrown.
+    /// Note that this may return an `Err` if a commit is in process.
     pub fn read_commit_with_file_min_version(
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
@@ -552,7 +554,7 @@ where
         debug_assert!(segment_file_name_wrap.is_some());
         let segment_file_name = segment_file_name_wrap.unwrap();
 
-        // Always advance the generation on write
+        // Always advance the generation on writing
         self.generation = next_generation;
 
         let mut success = false;
@@ -778,13 +780,13 @@ where
                 "",
                 self.generation,
             ) {
-                // Suppress so we keep throwing the original exception in our caller
+                // Suppress, so we keep throwing the original exception in our caller
                 IOUtils::delete_files_ignoring_exceptions(directory, &[pending]);
             }
         }
     }
     /// Call this to start a commit. This writes the new segments file, but writes an invalid checksum
-    /// at the end, so that it is not visible to readers. Once this is called you must call [`finish_commit`](SegmentInfos::finish_commit)
+    /// at the end, so that it is not visible to readers. Once this is called, you must call [`finish_commit`](SegmentInfos::finish_commit)
     /// to complete the commit or [`rollback_commit`](SegmentInfos::rollback_commit) to abort it.
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
@@ -869,7 +871,7 @@ where
             }
         }
     }
-    /// Writes and syncs to the Directory, taking care to remove the segments file on exception.
+    /// Writes and syncs to the Directory, taking care to remove the segment file on exception.
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
     pub fn commit(&mut self, dir: Arc<Mutex<D>>) -> Result<(), LuceneError> {
@@ -1274,7 +1276,7 @@ pub fn get_info_stream() -> Option<Arc<Mutex<OutputEnum>>> {
     info_stream.clone()
 }
 
-/// Prints a message to the INFO_STREAM, if it is set.
+/// Prints a message to the INFO_STREAM if it is set.
 /// This function assumes the caller has checked whether INFO_STREAM is `Some`.
 pub fn message(msg: &str) -> io::Result<()> {
     let info_stream = INFO_STREAM.lock().unwrap();
@@ -1353,7 +1355,7 @@ pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
         last_gen,
     ))
 }
-/// Parse the generation off the segments file name and return it.
+/// Parse the generation off the segment file name and return it.
 pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64, LuceneError> {
     if file_name == SegmentInfos::OLD_SEGMENTS_GEN {
         Err(LuceneError::illegal_argument(format!(

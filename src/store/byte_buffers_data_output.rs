@@ -25,7 +25,7 @@ use byteorder::WriteBytesExt;
 use std::collections::VecDeque;
 use std::io::{Cursor, Seek};
 
-/// A [`DataOutput`] storing data in a list of [`Cursor<Vec<u8>>`](std::io::Cursor).
+/// A [`DataOutput`] storing data in a list of [`Cursor<Vec<u8>>`](Cursor).
 pub struct ByteBuffersDataOutput {
     //In Rust Lucene, all data within each block is considered valid.
     // However, in Java Lucene, the valid data range can be controlled
@@ -34,7 +34,7 @@ pub struct ByteBuffersDataOutput {
     max_bits_per_block: u32,
     block_bits: u32,
     ram_bytes_used: i64,
-    // it is needed when we want to reuse the dataoutput
+    // it is necessary when we want to reuse the data output
     current_block_index: u32,
     reuse: bool,
 }

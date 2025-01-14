@@ -29,7 +29,7 @@ use crate::util::error::lucene_error::LuceneError;
 ///   primary one (i.e., is only used to break ties from the comparators before it).
 /// - [`compare_bottom`](LeafFieldComparator::compare_bottom) Compare a new hit (docID) against the "weakest" (bottom) entry in
 ///   the queue.
-/// - [`compare_top`](LeafFieldComparator::compare_top) Compare a new hit (docID) against the top value previously set by a
+/// - [`compare_top`](LeafFieldComparator::compare_top) Compares a new hit (docID) against the top value previously set by a
 ///   call to [`FieldComparator::set_top_value`](crate::search::field_comparator::FieldComparator::set_top_value).
 /// - [`copy`](LeafFieldComparator::copy) Installs a new hit into the priority queue. The [`FieldValueHitQueue`](crate::search::field_value_hit_queue::FieldValueHitQueue)
 ///   calls this method when a new hit is competitive.
@@ -106,7 +106,7 @@ pub trait LeafFieldComparator {
     /// Sets the scorer to use in case a document's score is needed.
     ///
     /// # Arguments
-    /// - `scorer`: Scorer instance to obtain the current hit's score, if necessary.
+    /// - `scorer`: Scorer instance to get the current hit's score, if necessary.
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
@@ -121,9 +121,9 @@ pub trait LeafFieldComparator {
         None::<DummyDISI>
     }
 
-    /// Informs this leaf comparator that the hits threshold is reached.
+    /// Informs this leaf comparator that the hit's threshold is reached.
     ///
-    /// This method is called from a collector when the hits threshold is reached.
+    /// This method is called from a collector when the hit's threshold is reached.
     fn set_hits_threshold_reached(&mut self) -> Result<(), LuceneError> {
         Ok(())
     }

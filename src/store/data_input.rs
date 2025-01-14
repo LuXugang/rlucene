@@ -48,7 +48,7 @@ pub trait DataInput: Sized + Display {
     /// * `b` - The array to read bytes into.
     /// * `offset` - The offset in the array to start storing bytes.
     /// * `len` - The number of bytes to read.
-    /// * `use_buffer` - Set to `false` if the caller will handle buffering.
+    /// * `use_buffer` - Set to `false` if the caller handles buffering.
     ///
     /// # See Also
     /// [`DataOutput::write_bytes_with_len`](crate::store::data_output::DataOutput::write_bytes_with_len)
@@ -94,7 +94,8 @@ pub trait DataInput: Sized + Display {
         Ok(i32::from_le_bytes([b1, b2, b3, b4]))
     }
 
-    /// Override if you have an efficient implementation. In general this is when the input supports
+    /// Override if you have an efficient implementation.
+    /// In general, this is when the input supports
     /// random access.
     fn read_group_vint(&mut self, dst: &mut [i64], offset: u32) -> Result<(), LuceneError> {
         self.default_read_group_vint(dst, offset)
@@ -231,7 +232,8 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Returns
     /// An immutable map containing the written contents.
-    /// Reads a set of strings from the input. The set is immutable in the context of the caller.
+    /// Read a set of strings from the input.
+    /// The set is immutable in the context of the caller.
     ///
     /// # Behavior in Rust
     ///
@@ -304,8 +306,8 @@ pub trait DataInput: Sized + Display {
     fn skip_bytes(&mut self, num_bytes: u64) -> Result<(), LuceneError>;
 
     /// To determine at compile time whether the current struct implements the IndexInput trait.
-    /// In Java Lucene, could cast to IndexInput, though this is  possible in Rust but need dyn.
-    /// we do not accept any dyn things
+    /// In Java Lucene, could cast to IndexInput, though this is possible in Rust but needs dyn.
+    /// We do not accept any dyn things
     //TODO: is there a better way to do this?
     fn is_index_input(&self) -> bool {
         false

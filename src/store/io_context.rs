@@ -135,6 +135,6 @@ pub enum Context {
     Merge,
     /// Context for writes that are associated with a segment flush. */
     Flush,
-    /// Default context, can be used for reading or writing. */
+    /// Default context can be used for reading or writing. */
     Default,
 }

@@ -33,7 +33,7 @@ pub trait DataOutput: Sized {
     /// All other data types are defined as sequences of bytes, making file formats byte-order independent.
     ///
     /// # See Also
-    /// [`IndexInput::read_byte`](crate::store::DataInput::read_byte)
+    /// [`IndexInput::read_byte`](DataInput::read_byte)
     fn write_byte(&mut self, b: u8) -> Result<(), LuceneError>;
 
     /// Writes an array of bytes.
@@ -124,7 +124,7 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    /// Writes a [`zig-zag`](crate::util::bit_util::BitUtil::zig_zag_encode_i32)-encoded
+    /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i32)-encoded
     /// [`write_vint`](#method.write_vint) variable-length integer.
     /// This is typically useful for writing small signed integers and is equivalent to calling
     /// `write_vint(BitUtil::zig_zag_encode(i))`.
@@ -197,7 +197,7 @@ pub trait DataOutput: Sized {
         self.write_bytes_range(&utf8_result.bytes, offset, len)
     }
 
-    /// Copy numBytes bytes from input to ourself.
+    /// Copy numBytes bytes from input to ourselves.
     fn copy_bytes<T: DataInput>(
         &mut self,
         input: &mut T,
@@ -251,7 +251,7 @@ pub trait DataOutput: Sized {
     }
     /// Encodes integers using group-varint encoding. Tail values that do not fit into a group
     /// are encoded using [`write_vint`](#method.write_vint).
-    /// Note: A `long[]` is used because it aligns with postings requirements,
+    /// Note: A `long[]` is used because it aligns with posting requirements,
     /// but all longs are actually expected to be integers.
     ///
     /// # Arguments

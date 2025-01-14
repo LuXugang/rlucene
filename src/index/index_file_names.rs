@@ -34,7 +34,7 @@ pub struct IndexFileNames;
 impl IndexFileNames {
     /// Name of the index segment file
     pub const SEGMENTS: &'static str = "segments";
-    /// Name of pending index segment file
+    /// Name of a pending index segment file
     pub const PENDING_SEGMENTS: &'static str = "pending_segments";
     /// Computes the full file name from `base`, `extension`, and `generation`.
     /// If the generation is `-1`, the file name is `None`. If it's `0`, the file name is `<base>.<ext>`.
@@ -104,7 +104,7 @@ impl IndexFileNames {
     /// Returns true if the given filename ends with the given extension. One should provide a
     /// `pure` extension, without '.'.
     pub fn matches_extension(filename: &str, ext: &str) -> bool {
-        // It doesn't make a difference whether we allocate a StringBuilder ourself
+        // It doesn't make a difference whether we allocate a StringBuilder ourselves
         // or not, since there's only 1 '+' operator.
         filename.ends_with(&format!(".{}", ext))
     }

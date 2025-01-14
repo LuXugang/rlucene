@@ -46,7 +46,7 @@ use std::sync::{Arc, Mutex};
 /// - **IsCompoundFile** --> [`DataOutput::write_byte`] (Int8)
 /// - **HasBlocks** --> [`DataOutput::write_byte`] (Int8)
 /// - **IndexSort** --> [`DataOutput::write_vint`] (Int32) count, followed by `count` SortField
-/// - **SortField** --> [`DataOutput::write_string`] (String) sort class, followed by a per-sort bytestream
+/// - **SortField** --> [`DataOutput::write_string`] (String) sort class, followed by a per-sort byte stream
 ///   (see [`SortFieldProvider::read_sort_field`])
 /// - **Footer** --> [`CodecUtil::write_footer`](CodecUtil::write_footer)
 ///
@@ -57,7 +57,7 @@ use std::sync::{Arc, Mutex};
 /// - **SegSize**: The number of documents contained in the segment index.
 /// - **IsCompoundFile**: Records whether the segment is written as a compound file or not. If this is `-1`, the segment is not a compound file. If it is `1`, the segment is a compound file.
 /// - **HasBlocks**: Records whether the segment contains documents written as a block and guarantees consecutive document IDs for all documents in the block.
-/// - **Diagnostics Map**: Privately written by [`IndexWriter`](crate::index::index_writer::IndexWriter), as a debugging aid, for each segment it creates. It includes metadata like the current Lucene version, OS, Java version, why the segment was created (merge, flush, addIndexes), etc.
+/// - **Diagnostics Map**: Privately written by [`IndexWriter`](crate::index::index_writer::IndexWriter), as debugging aid, for each segment it creates. It includes metadata like the current Lucene version, OS, Java version, why the segment was created (merge, flush, addIndexes), etc.
 /// - **Files**: A list of files referred to by this segment.
 ///
 /// # See Also

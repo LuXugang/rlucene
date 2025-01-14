@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::index::index_sorter::IndexSorter;
-use crate::index::sort_field_provider::SortFieldProviderEnum::SortProvider;
 use crate::search::sort_field::{Provider, SortFieldEnum, SortFiledBase};
 use crate::search::sorted_numeric_sort_field::NumericProvider;
 use crate::search::sorted_set_sort_field::SetProvider;
@@ -51,7 +50,7 @@ pub fn for_name(name: &str) -> SortFieldProviderEnum {
     match name {
         NumericProvider::NAME => SortFieldProviderEnum::SortedNumericProvider(NumericProvider),
         SetProvider::NAME => SortFieldProviderEnum::SortedSetProvider(SetProvider),
-        _ => SortProvider(Provider),
+        _ => SortFieldProviderEnum::SortProvider(Provider),
     }
 }
 pub enum SortFieldProviderEnum {

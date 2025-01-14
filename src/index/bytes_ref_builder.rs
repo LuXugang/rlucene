@@ -108,7 +108,7 @@ impl BytesRefBuilder {
     /// # Parameters
     /// - `bytes`: The byte vector to replace the current content.
     /// - `start`: The starting index of the byte slice to append.
-    /// - `end`: The ending index of the byte slice to append.
+    /// - `End`: The ending index of the byte slice to append.
     ///
     /// # See Also
     /// - [`clear`](BytesRefBuilder::clear)
@@ -147,7 +147,7 @@ impl BytesRefBuilder {
     }
 
     /// Return a BytesRef that points to the internal content of this builder. Any update to
-    ///  the content of this builder might invalidate the provided bytes_ref and vice-versa.
+    ///  the content of this builder might invalidate the provided bytes_ref and vice versa.
     pub fn get(&mut self) -> &mut BytesRef {
         assert_eq!(
             self.bytes_ref.offset, 0,

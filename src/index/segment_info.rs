@@ -43,7 +43,7 @@ where
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
     id: Vec<u8>,
-    // Diff to Java Lucene: We need to ensure that there is only one Codec in the index
+    // Diff to Java Lucene: We need to ensure that there is only one Codec in the index,
     // Therefore, we do not need to explicitly define the Codec in the SegmentInfo.
     // pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
@@ -52,7 +52,7 @@ where
     /// Tracks the Lucene version this segment was created with, since 3.1.
     /// Null indicates an older than 3.0 index, and it's used to detect a too-old index.
     /// The format expected is "x.y" - "2.x" for pre-3.0 indexes (or null), and
-    /// specific versions afterwards ("3.0.0", "3.1.0" etc.).
+    /// specific versions afterward ("3.0.0", "3.1.0" etc.).
     /// See `Version` for details.
     pub(crate) version: Option<Version>,
     /// Tracks the minimum version that contributed documents to a segment.

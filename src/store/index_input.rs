@@ -111,7 +111,7 @@ pub trait IndexInput: DataInput + Clone {
         length: u64,
     ) -> Result<impl IndexInput + RandomAccessInput, LuceneError>;
 
-    /// Optional method: Gives a hint to this input that some bytes will be read in the near future.
+    /// Optional method: Gives a hint to this input that some bytes will be read soon.
     /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data
     /// immediately from storage.
     ///

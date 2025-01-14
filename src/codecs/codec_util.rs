@@ -61,7 +61,7 @@ impl CodecUtil {
     /// - `out`: The output stream to write to.
     /// - `codec`: A string to identify this file. It should be simple ASCII and less than 128 characters
     ///   in length.
-    /// - `version`: The version number.
+    /// - `Version`: The version number.
     ///
     /// # Errors
     /// - `IoError`: If there is an I/O error writing to the underlying medium.
@@ -112,7 +112,7 @@ impl CodecUtil {
     /// - `out`: The output stream.
     /// - `codec`: A string to identify this file. It should be simple ASCII and less than 128 characters
     ///   in length.
-    /// - `version`: The version number.
+    /// - `Version`: The version number.
     ///
     /// # Errors
     /// - Returns an error if there is an I/O error writing to the underlying medium.
@@ -187,7 +187,7 @@ impl CodecUtil {
     ///   Typically, this is located at the beginning of the file.
     /// - `codec`: The expected codec name.
     /// - `min_version`: The minimum supported version number.
-    /// - `max_version`: The maximum supported version number.
+    /// - `Max_version`: The maximum supported version number.
     ///
     /// # Returns
     /// The actual version found if a valid header is found that matches `codec`, with an actual version
@@ -259,7 +259,7 @@ impl CodecUtil {
     /// - `min_version`: The minimum supported version number.
     /// - `max_version`: The maximum supported version number.
     /// - `expected_id`: The expected object identifier for this file.
-    /// - `expected_suffix`: The expected auxiliary suffix for this file.
+    /// - `Expected_suffix`: The expected auxiliary suffix for this file.
     ///
     /// # Returns
     /// The actual version found, if a valid header is present that matches `codec`, `expected_id`, and
@@ -430,7 +430,7 @@ impl CodecUtil {
     ///
     /// - **AlgorithmID**:  
     ///   A `u32` (written using `write_int`). This indicates the checksum algorithm used.  
-    ///   Currently, this is always 0, for zlib-crc32.
+    ///   Currently, this is always 0 for zlib-crc32.
     ///
     /// - **Checksum**:  
     ///   A `u64` (written using `write_long`). The actual checksum value for all previous bytes in the stream,  
@@ -495,12 +495,12 @@ impl CodecUtil {
     /// - `IoError`: If the footer is invalid, the checksum does not match, or the input is not
     ///   properly positioned before the footer at the end of the stream.
     /// - `PriorException`: If a prior exception is provided and rethrown after adding supplemental information.
-    // TODO:Implemented a naive error propagation mechanism; we may use thiserror#[source] to standardize error nesting.
+    // TODO:Implemented a naive error propagation mechanism; we may use this error#[source] to standardize error nesting.
     pub fn check_footer_with_error(
         checksum_in: &mut impl ChecksumIndexInput,
         prior_error: &mut LuceneError,
     ) -> Result<(), LuceneError> {
-        // If we have evidence of corruption then we return the corruption as the
+        // If we have evidence of corruption, then we return the corruption as the
         // main exception and the prior exception gets suppressed. Otherwise, we
         // return the prior exception with a suppressed exception that notifies
         // the user that checksums matched.
@@ -537,7 +537,7 @@ impl CodecUtil {
                     );
                 } else {
                     let checksum = result?;
-                    // If the index format is too old and no corruption, do not add checksums
+                    // If the index format is too old and no corruption, do not add a checksum
                     // matching message since this may tend to unnecessarily alarm people who
                     // see "JVM bug" in their logs
                     if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {

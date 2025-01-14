@@ -42,7 +42,7 @@ pub trait Scorable {
     }
 
     /// Optional method: Tells the scorer that its iterator may safely ignore all documents
-    /// whose score is less than the given `min_score`. This is a no-op by default.
+    /// whose score is lower than the given `min_score`. This is a no-op by default.
     ///
     /// # Note
     /// This method may only be called from collectors that use [`ScoreMode::TOP_SCORES`](crate::search::score_mode::ScoreMode::TopScores), and

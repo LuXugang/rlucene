@@ -15,4 +15,4 @@
  * limitations under the License.
  */
 #[allow(unused)]
-pub struct LeafReaderContex;
+pub struct LeafReaderContext;

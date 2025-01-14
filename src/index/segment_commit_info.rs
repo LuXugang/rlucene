@@ -44,19 +44,19 @@ where
     /// Generation number of the live docs file (-1 if there are no deletes yet).
     pub del_gen: i64,
 
-    /// Normally 1 + del_gen, unless an exception was hit on last attempt to write.
+    /// Normally 1 + del_gen, unless an exception was hit on the last attempt to write.
     pub next_write_del_gen: i64,
 
     /// Generation number of the FieldInfos (-1 if there are no updates).
     pub field_infos_gen: i64,
 
-    /// Normally 1 + field_infos_gen, unless an exception was hit on last attempt to write.
+    /// Normally 1 + field_infos_gen, unless an exception was hit on the last attempt to write.
     pub next_write_field_infos_gen: i64,
 
     /// Generation number of the DocValues (-1 if there are no updates).
     pub doc_values_gen: i64,
 
-    /// Normally 1 + doc_values_gen, unless an exception was hit on last attempt to write.
+    /// Normally 1 + doc_values_gen, unless an exception was hit on the last attempt to write.
     pub next_write_doc_values_gen: i64,
 
     /// Track the per-field DocValues update files.
@@ -65,7 +65,7 @@ where
     /// Track the FieldInfos update files.
     pub field_infos_files: HashSet<String>,
 
-    /// Size of the segment in bytes (-1 if unknown).
+    /// Size of the segment in bytes (-1 of unknown).
     pub size_in_bytes: AtomicI64,
 
     /// Used in memory by IndexWriter to track buffered deletes. Not persisted to disk.
@@ -84,7 +84,7 @@ where
     /// - `del_gen`: Deletion generation number (used to name deletion files).
     /// - `field_infos_gen`: FieldInfos generation number (used to name field-infos files).
     /// - `Doc_values_gen`: DocValues generation number (used to name doc-values updates files).
-    /// - `Id`: Id that uniquely identifies this segment commit.
+    /// - `ID`: ID that uniquely identifies this segment commit.
     pub fn new(
         info: SegmentInfo<D>,
         del_count: i32,
@@ -132,7 +132,7 @@ where
         &self.dv_updates_files
     }
 
-    /// Sets the DocValues updates file names, per field number. Does not deep clone the map.
+    /// Sets the DocValues updates file names, per field number. Does not deeply clone the map.
     pub fn set_doc_values_updates_files(
         &mut self,
         dv_updates_files: HashMap<i32, HashSet<String>>,

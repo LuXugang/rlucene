@@ -31,7 +31,7 @@ use std::path::Path;
 /// on all Lucene instances and clean up any leftover lock files before starting with the new configuration.
 /// Different implementations cannot work together.
 pub trait LockFactory: Display {
-    /// Returns a new obtained `Lock` instance identified by `lock_name`.
+    /// Returns a new got `Lock` instance identified by `lock_name`.
     ///
     /// # Arguments
     /// * `lock_name` - The name of the lock to be created.

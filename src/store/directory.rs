@@ -26,18 +26,24 @@ use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 
-/// A `Directory` provides an abstraction layer for storing a list of files. A directory contains only files (no sub-folder hierarchy).
+/// A `Directory` provides an abstraction layer for storing a list of files.
+/// A directory contains only files (no subfolder hierarchy).
 ///
 /// # Implementation Notes
 /// Implementing types must comply with the following:
 /// - A file in a directory can be created (`create_output`), appended to, and then closed.
-/// - A file open for writing may not be available for read access until the corresponding [`IndexOutput`] is closed.
-/// - Once a file is created, it must only be opened for input (`open_input`) or deleted (`delete_file`).
-///   Calling `create_output` on an existing file must return an error similar to `FileAlreadyExistsError`.
+/// -
+/// A file open for writing may not be available for read access until the corresponding [`IndexOutput`] is closed.
+/// - Once a file is created, it must only be opened for input (`open_input`) or deleted
+/// (`delete_file`).
+///   Calling `create_output`
+/// on an existing file must return an error similar to `FileAlreadyExistsError`.
 ///
 /// # Note
-/// If your application requires external synchronization, you should **not** synchronize on the `Directory` implementation instance
-/// as this may cause deadlock. Instead, use your own synchronization primitives.
+/// If your application requires external synchronization,
+/// you should **not** synchronize on the `Directory` implementation instance
+/// as this may cause deadlock.
+/// Instead, use your own synchronization primitives.
 ///
 /// # See Also
 /// [`FSDirectory`](crate::store::fs_directory::FSDirectory)
@@ -105,7 +111,7 @@ pub trait Directory: Display + Sized {
         suffix: &str,
         context: IOContext,
     ) -> Result<impl IndexOutput, LuceneError>;
-    /// Ensures that any writes to these files are moved to stable storage (made durable).
+    /// Ensures that any writings to these files are moved to stable storage (made durable).
     ///
     /// Lucene uses this to properly commit changes to the index, preventing corruption in case of a
     /// machine or OS crash.

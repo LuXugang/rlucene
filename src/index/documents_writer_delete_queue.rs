@@ -24,7 +24,7 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 /// Holds buffered deletes and updates, including deletions by docID, term, or query for a single segment.
 ///
 /// This structure is used to manage buffered pending deletes and updates that apply to the
-/// segment to be flushed. Once these deletes and updates are pushed (during flush in
+/// segment to be flushed. Once this deletes and updates are pushed (during a flush in
 /// `DocumentsWriter`), they are converted into a `FrozenBufferedUpdates` instance and
 /// forwarded to the `BufferedUpdatesStream`.
 ///

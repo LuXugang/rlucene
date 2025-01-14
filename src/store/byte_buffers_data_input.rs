@@ -27,7 +27,7 @@ use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 
 /// A [`DataInput`] implementing [`RandomAccessInput`]
-/// and reading data from a list of [`Cursor<Vec<u8>>`](std::io::Cursor).
+/// and reading data from a list of [`Cursor<Vec<u8>>`](Cursor).
 pub struct ByteBuffersDataInput<'a> {
     /// In Java Lucene, hierarchical data is encapsulated using List<`java.nio.ByteBuffer`>,
     /// where each ByteBuffer limits the readable data using the limit parameter.
@@ -346,7 +346,7 @@ pub fn slice_buffer_list<'a>(
                 let block_offset = abs_start & block_mask;
                 new_cursor.set_position(block_offset);
             } else {
-                // other blocks we can use full block ,so we only need set position to 0
+                // other blocks we can use full block, so we only need set position to 0
                 new_cursor.set_position(0);
             }
             new_cursor
