@@ -218,7 +218,10 @@ where
         }
     }
     fn ensure_can_read(&self, name: &str) -> Result<(), LuceneError> {
-        let pending_deletes = self.pending_deletes.lock().unwrap();
+        let pending_deletes = self
+            .pending_deletes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         if pending_deletes.contains(name) {
             return Err(LuceneError::not_found(format!(
                 "file \"{}\" is pending delete and cannot be opened for read",
@@ -248,12 +251,18 @@ where
     T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
-        let pending_deletes = self.pending_deletes.lock().unwrap();
+        let pending_deletes = self
+            .pending_deletes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         Self::list_all(&self.directory, Some(&pending_deletes))
     }
 
     fn delete_file(&mut self, name: &str) -> Result<(), LuceneError> {
-        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        let mut pending_deletes = self
+            .pending_deletes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         if pending_deletes.contains(name) {
             return Err(LuceneError::not_found(format!(
                 "file \"{}\" is already pending delete",
@@ -291,7 +300,10 @@ where
         name: &str,
         _context: IOContext,
     ) -> Result<impl IndexOutput, LuceneError> {
-        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        let mut pending_deletes = self
+            .pending_deletes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         Self::maybe_delete_pending_files(
             &self.directory,
             &mut pending_deletes,
@@ -325,7 +337,10 @@ where
         suffix: &str,
         _context: IOContext,
     ) -> Result<impl IndexOutput, LuceneError> {
-        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        let mut pending_deletes = self
+            .pending_deletes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         Self::maybe_delete_pending_files(
             &self.directory,
             &mut pending_deletes,
@@ -391,7 +406,10 @@ where
     }
 
     fn rename(&mut self, source: &str, dest: &str) -> Result<(), LuceneError> {
-        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        let mut pending_deletes = self
+            .pending_deletes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         if pending_deletes.contains(source) {
             return Err(LuceneError::not_found(format!(
                 "File \"{}\" is pending delete and cannot be moved",
@@ -429,7 +447,10 @@ where
     }
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError> {
-        let mut pending_deletes = self.pending_deletes.lock().unwrap();
+        let mut pending_deletes = self
+            .pending_deletes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         Self::delete_pending_files(&self.directory, &mut pending_deletes)?;
         if pending_deletes.is_empty() {
             Ok(HashSet::new())
@@ -478,16 +499,34 @@ where
     T: FSDirectoryBase<Output = BufferedIndexInput<B>>,
 {
     fn drop(&mut self) {
-        let mut pending_deletes = self.pending_deletes.lock().unwrap();
-        if let Err(e) = Self::maybe_delete_pending_files(
-            &self.directory,
-            &mut pending_deletes,
-            &mut self.ops_since_last_delete,
-        ) {
-            eprintln!(
-                "Error while deleting pending files during drop, ignoring: {:?}",
-                e
-            );
+        let pending_deletes_result = self.pending_deletes.lock();
+        match pending_deletes_result {
+            Ok(mut pending_deletes) => {
+                if let Err(e) = Self::maybe_delete_pending_files(
+                    &self.directory,
+                    &mut pending_deletes,
+                    &mut self.ops_since_last_delete,
+                ) {
+                    eprintln!(
+                        "Error while deleting pending files during drop, ignoring: {:?}",
+                        e
+                    );
+                }
+            }
+            Err(poisoned) => {
+                eprintln!("Mutex is poisoned during drop, attempting to recover.");
+                let mut pending_deletes = poisoned.into_inner();
+                if let Err(e) = Self::maybe_delete_pending_files(
+                    &self.directory,
+                    &mut pending_deletes,
+                    &mut self.ops_since_last_delete,
+                ) {
+                    eprintln!(
+                        "Error while deleting pending files during drop, ignoring: {:?}",
+                        e
+                    );
+                }
+            }
         }
     }
 }

@@ -114,8 +114,12 @@ where
         })
     }
     #[allow(unused)]
-    fn get_finished(&self) -> bool {
-        self.inner.lock().unwrap().finished
+    fn get_finished(&self) -> Result<bool, LuceneError> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        Ok(inner.finished)
     }
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
@@ -152,7 +156,10 @@ where
         self.sub_update.add_iterator(doc_id, iterator)
     }
     pub fn finish(&mut self) -> Result<(), LuceneError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         if inner.finished {
             return Err(LuceneError::illegal_argument(
                 "already finished".to_string(),
@@ -192,13 +199,16 @@ where
         Ok(())
     }
     /// Returns true if this instance contains any updates.
-    pub fn any(&self) -> bool {
-        let inner = self.inner.lock().unwrap();
+    pub fn any(&self) -> Result<bool, LuceneError> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let result = inner.size > 0;
         if self.sub_update.need_any() {
             self.sub_update.any(result)
         } else {
-            result
+            Ok(result)
         }
     }
     /// Adds an update that resets the document value.
@@ -214,7 +224,10 @@ where
         self.add_internal(doc, HAS_VALUE_MASK)
     }
     fn add_internal(&mut self, doc: u32, has_value_mask: u64) -> Result<u32, LuceneError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         if inner.finished {
             return Err(LuceneError::illegal_argument(
                 "already finished".to_string(),
@@ -240,24 +253,37 @@ where
     }
     // pub(crate) fn swap(&mut self, i: u32, j: u32) -> Result<(), LuceneError> {
     //     self.sub_update.swap(i, j)?;
-    //     let mut inner = self.inner.lock().unwrap();
+    //     let mut inner = self.inner.lock().map_err(|_| {
+    //             LuceneError::illegal_state("Failed to acquire lock".to_string())
+    //         })?;
     //     inner.swap(i, j)?;
     //     Ok(())
     // }
     pub fn grow(&mut self, size: u32) -> Result<(), LuceneError> {
         self.sub_update.grow(size)?;
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         inner.grow(size)?;
         Ok(())
     }
     pub fn resize(&mut self, size: u32) -> Result<(), LuceneError> {
         self.sub_update.resize(size)?;
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        ();
         inner.resize(size)?;
         Ok(())
     }
     pub(crate) fn ensure_finished(&self) -> Result<(), LuceneError> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        ();
         if !inner.finished {
             return Err(LuceneError::illegal_state("call finish first".to_string()));
         }
@@ -326,7 +352,7 @@ pub trait DocValuesFieldUpdatesBase: Accountable {
     fn need_reset(&self) -> bool {
         false
     }
-    fn any(&self, _super_any: bool) -> bool {
+    fn any(&self, _super_any: bool) -> Result<bool, LuceneError> {
         unimplemented!("any must be implemented if you need to use it")
     }
     fn need_any(&self) -> bool {
@@ -714,7 +740,11 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32, LuceneError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        ();
         if self.idx >= inner.size as u64 {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
@@ -888,7 +918,11 @@ where
     }
 
     fn reset(&mut self, doc: u32) -> Result<(), LuceneError> {
-        let _guide = self.lock.lock().unwrap();
+        let _guide = self
+            .lock
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        ();
         self.bit_set.set(doc as i32);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_none() {
@@ -902,9 +936,12 @@ where
         true
     }
 
-    fn any(&self, super_any: bool) -> bool {
-        let _guide = self.lock.lock().unwrap();
-        super_any || self.has_at_least_one_value
+    fn any(&self, super_any: bool) -> Result<bool, LuceneError> {
+        let _guide = self
+            .lock
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        Ok(super_any || self.has_at_least_one_value)
     }
 
     fn need_any(&self) -> bool {

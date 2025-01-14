@@ -31,9 +31,9 @@ use crate::util::output_enum::OutputEnum;
 use crate::util::{IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR};
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
-use std::{fmt, io};
 
 static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
 
@@ -1184,7 +1184,10 @@ where
             let mut files;
             let mut files2;
             {
-                let dir = self.directory.lock().unwrap();
+                let dir = self.directory.lock().map_err(|_| {
+                    LuceneError::illegal_state("Failed to acquire lock".to_string())
+                })?;
+                ();
                 files = dir.list_all()?;
                 files2 = dir.list_all()?;
             }
@@ -1194,7 +1197,7 @@ where
                 continue;
             }
             gen = get_last_commit_generation(&files)?;
-            if get_info_stream().is_some() {
+            if get_info_stream()?.is_some() {
                 message(&format!("directory listing gen={}", gen))?;
             }
             if gen == -1 {
@@ -1213,7 +1216,7 @@ where
                         })?;
                 match self.sub.do_body(self.directory.clone(), &segment_file_name) {
                     Ok(result) => {
-                        if get_info_stream().is_some() {
+                        if get_info_stream()?.is_some() {
                             message(&format!("success on {}", segment_file_name))
                                 .unwrap_or_default();
                         }
@@ -1224,7 +1227,7 @@ where
                             exc = Some(err);
                         }
 
-                        if get_info_stream().is_some() {
+                        if get_info_stream()?.is_some() {
                             message(&format!(
                                 "primary Exception on '{}': {}; will retry: gen = {}",
                                 segment_file_name,
@@ -1272,25 +1275,37 @@ where
     }
 }
 /// Sets the global INFO_STREAM to the given `OutputEnum`.
-pub fn set_info_stream(output: OutputEnum) {
-    let mut info_stream = INFO_STREAM.lock().unwrap();
+pub fn set_info_stream(output: OutputEnum) -> Result<(), LuceneError> {
+    let mut info_stream = INFO_STREAM
+        .lock()
+        .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
     *info_stream = Some(Arc::new(Mutex::new(output)));
+    Ok(())
 }
 
 /// Returns the current global INFO_STREAM as an `Option<Arc<Mutex<OutputEnum>>>`.
-pub fn get_info_stream() -> Option<Arc<Mutex<OutputEnum>>> {
-    let info_stream = INFO_STREAM.lock().unwrap();
-    info_stream.clone()
+pub fn get_info_stream() -> Result<Option<Arc<Mutex<OutputEnum>>>, LuceneError> {
+    let info_stream = INFO_STREAM
+        .lock()
+        .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+    Ok(info_stream.clone())
 }
 
 /// Prints a message to the INFO_STREAM if it is set.
 /// This function assumes the caller has checked whether INFO_STREAM is `Some`.
-pub fn message(msg: &str) -> io::Result<()> {
-    let info_stream = INFO_STREAM.lock().unwrap();
+pub fn message(msg: &str) -> Result<(), LuceneError> {
+    let info_stream = INFO_STREAM
+        .lock()
+        .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+
     if let Some(ref stream) = *info_stream {
-        let mut stream = stream.lock().unwrap();
-        writeln!(stream, "SIS: {}", msg)?;
+        let mut stream = stream
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        writeln!(stream, "SIS: {}", msg)
+            .map_err(|e| LuceneError::io_with_path("Failed to acquire lock".to_string(), e))?;
     }
+
     Ok(())
 }
 pub struct FindSegmentsFileImpl {

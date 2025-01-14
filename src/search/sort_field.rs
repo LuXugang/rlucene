@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#![allow(deprecated)]
 use crate::index::index_sorter::{
     DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
 };
@@ -50,6 +51,7 @@ pub struct SortField {
     pub(crate) missing_value: Option<MissingValueEnum>,
     /// Indicates if sort should be optimized with indexed data. Set to true by default.
     #[deprecated(since = "10.0.0")]
+    #[allow(unused)]
     optimize_sort_with_indexed_data: bool,
 }
 

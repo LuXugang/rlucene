@@ -66,7 +66,9 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     }
 
     fn add_byte_ref(&mut self, _doc: u32, value: BytesRef, index: u32) -> Result<(), LuceneError> {
-        let _guard = self.lock.lock().unwrap();
+        let _guard = self.lock.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire lock on lock.".to_string())
+        })?;
         self.offsets
             .set(index as u64, self.values.length() as i64)?;
         self.lengths.set(index as u64, value.length as i64)?;

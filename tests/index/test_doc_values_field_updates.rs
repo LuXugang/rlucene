@@ -70,17 +70,17 @@ fn test_merge_iterator() -> Result<(), TestError> {
     updates1.add_value(1, 4)?;
     updates1.add_value(2, 5)?;
     updates1.add_value(4, 9)?;
-    assert!(updates1.any());
+    assert!(updates1.any()?);
 
     updates2.add_value(0, 18)?;
     updates2.add_value(1, 7)?;
     updates2.add_value(2, 19)?;
     updates2.add_value(5, 24)?;
-    assert!(updates2.any());
+    assert!(updates2.any()?);
 
     updates3.add_value(2, 42)?;
-    assert!(updates3.any());
-    assert!(!updates4.any());
+    assert!(updates3.any()?);
+    assert!(!updates4.any()?);
 
     // Finish updates
     updates1.finish()?;
@@ -261,7 +261,7 @@ fn test_shared_value_updates() -> Result<(), TestError> {
     }
 
     update.finish()?;
-    assert_eq!(any, update.any());
+    assert_eq!(any, update.any()?);
     let mut iterator = update.iterator()?;
     assert_eq!(del_gen, iterator.del_gen());
 

@@ -84,7 +84,9 @@ where
     T: AbstractPagedMutableBase<PagedMutableBase = T> + Default,
 {
     fn add_value(&mut self, _doc: u32, value: i64, index: u32) -> Result<(), LuceneError> {
-        let _guard = self.lock.lock().unwrap();
+        let _guard = self.lock.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
+        })?;
         self.values.set(index as u64, value - self.min_value)
     }
 
