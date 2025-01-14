@@ -521,7 +521,14 @@ where
     pub fn read_codec<I: DataInput>(input: &mut I) -> Result<Lucene101Codec, LuceneError> {
         let name = input.read_string()?;
         let codec = Lucene101Codec;
-        debug_assert!(name == codec.get_name());
+        if codec.get_name() != name {
+            return Err(LuceneError::corrupt_index(format!(
+                "codec name mismatch: {} != {}",
+                codec.get_name(),
+                name
+            )));
+        }
+        debug_assert!(LATEST_CODEC.get_name() == codec.get_name());
         Ok(codec)
     }
     /// Find the latest commit (`segments_N` file) and load all `SegmentCommitInfo`s.

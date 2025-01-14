@@ -67,5 +67,7 @@ pub trait Codec {
     fn get_name(&self) -> &str;
 }
 pub fn get_default_code() -> Lucene101Codec {
-    Lucene101Codec
+    let codec = Lucene101Codec;
+    debug_assert!(LATEST_CODEC.get_name() == codec.get_name());
+    codec
 }
