@@ -38,6 +38,7 @@ pub mod doc_base_bit_set_iterator;
 pub mod doc_id_set_builder;
 pub mod error;
 pub mod fixed_bit_set;
+mod fixed_bits;
 pub mod group_vint_util;
 pub mod in_place_merge_sorter;
 pub mod int_array_doc_id_set;

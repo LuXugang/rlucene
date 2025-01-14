@@ -20,8 +20,10 @@ use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::fixed_bits::FixedBits;
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 // todo
 #[allow(unused)]
@@ -457,8 +459,8 @@ impl FixedBitSet {
     /// # Note
     /// Changes to this [`FixedBitSet`] will be reflected
     /// on the returned [`Bits`].
-    pub fn as_read_only_bits(&self) -> Box<dyn Bits> {
-        todo!()
+    pub fn as_read_only_bits(&self) -> FixedBits {
+        FixedBits::new(&self.bits, self.num_bits)
     }
 }
 
