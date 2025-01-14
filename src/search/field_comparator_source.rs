@@ -18,6 +18,7 @@ use crate::search::field_comparator::FieldComparator;
 use crate::search::pruning::Pruning;
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt::{Display, Formatter};
+use std::hash::Hash;
 
 /// Provides a [`FieldComparator`]
 /// for custom field sorting.
@@ -47,7 +48,7 @@ pub trait FieldComparatorSource: Display + Clone {
     ) -> Result<F, LuceneError>;
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum FieldComparatorSourceEnum {}
 impl Display for FieldComparatorSourceEnum {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {

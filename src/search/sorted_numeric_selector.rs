@@ -17,7 +17,7 @@
 #[derive(Clone)]
 pub struct SortedNumericSelector;
 /// Type of selection to perform.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SortedNumericSelectorType {
     /// Selects the minimum value in the set.
     Min,

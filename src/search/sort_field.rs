@@ -26,6 +26,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::numeric_utils::NumericUtils;
 use std::fmt;
 use std::fmt::Display;
+use std::hash::Hash;
 
 /// Stores information about how to sort documents by terms in an individual field.
 /// Fields must be indexed to sort by them.
@@ -165,12 +166,34 @@ impl SortField {
             optimize_sort_with_indexed_data: true,
         })
     }
-
+    /// Returns the value to use for documents that don't have a value.
+    ///
+    /// A value of `None` indicates that the default value should be used.
     pub fn get_missing_value(&self) -> Option<&MissingValueEnum> {
         self.missing_value.as_ref()
     }
+    /// Returns the name of the field.
+    ///
+    /// This could return `None` if the sort is by `SCORE` or `DOC`.
+    ///
+    /// # Returns
+    /// The name of the field, or `None` if the sort is by `SCORE` or `DOC`.
     pub fn get_field(&self) -> Option<&String> {
         self.fields.as_ref()
+    }
+    /// Returns the type of contents in the field.
+    ///
+    /// # Returns
+    /// One of the constants: `SCORE`, `DOC`, `STRING`, `INT`, or `FLOAT`.
+    pub fn get_type(&self) -> &SortFieldType {
+        &self.field_type
+    }
+    /// Returns whether the sort should be reversed.
+    ///
+    /// # Returns
+    /// `true` if natural order should be reversed.
+    pub fn get_reverse(&self) -> bool {
+        self.reverse
     }
 }
 impl SortFiledBase for SortField {
@@ -421,6 +444,15 @@ impl PartialEq for SortField {
     }
 }
 impl Eq for SortField {}
+impl Hash for SortField {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.fields.hash(state);
+        self.field_type.hash(state);
+        self.reverse.hash(state);
+        self.comparator_source.hash(state);
+        self.missing_value.hash(state);
+    }
+}
 
 pub struct Provider;
 impl Provider {
@@ -486,7 +518,7 @@ impl SortFieldProvider for Provider {
 }
 
 /// Specifies the type of the terms to be sorted, or special types such as `CUSTOM`.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum SortFieldType {
     /// Sort by document score (relevance). Sort values are `f32` and higher values are at the front.
     Score,
@@ -570,7 +602,9 @@ impl Display for SortFieldType {
 
 #[derive(Clone)]
 pub enum MissingValueEnum {
+    /// Pass this to `setMissingValue` to have missing string values sort first. */
     StringFirst,
+    /// Pass this to `setMissingValue` to have missing string values sort last. */
     StringLast,
     Int(i32),
     Long(i64),
@@ -647,6 +681,30 @@ impl Display for MissingValueEnum {
         }
     }
 }
+impl Hash for MissingValueEnum {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            MissingValueEnum::StringFirst => "SortField.STRING_FIRST".hash(state),
+            MissingValueEnum::StringLast => "SortField.STRING_LAST".hash(state),
+            MissingValueEnum::Int(val) => {
+                "SortField.INT".hash(state);
+                val.hash(state);
+            }
+            MissingValueEnum::Long(val) => {
+                "SortField.LONG".hash(state);
+                val.hash(state);
+            }
+            MissingValueEnum::Float(val) => {
+                "SortField.FLOAT".hash(state);
+                NumericUtils::float_to_sortable_int(*val).hash(state);
+            }
+            MissingValueEnum::Double(val) => {
+                "SortField.DOUBLE".hash(state);
+                NumericUtils::double_to_sortable_long(*val).hash(state);
+            }
+        }
+    }
+}
 
 pub trait SortFiledBase {
     /// Set the value to use for documents that don't have a value.
@@ -698,6 +756,15 @@ impl Display for SortFieldEnum {
             SortFieldEnum::SortedNumeric(sort_field) => write!(f, "{}", sort_field),
             SortFieldEnum::SortedSet(sort_field) => write!(f, "{}", sort_field),
             SortFieldEnum::Sorter(sort_field) => write!(f, "{}", sort_field),
+        }
+    }
+}
+impl Hash for SortFieldEnum {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => sort_field.hash(state),
+            SortFieldEnum::SortedSet(sort_field) => sort_field.hash(state),
+            SortFieldEnum::Sorter(sort_field) => sort_field.hash(state),
         }
     }
 }

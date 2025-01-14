@@ -23,7 +23,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::codecs::segment_info_format::SegmentInfoFormat;
 use rlucene::codecs::{Codec, LATEST_CODEC};
-use rlucene::index::index_writer::{MAX_DOCS};
+use rlucene::index::index_writer::MAX_DOCS;
 use rlucene::index::segment_info::SegmentInfo;
 use rlucene::index::sort::Sort;
 use rlucene::index::IndexFileNames;

@@ -18,8 +18,6 @@ use crate::index::index_sorter::{
     DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
 };
 use crate::index::sort_field_provider::SortFieldProvider;
-use std::fmt::Display;
-
 use crate::search::sort_field::{
     MissingValueEnum, SortField, SortFieldEnum, SortFieldType, SortFiledBase,
 };
@@ -27,6 +25,8 @@ use crate::search::sorted_numeric_selector::SortedNumericSelectorType;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::numeric_utils::NumericUtils;
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct SortedNumericSortField {
@@ -213,6 +213,13 @@ impl Display for SortedNumericSortField {
         buffer.push_str(&format!(" selector={:?}", self.selector));
         buffer.push_str(&format!(" type={:?}", self.sort_field_type));
         write!(f, "{}", buffer)
+    }
+}
+impl Hash for SortedNumericSortField {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.sort_field_type.hash(state);
+        self.selector.hash(state);
+        self.sort_field.hash(state);
     }
 }
 

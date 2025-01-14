@@ -16,14 +16,14 @@
  */
 use crate::index::index_sorter::{IndexSortEnum, StringSorter};
 use crate::index::sort_field_provider::SortFieldProvider;
-use std::fmt::Display;
-
 use crate::search::sort_field::{
     MissingValueEnum, SortField, SortFieldEnum, SortFieldType, SortFiledBase,
 };
 use crate::search::sorted_set_selector::SortedSetSelectorType;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct SortedSetSortField {
@@ -130,6 +130,12 @@ impl SortFiledBase for SortedSetSortField {
             _ => out.write_int(0)?,
         }
         Ok(())
+    }
+}
+impl Hash for SortedSetSortField {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.selector.hash(state);
+        self.sort_field.hash(state);
     }
 }
 

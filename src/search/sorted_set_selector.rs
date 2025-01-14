@@ -22,7 +22,7 @@ pub struct SortedSetSelector;
 /// - Fields containing `i32::MAX` or more unique values are unsupported.
 /// - Selectors other than [`SortedSetSelectorType::Min`] require optional codec support. However, several
 ///   codecs provided by Lucene, including the current default codec, support this.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SortedSetSelectorType {
     /// Selects the minimum value in the set.
     Min,
