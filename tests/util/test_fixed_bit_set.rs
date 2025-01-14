@@ -488,7 +488,7 @@ fn make_fixed_bitset(
     let mut bs: FixedBitSet;
     if random.gen_bool(0.5) {
         let bits_2_words = FixedBitSet::bits2words(num_bits);
-        let mut words: Vec<u64> = Vec::with_capacity(bits_2_words as usize);
+        let mut words: Vec<i64> = Vec::with_capacity(bits_2_words as usize);
         words.resize(num_bits as usize, 0);
         bs = FixedBitSet::with_capacity(words, num_bits)?
     } else {

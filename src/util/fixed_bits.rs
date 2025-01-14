@@ -17,11 +17,11 @@
 use crate::util::bits::Bits;
 
 pub struct FixedBits<'a> {
-    bits: &'a Vec<u64>,
+    bits: &'a Vec<i64>,
     length: i32,
 }
 impl<'a> FixedBits<'a> {
-    pub fn new(bits: &'a Vec<u64>, length: i32) -> FixedBits<'a> {
+    pub fn new(bits: &'a Vec<i64>, length: i32) -> FixedBits<'a> {
         FixedBits { bits, length }
     }
 }
@@ -37,7 +37,8 @@ impl Bits for FixedBits<'_> {
         // signed shift will keep a negative index and force an
         // array-index-out-of-bounds-exception, removing the need for an explicit check.
         let bit_mask = 1_u64 << (index % 64);
-        (bit_mask & self.bits[i as usize]) != 0
+        debug_assert!(bit_mask <= i64::MAX as u64);
+        (bit_mask as i64 & self.bits[i as usize]) != 0
     }
 
     fn length(&self) -> i32 {

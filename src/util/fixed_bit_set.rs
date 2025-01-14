@@ -23,7 +23,6 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bits::FixedBits;
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 // todo
 #[allow(unused)]
@@ -38,7 +37,7 @@ const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 /// This is an internal API.
 pub struct FixedBitSet {
     // Array of longs holding the bits
-    bits: Vec<u64>,
+    bits: Vec<i64>,
     // The number of bits in use
     num_bits: i32,
     // The exact number of longs needed to hold numBits (<= bits.length)
@@ -105,9 +104,9 @@ impl FixedBitSet {
     pub fn intersection_count(a: FixedBitSet, b: FixedBitSet) -> i64 {
         // Depends on the ghost bits being clear!
         let mut tot = 0;
-        let num_common_words = min(a.num_words, b.num_words);
+        let num_common_words = min(a.num_words, b.num_words) as usize;
         for i in 0..num_common_words {
-            tot += (a.bits[i as usize] & b.bits[i as usize]).count_ones();
+            tot += (a.bits[i] & b.bits[i]).count_ones();
         }
         tot as i64
     }
@@ -116,15 +115,15 @@ impl FixedBitSet {
     pub fn union_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         // Depends on the ghost bits being clear!
         let mut tot = 0;
-        let num_common_words = min(a.num_words, b.num_words);
+        let num_common_words = min(a.num_words, b.num_words) as usize;
         for i in 0..num_common_words {
-            tot += (a.bits[i as usize] | b.bits[i as usize]).count_ones();
+            tot += (a.bits[i] | b.bits[i]).count_ones();
         }
-        for i in num_common_words..a.num_words {
-            tot += a.bits[i as usize].count_ones();
+        for i in num_common_words..a.num_words as usize {
+            tot += a.bits[i].count_ones();
         }
-        for i in num_common_words..b.num_words {
-            tot += b.bits[i as usize].count_ones();
+        for i in num_common_words..b.num_words as usize {
+            tot += b.bits[i].count_ones();
         }
         tot as i64
     }
@@ -133,12 +132,12 @@ impl FixedBitSet {
     /// is modified.
     pub fn and_not_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         let mut tot = 0;
-        let num_common_words = min(a.num_words, b.num_words);
+        let num_common_words = min(a.num_words, b.num_words) as usize;
         for i in 0..num_common_words {
-            tot += (a.bits[i as usize] & !b.bits[i as usize]).count_ones();
+            tot += (a.bits[i] & !b.bits[i]).count_ones();
         }
-        for i in num_common_words..a.num_words {
-            tot += a.bits[i as usize].count_ones();
+        for i in num_common_words..a.num_words as usize {
+            tot += a.bits[i].count_ones();
         }
         tot as i64
     }
@@ -149,7 +148,7 @@ impl FixedBitSet {
     /// * `num_bits` - The number of bits needed.
     pub fn new(num_bits: i32) -> FixedBitSet {
         let size: usize = Self::bits2words(num_bits) as usize;
-        let bits: Vec<u64> = vec![0; size];
+        let bits: Vec<i64> = vec![0; size];
         let exact_size = bits.len();
         debug_assert!(exact_size < i32::MAX as usize);
         FixedBitSet {
@@ -165,7 +164,7 @@ impl FixedBitSet {
     /// # Arguments
     /// * `stored_bits` - The array to use as the backing store (`Vec<i64>`).
     /// * `num_bits` - The number of bits actually needed.
-    pub fn with_capacity(stored_bits: Vec<u64>, num_bits: i32) -> Result<FixedBitSet, LuceneError> {
+    pub fn with_capacity(stored_bits: Vec<i64>, num_bits: i32) -> Result<FixedBitSet, LuceneError> {
         let num_words = Self::bits2words(num_bits);
         if num_words as usize > stored_bits.len() {
             return Err(LuceneError::illegal_argument(format!(
@@ -197,12 +196,12 @@ impl FixedBitSet {
             return true;
         }
 
-        let mask = u64::MAX << (fixed_bit_set.num_bits % 64);
+        let mask = -1 << (fixed_bit_set.num_bits % 64);
         (fixed_bit_set.bits[(fixed_bit_set.num_words as usize) - 1] & mask) == 0
     }
 
     #[allow(unused)]
-    fn get_bits(&self) -> &Vec<u64> {
+    fn get_bits(&self) -> &Vec<i64> {
         &self.bits
     }
 
@@ -214,10 +213,10 @@ impl FixedBitSet {
             index,
             self.num_bits
         );
-        let word_num = index >> 6;
-        let bit_mask = 1_u64 << (index % 64);
-        let val = (self.bits[word_num as usize] & bit_mask) != 0;
-        self.bits[word_num as usize] &= !bit_mask;
+        let word_num = (index >> 6) as usize;
+        let bit_mask = 1_i64 << (index % 64);
+        let val = (self.bits[word_num] & bit_mask) != 0;
+        self.bits[word_num] &= !bit_mask;
         val
     }
 
@@ -231,16 +230,17 @@ impl FixedBitSet {
         self.or_impl(other_offset_words, &other.bits, other.num_words);
     }
 
-    fn or_impl(&mut self, other_offset_words: i32, other_arr: &[u64], other_num_words: i32) {
+    fn or_impl(&mut self, other_offset_words: i32, other_arr: &[i64], other_num_words: i32) {
         debug_assert!(
             other_num_words + other_offset_words <= self.num_words,
             "num_words = {} other_num_words = {}",
             self.num_words,
             other_num_words
         );
-        let pos = min(self.num_words - other_offset_words, other_num_words);
+        let pos = min(self.num_words - other_offset_words, other_num_words) as usize;
+        let offset = other_offset_words as usize;
         for i in (0..pos).rev() {
-            self.bits[(i + other_offset_words) as usize] |= other_arr[i as usize];
+            self.bits[i + offset] |= other_arr[i];
         }
     }
 
@@ -253,24 +253,24 @@ impl FixedBitSet {
         // not used in Java Lucene, so we did not impl it
         todo!()
     }
-    fn xor_impl(&mut self, other_bits: &[u64], other_num_words: i32) {
+    fn xor_impl(&mut self, other_bits: &[i64], other_num_words: i32) {
         debug_assert!(
             other_num_words <= self.num_words,
             "num_words = {} other_num_words = {}",
             self.num_words,
             other_num_words
         );
-        let pos = min(self.num_words, other_num_words);
+        let pos = min(self.num_words, other_num_words) as usize;
         for i in (0..pos).rev() {
-            self.bits[i as usize] ^= other_bits[i as usize];
+            self.bits[i] ^= other_bits[i];
         }
     }
 
     pub fn intersects(&self, other: &FixedBitSet) -> bool {
         // Depends on the ghost bits being clear!
-        let pos = min(self.num_words, other.num_words);
+        let pos = min(self.num_words, other.num_words) as usize;
         for i in (0..pos).rev() {
-            if self.bits[i as usize] != other.bits[i as usize] {
+            if self.bits[i] != other.bits[i] {
                 return true;
             }
         }
@@ -282,15 +282,15 @@ impl FixedBitSet {
         self.and_self(&other.bits, other.num_words);
     }
 
-    pub fn and_self(&mut self, other_arr: &[u64], other_num_words: i32) {
-        let pos = min(self.num_words, other_num_words);
+    pub fn and_self(&mut self, other_arr: &[i64], other_num_words: i32) {
+        let pos = min(self.num_words, other_num_words) as usize;
         for i in (0..pos).rev() {
-            self.bits[i as usize] &= other_arr[i as usize];
+            self.bits[i] &= other_arr[i];
         }
 
         if self.num_words > other_num_words {
-            for i in other_num_words..self.num_words {
-                self.bits[i as usize] = 0;
+            for i in other_num_words as usize..self.num_words as usize {
+                self.bits[i] = 0;
             }
         }
     }
@@ -314,10 +314,11 @@ impl FixedBitSet {
         self.and_not_impl(other_offset_words, &other.bits, other.num_words);
     }
 
-    fn and_not_impl(&mut self, other_offset_words: i32, other_arr: &[u64], other_num_words: i32) {
-        let pos = min(self.num_words - other_offset_words, other_num_words);
+    fn and_not_impl(&mut self, other_offset_words: i32, other_arr: &[i64], other_num_words: i32) {
+        let pos = min(self.num_words - other_offset_words, other_num_words) as usize;
+        let offset = other_offset_words as usize;
         for i in (0..pos).rev() {
-            self.bits[(i + other_offset_words) as usize] &= !other_arr[i as usize];
+            self.bits[i + offset] &= !other_arr[i];
         }
     }
 
@@ -332,24 +333,23 @@ impl FixedBitSet {
         if end_index <= start_index {
             return;
         }
-        let start_word = start_index >> 6;
-        let end_word = (end_index - 1) >> 6;
+        let start_word = (start_index >> 6) as usize;
+        let end_word = ((end_index - 1) >> 6) as usize;
 
-        let start_mask = u64::MAX << (start_index % 64);
-        let end_mask = u64::MAX >> ((64 - (end_index % 64)) % 64);
-
+        let start_mask = -1_i64 << (start_index % 64);
+        let end_mask = (!0u64) >> (-end_index as u64);
         if start_word == end_word {
-            self.bits[start_word as usize] ^= start_mask & end_mask;
+            self.bits[start_word] ^= start_mask & end_mask as i64;
             return;
         }
 
-        self.bits[start_word as usize] ^= start_mask;
+        self.bits[start_word] ^= start_mask;
 
         for i in start_word + 1..end_word {
-            self.bits[i as usize] = !self.bits[i as usize];
+            self.bits[i] = !self.bits[i];
         }
 
-        self.bits[end_word as usize] ^= end_mask;
+        self.bits[end_word] ^= end_mask as i64;
     }
 
     /// Flip the bit at the provided index.
@@ -361,7 +361,7 @@ impl FixedBitSet {
             self.num_bits
         );
         let word_num = index >> 6;
-        let bit_mask = 1_u64 << (index % 64);
+        let bit_mask = 1_i64 << (index % 64);
         self.bits[word_num as usize] ^= bit_mask;
     }
 
@@ -387,22 +387,22 @@ impl FixedBitSet {
             return;
         }
 
-        let start_word = start_index >> 6;
-        let end_word = (end_index - 1) >> 6;
+        let start_word = (start_index >> 6) as usize;
+        let end_word = ((end_index - 1) >> 6) as usize;
 
-        let start_mask = u64::MAX << (start_index % 64);
-        let end_mask = u64::MAX >> ((64 - (end_index % 64)) % 64);
+        let start_mask = !0u64 << (start_index % 64);
+        let end_mask = (!0u64) >> (-end_index as u64);
 
         if start_word == end_word {
-            self.bits[start_word as usize] |= start_mask & end_mask;
+            self.bits[start_word] |= start_mask as i64 & end_mask as i64;
             return;
         }
 
-        self.bits[start_word as usize] |= start_mask;
+        self.bits[start_word] |= start_mask as i64;
         for i in (start_word + 1)..end_word {
-            self.bits[i as usize] = u64::MAX;
+            self.bits[i] = -1_i64;
         }
-        self.bits[end_word as usize] |= end_mask;
+        self.bits[end_word] |= end_mask as i64;
     }
     fn next_set_bit_impl(&self, start: i32, upper_bound: i32) -> i32 {
         // Depends on the ghost bits being clear!
@@ -424,23 +424,23 @@ impl FixedBitSet {
             upper_bound,
             self.num_bits
         );
-        let mut i = start >> 6;
-        let mut word = self.bits[i as usize] >> (start % 64); //skip all the bits to the right of index
+        let mut i = (start >> 6) as usize;
+        let mut word = self.bits[i] >> (start % 64); //skip all the bits to the right of index
 
         if word != 0 {
             return start + word.trailing_zeros() as i32;
         }
 
         let limit = if upper_bound == self.num_bits {
-            self.num_words
+            self.num_words as usize
         } else {
-            Self::bits2words(upper_bound)
+            Self::bits2words(upper_bound) as usize
         };
         i += 1;
         while i < limit {
-            word = self.bits[i as usize];
+            word = self.bits[i];
             if word != 0 {
-                return (i << 6) + word.trailing_zeros() as i32;
+                return ((i << 6) + word.trailing_zeros() as usize) as i32;
             }
             i += 1;
         }
@@ -475,7 +475,7 @@ impl Bits for FixedBitSet {
         let i = index >> 6;
         // signed shift will keep a negative index and force an
         // array-index-out-of-bounds-exception, removing the need for an explicit check.
-        let bit_mask = 1_u64 << (index % 64);
+        let bit_mask = 1_i64 << (index % 64);
         (bit_mask & self.bits[i as usize]) != 0
     }
 
@@ -499,7 +499,7 @@ impl BitSet for FixedBitSet {
             self.num_bits
         );
         let word_num = index >> 6;
-        let bit_mask = 1_u64 << (index % 64);
+        let bit_mask = 1_i64 << (index % 64);
         self.bits[word_num as usize] |= bit_mask;
     }
 
@@ -510,10 +510,10 @@ impl BitSet for FixedBitSet {
             index,
             self.num_bits
         );
-        let word_num = index >> 6;
-        let bit_mask = 1_u64 << (index % 64);
-        let val = (self.bits[word_num as usize] & bit_mask) != 0;
-        self.bits[word_num as usize] |= bit_mask;
+        let word_num = (index >> 6) as usize;
+        let bit_mask = 1_i64 << (index % 64);
+        let val = (self.bits[word_num] & bit_mask) != 0;
+        self.bits[word_num] |= bit_mask;
         val
     }
 
@@ -525,7 +525,7 @@ impl BitSet for FixedBitSet {
             self.num_bits
         );
         let word_num = index >> 6;
-        let bit_mask = 1_u64 << (index % 64);
+        let bit_mask = 1_i64 << (index % 64);
         self.bits[word_num as usize] &= !bit_mask;
     }
 
@@ -545,25 +545,24 @@ impl BitSet for FixedBitSet {
         if end_index <= start_index {
             return;
         }
-        let start_word = start_index >> 6;
-        let end_word = (end_index - 1) >> 6;
+        let start_word = (start_index >> 6) as usize;
+        let end_word = ((end_index - 1) >> 6) as usize;
 
         let mut start_mask = u64::MAX << (start_index % 64);
         let mut end_mask = u64::MAX >> ((64 - (end_index % 64)) % 64);
 
         start_mask = !start_mask;
         end_mask = !end_mask;
-
         if start_word == end_word {
-            self.bits[start_word as usize] &= start_mask | end_mask;
+            self.bits[start_word] &= start_mask as i64 | end_mask as i64;
             return;
         }
 
-        self.bits[start_word as usize] &= start_mask;
+        self.bits[start_word] &= start_mask as i64;
         for i in (start_word + 1)..end_word {
-            self.bits[i as usize] = 0;
+            self.bits[i] = 0;
         }
-        self.bits[end_word as usize] &= end_mask
+        self.bits[end_word] &= end_mask as i64
     }
 
     /// Returns the number of set bits.
@@ -573,8 +572,8 @@ impl BitSet for FixedBitSet {
     fn cardinality(&self) -> i32 {
         // Depends on the ghost bits being clear!
         let mut tot: i64 = 0;
-        for i in 0..self.num_words {
-            tot += self.bits[i as usize].count_ones() as i64;
+        for i in 0..self.num_words as usize {
+            tot += self.bits[i].count_ones() as i64;
         }
 
         tot as i32
@@ -586,21 +585,22 @@ impl BitSet for FixedBitSet {
         // This computes the pop count on ranges instead of single longs in order to take advantage of
         // vectorization.
         let range_length = 16;
-        let interval = 1024;
+        let interval: usize = 1024;
 
-        if self.num_words <= interval {
+        if self.num_words as usize <= interval {
             return self.cardinality();
         }
 
         let mut pop_count: i64 = 0;
         let mut max_word = 0;
-        while max_word + interval < self.num_words {
+        let num = self.num_words as usize;
+        while max_word + interval < num {
             for i in 0..range_length {
-                pop_count += (self.bits[(max_word + i) as usize].count_ones()) as i64;
+                pop_count += (self.bits[max_word + i].count_ones()) as i64;
             }
             max_word += interval;
         }
-        pop_count *= ((interval / range_length) * self.num_words / max_word) as i64;
+        pop_count *= ((interval / range_length) * self.num_words as usize / max_word) as i64;
 
         pop_count as i32
     }
@@ -622,6 +622,7 @@ impl BitSet for FixedBitSet {
         }
 
         i -= 1;
+
         while i >= 0 {
             word = self.bits[i as usize];
             if word != 0 {
