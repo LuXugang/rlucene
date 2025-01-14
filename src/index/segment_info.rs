@@ -300,9 +300,10 @@ where
             s.push(']');
         }
 
-        let attributes = self.attributes.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
-        })?;
+        let attributes = self
+            .attributes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         if !attributes.is_empty() {
             s.push_str(":[attributes=");
             s.push_str(&format!("{:?}", *attributes));
@@ -376,9 +377,10 @@ where
     }
     /// Get a codec attribute value, or None if it does not exist.
     pub fn get_attribute(&self, key: &str) -> Result<Option<String>, LuceneError> {
-        let attributes = self.attributes.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
-        })?;
+        let attributes = self
+            .attributes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         Ok(attributes.get(key).cloned())
     }
     /// Puts a codec attribute value.
@@ -392,9 +394,10 @@ where
         // This needs to be thread-safe because multiple threads may be updating (different) attributes
         // at the same time due to concurrent merging, plus some threads may be calling toString() on
         // segment info while other threads are updating attributes.
-        let mut attributes = self.attributes.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
-        })?;
+        let mut attributes = self
+            .attributes
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         Ok(attributes.insert(key, value))
     }
     /// Returns the internal codec attributes map.

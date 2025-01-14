@@ -21,6 +21,7 @@ use crate::store::IOContext;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 
 /// Format for live/deleted documents
 pub trait LiveDocsFormat {
@@ -35,10 +36,10 @@ pub trait LiveDocsFormat {
     /// A `Bits` implementation representing the live docs.
     fn read_live_docs<D, B>(
         &self,
-        dir: &D,
+        dir: Arc<Mutex<D>>,
         info: &SegmentCommitInfo<D>,
         context: &IOContext,
-    ) -> Result<B, LuceneError>
+    ) -> Result<impl Bits, LuceneError>
     where
         D: Directory,
         B: Bits;
@@ -48,7 +49,7 @@ pub trait LiveDocsFormat {
     fn write_live_docs<D, B>(
         &self,
         bits: &B,
-        dir: &mut D,
+        dir: Arc<Mutex<D>>,
         info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,

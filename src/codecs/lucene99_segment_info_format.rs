@@ -218,9 +218,9 @@ impl Lucene99SegmentInfoFormat {
         output.write_set_of_strings(files)?;
         {
             let attributes = si.get_attributes()?;
-            let values = attributes.lock().map_err(|_| {
-                LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
-            })?;
+            let values = attributes
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
             output.write_map_of_strings(&values)?;
         }
 

@@ -198,9 +198,9 @@ pub trait Directory: Display + Sized {
         let mut success = false;
 
         let result = (|| -> Result<(), LuceneError> {
-            let dir = from.lock().map_err(|_| {
-                LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
-            })?;
+            let dir = from
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
             let mut is = dir.open_input(src, &IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context)?;
             let length = IndexInput::length(&is);
