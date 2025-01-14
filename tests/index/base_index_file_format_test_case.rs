@@ -14,7 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rlucene::codecs::lucene101_codec::Lucene101Codec;
-use rlucene::codecs::Codec;
 
 pub trait BaseIndexFileFormatTestCase {}

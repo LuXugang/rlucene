@@ -69,20 +69,20 @@ impl IndexSorter for StringSorter {
 }
 
 pub enum IndexSortEnum {
-    DSorter(DoubleSorter),
-    ISorter(IntSorter),
-    LSorter(LongSorter),
-    FSorter(FloatSorter),
-    SSorter(StringSorter),
+    DoubleSorter(DoubleSorter),
+    IntSorter(IntSorter),
+    LongSorter(LongSorter),
+    FloatSorter(FloatSorter),
+    StringSorter(StringSorter),
 }
 impl IndexSorter for IndexSortEnum {
     fn get_provider_name(&self) -> &str {
         match self {
-            IndexSortEnum::DSorter(sorter) => sorter.get_provider_name(),
-            IndexSortEnum::ISorter(sorter) => sorter.get_provider_name(),
-            IndexSortEnum::LSorter(sorter) => sorter.get_provider_name(),
-            IndexSortEnum::FSorter(sorter) => sorter.get_provider_name(),
-            IndexSortEnum::SSorter(sorter) => sorter.get_provider_name(),
+            IndexSortEnum::DoubleSorter(sorter) => sorter.get_provider_name(),
+            IndexSortEnum::IntSorter(sorter) => sorter.get_provider_name(),
+            IndexSortEnum::LongSorter(sorter) => sorter.get_provider_name(),
+            IndexSortEnum::FloatSorter(sorter) => sorter.get_provider_name(),
+            IndexSortEnum::StringSorter(sorter) => sorter.get_provider_name(),
         }
     }
 }

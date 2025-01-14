@@ -319,9 +319,3 @@ pub fn check_range(from: i32, to: i32) -> Result<(), LuceneError> {
     }
     Ok(())
 }
-
-/// A placeholder implementation of the `Sorter` trait.
-/// This implementation is provided to satisfy the compiler requirements.
-#[derive(Default)]
-pub struct DummySorter {}
-impl Sorter for DummySorter {}

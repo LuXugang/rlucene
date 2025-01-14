@@ -133,7 +133,7 @@ where
     /// 4. Reads new data into the remaining space in the buffer.
     /// 5. Updates the buffer's position and the valid data length (`self.length`).
     ///
-    /// # Notes
+    /// # Note
     /// - The `buffer_start` is adjusted to include the unaligned bytes.
     /// - The new valid data length is the sum of the unaligned bytes and the newly read bytes.
     ///
@@ -274,7 +274,7 @@ where
     /// This method may return the following errors:
     /// * `LuceneError::eof` - If attempting to read beyond the end of the file or stream.
     ///
-    /// # Notes
+    /// # Note
     /// - The method assumes that the buffer's `refill` method ensures enough data is available for reading,
     ///   eliminating the need for additional checks.
     /// - When unaligned data remains in the buffer (e.g., when the available bytes are not a multiple of `type_size`),

@@ -24,5 +24,7 @@ pub mod pruning;
 pub mod scorable;
 pub mod score_mode;
 pub mod sort_field;
+pub mod sorted_numeric_selector;
 pub mod sorted_numeric_sort_field;
+pub mod sorted_set_selector;
 pub mod sorted_set_sort_field;

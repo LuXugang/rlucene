@@ -176,7 +176,7 @@ impl BytesRefArray {
     /// - `sort_state`:  the iterator will iterate the byte values
     ///   in the order defined by the `sort_state`.
     ///
-    /// # Notes
+    /// # Note
     /// - This is a non-destructive operation.
     /// # See Also
     /// [`IndexedBytesRefIterator`]
@@ -228,7 +228,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     /// - `comp`: An optional [`Comparator`] to specify the order of iteration. the iterator
     ///   will iterate the byte values in the order specified by the comparator.
     ///
-    /// # Notes
+    /// # Note
     /// - This is a non-destructive operation.
     type Iter = IndexedBytesRefIteratorImpl<'a>;
     fn iterator(

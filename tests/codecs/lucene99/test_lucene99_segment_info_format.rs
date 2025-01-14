@@ -18,8 +18,6 @@ use crate::common::my_random;
 use crate::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
 use crate::util::test_error::TestError;
-use rlucene::codecs::lucene101_codec::Lucene101Codec;
-use rlucene::codecs::LATEST_CODEC;
 use rlucene::util::{Version, LATEST};
 
 pub struct TestLucene99SegmentInfoFormat;
@@ -73,4 +71,10 @@ fn test_versions() -> Result<(), TestError> {
     let mut random = my_random("test_versions".to_string());
     let test = TestLucene99SegmentInfoFormat;
     test.test_versions(&mut random)
+}
+#[test]
+fn test_sort() -> Result<(), TestError> {
+    let mut random = my_random("test_sort".to_string());
+    let test = TestLucene99SegmentInfoFormat;
+    test.test_sort(&mut random)
 }

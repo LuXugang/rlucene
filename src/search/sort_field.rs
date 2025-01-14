@@ -18,11 +18,12 @@ use crate::index::index_sorter::{
     DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
 };
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::search::field_comparator_source::{FieldComparatorSource, FieldComparatorSourceEnum};
+use crate::search::field_comparator_source::FieldComparatorSourceEnum;
 use crate::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::search::sorted_set_sort_field::SortedSetSortField;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::numeric_utils::NumericUtils;
 use std::fmt;
 use std::fmt::Display;
 
@@ -39,14 +40,13 @@ use std::fmt::Display;
 /// doc values.
 #[derive(Clone)]
 pub struct SortField {
-    sub_sort_field: Option<SubSortFieldEnum>,
     fields: Option<String>,
-    field_type: Type,
+    field_type: SortFieldType,
     comparator_source: Option<FieldComparatorSourceEnum>,
     /// defaults to natural order
-    reverse: bool,
+    pub(crate) reverse: bool,
     /// Used for 'sortMissingFirst/Last'
-    missing_value: Option<MissingValueEnum>,
+    pub(crate) missing_value: Option<MissingValueEnum>,
     /// Indicates if sort should be optimized with indexed data. Set to true by default.
     #[deprecated(since = "10.0.0")]
     optimize_sort_with_indexed_data: bool,
@@ -65,12 +65,8 @@ impl SortField {
     /// # Errors
     ///
     /// Returns an error if the field is `None` and the type is not `SCORE` or `DOC`.
-    pub fn new(
-        field: Option<String>,
-        field_type: Type,
-        sub_sort_field: Option<SubSortFieldEnum>,
-    ) -> Result<Self, LuceneError> {
-        SortField::init_field_type(field, field_type, sub_sort_field)
+    pub fn new(field: Option<String>, field_type: SortFieldType) -> Result<Self, LuceneError> {
+        SortField::init_field_type(field, field_type)
     }
     /// Creates a sort, possibly in reverse, by terms in the given field with the type of term values
     /// explicitly given.
@@ -88,11 +84,10 @@ impl SortField {
     /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
     pub fn new_with_reverse(
         field: Option<String>,
-        field_type: Type,
+        field_type: SortFieldType,
         reverse: bool,
-        sub_sort_field: Option<SubSortFieldEnum>,
     ) -> Result<Self, LuceneError> {
-        let mut result = Self::new(field, field_type, sub_sort_field)?;
+        let mut result = Self::new(field, field_type)?;
         result.reverse = reverse;
         Ok(result)
     }
@@ -110,9 +105,8 @@ impl SortField {
     pub fn new_with_comparator(
         field: Option<String>,
         comparator: Option<FieldComparatorSourceEnum>,
-        sub_sort_field: Option<SubSortFieldEnum>,
     ) -> Result<Self, LuceneError> {
-        let mut result = SortField::init_field_type(field, Type::Custom, sub_sort_field)?;
+        let mut result = SortField::init_field_type(field, SortFieldType::Custom)?;
         debug_assert!(comparator.is_some());
         result.comparator_source = comparator;
         Ok(result)
@@ -133,9 +127,8 @@ impl SortField {
         field: Option<String>,
         comparator: Option<FieldComparatorSourceEnum>,
         reverse: bool,
-        sub_sort_field: Option<SubSortFieldEnum>,
     ) -> Result<Self, LuceneError> {
-        let mut result = Self::new_with_comparator(field, comparator, sub_sort_field)?;
+        let mut result = Self::new_with_comparator(field, comparator)?;
         result.reverse = reverse;
         Ok(result)
     }
@@ -143,22 +136,22 @@ impl SortField {
     /// # Note
     /// Replace Java's `SortField.FIELD_SCORE` with this method.
     pub fn get_field_score() -> Result<Self, LuceneError> {
-        SortField::new(None, Type::Score, None)
+        SortField::new(None, SortFieldType::Score)
     }
     /// Represents sorting by document number (index order).
     /// # Note
     /// Replace Java's `SortField.FIELD_DOC` with this method.
     pub fn get_field_doc() -> Result<Self, LuceneError> {
-        SortField::new(None, Type::Doc, None)
+        SortField::new(None, SortFieldType::Doc)
     }
     // Sets field & type, and ensures field is not NULL unless
     // type is SCORE or DOC
     fn init_field_type(
         field: Option<String>,
-        field_type: Type,
-        sub_sort_field: Option<SubSortFieldEnum>,
+        field_type: SortFieldType,
     ) -> Result<Self, LuceneError> {
-        if field.is_none() && field_type != Type::Score && field_type != Type::Doc {
+        if field.is_none() && field_type != SortFieldType::Score && field_type != SortFieldType::Doc
+        {
             return Err(LuceneError::illegal_argument(
                 "field can only be None when type is SCORE or DOC".to_string(),
             ));
@@ -170,36 +163,24 @@ impl SortField {
             reverse: false,
             missing_value: None,
             optimize_sort_with_indexed_data: true,
-            sub_sort_field,
         })
     }
-    pub fn get_index_sorter(&self) -> Option<IndexSortEnum> {
-        match self.field_type {
-            Type::Int => Some(IndexSortEnum::ISorter(IntSorter {
-                provider_name: Provider::SORT_FIELD_NAME.to_string(),
-            })),
-            Type::Float => Some(IndexSortEnum::FSorter(FloatSorter {
-                provider_name: Provider::SORT_FIELD_NAME.to_string(),
-            })),
-            Type::Long => Some(IndexSortEnum::LSorter(LongSorter {
-                provider_name: Provider::SORT_FIELD_NAME.to_string(),
-            })),
-            Type::Double => Some(IndexSortEnum::DSorter(DoubleSorter {
-                provider_name: Provider::SORT_FIELD_NAME.to_string(),
-            })),
-            Type::String => Some(IndexSortEnum::SSorter(StringSorter {
-                provider_name: Provider::SORT_FIELD_NAME.to_string(),
-            })),
-            _ => None,
-        }
+
+    pub fn get_missing_value(&self) -> Option<&MissingValueEnum> {
+        self.missing_value.as_ref()
     }
+    pub fn get_field(&self) -> Option<&String> {
+        self.fields.as_ref()
+    }
+}
+impl SortFiledBase for SortField {
     /// Set the value to use for documents that don't have a value.
-    pub fn set_missing_value(
+    fn set_missing_value(
         &mut self,
         missing_value: Option<MissingValueEnum>,
     ) -> Result<(), LuceneError> {
         match self.field_type {
-            Type::String | Type::StringVal => {
+            SortFieldType::String | SortFieldType::StringVal => {
                 if let Some(MissingValueEnum::StringFirst | MissingValueEnum::StringLast) =
                     missing_value
                 {
@@ -211,7 +192,7 @@ impl SortField {
                     ));
                 }
             }
-            Type::Int => {
+            SortFieldType::Int => {
                 if let Some(MissingValueEnum::Int(_)) = missing_value {
                     self.missing_value = missing_value;
                 } else {
@@ -221,7 +202,7 @@ impl SortField {
                     ));
                 }
             }
-            Type::Long => {
+            SortFieldType::Long => {
                 if let Some(MissingValueEnum::Long(_)) = missing_value {
                     self.missing_value = missing_value;
                 } else {
@@ -231,7 +212,7 @@ impl SortField {
                     ));
                 }
             }
-            Type::Float => {
+            SortFieldType::Float => {
                 if let Some(MissingValueEnum::Float(_)) = missing_value {
                     self.missing_value = missing_value;
                 } else {
@@ -241,7 +222,7 @@ impl SortField {
                     ));
                 }
             }
-            Type::Double => {
+            SortFieldType::Double => {
                 if let Some(MissingValueEnum::Double(_)) = missing_value {
                     self.missing_value = missing_value;
                 } else {
@@ -257,50 +238,144 @@ impl SortField {
 
         Ok(())
     }
-}
+    fn get_index_sorter(&self) -> Option<IndexSortEnum> {
+        match self.field_type {
+            SortFieldType::Int => Some(IndexSortEnum::IntSorter(IntSorter {
+                provider_name: Provider::NAME.to_string(),
+            })),
+            SortFieldType::Float => Some(IndexSortEnum::FloatSorter(FloatSorter {
+                provider_name: Provider::NAME.to_string(),
+            })),
+            SortFieldType::Long => Some(IndexSortEnum::LongSorter(LongSorter {
+                provider_name: Provider::NAME.to_string(),
+            })),
+            SortFieldType::Double => Some(IndexSortEnum::DoubleSorter(DoubleSorter {
+                provider_name: Provider::NAME.to_string(),
+            })),
+            SortFieldType::String => Some(IndexSortEnum::StringSorter(StringSorter {
+                provider_name: Provider::NAME.to_string(),
+            })),
+            _ => None,
+        }
+    }
+    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError> {
+        debug_assert!(self.fields.is_some());
+        out.write_string(self.fields.as_ref().unwrap())?;
+        out.write_string(&self.field_type.to_string())?;
+        out.write_int(if self.reverse { 1 } else { 0 })?;
+        if let Some(missing_value) = &self.missing_value {
+            out.write_int(1)?;
+            match &self.field_type {
+                SortFieldType::String => match missing_value {
+                    MissingValueEnum::StringLast => out.write_int(0)?,
+                    MissingValueEnum::StringFirst => out.write_int(1)?,
+                    _ => {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "Cannot serialize missing value {} for type STRING",
+                            missing_value
+                        )));
+                    }
+                },
+                SortFieldType::Int => {
+                    if let MissingValueEnum::Int(value) = missing_value {
+                        out.write_int(*value)?;
+                    } else {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "Invalid missing value {} for type INT",
+                            missing_value
+                        )));
+                    }
+                }
+                SortFieldType::Long => {
+                    if let MissingValueEnum::Long(value) = missing_value {
+                        out.write_long(*value)?;
+                    } else {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "Invalid missing value {} for type LONG",
+                            missing_value
+                        )));
+                    }
+                }
+                SortFieldType::Float => {
+                    if let MissingValueEnum::Float(value) = missing_value {
+                        out.write_int(NumericUtils::float_to_sortable_int(*value))?;
+                    } else {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "Invalid missing value {} for type FLOAT",
+                            missing_value
+                        )));
+                    }
+                }
+                SortFieldType::Double => {
+                    if let MissingValueEnum::Double(value) = missing_value {
+                        out.write_long(NumericUtils::double_to_sortable_long(*value))?;
+                    } else {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "Invalid missing value {} for type DOUBLE",
+                            missing_value
+                        )));
+                    }
+                }
+                SortFieldType::Custom
+                | SortFieldType::Doc
+                | SortFieldType::Rewritable
+                | SortFieldType::StringVal
+                | SortFieldType::Score => {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "Cannot serialize SortField of type {:?}",
+                        self.field_type
+                    )));
+                }
+            }
+        } else {
+            out.write_int(0)?;
+        }
 
+        Ok(())
+    }
+}
 impl Display for SortField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buffer = String::new();
         match self.field_type {
-            Type::Score => buffer.push_str("<score>"),
-            Type::Doc => buffer.push_str("<doc>"),
-            Type::String => {
+            SortFieldType::Score => buffer.push_str("<score>"),
+            SortFieldType::Doc => buffer.push_str("<doc>"),
+            SortFieldType::String => {
                 buffer.push_str("<string: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
                 }
                 buffer.push_str("\">");
             }
-            Type::Int => {
+            SortFieldType::Int => {
                 buffer.push_str("<int: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
                 }
                 buffer.push_str("\">");
             }
-            Type::Long => {
+            SortFieldType::Long => {
                 buffer.push_str("<long: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
                 }
                 buffer.push_str("\">");
             }
-            Type::Float => {
+            SortFieldType::Float => {
                 buffer.push_str("<float: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
                 }
                 buffer.push_str("\">");
             }
-            Type::Double => {
+            SortFieldType::Double => {
                 buffer.push_str("<double: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
                 }
                 buffer.push_str("\">");
             }
-            Type::Custom => {
+            SortFieldType::Custom => {
                 buffer.push_str("<custom: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
@@ -311,14 +386,14 @@ impl Display for SortField {
                 }
                 buffer.push('>');
             }
-            Type::StringVal => {
+            SortFieldType::StringVal => {
                 buffer.push_str("<string_val: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
                 }
                 buffer.push_str("\">");
             }
-            Type::Rewritable => {
+            SortFieldType::Rewritable => {
                 buffer.push_str("<rewriteable: \"");
                 if let Some(ref field) = self.fields {
                     buffer.push_str(field);
@@ -336,31 +411,83 @@ impl Display for SortField {
         write!(f, "{}", buffer)
     }
 }
+impl PartialEq for SortField {
+    fn eq(&self, other: &Self) -> bool {
+        self.fields == other.fields
+            && self.field_type == other.field_type
+            && self.comparator_source == other.comparator_source
+            && self.reverse == other.reverse
+            && self.missing_value == other.missing_value
+    }
+}
+impl Eq for SortField {}
 
 pub struct Provider;
 impl Provider {
     /// The name this Provider is registered under.
-    pub const SORT_FIELD_NAME: &'static str = "SortField";
+    pub const NAME: &'static str = "SortField";
 }
 impl SortFieldProvider for Provider {
-    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortField, LuceneError>
+    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortFieldEnum, LuceneError>
     where
         D: DataInput,
     {
-        todo!()
+        let field_name = data_input.read_string()?;
+        let field_type = SortFieldType::read_type(data_input)?;
+        let reverse = data_input.read_int()? == 1;
+        let mut sort_field = SortField::new_with_reverse(Some(field_name), field_type, reverse)?;
+        if data_input.read_int()? == 1 {
+            match sort_field.field_type {
+                SortFieldType::String => {
+                    let missing_string = data_input.read_int()?;
+                    match missing_string {
+                        1 => sort_field.set_missing_value(Some(MissingValueEnum::StringFirst))?,
+                        _ => sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?,
+                    }
+                }
+                SortFieldType::Int => {
+                    let value = data_input.read_int()?;
+                    sort_field.set_missing_value(Some(MissingValueEnum::Int(value)))?;
+                }
+                SortFieldType::Long => {
+                    let value = data_input.read_long()?;
+                    sort_field.set_missing_value(Some(MissingValueEnum::Long(value)))?;
+                }
+                SortFieldType::Float => {
+                    let value = NumericUtils::sortable_int_to_float(data_input.read_int()?);
+                    sort_field.set_missing_value(Some(MissingValueEnum::Float(value)))?;
+                }
+                SortFieldType::Double => {
+                    let value = NumericUtils::sortable_long_to_double(data_input.read_long()?);
+                    sort_field.set_missing_value(Some(MissingValueEnum::Double(value)))?;
+                }
+                SortFieldType::Custom
+                | SortFieldType::Doc
+                | SortFieldType::Rewritable
+                | SortFieldType::StringVal
+                | SortFieldType::Score => {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "Cannot deserialize sort of type {:?}",
+                        sort_field.field_type
+                    )));
+                }
+            }
+        }
+
+        Ok(SortFieldEnum::Sorter(sort_field))
     }
 
-    fn write_sort_field<D>(&self, sf: &SortField, output: &mut D) -> Result<(), LuceneError>
+    fn write_sort_field<D>(&self, sf: &SortFieldEnum, output: &mut D) -> Result<(), LuceneError>
     where
         D: DataOutput,
     {
-        todo!()
+        sf.serialize(output)
     }
 }
 
 /// Specifies the type of the terms to be sorted, or special types such as `CUSTOM`.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Type {
+pub enum SortFieldType {
     /// Sort by document score (relevance). Sort values are `f32` and higher values are at the front.
     Score,
 
@@ -397,19 +524,19 @@ pub enum Type {
     /// Force rewriting of `SortField` using `SortField::rewrite` before it can be used for sorting.
     Rewritable,
 }
-impl Type {
+impl SortFieldType {
     pub fn value_of(type_str: &str) -> Result<Self, LuceneError> {
         match type_str {
-            "Score" => Ok(Type::Score),
-            "Doc" => Ok(Type::Doc),
-            "String" => Ok(Type::String),
-            "Int" => Ok(Type::Int),
-            "Float" => Ok(Type::Float),
-            "Long" => Ok(Type::Long),
-            "Double" => Ok(Type::Double),
-            "Custom" => Ok(Type::Custom),
-            "StringVal" => Ok(Type::StringVal),
-            "Rewritable" => Ok(Type::Rewritable),
+            "Score" => Ok(SortFieldType::Score),
+            "Doc" => Ok(SortFieldType::Doc),
+            "String" => Ok(SortFieldType::String),
+            "Int" => Ok(SortFieldType::Int),
+            "Float" => Ok(SortFieldType::Float),
+            "Long" => Ok(SortFieldType::Long),
+            "Double" => Ok(SortFieldType::Double),
+            "Custom" => Ok(SortFieldType::Custom),
+            "StringVal" => Ok(SortFieldType::StringVal),
+            "Rewritable" => Ok(SortFieldType::Rewritable),
             _ => Err(LuceneError::illegal_argument(format!(
                 "Can't deserialize SortField - unknown type {}",
                 type_str
@@ -421,7 +548,23 @@ impl Type {
         D: DataInput,
     {
         let type_str = input.read_string()?;
-        Type::value_of(&type_str)
+        SortFieldType::value_of(&type_str)
+    }
+}
+impl Display for SortFieldType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SortFieldType::Score => write!(f, "Score"),
+            SortFieldType::Doc => write!(f, "Doc"),
+            SortFieldType::String => write!(f, "String"),
+            SortFieldType::Int => write!(f, "Int"),
+            SortFieldType::Float => write!(f, "Float"),
+            SortFieldType::Long => write!(f, "Long"),
+            SortFieldType::Double => write!(f, "Double"),
+            SortFieldType::Custom => write!(f, "Custom"),
+            SortFieldType::StringVal => write!(f, "StringVal"),
+            SortFieldType::Rewritable => write!(f, "Rewritable"),
+        }
     }
 }
 
@@ -434,6 +577,63 @@ pub enum MissingValueEnum {
     Float(f32),
     Double(f64),
 }
+
+impl PartialEq<Self> for MissingValueEnum {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            MissingValueEnum::StringFirst => {
+                matches!(other, MissingValueEnum::StringFirst)
+            }
+            MissingValueEnum::StringLast => {
+                matches!(other, MissingValueEnum::StringLast)
+            }
+            MissingValueEnum::Int(val) => {
+                if let MissingValueEnum::Int(other_val) = other {
+                    *val == *other_val
+                } else {
+                    false
+                }
+            }
+            MissingValueEnum::Long(val) => {
+                if let MissingValueEnum::Long(other_val) = other {
+                    *val == *other_val
+                } else {
+                    false
+                }
+            }
+            MissingValueEnum::Float(val) => {
+                if let MissingValueEnum::Float(other_val) = other {
+                    // In Rust Lucene,
+                    // negative Float::NAN and positive Float::NAN are considered the smallest and largest floating-point values,
+                    // respectively.
+                    // However, we need to stay consistent with Java Lucene,
+                    // where Float::NAN, regardless of its sign,
+                    // is always treated as the largest floating-point value.
+                    NumericUtils::float_to_sortable_int(*val)
+                        == NumericUtils::float_to_sortable_int(*other_val)
+                } else {
+                    false
+                }
+            }
+            MissingValueEnum::Double(val) => {
+                if let MissingValueEnum::Double(other_val) = other {
+                    // In Rust Lucene,
+                    // negative Double::NAN and positive Double::NAN are considered the smallest and largest floating-point values,
+                    // respectively.
+                    // However, we need to stay consistent with Java Lucene,
+                    // where Double::NAN, regardless of its sign,
+                    // is always treated as the largest floating-point value.
+                    NumericUtils::double_to_sortable_long(*val)
+                        == NumericUtils::double_to_sortable_long(*other_val)
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
+impl Eq for MissingValueEnum {}
 
 impl Display for MissingValueEnum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -448,8 +648,56 @@ impl Display for MissingValueEnum {
     }
 }
 
-#[derive(Clone)]
-pub enum SubSortFieldEnum {
+pub trait SortFiledBase {
+    /// Set the value to use for documents that don't have a value.
+    fn set_missing_value(
+        &mut self,
+        missing_value: Option<MissingValueEnum>,
+    ) -> Result<(), LuceneError>;
+    fn get_index_sorter(&self) -> Option<IndexSortEnum>;
+    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError>;
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum SortFieldEnum {
     SortedNumeric(SortedNumericSortField),
     SortedSet(SortedSetSortField),
+    Sorter(SortField),
+}
+impl SortFiledBase for SortFieldEnum {
+    fn set_missing_value(
+        &mut self,
+        missing_value: Option<MissingValueEnum>,
+    ) -> Result<(), LuceneError> {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => sort_field.set_missing_value(missing_value),
+            SortFieldEnum::SortedSet(sort_field) => sort_field.set_missing_value(missing_value),
+            SortFieldEnum::Sorter(sort_field) => sort_field.set_missing_value(missing_value),
+        }
+    }
+
+    fn get_index_sorter(&self) -> Option<IndexSortEnum> {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => sort_field.get_index_sorter(),
+            SortFieldEnum::SortedSet(sort_field) => sort_field.get_index_sorter(),
+            SortFieldEnum::Sorter(sort_field) => sort_field.get_index_sorter(),
+        }
+    }
+
+    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError> {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => sort_field.serialize(out),
+            SortFieldEnum::SortedSet(sort_field) => sort_field.serialize(out),
+            SortFieldEnum::Sorter(sort_field) => sort_field.serialize(out),
+        }
+    }
+}
+impl Display for SortFieldEnum {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => write!(f, "{}", sort_field),
+            SortFieldEnum::SortedSet(sort_field) => write!(f, "{}", sort_field),
+            SortFieldEnum::Sorter(sort_field) => write!(f, "{}", sort_field),
+        }
+    }
 }

@@ -93,7 +93,7 @@ impl FixedBitSet {
         }
     }
 
-    /// returns the number of 64 bit words it would take to hold numBits
+    /// returns the number of 64-bit words it would take to hold numBits
     pub fn bits2words(num_bits: i32) -> i32 {
         ((num_bits - 1) >> 6) + 1
     }
@@ -127,7 +127,7 @@ impl FixedBitSet {
         tot as i64
     }
 
-    /// Returns the popcount or cardinality of "a and not b" or "intersection(a, not(b))". Neither set
+    /// Returns the popcount or cardinality of "a and not b" or "intersection(a not(b))". Neither set
     /// is modified.
     pub fn and_not_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         let mut tot = 0;
@@ -158,7 +158,7 @@ impl FixedBitSet {
     }
     /// Creates a new `FixedBitSet` using the provided `Vec<u64>` array as the backing store.
     /// The `stored_bits` array must be large enough to accommodate the `num_bits` specified,
-    /// but may be larger. In that case, the 'extra' or 'ghost' bits must be clear (or they may provoke spurious side-effects).
+    /// but may be larger. In that case, the 'extra' or 'ghost' bits must be clear (or they may provoke spurious side effects).
     ///
     /// # Arguments
     /// * `stored_bits` - The array to use as the backing store (`Vec<i64>`).
@@ -634,7 +634,7 @@ impl BitSet for FixedBitSet {
         self.next_set_bit_range(index, self.num_bits)
     }
 
-    /// Returns the next set bit in the specified range, but treats `upper_bound` as a best-effort hint
+    /// Returns the next set a bit in the specified range, but treats `upper_bound` as a best-effort hint
     /// rather than a hard requirement. Note that this may return a result that is greater than or equal
     /// to `upper_bound` in some cases, so callers must add their own check if `upper_bound` is a hard requirement.
     fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {

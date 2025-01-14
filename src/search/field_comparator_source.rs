@@ -47,10 +47,10 @@ pub trait FieldComparatorSource: Display + Clone {
     ) -> Result<F, LuceneError>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum FieldComparatorSourceEnum {}
 impl Display for FieldComparatorSourceEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }

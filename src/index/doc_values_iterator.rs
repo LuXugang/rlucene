@@ -27,7 +27,7 @@ pub trait DocValuesIterator: DocIdSetIterator {
     /// # Returns
     /// Returns `true` if `target` has a value, otherwise returns `false`.
     ///
-    /// # Notes
+    /// # Note
     /// After this method returns, [`doc_id()`](DocIdSetIterator::doc_id) will return the value of `target`.
     fn advance_exact(&self, _target: i32) -> bool {
         unimplemented!("advance_exact needs to be implemented if you need to use it")

@@ -25,7 +25,7 @@ use std::path::Path;
 /// Lucene uses [`NativeFSLockFactory`](crate::store::NativeFSLockFactory) by default
 /// for `FSDirectory`-based index directories.
 ///
-/// # Notes
+/// # Note
 /// Special care needs to be taken if you change the locking implementation: First, ensure that no writer
 /// is actively writing to the index, as doing so could corrupt the index. Be sure to change the `LockFactory`
 /// on all Lucene instances and clean up any leftover lock files before starting with the new configuration.

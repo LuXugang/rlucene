@@ -40,9 +40,9 @@ impl Lucene90LiveDocsFormat {
 impl LiveDocsFormat for Lucene90LiveDocsFormat {
     fn read_live_docs<D, B>(
         &self,
-        dir: &D,
-        info: &SegmentCommitInfo<D>,
-        context: &IOContext,
+        _dir: &D,
+        _info: &SegmentCommitInfo<D>,
+        _context: &IOContext,
     ) -> Result<B, LuceneError>
     where
         D: Directory,
@@ -53,11 +53,11 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
 
     fn write_live_docs<D, B>(
         &self,
-        bits: &B,
-        dir: &mut D,
-        info: &SegmentCommitInfo<D>,
-        new_del_count: i32,
-        context: &IOContext,
+        _bits: &B,
+        _dir: &mut D,
+        _info: &SegmentCommitInfo<D>,
+        _new_del_count: i32,
+        _context: &IOContext,
     ) -> Result<(), LuceneError>
     where
         D: Directory,
@@ -68,8 +68,8 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
 
     fn files<D>(
         &self,
-        info: &SegmentCommitInfo<D>,
-        files: &mut HashSet<String>,
+        _info: &SegmentCommitInfo<D>,
+        _files: &mut HashSet<String>,
     ) -> Result<(), LuceneError>
     where
         D: Directory,

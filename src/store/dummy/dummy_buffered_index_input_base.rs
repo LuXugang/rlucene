@@ -41,7 +41,7 @@ impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
     ) -> Result<(), LuceneError> {
         unreachable!("DummyBufferedIndexInputBase should not be called")
     }
-    #[allow(refining_impl_trait)]
+    #[allow(unreachable_code)]
     fn slice(
         &self,
         _slice_description: &str,

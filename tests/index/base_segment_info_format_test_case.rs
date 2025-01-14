@@ -23,8 +23,10 @@ use rand::Rng;
 use rlucene::codecs::segment_info_format::SegmentInfoFormat;
 use rlucene::codecs::{Codec, LATEST_CODEC};
 use rlucene::index::segment_info::SegmentInfo;
-use rlucene::search::field_comparator_source::FieldComparatorSource;
-use rlucene::search::sort_field::{MissingValueEnum, SortField, Type};
+use rlucene::index::sort::Sort;
+use rlucene::search::sort_field::{
+    MissingValueEnum, SortField, SortFieldEnum, SortFieldType, SortFiledBase,
+};
 use rlucene::search::sorted_numeric_sort_field::SortedNumericSortField;
 use rlucene::search::sorted_set_sort_field::SortedSetSortField;
 use rlucene::store::IOContext;
@@ -78,7 +80,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             has_blocks,
             HashMap::new(),
-            Vec::from(id.clone()),
+            Vec::from(id),
             HashMap::new(),
             None,
         )?;
@@ -134,7 +136,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             &IOContext::default_io_context()?,
         )?;
         assert_eq!(info.files()?, info2.files()?);
-        // In Rust Lucene, SegmentInfo::files return a immutable Set, so we do not need to verify this
+        // In Rust Lucene, SegmentInfo::files return an immutable Set,
+        // so we do not need to verify this
         // let immutable_files = info2.files()?;
         // let add_result = immutable_files.insert("bogus".to_string());
         // assert!(
@@ -175,7 +178,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             &IOContext::default_io_context()?,
         )?;
         assert_eq!(diagnostics, *info2.get_diagnostics());
-        // In Rust Lucene, SegmentInfo::get_diagnostics return a immutable Set, so we do not need to verify this
+        // In Rust Lucene, SegmentInfo::get_diagnostics return an immutable Set, so we do not need to verify this
         // let mut immutable_diagnostics = info2.get_diagnostics();
         // let insert_result = immutable_diagnostics.insert("bogus".to_string(), "bogus".to_string());
         // assert!(
@@ -200,7 +203,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            Vec::from(id.clone()),
+            Vec::from(id),
             attributes.clone(),
             None,
         )?;
@@ -243,7 +246,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            Vec::from(id.clone()),
+            Vec::from(id),
             HashMap::new(),
             None,
         )?;
@@ -278,7 +281,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     false,
                     false,
                     HashMap::new(),
-                    Vec::from(id.clone()),
+                    Vec::from(id),
                     HashMap::new(),
                     None,
                 )?;
@@ -311,142 +314,181 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
 
-    // fn random_index_sort_field<F: FieldComparatorSource, S: SortFieldBase>(
-    //     random: &mut StdRng,
-    // ) -> Result<Option<SortField<F, S>>, TestError> {
-    //     let reversed = random.gen_bool(0.5);
-    //     let case = random.gen_range(0..10);
-    //     match case {
-    //         0 => {
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::Int,
-    //                 reversed,
-    //                 None,
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::Int(random.gen())))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         1 => {
-    //             let sub = SortedNumericSortField;
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::Int,
-    //                 reversed,
-    //                 Some(sub),
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::Int(random.gen())))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         2 => {
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::Long,
-    //                 reversed,
-    //                 None,
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::Long(random.gen())))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         3 => {
-    //             let sub = SortedNumericSortField;
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::Long,
-    //                 reversed,
-    //                 Some(sub),
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::Long(random.gen())))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         4 => {
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::Float,
-    //                 reversed,
-    //                 None,
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::Float(random.gen())))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         5 => {
-    //             let sub = SortedNumericSortField;
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::Float,
-    //                 reversed,
-    //                 Some(sub),
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::Float(random.gen())))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         6 => {
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::Double,
-    //                 reversed,
-    //                 None,
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::Double(random.gen())))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         7 => {
-    //             let sub = SortedNumericSortField;
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::Double,
-    //                 reversed,
-    //                 Some(sub),
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::Double(random.gen())))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         8 => {
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::String,
-    //                 reversed,
-    //                 None,
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         9 => {
-    //             let sub = SortedSetSortField;
-    //             let mut sort_field = SortField::new_with_reverse(
-    //                 Some(TestUtil::random_simple_string(random)),
-    //                 Type::String,
-    //                 reversed,
-    //                 Some(sub),
-    //             )?;
-    //             if random.gen_bool(0.5) {
-    //                 sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
-    //             }
-    //             Ok(Some(sort_field))
-    //         }
-    //         _ => Ok(None),
-    //     }
-    // }
+    fn random_index_sort_field(random: &mut StdRng) -> Result<Option<SortFieldEnum>, TestError> {
+        let reversed = random.gen_bool(0.5);
+        let case = random.gen_range(0..10);
+        match case {
+            0 => {
+                let mut sort_field = SortField::new_with_reverse(
+                    Some(TestUtil::random_simple_string(random)),
+                    SortFieldType::Int,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.gen())))?;
+                }
+                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+            }
+            1 => {
+                let mut sort_field = SortedNumericSortField::new_with_reverse(
+                    TestUtil::random_simple_string(random),
+                    SortFieldType::Int,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.gen())))?;
+                }
+                Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
+            }
+            2 => {
+                let mut sort_field = SortField::new_with_reverse(
+                    Some(TestUtil::random_simple_string(random)),
+                    SortFieldType::Long,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.gen())))?;
+                }
+                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+            }
+            3 => {
+                let mut sort_field = SortedNumericSortField::new_with_reverse(
+                    TestUtil::random_simple_string(random),
+                    SortFieldType::Long,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.gen())))?;
+                }
+                Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
+            }
+            4 => {
+                let mut sort_field = SortField::new_with_reverse(
+                    Some(TestUtil::random_simple_string(random)),
+                    SortFieldType::Float,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.gen())))?;
+                }
+                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+            }
+            5 => {
+                let mut sort_field = SortedNumericSortField::new_with_reverse(
+                    TestUtil::random_simple_string(random),
+                    SortFieldType::Float,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.gen())))?;
+                }
+                Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
+            }
+            6 => {
+                let mut sort_field = SortField::new_with_reverse(
+                    Some(TestUtil::random_simple_string(random)),
+                    SortFieldType::Double,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Double(random.gen())))?;
+                }
+                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+            }
+            7 => {
+                let mut sort_field = SortedNumericSortField::new_with_reverse(
+                    TestUtil::random_simple_string(random),
+                    SortFieldType::Double,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Double(random.gen())))?;
+                }
+                Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
+            }
+            8 => {
+                let mut sort_field = SortField::new_with_reverse(
+                    Some(TestUtil::random_simple_string(random)),
+                    SortFieldType::String,
+                    reversed,
+                )?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
+                }
+                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+            }
+            9 => {
+                let mut sort_field =
+                    SortedSetSortField::new(TestUtil::random_simple_string(random), reversed)?;
+                if random.gen_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
+                }
+                Ok(Some(SortFieldEnum::SortedSet(sort_field)))
+            }
+            _ => Ok(None),
+        }
+    }
+    fn test_sort(&self, random: &mut StdRng) -> Result<(), TestError> {
+        assert!(
+            self.supports_index_sort(),
+            "test requires a codec that can read/write index sort"
+        );
+        let iters = random.gen_range(5..100);
+        for _ in 0..iters {
+            let sort = if random.gen_bool(0.2) {
+                None
+            } else {
+                let num_sort_fields = random.gen_range(1..=3);
+                let mut sort_fields = Vec::new();
+                for _ in 0..num_sort_fields {
+                    if let Some(sort_field) = Self::random_index_sort_field(random)? {
+                        sort_fields.push(sort_field);
+                    }
+                }
+                Some(Sort::new_with_fields(sort_fields)?)
+            };
+            let sort_clone = sort.clone();
+            let dir = Arc::new(Mutex::new(new_directory(random)?));
+            let id = StringHelper::random_id();
+            let mut info = SegmentInfo::new(
+                dir.clone(),
+                Some(self.get_versions()[0].clone()),
+                Some(self.get_versions()[0].clone()),
+                "_123".parse().unwrap(),
+                Some(1),
+                false,
+                false,
+                HashMap::new(),
+                Vec::from(id),
+                HashMap::new(),
+                sort,
+            )?;
+            info.set_files(HashSet::new());
+            LATEST_CODEC.segment_info_format().write(
+                dir.clone(),
+                &mut info,
+                IOContext::default_io_context()?,
+            )?;
+            let info2 = LATEST_CODEC.segment_info_format().read(
+                dir.clone(),
+                "_123",
+                Vec::from(&id),
+                &IOContext::default_io_context()?,
+            )?;
+            if info2.get_index_sort().is_some() {
+                assert!(info2.get_index_sort().is_some());
+                assert!(sort_clone.unwrap() == *info2.get_index_sort().unwrap());
+            } else {
+                assert!(sort_clone.is_none())
+            }
+        }
+        Ok(())
+    }
 
     fn get_versions(&self) -> Vec<Version>;
+    fn supports_index_sort(&self) -> bool {
+        true
+    }
 
     fn supports_has_blocks(&self) -> bool {
         true

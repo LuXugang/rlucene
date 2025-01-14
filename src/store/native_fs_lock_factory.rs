@@ -30,7 +30,7 @@ use std::time::SystemTime;
 
 /// Implements [`lock_factory`](crate::store::lock_factory) using native OS file locks.
 ///
-/// # Notes
+/// # Note
 /// - This `lock_factory` relies on `std::fs` and native OS file locking APIs. Any issues with these
 ///   APIs may cause locking to fail. For example, in certain NFS environments, native file locks
 ///   might fail (allowing locks to be acquired twice incorrectly), whereas

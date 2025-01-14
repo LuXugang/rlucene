@@ -22,7 +22,7 @@ use std::fmt::{Display, Formatter};
 /// Implements [`Mutable`], but grows the bit count of the underlying packed ints
 /// on-demand.
 ///
-/// # Notes
+/// # Note
 /// - Beware that this struct will accept setting negative values. However, in order to do this,
 ///   it will grow the number of bits per value to 64.
 ///

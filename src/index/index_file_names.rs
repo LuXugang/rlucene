@@ -71,7 +71,7 @@ impl IndexFileNames {
     /// Returns a file name that includes the given `segment_name`, your own custom `name`, and `extension`.
     /// The format of the filename is: `<segment_name>_<name>.<ext>`.
     ///
-    /// # Notes
+    /// # Note
     /// - `.ext` is added to the result file name only if `ext` is not empty.
     /// - `_segment_suffix` is added to the result file name only if it's not the empty string.
     /// - All custom files should be named using this method, or otherwise some structures may fail to handle them properly

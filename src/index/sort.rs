@@ -14,21 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::field_comparator_source::FieldComparatorSource;
-use crate::search::sort_field::SortField;
+use crate::search::sort_field::{SortField, SortFieldEnum};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
 use std::fmt::Display;
 
 #[derive(Clone)]
 pub struct Sort {
-    fields: Vec<SortField>,
+    fields: Vec<SortFieldEnum>,
 }
 
 impl Sort {
     /// Replace Java's `Sort.INDEXORDER` with this method.
     pub fn get_index_order() -> Result<Self, LuceneError> {
-        let sort_field = SortField::get_field_doc()?;
+        let sort_field = SortFieldEnum::Sorter(SortField::get_field_doc()?);
         Self::new_with_fields(vec![sort_field])
     }
     /// Replace Java's `Sort.RELEVANCE` with this method.
@@ -43,7 +42,7 @@ impl Sort {
     /// This is the same sort criteria as calling `IndexSearcher::search` without a sort criteria,
     /// only with slightly more overhead.
     pub fn new() -> Result<Self, LuceneError> {
-        let sort_field = SortField::get_field_score()?;
+        let sort_field = SortFieldEnum::Sorter(SortField::get_field_score()?);
         Self::new_with_fields(vec![sort_field])
     }
 
@@ -58,7 +57,7 @@ impl Sort {
     ///
     /// # Errors
     /// Returns an error if the provided `fields` vector is empty.
-    pub fn new_with_fields(fields: Vec<SortField>) -> Result<Self, LuceneError> {
+    pub fn new_with_fields(fields: Vec<SortFieldEnum>) -> Result<Self, LuceneError> {
         if fields.is_empty() {
             Err(LuceneError::illegal_argument(
                 "There must be at least 1 sort field".to_string(),
@@ -72,7 +71,7 @@ impl Sort {
     ///
     /// # Returns
     /// Array (Vec) of `SortField` objects used in this sort criteria.
-    pub fn get_sort(&self) -> &[SortField] {
+    pub fn get_sort(&self) -> &[SortFieldEnum] {
         &self.fields
     }
 }
@@ -88,3 +87,9 @@ impl Display for Sort {
         write!(f, "{}", fields_string)
     }
 }
+impl PartialEq for Sort {
+    fn eq(&self, other: &Self) -> bool {
+        self.fields == other.fields
+    }
+}
+impl Eq for Sort {}

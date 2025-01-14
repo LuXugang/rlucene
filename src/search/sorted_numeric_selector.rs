@@ -14,3 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[derive(Clone)]
+pub struct SortedNumericSelector;
+/// Type of selection to perform.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortedNumericSelectorType {
+    /// Selects the minimum value in the set.
+    Min,
+    /// Selects the maximum value in the set.
+    Max,
+    // TODO: We could implement Median in constant time (at most 2 lookups).
+}

@@ -24,7 +24,7 @@ use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 /// A [`BytesRef`] sorter that attempts to use an efficient radix sorter if [`StringSorter::compare`]
 /// is a [`BytesRefComparator`]. Otherwise, it falls back to [`StringSorterBase::fall_back_sorter`].
 ///
-/// # Notes
+/// # Note
 /// - This is an internal API and is not intended for external use.
 pub struct StringSorter<T, C>
 where

@@ -17,5 +17,6 @@
 pub mod codecs;
 pub mod common;
 pub mod index;
+pub mod search;
 pub mod store;
 pub mod util;

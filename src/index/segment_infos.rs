@@ -21,7 +21,6 @@ use crate::index::index_commit::{DummyIndexCommit, IndexCommit};
 use crate::index::index_writer::IndexWriter;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::IndexFileNames;
-use crate::search::field_comparator_source::FieldComparatorSource;
 
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
@@ -93,7 +92,7 @@ static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| M
 ///   are updates to DocValues stored by [`DocValuesFormat`](crate::codecs::doc_values_format::DocValuesFormat).
 /// - `UpdatesFiles` stores the set of files that were updated in that segment per field.
 ///
-/// # Notes
+/// # Note
 /// This module is experimental and subject to change.
 pub struct SegmentInfos<D>
 where
@@ -383,7 +382,7 @@ where
             debug_assert!(segment_id_len <= u32::MAX as usize);
             input.read_bytes(&mut segment_id, 0, segment_id_len as u32)?;
             let codec = Self::read_codec(input)?;
-            let mut info = codec.segment_info_format().read(
+            let info = codec.segment_info_format().read(
                 directory.clone(),
                 &seg_name,
                 segment_id,
@@ -1110,7 +1109,6 @@ where
     /// Returns a readable description of this segment.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: ", self.get_segments_file_name().unwrap_or_default())?;
-        let count = self.size();
         for (i, segment_commit_info) in self.segments.iter().enumerate() {
             if i > 0 {
                 write!(f, " ")?;

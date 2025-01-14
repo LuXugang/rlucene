@@ -53,7 +53,7 @@ impl CodecUtil {
     /// - **Version**:  
     ///   A `u32` (written using `write_int`). Records the version of the file.
     ///
-    /// # Notes
+    /// # Note
     /// The length of a codec header depends only on the name of the codec. This length can be computed
     /// at any time with [`header_length`](CodecUtil::header_length).
     ///
@@ -104,7 +104,7 @@ impl CodecUtil {
     /// - **Version**:  
     ///   A `u32` (written using `write_int`). Records the version of the file.
     ///
-    /// # Notes
+    /// # Note
     /// The length of a codec header depends only on the name of the codec. This length can be computed
     /// at any time with [`header_length`](CodecUtil::header_length).
     ///
@@ -657,7 +657,7 @@ impl CodecUtil {
 
     /// Clones the provided input, reads all bytes from the file, and calls [`check_footer`](CodecUtil::check_footer).
     ///
-    /// # Notes
+    /// # Note
     /// This method may be slow, as it must process the entire file.  
     /// If you just need to extract the checksum value, call [`retrieve_checksum`](CodecUtil::retrieve_checksum).
     pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<u64, LuceneError> {

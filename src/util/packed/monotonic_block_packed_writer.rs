@@ -45,7 +45,7 @@ use crate::util::packed::PackedInts;
 /// # See Also
 /// - [`MonotonicBlockPackedReader`](crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader)
 ///
-/// # Notes
+/// # Note
 /// This is an internal implementation detail of the Lucene-like system.
 pub struct MonotonicBlockPackedWriter;
 impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
