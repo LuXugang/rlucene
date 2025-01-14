@@ -730,5 +730,19 @@ fn test_and_not_count() {
 fn test_copy_of() {}
 
 #[test]
-// todo
-fn test_as_bits() {}
+fn test_as_bits() {
+    let mut set = FixedBitSet::new(10);
+    set.set(3);
+    set.set(4);
+    set.set(9);
+    let bits = set.as_read_only_bits();
+    assert_eq!(set.length(), bits.length());
+    for i in 0..set.length() {
+        assert_eq!(set.get(i), bits.get(i));
+    }
+    // The data in bits is a reference to set, so it is not necessary to
+    // verify whether changes in set are reflected in bits.
+    // Further changes are reflected
+    // set.set(5);
+    // assertTrue(bits.get(5));
+}
