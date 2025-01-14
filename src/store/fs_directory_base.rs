@@ -26,7 +26,7 @@ pub trait FSDirectoryBase: Display {
     fn open_input(
         &self,
         name: &str,
-        context: IOContext,
+        context: &IOContext,
         path: &Path,
     ) -> Result<Self::Output, LuceneError>;
 }

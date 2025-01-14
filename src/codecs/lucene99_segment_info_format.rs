@@ -310,7 +310,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         &self,
         dir: Arc<Mutex<D>>,
         si: &mut SegmentInfo<D>,
-        io_context: IOContext,
+        io_context: &IOContext,
     ) -> Result<(), LuceneError>
     where
         D: Directory,

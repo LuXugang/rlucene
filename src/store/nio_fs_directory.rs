@@ -55,7 +55,7 @@ impl FSDirectoryBase for NIOFSDirectory {
     fn open_input(
         &self,
         name: &str,
-        context: IOContext,
+        context: &IOContext,
         path: &Path,
     ) -> Result<Self::Output, LuceneError> {
         let file_path = path.join(name);

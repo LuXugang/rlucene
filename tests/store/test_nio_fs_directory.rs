@@ -114,9 +114,8 @@ fn test_ints_underflow() -> Result<(), TestError> {
 }
 #[test]
 fn test_aligned_floats() -> Result<(), TestError> {
-    let mut random = my_random("test_aligned_floats".to_string());
     let test = TestNIOFSDirectory;
-    test.test_aligned_floats(&mut random)
+    test.test_aligned_floats()
 }
 #[test]
 fn test_unaligned_floats() -> Result<(), TestError> {

@@ -568,10 +568,9 @@ where
         {
             let result = (|| {
                 {
-                    let mut segn_output = Some(
-                        directory
-                            .create_output(&segment_file_name, IOContext::default_io_context()?)?,
-                    );
+                    let io_context = IOContext::default_io_context()?;
+                    let mut segn_output =
+                        Some(directory.create_output(&segment_file_name, &io_context)?);
                     if let Some(ref mut output) = segn_output {
                         self.write(output)?;
                     }

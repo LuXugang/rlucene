@@ -81,6 +81,7 @@ fn test_versions_one_segment() -> Result<(), TestError> {
     let directory = Arc::new(Mutex::new(dir));
     let id = StringHelper::random_id();
     let codec = get_default_code();
+    let io_context = IOContext::default_io_context()?;
     let mut sis = SegmentInfos::new(LATEST.major)?;
     let mut info = SegmentInfo::new(
         directory.clone(),
@@ -96,11 +97,9 @@ fn test_versions_one_segment() -> Result<(), TestError> {
         None,
     )?;
     info.set_files(HashSet::new());
-    codec.segment_info_format().write(
-        directory.clone(),
-        &mut info,
-        IOContext::default_io_context()?,
-    )?;
+    codec
+        .segment_info_format()
+        .write(directory.clone(), &mut info, &io_context)?;
 
     let commit_info = SegmentCommitInfo::new(
         info,
@@ -135,6 +134,7 @@ fn test_versions_two_segments() -> Result<(), TestError> {
     let id = StringHelper::random_id();
     let codec = get_default_code();
     let mut sis = SegmentInfos::new(LATEST.major)?;
+    let io_context = IOContext::default_io_context()?;
     // First Segment
     let mut info_0 = SegmentInfo::new(
         directory.clone(),
@@ -150,11 +150,9 @@ fn test_versions_two_segments() -> Result<(), TestError> {
         None,
     )?;
     info_0.set_files(HashSet::new());
-    codec.segment_info_format().write(
-        directory.clone(),
-        &mut info_0,
-        IOContext::default_io_context()?,
-    )?;
+    codec
+        .segment_info_format()
+        .write(directory.clone(), &mut info_0, &io_context)?;
 
     let commit_info_0 = SegmentCommitInfo::new(
         info_0,
@@ -182,11 +180,9 @@ fn test_versions_two_segments() -> Result<(), TestError> {
         None,
     )?;
     info_1.set_files(HashSet::new());
-    codec.segment_info_format().write(
-        directory.clone(),
-        &mut info_1,
-        IOContext::default_io_context()?,
-    )?;
+    codec
+        .segment_info_format()
+        .write(directory.clone(), &mut info_1, &io_context)?;
 
     let commit_info_1 = SegmentCommitInfo::new(
         info_1,
@@ -412,6 +408,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
     let id = StringHelper::random_id();
     let codec = get_default_code();
     let mut sis = SegmentInfos::new(LATEST.major)?;
+    let io_context = IOContext::default_io_context()?;
     let mut info_0 = SegmentInfo::new(
         dir.clone(),
         Some((*LATEST).clone()),
@@ -426,11 +423,9 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
         None,
     )?;
     info_0.set_files(HashSet::new());
-    codec.segment_info_format().write(
-        dir.clone(),
-        &mut info_0,
-        IOContext::default_io_context()?,
-    )?;
+    codec
+        .segment_info_format()
+        .write(dir.clone(), &mut info_0, &io_context)?;
     let commit_info_0 = SegmentCommitInfo::new(
         info_0,
         0,
@@ -457,11 +452,9 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
         None,
     )?;
     info_1.set_files(HashSet::new());
-    codec.segment_info_format().write(
-        dir.clone(),
-        &mut info_1,
-        IOContext::default_io_context()?,
-    )?;
+    codec
+        .segment_info_format()
+        .write(dir.clone(), &mut info_1, &io_context)?;
     let commit_info_1 = SegmentCommitInfo::new(
         info_1,
         0,
@@ -478,16 +471,15 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
     // Create a corrupt directory
     let corrupt_dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let mut corrupt = false;
+    let io_context = IOContext::read_once_io_context()?;
     {
         let mut corrupt_directory = corrupt_dir.lock().unwrap();
         let directory = dir.lock().unwrap();
         for file in directory.list_all()? {
             if file.starts_with(IndexFileNames::SEGMENTS) {
                 {
-                    let mut input =
-                        directory.open_input(&file, IOContext::read_once_io_context()?)?;
-                    let mut output =
-                        corrupt_directory.create_output(&file, IOContext::default_io_context()?)?;
+                    let mut input = directory.open_input(&file, &io_context)?;
+                    let mut output = corrupt_directory.create_output(&file, &io_context)?;
 
                     let mut input_length = IndexInput::length(&input);
                     let corrupt_index = random.gen_range(0..input_length - 1);
@@ -501,8 +493,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
                     let file_pointer = input.get_file_pointer();
                     output.copy_bytes(&mut input, input_length - file_pointer)?;
                 }
-                let mut input =
-                    corrupt_directory.open_input(&file, IOContext::read_once_io_context()?)?;
+                let mut input = corrupt_directory.open_input(&file, &io_context)?;
                 match CodecUtil::checksum_entire_file(&mut input) {
                     Ok(_) => {
                         if cfg!(feature = "test_log_verbose") {
@@ -519,12 +510,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
                 }
                 corrupt = true;
             } else if file.eq("extra0") {
-                corrupt_directory.copy_from(
-                    dir.clone(),
-                    &file,
-                    &file,
-                    IOContext::default_io_context()?,
-                )?;
+                corrupt_directory.copy_from(dir.clone(), &file, &file, &io_context)?;
             }
         }
     }

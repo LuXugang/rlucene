@@ -93,7 +93,7 @@ pub trait Directory: Display + Sized {
     fn create_output(
         &mut self,
         name: &str,
-        context: IOContext,
+        context: &IOContext,
     ) -> Result<impl IndexOutput, LuceneError>;
 
     /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance
@@ -109,7 +109,7 @@ pub trait Directory: Display + Sized {
         &mut self,
         prefix: &str,
         suffix: &str,
-        context: IOContext,
+        context: &IOContext,
     ) -> Result<impl IndexOutput, LuceneError>;
     /// Ensures that any writings to these files are moved to stable storage (made durable).
     ///
@@ -149,7 +149,7 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `name` - The name of an existing file.
     type Output: IndexInput + RandomAccessInput;
-    fn open_input(&self, name: &str, context: IOContext) -> Result<Self::Output, LuceneError>;
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError>;
 
     /// Opens a checksum-computing stream for reading an existing file.
     ///
@@ -166,7 +166,7 @@ pub trait Directory: Display + Sized {
         name: &str,
     ) -> Result<BufferedChecksumIndexInput<Self::Output>, LuceneError> {
         Ok(BufferedChecksumIndexInput::new(
-            self.open_input(name, IOContext::read_once_io_context()?)?,
+            self.open_input(name, &IOContext::read_once_io_context()?)?,
         ))
     }
 
@@ -193,7 +193,7 @@ pub trait Directory: Display + Sized {
         from: Arc<Mutex<T>>,
         src: &str,
         dest: &str,
-        context: IOContext,
+        context: &IOContext,
     ) -> Result<(), LuceneError> {
         let mut success = false;
 
@@ -201,7 +201,7 @@ pub trait Directory: Display + Sized {
             let dir = from.lock().map_err(|_| {
                 LuceneError::illegal_state("Failed to acquire lock on attributes.".to_string())
             })?;
-            let mut is = dir.open_input(src, IOContext::read_once_io_context()?)?;
+            let mut is = dir.open_input(src, &IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context)?;
             let length = IndexInput::length(&is);
             os.copy_bytes(&mut is, length)?;

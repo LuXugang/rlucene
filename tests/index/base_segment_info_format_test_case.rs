@@ -43,6 +43,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     fn test_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
+        let io_context = IOContext::default_io_context()?;
         let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
@@ -57,16 +58,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            dir.clone(),
-            &mut info,
-            IOContext::default_io_context()?,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(dir.clone(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &IOContext::default_io_context()?,
+            &&io_context,
         )?;
         assert_eq!(info.files()?, info2.files()?);
         Ok(())
@@ -76,6 +75,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let has_blocks = random.gen_bool(0.5);
+        let io_context = IOContext::default_io_context()?;
         let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
@@ -90,16 +90,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            dir.clone(),
-            &mut info,
-            IOContext::default_io_context()?,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(dir.clone(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &IOContext::default_io_context()?,
+            &&io_context,
         )?;
         assert_eq!(info.get_has_blocks(), info2.get_has_blocks());
         Ok(())
@@ -109,6 +107,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     fn test_adds_self_to_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
+        let io_context = IOContext::default_io_context()?;
+
         let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
@@ -124,11 +124,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         )?;
         let original_files: HashSet<String> = ["_123.a".to_string()].iter().cloned().collect();
         info.set_files(original_files.clone());
-        LATEST_CODEC.segment_info_format().write(
-            dir.clone(),
-            &mut info,
-            IOContext::default_io_context()?,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(dir.clone(), &mut info, &io_context)?;
         let modified_files = info.files()?;
         assert!(modified_files.is_superset(&original_files));
         assert!(
@@ -139,7 +137,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &IOContext::default_io_context()?,
+            &&io_context,
         )?;
         assert_eq!(info.files()?, info2.files()?);
         // In Rust Lucene, SegmentInfo::files return an immutable Set,
@@ -159,6 +157,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let mut diagnostics: HashMap<String, String> = HashMap::new();
         diagnostics.insert("key1".to_string(), "value1".to_string());
         diagnostics.insert("key2".to_string(), "value2".to_string());
+        let io_context = IOContext::default_io_context()?;
+
         let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
@@ -173,16 +173,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            dir.clone(),
-            &mut info,
-            IOContext::default_io_context()?,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(dir.clone(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &IOContext::default_io_context()?,
+            &&io_context,
         )?;
         assert_eq!(diagnostics, *info2.get_diagnostics());
         // In Rust Lucene, SegmentInfo::get_diagnostics return an immutable Set, so we do not need to verify this
@@ -201,6 +199,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let mut attributes: HashMap<String, String> = HashMap::new();
         attributes.insert("key1".to_string(), "value1".to_string());
         attributes.insert("key2".to_string(), "value2".to_string());
+        let io_context = IOContext::default_io_context()?;
+
         let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
@@ -215,16 +215,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            dir.clone(),
-            &mut info,
-            IOContext::default_io_context()?,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(dir.clone(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &IOContext::default_io_context()?,
+            &&io_context,
         )?;
         let info2_attributes = info2.get_attributes()?;
         let info2_values = info2_attributes.lock().unwrap();
@@ -245,6 +243,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     fn test_unique_id(&self, random: &mut StdRng) -> Result<(), TestError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
+        let io_context = IOContext::default_io_context()?;
+
         let mut info = SegmentInfo::new(
             dir.clone(),
             Option::from(self.get_versions()[0].clone()),
@@ -259,16 +259,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            dir.clone(),
-            &mut info,
-            IOContext::default_io_context()?,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(dir.clone(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
             Vec::from(&id),
-            &IOContext::default_io_context()?,
+            &&io_context,
         )?;
         assert_eq!(id, info2.get_id().as_slice());
 
@@ -276,6 +274,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     /// Test versions
     fn test_versions(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let io_context = IOContext::default_io_context()?;
+
         for version in self.get_versions() {
             for min_version in [Some(version.clone()), None] {
                 let dir = Arc::new(Mutex::new(new_directory(random)?));
@@ -294,16 +294,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     None,
                 )?;
                 info.set_files(HashSet::new());
-                LATEST_CODEC.segment_info_format().write(
-                    dir.clone(),
-                    &mut info,
-                    IOContext::default_io_context()?,
-                )?;
+                LATEST_CODEC
+                    .segment_info_format()
+                    .write(dir.clone(), &mut info, &io_context)?;
                 let info2 = LATEST_CODEC.segment_info_format().read(
                     dir.clone(),
                     "_123",
                     Vec::from(&id),
-                    &IOContext::default_io_context()?,
+                    &&io_context,
                 )?;
                 assert!(info2.get_version().is_some());
                 assert_eq!(*info2.get_version().unwrap(), version.clone());
@@ -442,6 +440,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             self.supports_index_sort(),
             "test requires a codec that can read/write index sort"
         );
+        let io_context = IOContext::default_io_context()?;
+
         let iters = random.gen_range(5..100);
         for _ in 0..iters {
             let sort = if random.gen_bool(0.2) {
@@ -473,16 +473,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 sort,
             )?;
             info.set_files(HashSet::new());
-            LATEST_CODEC.segment_info_format().write(
-                dir.clone(),
-                &mut info,
-                IOContext::default_io_context()?,
-            )?;
+            LATEST_CODEC
+                .segment_info_format()
+                .write(dir.clone(), &mut info, &io_context)?;
             let info2 = LATEST_CODEC.segment_info_format().read(
                 dir.clone(),
                 "_123",
                 Vec::from(&id),
-                &IOContext::default_io_context()?,
+                &&io_context,
             )?;
             if info2.get_index_sort().is_some() {
                 assert!(info2.get_index_sort().is_some());
@@ -513,6 +511,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     /// Sets some otherwise hard-to-test properties: random segment names, ID values, document count, etc and round-trips
     fn test_random(&self, random: &mut StdRng) -> Result<(), TestError> {
         let versions = self.get_versions();
+        let io_context = IOContext::default_io_context()?;
+
         for _ in 0..10 {
             let dir = Arc::new(Mutex::new(new_directory(random)?));
             let version = versions[random.gen_range(0..versions.len())].clone();
@@ -531,7 +531,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
                 files.insert(file.clone());
                 let mut directory = dir.lock().unwrap();
-                directory.create_output(&file, IOContext::default_io_context()?)?;
+                directory.create_output(&file, &io_context)?;
             }
             let mut diagnostics = HashMap::new();
             let num_diags = random.gen_range(0..10);
@@ -565,16 +565,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 None,
             )?;
             info.set_files(files.clone());
-            LATEST_CODEC.segment_info_format().write(
-                dir.clone(),
-                &mut info,
-                IOContext::default_io_context()?,
-            )?;
+            LATEST_CODEC
+                .segment_info_format()
+                .write(dir.clone(), &mut info, &io_context)?;
             let info2 = LATEST_CODEC.segment_info_format().read(
                 dir.clone(),
                 &name,
                 id.clone(),
-                &IOContext::default_io_context()?,
+                &&io_context,
             )?;
             Self::assert_equals(&info, &info2)?;
         }

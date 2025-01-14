@@ -87,7 +87,7 @@ pub fn new_io_context_with_default(
     }
 }
 pub fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestError> {
-    let result = dir.open_input(name, IOContext::default_io_context()?);
+    let result = dir.open_input(name, &IOContext::default_io_context()?);
     match result {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),

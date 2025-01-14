@@ -90,13 +90,13 @@ where
     pub fn new_with_io_context(
         sub_index_input: T,
         resource_desc: &str,
-        context: IOContext,
+        context: &IOContext,
     ) -> Result<BufferedIndexInput<T>, LuceneError> {
         Self::new_with_buffer_size(sub_index_input, resource_desc, Self::buffer_size(context))
     }
 
     /// Returns default buffer sizes for the given [`IOContext`].
-    pub fn buffer_size(io_context: IOContext) -> u32 {
+    pub fn buffer_size(io_context: &IOContext) -> u32 {
         match io_context.context {
             Context::Merge => BufferedIndexInput::MERGE_BUFFER_SIZE,
             Context::Default | Context::Flush => BufferedIndexInput::BUFFER_SIZE,

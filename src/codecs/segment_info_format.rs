@@ -58,7 +58,7 @@ pub trait SegmentInfoFormat {
         &self,
         directory: Arc<Mutex<D>>,
         info: &mut SegmentInfo<D>,
-        context: IOContext,
+        context: &IOContext,
     ) -> Result<(), LuceneError>
     where
         D: Directory;

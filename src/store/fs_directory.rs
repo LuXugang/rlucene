@@ -298,7 +298,7 @@ where
     fn create_output(
         &mut self,
         name: &str,
-        _context: IOContext,
+        _context: &IOContext,
     ) -> Result<impl IndexOutput, LuceneError> {
         let mut pending_deletes = self
             .pending_deletes
@@ -335,7 +335,7 @@ where
         &mut self,
         prefix: &str,
         suffix: &str,
-        _context: IOContext,
+        _context: &IOContext,
     ) -> Result<impl IndexOutput, LuceneError> {
         let mut pending_deletes = self
             .pending_deletes
@@ -436,7 +436,7 @@ where
     }
 
     type Output = BufferedIndexInput<B>;
-    fn open_input(&self, name: &str, context: IOContext) -> Result<Self::Output, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
         self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)

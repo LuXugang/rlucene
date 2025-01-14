@@ -46,7 +46,7 @@ impl Directory for DummyDirectory {
     fn create_output(
         &mut self,
         _name: &str,
-        _context: IOContext,
+        _context: &IOContext,
     ) -> Result<DummyIndexOutput, LuceneError> {
         unreachable!("DummyDirectory should not be called");
     }
@@ -56,7 +56,7 @@ impl Directory for DummyDirectory {
         &mut self,
         _prefix: &str,
         _suffix: &str,
-        _context: IOContext,
+        _context: &IOContext,
     ) -> Result<DummyIndexOutput, LuceneError> {
         unreachable!("DummyDirectory should not be called");
     }
@@ -75,7 +75,7 @@ impl Directory for DummyDirectory {
 
     type Output = DummyIndexInput;
 
-    fn open_input(&self, _name: &str, _context: IOContext) -> Result<Self::Output, LuceneError> {
+    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::Output, LuceneError> {
         unreachable!("DummyDirectory should not be called")
     }
     #[allow(refining_impl_trait)]
