@@ -23,7 +23,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::codecs::segment_info_format::SegmentInfoFormat;
 use rlucene::codecs::{Codec, LATEST_CODEC};
-use rlucene::index::index_writer::MAX_DOCS;
+use rlucene::index::index_writer::IndexWriter;
 use rlucene::index::segment_info::SegmentInfo;
 use rlucene::index::sort::Sort;
 use rlucene::index::IndexFileNames;
@@ -523,7 +523,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 BigInt::from(random.gen_range(0..i32::MAX) as i64)
             };
             let name = format!("_{}", big_int.to_str_radix(36));
-            let doc_count = random.gen_range(1..=MAX_DOCS);
+            let doc_count = random.gen_range(1..=IndexWriter::MAX_DOCS);
             let is_compound_file = random.gen_bool(0.5);
             let mut files = HashSet::new();
             let num_files = random.gen_range(0..10);

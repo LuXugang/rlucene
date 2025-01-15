@@ -20,7 +20,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::codecs::live_docs_format::LiveDocsFormat;
 use rlucene::codecs::{Codec, LATEST_CODEC};
-use rlucene::index::index_writer::MAX_DOCS;
+use rlucene::index::index_writer::IndexWriter;
 use rlucene::index::segment_commit_info::SegmentCommitInfo;
 use rlucene::index::segment_info::SegmentInfo;
 use rlucene::store::IOContext;
@@ -52,7 +52,12 @@ pub trait BaseLiveDocsFormatTestCase {
         Ok(())
     }
     fn test_over_flow(&self, random: &mut StdRng) -> Result<(), TestError> {
-        Self::test_serialization(random, MAX_DOCS, MAX_DOCS - 7, true)?;
+        Self::test_serialization(
+            random,
+            IndexWriter::MAX_DOCS,
+            IndexWriter::MAX_DOCS - 7,
+            true,
+        )?;
         Ok(())
     }
 
