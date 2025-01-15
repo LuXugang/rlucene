@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::dummy_index_input::DummyIndexInput;
+use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInputBase, IndexInput};
 use crate::util::error::lucene_error::LuceneError;

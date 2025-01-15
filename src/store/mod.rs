@@ -34,7 +34,6 @@ pub mod data_input_type;
 pub mod data_output;
 pub mod directory;
 pub mod dummy;
-pub mod dummy_index_input;
 pub mod filter_directory;
 pub mod flush_info;
 pub mod fs_directory;

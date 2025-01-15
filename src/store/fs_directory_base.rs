@@ -22,11 +22,10 @@ use std::fmt::Display;
 use std::path::Path;
 
 pub trait FSDirectoryBase: Display {
-    type Output: IndexInput + RandomAccessInput;
     fn open_input(
         &self,
         name: &str,
         context: &IOContext,
         path: &Path,
-    ) -> Result<Self::Output, LuceneError>;
+    ) -> Result<impl IndexInput + RandomAccessInput + Send + Sync + 'static, LuceneError>;
 }

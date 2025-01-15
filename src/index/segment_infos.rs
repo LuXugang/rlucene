@@ -232,21 +232,21 @@ where
         min_supported_major_version: i32,
     ) -> Result<SegmentsFileEnum<D>, LuceneError> {
         let generation = generation_from_segments_file_name(segment_file_name)?;
-        let mut input = match directory
-            .lock()
-            .map_err(|_| {
-                LuceneError::illegal_argument("Failed to acquire directory lock.".to_string())
-            })?
-            .open_checksum_input(segment_file_name)
+        let mut input;
         {
-            Ok(input) => input,
-            Err(e) => {
-                return Err(LuceneError::corrupt_index(format!(
-                    "Unexpected file read error while opening index: {}",
-                    e
-                )));
-            }
-        };
+            let dir = directory.lock().map_err(|_| {
+                LuceneError::illegal_argument("Failed to acquire directory lock.".to_string())
+            })?;
+            input = match dir.open_checksum_input(segment_file_name) {
+                Ok(input) => input,
+                Err(e) => {
+                    return Err(LuceneError::corrupt_index(format!(
+                        "Unexpected file read error while opening index: {}",
+                        e
+                    )));
+                }
+            };
+        }
 
         match SegmentInfos::read_commit_impl(
             directory.clone(),

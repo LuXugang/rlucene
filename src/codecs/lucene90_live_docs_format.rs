@@ -122,7 +122,8 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         let directory = dir
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
-        let mut input = directory.open_checksum_input(name.unwrap().as_str())?;
+        let name_str = name.as_ref().unwrap();
+        let mut input = directory.open_checksum_input(name_str)?;
         let result = (|| {
             CodecUtil::check_index_header(
                 &mut input,
