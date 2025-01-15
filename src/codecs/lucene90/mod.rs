@@ -14,20 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod codec;
-pub mod codec_util;
-mod compound_directory;
-mod compound_directory_enum;
-pub mod compound_format;
-pub mod doc_values_format;
-pub mod field_infos_format;
-pub mod live_docs_format;
-pub mod lucene101_codec;
-pub mod lucene90;
-pub mod lucene90_live_docs_format;
-pub mod lucene99_segment_info_format;
-pub mod segment_info_format;
-pub mod simple_text_live_docs_format;
-
-pub use codec::*;
-pub use codec_util::*;
+pub mod lucene90_compound_reader;
