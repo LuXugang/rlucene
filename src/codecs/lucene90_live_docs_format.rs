@@ -102,7 +102,7 @@ impl Lucene90LiveDocsFormat {
 }
 
 impl LiveDocsFormat for Lucene90LiveDocsFormat {
-    fn read_live_docs<D, B>(
+    fn read_live_docs<D>(
         &self,
         dir: Arc<Mutex<D>>,
         info: &SegmentCommitInfo<D>,
@@ -110,7 +110,6 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     ) -> Result<impl Bits, LuceneError>
     where
         D: Directory,
-        B: Bits,
     {
         let gen = info.get_del_gen();
         let name = IndexFileNames::file_name_from_generation(

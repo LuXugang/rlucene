@@ -53,7 +53,7 @@ pub trait Codec {
     // fn norms_format(&self) -> &Self::NormsFormat;
 
     /// Encodes/decodes live docs
-    fn live_docs_format(&self) -> &Self::LiveDocsFormat;
+    fn live_docs_format(&self) -> Self::LiveDocsFormat;
 
     // /// Encodes/decodes compound files
     // fn compound_format(&self) -> &Self::CompoundFormat;

@@ -34,15 +34,14 @@ pub trait LiveDocsFormat {
     ///
     /// # Returns
     /// A `Bits` implementation representing the live docs.
-    fn read_live_docs<D, B>(
+    fn read_live_docs<D>(
         &self,
         dir: Arc<Mutex<D>>,
         info: &SegmentCommitInfo<D>,
         context: &IOContext,
     ) -> Result<impl Bits, LuceneError>
     where
-        D: Directory,
-        B: Bits;
+        D: Directory;
 
     /// Persist live docs bits. Use [`SegmentCommitInfo#getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine the generation
     /// of the deletes file you should write to.

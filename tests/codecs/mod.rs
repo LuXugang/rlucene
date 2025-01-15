@@ -14,5 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod lucene90;
 mod lucene99;
 mod test_codec_util;
