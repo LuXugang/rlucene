@@ -22,6 +22,7 @@ use rand::{Rng, SeedableRng};
 use rlucene::store::directory::Directory;
 use rlucene::store::{
     ByteArrayDataInput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
+    IO_CONTEXT_DEFAULT,
 };
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::long_values::LongValues;
@@ -1238,7 +1239,6 @@ fn test_packed_input_output() {
 fn test_block_packed_reader_writer() -> Result<(), TestError> {
     let mut random = my_random("test_block_packed_reader_writer".to_string());
     let iters = random.gen_range(2..=100);
-    let io_context = IOContext::default_io_context()?;
     for _ in 0..iters {
         let block_size = 1 << random.gen_range(6..=18);
         let value_count: i32 = if is_night_mode() {
@@ -1273,7 +1273,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
         let fp;
         let mut dir = new_directory(&mut random)?;
         {
-            let mut out = dir.create_output("out.bin", &io_context)?;
+            let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
             let mut writer =
                 AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter, &mut out)?;
             for (i, &value) in values.iter().enumerate() {
@@ -1289,7 +1289,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
         let mut buf = vec![0u8; fp as usize];
         // test in1
         {
-            let mut in1 = dir.open_input("out.bin", &io_context)?;
+            let mut in1 = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
             DataInput::read_bytes(&mut in1, &mut buf, 0, fp as i32)?;
             in1.seek(0)?;
             let mut in_ref = in1;
@@ -1405,7 +1405,6 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
 fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
     let mut random = my_random("test_monotonic_block_packed_reader_writer".to_string());
     let iters = random.gen_range(2..100);
-    let io_context = IOContext::default_io_context()?;
     for _ in 0..iters {
         let block_size = 1 << random.gen_range(6..=18);
         let value_count = random.gen_range(0..(1 << 18));
@@ -1430,7 +1429,7 @@ fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
         let mut dir = new_directory(&mut random)?;
         let file_pointer;
         {
-            let mut out = dir.create_output("out.bin", &io_context)?;
+            let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
             let mut writer = AbstractBlockPackedWriter::new(
                 block_size as i32,
                 MonotonicBlockPackedWriter,
@@ -1445,7 +1444,7 @@ fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
             assert_eq!(value_count as i64, writer.ord());
             file_pointer = out.get_file_pointer();
         }
-        let mut input = dir.open_input("out.bin", &io_context)?;
+        let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
         let mut reader = MonotonicBlockPackedReader::of(
             &mut input,
             PackedInts::VERSION_CURRENT,
@@ -1471,10 +1470,9 @@ fn test_block_reader_overflow() -> Result<(), TestError> {
     let mut dir = new_directory(&mut random)?;
     let value_offset = random.gen_range(0..=value_count - 1);
     let value = random.gen::<i64>() & 0xFFFFFFFF;
-    let io_context = IOContext::default_io_context()?;
 
     {
-        let mut out = dir.create_output("out.bin", &io_context)?;
+        let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
         let mut writer =
             AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter, &mut out)?;
 
@@ -1497,7 +1495,7 @@ fn test_block_reader_overflow() -> Result<(), TestError> {
         }
     }
 
-    let mut input = dir.open_input("out.bin", &io_context)?;
+    let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
     debug_assert!(block_size <= u32::MAX as i64);
     let mut reader = BlockPackedReaderIterator::new(
         &mut input,

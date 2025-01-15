@@ -22,7 +22,7 @@ use rlucene::store::flush_info::FlushInfo;
 use rlucene::store::fs_directory::FSDirectory;
 use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
-use rlucene::store::IOContext;
+use rlucene::store::{IOContext, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE};
 use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick serach
@@ -36,15 +36,14 @@ pub fn new_directory(_random: &mut StdRng) -> Result<impl Directory, TestError> 
 }
 
 pub fn new_io_context(random: &mut StdRng) -> Result<IOContext, TestError> {
-    new_io_context_with_default(random, &IOContext::default_io_context()?)
+    new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
 }
 
 pub fn new_io_context_with_default(
     random: &mut StdRng,
     old_context: &IOContext,
 ) -> Result<IOContext, TestError> {
-    let read_once = IOContext::read_once_io_context()?;
-    if *old_context == read_once {
+    if *old_context == *IO_CONTEXT_READ_ONCE {
         // Don't modify the READONCE singleton
         return Ok(old_context.clone());
     }

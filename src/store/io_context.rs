@@ -18,7 +18,22 @@ use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
 use crate::util::error::lucene_error::LuceneError;
-
+use once_cell::sync::Lazy;
+/// A default context for normal reads/writes. Use [`with_read_advice`](#method.with_read_advice) to specify
+/// another [`ReadAdvice`].
+///
+/// # Note
+/// It will use [`ReadAdvice::Random`] by default, unless set by the system property
+/// `org.apache.lucene.store.defaultReadAdvice`.
+pub static IO_CONTEXT_DEFAULT: Lazy<IOContext> =
+    Lazy::new(|| IOContext::default_io_context().unwrap());
+/// A default context for reads with [`ReadAdvice::Sequential`].
+///
+/// # Note
+/// This context should only be used when the read operations will be performed in the same
+/// thread as the thread that opens the underlying storage.
+pub static IO_CONTEXT_READ_ONCE: Lazy<IOContext> =
+    Lazy::new(|| IOContext::read_once_io_context().unwrap());
 /// `IOContext` holds additional details on the merge/search context. An `IOContext` object can never be
 /// passed as a `None` parameter to either [`Directory::open_input`](crate::store::directory::Directory::open_input)
 /// or [`Directory::create_output`](crate::store::directory::Directory::create_output).
@@ -74,10 +89,7 @@ impl IOContext {
             flush_info,
         })
     }
-    /// Returns an updated `IOContext` that has the provided [`ReadAdvice`](ReadAdvice) if the
-    /// `Context` is a `Context::Default` context, otherwise returns the existing instance. This
-    /// helps preserve a `ReadAdvice::Sequential` advice for merging, which is always the right choice,
-    /// while allowing `IndexInput`s opened for searching to use arbitrary `ReadAdvice` values.
+
     fn new_with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
         Self::new(Some(Context::Default), Some(read_advice), None, None)
     }
@@ -110,20 +122,9 @@ impl IOContext {
             Ok(self.clone())
         }
     }
-    /// A default context for normal reads/writes. Use [`with_read_advice`](#method.with_read_advice) to specify
-    /// another [`ReadAdvice`].
-    ///
-    /// # Note
-    /// It will use [`ReadAdvice::Random`] by default, unless set by the system property
-    /// `org.apache.lucene.store.defaultReadAdvice`.
     pub fn default_io_context() -> Result<IOContext, LuceneError> {
         Self::new_with_read_advice(ReadAdvice::default_read_advice())
     }
-    /// A default context for reads with [`ReadAdvice::Sequential`].
-    ///
-    /// # Note
-    /// This context should only be used when the read operations will be performed in the same
-    /// thread as the thread that opens the underlying storage.
     pub fn read_once_io_context() -> Result<IOContext, LuceneError> {
         Self::new_with_read_advice(ReadAdvice::Sequential)
     }

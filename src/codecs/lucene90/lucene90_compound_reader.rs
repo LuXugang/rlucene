@@ -16,15 +16,15 @@
  */
 use crate::codecs::compound_directory::CompoundDirectoryBase;
 use crate::store::directory::Directory;
+use crate::store::dummy::dummy_index_input::DummyIndexInput;
+use crate::store::dummy::dummy_index_output::DummyIndexOutput;
+use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use crate::store::dummy::dummy_index_input::DummyIndexInput;
-use crate::store::dummy::dummy_index_output::DummyIndexOutput;
-use crate::store::dummy::dummy_lock::DummyLock;
 
 pub struct Lucene90CompoundReader;
 
@@ -41,7 +41,8 @@ impl Directory for Lucene90CompoundReader {
 
     fn delete_file(&mut self, _name: &str) -> Result<(), LuceneError> {
         Err(LuceneError::illegal_state(
-            "delete_file() wrapped by CompoundDirectory, this method should never not be called".to_string(),
+            "delete_file() wrapped by CompoundDirectory, this method should never not be called"
+                .to_string(),
         ))
     }
 
@@ -55,8 +56,9 @@ impl Directory for Lucene90CompoundReader {
         _context: &IOContext,
     ) -> Result<impl IndexOutput, LuceneError> {
         Err::<DummyIndexOutput, LuceneError>(LuceneError::illegal_state(
-            "create_output() wrapped by CompoundDirectory, this method should never not be called".to_string(),
-        )) 
+            "create_output() wrapped by CompoundDirectory, this method should never not be called"
+                .to_string(),
+        ))
     }
 
     fn create_temp_output(
@@ -72,19 +74,22 @@ impl Directory for Lucene90CompoundReader {
 
     fn sync(&mut self, _names: &[&str]) -> Result<(), LuceneError> {
         Err(LuceneError::illegal_state(
-            "sync() wrapped by CompoundDirectory, this method should never not be called".to_string(),
+            "sync() wrapped by CompoundDirectory, this method should never not be called"
+                .to_string(),
         ))
     }
 
     fn sync_metadata(&mut self) -> Result<(), LuceneError> {
         Err(LuceneError::illegal_state(
-            "sync_metadata() wrapped by CompoundDirectory, this method should never not be called".to_string(),
+            "sync_metadata() wrapped by CompoundDirectory, this method should never not be called"
+                .to_string(),
         ))
     }
 
     fn rename(&mut self, _source: &str, _dest: &str) -> Result<(), LuceneError> {
         Err(LuceneError::illegal_state(
-            "rename() wrapped by CompoundDirectory, this method should never not be called".to_string(),
+            "rename() wrapped by CompoundDirectory, this method should never not be called"
+                .to_string(),
         ))
     }
 
@@ -99,7 +104,8 @@ impl Directory for Lucene90CompoundReader {
 
     fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock, LuceneError> {
         Err::<DummyLock, LuceneError>(LuceneError::illegal_state(
-            "obtain_lock() wrapped by CompoundDirectory, this method should never not be called".to_string(),
+            "obtain_lock() wrapped by CompoundDirectory, this method should never not be called"
+                .to_string(),
         ))
     }
 

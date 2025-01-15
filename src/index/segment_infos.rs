@@ -25,7 +25,7 @@ use crate::index::IndexFileNames;
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
-use crate::store::{DataInput, IOContext, IndexOutput};
+use crate::store::{DataInput, IndexOutput, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::output_enum::OutputEnum;
 use crate::util::{IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR};
@@ -385,7 +385,7 @@ where
                 directory.clone(),
                 &seg_name,
                 segment_id,
-                &IOContext::default_io_context()?,
+                &IO_CONTEXT_DEFAULT,
             )?;
             // info.set_codec(codec)?;
 
@@ -562,9 +562,8 @@ where
         {
             let result = (|| {
                 {
-                    let io_context = IOContext::default_io_context()?;
                     let mut segn_output =
-                        Some(directory.create_output(&segment_file_name, &io_context)?);
+                        Some(directory.create_output(&segment_file_name, &IO_CONTEXT_DEFAULT)?);
                     if let Some(ref mut output) = segn_output {
                         self.write(output)?;
                     }
