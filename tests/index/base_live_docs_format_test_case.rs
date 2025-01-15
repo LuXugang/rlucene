@@ -20,6 +20,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::codecs::live_docs_format::LiveDocsFormat;
 use rlucene::codecs::{Codec, LATEST_CODEC};
+use rlucene::index::index_writer::MAX_DOCS;
 use rlucene::index::segment_commit_info::SegmentCommitInfo;
 use rlucene::index::segment_info::SegmentInfo;
 use rlucene::store::IOContext;
@@ -29,7 +30,6 @@ use rlucene::util::fixed_bit_set::FixedBitSet;
 use rlucene::util::{StringHelper, LATEST};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use rlucene::index::index_writer::MAX_DOCS;
 
 pub trait BaseLiveDocsFormatTestCase {
     fn test_dense_live_docs(&self, random: &mut StdRng) -> Result<(), TestError> {
@@ -51,7 +51,6 @@ pub trait BaseLiveDocsFormatTestCase {
         Self::test_serialization(random, max_doc, 1, true)?;
         Ok(())
     }
-    #[cfg(feature = "nightly")]
     fn test_over_flow(&self, random: &mut StdRng) -> Result<(), TestError> {
         Self::test_serialization(random, MAX_DOCS, MAX_DOCS - 7, true)?;
         Ok(())

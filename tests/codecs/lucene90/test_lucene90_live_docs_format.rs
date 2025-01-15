@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::common::{is_night_mode, my_random};
 use crate::index::base_live_docs_format_test_case::BaseLiveDocsFormatTestCase;
 use crate::util::test_error::TestError;
 
@@ -40,9 +40,12 @@ fn test_sparse_live_docs() -> Result<(), TestError> {
     test.test_sparse_live_docs(&mut random)
 }
 #[test]
-#[cfg(feature = "nightly")]
 fn test_over_flow_live_docs() -> Result<(), TestError> {
     let mut random = my_random("test_over_flow_live_docs".to_string());
     let test = TestLucene90LiveDocsFormat;
-    test.test_over_flow(&mut random)
+    if is_night_mode() {
+        test.test_over_flow(&mut random)
+    } else {
+        Ok(())
+    }
 }

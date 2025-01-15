@@ -1460,9 +1460,11 @@ fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
 
     Ok(())
 }
-#[cfg(feature = "nightly")]
 #[test]
 fn test_block_reader_overflow() -> Result<(), TestError> {
+    if !is_night_mode() {
+        return Ok(());
+    }
     let mut random = my_random("test_block_reader_overflow".to_string());
     let value_count = random.gen_range(1 + i64::from(i32::MAX)..i64::from(i32::MAX) * 2);
     let block_size = 1 << random.gen_range(20..=22);
@@ -1478,7 +1480,7 @@ fn test_block_reader_overflow() -> Result<(), TestError> {
 
         let mut i = 0;
         while i < value_count {
-            assert_eq!(i as i64, writer.ord());
+            assert_eq!({ i }, writer.ord());
             if (i & (block_size - 1)) == 0
                 && (i + block_size < value_offset
                     || (i > value_offset && i + block_size < value_count))
