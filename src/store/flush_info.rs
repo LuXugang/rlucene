@@ -18,12 +18,12 @@ use derive_getters::Getters;
 
 #[derive(Debug, PartialEq, Eq, Clone, Getters)]
 pub struct FlushInfo {
-    num_docs: u32,
-    estimated_segment_size: u64,
+    num_docs: i32,
+    estimated_segment_size: i64,
 }
 
 impl FlushInfo {
-    pub fn new(num_docs: u32, estimated_segment_size: u64) -> FlushInfo {
+    pub fn new(num_docs: i32, estimated_segment_size: i64) -> FlushInfo {
         Self {
             num_docs,
             estimated_segment_size,

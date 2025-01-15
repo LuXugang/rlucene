@@ -50,8 +50,8 @@ pub fn new_io_context_with_default(
     }
 
     // Generate random parameters
-    let random_num_docs: u32 = random.gen_range(0..4192);
-    let size = random.gen_range(0..512) * random_num_docs as u64;
+    let random_num_docs: i32 = random.gen_range(0..4192);
+    let size = random.gen_range(0..512) * random_num_docs as i64;
 
     if let Some(flush_info) = &old_context.flush_info {
         // Always return at least the estimatedSegmentSize of the incoming IOContext

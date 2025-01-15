@@ -18,16 +18,16 @@ use derive_getters::Getters;
 
 #[derive(Debug, PartialEq, Eq, Clone, Getters)]
 pub struct MergeInfo {
-    total_max_doc: u32,
-    estimated_merge_bytes: u64,
+    total_max_doc: i32,
+    estimated_merge_bytes: i64,
     is_external: bool,
     merge_max_num_segments: i32,
 }
 
 impl MergeInfo {
     pub fn new(
-        total_max_doc: u32,
-        estimated_merge_bytes: u64,
+        total_max_doc: i32,
+        estimated_merge_bytes: i64,
         is_external: bool,
         merge_max_num_segments: i32,
     ) -> MergeInfo {
