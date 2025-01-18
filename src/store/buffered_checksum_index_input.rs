@@ -54,32 +54,22 @@ where
         self.main.length()
     }
 
-    #[allow(unreachable_code)]
+    type Slice = DummyIndexInput;
     fn slice(
         &self,
         _slice_description: &str,
         _offset: i64,
         _length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
-        // Used by the compiler to infer the returned type
-        if false {
-            return Ok(DummyIndexInput);
-        }
+    ) -> Result<Self::Slice, LuceneError> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support slicing",
         ))
     }
-
-    #[allow(unreachable_code)]
     fn random_access_slice(
         &self,
         _offset: i64,
         _length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
-        // Used by the compiler to infer the returned type
-        if false {
-            return Ok(DummyIndexInput);
-        }
+    ) -> Result<DummyIndexInput, LuceneError> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",
         ))

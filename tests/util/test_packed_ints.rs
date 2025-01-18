@@ -21,8 +21,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rlucene::store::directory::Directory;
 use rlucene::store::{
-    ByteArrayDataInput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
-    IO_CONTEXT_DEFAULT,
+    ByteArrayDataInput, DataInput, DataOutput, IndexInput, IndexOutput, IO_CONTEXT_DEFAULT,
 };
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::long_values::LongValues;

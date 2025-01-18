@@ -71,12 +71,13 @@ pub trait IndexInput: DataInput + Clone {
 
     /// Creates a slice of this index input, with the given description, offset, and length.
     /// The slice is positioned at the beginning.
+    type Slice: IndexInput + RandomAccessInput;
     fn slice(
         &self,
         slice_description: &str,
         offset: i64,
         length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError>;
+    ) -> Result<Self::Slice, LuceneError>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used by
     /// [`CompoundFormat`](crate::codecs::compound_format) implementations to honor
     /// the [`ReadAdvice`] of each file within the compound file.
@@ -111,11 +112,7 @@ pub trait IndexInput: DataInput + Clone {
     /// # Note
     /// The default implementation calls [`slice`](IndexInput::slice), and it doesn't support random access.
     /// It implements absolute reads as seek+read.
-    fn random_access_slice(
-        &self,
-        offset: i64,
-        length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError>;
+    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice, LuceneError>;
 
     /// Optional method: Gives a hint to this input that some bytes will be read soon.
     /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data

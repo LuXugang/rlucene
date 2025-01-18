@@ -39,12 +39,13 @@ pub trait BufferedIndexInputBase: Clone {
 
     /// Creates a slice of this index input, with the given description, offset, and length.
     /// The slice is positioned at the beginning.
+    type Slice: IndexInput + RandomAccessInput;
     fn slice(
         &self,
         slice_description: &str,
         offset: i64,
         length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError>;
+    ) -> Result<Self::Slice, LuceneError>;
 
     /// The number of bytes in the file.
     fn length(&self) -> i64;

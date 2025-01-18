@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
-use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{BufferedIndexInputBase, IndexInput};
+use crate::store::BufferedIndexInputBase;
 use crate::util::error::lucene_error::LuceneError;
 use std::io::Cursor;
 
@@ -41,13 +40,16 @@ impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
     ) -> Result<(), LuceneError> {
         unreachable!("DummyBufferedIndexInputBase should not be called")
     }
+
+    type Slice = DummyIndexInput;
+
     #[allow(unreachable_code)]
     fn slice(
         &self,
         _slice_description: &str,
         _offset: i64,
         _length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
+    ) -> Result<Self::Slice, LuceneError> {
         unreachable!("DummyBufferedIndexInputBase should not be called");
         Ok(DummyIndexInput)
     }

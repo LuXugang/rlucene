@@ -166,7 +166,7 @@ impl Clone for ByteBuffersIndexInput<'_> {
     }
 }
 
-impl IndexInput for ByteBuffersIndexInput<'_> {
+impl<'a> IndexInput for ByteBuffersIndexInput<'a> {
     fn get_file_pointer(&self) -> i64 {
         self.data_input.position()
     }
@@ -179,23 +179,21 @@ impl IndexInput for ByteBuffersIndexInput<'_> {
         self.data_input.length()
     }
 
+    type Slice = ByteBuffersIndexInput<'a>;
+
     fn slice(
         &self,
         slice_description: &str,
         offset: i64,
         length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
+    ) -> Result<Self::Slice, LuceneError> {
         Ok(ByteBuffersIndexInput::new(
             self.data_input.slice(offset, length)?,
             slice_description,
         ))
     }
 
-    fn random_access_slice(
-        &self,
-        offset: i64,
-        length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
+    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice, LuceneError> {
         self.slice("", offset, length)
     }
 }

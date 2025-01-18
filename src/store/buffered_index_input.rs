@@ -700,21 +700,19 @@ where
         self.sub_index_input.length()
     }
 
+    type Slice = T::Slice;
+
     fn slice(
         &self,
         slice_description: &str,
         offset: i64,
         length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
+    ) -> Result<Self::Slice, LuceneError> {
         self.sub_index_input
             .slice(slice_description, offset, length)
     }
 
-    fn random_access_slice(
-        &self,
-        offset: i64,
-        length: i64,
-    ) -> Result<impl IndexInput + RandomAccessInput, LuceneError> {
+    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice, LuceneError> {
         self.slice("random_access_slice", offset, length)
     }
 }

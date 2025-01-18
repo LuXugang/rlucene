@@ -60,6 +60,8 @@ impl IndexInput for DummyIndexInput {
         unreachable!("DummyIndexInput should not be called")
     }
 
+    type Slice = DummyIndexInput;
+
     #[allow(refining_impl_trait)]
     fn slice(
         &self,
