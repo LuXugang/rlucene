@@ -15,27 +15,178 @@
  * limitations under the License.
  */
 use crate::codecs::compound_directory::CompoundDirectoryBase;
+use crate::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
+use crate::codecs::CodecUtil;
+use crate::index::segment_info::SegmentInfo;
+use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
-use crate::store::{IOContext, IndexOutput};
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{IOContext, IndexInput, IndexOutput, ReadAdvice, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::LuceneError;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::sync::{Arc, Mutex};
 
-pub struct Lucene90CompoundReader;
+/// Offset/Length for a slice inside of a compound file
+pub struct FileEntry {
+    pub offset: i64,
+    pub length: i64,
+}
+/// Provides access to a compound stream. This struct implements a directory but is limited to
+/// read-only operations. Any directory methods that attempt to modify data will return an error.
+///
+/// # Note
+/// This API is experimental and may change in future versions.
+pub struct Lucene90CompoundReader<D, I>
+where
+    D: Directory,
+    I: IndexInput,
+{
+    directory: Arc<Mutex<D>>,
+    segment_name: String,
+    entries: HashMap<String, FileEntry>,
+    handle: I,
+    #[allow(unused)]
+    version: i32,
+}
+impl<D, I> Lucene90CompoundReader<D, I>
+where
+    D: Directory<Output = I>,
+    I: IndexInput,
+{
+    pub fn new(directory: Arc<Mutex<D>>, si: &SegmentInfo<D>) -> Result<Self, LuceneError> {
+        let segment_name = si.name.clone();
+        let data_file_name = IndexFileNames::segment_file_name(
+            &segment_name,
+            "",
+            Lucene90CompoundFormat::DATA_EXTENSION,
+        );
+        let entries_file_name = IndexFileNames::segment_file_name(
+            &segment_name,
+            "",
+            Lucene90CompoundFormat::ENTRIES_EXTENSION,
+        );
 
-impl Display for Lucene90CompoundReader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        let (version, entries) = Self::read_entries(&si.get_id(), &directory, &entries_file_name)?;
+
+        let dir = directory.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
+        })?;
+        let mut handle = dir.open_input(
+            &data_file_name,
+            &IO_CONTEXT_DEFAULT.with_read_advice(ReadAdvice::Normal)?,
+        )?;
+
+        let expected_length = entries
+            .values()
+            .map(|e| e.offset + e.length)
+            .max()
+            .unwrap_or_else(|| {
+                CodecUtil::index_header_length(Lucene90CompoundFormat::DATA_CODEC, "") as i64
+            })
+            + CodecUtil::footer_length() as i64;
+
+        CodecUtil::check_index_header(
+            &mut handle,
+            Lucene90CompoundFormat::DATA_CODEC,
+            version,
+            version,
+            &si.get_id(),
+            "",
+        )?;
+        // NOTE: data file is too costly to verify checksum against all the bytes on open,
+        // but for now we at least verify proper structure of the checksum footer: which looks
+        // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
+        // such as file truncation.
+        let _ = CodecUtil::retrieve_checksum(&mut handle)?;
+        // We also validate length, because e.g. if you strip 16 bytes off the .cfs we otherwise
+        // would not detect it:
+        let length = IndexInput::length(&handle);
+        if length != expected_length {
+            return Err(LuceneError::corrupt_index(format!(
+                "length should be {} bytes, but is {} instead (resource={})",
+                expected_length, length, handle
+            )));
+        }
+        let dir = directory.clone();
+        Ok(Self {
+            directory: dir,
+            segment_name,
+            entries,
+            handle,
+            version,
+        })
+    }
+    /// Helper method that reads CFS entries from an input stream.
+    fn read_entries(
+        segment_id: &[u8],
+        dir: &Arc<Mutex<D>>,
+        entries_file_name: &str,
+    ) -> Result<(i32, HashMap<String, FileEntry>), LuceneError> {
+        let directory = dir.lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
+        })?;
+        let mut entries_stream = directory.open_checksum_input(entries_file_name)?;
+        let result = (|| {
+            let version = CodecUtil::check_index_header(
+                &mut entries_stream,
+                Lucene90CompoundFormat::ENTRY_CODEC,
+                Lucene90CompoundFormat::VERSION_START,
+                Lucene90CompoundFormat::VERSION_CURRENT,
+                segment_id,
+                "",
+            )?;
+            let mapping = Self::read_mapping(&mut entries_stream)?;
+            Ok((version, mapping))
+        })();
+
+        match result {
+            Ok((version, mapping)) => {
+                CodecUtil::check_footer(&mut entries_stream)?;
+                Ok((version, mapping))
+            }
+            Err(mut e) => {
+                CodecUtil::check_footer_with_error(&mut entries_stream, &mut e)?;
+                Err(e)
+            }
+        }
+    }
+    fn read_mapping(
+        entries_stream: &mut impl IndexInput,
+    ) -> Result<HashMap<String, FileEntry>, LuceneError> {
+        let num_entries = entries_stream.read_vint()?;
+        let mut mapping = HashMap::with_capacity(num_entries as usize);
+        for _ in 0..num_entries {
+            let id = entries_stream.read_string()?;
+            if mapping.contains_key(&id) {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Duplicate cfs entry id={} in CFS (resource={})",
+                    id, entries_stream
+                )));
+            }
+            let offset = entries_stream.read_long()?;
+            let length = entries_stream.read_long()?;
+            mapping.insert(id, FileEntry { offset, length });
+        }
+        Ok(mapping)
     }
 }
 
-impl Directory for Lucene90CompoundReader {
+impl<D, I> Directory for Lucene90CompoundReader<D, I>
+where
+    D: Directory,
+    I: IndexInput<Slice = I> + RandomAccessInput,
+{
+    /// Returns an array of strings, one for each file in the directory.
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
-        todo!()
+        let mut res: Vec<String> = self.entries.keys().cloned().collect();
+        for entry in &mut res {
+            *entry = format!("{}{}", self.segment_name, entry);
+        }
+        Ok(res)
     }
 
     fn delete_file(&mut self, _name: &str) -> Result<(), LuceneError> {
@@ -45,8 +196,14 @@ impl Directory for Lucene90CompoundReader {
         ))
     }
 
+    /// Returns the length of a file in the directory.
     fn file_length(&self, name: &str) -> Result<i64, LuceneError> {
-        todo!()
+        let stripped_name = IndexFileNames::strip_segment_name(name);
+        let entry = self
+            .entries
+            .get(stripped_name)
+            .ok_or_else(|| LuceneError::not_found(format!("{} not found", name)))?;
+        Ok(entry.length)
     }
 
     fn create_output(
@@ -92,10 +249,31 @@ impl Directory for Lucene90CompoundReader {
         ))
     }
 
-    type Output = DummyIndexInput;
+    type Output = I;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
-        todo!()
+        let id = IndexFileNames::strip_segment_name(name);
+        let entry = match self.entries.get(id) {
+            Some(entry) => entry,
+            None => {
+                let dat_file_name = IndexFileNames::segment_file_name(
+                    &self.segment_name,
+                    "",
+                    Lucene90CompoundFormat::DATA_EXTENSION,
+                );
+                return Err(LuceneError::not_found(format!(
+                    "No sub-file with id {} found in compound file \"{}\" (fileName={} files: {:?})",
+                    id, dat_file_name, name, self.entries.keys()
+                )));
+            }
+        };
+        let input = self.handle.slice_with_read_advice(
+            name,
+            entry.offset,
+            entry.length,
+            context.get_read_advice(),
+        )?;
+        Ok(input)
     }
 
     fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock, LuceneError> {
@@ -106,11 +284,40 @@ impl Directory for Lucene90CompoundReader {
     }
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError> {
-        todo!()
+        Ok(HashSet::new())
     }
 }
-impl CompoundDirectoryBase for Lucene90CompoundReader {
-    fn check_integrity(&self) {
-        todo!()
+impl<D, I> Display for Lucene90CompoundReader<D, I>
+where
+    D: Directory,
+    I: IndexInput + RandomAccessInput,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let dir_result = self.directory.lock();
+        match dir_result {
+            Ok(dir) => {
+                write!(
+                    f,
+                    "CompoundFileDirectory(segment=\"{}\" in dir={})",
+                    self.segment_name, dir
+                )
+            }
+            Err(_) => write!(
+                f,
+                "CompoundFileDirectory(segment=\"{}\" in dir=<locked>)",
+                self.segment_name
+            ),
+        }
+    }
+}
+
+impl<D, I> CompoundDirectoryBase for Lucene90CompoundReader<D, I>
+where
+    D: Directory,
+    I: IndexInput + RandomAccessInput,
+{
+    fn check_integrity(&mut self) -> Result<(), LuceneError> {
+        let _ = CodecUtil::checksum_entire_file(&mut self.handle)?;
+        Ok(())
     }
 }

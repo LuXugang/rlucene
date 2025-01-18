@@ -18,7 +18,9 @@ use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
 use crate::util::error::lucene_error::LuceneError;
+use derive_getters::Getters;
 use once_cell::sync::Lazy;
+
 /// A default context for normal reads/writes. Use [`with_read_advice`](#method.with_read_advice) to specify
 /// another [`ReadAdvice`].
 ///
@@ -43,7 +45,7 @@ pub static IO_CONTEXT_READ_ONCE: Lazy<IOContext> =
 /// * `merge_info` - Must be provided when `context == MERGE`.
 /// * `flush_info` - Must be provided when `context == FLUSH`.
 /// * `read_advice` - Advice regarding the read access pattern.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Getters)]
 pub struct IOContext {
     pub(crate) context: Context,
     read_advice: ReadAdvice,
@@ -113,8 +115,7 @@ impl IOContext {
         )
     }
 
-    #[allow(unused)]
-    fn with_read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
+    pub fn with_read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
         if matches!(self.context, Context::Default) {
             // TODO: maybe should statically define all types of context
             Self::new_with_read_advice(read_advice)

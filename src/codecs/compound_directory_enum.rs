@@ -19,16 +19,25 @@ use crate::codecs::lucene90::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::lock::Lock;
-use crate::store::{IOContext, IndexOutput};
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
-pub enum CompoundDirectoryEnum {
-    Lucene90(Lucene90CompoundReader),
+pub enum CompoundDirectoryEnum<D, I>
+where
+    D: Directory,
+    I: IndexInput<Slice = I> + RandomAccessInput,
+{
+    Lucene90(Lucene90CompoundReader<D, I>),
 }
 
-impl Display for CompoundDirectoryEnum {
+impl<D, I> Display for CompoundDirectoryEnum<D, I>
+where
+    D: Directory,
+    I: IndexInput<Slice = I> + RandomAccessInput,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => write!(f, "{}", reader),
@@ -36,7 +45,11 @@ impl Display for CompoundDirectoryEnum {
     }
 }
 
-impl Directory for CompoundDirectoryEnum {
+impl<D, I> Directory for CompoundDirectoryEnum<D, I>
+where
+    D: Directory<Output = I>,
+    I: IndexInput<Slice = I> + RandomAccessInput,
+{
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.list_all(),
@@ -96,8 +109,7 @@ impl Directory for CompoundDirectoryEnum {
         }
     }
 
-    // TODO
-    type Output = DummyIndexInput;
+    type Output = D::Output;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
         match self {
@@ -117,8 +129,12 @@ impl Directory for CompoundDirectoryEnum {
         }
     }
 }
-impl CompoundDirectoryBase for CompoundDirectoryEnum {
-    fn check_integrity(&self) {
+impl<D, I> CompoundDirectoryBase for CompoundDirectoryEnum<D, I>
+where
+    D: Directory,
+    I: IndexInput<Slice = I> + RandomAccessInput,
+{
+    fn check_integrity(&mut self) -> Result<(), LuceneError> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.check_integrity(),
         }

@@ -14,5 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod lucene90_compound_format;
-pub mod lucene90_compound_reader;
+pub struct Lucene90CompoundFormat;
+impl Lucene90CompoundFormat {
+    pub const DATA_EXTENSION: &'static str = "cfs";
+    pub const ENTRIES_EXTENSION: &'static str = "cfe";
+    pub const DATA_CODEC: &'static str = "Lucene90CompoundData";
+    pub const ENTRY_CODEC: &'static str = "Lucene90CompoundEntries";
+    pub const VERSION_START: i32 = 0;
+    pub const VERSION_CURRENT: i32 = Self::VERSION_START;
+}

@@ -16,32 +16,50 @@
  */
 use crate::codecs::compound_directory_enum::CompoundDirectoryEnum;
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
-use crate::store::{IOContext, IndexOutput};
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-
-pub struct CompoundDirectory {
-    sub_compound_dir: CompoundDirectoryEnum,
+/// A read-only [`Directory`] that provides a view over a compound file.
+///
+/// # See Also
+/// - [`CompoundFormat`](crate::codecs::compound_format::CompoundFormat)
+///
+/// # Note
+/// This API is experimental and may change in future versions.
+pub struct CompoundDirectory<D: Directory, I: IndexInput<Slice = I> + RandomAccessInput> {
+    sub_compound_dir: CompoundDirectoryEnum<D, I>,
 }
 
-impl CompoundDirectory {
-    pub fn new(sub_compound_dir: CompoundDirectoryEnum) -> Self {
+impl<D, I> CompoundDirectory<D, I>
+where
+    D: Directory,
+    I: IndexInput<Slice = I> + RandomAccessInput,
+{
+    pub fn new(sub_compound_dir: CompoundDirectoryEnum<D, I>) -> Self {
         CompoundDirectory { sub_compound_dir }
     }
 }
 
-impl Display for CompoundDirectory {
+impl<D, I> Display for CompoundDirectory<D, I>
+where
+    D: Directory,
+    I: IndexInput<Slice = I> + RandomAccessInput,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.sub_compound_dir.fmt(f)
     }
 }
 
-impl Directory for CompoundDirectory {
+impl<D, I> Directory for CompoundDirectory<D, I>
+where
+    D: Directory<Output = I>,
+    I: IndexInput<Slice = I> + RandomAccessInput,
+{
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
         self.sub_compound_dir.list_all()
     }
@@ -89,7 +107,7 @@ impl Directory for CompoundDirectory {
         Err(LuceneError::unsupported_operation("rename".to_string()))
     }
 
-    type Output = DummyIndexInput;
+    type Output = D::Output;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
         self.sub_compound_dir.open_input(name, context)
@@ -107,5 +125,10 @@ impl Directory for CompoundDirectory {
 }
 
 pub trait CompoundDirectoryBase {
-    fn check_integrity(&self);
+    /// Checks the consistency of this directory.
+    ///
+    /// # Note
+    /// This operation may be costly in terms of I/O. For example, it might compute checksum values
+    /// against large data files.
+    fn check_integrity(&mut self) -> Result<(), LuceneError>;
 }
