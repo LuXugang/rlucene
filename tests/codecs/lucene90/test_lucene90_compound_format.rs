@@ -14,9 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod base_compound_format_test_case;
-pub(crate) mod base_index_file_format_test_case;
-pub(crate) mod base_live_docs_format_test_case;
-pub(crate) mod base_segment_info_format_test_case;
-mod test_doc_values_field_updates;
-mod test_segment_infos;
+use crate::common::my_random;
+use crate::index::base_compound_format_test_case::BaseCompoundFormatTestCase;
+use crate::util::test_error::TestError;
+
+pub struct TestLucene90CompoundFormat;
+impl BaseCompoundFormatTestCase for TestLucene90CompoundFormat {}
+#[test]
+fn test_empty() -> Result<(), TestError> {
+    let mut random = my_random("test_empty".to_string());
+    let case = TestLucene90CompoundFormat;
+    case.test_empty(&mut random)
+}

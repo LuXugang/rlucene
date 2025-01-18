@@ -14,4 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod test_lucene90_compound_format;
 mod test_lucene90_live_docs_format;

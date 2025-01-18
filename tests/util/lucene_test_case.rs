@@ -22,14 +22,16 @@ use rlucene::store::flush_info::FlushInfo;
 use rlucene::store::fs_directory::FSDirectory;
 use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
-use rlucene::store::{IOContext, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE};
+use rlucene::store::{IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE};
 use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick serach
 pub struct LuceneTestCase;
 
 // TODO: When we have implemented multiple directories, we need to select one randomly. Currently, we choose NIOFSDirectory.
-pub fn new_directory(_random: &mut StdRng) -> Result<impl Directory, TestError> {
+pub fn new_directory(
+    _random: &mut StdRng,
+) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, TestError> {
     let temp_dir = TempDir::new()?;
     let sub_directory = NIOFSDirectory::new();
     Ok(FSDirectory::new(temp_dir.into_path(), sub_directory)?)

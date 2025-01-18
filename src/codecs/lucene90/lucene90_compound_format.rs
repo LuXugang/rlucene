@@ -57,8 +57,13 @@ use std::sync::{Arc, Mutex};
 /// - Each directory entry contains a long pointer to the start of this file's data section, the
 ///   file's length, and a String with that file's name. The start of the file's data section is
 ///   aligned to 8 bytes to avoid additional unaligned accesses with `mmap`.
-#[derive(Default)]
 pub struct Lucene90CompoundFormat;
+
+impl Default for Lucene90CompoundFormat {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl Lucene90CompoundFormat {
     /// Extension of compound file.
     pub const DATA_EXTENSION: &'static str = "cfs";
@@ -68,8 +73,11 @@ impl Lucene90CompoundFormat {
     pub const ENTRY_CODEC: &'static str = "Lucene90CompoundEntries";
     pub const VERSION_START: i32 = 0;
     pub const VERSION_CURRENT: i32 = Self::VERSION_START;
-
-    fn write_compound_file<D: Directory, DO: IndexOutput>(
+    pub fn new() -> Lucene90CompoundFormat {
+        Lucene90CompoundFormat {}
+    }
+    pub fn write_compound_file<D: Directory, DO: IndexOutput>(
+        &self,
         entries: &mut DO,
         data: &mut DO,
         dir: Arc<Mutex<D>>,
@@ -126,6 +134,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
         D: Directory<Output = I>,
         I: IndexInput<Slice = I> + RandomAccessInput,
     >(
+        &self,
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
     ) -> Result<CompoundDirectory<D, I>, LuceneError> {
@@ -135,6 +144,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
     }
 
     fn write<D: Directory>(
+        &self,
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
         context: &IOContext,
@@ -146,11 +156,16 @@ impl CompoundFormat for Lucene90CompoundFormat {
             "",
             Lucene90CompoundFormat::ENTRIES_EXTENSION,
         );
-        let mut directory = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let mut data_output = directory.create_output(&data_file, context)?;
-        let mut entries_output = directory.create_output(&entries_file, context)?;
+        let mut data_output;
+        let mut entries_output;
+        {
+            let mut directory = dir
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            data_output = directory.create_output(&data_file, context)?;
+            entries_output = directory.create_output(&entries_file, context)?;
+        }
+
         CodecUtil::write_index_header(
             &mut data_output,
             Lucene90CompoundFormat::DATA_CODEC,
@@ -165,7 +180,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
             &si.get_id(),
             "",
         )?;
-        Self::write_compound_file(&mut entries_output, &mut data_output, dir.clone(), si)?;
+        self.write_compound_file(&mut entries_output, &mut data_output, dir.clone(), si)?;
         CodecUtil::write_footer(&mut data_output)?;
         CodecUtil::write_footer(&mut entries_output)?;
 

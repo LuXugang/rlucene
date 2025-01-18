@@ -31,4 +31,5 @@ pub mod simple_text_live_docs_format;
 
 pub use codec::*;
 pub use codec_util::*;
+pub use compound_format::*;
 pub use lucene90::*;

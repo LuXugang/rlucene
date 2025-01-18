@@ -62,7 +62,6 @@ impl IndexInput for DummyIndexInput {
 
     type Slice = DummyIndexInput;
 
-    #[allow(refining_impl_trait)]
     fn slice(
         &self,
         _slice_description: &str,
@@ -72,7 +71,6 @@ impl IndexInput for DummyIndexInput {
         unreachable!("DummyIndexInput should not be called");
     }
 
-    #[allow(refining_impl_trait)]
     fn random_access_slice(
         &self,
         _offset: i64,

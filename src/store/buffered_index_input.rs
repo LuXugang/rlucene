@@ -28,7 +28,7 @@ use std::io::Cursor;
 /// Base implementation class for buffered [`IndexInput`]. */
 pub struct BufferedIndexInput<T>
 where
-    T: BufferedIndexInputBase,
+    T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
     buffer_size: i32,
     resource_desc: String,
@@ -57,7 +57,7 @@ impl BufferedIndexInput<DummyBufferedIndexInputBase> {
 }
 impl<T> BufferedIndexInput<T>
 where
-    T: BufferedIndexInputBase,
+    T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
     pub fn new_with_buffer_size(
         sub_index_input: T,
@@ -533,7 +533,7 @@ where
 
 impl<T> DataInput for BufferedIndexInput<T>
 where
-    T: BufferedIndexInputBase,
+    T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
     fn read_byte(&mut self) -> Result<u8, LuceneError> {
         let mut bytes = [0; 1];
@@ -652,7 +652,7 @@ where
 
 impl<T> Display for BufferedIndexInput<T>
 where
-    T: BufferedIndexInputBase,
+    T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BufferedIndexInput({})", self.resource_desc)
@@ -661,7 +661,7 @@ where
 
 impl<T> Clone for BufferedIndexInput<T>
 where
-    T: BufferedIndexInputBase,
+    T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -678,7 +678,7 @@ where
 
 impl<T> IndexInput for BufferedIndexInput<T>
 where
-    T: BufferedIndexInputBase,
+    T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
     fn get_file_pointer(&self) -> i64 {
         self.pos
@@ -700,7 +700,7 @@ where
         self.sub_index_input.length()
     }
 
-    type Slice = T::Slice;
+    type Slice = BufferedIndexInput<T>;
 
     fn slice(
         &self,
@@ -719,7 +719,7 @@ where
 
 impl<T> RandomAccessInput for BufferedIndexInput<T>
 where
-    T: BufferedIndexInputBase,
+    T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
     fn length(&self) -> i64 {
         self.sub_index_input.length()

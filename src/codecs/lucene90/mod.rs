@@ -16,3 +16,5 @@
  */
 pub mod lucene90_compound_format;
 pub mod lucene90_compound_reader;
+
+pub use lucene90_compound_format::*;

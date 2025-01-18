@@ -55,7 +55,7 @@ where
 impl<D, I> Lucene90CompoundReader<D, I>
 where
     D: Directory<Output = I>,
-    I: IndexInput,
+    I: IndexInput + RandomAccessInput,
 {
     pub fn new(directory: Arc<Mutex<D>>, si: &SegmentInfo<D>) -> Result<Self, LuceneError> {
         let segment_name = si.name.clone();

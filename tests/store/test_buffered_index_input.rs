@@ -18,7 +18,6 @@ use crate::common::my_random;
 use crate::util::test_error::TestError;
 use byteorder::WriteBytesExt;
 use rand::Rng;
-use rlucene::store::dummy::dummy_index_input::DummyIndexInput;
 use rlucene::store::index_input::IndexInput;
 use rlucene::store::random_access_input::RandomAccessInput;
 use rlucene::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput};
@@ -548,9 +547,8 @@ impl BufferedIndexInputBase for MyBufferedIndexInput {
         Ok(())
     }
 
-    type Slice = DummyIndexInput;
+    type Slice = BufferedIndexInput<MyBufferedIndexInput>;
 
-    #[allow(unreachable_code)]
     fn slice(
         &self,
         _slice_description: &str,

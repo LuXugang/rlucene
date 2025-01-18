@@ -20,7 +20,7 @@ use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::lock::Lock;
 use crate::store::lock_factory::LockFactory;
 use crate::store::{
-    BufferedIndexInput, BufferedIndexInputBase, IOContext, IndexOutput, NativeFSLockFactory,
+    IOContext, IndexOutput, NativeFSLockFactory,
     OutputStreamIndexOutput,
 };
 use crate::util::error::lucene_error::LuceneError;

@@ -26,6 +26,7 @@ use std::sync::{Arc, Mutex};
 pub trait CompoundFormat {
     /// Returns a read-only view of the compound files in this segment.
     fn get_compound_reader<D: Directory<Output = I>, I: IndexInput<Slice = I> + RandomAccessInput>(
+        &self,
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
     ) -> Result<CompoundDirectory<D, I>, LuceneError>;
@@ -37,6 +38,7 @@ pub trait CompoundFormat {
     /// written using [`CodecUtil::write_index_header`](crate::codecs::codec_util::CodecUtil::write_index_header)
     /// and [`CodecUtil::write_footer`](crate::codecs::codec_util::CodecUtil::write_footer).
     fn write<D: Directory>(
+        &self,
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
         context: &IOContext,
