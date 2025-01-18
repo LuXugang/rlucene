@@ -93,7 +93,7 @@ pub trait IndexInput: DataInput + Clone {
         description: &str,
         offset: i64,
         length: i64,
-        read_advice: ReadAdvice,
+        read_advice: &ReadAdvice,
     ) -> Result<impl IndexInput, LuceneError> {
         self.default_slice_with_read_advice(description, offset, length, read_advice)
     }
@@ -102,7 +102,7 @@ pub trait IndexInput: DataInput + Clone {
         description: &str,
         offset: i64,
         length: i64,
-        _read_advice: ReadAdvice,
+        _read_advice: &ReadAdvice,
     ) -> Result<impl IndexInput, LuceneError> {
         self.slice(description, offset, length)
     }
