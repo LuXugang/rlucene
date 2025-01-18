@@ -17,6 +17,7 @@
 use crate::codecs::compound_directory::CompoundDirectoryBase;
 use crate::codecs::lucene90::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::store::directory::Directory;
+use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput, IndexOutput};
@@ -96,11 +97,10 @@ impl Directory for CompoundDirectoryEnum {
         }
     }
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<impl IndexInput + RandomAccessInput + 'static, LuceneError> {
+    // TODO
+    type Output = DummyIndexInput;
+
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.open_input(name, context),
         }

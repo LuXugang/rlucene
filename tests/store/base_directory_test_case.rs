@@ -43,7 +43,7 @@ use tempfile::Builder;
 
 pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {
-    type Directory: Directory + Send + Sync + 'static;
+    type Directory: Directory<Output = Self::Output> + Send + Sync + 'static;
     type Output: IndexInput + RandomAccessInput + Send + Sync + 'static;
     fn get_directory(&self, path: PathBuf) -> Result<Self::Directory, TestError>;
 
@@ -1094,7 +1094,6 @@ pub trait BaseDirectoryTestCase {
             output_header.copy_bytes(&mut input, header_len as i64)?;
         }
 
-        let src_length = IndexInput::length(&input);
         let threads = 10;
         {
             let barrier = Arc::new(Barrier::new(threads));
@@ -1110,6 +1109,7 @@ pub trait BaseDirectoryTestCase {
                     let file_name = format!("copy{}", i);
                     let mut dir_guard = dir_clone.lock().unwrap();
                     let mut dst = dir_guard.create_output(&file_name, &io_context).unwrap();
+                    let src_length = IndexInput::length(&src);
                     dst.copy_bytes(&mut src, src_length - header_len as i64)
                         .unwrap();
                 });

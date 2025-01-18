@@ -93,13 +93,10 @@ impl Directory for Lucene90CompoundReader {
         ))
     }
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<impl IndexInput + RandomAccessInput + Send + Sync + 'static, LuceneError> {
-        // TODO
-        Ok(DummyIndexInput)
+    type Output = DummyIndexInput;
+
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
+        todo!()
     }
 
     fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock, LuceneError> {

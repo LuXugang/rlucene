@@ -72,12 +72,10 @@ impl Directory for DummyDirectory {
     fn rename(&mut self, _source: &str, _dest: &str) -> Result<(), LuceneError> {
         unreachable!("DummyDirectory should not be called")
     }
-    #[allow(refining_impl_trait)]
-    fn open_input(
-        &self,
-        _name: &str,
-        _context: &IOContext,
-    ) -> Result<DummyIndexInput, LuceneError> {
+
+    type Output = DummyIndexInput;
+
+    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::Output, LuceneError> {
         unreachable!("DummyDirectory should not be called")
     }
     #[allow(refining_impl_trait)]

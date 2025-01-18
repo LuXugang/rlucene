@@ -16,8 +16,7 @@
  */
 use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::nio_fs_index_input::NIOFSIndexInput;
-use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{BufferedIndexInput, IOContext, IndexInput};
+use crate::store::{BufferedIndexInput, IOContext};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -52,12 +51,13 @@ impl Display for NIOFSDirectory {
 
 /// this method should only be called in [`FSDirectory::open_input`](crate::store::fs_directory::FSDirectory), which will first check whether file could be read
 impl FSDirectoryBase for NIOFSDirectory {
+    type Output = BufferedIndexInput<NIOFSIndexInput>;
     fn open_input(
         &self,
         name: &str,
         context: &IOContext,
         path: &Path,
-    ) -> Result<impl IndexInput + RandomAccessInput + 'static, LuceneError> {
+    ) -> Result<Self::Output, LuceneError> {
         let file_path = path.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         let file = match File::open(file_path) {

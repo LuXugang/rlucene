@@ -27,7 +27,7 @@ use std::path::PathBuf;
 struct TestNIOFSDirectory;
 
 impl BaseDirectoryTestCase for TestNIOFSDirectory {
-    type Directory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
+    type Directory = FSDirectory<NativeFSLockFactory, NIOFSDirectory, NIOFSIndexInput>;
     type Output = BufferedIndexInput<NIOFSIndexInput>;
     fn get_directory(&self, path: PathBuf) -> Result<Self::Directory, TestError> {
         let sub_directory = NIOFSDirectory::new();

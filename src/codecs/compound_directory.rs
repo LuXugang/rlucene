@@ -16,6 +16,7 @@
  */
 use crate::codecs::compound_directory_enum::CompoundDirectoryEnum;
 use crate::store::directory::Directory;
+use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
@@ -89,11 +90,9 @@ impl Directory for CompoundDirectory {
         Err(LuceneError::unsupported_operation("rename".to_string()))
     }
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<impl IndexInput + RandomAccessInput + Send + Sync + 'static, LuceneError> {
+    type Output = DummyIndexInput;
+
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
         self.sub_compound_dir.open_input(name, context)
     }
 
