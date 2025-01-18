@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::compound_format::CompoundFormat;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use once_cell::sync::Lazy;
+
 pub static LATEST_CODEC: Lazy<Lucene101Codec> = Lazy::new(|| Lucene101Codec);
 pub trait Codec {
     // type PostingsFormat;
@@ -28,7 +30,7 @@ pub trait Codec {
     type SegmentInfoFormat: SegmentInfoFormat;
     // type NormsFormat;
     type LiveDocsFormat: LiveDocsFormat;
-    // type CompoundFormat;
+    type CompoundFormat: CompoundFormat;
     // type PointsFormat;
     // type KnnVectorsFormat;
     // /// Encodes/decodes postings
@@ -55,8 +57,8 @@ pub trait Codec {
     /// Encodes/decodes live docs
     fn live_docs_format(&self) -> Self::LiveDocsFormat;
 
-    // /// Encodes/decodes compound files
-    // fn compound_format(&self) -> &Self::CompoundFormat;
+    /// Encodes/decodes compound files
+    fn compound_format(&self) -> Self::CompoundFormat;
     //
     // /// Encodes/decodes points index
     // fn points_format(&self) -> &Self::PointsFormat;

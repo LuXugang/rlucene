@@ -91,7 +91,7 @@ pub trait Directory: Display + Sized {
         &mut self,
         name: &str,
         context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError>;
+    ) -> Result<impl IndexOutput + 'static, LuceneError>;
 
     /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance
     /// for appending data to this file.

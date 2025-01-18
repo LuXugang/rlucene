@@ -78,7 +78,7 @@ where
         &mut self,
         _name: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError> {
+    ) -> Result<impl IndexOutput + 'static, LuceneError> {
         Err::<DummyIndexOutput, LuceneError>(LuceneError::unsupported_operation(
             "create_output".to_string(),
         ))

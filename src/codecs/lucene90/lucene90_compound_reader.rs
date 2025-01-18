@@ -210,7 +210,7 @@ where
         &mut self,
         _name: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError> {
+    ) -> Result<impl IndexOutput + 'static, LuceneError> {
         Err::<DummyIndexOutput, LuceneError>(LuceneError::illegal_state(
             "create_output() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),

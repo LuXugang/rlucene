@@ -301,7 +301,7 @@ where
         &mut self,
         name: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError> {
+    ) -> Result<impl IndexOutput + 'static, LuceneError> {
         let mut pending_deletes = self
             .pending_deletes
             .lock()

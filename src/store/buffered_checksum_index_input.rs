@@ -17,7 +17,6 @@
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::index_input::IndexInput;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedChecksum, Checksum, DataInput, HasherChecksum};
 use crate::util::error::lucene_error::LuceneError;
 use crc32fast::Hasher;

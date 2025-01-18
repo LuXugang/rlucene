@@ -14,4 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-struct CompoundFormat;
+use crate::codecs::compound_directory::CompoundDirectory;
+use crate::index::segment_info::SegmentInfo;
+use crate::store::directory::Directory;
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{IOContext, IndexInput};
+use crate::util::error::lucene_error::LuceneError;
+use std::sync::{Arc, Mutex};
+
+/// Encodes/decodes compound files
+pub trait CompoundFormat {
+    /// Returns a read-only view of the compound files in this segment.
+    fn get_compound_reader<D: Directory<Output = I>, I: IndexInput<Slice = I> + RandomAccessInput>(
+        dir: Arc<Mutex<D>>,
+        si: &SegmentInfo<D>,
+    ) -> Result<CompoundDirectory<D, I>, LuceneError>;
+
+    /// Packs the provided segment's files into a compound format.
+    ///
+    /// All files referenced by the provided [`SegmentInfo`](SegmentInfo)
+    /// must have their headers and footers
+    /// written using [`CodecUtil::write_index_header`](crate::codecs::codec_util::CodecUtil::write_index_header)
+    /// and [`CodecUtil::write_footer`](crate::codecs::codec_util::CodecUtil::write_footer).
+    fn write<D: Directory>(
+        dir: Arc<Mutex<D>>,
+        si: &SegmentInfo<D>,
+        context: &IOContext,
+    ) -> Result<(), LuceneError>;
+}
+pub struct SizedFileQueue;

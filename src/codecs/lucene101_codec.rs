@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::codecs::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
 use crate::codecs::Codec;
@@ -24,6 +25,7 @@ pub struct Lucene101Codec;
 impl Codec for Lucene101Codec {
     type SegmentInfoFormat = Lucene99SegmentInfoFormat;
     type LiveDocsFormat = Lucene90LiveDocsFormat;
+    type CompoundFormat = Lucene90CompoundFormat;
 
     fn segment_info_format(&self) -> Self::SegmentInfoFormat {
         Lucene99SegmentInfoFormat
@@ -31,6 +33,10 @@ impl Codec for Lucene101Codec {
 
     fn live_docs_format(&self) -> Self::LiveDocsFormat {
         Lucene90LiveDocsFormat
+    }
+
+    fn compound_format(&self) -> Self::CompoundFormat {
+        Lucene90CompoundFormat
     }
 
     fn get_name(&self) -> &str {
