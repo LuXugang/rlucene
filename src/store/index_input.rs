@@ -95,7 +95,7 @@ pub trait IndexInput: DataInput + Clone {
         offset: i64,
         length: i64,
         read_advice: &ReadAdvice,
-    ) -> Result<impl IndexInput, LuceneError> {
+    ) -> Result<Self::Slice, LuceneError> {
         self.default_slice_with_read_advice(description, offset, length, read_advice)
     }
     fn default_slice_with_read_advice(
@@ -104,7 +104,7 @@ pub trait IndexInput: DataInput + Clone {
         offset: i64,
         length: i64,
         _read_advice: &ReadAdvice,
-    ) -> Result<impl IndexInput, LuceneError> {
+    ) -> Result<Self::Slice, LuceneError> {
         self.slice(description, offset, length)
     }
     /// Creates a random-access slice of this index input, with the given offset and length.
