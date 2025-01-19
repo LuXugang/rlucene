@@ -19,10 +19,7 @@ use crate::store::directory::{get_temp_file_name, Directory};
 use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::lock::Lock;
 use crate::store::lock_factory::LockFactory;
-use crate::store::{
-    IOContext, IndexOutput, NativeFSLockFactory,
-    OutputStreamIndexOutput,
-};
+use crate::store::{IOContext, IndexOutput, NativeFSLockFactory, OutputStreamIndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::IOUtils;
 use std::collections::HashSet;
