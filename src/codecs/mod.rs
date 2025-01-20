@@ -16,8 +16,8 @@
  */
 pub mod codec;
 pub mod codec_util;
-mod compound_directory;
-mod compound_directory_enum;
+pub mod compound_directory;
+pub mod compound_directory_enum;
 pub mod compound_format;
 pub mod doc_values_format;
 pub mod field_infos_format;

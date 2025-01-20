@@ -18,9 +18,12 @@ use crate::util::lucene_test_case::{new_directory, new_io_context};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::Rng;
+use rlucene::codecs::compound_directory::CompoundDirectory;
 use rlucene::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
 use rlucene::index::segment_info::SegmentInfo;
 use rlucene::store::directory::Directory;
+use rlucene::store::random_access_input::RandomAccessInput;
+use rlucene::store::IndexOutput;
 use rlucene::store::{DataInput, DataOutput, IOContext};
 use rlucene::store::{IndexInput, IO_CONTEXT_DEFAULT};
 use rlucene::util::error::lucene_error::LuceneError;
@@ -365,7 +368,7 @@ pub trait BaseCompoundFormatTestCase {
         }
         // assert_eq!(dir.lock().unwrap().get_file_handle_count(), 1);
         for (file_idx, input) in ins.iter_mut().enumerate() {
-            assert_eq!(input.read_byte()?, file_idx as u8);
+            assert_eq!(DataInput::read_byte(input)?, file_idx as u8);
         }
         // Ensure only one file handle is used
         // assert_eq!(dir.lock().unwrap().get_file_handle_count(), 1);
@@ -374,9 +377,320 @@ pub trait BaseCompoundFormatTestCase {
         // }
         Ok(())
     }
+    fn test_cloned_streams_closing(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let cr = create_large_cfs(random, dir.clone())?;
+
+        let mut expected = dir
+            .lock()
+            .unwrap()
+            .open_input("_123.f11", &new_io_context(random)?)?;
+        let mut one = cr.open_input("_123.f11", &new_io_context(random)?)?;
+        let mut two = one.clone();
+
+        assert_same_streams("basic clone one", &mut expected, &mut one)?;
+        expected.seek(0)?;
+        assert_same_streams("basic clone two", &mut expected, &mut two)?;
+        Ok(())
+    }
+    /// This test opens two files from a compound stream and verifies that their file positions are
+    /// independent of each other.
+    fn test_random_access(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let cr = create_large_cfs(random, dir.clone())?;
+
+        // Open two files
+        let mut e1 = dir
+            .lock()
+            .unwrap()
+            .open_input("_123.f11", &new_io_context(random)?)?;
+        let mut e2 = dir
+            .lock()
+            .unwrap()
+            .open_input("_123.f3", &new_io_context(random)?)?;
+
+        let mut a1 = cr.open_input("_123.f11", &new_io_context(random)?)?;
+        let mut a2 = dir
+            .lock()
+            .unwrap()
+            .open_input("_123.f3", &new_io_context(random)?)?;
+
+        // Seek the first pair
+        e1.seek(100)?;
+        a1.seek(100)?;
+        assert_eq!(100, e1.get_file_pointer());
+        assert_eq!(100, a1.get_file_pointer());
+        let be1 = DataInput::read_byte(&mut e1)?;
+        let ba1 = DataInput::read_byte(&mut a1)?;
+        assert_eq!(be1, ba1);
+
+        // Now seek the second pair
+        e2.seek(1027)?;
+        a2.seek(1027)?;
+        assert_eq!(1027, e2.get_file_pointer());
+        assert_eq!(1027, a2.get_file_pointer());
+        let be2 = DataInput::read_byte(&mut e2)?;
+        let ba2 = DataInput::read_byte(&mut a2)?;
+        assert_eq!(be2, ba2);
+
+        // Now make sure the first one didn't move
+        assert_eq!(101, e1.get_file_pointer());
+        assert_eq!(101, a1.get_file_pointer());
+        let be1 = DataInput::read_byte(&mut e1)?;
+        let ba1 = DataInput::read_byte(&mut a1)?;
+        assert_eq!(be1, ba1);
+
+        // Now move the first one again, past the buffer length
+        e1.seek(1910)?;
+        a1.seek(1910)?;
+        assert_eq!(1910, e1.get_file_pointer());
+        assert_eq!(1910, a1.get_file_pointer());
+        let be1 = DataInput::read_byte(&mut e1)?;
+        let ba1 = DataInput::read_byte(&mut a1)?;
+        assert_eq!(be1, ba1);
+
+        // Now make sure the second set didn't move
+        assert_eq!(1028, e2.get_file_pointer());
+        assert_eq!(1028, a2.get_file_pointer());
+        let be2 = DataInput::read_byte(&mut e2)?;
+        let ba2 = DataInput::read_byte(&mut a2)?;
+        assert_eq!(be2, ba2);
+
+        // Move the second set back, again crossing the buffer size
+        e2.seek(17)?;
+        a2.seek(17)?;
+        assert_eq!(17, e2.get_file_pointer());
+        assert_eq!(17, a2.get_file_pointer());
+        let be2 = DataInput::read_byte(&mut e2)?;
+        let ba2 = DataInput::read_byte(&mut a2)?;
+        assert_eq!(be2, ba2);
+
+        // Finally, make sure the first set didn't move
+        assert_eq!(1911, e1.get_file_pointer());
+        assert_eq!(1911, a1.get_file_pointer());
+        let be1 = DataInput::read_byte(&mut e1)?;
+        let ba1 = DataInput::read_byte(&mut a1)?;
+        assert_eq!(be1, ba1);
+        Ok(())
+    }
+    /// This test opens two files from a compound stream and verifies that their file positions are
+    /// independent of each other.
+    fn test_random_access_clones(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let cr = create_large_cfs(random, dir.clone())?;
+
+        // Open two files
+        let mut e1 = cr.open_input("_123.f11", &new_io_context(random)?)?;
+        let mut e2 = cr.open_input("_123.f3", &new_io_context(random)?)?;
+
+        let mut a1 = e1.clone();
+        let mut a2 = e2.clone();
+
+        // Seek the first pair
+        e1.seek(100)?;
+        a1.seek(100)?;
+        assert_eq!(100, e1.get_file_pointer());
+        assert_eq!(100, a1.get_file_pointer());
+        assert_eq!(
+            DataInput::read_byte(&mut e1)?,
+            DataInput::read_byte(&mut a1)?
+        );
+
+        // Now seek the second pair
+        e2.seek(1027)?;
+        a2.seek(1027)?;
+        assert_eq!(1027, e2.get_file_pointer());
+        assert_eq!(1027, a2.get_file_pointer());
+        assert_eq!(
+            DataInput::read_byte(&mut e2)?,
+            DataInput::read_byte(&mut a2)?
+        );
+
+        // Now make sure the first one didn't move
+        assert_eq!(101, e1.get_file_pointer());
+        assert_eq!(101, a1.get_file_pointer());
+        assert_eq!(
+            DataInput::read_byte(&mut e1)?,
+            DataInput::read_byte(&mut a1)?
+        );
+
+        // Now move the first one again, past the buffer length
+        e1.seek(1910)?;
+        a1.seek(1910)?;
+        assert_eq!(1910, e1.get_file_pointer());
+        assert_eq!(1910, a1.get_file_pointer());
+        assert_eq!(
+            DataInput::read_byte(&mut e1)?,
+            DataInput::read_byte(&mut a1)?
+        );
+
+        // Now make sure the second set didn't move
+        assert_eq!(1028, e2.get_file_pointer());
+        assert_eq!(1028, a2.get_file_pointer());
+        assert_eq!(
+            DataInput::read_byte(&mut e2)?,
+            DataInput::read_byte(&mut a2)?
+        );
+
+        // Move the second set back, again crossing the buffer size
+        e2.seek(17)?;
+        a2.seek(17)?;
+        assert_eq!(17, e2.get_file_pointer());
+        assert_eq!(17, a2.get_file_pointer());
+        assert_eq!(
+            DataInput::read_byte(&mut e2)?,
+            DataInput::read_byte(&mut a2)?
+        );
+
+        // Finally, make sure the first set didn't move
+        assert_eq!(1911, e1.get_file_pointer());
+        assert_eq!(1911, a1.get_file_pointer());
+        assert_eq!(
+            DataInput::read_byte(&mut e1)?,
+            DataInput::read_byte(&mut a1)?
+        );
+
+        Ok(())
+    }
+    fn test_file_not_found(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let cr = create_large_cfs(random, dir.clone())?;
+
+        let result = cr.open_input("bogus", &new_io_context(random)?);
+        assert!(matches!(result, Err(LuceneError::NotFound(_))));
+        Ok(())
+    }
+    fn test_read_past_eof(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let cr = create_large_cfs(random, dir.clone())?;
+        let mut is = cr.open_input("_123.f2", &new_io_context(random)?)?;
+        is.seek(IndexInput::length(&is) - 10)?;
+        let mut b = vec![0u8; 100];
+        DataInput::read_bytes(&mut is, b.as_mut_slice(), 0, 10)?;
+        let result = DataInput::read_byte(&mut is);
+        assert!(matches!(result, Err(LuceneError::Eof(_))));
+        is.seek(IndexInput::length(&is) - 10)?;
+        let result = DataInput::read_bytes(&mut is, &mut b, 0, 50);
+        assert!(matches!(result, Err(LuceneError::Eof(_))));
+        Ok(())
+    }
+    fn test_resource_name_inside_compound_file(
+        &self,
+        random: &mut StdRng,
+    ) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let sub_file = "_123.xyz";
+        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        create_sequence_file(
+            random,
+            dir.clone(),
+            sub_file,
+            0,
+            10,
+            si.get_id().as_slice(),
+            "suffix",
+        )?;
+        let mut hash_set_file = HashSet::new();
+        hash_set_file.insert(sub_file.to_string());
+        si.set_files(hash_set_file);
+        LATEST_CODEC
+            .compound_format()
+            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        let cfs = LATEST_CODEC
+            .compound_format()
+            .get_compound_reader(dir.clone(), &si)?;
+        let in_stream = cfs.open_input(sub_file, &new_io_context(random)?)?;
+        let desc = in_stream.to_string();
+        assert!(
+            desc.contains(&format!("[slice={}]", sub_file)),
+            "resource description hides that it's inside a compound file: {}",
+            desc
+        );
+        Ok(())
+    }
+    fn test_missing_codec_headers_are_caught(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let sub_file = "_123.xyz";
+
+        // Missing codec header
+        {
+            let mut os = dir
+                .lock()
+                .unwrap()
+                .create_output(sub_file, &new_io_context(random)?)?;
+            for i in 0..1024 {
+                os.write_byte(i as u8)?;
+            }
+        }
+
+        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let mut hash_set_file = HashSet::new();
+        hash_set_file.insert(sub_file.to_string());
+        si.set_files(hash_set_file);
+
+        let result = LATEST_CODEC
+            .compound_format()
+            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT);
+        assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
+        match result {
+            Ok(_) => unreachable!(),
+            Err(e) => {
+                assert!(e.to_string().contains("codec header mismatch"));
+                Ok(())
+            }
+        }
+    }
+    fn test_corrupt_files_are_caught(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let sub_file = "_123.xyz";
+
+        // wrong checksum
+        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        {
+            let mut os = dir
+                .lock()
+                .unwrap()
+                .create_output(sub_file, &new_io_context(random)?)?;
+            CodecUtil::write_index_header(&mut os, "Foo", 0, &si.get_id(), "suffix")?;
+            for i in 0..1024 {
+                os.write_byte(i as u8)?;
+            }
+
+            // write footer with wrong checksum
+            CodecUtil::write_be_int(&mut os, CodecUtil::FOOTER_MAGIC)?;
+            CodecUtil::write_be_int(&mut os, 0)?;
+            let checksum = os.get_checksum();
+            assert!(checksum <= i64::MAX as u64);
+            CodecUtil::write_be_long(&mut os, checksum as i64 + 1)?;
+        }
+
+        let mut hash_set_file = HashSet::new();
+        hash_set_file.insert(sub_file.to_string());
+        si.set_files(hash_set_file);
+
+        let result = LATEST_CODEC
+            .compound_format()
+            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT);
+
+        assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
+
+        match result {
+            Ok(_) => unreachable!(),
+            Err(e) => {
+                assert!(e
+                    .to_string()
+                    .contains("checksum failed (hardware problem?)"));
+                Ok(())
+            }
+        }
+    }
+    fn test_check_integrity(&self, _random: &mut StdRng) -> Result<(), TestError> {
+        // TODD: waiting for FileTrackingDirectoryWrapper implement
+        Ok(())
+    }
 }
 
-fn new_segment_info<D: Directory>(
+pub(crate) fn new_segment_info<D: Directory>(
     random: &mut StdRng,
     dir: Arc<Mutex<D>>,
     name: &str,
@@ -403,7 +717,7 @@ fn new_segment_info<D: Directory>(
     Ok(value)
 }
 /// Creates a file of the specified size with random data.
-fn create_random_file<D: Directory>(
+pub(crate) fn create_random_file<D: Directory>(
     random: &mut StdRng,
     dir: &Arc<Mutex<D>>,
     name: &str,
@@ -530,4 +844,35 @@ fn assert_equal_arrays(msg: &str, expected: &[u8], test: &[u8], start: usize, le
     for i in start..len {
         assert_eq!(expected[i], test[i], "{} {}", msg, i);
     }
+}
+/// Creates a large compound file with 20 sequential files, each of which is 1000 bytes.
+fn create_large_cfs<D: Directory<Output = I>, I: IndexInput<Slice = I> + RandomAccessInput>(
+    random: &mut StdRng,
+    dir: Arc<Mutex<D>>,
+) -> Result<CompoundDirectory<D, I>, TestError> {
+    let mut files = HashSet::new();
+    let mut si = new_segment_info(random, dir.clone(), "_123")?;
+
+    // Create 20 sequential files
+    for i in 0..20 {
+        let file_name = format!("_123.f{}", i);
+        create_sequence_file(
+            random,
+            dir.clone(),
+            &file_name,
+            0,
+            2000,
+            &si.get_id(),
+            "suffix",
+        )?;
+        files.insert(file_name);
+    }
+    si.set_files(files);
+    LATEST_CODEC
+        .compound_format()
+        .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+    let cfs = LATEST_CODEC
+        .compound_format()
+        .get_compound_reader(dir.clone(), &si)?;
+    Ok(cfs)
 }
