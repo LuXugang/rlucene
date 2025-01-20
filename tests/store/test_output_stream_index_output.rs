@@ -53,7 +53,7 @@ fn do_test_data_types(offset: usize) -> Result<(), LuceneError> {
         hasher.update(&1234567890123456789u64.to_le_bytes());
         assert_eq!(out.get_file_pointer(), (offset + 14) as i64);
         assert_eq!(
-            out.get_check_sum() as u32,
+            out.get_checksum() as u32,
             hasher.finalize(),
             "Checksum mismatch"
         );
@@ -89,7 +89,7 @@ fn test_write_exceeding_buffer() -> Result<(), LuceneError> {
 
         assert_eq!(out.get_file_pointer(), large_data.len() as i64);
         assert_eq!(
-            out.get_check_sum(),
+            out.get_checksum(),
             hasher.finalize() as u64,
             "Checksum mismatch"
         );
@@ -114,14 +114,14 @@ fn test_multiple_writes_with_checksum() -> Result<(), LuceneError> {
 
         out.write_bytes_range(data1, 0, data1.len() as i32)?;
         hasher.update(data1);
-        let sum1 = out.get_check_sum();
+        let sum1 = out.get_checksum();
         out.write_bytes_range(data2, 0, data2.len() as i32)?;
         hasher.update(data2);
-        let sum2 = out.get_check_sum();
+        let sum2 = out.get_checksum();
         assert_ne!(sum1, sum2, "Checksum mismatch");
 
         assert_eq!(
-            out.get_check_sum(),
+            out.get_checksum(),
             hasher.finalize() as u64,
             "Checksum mismatch"
         );

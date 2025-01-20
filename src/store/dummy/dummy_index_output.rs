@@ -46,7 +46,7 @@ impl IndexOutput for DummyIndexOutput {
         unreachable!("DummyIndexOutput should not be called")
     }
 
-    fn get_check_sum(&mut self) -> u64 {
+    fn get_checksum(&mut self) -> u64 {
         unreachable!("DummyIndexOutput should not be called")
     }
 

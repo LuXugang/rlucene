@@ -386,7 +386,7 @@ impl IndexOutput for FakeOutput<'_> {
         self.output.get_file_pointer()
     }
 
-    fn get_check_sum(&mut self) -> u64 {
+    fn get_checksum(&mut self) -> u64 {
         self.fake_checksum
             .load(std::sync::atomic::Ordering::Relaxed) as u64
     }

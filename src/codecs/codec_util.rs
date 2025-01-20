@@ -706,7 +706,7 @@ impl CodecUtil {
     /// - `IllegalStateError`: If the CRC is formatted incorrectly (wrong bits set).
     /// - `IoError`: If an I/O error occurs.
     pub fn write_crc(out: &mut impl IndexOutput) -> Result<(), LuceneError> {
-        let value = out.get_check_sum();
+        let value = out.get_checksum();
         if value & 0xFFFFFFFF00000000 != 0 {
             return Err(LuceneError::illegal_state(format!(
                 "Illegal CRC-32 checksum: {} +  (resource={})",

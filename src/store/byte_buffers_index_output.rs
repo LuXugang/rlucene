@@ -111,7 +111,7 @@ impl IndexOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.size()
     }
 
-    fn get_check_sum(&mut self) -> u64 {
+    fn get_checksum(&mut self) -> u64 {
         if self.last_checksum_position != self.delegate.size() {
             self.last_checksum_position = self.delegate.size();
             self.checksum.reset();

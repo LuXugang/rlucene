@@ -31,7 +31,7 @@ pub trait IndexOutput: DataOutput + Display {
     /// Returns the current position in this file, where the next write will occur.
     fn get_file_pointer(&self) -> i64;
     /// Returns the current checksum of bytes written so far.
-    fn get_check_sum(&mut self) -> u64;
+    fn get_checksum(&mut self) -> u64;
     /// Returns the name used to create this `IndexOutput`. This is especially useful when using
     /// [`Directory::create_temp_output`](crate::store::directory::Directory::create_temp_output).
     fn get_name(&self) -> &str;

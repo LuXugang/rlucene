@@ -117,7 +117,7 @@ where
         self.bytes_written
     }
 
-    fn get_check_sum(&mut self) -> u64 {
+    fn get_checksum(&mut self) -> u64 {
         self.os.checksum = self.os.hasher.clone().finalize();
         self.os.checksum as u64
     }
