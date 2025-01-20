@@ -33,7 +33,7 @@ pub trait CompoundFormat {
 
     /// Packs the provided segment's files into a compound format.
     ///
-    /// All files referenced by the provided [`SegmentInfo`](SegmentInfo)
+    /// All files referenced by the provided [`SegmentInfo`]
     /// must have their headers and footers
     /// written using [`CodecUtil::write_index_header`](crate::codecs::codec_util::CodecUtil::write_index_header)
     /// and [`CodecUtil::write_footer`](crate::codecs::codec_util::CodecUtil::write_footer).
