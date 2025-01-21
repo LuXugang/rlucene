@@ -42,5 +42,6 @@ pub mod segment_info;
 pub mod segment_infos;
 pub mod sort;
 pub mod sort_field_provider;
+mod term;
 
 pub use index_file_names::*;

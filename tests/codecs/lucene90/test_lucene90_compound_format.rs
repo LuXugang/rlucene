@@ -27,7 +27,6 @@ use rlucene::index::IndexFileNames;
 use rlucene::store::directory::Directory;
 use rlucene::store::{DataInput, IO_CONTEXT_DEFAULT};
 use rlucene::util::error::lucene_error::LuceneError;
-use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 pub struct TestLucene90CompoundFormat;

@@ -1,0 +1,128 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::index::{BytesRef, BytesRefBuilder};
+use crate::util::accountable::Accountable;
+use crate::util::error::lucene_error::LuceneError;
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
+
+pub struct Term {
+    pub field: String,
+    pub bytes: BytesRef,
+}
+impl Term {
+    /// Constructs a `Term` with the given field and bytes.
+    /// The provided `BytesRef` is copied when it is non-`None`.
+    pub fn new(fld: String, bytes: BytesRef) -> Self {
+        Term { field: fld, bytes }
+    }
+
+    /// Constructs a Term with the given field and the bytes from a builder.
+    pub fn new_from_builder(fld: String, mut bytes_builder: BytesRefBuilder) -> Self {
+        Self::new(fld, bytes_builder.get_bytes_ref())
+    }
+
+    /// Constructs a Term with the given field and text.
+    /// that accept a Term parameter.
+    pub fn new_from_text(fld: String, text: &str) -> Self {
+        Self::new(fld, BytesRef::new_from_string(text))
+    }
+
+    /// Constructs a Term with the given field and empty text. This serves two purposes: 1) reuse of a
+    /// Term with the same field. 2) pattern for a query.
+    ///
+    /// Fld field's name
+    pub fn new_from_empty(fld: String) -> Self {
+        Term::new(fld, BytesRef::default())
+    }
+    /// Returns the field of this term. The field indicates the part of a document which this term came
+    /// from.
+    pub fn field(&self) -> &str {
+        &self.field
+    }
+
+    /// Returns a human-readable form of the term text. If the term is not valid UTF-8,
+    /// the raw bytes will be printed instead.
+    pub fn get_string(term_text: &BytesRef) -> Result<String, LuceneError> {
+        term_text.utf8_to_string()
+    }
+
+    /// Returns the text of this term. In the case of words, this is simply the text of the word. In
+    /// the case of dates and other types, this is an encoding of the object as a string.
+    pub fn text(&self) -> Result<String, LuceneError> {
+        Self::get_string(&self.bytes)
+    }
+}
+impl Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}:{}",
+            self.field,
+            self.text().unwrap_or_else(|_| "".to_string())
+        )
+    }
+}
+impl Accountable for Term {
+    fn ram_bytes_used(&self) -> u64 {
+        todo!()
+    }
+}
+impl PartialEq for Term {
+    fn eq(&self, other: &Self) -> bool {
+        if std::ptr::eq(self, other) {
+            return true;
+        }
+        if self.field != other.field {
+            return false;
+        }
+        self.bytes == other.bytes
+    }
+}
+
+impl Eq for Term {}
+
+impl Ord for Term {
+    /// Compares two terms, returning an `Ordering`:
+    ///
+    /// - `Ordering::Less` if this term belongs before the argument
+    /// - `Ordering::Equal` if this term is equal to the argument
+    /// - `Ordering::Greater` if this term belongs after the argument
+    ///
+    /// The ordering of terms is first by field, then by the text (bytes).
+    fn cmp(&self, other: &Self) -> Ordering {
+        let field_order = self.field.cmp(&other.field);
+        if field_order != Ordering::Equal {
+            return field_order;
+        }
+        self.bytes.cmp(&other.bytes)
+    }
+}
+
+impl PartialOrd for Term {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Hash for Term {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.field.hash(state);
+        self.bytes.hash(state);
+    }
+}

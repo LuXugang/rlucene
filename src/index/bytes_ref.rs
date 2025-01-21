@@ -16,6 +16,7 @@
  */
 use crate::util::error::lucene_error::LuceneError;
 use std::cmp::Ordering;
+use std::fmt::Display;
 use std::hash::Hash;
 
 /// Represents a `&[u8]` as a slice (offset + length) into an existing byte array.
@@ -171,6 +172,7 @@ impl Clone for BytesRef {
 }
 impl Hash for BytesRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // TODO: Java using  StringHelper.murmurhash3_x86_32
         self.bytes.hash(state);
         self.offset.hash(state);
         self.length.hash(state);
@@ -179,5 +181,10 @@ impl Hash for BytesRef {
 impl PartialEq for BytesRef {
     fn eq(&self, other: &Self) -> bool {
         self.bytes_equals(other)
+    }
+}
+impl Display for BytesRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        todo!("BytesRef Display")
     }
 }
