@@ -1,0 +1,182 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use std::fmt::Display;
+use crate::index::BytesRef;
+use crate::index::doc_values_type::DocValuesType;
+use crate::index::term::Term;
+use crate::store::DataOutput;
+use crate::util::error::lucene_error::LuceneError;
+
+/// An in-place update to a DocValues field.
+pub struct DocValuesUpdate {
+    pub doc_values_type: DocValuesType,
+    pub term: Term,
+    pub field: String,
+    // used in BufferedDeletes to apply this update only to a slice of docs. It's initialized to
+    // BufferedUpdates.MAX_INT
+    // since it's safe and most often used this way we save object creations.
+    pub doc_id_up_to: i32,
+    pub has_value: bool,
+    pub sub_update: DocValuesUpdateEnum,
+}
+impl DocValuesUpdate {
+    #[allow(unused)]
+    const RAW_SIZE_IN_BYTES:i32 = 0;
+    pub fn new(
+        doc_values_type: DocValuesType,
+        term: Term,
+        field: String,
+        doc_id_up_to: i32,
+        has_value: bool,
+        sub_update: DocValuesUpdateEnum,
+    ) -> Self {
+        // Equivalent to the assertion in Java
+        debug_assert!(doc_id_up_to >= 0, "{} must be >= 0", doc_id_up_to);
+
+        DocValuesUpdate {
+            doc_values_type,
+            term,
+            field,
+            doc_id_up_to,
+            has_value,
+            sub_update,
+        }
+    }
+    fn has_value(&self) -> bool {
+        self.has_value
+    }
+    // Not used in Java Lucene, so we did not implement it
+    fn size_in_bytes(&self) -> i32 {
+        0
+    }
+    #[cfg(feature = "test_only")]
+    fn prepare_for_apply(&mut self, doc_id_upto:i32) -> Option<DocValuesUpdate>{
+        if doc_id_upto == self.doc_id_up_to {
+            return None;
+        }
+        let sub_update = self.sub_update.prepare_for_apply();
+        Some(DocValuesUpdate::new(
+            self.doc_values_type,
+            self.term.clone(),
+            self.field.clone(),
+            doc_id_upto,
+            self.has_value,
+            sub_update,
+        ))
+
+    }
+}
+impl Display for DocValuesUpdate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "term={}, field={}, value={}, docIDUpTo={}",
+            self.term,
+            self.field,
+            self.sub_update.value_to_string(),
+            self.doc_id_up_to
+        )
+    }
+}
+pub trait DocValuesUpdateBase{
+    // Not used in Java Lucene, so we did not implement it
+    #[allow(unused)]
+    fn value_size_in_bytes(&self) -> i64{
+        0
+    }
+    fn value_to_string(&self) -> String;
+    // Not used in Java Lucene, so we did not implement it
+    #[allow(unused)]
+    fn write_to<D:DataOutput>(&self, _bytes: &mut BytesRef) ->Result<(),LuceneError>{
+        Ok(())
+    }
+    #[cfg(feature = "test_only")]
+    fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum;
+}
+/// An in-place update to a binary DocValues field.
+pub struct BinaryDocValuesUpdate{
+    value: Option<BytesRef>,
+}
+impl BinaryDocValuesUpdate{
+    #[allow(unused)]
+    const RAW_VALUE_SIZE_IN_BYTES:i32 = 0;
+    pub fn new(value: Option<BytesRef>) -> Self {
+        BinaryDocValuesUpdate { value }
+    }
+    fn get_value(&self) -> BytesRef {
+        debug_assert!(self.value.is_some());
+        self.value.as_ref().unwrap().clone()
+    }
+}
+impl DocValuesUpdateBase for BinaryDocValuesUpdate{
+    fn value_to_string(&self) -> String {
+        match &self.value {
+            Some(v) => v.to_string(),
+            None => "null".to_string(),
+        }
+    }
+    
+    #[cfg(feature = "test_only")]
+    fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum{
+        DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(self.value.clone()))
+    }
+}
+pub struct NumericDocValuesUpdate{
+    value: Option<i64>,
+}
+impl NumericDocValuesUpdate{
+    pub fn new(value: Option<i64>) -> Self {
+        NumericDocValuesUpdate { value }
+    }
+    fn get_value(&self) -> i64 {
+        debug_assert!(self.value.is_some());
+        *self.value.as_ref().unwrap()
+    }
+}
+impl DocValuesUpdateBase for NumericDocValuesUpdate{
+    fn value_to_string(&self) -> String {
+        match self.value {
+            Some(v) => v.to_string(),
+            None => "null".to_string(),
+        }
+    }
+    #[cfg(feature = "test_only")]
+    fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
+        DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(self.value))
+    }
+}
+
+pub enum  DocValuesUpdateEnum{
+    Binary(BinaryDocValuesUpdate),
+    Numeric(NumericDocValuesUpdate),
+}
+impl DocValuesUpdateBase for DocValuesUpdateEnum{
+    fn value_to_string(&self) -> String {
+        match self {
+            DocValuesUpdateEnum::Binary(b) => b.value_to_string(),
+            DocValuesUpdateEnum::Numeric(n) => n.value_to_string(),
+        }
+    }
+
+    #[cfg(feature = "test_only")]
+    fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
+       match self {
+              DocValuesUpdateEnum::Binary(b) => b.prepare_for_apply(),
+              DocValuesUpdateEnum::Numeric(n) => n.prepare_for_apply(),
+       }
+    }
+}
