@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-use crate::index::BytesRef;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::term::Term;
+use crate::index::BytesRef;
 use crate::store::DataOutput;
 use crate::util::error::lucene_error::LuceneError;
+use std::fmt::Display;
 
 /// An in-place update to a DocValues field.
 pub struct DocValuesUpdate {
@@ -35,7 +35,7 @@ pub struct DocValuesUpdate {
 }
 impl DocValuesUpdate {
     #[allow(unused)]
-    const RAW_SIZE_IN_BYTES:i32 = 0;
+    const RAW_SIZE_IN_BYTES: i32 = 0;
     pub fn new(
         doc_values_type: DocValuesType,
         term: Term,
@@ -64,7 +64,7 @@ impl DocValuesUpdate {
         0
     }
     #[cfg(feature = "test_only")]
-    fn prepare_for_apply(&mut self, doc_id_upto:i32) -> Option<DocValuesUpdate>{
+    fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
         if doc_id_upto == self.doc_id_up_to {
             return None;
         }
@@ -77,7 +77,6 @@ impl DocValuesUpdate {
             self.has_value,
             sub_update,
         ))
-
     }
 }
 impl Display for DocValuesUpdate {
@@ -92,28 +91,28 @@ impl Display for DocValuesUpdate {
         )
     }
 }
-pub trait DocValuesUpdateBase{
+pub trait DocValuesUpdateBase {
     // Not used in Java Lucene, so we did not implement it
     #[allow(unused)]
-    fn value_size_in_bytes(&self) -> i64{
+    fn value_size_in_bytes(&self) -> i64 {
         0
     }
     fn value_to_string(&self) -> String;
     // Not used in Java Lucene, so we did not implement it
     #[allow(unused)]
-    fn write_to<D:DataOutput>(&self, _bytes: &mut BytesRef) ->Result<(),LuceneError>{
+    fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef) -> Result<(), LuceneError> {
         Ok(())
     }
     #[cfg(feature = "test_only")]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum;
 }
 /// An in-place update to a binary DocValues field.
-pub struct BinaryDocValuesUpdate{
+pub struct BinaryDocValuesUpdate {
     value: Option<BytesRef>,
 }
-impl BinaryDocValuesUpdate{
+impl BinaryDocValuesUpdate {
     #[allow(unused)]
-    const RAW_VALUE_SIZE_IN_BYTES:i32 = 0;
+    const RAW_VALUE_SIZE_IN_BYTES: i32 = 0;
     pub fn new(value: Option<BytesRef>) -> Self {
         BinaryDocValuesUpdate { value }
     }
@@ -122,23 +121,23 @@ impl BinaryDocValuesUpdate{
         self.value.as_ref().unwrap().clone()
     }
 }
-impl DocValuesUpdateBase for BinaryDocValuesUpdate{
+impl DocValuesUpdateBase for BinaryDocValuesUpdate {
     fn value_to_string(&self) -> String {
         match &self.value {
             Some(v) => v.to_string(),
             None => "null".to_string(),
         }
     }
-    
+
     #[cfg(feature = "test_only")]
-    fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum{
+    fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
         DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(self.value.clone()))
     }
 }
-pub struct NumericDocValuesUpdate{
+pub struct NumericDocValuesUpdate {
     value: Option<i64>,
 }
-impl NumericDocValuesUpdate{
+impl NumericDocValuesUpdate {
     pub fn new(value: Option<i64>) -> Self {
         NumericDocValuesUpdate { value }
     }
@@ -147,7 +146,7 @@ impl NumericDocValuesUpdate{
         *self.value.as_ref().unwrap()
     }
 }
-impl DocValuesUpdateBase for NumericDocValuesUpdate{
+impl DocValuesUpdateBase for NumericDocValuesUpdate {
     fn value_to_string(&self) -> String {
         match self.value {
             Some(v) => v.to_string(),
@@ -160,11 +159,11 @@ impl DocValuesUpdateBase for NumericDocValuesUpdate{
     }
 }
 
-pub enum  DocValuesUpdateEnum{
+pub enum DocValuesUpdateEnum {
     Binary(BinaryDocValuesUpdate),
     Numeric(NumericDocValuesUpdate),
 }
-impl DocValuesUpdateBase for DocValuesUpdateEnum{
+impl DocValuesUpdateBase for DocValuesUpdateEnum {
     fn value_to_string(&self) -> String {
         match self {
             DocValuesUpdateEnum::Binary(b) => b.value_to_string(),
@@ -174,9 +173,9 @@ impl DocValuesUpdateBase for DocValuesUpdateEnum{
 
     #[cfg(feature = "test_only")]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
-       match self {
-              DocValuesUpdateEnum::Binary(b) => b.prepare_for_apply(),
-              DocValuesUpdateEnum::Numeric(n) => n.prepare_for_apply(),
-       }
+        match self {
+            DocValuesUpdateEnum::Binary(b) => b.prepare_for_apply(),
+            DocValuesUpdateEnum::Numeric(n) => n.prepare_for_apply(),
+        }
     }
 }

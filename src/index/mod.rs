@@ -25,6 +25,7 @@ pub mod binary_doc_values_field_updates;
 pub mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_type;
+pub mod doc_values_update;
 pub mod docs_with_field_set;
 mod documents_writer_delete_queue;
 mod index_commit;
@@ -42,7 +43,6 @@ pub mod segment_info;
 pub mod segment_infos;
 pub mod sort;
 pub mod sort_field_provider;
-mod term;
-mod doc_values_update;
+pub mod term;
 
 pub use index_file_names::*;

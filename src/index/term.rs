@@ -22,7 +22,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Term {
     pub field: String,
     pub bytes: BytesRef,

@@ -14,10 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod base_compound_format_test_case;
-pub(crate) mod base_index_file_format_test_case;
-pub(crate) mod base_live_docs_format_test_case;
-pub(crate) mod base_segment_info_format_test_case;
-mod test_doc_values_field_updates;
-mod test_segment_infos;
-mod test_term;
+use rlucene::index::term::Term;
+
+#[allow(dead_code)] // for quick search
+pub struct TestTerm;
+#[test]
+fn test_equals() {
+    let base = Term::new_from_text("same".to_string(), "same");
+    let same = Term::new_from_text("same".to_string(), "same");
+    let different_field = Term::new_from_text("different".to_string(), "same");
+    let different_text = Term::new_from_text("same".to_string(), "different");
+    assert_eq!(base, base);
+    assert_eq!(base, same);
+    assert_ne!(base, different_field);
+    assert_ne!(base, different_text);
+}
