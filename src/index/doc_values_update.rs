@@ -23,6 +23,7 @@ use std::fmt::Display;
 
 /// An in-place update to a DocValues field.
 pub struct DocValuesUpdate {
+    #[allow(unused)]
     pub doc_values_type: DocValuesType,
     pub term: Term,
     pub field: String,
@@ -44,7 +45,6 @@ impl DocValuesUpdate {
         has_value: bool,
         sub_update: DocValuesUpdateEnum,
     ) -> Self {
-        // Equivalent to the assertion in Java
         debug_assert!(doc_id_up_to >= 0, "{} must be >= 0", doc_id_up_to);
 
         DocValuesUpdate {
@@ -59,9 +59,8 @@ impl DocValuesUpdate {
     fn has_value(&self) -> bool {
         self.has_value
     }
-    // Not used in Java Lucene, so we did not implement it
     fn size_in_bytes(&self) -> i32 {
-        0
+        unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     #[cfg(feature = "test_only")]
     fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
@@ -92,16 +91,14 @@ impl Display for DocValuesUpdate {
     }
 }
 pub trait DocValuesUpdateBase {
-    // Not used in Java Lucene, so we did not implement it
     #[allow(unused)]
     fn value_size_in_bytes(&self) -> i64 {
-        0
+        unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     fn value_to_string(&self) -> String;
-    // Not used in Java Lucene, so we did not implement it
     #[allow(unused)]
     fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef) -> Result<(), LuceneError> {
-        Ok(())
+        unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     #[cfg(feature = "test_only")]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum;
