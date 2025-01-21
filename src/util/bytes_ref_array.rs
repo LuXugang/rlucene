@@ -44,22 +44,22 @@ pub struct BytesRefArray {
     byte_used: Arc<Mutex<CounterEnum>>,
 }
 impl BytesRefArray {
-    pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> BytesRefArray {
+    pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Result<BytesRefArray, LuceneError> {
         let pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(
             byte_used.clone(),
         )));
         let offsets = Vec::new();
         byte_used
             .lock()
-            .unwrap()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
             .add_and_get(BitUtil::INT_BYTES as i64);
-        BytesRefArray {
+        Ok(BytesRefArray {
             pool,
             offsets,
             last_element: 0,
             current_offset: 0,
             byte_used,
-        }
+        })
     }
     /// Returns the nth element of this [`BytesRefArray`].
     ///
@@ -198,23 +198,24 @@ impl BytesRefArray {
 ///
 /// [`BytesRefArray`]
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
-    fn append(&mut self, bytes: &BytesRef) -> i32 {
+    fn append(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         self.pool.append_bytes_ref(bytes);
         self.offsets.push(self.current_offset);
         self.last_element += 1;
         self.current_offset += bytes.length;
         self.byte_used
             .lock()
-            .unwrap()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
             .add_and_get(BitUtil::INT_BYTES as i64);
-        self.last_element - 1
+        Ok(self.last_element - 1)
     }
 
-    fn clear(&mut self) {
+    fn clear(&mut self) -> Result<(), LuceneError> {
         self.last_element = 0;
         self.current_offset = 0;
         self.offsets.clear();
-        self.pool.reset(false, true); // no need to 0 fill the buffers we control the allocator
+        self.pool.reset(false, true)?; // no need to 0 fill the buffers we control the allocator
+        Ok(())
     }
 
     fn size(&self) -> i32 {

@@ -30,12 +30,12 @@ struct TestBytesRefArray;
 fn test_append() -> Result<(), TestError> {
     let mut random = my_random("test_append".to_string());
     let counter = Arc::new(Mutex::new(new_counter(false)));
-    let mut list = BytesRefArray::new(counter);
+    let mut list = BytesRefArray::new(counter)?;
     let mut string_list = Vec::new();
 
     for j in 0..2 {
         if j > 0 && random.gen_bool(0.5) {
-            list.clear();
+            list.clear()?;
             string_list.clear();
         }
 
@@ -47,7 +47,7 @@ fn test_append() -> Result<(), TestError> {
             let random_realistic_unicode_string =
                 TestUtil::random_realistic_unicode_string(&mut random);
             spare.copy_chars_with_string(&random_realistic_unicode_string);
-            assert_eq!(i + init_size, list.append(spare.get()));
+            assert_eq!(i + init_size, list.append(spare.get())?);
             string_list.push(random_realistic_unicode_string);
         }
 
@@ -87,12 +87,12 @@ fn test_append() -> Result<(), TestError> {
 fn test_sort() -> Result<(), TestError> {
     let mut random = my_random("test_sort".to_string());
     let counter = Arc::new(Mutex::new(new_counter(false)));
-    let mut list = BytesRefArray::new(counter);
+    let mut list = BytesRefArray::new(counter)?;
     let mut string_list = Vec::new();
 
     for j in 0..5 {
         if j > 0 && random.gen_bool(0.5) {
-            list.clear();
+            list.clear()?;
             string_list.clear();
         }
 
@@ -104,7 +104,7 @@ fn test_sort() -> Result<(), TestError> {
             let random_realistic_unicode_string =
                 TestUtil::random_realistic_unicode_string(&mut random);
             spare.copy_chars_with_string(&random_realistic_unicode_string);
-            assert_eq!(init_size + i, list.append(spare.get()));
+            assert_eq!(init_size + i, list.append(spare.get())?);
             string_list.push(random_realistic_unicode_string);
         }
 
@@ -156,13 +156,13 @@ fn test_stable_sort() -> Result<(), TestError> {
     let mut random = my_random("test_stable_sort".to_string());
 
     let counter = Arc::new(Mutex::new(new_counter(false)));
-    let mut list = BytesRefArray::new(counter);
+    let mut list = BytesRefArray::new(counter)?;
 
     let mut string_list = Vec::new();
 
     for j in 0..5 {
         if j > 0 && random.gen_bool(0.5) {
-            list.clear();
+            list.clear()?;
             string_list.clear();
         }
 
@@ -178,7 +178,7 @@ fn test_stable_sort() -> Result<(), TestError> {
         for i in 0..entries {
             let random_realistic_unicode_string = values[random.gen_range(0..values.len())].clone();
             spare.copy_chars_with_string(&random_realistic_unicode_string);
-            assert_eq!(init_size + i, list.append(spare.get()));
+            assert_eq!(init_size + i, list.append(spare.get())?);
             string_list.push(random_realistic_unicode_string);
         }
 

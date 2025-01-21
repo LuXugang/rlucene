@@ -18,6 +18,7 @@ use crate::common::my_random;
 use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
+use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::{
     new_counter, AllocatorEnum, ByteBlockPool, DirectAllocator, DirectTrackingAllocator, VecCopyOps,
 };
@@ -26,7 +27,7 @@ use std::sync::{Arc, Mutex};
 #[allow(dead_code)] // for quick search
 struct TestByteBlockPool {}
 #[test]
-fn test_append_from_other_pool() {
+fn test_append_from_other_pool() -> Result<(), LuceneError> {
     let mut random = my_random("test_append_from_other_pool".to_string());
     let mut pool = ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()));
     let num_bytes = random.gen_range(2 << 16..(2 << 16) + 1000000);
@@ -49,7 +50,7 @@ fn test_append_from_other_pool() {
     if random.gen_bool(0.5) {
         length = random.gen_range(1..=length);
     }
-    another_pool.append_from_byte_block_pool(&pool, offset as i64, length as i32);
+    another_pool.append_from_byte_block_pool(&pool, offset as i64, length as i32)?;
     assert_eq!(
         (existing_bytes.len() + length) as i64,
         another_pool.get_position()
@@ -66,9 +67,10 @@ fn test_append_from_other_pool() {
     for i in 0..length {
         assert_eq!(bytes[offset + i], result[i], "byte @ index= {}", i);
     }
+    Ok(())
 }
 #[test]
-fn test_read_and_write() {
+fn test_read_and_write() -> Result<(), LuceneError> {
     let mut random = my_random("test_read_and_write".to_string());
     let byte_used = Arc::new(Mutex::new(new_counter(false)));
     let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
@@ -129,12 +131,16 @@ fn test_read_and_write() {
         }
         pool.reset(random.gen_bool(0.5), reuse_first);
         if reuse_first {
-            assert_eq!(ByteBlockPool::BYTE_BLOCK_SIZE as i64, pool.get_bytes_used())
+            assert_eq!(
+                ByteBlockPool::BYTE_BLOCK_SIZE as i64,
+                pool.get_bytes_used()?
+            )
         } else {
-            assert_eq!(0, pool.get_bytes_used());
-            pool.next_buffer();
+            assert_eq!(0, pool.get_bytes_used()?);
+            pool.next_buffer()?;
         }
     }
+    Ok(())
 }
 #[test]
 fn test_large_random_block() {
