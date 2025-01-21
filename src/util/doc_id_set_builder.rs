@@ -174,7 +174,7 @@ pub enum DocIdSetBuilderEnum {
     I(IntArrayDocIdSet),
 }
 impl Accountable for DocIdSetBuilderEnum {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         todo!()
     }
 }

@@ -16,7 +16,7 @@
  */
 pub struct RamUsageEstimator;
 impl RamUsageEstimator {
-    pub fn size_of_vec<T>(vec: &Vec<T>) -> u64 {
-        (vec.capacity() * size_of::<T>()) as u64
+    pub fn size_of_vec<T>(vec: &Vec<T>) -> i64 {
+        (vec.capacity() * size_of::<T>()) as i64
     }
 }

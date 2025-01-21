@@ -44,7 +44,7 @@ impl BufferedUpdates {
 }
 
 impl Accountable for BufferedUpdates {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         todo!()
     }
 }

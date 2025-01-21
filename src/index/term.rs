@@ -81,7 +81,7 @@ impl Display for Term {
     }
 }
 impl Accountable for Term {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         todo!()
     }
 }

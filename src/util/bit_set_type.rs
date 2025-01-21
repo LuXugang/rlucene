@@ -44,7 +44,7 @@ impl Bits for BitSetType {
 }
 
 impl Accountable for BitSetType {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         match self {
             BitSetType::Sparse(s) => s.ram_bytes_used(),
             BitSetType::Fixed(f) => f.ram_bytes_used(),

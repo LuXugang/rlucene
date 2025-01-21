@@ -115,7 +115,7 @@ impl<T: BitSet> DocIdSetIterator for DocsWithFieldSetEnum<'_, T> {
 }
 
 impl<T: BitSet> Accountable for DocsWithFieldSet<T> {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         todo!()
     }
 }

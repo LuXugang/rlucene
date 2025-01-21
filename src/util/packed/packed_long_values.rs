@@ -152,9 +152,9 @@ impl PackedLongValues {
     }
 }
 impl Accountable for PackedLongValues {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         //TODO
-        self.ram_bytes_used as u64
+        0
     }
 }
 impl LongValues for PackedLongValues {

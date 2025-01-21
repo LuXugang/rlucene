@@ -79,14 +79,14 @@ impl DocIdSet for All {
 }
 
 impl Accountable for All {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         0
     }
 }
 
 pub struct EmptyDocIdSet;
 impl Accountable for EmptyDocIdSet {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         0
     }
 }

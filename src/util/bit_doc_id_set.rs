@@ -61,7 +61,7 @@ impl<T> Accountable for BitDocIdSet<T>
 where
     T: BitSet + Clone,
 {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         self.set.as_ref().unwrap().ram_bytes_used()
     }
 }

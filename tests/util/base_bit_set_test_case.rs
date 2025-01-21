@@ -283,7 +283,7 @@ impl Bits for RustUtilBitSet {
 }
 
 impl Accountable for RustUtilBitSet {
-    fn ram_bytes_used(&self) -> u64 {
+    fn ram_bytes_used(&self) -> i64 {
         0
     }
 }
