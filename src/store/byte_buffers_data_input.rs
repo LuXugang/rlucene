@@ -322,7 +322,7 @@ pub fn slice_buffer_list<'a>(
     offset: i64,
     length: i64,
 ) -> Vec<Cursor<&'a [u8]>> {
-    assert!(!blocks.is_empty(), "blocks cannot be empty");
+    debug_assert!(!blocks.is_empty(), "blocks cannot be empty");
 
     let abs_start = blocks[0].position() + offset as u64;
     let abs_end = abs_start + length as u64;

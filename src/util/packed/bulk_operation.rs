@@ -191,7 +191,7 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
 pub fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
     match format {
         Format::Packed(..) => {
-            assert!(
+            debug_assert!(
                 bits_per_value > 0 && bits_per_value <= 64,
                 "bits_per_value must be between 1 and 64"
             );

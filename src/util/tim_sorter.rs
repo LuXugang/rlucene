@@ -237,7 +237,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             dest += 1;
         }
 
-        assert_eq!(j, dest);
+        debug_assert_eq!(j, dest);
         Ok(())
     }
 
@@ -393,7 +393,7 @@ where
         }
         self.exhaust_stack()?;
 
-        assert_eq!(self.run_end(0), to);
+        debug_assert_eq!(self.run_end(0), to);
         Ok(())
     }
 

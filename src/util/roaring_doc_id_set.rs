@@ -167,7 +167,7 @@ impl RoaringDocIdSetBuilder {
         debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
         if self.current_block_cardinality <= MAX_ARRAY_LENGTH {
             // use sparse encoding
-            assert_eq!(self.dense_buffer.length(), 0);
+            debug_assert_eq!(self.dense_buffer.length(), 0);
             if self.current_block_cardinality > 0 {
                 let sparse = Some(DocIdSetEnum::Sparse(ShortArrayDocIdSet::new(
                     std::mem::take(&mut self.buffer),
@@ -177,7 +177,7 @@ impl RoaringDocIdSetBuilder {
             }
         } else {
             assert_ne!(self.dense_buffer.length(), 0);
-            assert_eq!(
+            debug_assert_eq!(
                 self.dense_buffer.cardinality(),
                 self.current_block_cardinality
             );

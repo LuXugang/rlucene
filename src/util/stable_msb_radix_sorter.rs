@@ -145,7 +145,7 @@ where
                 index += 1;
 
                 if left == mid {
-                    assert_eq!(
+                    debug_assert_eq!(
                         index, right,
                         "Index mismatch: index={}, right={}",
                         index, right
@@ -159,7 +159,7 @@ where
                 index += 1;
 
                 if right == to {
-                    assert_eq!(
+                    debug_assert_eq!(
                         to - index,
                         mid - left,
                         "Range mismatch: to-index={}, mid-left={}",

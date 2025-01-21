@@ -21,7 +21,7 @@ pub trait FormatBehavior {
     fn get_id(&self) -> u32;
     /// Computes how many byte blocks are needed to store `values` values of size `bits_per_value`.
     fn byte_count(&self, packed_ints_version: i32, value_count: i32, bits_per_value: i32) -> i64 {
-        assert!(
+        debug_assert!(
             (0..=64).contains(&bits_per_value),
             "bits_per_value must be between 0 and 64"
         );
@@ -29,12 +29,12 @@ pub trait FormatBehavior {
     }
     /// * Computes how many long blocks are needed to store `values` values of size `bitsPerValue`.
     fn long_count(&self, packed_ints_version: i32, value_count: i32, bits_per_value: i32) -> i32 {
-        assert!(
+        debug_assert!(
             (0..=64).contains(&bits_per_value),
             "bits_per_value must be between 0 and 64"
         );
         let byte_count = self.byte_count(packed_ints_version, value_count, bits_per_value);
-        assert!(
+        debug_assert!(
             byte_count < 8 * (i32::MAX as i64),
             "Computed byte count exceeds maximum long block count"
         );
@@ -46,7 +46,7 @@ pub trait FormatBehavior {
     }
     /// Returns the overhead per value, in bits.
     fn overhead_per_value(&self, bits_per_value: i32) -> f32 {
-        assert!(
+        debug_assert!(
             self.is_supported(bits_per_value),
             "bits_per_value is not supported"
         );
@@ -54,7 +54,7 @@ pub trait FormatBehavior {
     }
     #[allow(unused)]
     fn overhead_ratio(&self, bits_per_value: i32) -> f32 {
-        assert!(
+        debug_assert!(
             self.is_supported(bits_per_value),
             "bits_per_value is not supported"
         );
@@ -103,7 +103,7 @@ impl FormatBehavior for PackedSingleBlockImpl {
     }
 
     fn overhead_per_value(&self, bits_per_value: i32) -> f32 {
-        assert!(self.is_supported(bits_per_value));
+        debug_assert!(self.is_supported(bits_per_value));
         let values_per_block = 64 / bits_per_value;
         let overhead = 64 % bits_per_value;
         overhead as f32 / values_per_block as f32

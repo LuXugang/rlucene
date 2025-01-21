@@ -247,7 +247,7 @@ impl SparseFixedBitSet {
     }
 
     fn or_impl(&mut self, i4096: i32, index: i64, bits: &[u64], non_zero_long_count: i32) {
-        assert_eq!(index.count_ones(), non_zero_long_count as u32);
+        debug_assert_eq!(index.count_ones(), non_zero_long_count as u32);
         let current_index = self.indices[i4096 as usize];
         if current_index == 0 {
             // fast path: if we currently have nothing in the block, just copy the data

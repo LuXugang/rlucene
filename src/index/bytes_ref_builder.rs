@@ -115,7 +115,7 @@ impl BytesRefBuilder {
     /// - [`append`](BytesRefBuilder::append)
     pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: i32, len: i32) {
         self.grow(len);
-        assert_eq!(self.bytes_ref.offset, 0);
+        debug_assert_eq!(self.bytes_ref.offset, 0);
         self.bytes_ref.length = len;
         self.grow_no_copy(len);
         self.bytes_ref
@@ -149,7 +149,7 @@ impl BytesRefBuilder {
     /// Return a BytesRef that points to the internal content of this builder. Any update to
     ///  the content of this builder might invalidate the provided bytes_ref and vice versa.
     pub fn get(&mut self) -> &mut BytesRef {
-        assert_eq!(
+        debug_assert_eq!(
             self.bytes_ref.offset, 0,
             "Modifying the offset of the returned ref is illegal"
         );

@@ -63,7 +63,7 @@ impl GrowableWriter {
             return Ok(());
         }
         let bits_required = PackedInts::unsigned_bits_required(value);
-        assert!(bits_required > self.current.get_bits_per_value());
+        debug_assert!(bits_required > self.current.get_bits_per_value());
         let value_count = self.size();
         let mut next =
             PackedInts::get_mutable(value_count, bits_required, self.acceptable_overhead_ratio)?;

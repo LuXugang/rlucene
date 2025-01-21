@@ -183,7 +183,7 @@ where
             }
         }
 
-        assert_eq!(bits_left, { self.bits_per_value });
+        debug_assert_eq!(bits_left, { self.bits_per_value });
     }
 
     fn decode_u64_to_i32(

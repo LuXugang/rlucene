@@ -58,7 +58,7 @@ where
             bits_per_value > 0 && bits_per_value <= 64,
             "bitsPerValue must be > 0 and <= 64"
         );
-        assert!(
+        debug_assert!(
             is_supported(bits_per_value),
             "Unsupported bits_per_value: {}",
             bits_per_value
@@ -89,10 +89,10 @@ where
         mut off: i32,
         mut len: i32,
     ) -> Result<i32, LuceneError> {
-        assert!(len > 0, "len must be > 0 (got {})", len);
-        assert!(index < self.value_count, "index out of bounds");
+        debug_assert!(len > 0, "len must be > 0 (got {})", len);
+        debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
-        assert!(
+        debug_assert!(
             (off + len) as usize <= arr.len(),
             "not enough space in destination array"
         );
@@ -118,7 +118,7 @@ where
         }
 
         // Bulk get
-        assert_eq!(
+        debug_assert_eq!(
             index % values_per_block,
             0,
             "index not aligned with block boundary"
@@ -127,12 +127,12 @@ where
             Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
             self.bits_per_value,
         );
-        assert_eq!(
+        debug_assert_eq!(
             Decoder::long_block_count(decoder),
             1,
             "Decoder longBlockCount mismatch"
         );
-        assert_eq!(
+        debug_assert_eq!(
             Decoder::long_value_count(decoder),
             values_per_block,
             "Decoder longValueCount mismatch"
@@ -155,7 +155,7 @@ where
             Ok(index - original_index)
         } else {
             // No progress so far => already at a block boundary but no full block to get
-            assert_eq!(index, original_index, "Index mismatch");
+            debug_assert_eq!(index, original_index, "Index mismatch");
             self.default_get_bulk(index, arr, off, len)
         }
     }
@@ -300,10 +300,10 @@ where
         mut off: i32,
         mut len: i32,
     ) -> Result<i32, LuceneError> {
-        assert!(len > 0, "len must be > 0 (got {})", len);
-        assert!(index < self.value_count, "index out of bounds");
+        debug_assert!(len > 0, "len must be > 0 (got {})", len);
+        debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
-        assert!(
+        debug_assert!(
             (off + len) as usize <= arr.len(),
             "not enough space in source array"
         );
@@ -331,7 +331,7 @@ where
         }
 
         // Bulk set
-        assert_eq!(
+        debug_assert_eq!(
             index % values_per_block,
             0,
             "index not aligned with block boundary"
@@ -341,8 +341,8 @@ where
             Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
             self.bits_per_value,
         );
-        assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");
-        assert_eq!(
+        debug_assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");
+        debug_assert_eq!(
             Decoder::long_value_count(op),
             values_per_block,
             "longValueCount mismatch"
@@ -368,14 +368,14 @@ where
             Ok(index - original_index)
         } else {
             // No progress so far => already at a block boundary but no full block to set
-            assert_eq!(index, original_index, "Index mismatch");
+            debug_assert_eq!(index, original_index, "Index mismatch");
             self.default_set_bulk(index, arr, off, len)
         }
     }
 
     fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<(), LuceneError> {
-        assert!(from_index <= to_index, "from_index must be <= to_index");
-        assert!(
+        debug_assert!(from_index <= to_index, "from_index must be <= to_index");
+        debug_assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
             "Value requires more bits than allowed by bits_per_value"
         );
@@ -397,13 +397,13 @@ where
                 self.set(from_index, val)?;
                 from_index += 1;
             }
-            assert_eq!(from_index % values_per_block, 0);
+            debug_assert_eq!(from_index % values_per_block, 0);
         }
 
         // Bulk set of inner blocks
         let from_block = from_index / values_per_block;
         let to_block = to_index / values_per_block;
-        assert_eq!(from_block * values_per_block, from_index);
+        debug_assert_eq!(from_block * values_per_block, from_index);
 
         let mut block_value: u64 = 0;
         for i in 0..values_per_block {

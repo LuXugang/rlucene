@@ -234,7 +234,7 @@ where
             ));
         }
         let size = inner.size;
-        assert!(doc < self.max_doc, "doc must be less than max_doc");
+        debug_assert!(doc < self.max_doc, "doc must be less than max_doc");
         // TODO: if the Sorter interface changes to take long indexes, we can remove that limitation
         if size == i32::MAX {
             return Err(LuceneError::illegal_state(

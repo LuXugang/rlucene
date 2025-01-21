@@ -221,7 +221,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     ///
     /// Returns an `EOFError` if the reader has reached the end of the value stream.
     pub fn next_batch(&mut self, mut count: i32) -> Result<&LongsRef, LuceneError> {
-        assert!(count > 0);
+        debug_assert!(count > 0);
         if self.ord == self.value_count {
             return Err(LuceneError::eof("Reached end of value stream"));
         }

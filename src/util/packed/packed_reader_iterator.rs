@@ -53,7 +53,7 @@ where
         let bulk_operation = of(format, bits_per_value);
         let iterations = bulk_operation.compute_iterations(value_count, mem);
 
-        assert!(
+        debug_assert!(
             value_count == 0 || iterations > 0,
             "Value count must be 0 or iterations must be greater than 0."
         );
