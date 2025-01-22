@@ -166,8 +166,8 @@ impl BytesRefArray {
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
-    pub fn iterator(&mut self) -> impl BytesRefIterator + use<'_> {
-        self.iterator_with_state(SortState::new(None))
+    pub fn iterator(&self) -> IndexedBytesRefIteratorImpl {
+        self.iterator_with_state(Arc::from(SortState::new(None)))
     }
     /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
     /// The iterator provides access to all [`BytesRef`] instances appended so far.
@@ -182,7 +182,7 @@ impl BytesRefArray {
     /// [`IndexedBytesRefIterator`]
     ///
     /// [`BytesRef`]
-    pub fn iterator_with_state(&mut self, sort_state: SortState) -> IndexedBytesRefIteratorImpl {
+    pub fn iterator_with_state(&self, sort_state: Arc<SortState>) -> IndexedBytesRefIteratorImpl {
         IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
@@ -237,10 +237,11 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         comp: impl BytesRefComparator + Comparator<BytesRef>,
     ) -> Result<Self::Iter, LuceneError> {
         let ords = self.sort(comp, false)?;
-        Ok(self.iterator_with_state(ords))
+        Ok(self.iterator_with_state(Arc::from(ords)))
     }
 }
 
+#[derive(Clone)]
 pub struct SortState {
     pub indices: Option<Vec<i32>>,
 }
@@ -258,15 +259,15 @@ impl Accountable for SortState {
 pub struct IndexedBytesRefIteratorImpl<'a> {
     pos: i32,
     ord: i32,
-    sort_state: SortState,
+    sort_state: Arc<SortState>,
     spare: BytesRefBuilder,
     size: i32,
-    bytes_ref_array: &'a mut BytesRefArray,
+    bytes_ref_array: &'a BytesRefArray,
 }
 impl<'a> IndexedBytesRefIteratorImpl<'a> {
     fn new(
-        sort_state: SortState,
-        bytes_ref_array: &'a mut BytesRefArray,
+        sort_state: Arc<SortState>,
+        bytes_ref_array: &'a BytesRefArray,
     ) -> IndexedBytesRefIteratorImpl<'a> {
         Self {
             pos: -1,

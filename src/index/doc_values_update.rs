@@ -32,7 +32,7 @@ pub struct DocValuesUpdate {
     // since it's safe and most often used this way we save object creations.
     pub doc_id_up_to: i32,
     pub has_value: bool,
-    pub sub_update: DocValuesUpdateEnum,
+    pub(crate) sub_update: DocValuesUpdateEnum,
 }
 impl DocValuesUpdate {
     #[allow(unused)]
@@ -56,7 +56,7 @@ impl DocValuesUpdate {
             sub_update,
         }
     }
-    fn has_value(&self) -> bool {
+    pub(crate) fn has_value(&self) -> bool {
         self.has_value
     }
     fn size_in_bytes(&self) -> i32 {
@@ -100,6 +100,7 @@ pub trait DocValuesUpdateBase {
     fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef) -> Result<(), LuceneError> {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
+    fn has_value(&self) -> bool;
     #[cfg(feature = "test_only")]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum;
 }
@@ -113,7 +114,7 @@ impl BinaryDocValuesUpdate {
     pub fn new(value: Option<BytesRef>) -> Self {
         BinaryDocValuesUpdate { value }
     }
-    fn get_value(&self) -> BytesRef {
+    pub(crate) fn get_value(&self) -> BytesRef {
         debug_assert!(self.value.is_some());
         self.value.as_ref().unwrap().clone()
     }
@@ -124,6 +125,10 @@ impl DocValuesUpdateBase for BinaryDocValuesUpdate {
             Some(v) => v.to_string(),
             None => "null".to_string(),
         }
+    }
+
+    fn has_value(&self) -> bool {
+        self.value.is_some()
     }
 
     #[cfg(feature = "test_only")]
@@ -138,8 +143,11 @@ impl NumericDocValuesUpdate {
     pub fn new(value: Option<i64>) -> Self {
         NumericDocValuesUpdate { value }
     }
-    fn get_value(&self) -> i64 {
-        debug_assert!(self.value.is_some());
+    pub(crate) fn get_value(&self) -> i64 {
+        debug_assert!(
+            self.value.is_some(),
+            "getValue should only be called if this update has a value"
+        );
         *self.value.as_ref().unwrap()
     }
 }
@@ -150,6 +158,11 @@ impl DocValuesUpdateBase for NumericDocValuesUpdate {
             None => "null".to_string(),
         }
     }
+
+    fn has_value(&self) -> bool {
+        self.value.is_some()
+    }
+
     #[cfg(feature = "test_only")]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
         DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(self.value))
@@ -160,11 +173,35 @@ pub enum DocValuesUpdateEnum {
     Binary(BinaryDocValuesUpdate),
     Numeric(NumericDocValuesUpdate),
 }
+impl DocValuesUpdateEnum {
+    pub fn get_binary(&self) -> Option<&BinaryDocValuesUpdate> {
+        debug_assert!(matches!(self, DocValuesUpdateEnum::Binary(_)));
+        match self {
+            DocValuesUpdateEnum::Binary(ref b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub fn get_numeric(&self) -> Option<&NumericDocValuesUpdate> {
+        debug_assert!(matches!(self, DocValuesUpdateEnum::Numeric(_)));
+        match self {
+            DocValuesUpdateEnum::Numeric(ref n) => Some(n),
+            _ => None,
+        }
+    }
+}
 impl DocValuesUpdateBase for DocValuesUpdateEnum {
     fn value_to_string(&self) -> String {
         match self {
             DocValuesUpdateEnum::Binary(b) => b.value_to_string(),
             DocValuesUpdateEnum::Numeric(n) => n.value_to_string(),
+        }
+    }
+
+    fn has_value(&self) -> bool {
+        match self {
+            DocValuesUpdateEnum::Binary(b) => b.has_value(),
+            DocValuesUpdateEnum::Numeric(n) => n.has_value(),
         }
     }
 

@@ -189,7 +189,7 @@ fn test_stable_sort() -> Result<(), TestError> {
         } else {
             list.sort(Natural::default(), true)?
         };
-        let mut iter = list.iterator_with_state(sort_state);
+        let mut iter = list.iterator_with_state(Arc::new(sort_state));
         let mut i = 0;
         let mut last_ord = -1;
         let mut last: Option<BytesRef> = None;
