@@ -486,7 +486,8 @@ impl Bits for FixedBitSet {
 
 impl Accountable for FixedBitSet {
     fn ram_bytes_used(&self) -> i64 {
-        todo!()
+        // TODO
+        0
     }
 }
 

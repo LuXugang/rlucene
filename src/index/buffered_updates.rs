@@ -14,3 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::accountable::Accountable;
+use std::sync::atomic::AtomicI32;
+
+//TODO
+#[allow(unused)]
+const BYTES_PER_DEL_QUERY: i64 = 0;
+
+/// Holds buffered deletes and updates, including deletions by docID, term, or query for a single segment.
+///
+/// This structure is used to manage buffered pending deletes and updates that apply to the
+/// segment to be flushed. Once this deletes and updates are pushed (during a flush in
+/// `DocumentsWriter`), they are converted into a `FrozenBufferedUpdates` instance and
+/// forwarded to the `BufferedUpdatesStream`.
+///
+/// # Note
+/// - Instances of this structure are accessed either via a private instance on `DocumentWriterPerThread`,
+///   or through synchronized code in the `DocumentsWriterDeleteQueue`.
+pub struct BufferedUpdates {
+    segment_name: String,
+    num_field_updates: AtomicI32,
+}
+impl BufferedUpdates {
+    pub const MAX_INT: i32 = i32::MAX;
+    #[allow(unused)]
+    pub fn new(_segment_name: &str) -> BufferedUpdates {
+        todo!()
+    }
+}
+
+impl Accountable for BufferedUpdates {
+    fn ram_bytes_used(&self) -> i64 {
+        todo!()
+    }
+}
+#[allow(unused)]
+struct DeletedTerms {}

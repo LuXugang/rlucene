@@ -45,9 +45,10 @@ pub struct BytesRefArray {
 }
 impl BytesRefArray {
     pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Result<BytesRefArray, LuceneError> {
-        let pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(
+        let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(
             byte_used.clone(),
         )));
+        pool.next_buffer()?;
         let offsets = Vec::new();
         byte_used
             .lock()

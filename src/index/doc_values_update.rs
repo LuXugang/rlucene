@@ -22,6 +22,7 @@ use crate::util::error::lucene_error::LuceneError;
 use std::fmt::Display;
 
 /// An in-place update to a DocValues field.
+#[derive(Clone)]
 pub struct DocValuesUpdate {
     #[allow(unused)]
     pub doc_values_type: DocValuesType,
@@ -32,7 +33,7 @@ pub struct DocValuesUpdate {
     // since it's safe and most often used this way we save object creations.
     pub doc_id_up_to: i32,
     pub has_value: bool,
-    pub(crate) sub_update: DocValuesUpdateEnum,
+    pub sub_update: DocValuesUpdateEnum,
 }
 impl DocValuesUpdate {
     #[allow(unused)]
@@ -42,11 +43,10 @@ impl DocValuesUpdate {
         term: Term,
         field: String,
         doc_id_up_to: i32,
-        has_value: bool,
         sub_update: DocValuesUpdateEnum,
     ) -> Self {
         debug_assert!(doc_id_up_to >= 0, "{} must be >= 0", doc_id_up_to);
-
+        let has_value = sub_update.has_value();
         DocValuesUpdate {
             doc_values_type,
             term,
@@ -63,7 +63,7 @@ impl DocValuesUpdate {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     #[cfg(feature = "test_only")]
-    fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
+    pub fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
         if doc_id_upto == self.doc_id_up_to {
             return None;
         }
@@ -73,7 +73,6 @@ impl DocValuesUpdate {
             self.term.clone(),
             self.field.clone(),
             doc_id_upto,
-            self.has_value,
             sub_update,
         ))
     }
@@ -105,6 +104,7 @@ pub trait DocValuesUpdateBase {
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum;
 }
 /// An in-place update to a binary DocValues field.
+#[derive(Clone)]
 pub struct BinaryDocValuesUpdate {
     value: Option<BytesRef>,
 }
@@ -114,7 +114,7 @@ impl BinaryDocValuesUpdate {
     pub fn new(value: Option<BytesRef>) -> Self {
         BinaryDocValuesUpdate { value }
     }
-    pub(crate) fn get_value(&self) -> BytesRef {
+    pub fn get_value(&self) -> BytesRef {
         debug_assert!(self.value.is_some());
         self.value.as_ref().unwrap().clone()
     }
@@ -136,6 +136,7 @@ impl DocValuesUpdateBase for BinaryDocValuesUpdate {
         DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(self.value.clone()))
     }
 }
+#[derive(Clone)]
 pub struct NumericDocValuesUpdate {
     value: Option<i64>,
 }
@@ -143,7 +144,7 @@ impl NumericDocValuesUpdate {
     pub fn new(value: Option<i64>) -> Self {
         NumericDocValuesUpdate { value }
     }
-    pub(crate) fn get_value(&self) -> i64 {
+    pub fn get_value(&self) -> i64 {
         debug_assert!(
             self.value.is_some(),
             "getValue should only be called if this update has a value"
@@ -169,6 +170,7 @@ impl DocValuesUpdateBase for NumericDocValuesUpdate {
     }
 }
 
+#[derive(Clone)]
 pub enum DocValuesUpdateEnum {
     Binary(BinaryDocValuesUpdate),
     Numeric(NumericDocValuesUpdate),

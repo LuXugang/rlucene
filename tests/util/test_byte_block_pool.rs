@@ -147,7 +147,7 @@ fn test_large_random_block() {
     let mut random = my_random("test_large_random_block".to_string());
     let byte_used = Arc::new(Mutex::new(new_counter(false)));
     let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
-    pool.next_buffer();
+    let _ = pool.next_buffer();
 
     let mut total_bytes = 0;
     let iter = 100;

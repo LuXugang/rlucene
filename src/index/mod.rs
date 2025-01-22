@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-mod buffered_updates;
+pub mod buffered_updates;
 pub mod bytes_ref;
 pub use bytes_ref::*;
 pub mod bytes_ref_builder;
@@ -25,10 +25,10 @@ pub mod binary_doc_values_field_updates;
 pub mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_type;
-mod doc_values_update;
+pub mod doc_values_update;
 pub mod docs_with_field_set;
 mod documents_writer_delete_queue;
-mod field_updates_buffer;
+pub mod field_updates_buffer;
 mod index_commit;
 pub mod index_deletion_policy;
 pub mod index_file_names;

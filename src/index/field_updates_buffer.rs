@@ -14,22 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_values_update::{
-    DocValuesUpdate, DocValuesUpdateBase,
-};
+use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::term::Term;
 use crate::index::BytesRef;
 use crate::util::accountable::Accountable;
+use crate::util::bit_set::BitSet;
 use crate::util::bit_util::BitUtil;
 use crate::util::bits::{Bits, MatchAllBits};
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{
-    BytesRefArray, Counter, CounterEnum, IndexedBytesRefIterator, IndexedBytesRefIteratorImpl,
-    NaturalOrder, SortState, SortableBytesRefArray,
+    BytesRefArray, Counter, CounterEnum, IndexedBytesRefIteratorImpl, NaturalOrder, SortState,
+    SortableBytesRefArray,
 };
-use std::cmp::Ordering;
+use std::cmp::{max, min, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// This struct efficiently buffers numeric and binary field updates and stores terms, values, and
@@ -43,6 +42,7 @@ use std::sync::{Arc, Mutex};
 ///
 /// Along the same lines, this implementation optimizes the case when all updates have a value.
 /// Lastly, if all updates share the same value for a numeric field, we only store the value once.
+#[allow(unused)]
 pub struct FieldUpdatesBuffer {
     bytes_used: Arc<Mutex<CounterEnum>>,
     num_updates: i32,
@@ -65,11 +65,9 @@ pub struct FieldUpdatesBuffer {
 }
 
 impl FieldUpdatesBuffer {
-    #[allow(unused)]
     const SELF_SHALLOW_SIZE: i64 = 0;
-    #[allow(unused)]
     const STRING_SHALLOW_SIZE: i64 = 0;
-    fn new(
+    pub fn new(
         bytes_used: Arc<Mutex<CounterEnum>>,
         initial_value: DocValuesUpdate,
         doc_upto: i32,
@@ -112,7 +110,7 @@ impl FieldUpdatesBuffer {
         buffer.term_values.append(&initial_value.term.bytes)?;
         Ok(buffer)
     }
-    fn from_numeric_update(
+    pub fn from_numeric_update(
         bytes_used: Arc<Mutex<CounterEnum>>,
         initial_value: DocValuesUpdate,
         doc_up_to: i32,
@@ -126,7 +124,7 @@ impl FieldUpdatesBuffer {
             let value = numeric.get_value();
             (vec![value], value, value)
         } else {
-            (vec![0], i64::MAX, i64::MIN)
+            (vec![0], i64::MIN, i64::MAX)
         };
         let mut buffer = Self::new(bytes_used, initial_value, doc_up_to, true)?;
         buffer.numeric_values = Some(numeric_values);
@@ -142,7 +140,7 @@ impl FieldUpdatesBuffer {
         Ok(buffer)
     }
 
-    fn from_binary_update(
+    pub fn from_binary_update(
         bytes_used: Arc<Mutex<CounterEnum>>,
         initial_value: DocValuesUpdate,
         doc_up_to: i32,
@@ -152,7 +150,11 @@ impl FieldUpdatesBuffer {
             .get_binary()
             .ok_or_else(|| LuceneError::illegal_argument("Missing binary value".to_string()))?;
         let has_values = binary.has_value();
-        let value = binary.get_value();
+        let value = if has_values {
+            binary.get_value()
+        } else {
+            BytesRef::default()
+        };
         let mut buffer = Self::new(bytes_used, initial_value, doc_up_to, false)?;
         if has_values {
             debug_assert!(buffer.byte_values.is_some());
@@ -233,7 +235,7 @@ impl FieldUpdatesBuffer {
                 self.bytes_used
                     .lock()
                     .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                    .add_and_get(self.has_values.as_ref().unwrap().length() as i64);
+                    .add_and_get(new_bitset.ram_bytes_used());
                 self.has_values = Some(new_bitset);
             } else if self.has_values.as_ref().unwrap().length() as usize <= ord {
                 let bitset = self.has_values.as_mut().unwrap();
@@ -243,6 +245,9 @@ impl FieldUpdatesBuffer {
                     .lock()
                     .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
                     .add_and_get(0);
+            }
+            if has_value {
+                self.has_values.as_mut().unwrap().set(ord as i32);
             }
         }
         Ok(())
@@ -257,8 +262,8 @@ impl FieldUpdatesBuffer {
         let ord = self.append(&term)?;
         let field = term.field.clone();
         self.add(field, doc_up_to, ord as usize, true)?;
-        self.min_numeric = self.min_numeric.min(value);
-        self.max_numeric = self.max_numeric.max(value);
+        self.min_numeric = min(self.min_numeric, value);
+        self.max_numeric = max(self.max_numeric, value);
         let numeric_values = self.numeric_values.as_mut().unwrap();
         if numeric_values[0] != value || numeric_values.len() != 1 {
             if numeric_values.len() <= ord as usize {
@@ -354,13 +359,20 @@ impl FieldUpdatesBuffer {
         );
         true
     }
+    pub fn iterator(&self) -> Result<BufferedUpdateIterator, LuceneError> {
+        if self.finished == false {
+            return Err(LuceneError::illegal_state(
+                "Buffer was not finished".to_string(),
+            ));
+        }
+        Ok(BufferedUpdateIterator::new(self))
+    }
     pub fn is_numeric(&self) -> bool {
         debug_assert!(self.is_numeric || self.byte_values.is_some());
         self.is_numeric
     }
     pub fn has_single_value(&self) -> bool {
         // we only do this optimization for numerics so far.
-        debug_assert!(self.numeric_values.is_some());
         self.is_numeric && self.numeric_values.as_ref().unwrap().len() == 1
     }
     pub fn get_numeric_value(&self, idx: i32) -> i64 {
@@ -390,7 +402,7 @@ pub struct BufferedUpdateIterator<'a> {
     look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
     byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
     buffered_update: BufferedUpdate,
-    updates_with_value: Option<BitsEnum>,
+    updates_with_value: Option<BitsEnum<'a>>,
     fields_length: i32,
     docs_upto_length: i32,
     numeric_values_length: i32,
@@ -398,10 +410,7 @@ pub struct BufferedUpdateIterator<'a> {
 }
 
 impl<'a> BufferedUpdateIterator<'a> {
-    pub fn new(
-        field_updates_buffer: &'a FieldUpdatesBuffer,
-        has_values: Option<FixedBitSet>,
-    ) -> Self {
+    pub fn new(field_updates_buffer: &'a FieldUpdatesBuffer) -> Self {
         let term_values_iterator = field_updates_buffer
             .term_values
             .iterator_with_state(field_updates_buffer.term_sort_state.clone());
@@ -426,7 +435,7 @@ impl<'a> BufferedUpdateIterator<'a> {
                     .iterator(),
             )
         };
-        let updates_with_value = if let Some(item) = has_values {
+        let updates_with_value = if let Some(item) = &field_updates_buffer.has_values {
             BitsEnum::Fixed(item)
         } else {
             BitsEnum::All(MatchAllBits::new(field_updates_buffer.num_updates))
@@ -462,7 +471,7 @@ impl<'a> BufferedUpdateIterator<'a> {
     }
     /// Moves to the next BufferedUpdate or return null if all updates are consumed. The returned
     /// instance is a shared instance and must be fully consumed before the next call to this method.
-    pub fn next(&mut self) -> Result<Option<BufferedUpdate>, LuceneError> {
+    pub fn next_value(&mut self) -> Result<Option<BufferedUpdate>, LuceneError> {
         let mut buffered_update = BufferedUpdate::default();
         let next_term = self.next_term()?;
 
@@ -566,11 +575,11 @@ impl BufferedUpdate {
         }
     }
 }
-pub enum BitsEnum {
+pub enum BitsEnum<'a> {
     All(MatchAllBits),
-    Fixed(FixedBitSet),
+    Fixed(&'a FixedBitSet),
 }
-impl BitsEnum {
+impl BitsEnum<'_> {
     fn get(&self, idx: i32) -> bool {
         match self {
             BitsEnum::All(all) => all.get(idx),
