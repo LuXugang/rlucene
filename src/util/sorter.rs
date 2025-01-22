@@ -35,28 +35,38 @@ pub trait Sorter {
     const INSERTION_SORT_THRESHOLD: i32 = 16;
     /// Compare entries found in slots i and j
     fn compare(&mut self, _i: i32, _j: i32) -> Result<i32, LuceneError> {
-        unimplemented!("compare() must be implemented if it need to be used")
+        Err(LuceneError::illegal_state(
+            "compare() must be implemented if it need to be used",
+        ))
     }
 
     /// Swap values at slots <code>i</code> and `j`.
     fn swap(&mut self, _i: i32, _j: i32) -> Result<(), LuceneError> {
-        unimplemented!("swap() must be implemented if it need to be used")
+        Err(LuceneError::illegal_state(
+            "swap() must be implemented if it need to be used",
+        ))
     }
 
     /// Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
     fn set_pivot(&mut self, _i: i32) -> Result<(), LuceneError> {
-        unimplemented!("set_pivot() must be implemented if it need to be used")
+        Err(LuceneError::illegal_state(
+            "set_pivot() must be implemented if it need to be used",
+        ))
     }
 
     /// Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
     /// compare(i, j).
     fn compare_pivot(&mut self, _i: i32) -> Result<i32, LuceneError> {
-        unimplemented!("compare_pivot() must be implemented if it need to be used")
+        Err(LuceneError::illegal_state(
+            "compare_pivot() must be implemented if it need to be used",
+        ))
     }
 
     /// Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
     fn sort(&mut self, _from: i32, _to: i32) -> Result<(), LuceneError> {
-        unimplemented!("sort() must be implemented if it need to be used")
+        Err(LuceneError::illegal_state(
+            "sort() must be implemented if it need to be used",
+        ))
     }
 
     fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) -> Result<(), LuceneError> {
