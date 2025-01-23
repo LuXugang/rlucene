@@ -62,7 +62,7 @@ fn test_empty() -> Result<(), TestError> {
 fn test_one_value() -> Result<(), TestError> {
     let mut random = my_random("test_one_value".to_string());
 
-    let bytes = BytesRef::new_from_string(&TestUtil::random_simple_string(&mut random));
+    let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
     let mut refs = vec![bytes];
     test(&mut refs, 1, &mut random)
 }
@@ -70,8 +70,8 @@ fn test_one_value() -> Result<(), TestError> {
 fn test_two_values() -> Result<(), TestError> {
     let mut random = my_random("test_two_values".to_string());
 
-    let bytes1 = BytesRef::new_from_string(&TestUtil::random_simple_string(&mut random));
-    let bytes2 = BytesRef::new_from_string(&TestUtil::random_simple_string(&mut random));
+    let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+    let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
     let mut refs = vec![bytes1, bytes2];
 
     test(&mut refs, 2, &mut random)
@@ -92,7 +92,7 @@ fn test_random_impl(
 
         b[..common_prefix_len].copy_from_slice(&common_prefix);
 
-        bytes.push(BytesRef::new_from_bytes(b));
+        bytes.push(BytesRef::from_bytes(b));
     }
     test(&mut bytes, len, random)
 }
@@ -154,7 +154,7 @@ fn test_random2() -> Result<(), TestError> {
         let bytes: Vec<u8> = (0..length)
             .map(|_| random.gen_range(0..letter_count) as u8)
             .collect();
-        let br = BytesRef::new_from_bytes(bytes);
+        let br = BytesRef::from_bytes(bytes);
         substrings_set.insert(br);
     }
 

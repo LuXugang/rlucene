@@ -35,21 +35,21 @@ impl Term {
     }
 
     /// Constructs a Term with the given field and the bytes from a builder.
-    pub fn new_from_builder(fld: String, mut bytes_builder: BytesRefBuilder) -> Self {
+    pub fn from_bytes_ref_builder(fld: String, mut bytes_builder: BytesRefBuilder) -> Self {
         Self::new(fld, bytes_builder.get_bytes_ref())
     }
 
     /// Constructs a Term with the given field and text.
-    /// that accept a Term parameter.
-    pub fn new_from_text(fld: String, text: &str) -> Self {
-        Self::new(fld, BytesRef::new_from_string(text))
+    /// That accepts a Term parameter.
+    pub fn from_text(fld: String, text: &str) -> Self {
+        Self::new(fld, BytesRef::from_string(text))
     }
 
     /// Constructs a Term with the given field and empty text. This serves two purposes: 1) reuse of a
     /// Term with the same field. 2) pattern for a query.
     ///
     /// Fld field's name
-    pub fn new_from_empty(fld: String) -> Self {
+    pub fn from_empty(fld: String) -> Self {
         Term::new(fld, BytesRef::default())
     }
     /// Returns the field of this term. The field indicates the part of a document which this term came

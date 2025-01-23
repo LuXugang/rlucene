@@ -52,14 +52,14 @@ impl BytesRef {
             length: 0,
         }
     }
-    pub fn new_from_vec(bytes: Vec<u8>, offset: i32, length: i32) -> BytesRef {
+    pub fn from_vec(bytes: Vec<u8>, offset: i32, length: i32) -> BytesRef {
         BytesRef {
             bytes,
             offset,
             length,
         }
     }
-    pub fn new_from_bytes(bytes: Vec<u8>) -> BytesRef {
+    pub fn from_bytes(bytes: Vec<u8>) -> BytesRef {
         debug_assert!(bytes.len() <= i32::MAX as usize);
         let length = bytes.len() as i32;
         BytesRef {
@@ -68,14 +68,14 @@ impl BytesRef {
             length,
         }
     }
-    pub fn new_with_capacity(capacity: i32) -> BytesRef {
+    pub fn with_capacity(capacity: i32) -> BytesRef {
         BytesRef {
             bytes: Vec::with_capacity(capacity as usize),
             offset: 0,
             length: 0,
         }
     }
-    pub fn new_from_string(s: &str) -> BytesRef {
+    pub fn from_string(s: &str) -> BytesRef {
         debug_assert!(s.len() <= i32::MAX as usize);
         BytesRef {
             bytes: s.as_bytes().to_vec(),
@@ -117,7 +117,7 @@ impl BytesRef {
     ///
     /// The returned `BytesRef` will have a length equal to `other.length` and an offset of zero.
     pub fn deep_copy_of(other: &BytesRef) -> BytesRef {
-        Self::new_from_vec(other.bytes.clone(), 0, other.length)
+        Self::from_vec(other.bytes.clone(), 0, other.length)
     }
     /// Performs internal consistency checks. Always returns `true` (or throws `IllegalStateError`).
     pub fn is_valid(&self) -> Result<bool, LuceneError> {

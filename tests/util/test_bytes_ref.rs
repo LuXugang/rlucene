@@ -33,13 +33,13 @@ fn test_empty() {
 #[test]
 fn test_from_bytes() {
     let mut bytes: Vec<u8> = "abcd".as_bytes().to_vec();
-    let b = BytesRef::new_from_bytes(bytes.clone());
+    let b = BytesRef::from_bytes(bytes.clone());
     assert_eq!(bytes, b.bytes);
     assert_eq!(b.length, 4);
     assert_eq!(b.offset, 0);
 
     bytes = "abcd".as_bytes().to_vec();
-    let b2 = BytesRef::new_from_vec(bytes, 1, 3);
+    let b2 = BytesRef::from_vec(bytes, 1, 3);
     let b2_value = b2.utf8_to_string();
     assert!(b2_value.is_ok());
     assert_eq!("bcd", b2_value.unwrap());
@@ -56,14 +56,14 @@ fn test_from_chars() {
             .take(length)
             .map(char::from)
             .collect::<String>();
-        let s2 = BytesRef::new_from_string(&s).utf8_to_string().unwrap();
+        let s2 = BytesRef::from_string(&s).utf8_to_string().unwrap();
         assert_eq!(s, s2);
     }
 }
 
 #[test]
 fn test_deep_copy() {
-    let from = BytesRef::new_from_bytes("abcd".as_bytes().to_vec());
+    let from = BytesRef::from_bytes("abcd".as_bytes().to_vec());
     let copy = BytesRef::deep_copy_of(&from);
     let from_ref = &from;
     assert!(from.eq(&copy));

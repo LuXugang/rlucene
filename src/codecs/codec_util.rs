@@ -75,7 +75,7 @@ impl CodecUtil {
         codec: &str,
         version: i32,
     ) -> Result<(), LuceneError> {
-        let bytes = BytesRef::new_from_string(codec);
+        let bytes = BytesRef::from_string(codec);
         if bytes.length as usize != codec.len() || bytes.length >= 128 {
             return Err(LuceneError::illegal_argument(format!(
                 "codec must be simple ASCII, less than 128 characters in length got {}",
@@ -136,7 +136,7 @@ impl CodecUtil {
         }
         Self::write_header(out, codec, version)?;
         out.write_bytes_range(id, 0, StringHelper::ID_LENGTH)?;
-        let suffix_bytes = BytesRef::new_from_string(suffix);
+        let suffix_bytes = BytesRef::from_string(suffix);
         if !suffix.is_ascii() || suffix_bytes.length >= 256 {
             return Err(LuceneError::illegal_argument(format!(
                 "suffix must be simple ASCII, less than 256 characters in length got {}",

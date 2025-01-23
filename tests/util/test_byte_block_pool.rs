@@ -89,7 +89,7 @@ fn test_read_and_write() -> Result<(), LuceneError> {
                 .map(char::from)
                 .collect::<String>();
             let value_copy = value.clone();
-            list.push(BytesRef::new_from_string(&value));
+            list.push(BytesRef::from_string(&value));
             bytes_ref_builder.copy_chars_with_string(&value_copy);
             pool.append_bytes_ref(bytes_ref_builder.get())?;
         }
@@ -165,7 +165,7 @@ fn test_large_random_block() -> Result<(), TestError> {
         random.fill_bytes(&mut bytes);
         let bytes_clone = bytes.clone();
         iterms.push(bytes);
-        pool.append_bytes_ref(&BytesRef::new_from_bytes(bytes_clone))?;
+        pool.append_bytes_ref(&BytesRef::from_bytes(bytes_clone))?;
         total_bytes += size;
 
         // make sure we report the correct position

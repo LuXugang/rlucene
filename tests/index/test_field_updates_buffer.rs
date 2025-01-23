@@ -39,23 +39,19 @@ pub fn test_update_share_values_basic() -> Result<(), TestError> {
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let update = DocValuesUpdate::new(
         DocValuesType::Numeric,
-        Term::new_from_text("id".to_string(), "1"),
+        Term::from_text("id".to_string(), "1"),
         "age".to_string(),
         BufferedUpdates::MAX_INT,
         DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(6))),
     );
     let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), update, 15)?;
-    buffer.add_update_with_long(Term::new_from_text("id".to_string(), "10"), 6, 15)?;
+    buffer.add_update_with_long(Term::from_text("id".to_string(), "10"), 6, 15)?;
     assert!(buffer.has_single_value());
-    buffer.add_update_with_long(Term::new_from_text("id".to_string(), "8"), 12, 15)?;
+    buffer.add_update_with_long(Term::from_text("id".to_string(), "8"), 12, 15)?;
     assert!(!buffer.has_single_value());
-    buffer.add_update_with_long(
-        Term::new_from_text("some_other_field".to_string(), "8"),
-        13,
-        17,
-    )?;
+    buffer.add_update_with_long(Term::from_text("some_other_field".to_string(), "8"), 13, 17)?;
     assert!(!buffer.has_single_value());
-    buffer.add_update_with_long(Term::new_from_text("id".to_string(), "8"), 12, 16)?;
+    buffer.add_update_with_long(Term::from_text("id".to_string(), "8"), 12, 16)?;
     assert!(!buffer.has_single_value());
     assert!(buffer.is_numeric());
     assert_eq!(buffer.get_max_numeric(), 13);
@@ -93,33 +89,33 @@ fn test_update_share_values() -> Result<(), TestError> {
         DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(int_value as i64)));
     let update = DocValuesUpdate::new(
         DocValuesType::Numeric,
-        Term::new_from_text("id".to_string(), "0"),
+        Term::from_text("id".to_string(), "0"),
         "enabled".to_string(),
         BufferedUpdates::MAX_INT,
         sub_update,
     );
     let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), update, i32::MAX)?;
     buffer.add_update_with_long(
-        Term::new_from_text("id".to_string(), "1"),
+        Term::from_text("id".to_string(), "1"),
         int_value as i64,
         i32::MAX,
     )?;
     buffer.add_update_with_long(
-        Term::new_from_text("id".to_string(), "2"),
+        Term::from_text("id".to_string(), "2"),
         int_value as i64,
         i32::MAX,
     )?;
     if value_for_three {
         buffer.add_update_with_long(
-            Term::new_from_text("id".to_string(), "3"),
+            Term::from_text("id".to_string(), "3"),
             int_value as i64,
             i32::MAX,
         )?;
     } else {
-        buffer.add_no_value(Term::new_from_text("id".to_string(), "3"), i32::MAX)?;
+        buffer.add_no_value(Term::from_text("id".to_string(), "3"), i32::MAX)?;
     }
     buffer.add_update_with_long(
-        Term::new_from_text("id".to_string(), "4"),
+        Term::from_text("id".to_string(), "4"),
         int_value as i64,
         i32::MAX,
     )?;
@@ -152,39 +148,39 @@ pub fn test_update_share_values_binary() -> Result<(), TestError> {
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let value_for_three = random.gen_bool(0.5);
     let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
-        BytesRef::new_from_string(""),
+        BytesRef::from_string(""),
     )));
     let update = DocValuesUpdate::new(
         DocValuesType::Binary,
-        Term::new_from_text("id".to_string(), "0"),
+        Term::from_text("id".to_string(), "0"),
         "enabled".to_string(),
         BufferedUpdates::MAX_INT,
         sub_update,
     );
     let mut buffer = FieldUpdatesBuffer::from_binary_update(counter.clone(), update, i32::MAX)?;
     buffer.add_update_with_bytes_ref(
-        Term::new_from_text("id".to_string(), "1"),
-        &BytesRef::new_from_string(""),
+        Term::from_text("id".to_string(), "1"),
+        &BytesRef::from_string(""),
         i32::MAX,
     )?;
     buffer.add_update_with_bytes_ref(
-        Term::new_from_text("id".to_string(), "2"),
-        &BytesRef::new_from_string(""),
+        Term::from_text("id".to_string(), "2"),
+        &BytesRef::from_string(""),
         i32::MAX,
     )?;
     if value_for_three {
         buffer.add_update_with_bytes_ref(
-            Term::new_from_text("id".to_string(), "3"),
-            &BytesRef::new_from_string(""),
+            Term::from_text("id".to_string(), "3"),
+            &BytesRef::from_string(""),
             i32::MAX,
         )?;
     } else {
-        buffer.add_no_value(Term::new_from_text("id".to_string(), "3"), i32::MAX)?;
+        buffer.add_no_value(Term::from_text("id".to_string(), "3"), i32::MAX)?;
     }
 
     buffer.add_update_with_bytes_ref(
-        Term::new_from_text("id".to_string(), "4"),
-        &BytesRef::new_from_string(""),
+        Term::from_text("id".to_string(), "4"),
+        &BytesRef::from_string(""),
         i32::MAX,
     )?;
     buffer.finish()?;
@@ -200,7 +196,7 @@ pub fn test_update_share_values_binary() -> Result<(), TestError> {
         assert_eq!(has_value, value.has_value);
 
         if has_value {
-            assert_eq!(BytesRef::new_from_string(""), value.binary_value.unwrap());
+            assert_eq!(BytesRef::from_string(""), value.binary_value.unwrap());
         } else {
             assert!(value.binary_value.is_none());
         }
@@ -224,7 +220,7 @@ pub fn get_random_binary_update(random: &mut StdRng, doc_id_up_to: i32) -> DocVa
     let value = if rarely(random) {
         None
     } else {
-        Some(BytesRef::new_from_string(
+        Some(BytesRef::from_string(
             &TestUtil::random_realistic_unicode_string(random),
         ))
     };
@@ -232,7 +228,7 @@ pub fn get_random_binary_update(random: &mut StdRng, doc_id_up_to: i32) -> DocVa
     let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(value));
     let mut update = DocValuesUpdate::new(
         DocValuesType::Binary,
-        Term::new_from_text(term_field.to_string(), &doc_id),
+        Term::from_text(term_field.to_string(), &doc_id),
         "enabled".to_string(),
         BufferedUpdates::MAX_INT,
         sub_update,
@@ -257,7 +253,7 @@ pub fn get_random_numeric_update(random: &mut StdRng, doc_id_up_to: i32) -> DocV
     let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(value));
     let mut update = DocValuesUpdate::new(
         DocValuesType::Numeric,
-        Term::new_from_text(term_field.to_string(), &doc_id),
+        Term::from_text(term_field.to_string(), &doc_id),
         "numeric".to_string(),
         BufferedUpdates::MAX_INT,
         sub_update,
@@ -381,7 +377,7 @@ pub fn test_numeric_random() -> Result<(), TestError> {
 pub fn test_no_numeric_value() -> Result<(), TestError> {
     let update = DocValuesUpdate::new(
         DocValuesType::Numeric,
-        Term::new_from_text("id".to_string(), "1"),
+        Term::from_text("id".to_string(), "1"),
         "age".to_string(),
         BufferedUpdates::MAX_INT,
         DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(None)),
@@ -408,7 +404,7 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), TestError> {
 
     let mut random_update = DocValuesUpdate::new(
         DocValuesType::Numeric,
-        Term::new_from_text(
+        Term::from_text(
             term_field.to_string(),
             &random.gen_range(0..1000).to_string(),
         ),
@@ -427,7 +423,7 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), TestError> {
     for i in 0..num_updates {
         random_update = DocValuesUpdate::new(
             DocValuesType::Numeric,
-            Term::new_from_text(
+            Term::from_text(
                 term_field.to_string(),
                 &random.gen_range(0..1000).to_string(),
             ),

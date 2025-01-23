@@ -33,7 +33,7 @@ pub struct TestNumericUtils;
 #[test]
 fn test_long_conversion_and_ordering() -> Result<(), TestError> {
     let mut previous: Option<BytesRef> = None;
-    let mut current = BytesRef::new_from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
+    let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
     for value in -100_000..100_000 {
         NumericUtils::long_to_sortable_bytes(
             value,
@@ -46,7 +46,7 @@ fn test_long_conversion_and_ordering() -> Result<(), TestError> {
                 "Current value's encoded bytes are not larger than previous"
             );
         } else {
-            previous = Some(BytesRef::new_from_bytes(vec![0u8; BitUtil::LONG_BYTES]));
+            previous = Some(BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]));
         }
         let decoded_value =
             NumericUtils::sortable_bytes_to_long(current.bytes.as_slice(), current.offset as usize);
@@ -62,7 +62,7 @@ fn test_long_conversion_and_ordering() -> Result<(), TestError> {
 #[test]
 fn test_int_conversion_and_ordering() -> Result<(), TestError> {
     let mut previous: Option<BytesRef> = None;
-    let mut current = BytesRef::new_from_bytes(vec![0u8; BitUtil::INT_BYTES]);
+    let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
 
     for value in -100_000..100_000 {
         NumericUtils::int_to_sortable_bytes(value, current.bytes.as_mut_slice(), 0);
@@ -81,7 +81,7 @@ fn test_int_conversion_and_ordering() -> Result<(), TestError> {
             "Forward and backward conversion failed for value: {}",
             value
         );
-        previous = Some(BytesRef::new_from_bytes(current.bytes.clone()));
+        previous = Some(BytesRef::from_bytes(current.bytes.clone()));
     }
     Ok(())
 }
@@ -93,7 +93,7 @@ fn test_big_int_conversion_and_ordering() -> Result<(), TestError> {
     // Generate a random size between 3 and 16
     let size = random.gen_range(3..=16);
     let mut previous: Option<BytesRef> = None;
-    let mut current = BytesRef::new_from_bytes(vec![0u8; size]);
+    let mut current = BytesRef::from_bytes(vec![0u8; size]);
 
     for value in -100_000..100_000 {
         let big_int = BigInt::from_i64(value).unwrap();
@@ -119,7 +119,7 @@ fn test_big_int_conversion_and_ordering() -> Result<(), TestError> {
             "Forward and backward conversion failed for value: {}",
             big_int
         );
-        previous = Some(BytesRef::new_from_bytes(current.bytes.clone()));
+        previous = Some(BytesRef::from_bytes(current.bytes.clone()));
     }
 
     Ok(())
@@ -150,7 +150,7 @@ fn test_long_special_values() -> Result<(), TestError> {
 
     let mut encoded: Vec<BytesRef> = values
         .iter()
-        .map(|_| BytesRef::new_from_bytes(vec![0u8; BitUtil::LONG_BYTES]))
+        .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]))
         .collect();
 
     for (i, &value) in values.iter().enumerate() {
@@ -205,7 +205,7 @@ fn test_int_special_values() -> Result<(), TestError> {
 
     let mut encoded: Vec<BytesRef> = values
         .iter()
-        .map(|_| BytesRef::new_from_bytes(vec![0u8; BitUtil::INT_BYTES]))
+        .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]))
         .collect();
 
     for (i, &value) in values.iter().enumerate() {
@@ -258,7 +258,7 @@ fn test_big_int_special_values() -> Result<(), TestError> {
     ];
     let mut encoded: Vec<BytesRef> = values
         .iter()
-        .map(|_| BytesRef::new_from_bytes(vec![0u8; BitUtil::INT_BYTES]))
+        .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]))
         .collect();
     for (i, value) in values.iter().enumerate() {
         let offset = encoded[i].offset as usize;
@@ -685,8 +685,8 @@ fn test_big_ints_round_trip() -> Result<(), TestError> {
 #[test]
 fn test_ints_compare() -> Result<(), TestError> {
     let mut random = my_random("test_ints_compare".to_string());
-    let mut left = BytesRef::new_from_bytes(vec![0u8; BitUtil::INT_BYTES]);
-    let mut right = BytesRef::new_from_bytes(vec![0u8; BitUtil::INT_BYTES]);
+    let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
+    let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
 
     for _ in 0..10_000 {
         let left_value = random.gen::<i32>();
@@ -716,8 +716,8 @@ fn test_ints_compare() -> Result<(), TestError> {
 #[test]
 fn test_longs_compare() -> Result<(), TestError> {
     let mut random = my_random("test_longs_compare".to_string());
-    let mut left = BytesRef::new_from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
-    let mut right = BytesRef::new_from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
+    let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
+    let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
 
     for _ in 0..10_000 {
         let left_value = random.gen::<i64>();
@@ -751,8 +751,8 @@ fn test_longs_compare() -> Result<(), TestError> {
 #[test]
 fn test_floats_compare() -> Result<(), TestError> {
     let mut random = my_random("test_floats_compare".to_string());
-    let mut left = BytesRef::new_from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
-    let mut right = BytesRef::new_from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
+    let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
+    let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
     for _ in 0..10_000 {
         let left_value = to_positive_nan::<f32>(f32::from_bits(random.gen::<u32>()));
         let right_value = to_positive_nan::<f32>(f32::from_bits(random.gen::<u32>()));
@@ -785,8 +785,8 @@ fn test_floats_compare() -> Result<(), TestError> {
 #[test]
 fn test_doubles_compare() -> Result<(), TestError> {
     let mut random = my_random("test_doubles_compare".to_string());
-    let mut left = BytesRef::new_from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
-    let mut right = BytesRef::new_from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
+    let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
+    let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
 
     for _ in 0..10_000 {
         let left_value = to_positive_nan::<f64>(f64::from_bits(random.gen::<u64>()));
@@ -823,14 +823,14 @@ fn test_big_ints_compare() -> Result<(), TestError> {
         let max_length = random.gen_range(1..=16);
         let left_value = next_big_integer(&mut random, max_length);
         let right_value = next_big_integer(&mut random, max_length);
-        let mut left = BytesRef::new_from_bytes(vec![0u8; max_length]);
+        let mut left = BytesRef::from_bytes(vec![0u8; max_length]);
         NumericUtils::big_int_to_sortable_bytes(
             left_value.clone(),
             max_length,
             &mut left.bytes,
             0,
         )?;
-        let mut right = BytesRef::new_from_bytes(vec![0u8; max_length]);
+        let mut right = BytesRef::from_bytes(vec![0u8; max_length]);
         NumericUtils::big_int_to_sortable_bytes(
             right_value.clone(),
             max_length,

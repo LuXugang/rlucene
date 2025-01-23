@@ -20,10 +20,10 @@ use rlucene::index::term::Term;
 pub struct TestTerm;
 #[test]
 fn test_equals() {
-    let base = Term::new_from_text("same".to_string(), "same");
-    let same = Term::new_from_text("same".to_string(), "same");
-    let different_field = Term::new_from_text("different".to_string(), "same");
-    let different_text = Term::new_from_text("same".to_string(), "different");
+    let base = Term::from_text("same".to_string(), "same");
+    let same = Term::from_text("same".to_string(), "same");
+    let different_field = Term::from_text("different".to_string(), "same");
+    let different_text = Term::from_text("same".to_string(), "different");
     assert_eq!(base, base);
     assert_eq!(base, same);
     assert_ne!(base, different_field);

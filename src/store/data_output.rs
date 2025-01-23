@@ -190,7 +190,7 @@ pub trait DataOutput: Sized {
     /// # See Also
     /// [`DataInput::read_zlong`]
     fn write_string(&mut self, s: &str) -> Result<(), LuceneError> {
-        let utf8_result = BytesRef::new_from_string(s);
+        let utf8_result = BytesRef::from_string(s);
         let len = utf8_result.length;
         let offset = utf8_result.offset;
         self.write_vint(len)?;

@@ -107,15 +107,15 @@ fn test_empty() -> Result<(), TestError> {
 #[test]
 fn test_one_value() -> Result<(), TestError> {
     let mut random = my_random("test_one_value".to_string());
-    let bytes = BytesRef::new_from_string(&TestUtil::random_simple_string(&mut random));
+    let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
     test(vec![bytes], 1)
 }
 
 #[test]
 fn test_two_values() -> Result<(), TestError> {
     let mut random = my_random("test_two_values".to_string());
-    let bytes1 = BytesRef::new_from_string(&TestUtil::random_simple_string(&mut random));
-    let bytes2 = BytesRef::new_from_string(&TestUtil::random_simple_string(&mut random));
+    let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+    let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
     test(vec![bytes1, bytes2], 2)
 }
 
@@ -133,7 +133,7 @@ fn test_random_impl(
         let mut b = vec![0u8; common_prefix_len + random.gen_range(0..max_len)];
         random.fill_bytes(&mut b[common_prefix_len..]);
         b[..common_prefix_len].copy_from_slice(&common_prefix);
-        bytes.push(BytesRef::new_from_bytes(b));
+        bytes.push(BytesRef::from_bytes(b));
     }
 
     test(bytes, len)
