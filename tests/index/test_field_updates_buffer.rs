@@ -22,10 +22,9 @@ use rand::Rng;
 use rlucene::index::buffered_updates::BufferedUpdates;
 use rlucene::index::doc_values_type::DocValuesType;
 use rlucene::index::doc_values_update::{
-    BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateBase, DocValuesUpdateEnum,
-    NumericDocValuesUpdate,
+    BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum, NumericDocValuesUpdate,
 };
-use rlucene::index::field_updates_buffer::{BufferedUpdate, FieldUpdatesBuffer};
+use rlucene::index::field_updates_buffer::FieldUpdatesBuffer;
 use rlucene::index::term::Term;
 use rlucene::index::BytesRef;
 use rlucene::util::new_counter;
@@ -453,10 +452,10 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), TestError> {
 
 fn assert_buffer_updates(
     buffer: &FieldUpdatesBuffer,
-    updates: &mut Vec<DocValuesUpdate>,
+    updates: &mut [DocValuesUpdate],
     term_sorted: bool,
 ) -> Result<(), TestError> {
-    let mut updates = updates.clone();
+    let mut updates = updates.to_owned();
     if term_sorted {
         updates.sort_by(|a, b| a.term.bytes.cmp(&b.term.bytes));
         let mut by_terms: BTreeMap<BytesRef, DocValuesUpdate> = BTreeMap::new();

@@ -30,6 +30,7 @@ pub struct PackedLongValues {
     pub(crate) page_mask: i32,
     pub(crate) values: Vec<PackedIntsReadEnum>,
     pub(crate) size: i64,
+    #[allow(unused)]
     ram_bytes_used: i64,
     sub_long_values: Option<DeltaPackedLongValues>,
 }

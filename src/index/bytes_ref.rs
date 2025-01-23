@@ -184,7 +184,7 @@ impl PartialEq for BytesRef {
     }
 }
 impl Display for BytesRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
         todo!("BytesRef Display")
     }
 }

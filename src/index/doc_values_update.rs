@@ -56,9 +56,11 @@ impl DocValuesUpdate {
             sub_update,
         }
     }
+    #[allow(unused)]
     pub(crate) fn has_value(&self) -> bool {
         self.has_value
     }
+    #[allow(dead_code)]
     fn size_in_bytes(&self) -> i32 {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }

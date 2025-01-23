@@ -31,6 +31,7 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 /// # Note
 /// - Instances of this structure are accessed either via a private instance on `DocumentWriterPerThread`,
 ///   or through synchronized code in the `DocumentsWriterDeleteQueue`.
+#[allow(unused)]
 pub struct BufferedUpdates {
     segment_name: String,
     num_field_updates: AtomicI32,

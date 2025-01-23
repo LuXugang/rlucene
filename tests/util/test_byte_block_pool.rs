@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::common::my_random;
+use crate::util::test_error::TestError;
 use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
@@ -38,12 +39,12 @@ fn test_append_from_other_pool() -> Result<(), LuceneError> {
         .collect::<String>()
         .as_bytes()
         .to_vec();
-    pool.append(&bytes);
+    pool.append(&bytes)?;
     let bytes_length = bytes.len();
 
     let mut another_pool = ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()));
     let existing_bytes = vec![0; random.gen_range(500..100000)];
-    another_pool.append(&existing_bytes);
+    another_pool.append(&existing_bytes)?;
 
     let offset = random.gen_range(1..=bytes_length);
     let mut length = bytes_length - offset;
@@ -74,7 +75,7 @@ fn test_read_and_write() -> Result<(), LuceneError> {
     let mut random = my_random("test_read_and_write".to_string());
     let byte_used = Arc::new(Mutex::new(new_counter(false)));
     let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
-    pool.next_buffer();
+    pool.next_buffer()?;
     let reuse_first = random.gen_bool(0.5);
     for _j in 0..2 {
         let mut list: Vec<BytesRef> = Vec::new();
@@ -90,7 +91,7 @@ fn test_read_and_write() -> Result<(), LuceneError> {
             let value_copy = value.clone();
             list.push(BytesRef::new_from_string(&value));
             bytes_ref_builder.copy_chars_with_string(&value_copy);
-            pool.append_bytes_ref(bytes_ref_builder.get());
+            pool.append_bytes_ref(bytes_ref_builder.get())?;
         }
         let mut position = 0;
         let mut builder = BytesRefBuilder::new();
@@ -129,7 +130,7 @@ fn test_read_and_write() -> Result<(), LuceneError> {
             assert!(bytes_ref_builder.get().bytes_equals(expected));
             position += bytes_ref_builder.length() as i64;
         }
-        pool.reset(random.gen_bool(0.5), reuse_first);
+        pool.reset(random.gen_bool(0.5), reuse_first)?;
         if reuse_first {
             assert_eq!(
                 ByteBlockPool::BYTE_BLOCK_SIZE as i64,
@@ -143,7 +144,7 @@ fn test_read_and_write() -> Result<(), LuceneError> {
     Ok(())
 }
 #[test]
-fn test_large_random_block() {
+fn test_large_random_block() -> Result<(), TestError> {
     let mut random = my_random("test_large_random_block".to_string());
     let byte_used = Arc::new(Mutex::new(new_counter(false)));
     let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
@@ -164,7 +165,7 @@ fn test_large_random_block() {
         random.fill_bytes(&mut bytes);
         let bytes_clone = bytes.clone();
         iterms.push(bytes);
-        pool.append_bytes_ref(&BytesRef::new_from_bytes(bytes_clone));
+        pool.append_bytes_ref(&BytesRef::new_from_bytes(bytes_clone))?;
         total_bytes += size;
 
         // make sure we report the correct position
@@ -179,6 +180,7 @@ fn test_large_random_block() {
         assert_eq!(expected, actual);
         position += expected.len() as i64;
     }
+    Ok(())
 }
 
 #[test]

@@ -200,7 +200,7 @@ impl BytesRefArray {
 /// [`BytesRefArray`]
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     fn append(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
-        self.pool.append_bytes_ref(bytes);
+        self.pool.append_bytes_ref(bytes)?;
         self.offsets.push(self.current_offset);
         self.last_element += 1;
         self.current_offset += bytes.length;

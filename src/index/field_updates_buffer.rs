@@ -65,7 +65,9 @@ pub struct FieldUpdatesBuffer {
 }
 
 impl FieldUpdatesBuffer {
+    #[allow(unused)]
     const SELF_SHALLOW_SIZE: i64 = 0;
+    #[allow(unused)]
     const STRING_SHALLOW_SIZE: i64 = 0;
     pub fn new(
         bytes_used: Arc<Mutex<CounterEnum>>,
@@ -360,7 +362,7 @@ impl FieldUpdatesBuffer {
         true
     }
     pub fn iterator(&self) -> Result<BufferedUpdateIterator, LuceneError> {
-        if self.finished == false {
+        if !self.finished {
             return Err(LuceneError::illegal_state(
                 "Buffer was not finished".to_string(),
             ));

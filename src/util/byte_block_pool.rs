@@ -167,8 +167,8 @@ impl ByteBlockPool {
         }
     }
     /// Appends the bytes in the provided BytesRef at the current position.
-    pub fn append_bytes_ref(&mut self, bytes: &BytesRef) {
-        self.append_range(&bytes.bytes, bytes.offset, bytes.length);
+    pub fn append_bytes_ref(&mut self, bytes: &BytesRef) -> Result<(), LuceneError> {
+        self.append_range(&bytes.bytes, bytes.offset, bytes.length)
     }
     /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and length.
     ///
@@ -227,9 +227,9 @@ impl ByteBlockPool {
     ///
     /// # Arguments
     /// * `bytes` - The byte array to write.
-    pub fn append(&mut self, bytes: &[u8]) {
+    pub fn append(&mut self, bytes: &[u8]) -> Result<(), LuceneError> {
         let length = bytes.len() as i32;
-        self.append_range(bytes, 0, length);
+        self.append_range(bytes, 0, length)
     }
     /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and length.
     ///
@@ -237,7 +237,12 @@ impl ByteBlockPool {
     /// * `src_pool` - The source pool to copy from.
     /// * `src_offset` - The source pool offset.
     /// * `length` - The number of bytes to copy.
-    pub fn append_range(&mut self, bytes: &[u8], mut offset: i32, length: i32) {
+    pub fn append_range(
+        &mut self,
+        bytes: &[u8],
+        mut offset: i32,
+        length: i32,
+    ) -> Result<(), LuceneError> {
         let mut bytes_left = length;
         while bytes_left > 0 {
             let buffer_left = Self::BYTE_BLOCK_SIZE - self.byte_up_to;
@@ -257,11 +262,12 @@ impl ByteBlockPool {
                         self.byte_up_to as usize,
                     );
                 }
-                self.next_buffer();
+                self.next_buffer()?;
                 bytes_left -= buffer_left;
                 offset += buffer_left;
             }
         }
+        Ok(())
     }
 
     /// Reads bytes out of the pool starting at the given offset with the given length into the given
