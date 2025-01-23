@@ -26,6 +26,7 @@ use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::lock_already_held::LockAlreadyHeldError;
 use crate::util::error::lock_held_by_other::LockHeldByOtherError;
 use crate::util::error::not_found::NotFoundError;
+use crate::util::error::number_format::NumberFormatError;
 use crate::util::error::unsupported_operation::UnsupportedOperationError;
 use std::io::Error;
 use std::string::FromUtf8Error;
@@ -84,6 +85,8 @@ pub enum LuceneError {
     #[error("{0}")]
     IndexNotFound(#[from] IndexNotFound),
     // TODO: A lock unwrap error handling should be added.
+    #[error("{0}")]
+    NumberFormat(#[from] NumberFormatError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -146,5 +149,8 @@ impl LuceneError {
 
     pub fn index_not_found(msg: impl Into<String>) -> Self {
         LuceneError::IndexNotFound(IndexNotFound::new(msg))
+    }
+    pub fn number_format(msg: impl Into<String>) -> Self {
+        LuceneError::NumberFormat(NumberFormatError::new(msg))
     }
 }

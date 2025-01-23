@@ -14,19 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod array_index_out_of_bounds;
-pub mod corrupt_index;
-pub mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-pub mod index_format_too_new;
-pub mod index_format_too_old;
-mod index_not_found;
-pub mod integer_overflow;
-mod lock_already_held;
-mod lock_held_by_other;
-pub mod lucene_error;
-mod not_found;
-mod number_format;
-pub mod parse;
-mod unsupported_operation;
+use std::fmt;
+
+#[derive(Debug)]
+pub struct NumberFormatError {
+    pub message: String,
+}
+
+impl NumberFormatError {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
+    }
+    pub fn with_format(args: impl fmt::Display) -> Self {
+        Self {
+            message: args.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for NumberFormatError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for NumberFormatError {}
