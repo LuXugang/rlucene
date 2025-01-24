@@ -26,7 +26,7 @@ use std::mem;
 
 pub struct ArrayUtil;
 impl ArrayUtil {
-    pub const MAX_ARRAY_LENGTH: i32 = 0;
+    pub const MAX_ARRAY_LENGTH: i32 = i32::MAX;
     const MIN_RADIX: i32 = 2;
     const MAX_RADIX: i32 = 36;
     /// Parses a char array into an i32 with the default radix of 10.
@@ -44,14 +44,14 @@ impl ArrayUtil {
     /// # Errors
     ///
     /// Returns a `LuceneError::NumberFormat` if it can't parse the chars into an integer.
-    fn parse_int_default(chars: &[char], offset: i32, len: i32) -> Result<i32, LuceneError> {
+    pub fn parse_int_default(chars: &[char], offset: i32, len: i32) -> Result<i32, LuceneError> {
         Self::parse_int(chars, offset, len, 10)
     }
 
     /// Parses the string argument as if it were an `i32` value and returns the result.
     /// Throws a `LuceneError::NumberFormat` if the string does not represent an `i32` quantity.
     /// The second argument specifies the radix to use when parsing the value.
-    fn parse_int(
+    pub fn parse_int(
         chars: &[char],
         mut offset: i32,
         mut len: i32,
@@ -78,7 +78,7 @@ impl ArrayUtil {
         Self::parse(chars, offset, len, radix, negative)
     }
 
-    fn parse(
+    pub fn parse(
         chars: &[char],
         offset: i32,
         len: i32,
@@ -147,15 +147,20 @@ impl ArrayUtil {
             new_length
         );
         let current_length = vec.len();
-        if new_length as usize > current_length {
-            let additional = new_length as usize - current_length;
-            vec.reserve_exact(additional);
-            let capacity = vec.capacity();
-            // Fill the new slots with default values.
-            // This ensures that even if reserve_exact doesn't add enough space,
-            // we will push the necessary default values into the Vec.
-            for _ in 0..(capacity - current_length) {
-                vec.push(T::default());
+        match (new_length as usize).cmp(&current_length) {
+            Ordering::Greater => {
+                for _ in 0..(new_length as usize - current_length) {
+                    vec.push(T::default());
+                }
+            }
+            Ordering::Equal => {
+                return Ok(());
+            }
+            Ordering::Less => {
+                return Err(LuceneError::array_index_out_of_bounds(format!(
+                    "new_length: {} is less than current_length: {}",
+                    new_length, current_length
+                )));
             }
         }
         Ok(())
@@ -398,7 +403,7 @@ impl ArrayUtil {
     /// Copies a slice into a new vector.
     pub fn copy_array<T>(array: &[T]) -> Vec<T>
     where
-        T: Copy,
+        T: Clone + Default,
     {
         Self::copy_of_sub_array(array, 0, array.len() as i32)
     }
@@ -415,10 +420,10 @@ impl ArrayUtil {
     /// A new `Vec<T>` containing the specified sub-array.
     pub fn copy_of_sub_array<T>(array: &[T], from: i32, to: i32) -> Vec<T>
     where
-        T: Copy,
+        T: Clone + Default,
     {
-        debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0);
-        let mut copy = Vec::with_capacity((to - from) as usize);
+        debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0 && to as usize <= array.len());
+        let mut copy = vec![T::default(); (to - from) as usize];
         copy.copy_from(&array[from as usize..to as usize], 0);
         copy
     }
@@ -521,7 +526,7 @@ impl ByteArrayComparator for ByteArrayComparatorEnum {
 pub struct U64byteArrayComparator;
 impl ByteArrayComparator for U64byteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        match BitUtil::get_i64_be(a, a_i).cmp(&BitUtil::get_i64_be(b, b_i)) {
+        match (BitUtil::get_i64_be(a, a_i) as u64).cmp(&(BitUtil::get_i64_be(b, b_i) as u64)) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,
@@ -531,7 +536,7 @@ impl ByteArrayComparator for U64byteArrayComparator {
 pub struct U32byteArrayComparator;
 impl ByteArrayComparator for U32byteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        match BitUtil::get_i32_be(a, a_i).cmp(&BitUtil::get_i32_be(b, b_i)) {
+        match (BitUtil::get_i32_be(a, a_i) as u32).cmp(&(BitUtil::get_i32_be(b, b_i) as u32)) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,

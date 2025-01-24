@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait VecCopyOps<T: Copy> {
+pub trait VecCopyOps<T: Clone> {
     /// Copies data from the source slice into the buffer at a specified offset.
     ///
     /// # Arguments
@@ -36,7 +36,7 @@ pub trait VecCopyOps<T: Copy> {
     fn copy_to(&self, dest: &mut [T], offset: usize);
 }
 
-impl<T: Copy> VecCopyOps<T> for Vec<T> {
+impl<T: Clone> VecCopyOps<T> for Vec<T> {
     /// Copies elements from a source slice (`src`) into the current slice (`self`) starting at the specified offset.
     ///
     /// # Parameters

@@ -19,6 +19,7 @@ mod base_doc_id_set_test_case;
 mod base_sort_test_case;
 mod id_set_common;
 pub(crate) mod lucene_test_case;
+mod test_array_util;
 mod test_byte_block_pool;
 pub mod test_bytes_ref;
 mod test_bytes_ref_array;
