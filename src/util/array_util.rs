@@ -273,7 +273,7 @@ impl ArrayUtil {
         comp: C,
     ) -> Result<(), LuceneError>
     where
-        T: Default + Clone + PartialEq + Ord,
+        T: Default + Clone + Ord,
         C: Comparator<T>,
     {
         if to_index - from_index <= 1 {
@@ -285,7 +285,7 @@ impl ArrayUtil {
     /// falling back to insertion sort for small arrays.
     pub fn intro_sort_with_comparator<T, C>(a: &mut Vec<T>, comp: C) -> Result<(), LuceneError>
     where
-        T: Default + Clone + PartialEq + Ord,
+        T: Default + Clone + Ord,
         C: Comparator<T>,
     {
         Self::do_intro_sort(a, 0, a.len() as i32, comp)
@@ -298,7 +298,7 @@ impl ArrayUtil {
         to_index: i32,
     ) -> Result<(), LuceneError>
     where
-        T: Default + Clone + PartialEq + Ord,
+        T: Default + Clone + Ord,
     {
         if to_index - from_index <= 1 {
             return Ok(());
@@ -309,7 +309,7 @@ impl ArrayUtil {
     /// falling back to insertion sort for small arrays.
     pub fn intro_sort<T>(a: &mut Vec<T>) -> Result<(), LuceneError>
     where
-        T: Default + Clone + PartialEq + Ord,
+        T: Default + Clone + Ord,
     {
         Self::intro_sort_with_range(a, 0, a.len() as i32)
     }
@@ -322,7 +322,7 @@ impl ArrayUtil {
         comp: C,
     ) -> Result<(), LuceneError>
     where
-        T: Default + Clone + PartialEq + Ord,
+        T: Default + Clone + Ord,
         C: Comparator<T>,
     {
         if to_index - from_index <= 1 {
@@ -337,7 +337,7 @@ impl ArrayUtil {
     /// falling back to binary sort for small arrays.
     pub fn tim_sort_with_comparator<T, C>(a: &mut Vec<T>, comp: C) -> Result<(), LuceneError>
     where
-        T: Default + Clone + PartialEq + Ord,
+        T: Default + Clone + Ord,
         C: Comparator<T>,
     {
         Self::do_tim_sort(a, 0, a.len() as i32, comp)
@@ -350,7 +350,7 @@ impl ArrayUtil {
         to_index: i32,
     ) -> Result<(), LuceneError>
     where
-        T: Default + Clone + PartialEq + Ord,
+        T: Default + Clone + Ord,
     {
         if to_index - from_index <= 1 {
             return Ok(());
@@ -361,7 +361,7 @@ impl ArrayUtil {
     /// falling back to binary sort for small arrays.
     pub fn tim_sort<T>(a: &mut Vec<T>) -> Result<(), LuceneError>
     where
-        T: Default + Clone + PartialEq + Ord,
+        T: Default + Clone + Ord,
     {
         Self::tim_sort_with_range(a, 0, a.len() as i32)
     }
@@ -387,7 +387,7 @@ impl ArrayUtil {
         comparator: &mut C,
     ) -> Result<(), LuceneError>
     where
-        T: Default + PartialEq + Ord,
+        T: Default + Ord,
         C: Comparator<T>,
     {
         let sub_selector = IntroSelectorImpl::new(arr, comparator);
@@ -426,7 +426,7 @@ impl ArrayUtil {
 
 struct IntroSelectorImpl<'a, T, C>
 where
-    T: Default + PartialEq + Ord,
+    T: Default + Ord,
     C: Comparator<T>,
 {
     pivot: i32,
@@ -435,7 +435,7 @@ where
 }
 impl<'a, T, C> IntroSelectorImpl<'a, T, C>
 where
-    T: Default + PartialEq + Ord,
+    T: Default + Ord,
     C: Comparator<T>,
 {
     fn new(arr: &'a mut Vec<T>, comparator: &'a C) -> IntroSelectorImpl<'a, T, C> {
@@ -464,13 +464,13 @@ where
 
 impl<T, C> IntroSelectorBase for IntroSelectorImpl<'_, T, C>
 where
-    T: Default + PartialEq + Ord,
+    T: Default + Ord,
     C: Comparator<T>,
 {
 }
 impl<T, C> Selector for IntroSelectorImpl<'_, T, C>
 where
-    T: Default + PartialEq + Ord,
+    T: Default + Ord,
     C: Comparator<T>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
