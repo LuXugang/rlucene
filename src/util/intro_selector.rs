@@ -1,0 +1,295 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::intro_sorter::SINGLE_MEDIAN_THRESHOLD;
+use crate::util::selector::Selector;
+use rand::rngs::ThreadRng;
+use rand::Rng;
+/// Adaptive selection algorithm based on the introspective quick select algorithm.
+/// The quick select algorithm uses an interpolation variant of Tukey's ninther median-of-medians for pivot,
+/// and Bentley-McIlroy 3-way partitioning. For the introspective protection, it shuffles the sub-range
+/// if the max recursive depth is exceeded.
+///
+/// This selection algorithm is fast on most data shapes, especially on nearly sorted data, or
+/// when `k` is close to the boundaries. It runs in linear time on average.
+///
+/// # Internal
+/// This method is intended for internal use in the library.
+pub struct IntroSelector<T>
+where
+    T: IntroSelectorBase + Selector,
+{
+    random: Option<ThreadRng>,
+    sub_selector: T,
+}
+impl<T> IntroSelector<T>
+where
+    T: IntroSelectorBase + Selector,
+{
+    pub fn new(sub_selector: T) -> IntroSelector<T> {
+        IntroSelector {
+            random: None,
+            sub_selector,
+        }
+    }
+    pub fn select(
+        &mut self,
+        mut from: i32,
+        mut to: i32,
+        k: i32,
+        mut max_depth: i32,
+    ) -> Result<(), LuceneError> {
+        // This code is inspired from IntroSorter#sort, adapted to loop on a single partition.
+
+        // For efficiency, we must enter the loop with at least 4 entries to be able to skip
+        // some boundary tests during the 3-way partitioning.
+        let mut size;
+
+        // Ensure the loop enters with at least 4 entries to skip boundary checks.
+        while {
+            size = to - from;
+            size > 3
+        } {
+            max_depth -= 1;
+            if max_depth == -1 {
+                // Max recursion depth exceeded: shuffle (only once) and continue.
+                self.shuffle(from, to)?;
+            }
+
+            // Pivot selection based on medians.
+            let last = to - 1;
+            let mid = (from + last) >> 1;
+            let pivot;
+
+            if size <= SINGLE_MEDIAN_THRESHOLD {
+                // Select the pivot with a single median around the middle element.
+                // Do not take the median between [from, mid, last] because it hurts performance
+                // if the order is descending in conjunction with the 3-way partitioning.
+                let range = size >> 2;
+                pivot = self.median(mid - range, mid, mid + range);
+            } else {
+                // Select the pivot with a variant of the Tukey's ninther median of medians.
+                // If k is close to the boundaries, select either the lowest or highest median (this variant
+                // is inspired from the interpolation search).
+                let range = size >> 3;
+                let double_range = range << 1;
+                let median_first = self.median(from, from + range, from + double_range);
+                let median_middle = self.median(mid - range, mid, mid + range);
+                let median_last = self.median(last - double_range, last - range, last);
+                if k - from < range {
+                    // k is close to 'from': select the lowest median.
+                    pivot = self.min(median_first, median_middle, median_last);
+                } else if to - k <= range {
+                    pivot = self.max(median_first, median_middle, median_last);
+                } else {
+                    pivot = self.median(median_first, median_middle, median_last);
+                }
+            }
+            // Bentley-McIlroy 3-way partitioning
+            self.sub_selector.set_pivot(pivot);
+            self.sub_selector.swap(from, pivot)?;
+
+            let mut i = from;
+            let mut j = to;
+            let mut p = from + 1;
+            let mut q = last;
+
+            loop {
+                let mut left_cmp;
+                let mut right_cmp;
+
+                while {
+                    left_cmp = self.sub_selector.compare_pivot(i + 1);
+                    left_cmp > 0
+                } {
+                    i += 1;
+                }
+
+                while {
+                    right_cmp = self.sub_selector.compare_pivot(j - 1);
+                    right_cmp < 0
+                } {
+                    j -= 1;
+                }
+
+                if i >= j {
+                    if i == j && right_cmp == 0 {
+                        self.sub_selector.swap(i, p)?;
+                    }
+                    break;
+                }
+
+                self.sub_selector.swap(i, j)?;
+                if right_cmp == 0 {
+                    self.sub_selector.swap(i, p)?;
+                    p += 1;
+                }
+
+                if left_cmp == 0 {
+                    self.sub_selector.swap(j, q)?;
+                    q -= 1;
+                }
+            }
+            i = j + 1;
+            for l in from..p {
+                self.sub_selector.swap(l, j)?;
+                j -= 1;
+            }
+            for l in last..q {
+                self.sub_selector.swap(l, i)?;
+                i += 1;
+            }
+
+            if k <= j {
+                to = j + 1;
+            } else if k >= i {
+                from = i;
+            } else {
+                return Ok(());
+            }
+        }
+        // Sort the final tiny range (3 entries or less) with a very specialized sort.
+        match size {
+            2 => {
+                if IntroSelectorBase::compare(&mut self.sub_selector, from, from + 1) > 0 {
+                    self.sub_selector.swap(from, from + 1)?;
+                }
+            }
+            3 => {
+                self.sort3(from)?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Returns the index of the min element among three elements at provided indices.
+    pub fn min(&mut self, i: i32, j: i32, k: i32) -> i32 {
+        if IntroSelectorBase::compare(&mut self.sub_selector, i, j) <= 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, i, k) <= 0 {
+                i
+            } else {
+                k
+            }
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0 {
+            j
+        } else {
+            k
+        }
+    }
+
+    /// Returns the index of the max element among three elements at provided indices.
+    pub fn max(&mut self, i: i32, j: i32, k: i32) -> i32 {
+        if IntroSelectorBase::compare(&mut self.sub_selector, i, j) <= 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, j, k) < 0 {
+                k
+            } else {
+                j
+            }
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, i, k) < 0 {
+            k
+        } else {
+            i
+        }
+    }
+
+    pub fn median(&mut self, i: i32, j: i32, k: i32) -> i32 {
+        if IntroSelectorBase::compare(&mut self.sub_selector, i, j) < 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0 {
+                return j;
+            }
+            return if IntroSelectorBase::compare(&mut self.sub_selector, i, k) < 0 {
+                k
+            } else {
+                i
+            };
+        }
+        if IntroSelectorBase::compare(&mut self.sub_selector, j, k) >= 0 {
+            return j;
+        }
+        if IntroSelectorBase::compare(&mut self.sub_selector, i, k) < 0 {
+            i
+        } else {
+            k
+        }
+    }
+    /// Sorts 3 entries starting at from (inclusive). This specialized method is more efficient than
+    /// calling `insertionSort(int, int)`.
+    pub fn sort3(&mut self, from: i32) -> Result<(), LuceneError> {
+        let mid = from + 1;
+        let last = from + 2;
+
+        if IntroSelectorBase::compare(&mut self.sub_selector, from, mid) <= 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0 {
+                self.sub_selector.swap(mid, last)?;
+                if IntroSelectorBase::compare(&mut self.sub_selector, from, mid) > 0 {
+                    self.sub_selector.swap(from, mid)?;
+                }
+            }
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) >= 0 {
+            self.sub_selector.swap(from, last)?;
+        } else {
+            self.sub_selector.swap(from, mid)?;
+            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0 {
+                self.sub_selector.swap(mid, last)?;
+            }
+        }
+        Ok(())
+    }
+    /// Shuffles the entries between from (inclusive) and to (exclusive) with Durstenfeld's algorithm.
+    pub fn shuffle(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+        if self.random.is_none() {
+            self.random = Some(rand::thread_rng());
+        }
+
+        let random = self.random.as_mut().unwrap();
+        for i in (from..to).rev() {
+            let j = random.gen_range(from..=i);
+            self.sub_selector.swap(i, j)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T> Selector for IntroSelector<T>
+where
+    T: IntroSelectorBase + Selector,
+{
+    fn select(&mut self, from: i32, to: i32, k: i32) -> Result<(), LuceneError> {
+        self.check_args(from, to, k)?;
+        let max_depth = 2 * (f64::log2((to - from) as f64) as i32);
+        self.select(from, to, k, max_depth)?;
+        Ok(())
+    }
+}
+
+pub trait IntroSelectorBase: IntroSelectorBaseDefault {
+    /// Compare entries found in slots `i` and `j`.
+    fn compare(&mut self, i: i32, j: i32) -> i32 {
+        IntroSelectorBaseDefault::compare(self, i, j)
+    }
+}
+pub trait IntroSelectorBaseDefault {
+    /// Save the value at slot `i` so that it can later be used as a pivot.
+    fn set_pivot(&mut self, i: i32);
+    /// Compare the pivot with the slot at `j`, similarly to `compare(i, j)`.
+    fn compare_pivot(&self, j: i32) -> i32;
+    fn compare(&mut self, i: i32, j: i32) -> i32 {
+        self.set_pivot(i);
+        self.compare_pivot(j)
+    }
+}

@@ -17,7 +17,7 @@
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::sorter::{check_range, Sorter};
 /// Below this size threshold, the partition selection is simplified to a single median.
-const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
+pub const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 
 /// [`Sorter`] implementation based on a variant of the quicksort algorithm called
 /// [introsort](http://en.wikipedia.org/wiki/Introsort): when the recursion level exceeds the
