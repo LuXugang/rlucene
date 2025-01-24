@@ -509,7 +509,7 @@ pub enum ByteArrayComparatorEnum {
     Byte(ByteByteArrayComparator),
 }
 impl ByteArrayComparator for ByteArrayComparatorEnum {
-    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32{
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
         match self {
             ByteArrayComparatorEnum::U64(c) => c.compare(a, a_i, b, b_i),
             ByteArrayComparatorEnum::U32(c) => c.compare(a, a_i, b, b_i),
@@ -521,7 +521,7 @@ impl ByteArrayComparator for ByteArrayComparatorEnum {
 pub struct U64byteArrayComparator;
 impl ByteArrayComparator for U64byteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        match BitUtil::get_i64_be(a, a_i).cmp(&BitUtil::get_i64_be(b, b_i)){
+        match BitUtil::get_i64_be(a, a_i).cmp(&BitUtil::get_i64_be(b, b_i)) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,
@@ -531,7 +531,7 @@ impl ByteArrayComparator for U64byteArrayComparator {
 pub struct U32byteArrayComparator;
 impl ByteArrayComparator for U32byteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        match BitUtil::get_i32_be(a, a_i).cmp(&BitUtil::get_i32_be(b, b_i)){
+        match BitUtil::get_i32_be(a, a_i).cmp(&BitUtil::get_i32_be(b, b_i)) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,
@@ -545,7 +545,7 @@ impl ByteArrayComparator for ByteByteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
         debug_assert!(a.len() >= a_i + self.num_bytes);
         debug_assert!(b.len() >= b_i + self.num_bytes);
-        match  &a[a_i..a_i + self.num_bytes].cmp(&b[b_i..b_i + self.num_bytes]){
+        match &a[a_i..a_i + self.num_bytes].cmp(&b[b_i..b_i + self.num_bytes]) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,

@@ -63,6 +63,45 @@ where
         }
     }
 }
+
+pub struct ReverseOrder<T>
+where
+    T: Ord,
+{
+    comparator: NaturalOrder<T>,
+}
+
+impl<T> Default for ReverseOrder<T>
+where
+    T: Ord,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> ReverseOrder<T>
+where
+    T: Ord,
+{
+    pub fn new() -> ReverseOrder<T> {
+        ReverseOrder {
+            comparator: NaturalOrder::new(),
+        }
+    }
+}
+
+impl<T> Comparator<T> for ReverseOrder<T>
+where
+    T: Ord,
+{
+    const TYPE: &'static str = "ReverseOrder";
+
+    fn compare(&self, a: &T, b: &T) -> i32 {
+        -self.comparator.compare(a, b)
+    }
+}
+
 /// # NOTE
 /// The purpose of implementing BytesRefComparator is to
 /// allow it to be passed as the same parameter alongside other types
