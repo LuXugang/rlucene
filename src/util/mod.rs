@@ -57,6 +57,7 @@ pub mod packed;
 pub mod priority_queue;
 pub mod ram_usage_estimator;
 pub mod roaring_doc_id_set;
+mod selector;
 pub mod sortable_bytes_ref_array;
 pub mod sorter;
 pub mod sparse_fixed_bit_set;
