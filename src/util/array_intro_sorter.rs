@@ -57,8 +57,9 @@ where
         // The data pointed to by the pivot has been swapped.
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
-        if self.pivot == j {
-            self.pivot = i;
+        // To avoid Copying the value, we just swap the pivot index.
+        if self.pivot == i || self.pivot == j {
+            self.pivot = if self.pivot == i { j } else { i };
         }
         self.arr.swap(i as usize, j as usize);
         Ok(())
