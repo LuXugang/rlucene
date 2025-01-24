@@ -17,7 +17,6 @@
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{ArrayIntroSorter, ArrayTimSorter, Comparator, NaturalOrder, Sorter, TimSorter};
-use std::fmt::format;
 use std::mem;
 
 pub struct ArrayUtil;
@@ -92,7 +91,7 @@ impl ArrayUtil {
             }
 
             let next = result
-                .checked_mul(radix as i32)
+                .checked_mul(radix)
                 .and_then(|x| x.checked_sub(digit as i32));
 
             match next {

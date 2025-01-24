@@ -29,6 +29,7 @@ pub mod test_error;
 mod test_fixed_bit_doc_id_set;
 mod test_fixed_bit_set;
 mod test_int_array_doc_id_set;
+mod test_intro_selector;
 mod test_intro_sorter;
 mod test_longs_ref;
 mod test_most_significant_bit_radix_sort;

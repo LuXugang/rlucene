@@ -22,7 +22,9 @@ pub trait Selector {
     /// sorted and all other elements are partitioned around it:
     /// `[from, k)` only contains elements that are less than or equal to `k`,
     /// and `(k, to)` only contains elements that are greater than or equal to `k`.
-    fn select(&mut self, from: i32, to: i32, k: i32) -> Result<(), LuceneError>;
+    fn select(&mut self, _from: i32, _to: i32, _k: i32) -> Result<(), LuceneError> {
+        Err(LuceneError::unimplemented("select() is not implemented"))
+    }
 
     /// Check the validity of the `from`, `to`, and `k` indices.
     fn check_args(&self, from: i32, to: i32, k: i32) -> Result<(), LuceneError> {

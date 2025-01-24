@@ -114,17 +114,15 @@ where
 
                 while {
                     left_cmp = self.sub_selector.compare_pivot(i + 1);
-                    left_cmp > 0
-                } {
                     i += 1;
-                }
+                    left_cmp > 0
+                } {}
 
                 while {
                     right_cmp = self.sub_selector.compare_pivot(j - 1);
-                    right_cmp < 0
-                } {
                     j -= 1;
-                }
+                    right_cmp < 0
+                } {}
 
                 if i >= j {
                     if i == j && right_cmp == 0 {
