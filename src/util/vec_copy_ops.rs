@@ -42,7 +42,7 @@ impl<T: Copy> VecCopyOps<T> for Vec<T> {
     /// # Parameters
     /// - `self`: The destination mutable slice where the elements will be copied to.
     /// - `src`: The source slice containing the elements to copy.
-    /// - `offset`: The starting position in the destination slice where the copy begins.
+    /// - `Offset`: The starting position in the destination slice where the copy begins.
     ///
     /// # Panics
     /// This function does not panic during runtime in release builds. However, it includes a `debug_assert!`

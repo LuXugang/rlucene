@@ -16,7 +16,12 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{ArrayIntroSorter, ArrayTimSorter, Comparator, NaturalOrder, Sorter, TimSorter};
+use crate::util::selector::Selector;
+use crate::util::{
+    ArrayIntroSorter, ArrayTimSorter, Comparator, IntroSelector, IntroSelectorBase,
+    IntroSelectorBaseDefault, NaturalOrder, Sorter, TimSorter, VecCopyOps,
+};
+use std::cmp::Ordering;
 use std::mem;
 
 pub struct ArrayUtil;
@@ -359,5 +364,191 @@ impl ArrayUtil {
         T: Default + Clone + PartialEq + Ord,
     {
         Self::tim_sort_with_range(a, 0, a.len() as i32)
+    }
+
+    /// Reorganize the slice `arr[from..to]` so that the element at offset `k` is at the same position
+    /// as if `arr[from..to]` were sorted, and all elements to its left are less than or equal to it,
+    /// and all elements to its right are greater than or equal to it.
+    ///
+    /// This runs in linear time on average and in `n*log(n)` time in the worst case.
+    ///
+    /// # Parameters
+    /// - `arr`: The array to be re-organized.
+    /// - `from`: The starting index for re-organization. Elements before this index will be left as is.
+    /// - `to`: The ending index. Elements after this index will be left as is.
+    /// - `k`: The index of the element to sort from. Value must be less than `to` and greater than or
+    ///     equal to `from`.
+    /// - `comparator`: A comparator to use for sorting.
+    pub fn select<T, C>(
+        arr: &mut Vec<T>,
+        from: i32,
+        to: i32,
+        k: i32,
+        comparator: &mut C,
+    ) -> Result<(), LuceneError>
+    where
+        T: Default + PartialEq + Ord,
+        C: Comparator<T>,
+    {
+        let sub_selector = IntroSelectorImpl::new(arr, comparator);
+        let mut selector = IntroSelector::new(sub_selector);
+        Selector::select(&mut selector, from, to, k)?;
+        Ok(())
+    }
+    /// Copies a slice into a new vector.
+    pub fn copy_array<T>(array: &[T]) -> Vec<T>
+    where
+        T: Copy,
+    {
+        Self::copy_of_sub_array(array, 0, array.len() as i32)
+    }
+
+    /// Copies the specified range of the given array into a new sub-array.
+    ///
+    /// # Arguments
+    ///
+    /// * `array` - The input byte slice.
+    /// * `from` - The initial index of range to be copied (inclusive).
+    /// * `to` - The final index of range to be copied (exclusive).
+    ///
+    /// # Returns
+    /// A new `Vec<T>` containing the specified sub-array.
+    pub fn copy_of_sub_array<T>(array: &[T], from: i32, to: i32) -> Vec<T>
+    where
+        T: Copy,
+    {
+        debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0);
+        let mut copy = Vec::with_capacity((to - from) as usize);
+        copy.copy_from(&array[from as usize..to as usize], 0);
+        copy
+    }
+}
+
+struct IntroSelectorImpl<'a, T, C>
+where
+    T: Default + PartialEq + Ord,
+    C: Comparator<T>,
+{
+    pivot: i32,
+    arr: &'a mut Vec<T>,
+    comparator: &'a C,
+}
+impl<'a, T, C> IntroSelectorImpl<'a, T, C>
+where
+    T: Default + PartialEq + Ord,
+    C: Comparator<T>,
+{
+    fn new(arr: &'a mut Vec<T>, comparator: &'a C) -> IntroSelectorImpl<'a, T, C> {
+        IntroSelectorImpl {
+            pivot: 0,
+            arr,
+            comparator,
+        }
+    }
+}
+
+impl<T, C> IntroSelectorBaseDefault for IntroSelectorImpl<'_, T, C>
+where
+    C: Comparator<T>,
+    T: Default + Ord + PartialEq,
+{
+    fn set_pivot(&mut self, i: i32) {
+        self.pivot = i;
+    }
+
+    fn compare_pivot(&self, j: i32) -> i32 {
+        self.comparator
+            .compare(&self.arr[self.pivot as usize], &self.arr[j as usize])
+    }
+}
+
+impl<T, C> IntroSelectorBase for IntroSelectorImpl<'_, T, C>
+where
+    T: Default + PartialEq + Ord,
+    C: Comparator<T>,
+{
+}
+impl<T, C> Selector for IntroSelectorImpl<'_, T, C>
+where
+    T: Default + PartialEq + Ord,
+    C: Comparator<T>,
+{
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        // The data pointed to by the pivot has been swapped.
+        // We need to adjust the pivot value to ensure that
+        // the value corresponding to the pivot remains unchanged.
+        // To avoid Copying the value, we just swap the pivot index.
+        if self.pivot == i || self.pivot == j {
+            self.pivot = if self.pivot == i { j } else { i };
+        }
+        self.arr.swap(i as usize, j as usize);
+        Ok(())
+    }
+}
+/// Comparator for a fixed number of bytes.
+pub trait ByteArrayComparator {
+    /// Compare bytes starting from the given offsets.
+    ///
+    /// The return value has the same contract as [`std::cmp::Ord::cmp`](std::cmp::Ord::cmp).
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32;
+}
+/// Returns a comparator for exactly the specified number of bytes.
+pub fn get_unsigned_comparator(num_bytes: usize) -> ByteArrayComparatorEnum {
+    if num_bytes == BitUtil::LONG_BYTES {
+        // Used by LongPoint, DoublePoint
+        return ByteArrayComparatorEnum::U64(U64byteArrayComparator);
+    } else if num_bytes == BitUtil::INT_BYTES {
+        // Used by IntPoint, FloatPoint, LatLonPoint, LatLonShape
+        return ByteArrayComparatorEnum::U32(U32byteArrayComparator);
+    }
+    ByteArrayComparatorEnum::Byte(ByteByteArrayComparator { num_bytes })
+}
+pub enum ByteArrayComparatorEnum {
+    U64(U64byteArrayComparator),
+    U32(U32byteArrayComparator),
+    Byte(ByteByteArrayComparator),
+}
+impl ByteArrayComparator for ByteArrayComparatorEnum {
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32{
+        match self {
+            ByteArrayComparatorEnum::U64(c) => c.compare(a, a_i, b, b_i),
+            ByteArrayComparatorEnum::U32(c) => c.compare(a, a_i, b, b_i),
+            ByteArrayComparatorEnum::Byte(c) => c.compare(a, a_i, b, b_i),
+        }
+    }
+}
+
+pub struct U64byteArrayComparator;
+impl ByteArrayComparator for U64byteArrayComparator {
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
+        match BitUtil::get_i64_be(a, a_i).cmp(&BitUtil::get_i64_be(b, b_i)){
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
+            Ordering::Greater => 1,
+        }
+    }
+}
+pub struct U32byteArrayComparator;
+impl ByteArrayComparator for U32byteArrayComparator {
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
+        match BitUtil::get_i32_be(a, a_i).cmp(&BitUtil::get_i32_be(b, b_i)){
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
+            Ordering::Greater => 1,
+        }
+    }
+}
+pub struct ByteByteArrayComparator {
+    num_bytes: usize,
+}
+impl ByteArrayComparator for ByteByteArrayComparator {
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
+        debug_assert!(a.len() >= a_i + self.num_bytes);
+        debug_assert!(b.len() >= b_i + self.num_bytes);
+        match  &a[a_i..a_i + self.num_bytes].cmp(&b[b_i..b_i + self.num_bytes]){
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
+            Ordering::Greater => 1,
+        }
     }
 }
