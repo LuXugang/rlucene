@@ -395,7 +395,7 @@ fn compute_block_size_bits_for(bytes: i64) -> i32 {
     block_bits as i32
 }
 
-#[cfg(feature = "not_required_in_rlucene")]
+#[cfg(feature = "not_required_in_rust_lucene")]
 #[allow(unused)]
 fn write_long_string(_byte_len: usize, _s: String) {
     unimplemented!()
