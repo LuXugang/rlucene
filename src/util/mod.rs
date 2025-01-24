@@ -24,7 +24,7 @@ pub mod comparator;
 pub use comparator::*;
 pub mod accountable;
 pub mod array_tim_sorter;
-mod array_util;
+pub mod array_util;
 pub mod bit_doc_id_set;
 pub mod bit_set;
 pub mod bit_set_iterator;

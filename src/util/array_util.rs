@@ -131,38 +131,61 @@ impl ArrayUtil {
     pub fn oversize(min_target_size: i32, _bytes_per_element: i32) -> i32 {
         min_target_size.saturating_mul(2)
     }
-    pub fn grow_exact<T>(vec: &mut Vec<T>, new_length: i32) -> Result<(), LuceneError> {
+    pub fn grow_exact<T>(vec: &mut Vec<T>, new_length: i32) -> Result<(), LuceneError>
+    where
+        T: Default,
+    {
         debug_assert!(
             new_length >= 0,
             "size must be positive (got {}): likely integer overflow?",
             new_length
         );
-        let current_len = vec.len();
-        if new_length as usize > current_len {
-            let additional = new_length as usize - current_len;
+        let current_length = vec.len();
+        if new_length as usize > current_length {
+            let additional = new_length as usize - current_length;
             vec.reserve_exact(additional);
+            let capacity = vec.capacity();
+            // Fill the new slots with default values.
+            // This ensures that even if reserve_exact doesn't add enough space,
+            // we will push the necessary default values into the Vec.
+            for _ in 0..(capacity - current_length) {
+                vec.push(T::default());
+            }
         }
         Ok(())
     }
-    pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: i32) -> Result<(), LuceneError> {
+    pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: i32) -> Result<(), LuceneError>
+    where
+        T: Clone + Default,
+    {
         debug_assert!(
             min_size >= 0,
             "size must be positive (got {}): likely integer overflow?",
             min_size
         );
-        let current_len = vec.len();
-        if min_size as usize > current_len {
-            let additional = min_size as usize - current_len;
+        let current_length = vec.len();
+        if min_size as usize > current_length {
+            let additional = min_size as usize - current_length;
             vec.reserve(additional);
+            let capacity = vec.capacity();
+            // Fill the new slots with default values.
+            // This ensures that even if reserve_exact doesn't add enough space,
+            // we will push the necessary default values into the Vec.
+            for _ in 0..(capacity - current_length) {
+                vec.push(T::default());
+            }
         }
         Ok(())
     }
-    pub fn grow<T>(vec: &mut Vec<T>) -> Result<(), LuceneError> {
+    pub fn grow<T>(vec: &mut Vec<T>) -> Result<(), LuceneError>
+    where
+        T: Default,
+    {
         let bytes_per_element = mem::size_of::<T>();
         debug_assert!(bytes_per_element <= i32::MAX as usize);
         Self::grow_exact(
             vec,
-            Self::oversize(vec.len() as i32, bytes_per_element as i32),
+            Self::oversize(vec.len() as i32 + 1, bytes_per_element as i32),
         )
     }
 }

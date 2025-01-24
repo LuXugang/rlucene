@@ -35,7 +35,7 @@ use std::sync::{Arc, Mutex};
 pub struct TestFieldUpdatesBuffer;
 
 #[test]
-pub fn test_update_share_values_basic() -> Result<(), TestError> {
+pub fn test_basics() -> Result<(), TestError> {
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let update = DocValuesUpdate::new(
         DocValuesType::Numeric,
@@ -73,7 +73,25 @@ pub fn test_update_share_values_basic() -> Result<(), TestError> {
                 assert_eq!(value.numeric_value, 6);
                 assert_eq!(value.doc_up_to, 15);
             }
-            _ => break,
+            2 => {
+                assert_eq!(value.term_field, "id");
+                assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+                assert_eq!(value.numeric_value, 12);
+                assert_eq!(value.doc_up_to, 15);
+            }
+            3 => {
+                assert_eq!(value.term_field, "some_other_field");
+                assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+                assert_eq!(value.numeric_value, 13);
+                assert_eq!(value.doc_up_to, 17);
+            }
+            4 => {
+                assert_eq!(value.term_field, "id");
+                assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+                assert_eq!(value.numeric_value, 12);
+                assert_eq!(value.doc_up_to, 16);
+            }
+            _ => unreachable!(),
         }
         count += 1;
     }

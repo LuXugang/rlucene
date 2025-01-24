@@ -18,6 +18,7 @@ use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::term::Term;
 use crate::index::BytesRef;
 use crate::util::accountable::Accountable;
+use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_util::BitUtil;
 use crate::util::bits::{Bits, MatchAllBits};
@@ -42,7 +43,6 @@ use std::sync::{Arc, Mutex};
 ///
 /// Along the same lines, this implementation optimizes the case when all updates have a value.
 /// Lastly, if all updates share the same value for a numeric field, we only store the value once.
-#[allow(unused)]
 pub struct FieldUpdatesBuffer {
     bytes_used: Arc<Mutex<CounterEnum>>,
     num_updates: i32,
@@ -189,19 +189,19 @@ impl FieldUpdatesBuffer {
         &mut self,
         field: String,
         doc_upto: i32,
-        ord: usize,
+        ord: i32,
         has_value: bool,
     ) -> Result<(), LuceneError> {
         debug_assert!(!self.finished, "buffer was finished already");
-        debug_assert!(
-            ord <= i32::MAX as usize,
-            "ord must be <= Integer.MAX_VALUE,Keep consistent with Java Lucene"
-        );
         let fields_len = self.fields.len();
         if self.fields[0] != field || fields_len != 1 {
-            if fields_len <= ord {
-                // TODO: ArrayUtil.grow not implemented, so we roughly implement it here
-                self.fields.resize(ord + 1, self.fields[0].clone());
+            if fields_len <= ord as usize {
+                ArrayUtil::grow_with_len(&mut self.fields, ord + 1)?;
+                if fields_len == 1 {
+                    for i in 1..ord as usize {
+                        self.fields[i] = self.fields[0].clone();
+                    }
+                }
                 // TODO: memory calculation not implemented
                 self.bytes_used
                     .lock()
@@ -214,34 +214,39 @@ impl FieldUpdatesBuffer {
                     .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
                     .add_and_get(field.len() as i64);
             }
-            self.fields[ord] = field;
+            self.fields[ord as usize] = field;
         }
 
-        if self.docs_up_to[0] != doc_upto || self.docs_up_to.len() != 1 {
-            if self.docs_up_to.len() <= ord {
-                // TODO: ArrayUtil.grow not implemented, so we roughly implement it here
-                self.docs_up_to.resize(ord + 1, self.docs_up_to[0]);
+        let docs_up_to_len = self.docs_up_to.len();
+        if self.docs_up_to[0] != doc_upto || docs_up_to_len != 1 {
+            if docs_up_to_len <= ord as usize {
+                ArrayUtil::grow_with_len(&mut self.docs_up_to, ord + 1)?;
+                if docs_up_to_len == 1 {
+                    for i in 1..ord as usize {
+                        self.docs_up_to[i] = self.docs_up_to[0];
+                    }
+                }
                 // TODO: memory calculation not implemented
                 self.bytes_used
                     .lock()
                     .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
                     .add_and_get(0);
             }
-            self.docs_up_to[ord] = doc_upto;
+            self.docs_up_to[ord as usize] = doc_upto;
         }
 
         if !has_value || self.has_values.is_some() {
             if self.has_values.is_none() {
-                let mut new_bitset = FixedBitSet::new(ord as i32 + 1);
-                new_bitset.set_with_range(0, ord as i32);
+                let mut new_bitset = FixedBitSet::new(ord + 1);
+                new_bitset.set_with_range(0, ord);
                 self.bytes_used
                     .lock()
                     .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
                     .add_and_get(new_bitset.ram_bytes_used());
                 self.has_values = Some(new_bitset);
-            } else if self.has_values.as_ref().unwrap().length() as usize <= ord {
+            } else if self.has_values.as_ref().unwrap().length() <= ord {
                 let bitset = self.has_values.as_mut().unwrap();
-                FixedBitSet::ensure_capacity(bitset, (ord + 1) as i32);
+                FixedBitSet::ensure_capacity(bitset, ord + 1);
                 // TODO: memory calculation not implemented
                 self.bytes_used
                     .lock()
@@ -249,7 +254,7 @@ impl FieldUpdatesBuffer {
                     .add_and_get(0);
             }
             if has_value {
-                self.has_values.as_mut().unwrap().set(ord as i32);
+                self.has_values.as_mut().unwrap().set(ord);
             }
         }
         Ok(())
@@ -263,13 +268,19 @@ impl FieldUpdatesBuffer {
         debug_assert!(self.is_numeric);
         let ord = self.append(&term)?;
         let field = term.field.clone();
-        self.add(field, doc_up_to, ord as usize, true)?;
+        self.add(field, doc_up_to, ord, true)?;
         self.min_numeric = min(self.min_numeric, value);
         self.max_numeric = max(self.max_numeric, value);
         let numeric_values = self.numeric_values.as_mut().unwrap();
-        if numeric_values[0] != value || numeric_values.len() != 1 {
-            if numeric_values.len() <= ord as usize {
-                numeric_values.resize(ord as usize + 1, numeric_values[0]);
+        let numeric_values_len = numeric_values.len();
+        if numeric_values[0] != value || numeric_values_len != 1 {
+            if numeric_values_len <= ord as usize {
+                ArrayUtil::grow_with_len(numeric_values, ord + 1)?;
+                if numeric_values_len == 1 {
+                    for i in 1..ord as usize {
+                        numeric_values[i] = numeric_values[0];
+                    }
+                }
                 // TODO: memory calculation not implemented
                 self.bytes_used
                     .lock()
@@ -283,7 +294,7 @@ impl FieldUpdatesBuffer {
 
     pub fn add_no_value(&mut self, term: Term, doc_up_to: i32) -> Result<(), LuceneError> {
         let ord = self.append(&term)?;
-        self.add(term.field.clone(), doc_up_to, ord as usize, false)
+        self.add(term.field.clone(), doc_up_to, ord, false)
     }
     pub fn add_update_with_bytes_ref(
         &mut self,
@@ -294,7 +305,7 @@ impl FieldUpdatesBuffer {
         debug_assert!(!self.is_numeric);
         let ord = self.append(&term)?;
         self.byte_values.as_mut().unwrap().append(value)?;
-        self.add(term.field.clone(), doc_up_to, ord as usize, true)?;
+        self.add(term.field.clone(), doc_up_to, ord, true)?;
         Ok(())
     }
 
