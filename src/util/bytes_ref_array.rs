@@ -89,7 +89,7 @@ impl BytesRefArray {
             self.offsets[index as usize + 1] - offset
         };
 
-        spare.grow_no_copy(length);
+        spare.grow_no_copy(length)?;
         spare.set_length(length);
 
         self.pool.read_bytes(

@@ -552,7 +552,6 @@ fn test_grow_in_range() -> Result<(), LuceneError> {
 }
 #[test]
 fn test_copy_of_sub_array() {
-    let random = my_random("test_copy_of_sub_array".to_string());
     let short_array: Vec<i16> = vec![1, 2, 3];
     assert_eq!(vec![1], ArrayUtil::copy_of_sub_array(&short_array, 0, 1));
     assert_eq!(

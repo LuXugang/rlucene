@@ -90,7 +90,7 @@ fn test_read_and_write() -> Result<(), LuceneError> {
                 .collect::<String>();
             let value_copy = value.clone();
             list.push(BytesRef::from_string(&value));
-            bytes_ref_builder.copy_chars_with_string(&value_copy);
+            bytes_ref_builder.copy_chars_with_string(&value_copy)?;
             pool.append_bytes_ref(bytes_ref_builder.get())?;
         }
         let mut position = 0;

@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::index::bytes_ref::BytesRef;
+use crate::util::array_util::ArrayUtil;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::VecCopyOps;
 
 /// A builder for {@link BytesRef} instances.
@@ -58,17 +60,11 @@ impl BytesRefBuilder {
     pub fn set_byte_at(&mut self, offset: i32, value: u8) {
         self.bytes_ref.bytes[offset as usize] = value;
     }
-    fn grow(&mut self, capacity: i32) {
-        let current_len = self.bytes_ref.bytes.len();
-        if capacity as usize <= current_len {
-            return;
-        }
-        for _i in 0..(capacity as usize - current_len) {
-            self.bytes_ref.bytes.push(0);
-        }
+    fn grow(&mut self, capacity: i32) -> Result<(), LuceneError> {
+        ArrayUtil::grow_with_len(&mut self.bytes_ref.bytes, capacity)
     }
-    pub fn grow_no_copy(&mut self, capacity: i32) {
-        self.grow(capacity);
+    pub fn grow_no_copy(&mut self, capacity: i32) -> Result<(), LuceneError> {
+        self.grow(capacity)
     }
 
     /// Append a single byte to this builder.
@@ -113,37 +109,39 @@ impl BytesRefBuilder {
     /// # See Also
     /// - [`clear`](BytesRefBuilder::clear)
     /// - [`append`](BytesRefBuilder::append)
-    pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: i32, len: i32) {
-        self.grow(len);
+    pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: i32, len: i32) -> Result<(), LuceneError> {
+        self.grow(len)?;
         debug_assert_eq!(self.bytes_ref.offset, 0);
         self.bytes_ref.length = len;
-        self.grow_no_copy(len);
+        self.grow_no_copy(len)?;
         self.bytes_ref
             .bytes
             .copy_from(&b[off as usize..(off + len) as usize], 0);
+        Ok(())
     }
-    pub fn copy_bytes_with_ref(&mut self, b: &BytesRef) {
-        self.copy_bytes_with_vec(&b.bytes, b.offset, b.length);
+    pub fn copy_bytes_with_ref(&mut self, b: &BytesRef) -> Result<(), LuceneError> {
+        self.copy_bytes_with_vec(&b.bytes, b.offset, b.length)
     }
-    pub fn copy_bytes_with_builder(&mut self, b: &mut BytesRefBuilder) {
-        self.copy_bytes_with_ref(b.get());
+    pub fn copy_bytes_with_builder(&mut self, b: &mut BytesRefBuilder) -> Result<(), LuceneError> {
+        self.copy_bytes_with_ref(b.get())
     }
-    pub fn copy_chars_with_string(&mut self, s: &str) {
+    pub fn copy_chars_with_string(&mut self, s: &str) -> Result<(), LuceneError> {
         debug_assert!(s.len() <= i32::MAX as usize);
-        self.copy_chars_range(s, 0, s.len() as i32);
+        self.copy_chars_range(s, 0, s.len() as i32)
     }
-    pub fn copy_chars_range(&mut self, s: &str, off: i32, len: i32) {
+    pub fn copy_chars_range(&mut self, s: &str, off: i32, len: i32) -> Result<(), LuceneError> {
         debug_assert!(s.len() <= i32::MAX as usize);
         let sub_bytes = s.as_bytes()[off as usize..(off + len) as usize].to_vec();
-        self.copy_chars_with_vec(&sub_bytes, 0, sub_bytes.len() as i32);
+        self.copy_chars_with_vec(&sub_bytes, 0, sub_bytes.len() as i32)
     }
-    pub fn copy_chars_with_vec(&mut self, s: &[u8], off: i32, len: i32) {
-        self.grow(len);
+    pub fn copy_chars_with_vec(&mut self, s: &[u8], off: i32, len: i32) -> Result<(), LuceneError> {
+        self.grow(len)?;
         self.bytes_ref
             .bytes
             .copy_from(&s[off as usize..(off + len) as usize], off as usize);
         self.bytes_ref.length = len;
         self.bytes_ref.offset = 0;
+        Ok(())
     }
 
     /// Return a BytesRef that points to the internal content of this builder. Any update to
