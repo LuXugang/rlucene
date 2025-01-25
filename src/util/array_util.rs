@@ -481,7 +481,7 @@ impl ArrayUtil {
         T: Clone + Default,
     {
         debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0 && to as usize <= array.len());
-        array[from as usize..to as usize].iter().cloned().collect()
+        array[from as usize..to as usize].to_vec()
     }
 }
 

@@ -585,7 +585,6 @@ fn test_copy_of_sub_array() {
         Vec::<i64>::new(),
         ArrayUtil::copy_of_sub_array(&long_array, 2, 2)
     );
-    let random_to = random.gen_range(0..10);
 
     let float_array: Vec<f32> = vec![0.1, 0.2, 0.3];
     assert_eq!(
