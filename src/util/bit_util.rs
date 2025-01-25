@@ -26,6 +26,47 @@ impl BitUtil {
     pub const USIZE_BYTES: usize = mem::size_of::<usize>();
     pub const FLOAT_NAN_BITS: u32 = 0x7fc00000;
     pub const DOUBLE_NAN_BITS: u64 = 0x7ff8000000000000;
+    // i16 big_endian
+    pub fn get_i16_be(bytes: &[u8], pos: usize) -> i16 {
+        debug_assert!(
+            pos + Self::SHORT_BYTES <= bytes.len(),
+            "Index out of bounds"
+        );
+
+        unsafe {
+            let raw_value = std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i16);
+            i16::from_be(raw_value)
+        }
+    }
+
+    #[cfg(target_endian = "little")]
+    pub fn set_i16_be(bytes: &mut [u8], pos: usize, value: i16) {
+        Self::set_i16_be_with_len(bytes, pos, value, Self::SHORT_BYTES);
+    }
+
+    #[cfg(target_endian = "little")]
+    pub fn set_i16_be_with_len(bytes: &mut [u8], pos: usize, value: i16, len: usize) {
+        debug_assert!(
+            pos + len <= bytes.len(),
+            "Index out of bounds: pos={} len={} bytes.len()={}",
+            pos,
+            len,
+            bytes.len()
+        );
+        debug_assert!(
+            (0..=Self::SHORT_BYTES).contains(&len),
+            "Invalid length: len={} (must be <= 2)",
+            len
+        );
+
+        let value_be = value.to_be();
+
+        unsafe {
+            let value_ptr = &value_be as *const i16 as *const u8;
+            let dest_ptr = bytes.as_mut_ptr().add(pos);
+            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+        }
+    }
     // i16 little_endian
     #[cfg(target_endian = "little")]
     pub fn get_i16_le(bytes: &[u8], pos: usize) -> i16 {
