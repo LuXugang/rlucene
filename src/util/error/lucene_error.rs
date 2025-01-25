@@ -25,6 +25,7 @@ use crate::util::error::index_not_found::IndexNotFound;
 use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::lock_already_held::LockAlreadyHeldError;
 use crate::util::error::lock_held_by_other::LockHeldByOtherError;
+use crate::util::error::max_bytes_length_exceeded::MaxBytesLengthExceededError;
 use crate::util::error::not_found::NotFoundError;
 use crate::util::error::number_format::NumberFormatError;
 use crate::util::error::unimplemented::UnimplementedError;
@@ -91,6 +92,9 @@ pub enum LuceneError {
 
     #[error("{0}")]
     Unimplemented(#[from] UnimplementedError),
+
+    #[error("{0}")]
+    MaxBytesLengthExceeded(#[from] MaxBytesLengthExceededError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -159,5 +163,8 @@ impl LuceneError {
     }
     pub fn unimplemented(msg: impl Into<String>) -> Self {
         LuceneError::Unimplemented(UnimplementedError::new(msg))
+    }
+    pub fn max_bytes_length_exceeded(msg: impl Into<String>) -> Self {
+        LuceneError::MaxBytesLengthExceeded(MaxBytesLengthExceededError::new(msg))
     }
 }

@@ -14,21 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod array_index_out_of_bounds;
-pub mod corrupt_index;
-pub mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-pub mod index_format_too_new;
-pub mod index_format_too_old;
-mod index_not_found;
-pub mod integer_overflow;
-mod lock_already_held;
-mod lock_held_by_other;
-pub mod lucene_error;
-mod max_bytes_length_exceeded;
-mod not_found;
-mod number_format;
-pub mod parse;
-mod unimplemented;
-mod unsupported_operation;
+
+#[derive(Debug)]
+pub struct MaxBytesLengthExceededError {
+    pub message: String,
+}
+
+impl MaxBytesLengthExceededError {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for MaxBytesLengthExceededError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for MaxBytesLengthExceededError {}
