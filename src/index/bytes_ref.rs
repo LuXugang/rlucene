@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::{StringHelper, GOOD_FAST_HASH_SEED};
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -168,10 +169,8 @@ impl Clone for BytesRef {
 }
 impl Hash for BytesRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // TODO: Java using  StringHelper.murmurhash3_x86_32
-        self.bytes.hash(state);
-        self.offset.hash(state);
-        self.length.hash(state);
+        let hash = StringHelper::murmurhash3_x86_32(self, *GOOD_FAST_HASH_SEED);
+        hash.hash(state)
     }
 }
 impl PartialEq for BytesRef {
