@@ -550,7 +550,7 @@ where
 pub trait ByteArrayComparator {
     /// Compare bytes starting from the given offsets.
     ///
-    /// The return value has the same contract as [`std::cmp::Ord::cmp`](std::cmp::Ord::cmp).
+    /// The return value has the same contract as [`std::cmp::Ord::cmp`].
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32;
 }
 /// Returns a comparator for exactly the specified number of bytes.
