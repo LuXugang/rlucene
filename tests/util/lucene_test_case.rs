@@ -17,12 +17,14 @@
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::Rng;
+use rlucene::index::BytesRef;
 use rlucene::store::directory::Directory;
 use rlucene::store::flush_info::FlushInfo;
 use rlucene::store::fs_directory::FSDirectory;
 use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
 use rlucene::store::{IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE};
+use rlucene::util::error::lucene_error::LuceneError;
 use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick serach
@@ -93,4 +95,94 @@ pub fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestEr
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
     }
+}
+/// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
+/// that sometimes uses a non-zero offset and non-zero end-padding to
+/// tickle latent bugs that fail to look at `BytesRef.offset`.
+pub fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRef, TestError> {
+    let bytes = s.as_bytes();
+    new_bytes_ref(random, bytes, 0, bytes.len() as i32)
+}
+
+/// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero offset,
+/// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+pub fn new_bytes_ref_from_bytes_ref(
+    random: &mut StdRng,
+    b: &BytesRef,
+) -> Result<BytesRef, TestError> {
+    assert!(b.is_valid()?);
+    new_bytes_ref(random, &b.bytes, b.offset, b.length)
+}
+
+/// Creates a random `BytesRef` from the incoming bytes, sometimes using a non-zero offset,
+/// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+pub fn new_bytes_ref_from_bytes(
+    random: &mut StdRng,
+    bytes_in: &[u8],
+) -> Result<BytesRef, TestError> {
+    new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
+}
+
+/// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and non-zero
+/// end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+pub fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, TestError> {
+    new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref` function
+}
+
+/// Creates a random empty `BytesRef`, with at least the requested length of bytes free,
+/// that sometimes uses a non-zero offset and non-zero end-padding to tickle latent bugs
+/// that fail to look at `BytesRef.offset`.
+pub fn new_bytes_ref_with_length(
+    byte_length: i32,
+    random: &mut StdRng,
+) -> Result<BytesRef, TestError> {
+    let bytes_in = vec![0u8; byte_length as usize];
+    new_bytes_ref(random, &bytes_in, 0, byte_length)
+}
+
+/// Creates a copy of the incoming bytes slice that sometimes uses a non-zero {@code offset}, and
+/// non-zero end-padding, to tickle latent bugs that fail to look at {@code BytesRef.offset}.
+pub fn new_bytes_ref(
+    random: &mut StdRng,
+    bytes_in: &[u8],
+    offset: i32,
+    length: i32,
+) -> Result<BytesRef, TestError> {
+    assert!(
+        bytes_in.len() >= (offset + length) as usize,
+        "got offset={} length={} bytesIn.length={}",
+        offset,
+        length,
+        bytes_in.len()
+    );
+    // Randomly set a non-zero offset
+    let start_offset = if random.gen_bool(0.5) {
+        random.gen_range(1..=20)
+    } else {
+        0
+    };
+
+    // Randomly set an end padding (between 1 and 20)
+    let end_padding = if random.gen_bool(0.5) {
+        random.gen_range(1..=20)
+    } else {
+        0
+    };
+
+    let mut bytes = vec![0u8; (start_offset + length + end_padding) as usize];
+
+    bytes[start_offset as usize..(start_offset + length) as usize]
+        .copy_from_slice(&bytes_in[offset as usize..(offset + length) as usize]);
+    // Create a BytesRef and return it
+    let it = BytesRef {
+        bytes,
+        offset: start_offset,
+        length,
+    };
+    assert!(it.is_valid()?);
+
+    if random.gen_range(1..=17) == 7 {
+        return new_bytes_ref(random, &it.bytes, it.offset, it.length);
+    };
+    Ok(it)
 }
