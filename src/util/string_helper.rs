@@ -32,13 +32,13 @@ use std::time::SystemTime;
 /// This is an internal API.
 pub struct StringHelper;
 impl StringHelper {
-    /// Compares two [`BytesRef`](BytesRef), element by element, and returns the number of elements common to
+    /// Compares two [`BytesRef`], element by element, and returns the number of elements common to
     /// both arrays (from the start of each). This method assumes `currentTerm` comes after `priorTerm`.
     ///
     /// # Arguments
     ///
-    /// * `prior_term` - The first [`BytesRef`](BytesRef) to compare
-    /// * `current_term` - The second [`BytesRef`](BytesRef) to compare
+    /// * `prior_term` - The first [`BytesRef`] to compare
+    /// * `current_term` - The second [`BytesRef`] to compare
     ///
     /// # Returns
     ///

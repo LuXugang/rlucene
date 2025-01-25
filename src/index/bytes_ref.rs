@@ -179,7 +179,20 @@ impl PartialEq for BytesRef {
     }
 }
 impl Display for BytesRef {
-    fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        todo!("BytesRef Display")
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "[")?;
+        let end = self.offset + self.length;
+
+        for (i, &byte) in self.bytes[self.offset as usize..end as usize]
+            .iter()
+            .enumerate()
+        {
+            if i > 0 {
+                write!(f, " ")?;
+            }
+            write!(f, "{:02x}", byte)?;
+        }
+
+        write!(f, "]")
     }
 }
