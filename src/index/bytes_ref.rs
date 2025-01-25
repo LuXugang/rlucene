@@ -104,10 +104,6 @@ impl BytesRef {
         false
     }
     /// Interprets the stored bytes as UTF-8, returning the resulting string.
-    ///
-    /// # Errors
-    /// - May panic with an assertion error if debug assertions are enabled and the data is not well-formed UTF-8.
-    /// - May return an error or panic if the data is not valid UTF-8 during runtime.
     pub fn utf8_to_string(&self) -> Result<String, LuceneError> {
         std::str::from_utf8(&self.bytes[self.offset as usize..(self.offset + self.length) as usize])
             .map(|s| s.to_owned())

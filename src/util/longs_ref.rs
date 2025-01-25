@@ -69,10 +69,6 @@ impl LongsRef {
     /// * `longs` - The vector to reference. Should not be empty.
     /// * `offset` - The offset where valid longs start.
     /// * `length` - The number of valid longs.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the combination of `offset` and `length` exceeds the bounds of `longs`.
     pub fn from_slice(mut longs: Vec<i64>, offset: i32, length: i32) -> Self {
         debug_assert!(Self::is_valid(longs.as_mut_slice(), offset, length).unwrap());
         Self {

@@ -403,29 +403,85 @@ impl ArrayUtil {
     /// Copies a slice into a new vector.
     pub fn copy_array<T>(array: &[T]) -> Vec<T>
     where
-        T: Clone + Default,
+        T: Copy + Default,
     {
         Self::copy_of_sub_array(array, 0, array.len() as i32)
+    }
+    /// Clone a slice into a new vector.
+    pub fn clone_array<T>(array: &[T]) -> Vec<T>
+    where
+        T: Clone + Default,
+    {
+        Self::clone_of_sub_array(array, 0, array.len() as i32)
     }
 
     /// Copies the specified range of the given array into a new sub-array.
     ///
+    /// This method efficiently copies a slice of the input array into a new `Vec<T>`.
+    ///
+    /// - For types that implement the `Copy` trait (like `i32`, `i64`, etc.), it performs a
+    ///   low-cost, efficient bitwise copy. This is fast and doesn't require heap allocation
+    ///   or cloning, making it ideal for simple, stack-based types.
+    ///
+    /// - For types that do **not** implement `Copy` but implement `Clone`, you should use
+    ///   the `clone_of_sub_array` method instead. The `clone_of_sub_array` method will
+    ///   perform a deep copy by calling `clone()` on each element, which may involve
+    ///   heap allocation or other more complex operations depending on the type.
+    ///
+    /// For types that implement neither `Copy` nor `Clone`, consider implementing `Clone`
+    /// for your type or providing an alternative copying mechanism.
+    ///
     /// # Arguments
     ///
-    /// * `array` - The input byte slice.
-    /// * `from` - The initial index of range to be copied (inclusive).
-    /// * `to` - The final index of range to be copied (exclusive).
+    /// * `array` - A slice of the input array to copy from.
+    /// * `from` - The initial index (inclusive) of the range to be copied.
+    /// * `to` - The final index (exclusive) of the range to be copied.
     ///
     /// # Returns
-    /// A new `Vec<T>` containing the specified sub-array.
+    /// A new `Vec<T>` containing the specified sub-array of the input array.
+    ///
+    /// # See Also
+    /// `clone_of_sub_array` for deep copy of types that implement `Clone`.
     pub fn copy_of_sub_array<T>(array: &[T], from: i32, to: i32) -> Vec<T>
+    where
+        T: Copy + Default,
+    {
+        debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0 && to as usize <= array.len());
+        let mut copy = vec![Default::default(); (to - from) as usize];
+        copy.copy_from(&array[from as usize..to as usize], 0);
+        copy
+    }
+    /// Clone the specified range of the given array into a new sub-array by cloning each element.
+    ///
+    /// This method is suitable for types that implement the `Clone` trait, allowing for
+    /// a deep copy of the specified range from the input array into a new `Vec<T>`. It
+    /// is typically used when the type does not implement the `Copy` trait (e.g., types
+    /// that involve heap allocation like `String`, `Vec<T>`, etc.), as `Clone` allows
+    /// for the creation of independent copies of each element.
+    ///
+    /// - For types that implement `Copy` (like `i32`, `i64`, etc.), consider using the
+    ///   `copy_of_sub_array` method instead, as it performs a more efficient bitwise copy
+    ///   without requiring cloning or heap allocations.
+    ///
+    /// - For types that implement `Clone`, this method will perform a deep copy by
+    ///   calling `clone()` on each element, which may involve heap allocation or more
+    ///   complex operations depending on the type.
+    ///
+    /// # Arguments
+    ///
+    /// * `array` - A slice of the input array to copy from.
+    /// * `from` - The initial index (inclusive) of the range to be copied.
+    /// * `to` - The final index (exclusive) of the range to be copied.
+    ///
+    /// # Returns
+    /// A new `Vec<T>` containing the specified sub-array of the input array, with each
+    /// element cloned individually.
+    pub fn clone_of_sub_array<T>(array: &[T], from: i32, to: i32) -> Vec<T>
     where
         T: Clone + Default,
     {
         debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0 && to as usize <= array.len());
-        let mut copy = vec![T::default(); (to - from) as usize];
-        copy.copy_from(&array[from as usize..to as usize], 0);
-        copy
+        array[from as usize..to as usize].iter().cloned().collect()
     }
 }
 

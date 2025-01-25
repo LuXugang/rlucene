@@ -25,9 +25,6 @@ pub trait ReadableCursorExt {
     /// # Arguments
     /// * `position` - The current position in the buffer.
     /// * `limit` - The effective limit up to which remaining bytes are calculated.
-    ///
-    /// # Panics
-    /// if `position` is greater than `limit`.
     fn remain_between(&self, position: u64, limit: u64) -> u64;
 
     /// Reads data from the cursor's buffer to the destination slice, starting at the current position.

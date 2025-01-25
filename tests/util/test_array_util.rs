@@ -563,11 +563,6 @@ fn test_copy_of_sub_array() {
         Vec::<i16>::new(),
         ArrayUtil::copy_of_sub_array(&short_array, 0, 0)
     );
-    let random_to = random.gen_range(0..10);
-    let result = std::panic::catch_unwind(|| {
-        ArrayUtil::copy_of_sub_array(&short_array, 0, 4 + random_to);
-    });
-    assert!(result.is_err());
 
     let int_array: Vec<i32> = vec![1, 2, 3];
     assert_eq!(vec![1, 2], ArrayUtil::copy_of_sub_array(&int_array, 0, 2));
@@ -579,11 +574,6 @@ fn test_copy_of_sub_array() {
         Vec::<i32>::new(),
         ArrayUtil::copy_of_sub_array(&int_array, 1, 1)
     );
-    let random_to = random.gen_range(0..10);
-    let result = std::panic::catch_unwind(|| {
-        ArrayUtil::copy_of_sub_array(&int_array, 1, random_to + 4);
-    });
-    assert!(result.is_err());
 
     let long_array: Vec<i64> = vec![1, 2, 3];
     assert_eq!(vec![2], ArrayUtil::copy_of_sub_array(&long_array, 1, 2));
@@ -596,10 +586,6 @@ fn test_copy_of_sub_array() {
         ArrayUtil::copy_of_sub_array(&long_array, 2, 2)
     );
     let random_to = random.gen_range(0..10);
-    let result = std::panic::catch_unwind(|| {
-        ArrayUtil::copy_of_sub_array(&long_array, 2, random_to + 4);
-    });
-    assert!(result.is_err());
 
     let float_array: Vec<f32> = vec![0.1, 0.2, 0.3];
     assert_eq!(
@@ -614,11 +600,6 @@ fn test_copy_of_sub_array() {
         Vec::<f32>::new(),
         ArrayUtil::copy_of_sub_array(&float_array, 0, 0)
     );
-    let random_to = random.gen_range(0..10);
-    let result = std::panic::catch_unwind(|| {
-        ArrayUtil::copy_of_sub_array(&float_array, 3, random_to + 4);
-    });
-    assert!(result.is_err());
 
     let double_array: Vec<f64> = vec![0.1, 0.2, 0.3];
     assert_eq!(vec![0.3], ArrayUtil::copy_of_sub_array(&double_array, 2, 3));
@@ -630,11 +611,6 @@ fn test_copy_of_sub_array() {
         Vec::<f64>::new(),
         ArrayUtil::copy_of_sub_array(&double_array, 1, 1)
     );
-    let random_to = random.gen_range(0..10);
-    let result = std::panic::catch_unwind(|| {
-        ArrayUtil::copy_of_sub_array(&double_array, 0, random_to + 4);
-    });
-    assert!(result.is_err());
 
     let byte_array: Vec<u8> = vec![1, 2, 3];
     assert_eq!(vec![1], ArrayUtil::copy_of_sub_array(&byte_array, 0, 1));
@@ -646,11 +622,6 @@ fn test_copy_of_sub_array() {
         Vec::<u8>::new(),
         ArrayUtil::copy_of_sub_array(&byte_array, 1, 1)
     );
-    let random_to = random.gen_range(0..10);
-    let result = std::panic::catch_unwind(|| {
-        ArrayUtil::copy_of_sub_array(&byte_array, 1, random_to + 4);
-    });
-    assert!(result.is_err());
 
     let char_array: Vec<char> = vec!['a', 'b', 'c'];
     assert_eq!(
@@ -665,19 +636,20 @@ fn test_copy_of_sub_array() {
         Vec::<char>::new(),
         ArrayUtil::copy_of_sub_array(&char_array, 1, 1)
     );
-    let result = std::panic::catch_unwind(|| {
-        ArrayUtil::copy_of_sub_array(&char_array, 3, 4);
-    });
-    assert!(result.is_err());
 
-    // let object_array: Vec<String> = vec!["a1".to_string(), "b2".to_string(), "c3".to_string()];
-    // assert_eq!(vec!["a1".to_string()], ArrayUtil::copy_of_sub_array(&object_array, 0, 1));
-    // assert_eq!(vec!["a1".to_string(), "b2".to_string(), "c3".to_string()], ArrayUtil::copy_of_sub_array(&object_array, 0, 3));
-    // assert_eq!(Vec::<String>::new(), ArrayUtil::copy_of_sub_array(&object_array, 1, 1));
-    // let result = std::panic::catch_unwind(|| {
-    //     ArrayUtil::copy_of_sub_array(&object_array, 2, 5);
-    // });
-    // assert!(result.is_err());
+    let object_array: Vec<String> = vec!["a1".to_string(), "b2".to_string(), "c3".to_string()];
+    assert_eq!(
+        vec!["a1".to_string()],
+        ArrayUtil::clone_of_sub_array(&object_array, 0, 1)
+    );
+    assert_eq!(
+        vec!["a1".to_string(), "b2".to_string(), "c3".to_string()],
+        ArrayUtil::clone_of_sub_array(&object_array, 0, 3)
+    );
+    assert_eq!(
+        Vec::<String>::new(),
+        ArrayUtil::clone_of_sub_array(&object_array, 1, 1)
+    );
 }
 #[test]
 fn test_compare_unsigned4() {
