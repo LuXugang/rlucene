@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
+use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{Counter, CounterEnum, VecCopyOps};
 use std::cmp::min;
@@ -28,8 +29,8 @@ pub struct ByteBlockPool {
     /// Offset from the start of the first buffer to the start of the current buffer, which is
     /// `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool maintains this offset because it is the first to
     /// overflow if there are too many allocated blocks.
-    byte_offset: i32,
-    byte_upto: i32,
+    pub(crate) byte_offset: i32,
+    pub(crate) byte_upto: i32,
 }
 impl ByteBlockPool {
     //TODO
@@ -44,7 +45,7 @@ impl ByteBlockPool {
     ///
     /// # Parameters
     /// - `global_offset`: The offset to the target byte.
-    const BYTE_BLOCK_SHIFT: i32 = 15;
+    pub(crate) const BYTE_BLOCK_SHIFT: i32 = 15;
     /// The size of each buffer in the pool.
     pub const BYTE_BLOCK_SIZE: i32 = 1 << Self::BYTE_BLOCK_SHIFT;
     /// Use this to find the position of a global offset in a particular buffer.
@@ -53,7 +54,7 @@ impl ByteBlockPool {
     /// `position_in_current_buffer = global_offset & BYTE_BLOCK_MASK`
     ///
     /// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
-    const BYTE_BLOCK_MASK: i32 = Self::BYTE_BLOCK_SIZE - 1;
+    pub(crate) const BYTE_BLOCK_MASK: i32 = Self::BYTE_BLOCK_SIZE - 1;
     /// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
     /// Allocation is done through the use of an [`Allocator`] which can be customized,
     /// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
@@ -315,11 +316,16 @@ impl ByteBlockPool {
     pub fn get_position(&self) -> i64 {
         (self.buffer_upto * self.allocator.get_block_size() + self.byte_upto) as i64
     }
-    pub fn get_buffer(&self, buffer_index: i32) -> &Vec<u8> {
-        &self.buffers[buffer_index as usize]
+    pub fn get_buffer(&mut self, buffer_index: i32) -> &mut Vec<u8> {
+        &mut self.buffers[buffer_index as usize]
     }
     pub fn get_bytes_used(&self) -> Result<i64, LuceneError> {
         self.allocator.get_used()
+    }
+}
+impl Accountable for ByteBlockPool {
+    fn ram_bytes_used(&self) -> i64 {
+        todo!()
     }
 }
 

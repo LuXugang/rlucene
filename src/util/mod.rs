@@ -32,6 +32,8 @@ pub mod bit_set_type;
 pub mod bit_util;
 pub mod bits;
 pub mod bytes_ref_array;
+mod bytes_ref_block_pool;
+mod bytes_ref_hash;
 pub mod common_util;
 pub mod constants;
 pub mod counter;
