@@ -281,7 +281,7 @@ impl PackedLongValuesBuilder {
     pub(crate) fn finish(&mut self) -> Result<(), LuceneError> {
         if self.pending_off > 0 {
             if self.values.len() == self.values_off as usize {
-                self.grow(self.values_off)?;
+                self.grow(self.values_off + 1)?;
             }
             self.pack_impl()?;
         }
