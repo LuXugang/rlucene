@@ -106,7 +106,6 @@ struct Buffer {
 }
 #[test]
 fn main() {
-    // 假设有一个 Vec<Buffer>
     let buffers = vec![
         Buffer {
             array: vec![3, 1, 4],
@@ -124,16 +123,14 @@ fn main() {
         .map(|buffer| buffer.array.into_iter())
         .collect();
 
-    // 初始化最小堆
     for (i, it) in iterators.iter_mut().enumerate() {
         if let Some(value) = it.next() {
-            heap.push(Reverse((value, i))); // 用 Reverse 实现小顶堆
+            heap.push(Reverse((value, i)));
         }
     }
 
     let mut merged_array = Vec::new();
 
-    // 多路归并
     while let Some(Reverse((value, i))) = heap.pop() {
         merged_array.push(value);
         if let Some(next_value) = iterators[i].next() {
@@ -141,6 +138,5 @@ fn main() {
         }
     }
 
-    // 输出排序结果
     println!("{:?}", merged_array);
 }

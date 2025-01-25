@@ -60,3 +60,9 @@ impl Reader for PackedIntsReadEnum {
         }
     }
 }
+impl Default for PackedIntsReadEnum {
+    // used for padding value
+    fn default() -> Self {
+        PackedIntsReadEnum::NullReader(NullReader::new(0))
+    }
+}

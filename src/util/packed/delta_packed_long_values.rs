@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::monotonic_long_values::{MonotonicLongValues, MonotonicLongValuesBuilder};
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
@@ -125,17 +126,13 @@ impl DeltaPackedLongValuesBuilder {
         Ok(())
     }
 
-    pub(crate) fn grow(&mut self, new_block_count: i32) {
+    pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<(), LuceneError> {
         if let Some(ref mut builder) = self.sub_builder {
-            builder.grow(new_block_count)
+            builder.grow(new_block_count)?
         }
-        if new_block_count as usize >= self.mins.len() {
-            for _i in 0..new_block_count as usize / 2 {
-                self.mins.push(0);
-            }
-        }
-        //TODO
-        // self.sub_builder.ram_bytes_used = 0;
+        ArrayUtil::grow_exact(&mut self.mins, new_block_count)?;
+        // TODO: memory calculation not implemented
+        Ok(())
     }
     #[allow(dead_code)]
     fn base_ram_bytes_used(&self) -> u64 {

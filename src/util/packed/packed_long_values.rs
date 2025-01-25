@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
+use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::delta_packed_long_values::{
@@ -262,7 +263,7 @@ impl PackedLongValuesBuilder {
                 // Not consistent with the Java version implementation, we increase by half of the current length
                 let new_length = current_value_len + current_value_len / 2;
                 debug_assert!(new_length <= i32::MAX as usize);
-                self.grow(new_length as i32);
+                self.grow(new_length as i32)?;
             }
             self.pack_impl()?;
             debug_assert!(
@@ -280,7 +281,7 @@ impl PackedLongValuesBuilder {
     pub(crate) fn finish(&mut self) -> Result<(), LuceneError> {
         if self.pending_off > 0 {
             if self.values.len() == self.values_off as usize {
-                self.grow(self.values_off);
+                self.grow(self.values_off)?;
             }
             self.pack_impl()?;
         }
@@ -354,21 +355,14 @@ impl PackedLongValuesBuilder {
         }
     }
 
-    fn grow(&mut self, new_block_count: i32) {
+    fn grow(&mut self, new_block_count: i32) -> Result<(), LuceneError> {
         if let Some(ref mut sub) = self.sub_builder {
-            sub.grow(new_block_count)
+            sub.grow(new_block_count)?;
         }
         // TODO
         self.ram_bytes_used = 0;
-        let current_len = self.values.len();
-        if (new_block_count as usize) < current_len {
-            return;
-        }
-        for _i in 0..(new_block_count as usize / 2) {
-            // PackedIntsReadEnum::NullReader as padding value
-            self.values
-                .push(PackedIntsReadEnum::NullReader(NullReader::new(0)));
-        }
+        ArrayUtil::grow_exact(&mut self.values, new_block_count)?;
+        Ok(())
     }
     pub fn size(&self) -> i64 {
         self.size

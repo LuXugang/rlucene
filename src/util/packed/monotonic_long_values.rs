@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::monotonic_block_packed_reader::expected;
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
@@ -113,11 +114,8 @@ impl MonotonicLongValuesBuilder {
         Ok(())
     }
 
-    pub(crate) fn grow(&mut self, new_block_count: i32) {
-        if new_block_count as usize >= self.averages.len() {
-            for _i in 0..new_block_count as usize / 2 {
-                self.averages.push(0.0);
-            }
-        }
+    pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<(), LuceneError> {
+        // TODO: memory calculation not implemented
+        ArrayUtil::grow_exact(&mut self.averages, new_block_count)
     }
 }
