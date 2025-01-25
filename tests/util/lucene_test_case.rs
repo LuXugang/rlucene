@@ -24,7 +24,6 @@ use rlucene::store::fs_directory::FSDirectory;
 use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
 use rlucene::store::{IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE};
-use rlucene::util::error::lucene_error::LuceneError;
 use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick serach
@@ -106,6 +105,7 @@ pub fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRe
 
 /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero offset,
 /// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+#[allow(unused)]
 pub fn new_bytes_ref_from_bytes_ref(
     random: &mut StdRng,
     b: &BytesRef,
@@ -116,6 +116,7 @@ pub fn new_bytes_ref_from_bytes_ref(
 
 /// Creates a random `BytesRef` from the incoming bytes, sometimes using a non-zero offset,
 /// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+#[allow(unused)]
 pub fn new_bytes_ref_from_bytes(
     random: &mut StdRng,
     bytes_in: &[u8],
@@ -125,6 +126,7 @@ pub fn new_bytes_ref_from_bytes(
 
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and non-zero
 /// end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+#[allow(unused)]
 pub fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, TestError> {
     new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref` function
 }
@@ -132,6 +134,7 @@ pub fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, TestError> {
 /// Creates a random empty `BytesRef`, with at least the requested length of bytes free,
 /// that sometimes uses a non-zero offset and non-zero end-padding to tickle latent bugs
 /// that fail to look at `BytesRef.offset`.
+#[allow(unused)]
 pub fn new_bytes_ref_with_length(
     byte_length: i32,
     random: &mut StdRng,

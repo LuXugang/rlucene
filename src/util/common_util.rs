@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
+use std::cmp::Ordering;
 
 pub struct CommonUtil;
 impl CommonUtil {
@@ -39,12 +40,17 @@ impl CommonUtil {
     }
     pub(crate) fn miss_match(prior: &[u8], current: &[u8]) -> i32 {
         let miss_match = prior.iter().zip(current.iter()).position(|(a, b)| a != b);
+
         match miss_match {
             Some(miss_match) => {
                 debug_assert!(miss_match <= i32::MAX as usize);
                 miss_match as i32
             }
-            None => -1,
+            None => match prior.len().cmp(&current.len()) {
+                Ordering::Greater => current.len() as i32,
+                Ordering::Less => prior.len() as i32,
+                Ordering::Equal => -1,
+            },
         }
     }
 }
