@@ -37,4 +37,14 @@ impl CommonUtil {
             Ok(from_index)
         }
     }
+    pub(crate) fn miss_match(prior: &[u8], current: &[u8]) -> i32 {
+        let miss_match = prior.iter().zip(current.iter()).position(|(a, b)| a != b);
+        match miss_match {
+            Some(miss_match) => {
+                debug_assert!(miss_match <= i32::MAX as usize);
+                miss_match as i32
+            }
+            None => -1,
+        }
+    }
 }
