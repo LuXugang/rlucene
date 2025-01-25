@@ -64,7 +64,7 @@ impl DocsWithFieldSet<FixedBitSet> {
             )));
         }
         if self.set.length() != 0 {
-            FixedBitSet::ensure_capacity(&mut self.set, doc_id);
+            FixedBitSet::ensure_capacity(&mut self.set, doc_id)?;
             self.set.set(doc_id);
         } else if doc_id != self.cardinality {
             self.set = FixedBitSet::new(doc_id + 1);

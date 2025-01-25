@@ -19,6 +19,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 
+use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bits::FixedBits;
 use std::cmp::min;
@@ -78,20 +79,19 @@ impl Clone for FixedBitSet {
 /// The returned bitset reuses the underlying `long[]` of the given `bits` if possible.
 /// Also, calling `length()` on the returned bits may return a value greater than `num_bits`.
 impl FixedBitSet {
-    pub fn ensure_capacity(bits: &mut FixedBitSet, num_bits: i32) {
+    pub fn ensure_capacity(bits: &mut FixedBitSet, num_bits: i32) -> Result<(), LuceneError> {
         if num_bits < bits.num_bits {
         } else {
             let num_words = Self::bits2words(num_bits);
-            let arr_len = bits.bits.len() as i32;
-            // TODO:should not add another 64bit so simply,see what Java lucene `ArrayUtil.grow`
-            let grow = 1;
-            bits.num_bits = num_bits + (64 * grow);
-            bits.num_words = num_words + grow;
-            // diff to Java Lucene
-            for _i in 0..(bits.num_words - arr_len) {
-                bits.bits.push(0);
+            let length = bits.bits.len();
+            if num_words as usize > length {
+                ArrayUtil::grow_with_len(&mut bits.bits, num_words + 1)?;
             }
+            debug_assert!(bits.bits.len() <= i32::MAX as usize);
+            bits.num_bits = (bits.bits.len() as i32) << 6;
+            bits.num_words = Self::bits2words(bits.num_bits);
         }
+        Ok(())
     }
 
     /// returns the number of 64-bit words it would take to hold numBits

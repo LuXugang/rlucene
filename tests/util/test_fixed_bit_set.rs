@@ -534,13 +534,13 @@ fn test_next_bitset() {
 }
 
 #[test]
-fn test_ensure_capacity() {
+fn test_ensure_capacity() -> Result<(), LuceneError> {
     let mut bits = FixedBitSet::new(5);
     bits.set(1);
     bits.set(4);
 
     let mut bits_clone = bits.clone();
-    FixedBitSet::ensure_capacity(&mut bits, 8);
+    FixedBitSet::ensure_capacity(&mut bits, 8)?;
     assert!(bits.get(1));
     assert!(bits.get(4));
     bits.clear_with_index(1);
@@ -550,13 +550,13 @@ fn test_ensure_capacity() {
     bits.set(1);
     let length = bits.length();
     let bits_clone_1 = bits.clone();
-    FixedBitSet::ensure_capacity(&mut bits, length - 2);
+    FixedBitSet::ensure_capacity(&mut bits, length - 2)?;
     assert_eq!(bits_clone_1.length(), bits.length());
     assert!(bits.get(1));
 
     bits_clone.set(1);
     let bits_clone_2 = bits_clone.clone();
-    FixedBitSet::ensure_capacity(&mut bits_clone, 72);
+    FixedBitSet::ensure_capacity(&mut bits_clone, 72)?;
     assert!(bits_clone.length() > bits_clone_2.length());
     assert!(bits_clone.get(1));
     assert!(bits_clone.get(4));
@@ -564,6 +564,7 @@ fn test_ensure_capacity() {
     // we grew the long[], so it's not shared
     assert!(bits_clone_2.get(1));
     assert!(!bits_clone.get(1));
+    Ok(())
 }
 
 #[test]
