@@ -16,6 +16,7 @@
  */
 use crate::util::lucene_test_case::new_directory;
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::codecs::live_docs_format::LiveDocsFormat;
@@ -33,7 +34,7 @@ use std::sync::{Arc, Mutex};
 
 pub trait BaseLiveDocsFormatTestCase {
     fn test_dense_live_docs(&self, random: &mut StdRng) -> Result<(), TestError> {
-        let max_doc = random.gen_range(3..=1000);
+        let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, max_doc - 1, false)?;
         Self::test_serialization(random, max_doc, max_doc - 1, true)?;
         Ok(())

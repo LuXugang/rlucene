@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::is_night_mode;
 use crate::store::add_random_data;
+use crate::util::lucene_test_case::is_night_mode;
 use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rand::Rng;

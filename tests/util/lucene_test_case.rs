@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common;
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rlucene::index::BytesRef;
@@ -30,8 +30,40 @@ use tempfile::TempDir;
 #[allow(dead_code)] // for quick serach
 pub struct LuceneTestCase;
 
+pub(crate) fn random_multiplier() -> i32 {
+    let multiplier = std::env::var("TESTS_MULTIPLIER").ok();
+
+    multiplier
+        .and_then(|v| v.parse::<i32>().ok())
+        .unwrap_or(default_random_multiplier())
+}
+
+fn default_random_multiplier() -> i32 {
+    if is_night_mode() {
+        2
+    } else {
+        1
+    }
+}
+/// Returns a number of at least `i`
+///
+/// The actual number returned will be influenced by whether `TEST_NIGHTLY` is active and
+/// `RANDOM_MULTIPLIER`, but also with some random fudge.
+pub(crate) fn at_least(random: &mut StdRng, i: i32) -> i32 {
+    let min = i * random_multiplier();
+    let max = min + (min / 2);
+    TestUtil::next_int(random, min, max)
+}
+
+pub(crate) fn rarely(random: &mut StdRng) -> bool {
+    let mut p = if is_night_mode() { 5 } else { 1 };
+    p += (p as f64 * (random_multiplier() as f64).ln()).round() as i32;
+    let min = 100 - p.min(20); // Never more than 20% chance
+    random.gen_range(0..100) >= min
+}
+
 // TODO: When we have implemented multiple directories, we need to select one randomly. Currently, we choose NIOFSDirectory.
-pub fn new_directory(
+pub(crate) fn new_directory(
     _random: &mut StdRng,
 ) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, TestError> {
     let temp_dir = TempDir::new()?;
@@ -39,11 +71,11 @@ pub fn new_directory(
     Ok(FSDirectory::new(temp_dir.into_path(), sub_directory)?)
 }
 
-pub fn new_io_context(random: &mut StdRng) -> Result<IOContext, TestError> {
+pub(crate) fn new_io_context(random: &mut StdRng) -> Result<IOContext, TestError> {
     new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
 }
 
-pub fn new_io_context_with_default(
+pub(crate) fn new_io_context_with_default(
     random: &mut StdRng,
     old_context: &IOContext,
 ) -> Result<IOContext, TestError> {
@@ -89,7 +121,7 @@ pub fn new_io_context_with_default(
         }
     }
 }
-pub fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestError> {
+pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestError> {
     let result = dir.open_input(name, &IOContext::default_io_context()?);
     match result {
         Ok(_) => Ok(true),
@@ -99,7 +131,10 @@ pub fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestEr
 /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
 /// that sometimes uses a non-zero offset and non-zero end-padding to
 /// tickle latent bugs that fail to look at `BytesRef.offset`.
-pub fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRef, TestError> {
+pub(crate) fn new_bytes_ref_from_string(
+    random: &mut StdRng,
+    s: &str,
+) -> Result<BytesRef, TestError> {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
 }
@@ -107,7 +142,7 @@ pub fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRe
 /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero offset,
 /// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub fn new_bytes_ref_from_bytes_ref(
+pub(crate) fn new_bytes_ref_from_bytes_ref(
     random: &mut StdRng,
     b: &BytesRef,
 ) -> Result<BytesRef, TestError> {
@@ -118,7 +153,7 @@ pub fn new_bytes_ref_from_bytes_ref(
 /// Creates a random `BytesRef` from the incoming bytes, sometimes using a non-zero offset,
 /// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub fn new_bytes_ref_from_bytes(
+pub(crate) fn new_bytes_ref_from_bytes(
     random: &mut StdRng,
     bytes_in: &[u8],
 ) -> Result<BytesRef, TestError> {
@@ -128,7 +163,7 @@ pub fn new_bytes_ref_from_bytes(
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and non-zero
 /// end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, TestError> {
+pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, TestError> {
     new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref` function
 }
 
@@ -136,7 +171,7 @@ pub fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, TestError> {
 /// that sometimes uses a non-zero offset and non-zero end-padding to tickle latent bugs
 /// that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub fn new_bytes_ref_with_length(
+pub(crate) fn new_bytes_ref_with_length(
     byte_length: i32,
     random: &mut StdRng,
 ) -> Result<BytesRef, TestError> {
@@ -146,7 +181,7 @@ pub fn new_bytes_ref_with_length(
 
 /// Creates a copy of the incoming bytes slice that sometimes uses a non-zero {@code offset}, and
 /// non-zero end-padding, to tickle latent bugs that fail to look at {@code BytesRef.offset}.
-pub fn new_bytes_ref(
+pub(crate) fn new_bytes_ref(
     random: &mut StdRng,
     bytes_in: &[u8],
     offset: i32,
@@ -197,7 +232,7 @@ pub fn new_bytes_ref(
 ///
 /// # Returns
 /// A valid `u64` seed.
-pub fn get_seed_from_env() -> u64 {
+pub(crate) fn get_seed_from_env() -> u64 {
     if let Ok(seed_str) = std::env::var("TEST_SEED") {
         if let Ok(seed) = seed_str.parse::<u64>() {
             println!("Using Global Seed from environment: {}", seed);
@@ -212,17 +247,14 @@ pub fn get_seed_from_env() -> u64 {
     seed
 }
 
-pub fn random() -> StdRng {
+pub(crate) fn random() -> StdRng {
     StdRng::seed_from_u64(get_seed_from_env())
 }
 
-pub fn random_from_seed(seed: u64) -> StdRng {
+pub(crate) fn random_from_seed(seed: u64) -> StdRng {
     StdRng::seed_from_u64(seed)
 }
 
-pub fn rarely(random: &mut StdRng) -> bool {
-    let mut p = if common::is_night_mode() { 5 } else { 1 };
-    p += (p as f64 * (common::get_random_multiplier() as f64).ln()).round() as i32;
-    let min = 100 - p.min(20); // Never more than 20% chance
-    random.gen_range(0..100) >= min
+pub fn is_night_mode() -> bool {
+    std::env::var("NIGHT_MODE").is_ok_and(|v| v == "true")
 }

@@ -16,6 +16,7 @@
  */
 use crate::util::base_sort_test_case::{BaseSortTestCase, Entry};
 use crate::util::lucene_test_case::random;
+use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::util::{ArrayTimSorter, Comparator, NaturalOrder, Sorter, TimSorter};
@@ -35,9 +36,9 @@ impl TestTimSorter<Entry, NaturalOrder<Entry>> {
 impl<T: Default + Clone, C: Comparator<T>> BaseSortTestCase for TestTimSorter<T, C> {
     fn new_sorter(&self, random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter {
         let arr_len = arr.len();
-        let max_temp_slots = random.gen_range(0..=arr_len);
+        let max_temp_slots = TestUtil::next_int(random, 0, arr_len as i32);
         let array_tim_sorter = ArrayTimSorter::new(arr, NaturalOrder::new(), arr_len as i32);
-        TimSorter::new(max_temp_slots as i32, array_tim_sorter)
+        TimSorter::new(max_temp_slots, array_tim_sorter)
     }
 
     fn get_stable(&self) -> bool {

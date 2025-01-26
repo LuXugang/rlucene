@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::is_night_mode;
 use crate::util::base_bit_set_test_case::{
     BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
 };
 use crate::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
+use crate::util::lucene_test_case::is_night_mode;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};

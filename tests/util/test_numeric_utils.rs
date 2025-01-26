@@ -16,6 +16,7 @@
  */
 use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use num_bigint::{BigInt, Sign};
 use num_traits::{Float, FromPrimitive};
 use rand::prelude::StdRng;
@@ -91,7 +92,7 @@ fn test_int_conversion_and_ordering() -> Result<(), TestError> {
 fn test_big_int_conversion_and_ordering() -> Result<(), TestError> {
     let mut random = random();
     // Generate a random size between 3 and 16
-    let size = random.gen_range(3..=16);
+    let size = TestUtil::next_int(&mut random, 3, 16) as usize;
     let mut previous: Option<BytesRef> = None;
     let mut current = BytesRef::from_bytes(vec![0u8; size]);
 
@@ -444,7 +445,7 @@ fn test_sortable_float_nan() -> Result<(), TestError> {
 #[test]
 fn test_add() -> Result<(), TestError> {
     let mut random = random();
-    let iters = random.gen_range(1000..=10000);
+    let iters = TestUtil::next_int(&mut random, 1000, 10000);
     let num_bytes = random.gen_range(1..=100);
 
     for _ in 0..iters {

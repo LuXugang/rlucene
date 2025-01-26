@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::get_random_multiplier;
 use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::random_multiplier;
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::store::data_output::DataOutput;
@@ -82,7 +82,7 @@ pub fn run_test_output_alignment(alignment: i32) -> Result<(), LuceneError> {
     let mut buffer = Vec::new();
     let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;
 
-    for _ in 0..(10 * get_random_multiplier()) {
+    for _ in 0..(10 * random_multiplier()) {
         let length = random.gen_range(0..32);
         let data = vec![0; length];
         out.write_bytes_with_len(&data, length as i32)?;

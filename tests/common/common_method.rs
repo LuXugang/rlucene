@@ -14,25 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub fn is_night_mode() -> bool {
-    std::env::var("NIGHT_MODE").is_ok_and(|v| v == "true")
-}
 
-pub fn get_random_multiplier() -> i32 {
-    let multiplier = std::env::var("TESTS_MULTIPLIER").ok();
-
-    multiplier
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(default_random_multiplier())
-}
-
-fn default_random_multiplier() -> i32 {
-    if is_night_mode() {
-        2
-    } else {
-        1
-    }
-}
 pub fn assert_vecs_equal<T: PartialEq + std::fmt::Debug>(expected: &[T], actual: &[T]) {
     if expected.len() != actual.len() {
         assert_eq!(expected.len(), actual.len(),);
