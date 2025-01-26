@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::rngs::StdRng;
@@ -25,13 +26,35 @@ use rlucene::store::fs_directory::FSDirectory;
 use rlucene::store::merge_info::MergeInfo;
 use rlucene::store::nio_fs_directory::NIOFSDirectory;
 use rlucene::store::{IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE};
+use std::fmt;
 use tempfile::TempDir;
 
-#[allow(dead_code)] // for quick serach
+#[allow(dead_code)] // for quick search
 pub struct LuceneTestCase;
+/// Describes the currently supported environment variables used to control Lucene tests.
+///
+/// Each variant corresponds to an environment variable that configures specific behaviors of the tests.
+/// For example, environment variables can be used to control the test mode, random number generator seed, etc.
+#[derive(Debug, Clone, Copy)]
+pub enum EnvConfig {
+    NightMode,
+    Multiplier,
+    TestSeed,
+}
+
+impl fmt::Display for EnvConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let key = match self {
+            NightMode => "tests.nightly",
+            Multiplier => "tests.multiplier",
+            TestSeed => "tests.seed",
+        };
+        write!(f, "{}", key)
+    }
+}
 
 pub(crate) fn random_multiplier() -> i32 {
-    let multiplier = std::env::var("TESTS_MULTIPLIER").ok();
+    let multiplier = std::env::var(Multiplier.to_string()).ok();
 
     multiplier
         .and_then(|v| v.parse::<i32>().ok())
@@ -226,19 +249,19 @@ pub(crate) fn new_bytes_ref(
     Ok(it)
 }
 
-/// Retrieves the seed from the environment variable "TEST_SEED".
+/// Retrieves the seed from the environment variable "tests.seed".
 /// If the environment variable is not set or cannot be parsed as a `u64`,
 /// it generates a random seed and logs the result.
 ///
 /// # Returns
 /// A valid `u64` seed.
 pub(crate) fn get_seed_from_env() -> u64 {
-    if let Ok(seed_str) = std::env::var("TEST_SEED") {
+    if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
         if let Ok(seed) = seed_str.parse::<u64>() {
             println!("Using Global Seed from environment: {}", seed);
             return seed;
         } else {
-            println!("Environment variable TEST_SEED is invalid: {}", seed_str);
+            println!("Environment variable tests.seed is invalid: {}", seed_str);
         }
     }
 
@@ -256,5 +279,5 @@ pub(crate) fn random_from_seed(seed: u64) -> StdRng {
 }
 
 pub fn is_night_mode() -> bool {
-    std::env::var("NIGHT_MODE").is_ok_and(|v| v == "true")
+    std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
 }
