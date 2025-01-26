@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::lucene_test_case::random;
+use crate::util::TestUtil;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rlucene::index::BytesRef;
@@ -59,6 +60,9 @@ fn test_from_chars() {
         let s2 = BytesRef::from_string(&s).utf8_to_string().unwrap();
         assert_eq!(s, s2);
     }
+    let s = TestUtil::random_unicode_string(&mut random);
+    let s2 = BytesRef::from_string(&s).utf8_to_string().unwrap();
+    assert_eq!(s, s2);
 }
 
 #[test]

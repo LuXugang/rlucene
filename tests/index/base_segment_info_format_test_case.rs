@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::util::lucene_test_case::new_directory;
+use crate::util::lucene_test_case::{at_least, new_directory};
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use num_bigint::BigInt;
@@ -442,12 +442,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         );
         let io_context = IOContext::default_io_context()?;
 
-        let iters = random.gen_range(5..100);
+        let iters = at_least(random, 5);
         for _ in 0..iters {
             let sort = if random.gen_bool(0.2) {
                 None
             } else {
-                let num_sort_fields = random.gen_range(1..=3);
+                let num_sort_fields = TestUtil::next_int(random, 1, 3);
                 let mut sort_fields = Vec::new();
                 for _ in 0..num_sort_fields {
                     if let Some(sort_field) = Self::random_index_sort_field(random)? {
@@ -523,7 +523,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 BigInt::from(random.gen_range(0..i32::MAX) as i64)
             };
             let name = format!("_{}", big_int.to_str_radix(36));
-            let doc_count = random.gen_range(1..=IndexWriter::MAX_DOCS);
+            let doc_count = TestUtil::next_int(random, 1, IndexWriter::MAX_DOCS);
             let is_compound_file = random.gen_bool(0.5);
             let mut files = HashSet::new();
             let num_files = random.gen_range(0..10);

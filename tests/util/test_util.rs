@@ -17,7 +17,7 @@
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
 use rand::rngs::StdRng;
-use rand::Rng;
+use rand::{Rng, RngCore};
 
 pub struct TestUtil;
 const BLOCK_STARTS: &[u32] = &[
@@ -82,7 +82,7 @@ impl TestUtil {
         r.gen_range(start..=end)
     }
     /// start and end are BOTH inclusive
-    pub fn next_long(r: &mut impl Rng, start: i64, end: i64) -> i64 {
+    pub fn next_long(r: &mut StdRng, start: i64, end: i64) -> i64 {
         assert!(end >= start, "start={}, end={}", start, end);
         let range = BigInt::from(end) + BigInt::from(1) - BigInt::from(start);
         if range <= BigInt::from(i32::MAX) {
@@ -95,6 +95,13 @@ impl TestUtil {
             assert!(result <= end);
             result
         }
+    }
+    /// Returns a random big integer with `1 .. max_bytes` storage.
+    pub fn next_big_integer(random: &mut StdRng, max_bytes: i32) -> BigInt {
+        let length = Self::next_int(random, 1, max_bytes);
+        let mut buffer = vec![0u8; length as usize];
+        random.fill_bytes(&mut buffer);
+        BigInt::from_signed_bytes_be(&buffer)
     }
     pub fn random_simple_string_with_length(
         random: &mut StdRng,

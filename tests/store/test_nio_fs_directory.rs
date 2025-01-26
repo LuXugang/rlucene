@@ -341,3 +341,13 @@ fn test_prefetch_on_slice() -> Result<(), TestError> {
     let test = TestNIOFSDirectory;
     test.test_prefetch_on_slice(&mut random)
 }
+#[test]
+fn test_is_loaded() -> Result<(), TestError> {
+    //TODO
+    Ok(())
+}
+#[test]
+fn test_is_loaded_on_slice() -> Result<(), TestError> {
+    //TODO
+    Ok(())
+}

@@ -21,7 +21,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
 use std::collections::{BTreeSet, HashSet};
@@ -39,7 +39,7 @@ fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), Te
     }
 
     match random.gen_range(0..3) {
-        0 => max_length += random.gen_range(1..=5),
+        0 => max_length += TestUtil::next_int(random, 1, 5),
         1 => max_length = i32::MAX,
         _ => {}
     }
@@ -119,7 +119,7 @@ fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
 fn test_random_with_shared_prefix() -> Result<(), TestError> {
     let mut random = random();
     for _ in 0..10 {
-        let shared_prefix = random.gen_range(1..30);
+        let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
         test_random_impl(shared_prefix, 10, &mut random)?;
     }
     Ok(())
@@ -129,7 +129,7 @@ fn test_random_with_shared_prefix() -> Result<(), TestError> {
 fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestError> {
     let mut random = random();
     for _ in 0..10 {
-        let shared_prefix = random.gen_range(1..30);
+        let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
         test_random_impl(shared_prefix, 2, &mut random)?;
     }
     Ok(())
@@ -139,19 +139,19 @@ fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestErr
 fn test_random2() -> Result<(), TestError> {
     let mut random = random();
     // How large our alphabet is
-    let letter_count = random.gen_range(2..=10);
+    let letter_count = TestUtil::next_int(&mut random, 2, 10);
 
     // How many substring fragments to use
-    let substring_count = random.gen_range(2..10);
+    let substring_count = TestUtil::next_int(&mut random, 2, 10) as usize;
     let mut substrings_set = HashSet::new();
 
     // How many strings to make
-    let string_count = random.gen_range(10000..1000000);
+    let string_count = at_least(&mut random, 10000) as usize;
     // let string_count = ;
 
     // Generate unique substrings
     while substrings_set.len() < substring_count {
-        let length = random.gen_range(2..10);
+        let length = TestUtil::next_int(&mut random, 2, 10);
         let bytes: Vec<u8> = (0..length)
             .map(|_| random.gen_range(0..letter_count) as u8)
             .collect();

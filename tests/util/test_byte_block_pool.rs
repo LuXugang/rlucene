@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
@@ -31,7 +32,7 @@ struct TestByteBlockPool {}
 fn test_append_from_other_pool() -> Result<(), LuceneError> {
     let mut random = random();
     let mut pool = ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()));
-    let num_bytes = random.gen_range(2 << 16..(2 << 16) + 1000000);
+    let num_bytes = at_least(&mut random, 2 << 16) as usize;
     let bytes = (&mut random)
         .sample_iter(&Alphanumeric)
         .take(num_bytes)
@@ -43,13 +44,14 @@ fn test_append_from_other_pool() -> Result<(), LuceneError> {
     let bytes_length = bytes.len();
 
     let mut another_pool = ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()));
-    let existing_bytes = vec![0; random.gen_range(500..100000)];
+    let existing_bytes = vec![0; at_least(&mut random, 500) as usize];
     another_pool.append(&existing_bytes)?;
 
-    let offset = random.gen_range(1..=bytes_length);
+    // now slice and append to another pool
+    let offset = TestUtil::next_int(&mut random, 1, 2 << 15) as usize;
     let mut length = bytes_length - offset;
     if random.gen_bool(0.5) {
-        length = random.gen_range(1..=length);
+        length = TestUtil::next_int(&mut random, 1, length as i32) as usize;
     }
     another_pool.append_from_byte_block_pool(&pool, offset as i64, length as i32)?;
     assert_eq!(
@@ -79,8 +81,8 @@ fn test_read_and_write() -> Result<(), LuceneError> {
     let reuse_first = random.gen_bool(0.5);
     for _j in 0..2 {
         let mut list: Vec<BytesRef> = Vec::new();
-        let max_length = random.gen_range(500..1000);
-        let num_values = random.gen_range(100..1000);
+        let max_length = at_least(&mut random, 500) as usize;
+        let num_values = at_least(&mut random, 100) as usize;
         let mut bytes_ref_builder = BytesRefBuilder::new();
         for _i in 0..num_values {
             let value = (&mut random)
@@ -157,9 +159,9 @@ fn test_large_random_block() -> Result<(), TestError> {
     let mut size: i32;
     for _i in 0..iter {
         if random.gen_bool(0.5) {
-            size = random.gen_range(100..1000);
+            size = TestUtil::next_int(&mut random, 100, 1000);
         } else {
-            size = random.gen_range(50000..100000);
+            size = TestUtil::next_int(&mut random, 50000, 100000);
         }
         let mut bytes = vec![0; size as usize];
         random.fill_bytes(&mut bytes);

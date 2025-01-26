@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::Rng;
@@ -39,7 +39,7 @@ fn test_append() -> Result<(), TestError> {
             string_list.clear();
         }
 
-        let entries = random.gen_range(500..10000);
+        let entries = at_least(&mut random, 500) as i32;
         let mut spare = BytesRefBuilder::new();
         let init_size = list.size();
 
@@ -96,7 +96,7 @@ fn test_sort() -> Result<(), TestError> {
             string_list.clear();
         }
 
-        let entries = random.gen_range(200..1000);
+        let entries = at_least(&mut random, 200) as i32;
         let mut spare = BytesRefBuilder::new();
         let init_size = list.size();
 
@@ -166,7 +166,7 @@ fn test_stable_sort() -> Result<(), TestError> {
             string_list.clear();
         }
 
-        let entries = random.gen_range(200..1000);
+        let entries = at_least(&mut random, 200) as i32;
 
         let mut values = Vec::new();
         for _ in 0..20 {

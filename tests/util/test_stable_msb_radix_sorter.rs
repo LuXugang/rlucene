@@ -21,7 +21,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::stable_msb_radix_sorter::{StableMSBRadixSorter, StableMSBRadixSorterBase};
 use rlucene::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
@@ -40,7 +40,7 @@ fn test(refs: &[BytesRef], len: usize, random: &mut StdRng) -> Result<(), TestEr
     }
 
     match random.gen_range(0..3) {
-        0 => max_length += random.gen_range(1..=5),
+        0 => max_length += TestUtil::next_int(random, 1, 5),
         1 => max_length = i32::MAX,
         _ => {}
     }
@@ -118,8 +118,8 @@ fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
 fn test_random_with_shared_prefix() -> Result<(), TestError> {
     let mut random = random();
     for _ in 0..10 {
-        let common_prefix_len = random.gen_range(1..30);
-        test_random_impl(common_prefix_len, 10, &mut random)?;
+        let common_prefix_len = TestUtil::next_int(&mut random, 1, 30);
+        test_random_impl(common_prefix_len as usize, 10, &mut random)?;
     }
     Ok(())
 }
@@ -128,8 +128,8 @@ fn test_random_with_shared_prefix() -> Result<(), TestError> {
 fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestError> {
     let mut random = random();
     for _ in 0..10 {
-        let common_prefix_len = random.gen_range(1..30);
-        test_random_impl(common_prefix_len, 2, &mut random)?;
+        let common_prefix_len = TestUtil::next_int(&mut random, 1, 30);
+        test_random_impl(common_prefix_len as usize, 2, &mut random)?;
     }
     Ok(())
 }
@@ -138,18 +138,18 @@ fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestErr
 fn test_random2() -> Result<(), TestError> {
     let mut random = random();
     // how large our alphabet is
-    let letter_count = random.gen_range(2..=10);
+    let letter_count = TestUtil::next_int(&mut random, 2, 10);
 
     // how many substring fragments to use
-    let substring_count = random.gen_range(2..=10);
+    let substring_count = TestUtil::next_int(&mut random, 2, 10) as usize;
     let mut substrings_set = HashSet::new();
 
     // how many strings to make
-    let string_count = random.gen_range(10000..100000);
+    let string_count = at_least(&mut random, 10000) as usize;
 
     // Generate substring fragments
     while substrings_set.len() < substring_count {
-        let length = random.gen_range(2..=10);
+        let length = TestUtil::next_int(&mut random, 2, 10) as usize;
         let mut bytes = vec![0u8; length];
         for byte in &mut bytes {
             *byte = random.gen_range(0..letter_count) as u8;
@@ -178,9 +178,8 @@ fn test_random2() -> Result<(), TestError> {
     let mut strings_set = HashSet::new();
     let mut iters = 0;
 
-    // Generate strings
     while strings_set.len() < string_count && iters < string_count * 5 {
-        let count = random.gen_range(1..=5);
+        let count = TestUtil::next_int(&mut random, 1, 5);
         let mut builder = BytesRefBuilder::new();
 
         for _ in 0..count {

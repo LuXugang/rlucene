@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::lucene_test_case::is_night_mode;
+use crate::util::lucene_test_case::{at_least, is_night_mode};
 use crate::util::lucene_test_case::{
     new_directory, new_io_context, random_from_seed, slow_file_exists,
 };
@@ -276,7 +276,7 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
 
         let offset = random.gen_range(0..8);
-        let length = random.gen_range(1..=16);
+        let length = TestUtil::next_int(random, 1, 16) as usize;
         let padding = offset + length * std::mem::size_of::<i64>()
             - random.gen_range(1..=std::mem::size_of::<i64>());
 
@@ -356,7 +356,7 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
 
         let offset = random.gen_range(0..4);
-        let length = random.gen_range(1..=16);
+        let length = TestUtil::next_int(random, 1, 16) as usize;
 
         let total_size = offset + length * std::mem::size_of::<i32>();
         let truncation = random.gen_range(1..=std::mem::size_of::<i32>());
@@ -437,7 +437,7 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
 
         let offset = random.gen_range(0..4);
-        let length = random.gen_range(1..=16);
+        let length = TestUtil::next_int(random, 1, 16) as usize;
         {
             let size = offset + length * std::mem::size_of::<f32>()
                 - random.gen_range(1..=std::mem::size_of::<f32>());
@@ -997,10 +997,10 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let bytes_len = random.gen_range(1..=77777);
+        let bytes_len = TestUtil::next_int(random, 1, 77777) as usize;
         let mut bytes = vec![0u8; bytes_len];
 
-        let size = random.gen_range(1..=1777777);
+        let size = TestUtil::next_int(random, 1, 1777777) as usize;
         let mut upto = 0;
         let mut byte_upto = 0;
         {
@@ -1032,7 +1032,10 @@ pub trait BaseDirectoryTestCase {
                     output.write_byte(DataInput::read_byte(&mut input)?)?;
                     upto += 1;
                 } else {
-                    let chunk = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
+                    let chunk = std::cmp::min(
+                        TestUtil::next_int(random, 1, bytes.len() as i32) as usize,
+                        size - upto,
+                    );
                     output.copy_bytes(&mut input, chunk as i64)?;
                     upto += chunk;
                 }
@@ -1049,7 +1052,10 @@ pub trait BaseDirectoryTestCase {
                     assert_eq!(Self::value(upto), v);
                     upto += 1;
                 } else {
-                    let limit = std::cmp::min(random.gen_range(1..=bytes.len()), size - upto);
+                    let limit = std::cmp::min(
+                        TestUtil::next_int(random, 1, bytes.len() as i32) as usize,
+                        size - upto,
+                    );
                     DataInput::read_bytes(&mut input2, &mut bytes, 0, limit as i32)?;
                     for &byte in bytes.iter().take(limit) {
                         assert_eq!(Self::value(upto), byte);
@@ -1185,12 +1191,12 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let num = random.gen_range(50..=3000);
+        let num = TestUtil::next_int(random, 50, 3000) as usize;
         let mut longs = vec![0i64; num];
         {
             let mut output = dir.create_output("longs", &io_context)?;
             for value in &mut longs {
-                *value = random.gen_range(i64::MIN..=i64::MAX);
+                *value = TestUtil::next_long(random, i64::MIN, i64::MAX);
                 output.write_long(*value)?;
             }
         }
@@ -1258,7 +1264,7 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let num = random.gen_range(50..=3000);
+        let num = TestUtil::next_int(random, 50, 3000) as usize;
         let mut ints = vec![0i32; num];
         {
             let mut output = dir.create_output("ints", &io_context)?;
@@ -1332,7 +1338,7 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let num = random.gen_range(50..=3000);
+        let num = TestUtil::next_int(random, 50, 3000) as usize;
         let mut shorts = vec![0i16; num];
         {
             let mut output = dir.create_output("shorts", &io_context)?;
@@ -1405,9 +1411,9 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
         let num = if is_night_mode() {
-            random.gen_range(1000..=3000)
+            TestUtil::next_int(random, 1000, 3000) as usize
         } else {
-            random.gen_range(50..=1000)
+            TestUtil::next_int(random, 50, 1000) as usize
         };
         let mut bytes = vec![0u8; num];
         random.fill_bytes(&mut bytes);
@@ -1496,9 +1502,9 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
         let num = if is_night_mode() {
-            random.gen_range(250..=2500)
+            TestUtil::next_int(random, 250, 2500) as usize
         } else {
-            random.gen_range(50..=250)
+            TestUtil::next_int(random, 50, 250) as usize
         };
 
         let mut bytes = vec![0u8; num];
@@ -1515,15 +1521,19 @@ pub trait BaseDirectoryTestCase {
         let mut input = dir.open_input("bytes", &io_context)?;
 
         // Seek to a random spot to ensure it doesn't affect slicing
-        input.seek(random.gen_range(0..=IndexInput::length(&input)))?;
+        input.seek(TestUtil::next_long(random, 0, IndexInput::length(&input)))?;
 
         for i in (0..num).step_by(16) {
             let mut slice1 = input.slice("slice1", i as i64, (num - i) as i64)?;
             assert_eq!(0, slice1.get_file_pointer());
             assert_eq!((num - i) as i64, RandomAccessInput::length(&slice1));
 
-            // Seek to a random spot to ensure it doesn't affect slicing
-            slice1.seek(random.gen_range(0..=RandomAccessInput::length(&slice1)))?;
+            // seek to a random spot shouldn't impact slicing.
+            slice1.seek(TestUtil::next_long(
+                random,
+                0,
+                RandomAccessInput::length(&slice1),
+            ))?;
 
             for j in (0..RandomAccessInput::length(&slice1)).step_by(16) {
                 let mut slice2 = slice1.slice("slice2", j, (num - i) as i64 - j)?;
@@ -1543,7 +1553,7 @@ pub trait BaseDirectoryTestCase {
                     )?;
                 } else {
                     // Seek to a random spot in between, read some, seek back, and read the rest
-                    let seek = random.gen_range(0..RandomAccessInput::length(&slice2));
+                    let seek = TestUtil::next_long(random, 0, IndexInput::length(&slice2));
                     slice2.seek(seek)?;
                     DataInput::read_bytes(
                         &mut slice2,
@@ -1620,28 +1630,26 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
         let mut names = Vec::new();
-        let iterations = random.gen_range(50..10000);
+        let iters = at_least(random, 50);
         let io_context = new_io_context(random)?;
 
-        for iter in 0..iterations {
+        for iter in 0..iters {
             let mut output = dir.create_temp_output("foo", "bar", &io_context)?;
             names.push(output.get_name().to_string());
             output.write_vint(iter)?;
         }
 
-        for iter in 0..iterations {
+        for iter in 0..iters {
             let mut input = dir.open_input(&names[iter as usize], &io_context)?;
             assert_eq!({ iter }, input.read_vint()?);
         }
 
-        // List all files in the directory, excluding files named "extra0"
         let files: HashSet<String> = dir
             .list_all()?
             .into_iter()
             .filter(|file| file != "extra0")
             .collect();
 
-        // Verify that all created temp files exist in the directory
         assert_eq!(names.into_iter().collect::<HashSet<_>>(), files);
 
         Ok(())
@@ -1788,7 +1796,7 @@ pub trait BaseDirectoryTestCase {
             .tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
-        let count = random.gen_range(20..10000);
+        let count = at_least(random, 20) as usize;
         let mut names = HashSet::new();
 
         let mut names_len = names.len();
@@ -1915,8 +1923,16 @@ pub trait BaseDirectoryTestCase {
         Self::do_test_group_vint(&mut dir1, &mut dir2, random, 5, 1, 6, 8)?;
 
         // Use more iterations to cover all bpv
-        let iterations = random.gen_range(100..200); // Simulate `atLeast(100)`
-        Self::do_test_group_vint(&mut dir1, &mut dir2, random, iterations, 1, 31, 128)?;
+        let iterations = at_least(random, 100);
+        Self::do_test_group_vint(
+            &mut dir1,
+            &mut dir2,
+            random,
+            iterations as usize,
+            1,
+            31,
+            128,
+        )?;
 
         // BaseChunkedDirectoryTestCase#testGroupVIntMultiBlocks covers multiple blocks
         // This part might be covered in another test or implementation
@@ -1941,11 +1957,11 @@ pub trait BaseDirectoryTestCase {
 
             // Encode
             for num_values in num_values_array.iter_mut().take(iterations) {
-                let bpv = random.gen_range(min_bpv..=max_bpv);
-                *num_values = random.gen_range(1..=max_num_values);
+                let bpv = TestUtil::next_int(random, min_bpv as i32, max_bpv as i32);
+                *num_values = TestUtil::next_int(random, 1, max_num_values as i32) as usize;
 
                 for value in values.iter_mut().take(*num_values) {
-                    let upper = PackedInts::max_value(bpv as i32) as i32;
+                    let upper = PackedInts::max_value(bpv) as i32;
                     *value = if upper == 0 {
                         0
                     } else {

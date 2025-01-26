@@ -22,7 +22,7 @@ use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
 
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
 use rlucene::util::{
@@ -142,7 +142,7 @@ fn test_random_impl(
 #[test]
 fn test_random() -> Result<(), TestError> {
     let mut random = random();
-    let num_iters = random.gen_range(3..100);
+    let num_iters = at_least(&mut random, 3) as i32;
     for _ in 0..num_iters {
         test_random_impl(0, 10, &mut random)?;
     }
@@ -151,7 +151,7 @@ fn test_random() -> Result<(), TestError> {
 #[test]
 fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
     let mut random = random();
-    let num_iters = random.gen_range(3..100);
+    let num_iters = at_least(&mut random, 3) as i32;
     for _ in 0..num_iters {
         test_random_impl(0, 2, &mut random)?;
     }
@@ -160,9 +160,9 @@ fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
 #[test]
 fn test_random_with_shared_prefix() -> Result<(), TestError> {
     let mut random = random();
-    let num_iters = random.gen_range(3..100);
+    let num_iters = at_least(&mut random, 3) as i32;
     for _ in 0..num_iters {
-        let shared_prefix_len = random.gen_range(1..30);
+        let shared_prefix_len = TestUtil::next_int(&mut random, 1, 30) as usize;
         test_random_impl(shared_prefix_len, 10, &mut random)?;
     }
     Ok(())
@@ -170,9 +170,9 @@ fn test_random_with_shared_prefix() -> Result<(), TestError> {
 #[test]
 fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestError> {
     let mut random = random();
-    let num_iters = random.gen_range(3..100);
+    let num_iters = at_least(&mut random, 3) as i32;
     for _ in 0..num_iters {
-        let shared_prefix_len = random.gen_range(1..30);
+        let shared_prefix_len = TestUtil::next_int(&mut random, 1, 30) as usize;
         test_random_impl(shared_prefix_len, 2, &mut random)?;
     }
     Ok(())

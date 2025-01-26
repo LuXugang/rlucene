@@ -18,6 +18,7 @@ use crate::util::base_sort_test_case::Strategy::{
     Random, RandomLowCardinality, RandomMediumCardinality,
 };
 use crate::util::lucene_test_case::rarely;
+use crate::util::TestUtil;
 use rand::prelude::StdRng;
 use rand::Rng;
 use rlucene::util::{Comparator, Sorter, COMPARATOR_TYPE};
@@ -138,7 +139,10 @@ impl Strategy {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.gen_range(0..6), 0)
                 } else {
-                    Entry::new(arr[(i - 1) as usize].value - random.gen_range(1..5), i)
+                    Entry::new(
+                        arr[(i - 1) as usize].value - TestUtil::next_int(random, 1, 5),
+                        i,
+                    )
                 }
             }
             Strategy::AscendingSequences() => {
@@ -157,7 +161,10 @@ impl Strategy {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.gen_range(0..6), 0)
                 } else {
-                    Entry::new(arr[(i - 1) as usize].value + random.gen_range(-8..=10), i)
+                    Entry::new(
+                        arr[(i - 1) as usize].value + TestUtil::next_int(random, -8, 10),
+                        i,
+                    )
                 }
             }
         }

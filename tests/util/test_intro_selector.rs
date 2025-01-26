@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::lucene_test_case::random;
+use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::util::error::lucene_error::LuceneError;
@@ -35,7 +36,7 @@ pub fn test_select() -> Result<(), LuceneError> {
 
 pub fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
     let from: i32 = random.gen_range(0..5);
-    let to: i32 = from + random.gen_range(1..=10000);
+    let to: i32 = from + TestUtil::next_int(random, 1, 10000);
     let max: i32 = if random.gen_bool(0.5) {
         random.gen_range(0..100)
     } else {
@@ -46,11 +47,11 @@ pub fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
         vec![0; to as usize + random.gen_range(0..5)]
     } else {
         (0..(to + random.gen_range(0..5)))
-            .map(|_| random.gen_range(0..max))
+            .map(|_| TestUtil::next_int(random, 0, max))
             .collect()
     };
 
-    let k = random.gen_range(from..=to - 1);
+    let k = TestUtil::next_int(random, from, to - 1);
     let mut expected = arr.clone();
     let mut actual = arr.clone();
     expected[from as usize..to as usize].sort();

@@ -20,6 +20,7 @@ use rand::Rng;
 
 use crate::util::base_bit_set_test_case::random_set;
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use rlucene::util::bits::Bits;
@@ -90,7 +91,7 @@ pub trait BaseDocIdSetTestCase {
             }
             copy = self.copy_of(&set, num_bits);
             self.assert_equals(random, num_bits, &set, copy)?;
-            inc += random.gen_range(1..=100);
+            inc += TestUtil::next_int(random, 1, 100);
         }
         Ok(())
     }

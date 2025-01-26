@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::util::array_util::{
@@ -80,7 +81,7 @@ fn test_exact_limit() {
 #[test]
 fn test_invalid_element_sizes() {
     let mut random = random();
-    let num = random.gen_range(10_000..15_000);
+    let num = at_least(&mut random, 10000);
     for _ in 0..num {
         let min_target_size = random.gen_range(0..ArrayUtil::MAX_ARRAY_LENGTH);
         let elem_size = random.gen_range(0..11);
@@ -148,7 +149,7 @@ fn create_random_array(random: &mut StdRng, max_size: i32) -> Vec<i32> {
 #[test]
 fn test_intro_sort() -> Result<(), TestError> {
     let mut random = random();
-    let num = random.gen_range(50..100);
+    let num = at_least(&mut random, 50);
     for _ in 0..num {
         let mut a1 = create_random_array(&mut random, 2000);
         let mut a2 = a1.clone();
@@ -183,7 +184,7 @@ fn create_sparse_random_array(random: &mut StdRng, max_size: i32) -> Vec<i32> {
 #[test]
 fn test_quick_to_heap_sort_fallback() -> Result<(), TestError> {
     let mut random = random();
-    let num = random.gen_range(10..100);
+    let num = at_least(&mut random, 10);
     for _ in 0..num {
         let mut a1 = create_sparse_random_array(&mut random, 40_000);
         let mut a2 = a1.clone();
@@ -196,7 +197,7 @@ fn test_quick_to_heap_sort_fallback() -> Result<(), TestError> {
 #[test]
 fn test_tim_sort() -> Result<(), TestError> {
     let mut random = random();
-    let num = random.gen_range(50..=100);
+    let num = at_least(&mut random, 50);
 
     for _ in 0..num {
         let mut a1 = create_random_array(&mut random, 2000);
@@ -355,8 +356,8 @@ fn test_select() -> Result<(), LuceneError> {
 }
 
 fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
-    let from = random.gen_range(0..5);
-    let to = from + random.gen_range(1..=10_000);
+    let from = random.gen_range(0..5) as usize;
+    let to = from + TestUtil::next_int(random, 1, 10_000) as usize;
     let max = if random.gen_bool(0.5) {
         random.gen_range(0..100)
     } else {
@@ -364,10 +365,10 @@ fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
     };
 
     let arr: Vec<i32> = (0..from + to + random.gen_range(0..5))
-        .map(|_| random.gen_range(0..=max))
+        .map(|_| TestUtil::next_int(random, 0, max))
         .collect();
 
-    let k = random.gen_range(from..=to - 1);
+    let k = TestUtil::next_int(random, from as i32, (to - 1) as i32) as usize;
 
     let mut expected = arr.clone();
     expected[from..to].sort();
@@ -652,9 +653,9 @@ fn test_copy_of_sub_array() {
 #[test]
 fn test_compare_unsigned4() {
     let mut random = random();
-    let a_offset = random.gen_range(0..=3);
+    let a_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
     let mut a = vec![0u8; BitUtil::INT_BYTES + a_offset];
-    let b_offset = random.gen_range(0..=3);
+    let b_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
     let mut b = vec![0u8; BitUtil::INT_BYTES + b_offset];
     for i in 0..BitUtil::INT_BYTES {
         a[a_offset + i] = random.gen::<u8>();
@@ -689,9 +690,9 @@ fn test_compare_unsigned4() {
 #[test]
 fn test_compare_unsigned8() {
     let mut random = random();
-    let a_offset = random.gen_range(0..=7);
+    let a_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
     let mut a = vec![0u8; BitUtil::LONG_BYTES + a_offset];
-    let b_offset = random.gen_range(0..=7);
+    let b_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
     let mut b = vec![0u8; BitUtil::LONG_BYTES + b_offset];
     for i in 0..BitUtil::LONG_BYTES {
         a[a_offset + i] = random.gen::<u8>();

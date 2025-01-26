@@ -40,14 +40,14 @@ pub trait BaseLiveDocsFormatTestCase {
         Ok(())
     }
     fn test_empty_live_docs(&self, random: &mut StdRng) -> Result<(), TestError> {
-        let max_doc = random.gen_range(3..=1000);
+        let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, 0, false)?;
         Self::test_serialization(random, max_doc, 0, true)?;
 
         Ok(())
     }
     fn test_sparse_live_docs(&self, random: &mut StdRng) -> Result<(), TestError> {
-        let max_doc = random.gen_range(3..=1000);
+        let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, 1, false)?;
         Self::test_serialization(random, max_doc, 1, true)?;
         Ok(())

@@ -17,6 +17,7 @@
 use crate::util::lucene_test_case::is_night_mode;
 use crate::util::lucene_test_case::{random, rarely};
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::Rng;
 use rlucene::search::doc_id_set::DocIdSet;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
@@ -152,13 +153,13 @@ fn test_dense() -> Result<(), TestError> {
 fn test_random() -> Result<(), TestError> {
     let mut random = random();
     let max_doc = if is_night_mode() {
-        random.gen_range(1..10000000)
+        TestUtil::next_int(&mut random, 1, 10000000)
     } else {
-        random.gen_range(0..100000)
+        TestUtil::next_int(&mut random, 1, 100000)
     };
     let mut i = 1;
     while i < (max_doc / 2) {
-        let num_docs = random.gen_range(1..=i);
+        let num_docs = TestUtil::next_int(&mut random, 1, i);
         let mut docs = FixedBitSet::new(max_doc);
         let mut c = 0;
         while c < num_docs {
@@ -193,14 +194,14 @@ fn test_random() -> Result<(), TestError> {
         // add docs out of order
         let mut builder = DocIdSetBuilder::new(max_doc);
         for j in 0..array.len() {
-            let l = random.gen_range(1..=array.len() - j);
+            let l = TestUtil::next_int(&mut random, 1, (array.len() - j) as i32);
             let mut k = 0;
             let mut budget = 0;
             while k < l {
                 let rarely = rarely(&mut random);
                 if budget == 0 || rarely {
-                    budget = random.gen_range(1..=l - k + 5);
-                    builder.grow(budget as i32);
+                    budget = TestUtil::next_int(&mut random, 1, l - k + 5);
+                    builder.grow(budget);
                 }
                 builder.add_doc(array[j]);
                 budget -= 1;
@@ -217,7 +218,7 @@ fn test_random() -> Result<(), TestError> {
 #[test]
 fn test_misleading_disi_cost() -> Result<(), TestError> {
     let mut random = random();
-    let max_doc = random.gen_range(1000..=10000);
+    let max_doc = TestUtil::next_int(&mut random, 1000, 10000);
     let mut builder = DocIdSetBuilder::new(max_doc);
     let mut expected = FixedBitSet::new(max_doc);
     for _i in 0..100 {

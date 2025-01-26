@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use num_bigint::{BigInt, Sign};
 use num_traits::{Float, FromPrimitive};
-use rand::prelude::StdRng;
 use rand::Rng;
 use rlucene::index::BytesRef;
 use rlucene::util::bit_util::BitUtil;
@@ -445,8 +444,8 @@ fn test_sortable_float_nan() -> Result<(), TestError> {
 #[test]
 fn test_add() -> Result<(), TestError> {
     let mut random = random();
-    let iters = TestUtil::next_int(&mut random, 1000, 10000);
-    let num_bytes = random.gen_range(1..=100);
+    let iters = at_least(&mut random, 1000);
+    let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
 
     for _ in 0..iters {
         let v1 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
@@ -506,9 +505,8 @@ fn test_illegal_add() {
 #[test]
 fn test_subtract() -> Result<(), TestError> {
     let mut random = random();
-    let iters = random.gen_range(1000..=2000);
-    // let num_bytes = random.gen_range(1..=100);
-    let num_bytes = 5;
+    let iters = at_least(&mut random, 1000);
+    let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
 
     for _ in 0..iters {
         let mut v1 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
@@ -589,7 +587,7 @@ fn test_longs_round_trip() -> Result<(), TestError> {
     let mut random = random();
     let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
     for _ in 0..10_000 {
-        let value = random.gen::<i64>();
+        let value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
         NumericUtils::long_to_sortable_bytes(value, &mut encoded, 0);
         let decoded = NumericUtils::sortable_bytes_to_long(&encoded, 0);
         assert_eq!(
@@ -638,7 +636,7 @@ fn test_doubles_round_trip() -> Result<(), TestError> {
     let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
 
     for _ in 0..10_000 {
-        let value = f64::from_bits(random.gen::<u64>());
+        let value = f64::from_bits(TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64);
         let sortable_long = NumericUtils::double_to_sortable_long(value);
         NumericUtils::long_to_sortable_bytes(sortable_long, &mut encoded, 0);
         let decoded_sortable_long = NumericUtils::sortable_bytes_to_long(&encoded, 0);
@@ -667,9 +665,9 @@ fn test_doubles_round_trip() -> Result<(), TestError> {
 fn test_big_ints_round_trip() -> Result<(), TestError> {
     let mut random = random();
     for _ in 0..10_000 {
-        let value = BigInt::from(random.gen::<i128>());
+        let value = TestUtil::next_big_integer(&mut random, 16);
         let length = value.to_signed_bytes_be().len();
-        let max_length = random.gen_range(length..=length + 3);
+        let max_length = TestUtil::next_int(&mut random, length as i32, length as i32 + 3) as usize;
         let mut encoded = vec![0u8; max_length];
         NumericUtils::big_int_to_sortable_bytes(value.clone(), max_length, &mut encoded, 0)?;
         let decoded = NumericUtils::sortable_bytes_to_big_int(&encoded, 0, max_length)?;
@@ -721,8 +719,8 @@ fn test_longs_compare() -> Result<(), TestError> {
     let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
 
     for _ in 0..10_000 {
-        let left_value = random.gen::<i64>();
-        let right_value = random.gen::<i64>();
+        let left_value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
+        let right_value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
         NumericUtils::long_to_sortable_bytes(
             left_value,
             left.bytes.as_mut_slice(),
@@ -790,8 +788,16 @@ fn test_doubles_compare() -> Result<(), TestError> {
     let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
 
     for _ in 0..10_000 {
-        let left_value = to_positive_nan::<f64>(f64::from_bits(random.gen::<u64>()));
-        let right_value = to_positive_nan::<f64>(f64::from_bits(random.gen::<u64>()));
+        let left_value = to_positive_nan::<f64>(f64::from_bits(TestUtil::next_long(
+            &mut random,
+            i64::MIN,
+            i64::MAX,
+        ) as u64));
+        let right_value = to_positive_nan::<f64>(f64::from_bits(TestUtil::next_long(
+            &mut random,
+            i64::MIN,
+            i64::MAX,
+        ) as u64));
         NumericUtils::long_to_sortable_bytes(
             NumericUtils::double_to_sortable_long(left_value),
             &mut left.bytes,
@@ -821,9 +827,9 @@ fn test_doubles_compare() -> Result<(), TestError> {
 fn test_big_ints_compare() -> Result<(), TestError> {
     let mut random = random();
     for _ in 0..10_000 {
-        let max_length = random.gen_range(1..=16);
-        let left_value = next_big_integer(&mut random, max_length);
-        let right_value = next_big_integer(&mut random, max_length);
+        let max_length = TestUtil::next_int(&mut random, 1, 16) as usize;
+        let left_value = TestUtil::next_big_integer(&mut random, max_length as i32);
+        let right_value = TestUtil::next_big_integer(&mut random, max_length as i32);
         let mut left = BytesRef::from_bytes(vec![0u8; max_length]);
         NumericUtils::big_int_to_sortable_bytes(
             left_value.clone(),
@@ -848,14 +854,6 @@ fn test_big_ints_compare() -> Result<(), TestError> {
     }
 
     Ok(())
-}
-
-/// Generates a random `BigInt` with a random byte length up to `max_bytes`.
-fn next_big_integer(random: &mut StdRng, max_bytes: usize) -> BigInt {
-    let length = random.gen_range(1..=max_bytes);
-    let mut buffer = vec![0u8; length];
-    random.fill(&mut buffer[..]);
-    BigInt::from_signed_bytes_be(&buffer)
 }
 
 fn to_positive_nan<T: Float>(value: T) -> T {

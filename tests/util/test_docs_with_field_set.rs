@@ -16,6 +16,7 @@
  */
 use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::Rng;
 use rlucene::index::docs_with_field_set::DocsWithFieldSet;
 use rlucene::search::doc_id_set::DocIdSet;
@@ -58,7 +59,7 @@ fn test_sparse() -> Result<(), TestError> {
     let mut it = set.iterator().unwrap();
     assert_eq!(doc, it.next_doc()?);
     assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-    let doc2 = doc + random.gen_range(1..100);
+    let doc2 = doc + TestUtil::next_int(&mut random, 1, 100);
     let _ = set.add(doc2);
     it = set.iterator().unwrap();
     assert_eq!(doc, it.next_doc()?);

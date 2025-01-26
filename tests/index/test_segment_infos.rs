@@ -17,6 +17,7 @@
 use crate::util::lucene_test_case::new_directory;
 use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
+use crate::util::TestUtil;
 use rand::Rng;
 use rlucene::codecs::segment_info_format::SegmentInfoFormat;
 use rlucene::codecs::{get_default_code, Codec, CodecUtil};
@@ -482,11 +483,11 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
                     let mut output = corrupt_directory.create_output(&file, &io_context)?;
 
                     let mut input_length = IndexInput::length(&input);
-                    let corrupt_index = random.gen_range(0..input_length - 1);
+                    let corrupt_index = TestUtil::next_long(&mut random, 0, input_length - 1);
                     output.copy_bytes(&mut input, corrupt_index)?;
 
                     let byte = DataInput::read_byte(&mut input)?;
-                    let value = random.gen_range(0x01..0xff);
+                    let value = random.gen_range(0x01..=0xff);
                     let corrupt_byte = byte.wrapping_add(value);
                     output.write_byte(corrupt_byte)?;
                     input_length = IndexInput::length(&input);

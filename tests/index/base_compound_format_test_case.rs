@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::lucene_test_case::{new_directory, new_io_context};
+use crate::util::lucene_test_case::{at_least, new_directory, new_io_context};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -336,10 +336,10 @@ pub trait BaseCompoundFormatTestCase {
     fn test_many_sub_files(&self, random: &mut StdRng) -> Result<(), TestError> {
         // TODO: should enhance after implementing the newMockFSDirectory
         let dir = Arc::new(Mutex::new(new_directory(random)?));
-        const FILE_COUNT: usize = 500;
+        let file_count = at_least(random, 500) as usize;
         let mut files = Vec::new();
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
-        for file_idx in 0..FILE_COUNT {
+        for file_idx in 0..file_count {
             let file = format!("_123.{}", file_idx);
             files.push(file.clone());
             let mut out = dir
@@ -358,9 +358,9 @@ pub trait BaseCompoundFormatTestCase {
         let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
-        let mut ins = Vec::with_capacity(FILE_COUNT);
+        let mut ins = Vec::with_capacity(file_count);
         // Open the files
-        for file_idx in 0..FILE_COUNT {
+        for file_idx in 0..file_count {
             let file = format!("_123.{}", file_idx);
             let mut input = cfs.open_input(&file, &new_io_context(random)?)?;
             CodecUtil::check_index_header(&mut input, "Foo", 0, 0, &si.get_id(), "suffix")?;

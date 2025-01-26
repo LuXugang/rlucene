@@ -16,7 +16,7 @@
  */
 use crate::util::id_set_common;
 use crate::util::id_set_common::clear_range;
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
@@ -156,12 +156,12 @@ pub trait BaseBitSetTestCase {
     }
 
     fn test_clear_range(&self, random: &mut StdRng) {
-        let num_bits = 1 + random.gen_range(0..1000);
+        let num_bits = 1 + random.gen_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let mut set1 = set3.clone();
             let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
-            let iters = random.gen_range(10..1000);
+            let iters = at_least(random, 10);
             for _i in 0..iters {
                 let from = random.gen_range(0..num_bits);
                 let to = random.gen_range(0..(num_bits + 1));
@@ -177,7 +177,7 @@ pub trait BaseBitSetTestCase {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let mut set1 = set3.clone();
             let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
-            let iters = random.gen_range(10..1000);
+            let iters = at_least(random, 10);
             for _i in 0..iters {
                 set1.clear();
                 set2.clear();

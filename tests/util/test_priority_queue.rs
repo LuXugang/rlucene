@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use crate::util::lucene_test_case::random;
+use crate::util::lucene_test_case::{at_least, random};
+use crate::util::TestUtil;
 use rand::Rng;
 use rlucene::util::priority_queue::{Compare, PriorityQueue};
 use std::fmt::Debug;
@@ -84,16 +85,7 @@ fn test_no_extra_work_on_equal_elements() {
 #[test]
 fn test_pq() {
     let mut random = random();
-    let count: i32;
-    if random.gen_bool(0.5) {
-        if random.gen_bool(0.5) {
-            count = 0;
-        } else {
-            count = i32::MAX;
-        }
-    } else {
-        count = random.gen_range(10_000..1000000);
-    }
+    let count: i32 = at_least(&mut random, 10000);
     let pq = PriorityQueue::new(count, I32Compare);
     if let Ok(mut heap) = pq {
         let mut sum: i32 = 0;
@@ -224,7 +216,7 @@ fn test_add_all_does_not_fit_into_queue() {
 #[test]
 fn test_removals_and_insertions() {
     let mut random = random();
-    let num_docs_in_pq = random.gen_range(1..=100);
+    let num_docs_in_pq = TestUtil::next_int(&mut random, 1, 100);
     let mut pq = PriorityQueue::new(num_docs_in_pq, I32Compare).unwrap();
     let mut last_least: Option<i32> = None;
 
@@ -307,9 +299,9 @@ fn test_iterator_two() {
 #[test]
 fn test_iterator_random() {
     let mut random = random();
-    let max_size: usize = random.gen_range(1..20);
+    let max_size: usize = TestUtil::next_int(&mut random, 1, 20) as usize;
     let mut queue = PriorityQueue::new(max_size as i32, I32Compare).unwrap();
-    let iters: usize = random.gen_range(100..500);
+    let iters: usize = at_least(&mut random, 100) as usize;
     let mut expected: Vec<i32> = Vec::new();
     for _i in 0..iters {
         if queue.size() == 0 || (queue.size() < max_size) {

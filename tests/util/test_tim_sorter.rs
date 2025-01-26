@@ -18,7 +18,6 @@ use crate::util::base_sort_test_case::{BaseSortTestCase, Entry};
 use crate::util::lucene_test_case::random;
 use crate::util::TestUtil;
 use rand::rngs::StdRng;
-use rand::Rng;
 use rlucene::util::{ArrayTimSorter, Comparator, NaturalOrder, Sorter, TimSorter};
 
 struct TestTimSorter<T, C> {

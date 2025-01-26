@@ -295,6 +295,9 @@ where
         D: Copy,
         F: Fn(&[u8]) -> D,
     {
+        if len == 0 {
+            return Ok(());
+        }
         // Calculate the total bytes to read based on the number of elements and the type size.
         let total_bytes = len * type_size;
         let mut elements_read = 0; // Tracks the number of elements read so far.
