@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
 use crate::util::base_bit_set_test_case::{
     BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
 };
+use crate::util::lucene_test_case::random;
 use rand::Rng;
 use rlucene::search::doc_id_set_iterator::NO_MORE_DOCS;
 use rlucene::util::bit_set::BitSet;
@@ -81,80 +81,80 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
 impl BaseBitSetTestCaseSupperImpl for TestSparseFixedBitSet {}
 #[test]
 fn test_cardinality() {
-    let mut random = my_random("test_sparse_fixed_bit_set_cardinality".to_string());
+    let mut random = random();
     let mut fbs = TestSparseFixedBitSet;
     fbs.test_cardinality(&mut random);
 }
 #[test]
 fn test_prev_set_bit() {
-    let mut random = my_random("test_sparse_fixed_bit_set_prev_set_bit".to_string());
+    let mut random = random();
     let mut fbs = TestSparseFixedBitSet;
     fbs.test_prev_set_bit(&mut random);
 }
 #[test]
 fn test_next_set_bit() {
-    let mut random = my_random("test_sparse_fixed_bit_set_next_set_bit".to_string());
+    let mut random = random();
     let mut fbs = TestSparseFixedBitSet;
     fbs.test_next_set_bit(&mut random);
 }
 #[test]
 fn test_next_set_bit_in_range() {
-    let mut random = my_random("test_sparse_fixed_bit_set_next_set_bit_in_range".to_string());
+    let mut random = random();
     let mut fbs = TestSparseFixedBitSet;
     fbs.test_next_set_bit_in_range(&mut random);
 }
 #[test]
 fn test_set() {
-    let mut random = my_random("test_sparse_fixed_bit_set_set".to_string());
+    let mut random = random();
     let fbs = TestSparseFixedBitSet;
     fbs.test_set(&mut random);
 }
 #[test]
 fn test_get_and_set() {
-    let mut random = my_random("test_sparse_fixed_bit_set_get_and_set".to_string());
+    let mut random = random();
     let fbs = TestSparseFixedBitSet;
     fbs.test_get_and_set(&mut random);
 }
 #[test]
 fn test_clear() {
-    let mut random = my_random("test_sparse_fixed_bit_set_clear".to_string());
+    let mut random = random();
     let mut fbs = TestSparseFixedBitSet;
     fbs.test_clear(&mut random);
 }
 #[test]
 fn test_clear_range() {
-    let mut random = my_random("test_sparse_fixed_bit_set_clear_range".to_string());
+    let mut random = random();
     let fbs = TestSparseFixedBitSet;
     fbs.test_clear_range(&mut random);
 }
 #[test]
 fn test_clear_all() {
-    let mut random = my_random("test_sparse_fixed_bit_set_clear_all".to_string());
+    let mut random = random();
     let fbs = TestSparseFixedBitSet;
     fbs.test_clear_all(&mut random);
 }
 #[test]
 fn test_or_sparse() {
-    let mut random = my_random("test_sparse_fixed_bit_set_or_sparse".to_string());
+    let mut random = random();
     let mut fbs = TestSparseFixedBitSet;
     fbs.test_or_sparse(&mut random);
 }
 #[test]
 fn test_or_dense() {
-    let mut random = my_random("test_sparse_fixed_bit_set_or_dense".to_string());
+    let mut random = random();
     let mut fbs = TestSparseFixedBitSet;
     fbs.test_or_dense(&mut random);
 }
 #[test]
 fn test_or_random() {
-    let mut random = my_random("test_sparse_fixed_bit_set_or_random".to_string());
+    let mut random = random();
     let mut fbs = TestSparseFixedBitSet;
     fbs.test_or_random(&mut random);
 }
 
 #[test]
 fn test_approximate_cardinality() {
-    let mut random = my_random("test_sparse_fixed_bit_set_approximate_cardinality".to_string());
+    let mut random = random();
     let mut set = SparseFixedBitSet::new(100).unwrap();
     let first = random.gen_range(1000..10000);
     let interval = 200 + random.gen_range(100..1000);
@@ -168,8 +168,7 @@ fn test_approximate_cardinality() {
 }
 #[test]
 fn test_approximate_cardinality_on_dense_set() {
-    let mut random =
-        my_random("test_sparse_fixed_bit_set_approximate_cardinality_on_dense_set".to_string());
+    let mut random = random();
     let num_docs = random.gen_range(1..=10000);
     let mut set = SparseFixedBitSet::new(num_docs).unwrap();
     for i in 0..set.length() {

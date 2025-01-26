@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -79,7 +79,7 @@ fn test_exact_limit() {
 }
 #[test]
 fn test_invalid_element_sizes() {
-    let mut random = my_random("test_invalid_element_sizes".to_string());
+    let mut random = random();
     let num = random.gen_range(10_000..15_000);
     for _ in 0..num {
         let min_target_size = random.gen_range(0..ArrayUtil::MAX_ARRAY_LENGTH);
@@ -89,7 +89,7 @@ fn test_invalid_element_sizes() {
     }
 }
 fn parse_int(s: &str) -> Result<i32, LuceneError> {
-    let mut random = my_random("parse_int".to_string());
+    let mut random = random();
     let start = random.gen_range(0..5);
     let extra_length = random.gen_range(0..4);
     let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
@@ -147,7 +147,7 @@ fn create_random_array(random: &mut StdRng, max_size: i32) -> Vec<i32> {
 }
 #[test]
 fn test_intro_sort() -> Result<(), TestError> {
-    let mut random = my_random("test_intro_sort".to_string());
+    let mut random = random();
     let num = random.gen_range(50..100);
     for _ in 0..num {
         let mut a1 = create_random_array(&mut random, 2000);
@@ -182,7 +182,7 @@ fn create_sparse_random_array(random: &mut StdRng, max_size: i32) -> Vec<i32> {
 // overflow in most cases)
 #[test]
 fn test_quick_to_heap_sort_fallback() -> Result<(), TestError> {
-    let mut random = my_random("test_quick_to_heap_sort_fallback".to_string());
+    let mut random = random();
     let num = random.gen_range(10..100);
     for _ in 0..num {
         let mut a1 = create_sparse_random_array(&mut random, 40_000);
@@ -195,7 +195,7 @@ fn test_quick_to_heap_sort_fallback() -> Result<(), TestError> {
 }
 #[test]
 fn test_tim_sort() -> Result<(), TestError> {
-    let mut random = my_random("test_tim_sort".to_string());
+    let mut random = random();
     let num = random.gen_range(50..=100);
 
     for _ in 0..num {
@@ -258,7 +258,7 @@ impl Ord for Item {
 
 #[test]
 fn test_merge_sort_stability() -> Result<(), LuceneError> {
-    let mut random = my_random("test_merge_sort_stability".to_string());
+    let mut random = random();
     let mut items = Vec::with_capacity(100);
 
     for i in 0..100 {
@@ -347,7 +347,7 @@ fn test_empty_array_sort() -> Result<(), LuceneError> {
 
 #[test]
 fn test_select() -> Result<(), LuceneError> {
-    let mut random = my_random("test_select".to_string());
+    let mut random = random();
     for _ in 0..100 {
         do_test_select(&mut random)?
     }
@@ -397,7 +397,7 @@ fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
 
 #[test]
 fn test_grow_exact() -> Result<(), LuceneError> {
-    let mut random = my_random("test_grow_exact".to_string());
+    let mut random = random();
     let mut arr: Vec<i16> = vec![1, 2, 3];
     ArrayUtil::grow_exact(&mut arr, 4)?;
     assert_eq!(arr, vec![1, 2, 3, 0]);
@@ -651,7 +651,7 @@ fn test_copy_of_sub_array() {
 }
 #[test]
 fn test_compare_unsigned4() {
-    let mut random = my_random("test_compare_unsigned4".to_string());
+    let mut random = random();
     let a_offset = random.gen_range(0..=3);
     let mut a = vec![0u8; BitUtil::INT_BYTES + a_offset];
     let b_offset = random.gen_range(0..=3);
@@ -688,7 +688,7 @@ fn test_compare_unsigned4() {
 
 #[test]
 fn test_compare_unsigned8() {
-    let mut random = my_random("test_compare_unsigned8".to_string());
+    let mut random = random();
     let a_offset = random.gen_range(0..=7);
     let mut a = vec![0u8; BitUtil::LONG_BYTES + a_offset];
     let b_offset = random.gen_range(0..=7);

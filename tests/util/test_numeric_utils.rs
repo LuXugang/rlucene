@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use num_bigint::{BigInt, Sign};
 use num_traits::{Float, FromPrimitive};
@@ -89,7 +89,7 @@ fn test_int_conversion_and_ordering() -> Result<(), TestError> {
 /// for correct ordering of the encoded bytes and that values round-trip.
 #[test]
 fn test_big_int_conversion_and_ordering() -> Result<(), TestError> {
-    let mut random = my_random("test_big_int_conversion_and_ordering".to_string());
+    let mut random = random();
     // Generate a random size between 3 and 16
     let size = random.gen_range(3..=16);
     let mut previous: Option<BytesRef> = None;
@@ -443,7 +443,7 @@ fn test_sortable_float_nan() -> Result<(), TestError> {
 }
 #[test]
 fn test_add() -> Result<(), TestError> {
-    let mut random = my_random("test_add".to_string());
+    let mut random = random();
     let iters = random.gen_range(1000..=10000);
     let num_bytes = random.gen_range(1..=100);
 
@@ -504,7 +504,7 @@ fn test_illegal_add() {
 }
 #[test]
 fn test_subtract() -> Result<(), TestError> {
-    let mut random = my_random("test_subtract".to_string());
+    let mut random = random();
     let iters = random.gen_range(1000..=2000);
     // let num_bytes = random.gen_range(1..=100);
     let num_bytes = 5;
@@ -568,7 +568,7 @@ fn test_illegal_subtract() {
 /// Tests round-trip encoding and decoding of random `i32` values.
 #[test]
 fn test_ints_round_trip() -> Result<(), TestError> {
-    let mut random = my_random("test_ints_round_trip".to_string());
+    let mut random = random();
     let mut encoded = vec![0u8; BitUtil::INT_BYTES];
     for _ in 0..10_000 {
         let value = random.gen::<i32>();
@@ -585,7 +585,7 @@ fn test_ints_round_trip() -> Result<(), TestError> {
 /// Tests round-trip encoding and decoding of random `i64` values.
 #[test]
 fn test_longs_round_trip() -> Result<(), TestError> {
-    let mut random = my_random("test_longs_round_trip".to_string());
+    let mut random = random();
     let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
     for _ in 0..10_000 {
         let value = random.gen::<i64>();
@@ -603,7 +603,7 @@ fn test_longs_round_trip() -> Result<(), TestError> {
 /// Tests round-trip encoding and decoding of random `f32` values.
 #[test]
 fn test_floats_round_trip() -> Result<(), TestError> {
-    let mut random = my_random("test_floats_round_trip".to_string());
+    let mut random = random();
     let mut encoded = vec![0u8; BitUtil::INT_BYTES];
     for _ in 0..10_000 {
         let value = f32::from_bits(random.gen::<i32>() as u32);
@@ -633,7 +633,7 @@ fn test_floats_round_trip() -> Result<(), TestError> {
 /// Tests round-trip encoding and decoding of random `f64` values.
 #[test]
 fn test_doubles_round_trip() -> Result<(), TestError> {
-    let mut random = my_random("test_doubles_round_trip".to_string());
+    let mut random = random();
     let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
 
     for _ in 0..10_000 {
@@ -664,7 +664,7 @@ fn test_doubles_round_trip() -> Result<(), TestError> {
 /// Tests round-trip encoding and decoding of random `BigInt` values.
 #[test]
 fn test_big_ints_round_trip() -> Result<(), TestError> {
-    let mut random = my_random("test_big_ints_round_trip".to_string());
+    let mut random = random();
     for _ in 0..10_000 {
         let value = BigInt::from(random.gen::<i128>());
         let length = value.to_signed_bytes_be().len();
@@ -684,7 +684,7 @@ fn test_big_ints_round_trip() -> Result<(), TestError> {
 /// Checks that the sort order of encoded integers is consistent with `i32::cmp`.
 #[test]
 fn test_ints_compare() -> Result<(), TestError> {
-    let mut random = my_random("test_ints_compare".to_string());
+    let mut random = random();
     let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
     let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
 
@@ -715,7 +715,7 @@ fn test_ints_compare() -> Result<(), TestError> {
 /// Checks that the sort order of encoded `i64` values is consistent with `i64::cmp`.
 #[test]
 fn test_longs_compare() -> Result<(), TestError> {
-    let mut random = my_random("test_longs_compare".to_string());
+    let mut random = random();
     let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
     let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
 
@@ -750,7 +750,7 @@ fn test_longs_compare() -> Result<(), TestError> {
 /// encoded byte representations is consistent with their numerical comparison.
 #[test]
 fn test_floats_compare() -> Result<(), TestError> {
-    let mut random = my_random("test_floats_compare".to_string());
+    let mut random = random();
     let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
     let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
     for _ in 0..10_000 {
@@ -784,7 +784,7 @@ fn test_floats_compare() -> Result<(), TestError> {
 /// encoded byte representations is consistent with their numerical comparison.
 #[test]
 fn test_doubles_compare() -> Result<(), TestError> {
-    let mut random = my_random("test_doubles_compare".to_string());
+    let mut random = random();
     let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
     let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
 
@@ -818,7 +818,7 @@ fn test_doubles_compare() -> Result<(), TestError> {
 /// Checks that the sort order of encoded `BigInt` values is consistent with `BigInt::cmp`.
 #[test]
 fn test_big_ints_compare() -> Result<(), TestError> {
-    let mut random = my_random("test_big_ints_compare".to_string());
+    let mut random = random();
     for _ in 0..10_000 {
         let max_length = random.gen_range(1..=16);
         let left_value = next_big_integer(&mut random, max_length);

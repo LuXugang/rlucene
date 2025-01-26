@@ -14,48 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::prelude::StdRng;
-use rand::{Rng, SeedableRng};
-
-/// Retrieves the seed from the environment variable "TEST_SEED".
-/// If the environment variable is not set or cannot be parsed as a `u64`,
-/// it generates a random seed and logs the result.
-///
-/// # Returns
-/// A valid `u64` seed.
-pub fn get_seed_from_env(test_name: String) -> u64 {
-    if let Ok(seed_str) = std::env::var("TEST_SEED") {
-        if let Ok(seed) = seed_str.parse::<u64>() {
-            println!("Using Global Seed from environment: {}", seed);
-            return seed;
-        } else {
-            println!("Environment variable TEST_SEED is invalid: {}", seed_str);
-        }
-    }
-
-    let seed = rand::thread_rng().gen_range(0..u64::MAX);
-    println!("Generated random seed in {}: {}", test_name, seed);
-    seed
-}
-
-pub fn my_random(test_name: String) -> StdRng {
-    let seed: u64 = get_seed_from_env(test_name);
-    StdRng::seed_from_u64(seed)
-}
-
-pub fn my_random_with_seed(seed: u64) -> StdRng {
-    StdRng::seed_from_u64(seed)
-}
-
 pub fn is_night_mode() -> bool {
     std::env::var("NIGHT_MODE").is_ok_and(|v| v == "true")
-}
-
-pub fn rarely(random: &mut StdRng) -> bool {
-    let mut p = if is_night_mode() { 5 } else { 1 };
-    p += (p as f64 * (get_random_multiplier() as f64).ln()).round() as i32;
-    let min = 100 - p.min(20); // Never more than 20% chance
-    random.gen_range(0..100) >= min
 }
 
 pub fn get_random_multiplier() -> i32 {

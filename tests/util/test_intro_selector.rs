@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::util::error::lucene_error::LuceneError;
@@ -26,7 +26,7 @@ pub struct TestIntroSelector;
 
 #[test]
 pub fn test_select() -> Result<(), LuceneError> {
-    let mut random = my_random("test_select".to_string());
+    let mut random = random();
     for _ in 0..100 {
         do_test_select(&mut random)?;
     }

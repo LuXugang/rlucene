@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::Rng;
@@ -28,7 +28,7 @@ use std::sync::{Arc, Mutex};
 struct TestBytesRefArray;
 #[test]
 fn test_append() -> Result<(), TestError> {
-    let mut random = my_random("test_append".to_string());
+    let mut random = random();
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let mut list = BytesRefArray::new(counter)?;
     let mut string_list = Vec::new();
@@ -85,7 +85,7 @@ fn test_append() -> Result<(), TestError> {
 }
 #[test]
 fn test_sort() -> Result<(), TestError> {
-    let mut random = my_random("test_sort".to_string());
+    let mut random = random();
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let mut list = BytesRefArray::new(counter)?;
     let mut string_list = Vec::new();
@@ -153,7 +153,7 @@ fn test_sort() -> Result<(), TestError> {
 }
 #[test]
 fn test_stable_sort() -> Result<(), TestError> {
-    let mut random = my_random("test_stable_sort".to_string());
+    let mut random = random();
 
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let mut list = BytesRefArray::new(counter)?;

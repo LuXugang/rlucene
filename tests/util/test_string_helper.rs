@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
 use crate::util::lucene_test_case::new_bytes_ref_from_string;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::StringHelper;
@@ -24,7 +24,7 @@ use rlucene::util::StringHelper;
 pub struct TestStringHelper;
 #[test]
 fn test_bytes_difference() -> Result<(), TestError> {
-    let mut random = my_random("test_bytes_difference".to_string());
+    let mut random = random();
     let left = new_bytes_ref_from_string(&mut random, "foobar")?;
     let right = new_bytes_ref_from_string(&mut random, "foozo")?;
     assert_eq!(StringHelper::bytes_difference(&left, &right)?, 3);
@@ -81,7 +81,7 @@ fn test_bytes_difference() -> Result<(), TestError> {
 }
 #[test]
 fn test_starts_with() -> Result<(), TestError> {
-    let mut random = my_random("test_starts_with".to_string());
+    let mut random = random();
     let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
     let slice = new_bytes_ref_from_string(&mut random, "foo")?;
     assert!(StringHelper::starts_with_byte_ref(&ref_bytes, &slice));
@@ -89,7 +89,7 @@ fn test_starts_with() -> Result<(), TestError> {
 }
 #[test]
 fn test_ends_with() -> Result<(), TestError> {
-    let mut random = my_random("test_ends_with".to_string());
+    let mut random = random();
     let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
     let slice = new_bytes_ref_from_string(&mut random, "bar")?;
     assert!(StringHelper::ends_with(&ref_bytes, &slice));
@@ -97,7 +97,7 @@ fn test_ends_with() -> Result<(), TestError> {
 }
 #[test]
 fn test_starts_with_whole() -> Result<(), TestError> {
-    let mut random = my_random("test_starts_with_whole".to_string());
+    let mut random = random();
     let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
     let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
     assert!(StringHelper::starts_with_byte_ref(&ref_bytes, &slice));
@@ -105,7 +105,7 @@ fn test_starts_with_whole() -> Result<(), TestError> {
 }
 #[test]
 fn test_ends_with_whole() -> Result<(), TestError> {
-    let mut random = my_random("test_ends_with_whole".to_string());
+    let mut random = random();
     let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
     let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
     assert!(StringHelper::ends_with(&ref_bytes, &slice));
@@ -113,7 +113,7 @@ fn test_ends_with_whole() -> Result<(), TestError> {
 }
 #[test]
 fn test_murmur_hash3() -> Result<(), TestError> {
-    let mut random = my_random("test_murmur_hash3".to_string());
+    let mut random = random();
     // Hashes computed using murmur3_32 from https://code.google.com/p/pyfasthash
     assert_eq!(
         StringHelper::murmurhash3_x86_32(&new_bytes_ref_from_string(&mut random, "foo")?, 0),
@@ -147,7 +147,7 @@ fn test_murmur_hash3() -> Result<(), TestError> {
 }
 #[test]
 fn test_sort_key_length() -> Result<(), TestError> {
-    let mut random = my_random("test_sort_key_length".to_string());
+    let mut random = random();
     assert_eq!(
         StringHelper::sort_key_length(
             &new_bytes_ref_from_string(&mut random, "foo")?,

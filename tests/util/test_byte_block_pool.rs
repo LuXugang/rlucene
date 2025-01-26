@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rand::distributions::Alphanumeric;
 use rand::{Rng, RngCore};
@@ -29,7 +29,7 @@ use std::sync::{Arc, Mutex};
 struct TestByteBlockPool {}
 #[test]
 fn test_append_from_other_pool() -> Result<(), LuceneError> {
-    let mut random = my_random("test_append_from_other_pool".to_string());
+    let mut random = random();
     let mut pool = ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()));
     let num_bytes = random.gen_range(2 << 16..(2 << 16) + 1000000);
     let bytes = (&mut random)
@@ -72,7 +72,7 @@ fn test_append_from_other_pool() -> Result<(), LuceneError> {
 }
 #[test]
 fn test_read_and_write() -> Result<(), LuceneError> {
-    let mut random = my_random("test_read_and_write".to_string());
+    let mut random = random();
     let byte_used = Arc::new(Mutex::new(new_counter(false)));
     let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
     pool.next_buffer()?;
@@ -145,7 +145,7 @@ fn test_read_and_write() -> Result<(), LuceneError> {
 }
 #[test]
 fn test_large_random_block() -> Result<(), TestError> {
-    let mut random = my_random("test_large_random_block".to_string());
+    let mut random = random();
     let byte_used = Arc::new(Mutex::new(new_counter(false)));
     let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
     let _ = pool.next_buffer();

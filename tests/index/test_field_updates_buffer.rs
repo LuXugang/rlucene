@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{my_random, rarely};
+use crate::util::lucene_test_case::{random, rarely};
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::rngs::StdRng;
@@ -99,7 +99,7 @@ pub fn test_basics() -> Result<(), TestError> {
 }
 #[test]
 fn test_update_share_values() -> Result<(), TestError> {
-    let mut random = my_random("test_update_share_values".to_string());
+    let mut random = random();
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let int_value = random.gen::<i32>();
     let value_for_three = random.gen_bool(0.5);
@@ -162,7 +162,7 @@ fn test_update_share_values() -> Result<(), TestError> {
 }
 #[test]
 pub fn test_update_share_values_binary() -> Result<(), TestError> {
-    let mut random = my_random("test_update_share_values_binary".to_string());
+    let mut random = random();
     let counter = Arc::new(Mutex::new(new_counter(false)));
     let value_for_three = random.gen_bool(0.5);
     let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
@@ -287,7 +287,7 @@ pub fn get_random_numeric_update(random: &mut StdRng, doc_id_up_to: i32) -> DocV
 
 #[test]
 pub fn test_binary_random() -> Result<(), TestError> {
-    let mut random = my_random("test_binary_random".to_string());
+    let mut random = random();
     let mut updates = Vec::new();
     let num_updates = 1 + random.gen_range(0..1000);
     let counter = Arc::new(Mutex::new(new_counter(false)));
@@ -344,7 +344,7 @@ pub fn test_binary_random() -> Result<(), TestError> {
 }
 #[test]
 pub fn test_numeric_random() -> Result<(), TestError> {
-    let mut random = my_random("test_numeric_random".to_string());
+    let mut random = random();
     let mut updates = Vec::new();
     let num_updates = 1 + random.gen_range(0..1000);
     let counter = Arc::new(Mutex::new(new_counter(false)));
@@ -412,7 +412,7 @@ pub fn test_no_numeric_value() -> Result<(), TestError> {
 }
 #[test]
 pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), TestError> {
-    let mut random = my_random("test_sort_and_dedup_numeric_updates_by_terms".to_string());
+    let mut random = random();
     let mut updates = Vec::new();
     let num_updates = 1 + random.gen_range(0..1000);
     let counter = Arc::new(Mutex::new(new_counter(false)));

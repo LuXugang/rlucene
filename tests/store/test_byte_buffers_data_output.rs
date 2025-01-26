@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{is_night_mode, my_random, my_random_with_seed};
+use crate::common::is_night_mode;
 use crate::store::base_data_output_test_case::{add_random_data, BaseDataOutputTestCase};
+use crate::util::lucene_test_case::{random, random_from_seed};
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::store::data_output::DataOutput;
@@ -36,7 +37,7 @@ impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
 
 #[test]
 fn test_reuse() -> Result<(), TestError> {
-    let mut random = my_random("test_reuse".to_string());
+    let mut random = random();
     let mut o = ByteBuffersDataOutput::new(
         ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
         ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
@@ -44,8 +45,8 @@ fn test_reuse() -> Result<(), TestError> {
     )?;
     // add some random data first
     let gen_seed: u64 = random.gen();
-    let mut random1 = my_random_with_seed(gen_seed);
-    let mut random2 = my_random_with_seed(gen_seed);
+    let mut random1 = random_from_seed(gen_seed);
+    let mut random2 = random_from_seed(gen_seed);
     let add_count = random.gen_range(1000..=5000);
     add_random_data::<ByteArrayDataInput>(&mut o, &mut random1, add_count);
     let dta = o.get_array_copy();
@@ -57,7 +58,7 @@ fn test_reuse() -> Result<(), TestError> {
 }
 #[test]
 fn test_constructor_with_expected_size() -> Result<(), TestError> {
-    let mut random = my_random("test_constructor_with_expected_size".to_string());
+    let mut random = random();
     let mut o = ByteBuffersDataOutput::new_with_expected_size(0)?;
     o.write_byte(0)?;
     let (_length, mut result) = o.to_buffer_list();
@@ -87,7 +88,7 @@ fn test_constructor_with_expected_size() -> Result<(), TestError> {
 #[test]
 fn test_randomized_writes() -> Result<(), TestError> {
     let mut test = TestByteBuffersDataOutput;
-    let mut random = my_random("test_randomized_writes".to_string());
+    let mut random = random();
     // here could use any DataInput impl because this test does not test ByteArrayDataInput
     test.test_randomized_writes::<ByteArrayDataInput>(&mut random)
 }
@@ -138,7 +139,7 @@ fn test_sanity() -> Result<(), TestError> {
 }
 #[test]
 fn test_large_array_add() -> Result<(), TestError> {
-    let mut random = my_random("test_large_array_add".to_string());
+    let mut random = random();
     let mut o = ByteBuffersDataOutput::new_resettable_instance()?;
     let mb = 1024 * 1024;
     let mut bytes = if is_night_mode() {
@@ -160,7 +161,7 @@ fn test_large_array_add() -> Result<(), TestError> {
 }
 #[test]
 fn test_copy_bytes_on_heap() -> Result<(), TestError> {
-    let mut random = my_random("test_copy_bytes_on_heap".to_string());
+    let mut random = random();
     let mut bytes = vec![0u8; 1024 * 8 + 10];
     random.fill(&mut bytes[..]);
     let offset = random.gen_range(0..=100);
@@ -180,7 +181,7 @@ fn test_copy_bytes_on_heap() -> Result<(), TestError> {
 }
 #[test]
 fn test_copy_bytes_on_direct_byte_buffer() -> Result<(), TestError> {
-    let mut random = my_random("test_copy_bytes_on_direct_byte_buffer".to_string());
+    let mut random = random();
     let mut bytes = vec![0u8; 1024 * 8 + 10];
     random.fill(&mut bytes[..]);
     let offset = random.gen_range(0..=100);

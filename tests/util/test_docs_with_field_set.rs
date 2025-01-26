@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::index::docs_with_field_set::DocsWithFieldSet;
@@ -25,7 +25,6 @@ use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 struct TestDocsWithFieldSet {}
 #[test]
 fn test_dense() -> Result<(), TestError> {
-    let _random = my_random("test_dense".to_string());
     let mut set = DocsWithFieldSet::new();
     let mut it = set.iterator().unwrap();
     assert_eq!(it.next_doc()?, NO_MORE_DOCS);
@@ -52,7 +51,7 @@ fn test_dense() -> Result<(), TestError> {
 
 #[test]
 fn test_sparse() -> Result<(), TestError> {
-    let mut random = my_random("test_sparse".to_string());
+    let mut random = random();
     let mut set = DocsWithFieldSet::new();
     let doc = random.gen_range(0..10000);
     let _ = set.add(doc);
@@ -70,7 +69,7 @@ fn test_sparse() -> Result<(), TestError> {
 
 #[test]
 fn test_dense_then_sparse() -> Result<(), TestError> {
-    let mut random = my_random("test_dense_then_sparse".to_string());
+    let mut random = random();
     let dense_count = random.gen_range(1..10000);
     let next_doc = dense_count + random.gen_range(1..10000);
     let mut set = DocsWithFieldSet::new();

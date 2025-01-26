@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{is_night_mode, my_random_with_seed};
-use crate::util::lucene_test_case::{new_directory, new_io_context, slow_file_exists};
+use crate::common::is_night_mode;
+use crate::util::lucene_test_case::{
+    new_directory, new_io_context, random_from_seed, slow_file_exists,
+};
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::rngs::StdRng;
@@ -745,7 +747,7 @@ pub trait BaseDirectoryTestCase {
         let stop_writer = Arc::clone(&stop);
         let seed: u64 = random.gen();
         let writer = thread::spawn(move || -> Result<(), TestError> {
-            let mut rng = my_random_with_seed(seed);
+            let mut rng = random_from_seed(seed);
             let file_count = rng.gen_range(500..=1000);
             let io_context = IOContext::default_io_context()?;
             for i in 0..file_count {
@@ -770,7 +772,7 @@ pub trait BaseDirectoryTestCase {
         let dir_reader = Arc::clone(&dir);
         let stop_reader = Arc::clone(&stop);
         let reader = thread::spawn(move || -> Result<(), TestError> {
-            let mut rng = my_random_with_seed(seed);
+            let mut rng = random_from_seed(seed);
 
             while !stop_reader.load(Ordering::SeqCst) {
                 let files: Vec<String> = {

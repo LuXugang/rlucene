@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
 use crate::util::base_sort_test_case::{BaseSortTestCase, Entry};
+use crate::util::lucene_test_case::random;
 use rand::rngs::StdRng;
 use rlucene::util::{ArrayIntroSorter, Comparator, NaturalOrder, Sorter};
 
@@ -50,55 +50,55 @@ where
 
 #[test]
 fn test_empty() {
-    let mut random = my_random("test_test".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_empty(&mut random);
 }
 #[test]
 fn test_one() {
-    let mut random = my_random("test_one".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_one(&mut random);
 }
 #[test]
 fn test_two() {
-    let mut random = my_random("test_two".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_two(&mut random);
 }
 #[test]
 fn test_random() {
-    let mut random = my_random("test_random".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_random(&mut random);
 }
 #[test]
 fn test_random_low_cardinality() {
-    let mut random = my_random("test_random_low_cardinality".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_random_low_cardinality(&mut random);
 }
 #[test]
 fn test_ascending() {
-    let mut random = my_random("test_ascending".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_ascending(&mut random);
 }
 #[test]
 fn test_ascending_sequences() {
-    let mut random = my_random("test_ascending_sequences".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_ascending_sequences(&mut random);
 }
 #[test]
 fn test_descending() {
-    let mut random = my_random("test_descending".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_descending(&mut random);
 }
 #[test]
 fn test_strictly_descending() {
-    let mut random = my_random("test_strictly_descending".to_string());
+    let mut random = random();
     let case = TestIntroSorter::default();
     case.test_strictly_descending(&mut random);
 }

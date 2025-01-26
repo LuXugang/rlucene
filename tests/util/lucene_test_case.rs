@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::common;
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 use rlucene::index::BytesRef;
 use rlucene::store::directory::Directory;
 use rlucene::store::flush_info::FlushInfo;
@@ -188,4 +189,40 @@ pub fn new_bytes_ref(
         return new_bytes_ref(random, &it.bytes, it.offset, it.length);
     };
     Ok(it)
+}
+
+/// Retrieves the seed from the environment variable "TEST_SEED".
+/// If the environment variable is not set or cannot be parsed as a `u64`,
+/// it generates a random seed and logs the result.
+///
+/// # Returns
+/// A valid `u64` seed.
+pub fn get_seed_from_env() -> u64 {
+    if let Ok(seed_str) = std::env::var("TEST_SEED") {
+        if let Ok(seed) = seed_str.parse::<u64>() {
+            println!("Using Global Seed from environment: {}", seed);
+            return seed;
+        } else {
+            println!("Environment variable TEST_SEED is invalid: {}", seed_str);
+        }
+    }
+
+    let seed = rand::thread_rng().gen_range(0..u64::MAX);
+    println!("Generated random seed : {}", seed);
+    seed
+}
+
+pub fn random() -> StdRng {
+    StdRng::seed_from_u64(get_seed_from_env())
+}
+
+pub fn random_from_seed(seed: u64) -> StdRng {
+    StdRng::seed_from_u64(seed)
+}
+
+pub fn rarely(random: &mut StdRng) -> bool {
+    let mut p = if common::is_night_mode() { 5 } else { 1 };
+    p += (p as f64 * (common::get_random_multiplier() as f64).ln()).round() as i32;
+    let min = 100 - p.min(20); // Never more than 20% chance
+    random.gen_range(0..100) >= min
 }

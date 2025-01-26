@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{is_night_mode, my_random, rarely};
-use crate::util::lucene_test_case::{new_directory, new_io_context};
+use crate::common::is_night_mode;
+use crate::util::lucene_test_case::{new_directory, new_io_context, random, rarely};
 use crate::util::test_error::TestError;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -46,7 +46,7 @@ use rlucene::util::packed::{
 struct TestPackedInts;
 #[test]
 fn test_byte_count() {
-    let mut random = my_random("test_byte_count".to_string());
+    let mut random = random();
     const ITERATIONS: usize = 3;
 
     for _ in 0..ITERATIONS {
@@ -107,7 +107,7 @@ fn test_max_values() {
 }
 #[test]
 fn test_packed_ints() -> Result<(), TestError> {
-    let mut random = my_random("test_packed_ints".to_string());
+    let mut random = random();
     let num = random.gen_range(3..500);
     let io_context = new_io_context(&mut random)?;
     for _ in 0..num {
@@ -227,7 +227,7 @@ fn test_packed_ints() -> Result<(), TestError> {
 }
 #[test]
 fn test_end_pointer() -> Result<(), TestError> {
-    let mut random = my_random("test_end_pointer".to_string());
+    let mut random = random();
 
     let mut directory = new_directory(&mut random)?;
     let value_count = random.gen_range(1..=1000);
@@ -307,7 +307,7 @@ fn test_controlled_equality() -> Result<(), TestError> {
 }
 #[test]
 fn test_random_bulk_copy() -> Result<(), TestError> {
-    let mut random = my_random("test_random_bulk_copy".to_string());
+    let mut random = random();
     let num_iters = random.gen_range(3..10);
 
     for j in 0..num_iters {
@@ -377,7 +377,7 @@ fn test_random_bulk_copy() -> Result<(), TestError> {
 }
 #[test]
 fn test_random_equality() -> Result<(), TestError> {
-    let mut random = my_random("test_random_equality".to_string());
+    let mut random = random();
     let num_iters = if is_night_mode() {
         random.gen_range(2..=5)
     } else {
@@ -518,7 +518,7 @@ fn test_int_overflow() -> Result<(), TestError> {
 }
 #[test]
 fn test_fill() -> Result<(), TestError> {
-    let mut random = my_random("test_fill".to_string());
+    let mut random = random();
     let value_count = 1111;
     let from = random.gen_range(0..value_count + 1);
     let to = from + random.gen_range(0..value_count + 1 - from);
@@ -548,7 +548,7 @@ fn test_fill() -> Result<(), TestError> {
 }
 #[test]
 fn test_packed_ints_null() -> Result<(), TestError> {
-    let mut random = my_random("test_packed_ints_null".to_string());
+    let mut random = random();
     // must be > 10 for the bulk reads below
     let size = random.gen_range(11..=256);
     let mut packed_ints = NullReader::for_count(size);
@@ -588,7 +588,7 @@ fn test_packed_ints_null() -> Result<(), TestError> {
 }
 #[test]
 fn test_bulk_get() -> Result<(), TestError> {
-    let mut random = my_random("test_bulk_get".to_string());
+    let mut random = random();
     let value_count = 1111;
     let index = random.gen_range(0..value_count);
     let len = random.gen_range(1..=(value_count * 2));
@@ -639,7 +639,7 @@ fn test_bulk_get() -> Result<(), TestError> {
 
 #[test]
 fn test_bulk_set() -> Result<(), TestError> {
-    let mut random = my_random("test_bulk_get".to_string());
+    let mut random = random();
     let value_count = 1111;
     let index = random.gen_range(0..value_count);
     let len = random.gen_range(1..=(value_count * 2));
@@ -690,7 +690,7 @@ fn test_bulk_set() -> Result<(), TestError> {
 }
 #[test]
 fn test_copy() -> Result<(), TestError> {
-    let mut random = my_random("test_copy".to_string());
+    let mut random = random();
     let value_count = random.gen_range(5..=600);
     let off1 = random.gen_range(0..value_count);
     let off2 = random.gen_range(0..value_count);
@@ -736,7 +736,7 @@ fn test_copy() -> Result<(), TestError> {
 
 #[test]
 fn test_growable_writer() -> Result<(), TestError> {
-    let mut random = my_random("test_growable_writer".to_string());
+    let mut random = random();
     let value_count = 113 + random.gen_range(0..1112);
 
     let mut wrt = GrowableWriter::new(1, value_count as i32, PackedInts::DEFAULT)?;
@@ -772,7 +772,7 @@ fn test_growable_writer() -> Result<(), TestError> {
 }
 #[test]
 fn test_paged_growable_writer() -> Result<(), TestError> {
-    let mut random = my_random("test_paged_growable_writer".to_string());
+    let mut random = random();
 
     let page_size = 1 << random.gen_range(6..=30);
     let acceptable_overhead_ratio = random.gen::<f32>();
@@ -853,7 +853,7 @@ fn test_paged_growable_writer() -> Result<(), TestError> {
 }
 #[test]
 fn test_paged_mutable() -> Result<(), TestError> {
-    let mut random = my_random("test_paged_mutable".to_string());
+    let mut random = random();
     let bits_per_value = random.gen_range(1..=64);
     let max = PackedInts::max_value(bits_per_value);
     let page_size = 1 << random.gen_range(6..=30);
@@ -930,7 +930,7 @@ fn test_paged_mutable() -> Result<(), TestError> {
 
 #[test]
 fn test_encode_decode() -> Result<(), TestError> {
-    let mut random = my_random("test_encode_decode".to_string());
+    let mut random = random();
 
     for format in &[
         Packed(PackedImpl::new(0)),
@@ -1131,7 +1131,7 @@ enum DataType {
 }
 #[test]
 fn test_packed_long_values() -> Result<(), TestError> {
-    let mut random = my_random("test_packed_long_values".to_string());
+    let mut random = random();
 
     let arr_size = if is_night_mode() {
         random.gen_range(1..=1_000_000)
@@ -1236,7 +1236,7 @@ fn test_packed_input_output() {
 }
 #[test]
 fn test_block_packed_reader_writer() -> Result<(), TestError> {
-    let mut random = my_random("test_block_packed_reader_writer".to_string());
+    let mut random = random();
     let iters = random.gen_range(2..=100);
     for _ in 0..iters {
         let block_size = 1 << random.gen_range(6..=18);
@@ -1402,7 +1402,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
 }
 #[test]
 fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
-    let mut random = my_random("test_monotonic_block_packed_reader_writer".to_string());
+    let mut random = random();
     let iters = random.gen_range(2..100);
     for _ in 0..iters {
         let block_size = 1 << random.gen_range(6..=18);
@@ -1463,7 +1463,7 @@ fn test_block_reader_overflow() -> Result<(), TestError> {
     if !is_night_mode() {
         return Ok(());
     }
-    let mut random = my_random("test_block_reader_overflow".to_string());
+    let mut random = random();
     let value_count = random.gen_range(1 + i64::from(i32::MAX)..i64::from(i32::MAX) * 2);
     let block_size = 1 << random.gen_range(20..=22);
     let mut dir = new_directory(&mut random)?;

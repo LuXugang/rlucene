@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{my_random, rarely};
+use crate::util::lucene_test_case::{random, rarely};
 use crate::util::test_error::TestError;
 use rand::seq::SliceRandom;
 use rand::Rng;
@@ -31,7 +31,7 @@ use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 pub struct TestDocValuesFieldUpdates;
 #[test]
 fn test_merge_iterator() -> Result<(), TestError> {
-    let mut random = my_random("test_merge_iterator".to_string());
+    let mut random = random();
     let sub_update1 = NumericDocValuesFieldUpdates::new()?;
     let mut updates1 = DocValuesFieldUpdates::new(
         6,
@@ -161,7 +161,7 @@ fn test_update_and_reset_update_same_doc() -> Result<(), TestError> {
 }
 #[test]
 fn test_updates_and_reset_random() -> Result<(), TestError> {
-    let mut random = my_random("test_updates_and_reset_random".to_string());
+    let mut random = random();
 
     let sub_update = NumericDocValuesFieldUpdates::new()?;
     let mut updates =
@@ -213,7 +213,7 @@ fn test_updates_and_reset_random() -> Result<(), TestError> {
 }
 #[test]
 fn test_shared_value_updates() -> Result<(), TestError> {
-    let mut random = my_random("test_shared_value_updates".to_string());
+    let mut random = random();
 
     let del_gen = random.gen::<i64>();
     let max_doc: i32 = 1 + random.gen_range(0..1000);

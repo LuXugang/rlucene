@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{is_night_mode, my_random};
+use crate::common::is_night_mode;
 use crate::util::base_bit_set_test_case::{
     BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
 };
@@ -27,6 +27,7 @@ use rlucene::util::bit_set_iterator::BitSetIterator;
 use rlucene::util::bits::Bits;
 use rlucene::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
 
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::fixed_bit_set::FixedBitSet;
@@ -76,73 +77,73 @@ impl BaseBitSetTestCaseSupperImpl for TestFixedBitSet {}
 
 #[test]
 fn test_cardinality() {
-    let mut random = my_random("test_fixed_bit_set_cardinality".to_string());
+    let mut random = random();
     let mut fbs = TestFixedBitSet;
     fbs.test_cardinality(&mut random);
 }
 #[test]
 fn test_prev_set_bit() {
-    let mut random = my_random("test_fixed_bit_set_prev_set_bit".to_string());
+    let mut random = random();
     let mut fbs = TestFixedBitSet;
     fbs.test_prev_set_bit(&mut random);
 }
 #[test]
 fn test_next_set_bit() {
-    let mut random = my_random("test_fixed_bit_set_next_set_bit".to_string());
+    let mut random = random();
     let mut fbs = TestFixedBitSet;
     fbs.test_next_set_bit(&mut random);
 }
 #[test]
 fn test_next_set_bit_in_range() {
-    let mut random = my_random("test_fixed_bit_set_next_set_bit_in_range".to_string());
+    let mut random = random();
     let mut fbs = TestFixedBitSet;
     fbs.test_next_set_bit_in_range(&mut random);
 }
 #[test]
 fn test_set() {
-    let mut random = my_random("test_fixed_bit_set_set".to_string());
+    let mut random = random();
     let fbs = TestFixedBitSet;
     fbs.test_set(&mut random);
 }
 #[test]
 fn test_get_and_set() {
-    let mut random = my_random("test_fixed_bit_set_get_and_set".to_string());
+    let mut random = random();
     let fbs = TestFixedBitSet;
     fbs.test_get_and_set(&mut random);
 }
 #[test]
 fn test_clear() {
-    let mut random = my_random("test_fixed_bit_set_clear".to_string());
+    let mut random = random();
     let mut fbs = TestFixedBitSet;
     fbs.test_clear(&mut random);
 }
 #[test]
 fn test_clear_range() {
-    let mut random = my_random("test_fixed_bit_set_clear_range".to_string());
+    let mut random = random();
     let fbs = TestFixedBitSet;
     fbs.test_clear_range(&mut random);
 }
 #[test]
 fn test_clear_all() {
-    let mut random = my_random("test_fixed_bit_set_clear_all".to_string());
+    let mut random = random();
     let fbs = TestFixedBitSet;
     fbs.test_clear_all(&mut random);
 }
 #[test]
 fn test_or_sparse() {
-    let mut random = my_random("test_fixed_bit_set_or_sparse".to_string());
+    let mut random = random();
     let mut fbs = TestFixedBitSet;
     fbs.test_or_sparse(&mut random);
 }
 #[test]
 fn test_or_dense() {
-    let mut random = my_random("test_fixed_bit_set_or_dense".to_string());
+    let mut random = random();
     let mut fbs = TestFixedBitSet;
     fbs.test_or_dense(&mut random);
 }
 #[test]
 fn test_or_random() {
-    let mut random = my_random("test_fixed_bit_set_or_random".to_string());
+    let mut random = random();
     let mut fbs = TestFixedBitSet;
     fbs.test_or_random(&mut random);
 }
@@ -151,7 +152,7 @@ fn test_or_random() {
 fn test_approximate_cardinality() {
     // The approximate cardinality works in such a way that it should be pretty accurate on a bitset
     // whose bits are uniformly distributed.
-    let mut random = my_random("test_approximate_cardinality".to_string());
+    let mut random = random();
     let mut set = FixedBitSet::new(random.gen_range(100000..=200000));
     let first = random.gen_range(0..=10);
     let interval = random.gen_range(10..=20);
@@ -403,7 +404,7 @@ fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) -> Result<(), TestE
 
 #[test]
 fn test_small() -> Result<(), TestError> {
-    let mut random = my_random("test_small".to_string());
+    let mut random = random();
     let iters = if is_night_mode() {
         random.gen_range(1000..100000)
     } else {
@@ -417,7 +418,7 @@ fn test_small() -> Result<(), TestError> {
 #[test]
 fn test_equals() {
     // This test can't handle numBits==0:
-    let mut random = my_random("test_equals".to_string());
+    let mut random = random();
     let num_bits = random.gen_range(0..2000) + 1;
     let mut b1 = FixedBitSet::new(num_bits);
     let mut b2 = FixedBitSet::new(num_bits);
@@ -438,7 +439,7 @@ fn test_equals() {
 
 #[test]
 fn test_hash_code_equals() {
-    let mut random = my_random("test_hash_code_equals".to_string());
+    let mut random = random();
 
     let num_bits = random.gen_range(0..2000) + 1;
     let mut b1 = FixedBitSet::new(num_bits);
@@ -522,7 +523,7 @@ fn check_next_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) {
 
 #[test]
 fn test_next_bitset() {
-    let mut random = my_random("test_next_bitset".to_string());
+    let mut random = random();
     let capacity = random.gen_range(0..1000);
     let mut set_bits: Vec<i32> = Vec::with_capacity(capacity as usize);
     for _i in 0..capacity {
@@ -594,7 +595,7 @@ fn make_int_array(random: &mut StdRng, count: i32, min: i32, max: i32) -> Vec<i3
 
 #[test]
 fn test_intersection_count() {
-    let mut random = my_random("test_intersection_count".to_string());
+    let mut random = random();
 
     let num_bits1 = random.gen_range(1000..=2000);
     let num_bits2 = random.gen_range(1000..=2000);
@@ -627,7 +628,7 @@ fn test_intersection_count() {
 
 #[test]
 fn test_and_not() -> Result<(), TestError> {
-    let mut random = my_random("test_and_not".to_string());
+    let mut random = random();
 
     let num_bits2 = random.gen_range(1000..=2000);
     let num_bits1 = random.gen_range(1000..=num_bits2);
@@ -678,7 +679,7 @@ fn test_and_not() -> Result<(), TestError> {
 // Demonstrates that the presence of ghost bits in the last used word can cause spurious failures
 #[test]
 fn test_union_count() {
-    let mut random = my_random("test_union_count".to_string());
+    let mut random = random();
     let num_bits1 = random.gen_range(1000..=2000);
     let num_bits2 = random.gen_range(1000..=2000);
 
@@ -702,7 +703,7 @@ fn test_union_count() {
 
 #[test]
 fn test_and_not_count() {
-    let mut random = my_random("test_and_not_count".to_string());
+    let mut random = random();
 
     let num_bits1 = random.gen_range(1000..=2000);
     let num_bits2 = random.gen_range(1000..=2000);

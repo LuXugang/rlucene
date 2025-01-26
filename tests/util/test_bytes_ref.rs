@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rlucene::index::BytesRef;
@@ -48,7 +48,7 @@ fn test_from_bytes() {
 }
 #[test]
 fn test_from_chars() {
-    let mut random = my_random("test_from_chars".to_string());
+    let mut random = random();
     let length = random.gen_range(1000..100000);
     for _i in 0..100 {
         let s = (&mut random)

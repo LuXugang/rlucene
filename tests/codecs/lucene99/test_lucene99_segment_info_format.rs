@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
 use crate::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rlucene::util::{Version, LATEST};
 
@@ -32,49 +32,49 @@ impl BaseSegmentInfoFormatTestCase for TestLucene99SegmentInfoFormat {
 
 #[test]
 fn test_files() -> Result<(), TestError> {
-    let mut random = my_random("test_files".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_files(&mut random)
 }
 #[test]
 fn test_has_blocks() -> Result<(), TestError> {
-    let mut random = my_random("test_has_blocks".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_has_blocks(&mut random)
 }
 #[test]
 fn test_adds_self_to_files() -> Result<(), TestError> {
-    let mut random = my_random("test_adds_self_to_files".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_adds_self_to_files(&mut random)
 }
 #[test]
 fn test_diagnostics() -> Result<(), TestError> {
-    let mut random = my_random("test_diagnostics".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_diagnostics(&mut random)
 }
 #[test]
 fn test_attributes() -> Result<(), TestError> {
-    let mut random = my_random("test_attributes".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_attributes(&mut random)
 }
 #[test]
 fn test_unique_id() -> Result<(), TestError> {
-    let mut random = my_random("test_unique_id".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_unique_id(&mut random)
 }
 #[test]
 fn test_versions() -> Result<(), TestError> {
-    let mut random = my_random("test_versions".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_versions(&mut random)
 }
 #[test]
 fn test_sort() -> Result<(), TestError> {
-    let mut random = my_random("test_sort".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_sort(&mut random)
 }
@@ -100,7 +100,7 @@ fn test_exception_on_close_input() -> Result<(), TestError> {
 }
 #[test]
 fn test_random() -> Result<(), TestError> {
-    let mut random = my_random("test_random".to_string());
+    let mut random = random();
     let test = TestLucene99SegmentInfoFormat;
     test.test_random(&mut random)
 }

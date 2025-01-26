@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use rand::Rng;
 use rlucene::util::priority_queue::{Compare, PriorityQueue};
 use std::fmt::Debug;
@@ -83,7 +83,7 @@ fn test_no_extra_work_on_equal_elements() {
 
 #[test]
 fn test_pq() {
-    let mut random = my_random("test_pq".to_string());
+    let mut random = random();
     let count: i32;
     if random.gen_bool(0.5) {
         if random.gen_bool(0.5) {
@@ -165,7 +165,7 @@ fn test_insert_with_overflow() {
 
 #[test]
 fn test_add_all_to_empty_queue() {
-    let mut random = my_random("test_add_all_to_empty_queue".to_string());
+    let mut random = random();
     let size = 10;
     let mut list: Vec<i32> = Vec::new();
     let mut list2: Vec<i32> = Vec::new();
@@ -187,7 +187,7 @@ fn test_add_all_to_partially_filled_queue() {
     let mut one_by_one: Vec<i32> = Vec::new();
     let mut bulk_added: Vec<i32> = Vec::new();
     let mut bulk_added2: Vec<i32> = Vec::new();
-    let mut random = my_random("test_add_all_to_partially_filled_queue".to_string());
+    let mut random = random();
 
     for _i in 0..10 {
         let value: i32 = random.gen();
@@ -209,7 +209,7 @@ fn test_add_all_to_partially_filled_queue() {
 fn test_add_all_does_not_fit_into_queue() {
     let mut pq = PriorityQueue::new(20, I32Compare).unwrap();
     let mut list: Vec<i32> = Vec::new();
-    let mut random = my_random("test_add_all_does_not_fit_into_queue".to_string());
+    let mut random = random();
     for _i in 0..11 {
         list.push(random.gen());
         pq.add(random.gen());
@@ -223,7 +223,7 @@ fn test_add_all_does_not_fit_into_queue() {
 
 #[test]
 fn test_removals_and_insertions() {
-    let mut random = my_random("test_removals_and_insertions".to_string());
+    let mut random = random();
     let num_docs_in_pq = random.gen_range(1..=100);
     let mut pq = PriorityQueue::new(num_docs_in_pq, I32Compare).unwrap();
     let mut last_least: Option<i32> = None;
@@ -306,7 +306,7 @@ fn test_iterator_two() {
 
 #[test]
 fn test_iterator_random() {
-    let mut random = my_random("test_iterator_random".to_string());
+    let mut random = random();
     let max_size: usize = random.gen_range(1..20);
     let mut queue = PriorityQueue::new(max_size as i32, I32Compare).unwrap();
     let iters: usize = random.gen_range(100..500);

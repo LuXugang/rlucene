@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
 use crate::util::lucene_test_case::new_directory;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::codecs::segment_info_format::SegmentInfoFormat;
@@ -61,7 +61,7 @@ fn test_illegal_created_version() -> Result<(), TestError> {
 }
 #[test]
 fn test_versions_no_segments() -> Result<(), TestError> {
-    let mut random = my_random("test_versions_no_segments".to_string());
+    let mut random = random();
     let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
     let mut sis = SegmentInfos::new(LATEST.major)?;
     sis.commit(directory.clone())?;
@@ -76,7 +76,7 @@ fn test_versions_no_segments() -> Result<(), TestError> {
 }
 #[test]
 fn test_versions_one_segment() -> Result<(), TestError> {
-    let mut random = my_random("test_versions_one_segment".to_string());
+    let mut random = random();
     let dir = new_directory(&mut random)?;
     let directory = Arc::new(Mutex::new(dir));
     let id = StringHelper::random_id();
@@ -128,7 +128,7 @@ fn test_versions_one_segment() -> Result<(), TestError> {
 
 #[test]
 fn test_versions_two_segments() -> Result<(), TestError> {
-    let mut random = my_random("test_versions_two_segments".to_string());
+    let mut random = random();
     let dir = new_directory(&mut random)?;
     let directory = Arc::new(Mutex::new(dir));
     let id = StringHelper::random_id();
@@ -225,7 +225,7 @@ fn test_versions_two_segments() -> Result<(), TestError> {
 }
 #[test]
 fn test_to_string() -> Result<(), TestError> {
-    let mut random = my_random("test_to_string".to_string());
+    let mut random = random();
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     // Diagnostics map
     let diagnostics: HashMap<String, String> = [
@@ -333,7 +333,7 @@ fn test_to_string() -> Result<(), TestError> {
 }
 #[test]
 fn test_id_changes_on_advance() -> Result<(), TestError> {
-    let mut random = my_random("test_id_changes_on_advance".to_string());
+    let mut random = random();
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let id = StringHelper::random_id();
 
@@ -403,7 +403,7 @@ fn test_id_changes_on_advance() -> Result<(), TestError> {
 }
 #[test]
 fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> {
-    let mut random = my_random("test_bit_flipped_triggers_corrupt_index_exception".to_string());
+    let mut random = random();
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let id = StringHelper::random_id();
     let codec = get_default_code();
@@ -532,7 +532,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> 
 }
 #[test]
 fn test_add_diagnostics() -> Result<(), TestError> {
-    let mut random = my_random("test_add_diagnostics".to_string());
+    let mut random = random();
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     // Diagnostics map
     let diagnostics: HashMap<String, String> = [

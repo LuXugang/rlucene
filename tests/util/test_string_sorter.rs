@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{assert_vecs_equal, my_random};
+use crate::common::assert_vecs_equal;
 use crate::util::test_error::TestError;
 use crate::util::TestUtil;
 use rand::rngs::StdRng;
@@ -22,6 +22,7 @@ use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_comparator::{BytesRefComparator, Natural};
 
+use crate::util::lucene_test_case::random;
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
 use rlucene::util::{
@@ -98,7 +99,7 @@ fn test_stable(
 
 #[test]
 fn test_empty() -> Result<(), TestError> {
-    let mut random = my_random("test_empty".to_string());
+    let mut random = random();
     let len = random.gen_range(0..5);
     let refs: Vec<BytesRef> = (0..len).map(|_| BytesRef::default()).collect();
     test(refs, 0)
@@ -106,14 +107,14 @@ fn test_empty() -> Result<(), TestError> {
 
 #[test]
 fn test_one_value() -> Result<(), TestError> {
-    let mut random = my_random("test_one_value".to_string());
+    let mut random = random();
     let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
     test(vec![bytes], 1)
 }
 
 #[test]
 fn test_two_values() -> Result<(), TestError> {
-    let mut random = my_random("test_two_values".to_string());
+    let mut random = random();
     let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
     let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
     test(vec![bytes1, bytes2], 2)
@@ -140,7 +141,7 @@ fn test_random_impl(
 }
 #[test]
 fn test_random() -> Result<(), TestError> {
-    let mut random = my_random("test_random".to_string());
+    let mut random = random();
     let num_iters = random.gen_range(3..100);
     for _ in 0..num_iters {
         test_random_impl(0, 10, &mut random)?;
@@ -149,7 +150,7 @@ fn test_random() -> Result<(), TestError> {
 }
 #[test]
 fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
-    let mut random = my_random("test_random_with_lots_of_duplicates".to_string());
+    let mut random = random();
     let num_iters = random.gen_range(3..100);
     for _ in 0..num_iters {
         test_random_impl(0, 2, &mut random)?;
@@ -158,7 +159,7 @@ fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
 }
 #[test]
 fn test_random_with_shared_prefix() -> Result<(), TestError> {
-    let mut random = my_random("test_random_with_shared_prefix".to_string());
+    let mut random = random();
     let num_iters = random.gen_range(3..100);
     for _ in 0..num_iters {
         let shared_prefix_len = random.gen_range(1..30);
@@ -168,7 +169,7 @@ fn test_random_with_shared_prefix() -> Result<(), TestError> {
 }
 #[test]
 fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestError> {
-    let mut random = my_random("test_random_with_shared_prefix_and_lots_of_duplicates".to_string());
+    let mut random = random();
     let num_iters = random.gen_range(3..100);
     for _ in 0..num_iters {
         let shared_prefix_len = random.gen_range(1..30);

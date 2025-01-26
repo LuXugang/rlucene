@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
 use crate::util::id_set_common;
 use crate::util::id_set_common::clear_range;
+use crate::util::lucene_test_case::random;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
@@ -348,7 +348,7 @@ impl BitSet for RustUtilBitSet {
 }
 #[test]
 fn bit_set_util_equal_and_clone() {
-    let mut random = my_random("bit_set_util_equal_and_clone".to_string());
+    let mut random = random();
     let num_bits = 10;
     let mut bit1 = bit_set::BitSet::new();
     let mut bit2 = bit_set::BitSet::new();

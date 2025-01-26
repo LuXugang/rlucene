@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{is_night_mode, my_random};
+use crate::common::is_night_mode;
 use crate::index::base_live_docs_format_test_case::BaseLiveDocsFormatTestCase;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 
 #[allow(dead_code)] // for quick search
@@ -23,25 +24,25 @@ pub struct TestLucene90LiveDocsFormat;
 impl BaseLiveDocsFormatTestCase for TestLucene90LiveDocsFormat {}
 #[test]
 fn test_dense_live_docs() -> Result<(), TestError> {
-    let mut random = my_random("test_dense_live_docs".to_string());
+    let mut random = random();
     let test = TestLucene90LiveDocsFormat;
     test.test_dense_live_docs(&mut random)
 }
 #[test]
 fn test_empty_live_docs() -> Result<(), TestError> {
-    let mut random = my_random("test_empty_live_docs".to_string());
+    let mut random = random();
     let test = TestLucene90LiveDocsFormat;
     test.test_empty_live_docs(&mut random)
 }
 #[test]
 fn test_sparse_live_docs() -> Result<(), TestError> {
-    let mut random = my_random("test_sparse_live_docs".to_string());
+    let mut random = random();
     let test = TestLucene90LiveDocsFormat;
     test.test_sparse_live_docs(&mut random)
 }
 #[test]
 fn test_over_flow_live_docs() -> Result<(), TestError> {
-    let mut random = my_random("test_over_flow_live_docs".to_string());
+    let mut random = random();
     let test = TestLucene90LiveDocsFormat;
     if is_night_mode() {
         test.test_over_flow(&mut random)

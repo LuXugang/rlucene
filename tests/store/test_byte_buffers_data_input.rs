@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{is_night_mode, my_random};
+use crate::common::is_night_mode;
 use crate::store::add_random_data;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
@@ -56,7 +57,7 @@ fn test_sanity() -> Result<(), TestError> {
 
 #[test]
 fn test_random_reads() -> Result<(), TestError> {
-    let mut random = my_random("test_random_reads".to_string());
+    let mut random = random();
     let mut dst = ByteBuffersDataOutput::new_resettable_instance()?;
     let seed: u64 = random.gen();
     let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
@@ -73,7 +74,7 @@ fn test_random_reads() -> Result<(), TestError> {
 
 #[test]
 fn test_random_reads_on_slices() -> Result<(), TestError> {
-    let mut random = my_random("test_random_reads_on_slices".to_string());
+    let mut random = random();
     let reps = random.gen_range(1..=20);
     for _i in 0..=reps {
         let mut dst = ByteBuffersDataOutput::new_resettable_instance()?;
@@ -118,7 +119,7 @@ fn test_seek_empty() -> Result<(), TestError> {
 
 #[test]
 fn test_seek_and_skip() -> Result<(), TestError> {
-    let mut random = my_random("test_seek_and_skip".to_string());
+    let mut random = random();
     let reps = random.gen_range(1..=20);
     for _i in 0..reps {
         let mut dst = ByteBuffersDataOutput::new_resettable_instance()?;
@@ -174,7 +175,7 @@ fn test_seek_and_skip() -> Result<(), TestError> {
 }
 #[test]
 fn test_slicing_window() -> Result<(), TestError> {
-    let mut random = my_random("test_slicing_window".to_string());
+    let mut random = random();
     let mut dst = ByteBuffersDataOutput::new_resettable_instance()?;
     assert_eq!(0, dst.get_data_input().slice(0, 0)?.length());
     let random_bytes: Vec<u8> = vec![0; random.gen_range(0..=1024 * 8)];
@@ -210,7 +211,7 @@ fn test_eof_on_array_read_past_buffer_size() -> Result<(), TestError> {
 fn test_slicing_large_buffers() -> Result<(), TestError> {
     // Simulate a "large" (> 4GB) input by duplicating
     // buffers with the same content.
-    let mut random = my_random("test_slicing_large_buffers".to_string());
+    let mut random = random();
     let mb = 1024 * 1024;
     let page_bytes: Vec<u8> = vec![0; 4 * mb];
     let simulated_length: i64 = random.gen_range(0..2018) as i64 + 4 * i32::MAX as i64;

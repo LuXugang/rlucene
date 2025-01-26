@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::my_random;
+use crate::util::lucene_test_case::random;
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::util::version::{
@@ -240,7 +240,7 @@ fn test_non_floating_point_compliant_version_numbers() -> Result<(), TestError> 
 
 #[test]
 fn test_equals_hash_code() -> Result<(), TestError> {
-    let mut random = my_random("test_equals_hash_code".to_string());
+    let mut random = random();
 
     let version = format!(
         "{}.{}.{}",

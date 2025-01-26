@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::rarely;
 use crate::util::base_sort_test_case::Strategy::{
     Random, RandomLowCardinality, RandomMediumCardinality,
 };
+use crate::util::lucene_test_case::rarely;
 use rand::prelude::StdRng;
 use rand::Rng;
 use rlucene::util::{Comparator, Sorter, COMPARATOR_TYPE};

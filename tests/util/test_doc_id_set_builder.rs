@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::common::{is_night_mode, my_random, rarely};
+use crate::common::is_night_mode;
+use crate::util::lucene_test_case::{random, rarely};
 use crate::util::test_error::TestError;
 use rand::Rng;
 use rlucene::search::doc_id_set::DocIdSet;
@@ -34,7 +35,7 @@ use rlucene::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
 struct TestDocIdSetBuilder {}
 #[test]
 fn test_empty() -> Result<(), TestError> {
-    let mut random = my_random("test_empty".to_string());
+    let mut random = random();
     let max_doc = random.gen_range(1..1000);
     let doc_id_set: Option<IntArrayDocIdSet> = None;
     assert_equals(
@@ -85,7 +86,7 @@ fn assert_equals<T1: DocIdSet, T2: DocIdSet>(
 
 #[test]
 fn test_sparse() -> Result<(), TestError> {
-    let mut random = my_random("test_sparse".to_string());
+    let mut random = random();
     let max_doc = 1000000 + random.gen_range(0..1000000);
     let mut builder = DocIdSetBuilder::new(max_doc);
     let num_iterators = 1 + random.gen_range(0..10);
@@ -117,7 +118,7 @@ fn test_sparse() -> Result<(), TestError> {
 }
 #[test]
 fn test_dense() -> Result<(), TestError> {
-    let mut random = my_random("test_dense".to_string());
+    let mut random = random();
     let max_doc = 1000000 + random.gen_range(0..1000000);
     let mut builder = DocIdSetBuilder::new(max_doc);
     let num_iterators = 1 + random.gen_range(0..10);
@@ -149,7 +150,7 @@ fn test_dense() -> Result<(), TestError> {
 
 #[test]
 fn test_random() -> Result<(), TestError> {
-    let mut random = my_random("test_random".to_string());
+    let mut random = random();
     let max_doc = if is_night_mode() {
         random.gen_range(1..10000000)
     } else {
@@ -215,7 +216,7 @@ fn test_random() -> Result<(), TestError> {
 }
 #[test]
 fn test_misleading_disi_cost() -> Result<(), TestError> {
-    let mut random = my_random("test_misleading_disi_cost".to_string());
+    let mut random = random();
     let max_doc = random.gen_range(1000..=10000);
     let mut builder = DocIdSetBuilder::new(max_doc);
     let mut expected = FixedBitSet::new(max_doc);
