@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use num_bigint::BigInt;
+use num_traits::{FromPrimitive, ToPrimitive};
 use rand::rngs::StdRng;
 use rand::Rng;
 
@@ -75,7 +77,25 @@ impl TestUtil {
             }
         }
     }
-
+    /// start and end are BOTH inclusive
+    pub fn next_int(r: &mut StdRng, start: i32, end: i32) -> i32 {
+        r.gen_range(start..=end)
+    }
+    /// start and end are BOTH inclusive
+    pub fn next_long(r: &mut impl Rng, start: i64, end: i64) -> i64 {
+        assert!(end >= start, "start={}, end={}", start, end);
+        let range = BigInt::from(end) + BigInt::from(1) - BigInt::from(start);
+        if range <= BigInt::from(i32::MAX) {
+            start + r.gen_range(0..range.to_i32().unwrap()) as i64
+        } else {
+            let augend = BigInt::from_f64(range.to_f64().unwrap() * r.gen::<f64>()).unwrap();
+            let result = BigInt::from(start) + augend;
+            let result = result.to_i64().unwrap();
+            assert!(result >= start);
+            assert!(result <= end);
+            result
+        }
+    }
     pub fn random_simple_string_with_length(
         random: &mut StdRng,
         min_length: usize,
