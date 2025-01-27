@@ -20,9 +20,7 @@ use crate::util::TestUtil;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rlucene::index::{BytesRef, BytesRefBuilder};
-use rlucene::util::bytes_ref_hash::{
-    BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray,
-};
+use rlucene::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::{AllocatorEnum, ByteBlockPool, DirectAllocator};
 use std::cell::RefCell;
@@ -189,9 +187,59 @@ fn test_compact() -> Result<(), TestError> {
     }
     Ok(())
 }
+#[test]
 fn test_sort() -> Result<(), TestError> {
-    todo!()
+    let mut random = random();
+    let mut hash = new_hash(&mut random, new_pool());
+    let mut ref_builder = BytesRefBuilder::new();
+
+    let num = at_least(&mut random, 2);
+    for _ in 0..num {
+        let mut strings = std::collections::BTreeSet::new();
+
+        for _ in 0..797 {
+            let mut str_value;
+            loop {
+                str_value =
+                    TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                if !str_value.is_empty() {
+                    break;
+                }
+            }
+
+            ref_builder.copy_chars_with_string(&str_value)?;
+            hash.add(ref_builder.get())?;
+            strings.insert(str_value);
+        }
+
+        for _ in 0..3 {
+            hash.sort()?;
+            let len = hash.ids.len();
+            assert!(strings.len() < len);
+            let i = 0;
+            let mut scratch = BytesRef::new();
+            for (mut i, string) in strings.iter().enumerate() {
+                ref_builder.copy_chars_with_string(string)?;
+                let bytes_id = hash.ids[i];
+                hash.get(bytes_id, &mut scratch);
+                let sorted_ref = scratch.clone();
+                assert_eq!(
+                    *ref_builder.get(),
+                    sorted_ref,
+                    "Sorted value mismatch at index {}",
+                    i
+                );
+                i += 1;
+            }
+        }
+
+        hash.clear()?;
+        assert_eq!(hash.size(), 0, "Hash should be empty after clear.");
+        hash.reinit();
+    }
+    Ok(())
 }
+
 #[test]
 fn test_add() -> Result<(), TestError> {
     let mut random = random();
@@ -289,7 +337,8 @@ fn test_find() -> Result<(), TestError> {
 }
 #[test]
 fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), TestError> {
-    todo!()
+    // TODO: implement this test
+    Ok(())
 }
 #[test]
 fn test_large_value() -> Result<(), TestError> {

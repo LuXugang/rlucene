@@ -19,7 +19,9 @@ use crate::util::bytes_ref_comparator::{BytesRefComparator, BYTES_REF_COMPARATOR
 
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::intro_sorter::IntroSorter;
-use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
+use crate::util::{
+    Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter,
+};
 
 /// A [`BytesRef`] sorter that attempts to use an efficient radix sorter if [`StringSorter::compare`]
 /// is a [`BytesRefComparator`]. Otherwise, it falls back to [`StringSorterBase::fall_back_sorter`].

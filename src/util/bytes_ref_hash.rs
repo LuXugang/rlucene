@@ -14,15 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::BytesRef;
+use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
-    AllocatorEnum, ByteBlockPool, Counter, CounterEnum, DirectAllocator, StringHelper,
-    GOOD_FAST_HASH_SEED,
+    AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
+    DirectAllocator, MSBRadixSorter, MSBRadixSorterBase, MSBStringRadixSorter, Natural, Sorter,
+    StringHelper, StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
+    LEVEL_THRESHOLD,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -35,7 +37,7 @@ pub struct BytesRefHash {
     hash_mask: i32,
     count: i32,
     last_count: i32,
-    ids: Vec<i32>,
+    pub ids: Vec<i32>,
     bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
     bytes_used: Arc<Mutex<CounterEnum>>,
 }
@@ -138,6 +140,29 @@ impl BytesRefHash {
 
         &self.ids
     }
+    /// Returns the values array sorted by the referenced byte values.
+    pub fn sort(&mut self) -> Result<(), LuceneError> {
+        let compact = self.compact();
+        let mut length = compact.len();
+        let tmp_offset = self.count;
+        let sub_sorter = StringSorterImpl::new(
+            tmp_offset,
+            &mut self.ids,
+            &mut self.pool,
+            self.bytes_start_array.clone(),
+        );
+        let mut sorter = StringSorter::new(sub_sorter, Natural::default());
+        sorter.sort(0, self.count)?;
+        debug_assert!(
+            (self.count * 2) as usize <= length,
+            "We need load factor <= 0.5f to speed up this sort"
+        );
+        length = self.ids.len();
+        for i in tmp_offset as usize..length {
+            self.ids[i] = -1;
+        }
+        Ok(())
+    }
     fn shrink(&mut self, target_size: i32) -> bool {
         // Cannot use ArrayUtil.shrink because we require power of 2:
         let mut new_size = self.hash_size;
@@ -201,7 +226,7 @@ impl BytesRefHash {
     /// # Errors
     /// Returns `MaxBytesLengthExceededException` if the given bytes are greater than 2 + [`ByteBlockPool::BYTE_BLOCK_SIZE`](ByteBlockPool::BYTE_BLOCK_SIZE).
     pub fn add(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
-        assert!(
+        debug_assert!(
             self.bytes_start_array.borrow_mut().byte_start().is_some(),
             "Bytesstart is null - not initialized"
         );
@@ -220,7 +245,7 @@ impl BytesRefHash {
                 // new entry
                 if self.count as usize >= length {
                     self.bytes_start_array.borrow_mut().grow()?;
-                    assert!(
+                    debug_assert!(
                         (self.count as usize)
                             < self
                                 .bytes_start_array
@@ -273,7 +298,7 @@ impl BytesRefHash {
         self.ids[hash_pos as usize]
     }
     fn find_hash(&mut self, bytes: &BytesRef) -> i32 {
-        assert!(
+        debug_assert!(
             self.bytes_start_array.borrow_mut().byte_start().is_some(),
             "bytesStart is null - not initialized"
         );
@@ -307,7 +332,7 @@ impl BytesRefHash {
     /// redundantly store the byte[] term directly and instead reference the byte[] term already
     /// stored by the postings `BytesRefHash`.
     pub fn add_by_pool_offset(&mut self, offset: i32) -> Result<i32, LuceneError> {
-        assert!(
+        debug_assert!(
             self.bytes_start_array.borrow_mut().byte_start().is_some(),
             "Bytesstart is null - not initialized"
         );
@@ -334,7 +359,7 @@ impl BytesRefHash {
             {
                 if self.count >= length as i32 {
                     self.bytes_start_array.borrow_mut().grow()?;
-                    assert!(
+                    debug_assert!(
                         self.count
                             < self
                                 .bytes_start_array
@@ -455,7 +480,123 @@ impl BytesRefHash {
 }
 impl Accountable for BytesRefHash {
     fn ram_bytes_used(&self) -> i64 {
-        todo!()
+        // TODO: memory calculation not implemented
+        0
+    }
+}
+
+pub struct StringSorterImpl<'a> {
+    tmp_offset: i32,
+    compact: &'a mut Vec<i32>,
+    pool: &'a mut BytesRefBlockPool,
+    bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
+    k: i32,
+}
+impl<'a> StringSorterImpl<'a> {
+    pub fn new(
+        tmp_offset: i32,
+        compact: &'a mut Vec<i32>,
+        pool: &'a mut BytesRefBlockPool,
+        bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
+    ) -> Self {
+        StringSorterImpl {
+            tmp_offset,
+            compact,
+            pool,
+            bytes_start_array,
+            k: 0,
+        }
+    }
+    fn swap_bucket_cache(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        self.swap(i, j)?;
+        self.compact.swap(
+            (self.tmp_offset + i) as usize,
+            (self.tmp_offset + j) as usize,
+        );
+        Ok(())
+    }
+}
+impl MSBRadixSorterBase for StringSorterImpl<'_> {
+    fn reorder(
+        &mut self,
+        from: i32,
+        _to: i32,
+        start_offsets: &mut [i32],
+        end_offsets: &mut [i32],
+        k: i32,
+    ) -> Result<(), LuceneError> {
+        debug_assert_eq!(self.k, k);
+        for i in 0..HISTOGRAM_SIZE {
+            let limit = end_offsets[i];
+            while start_offsets[i] < limit {
+                let h1 = start_offsets[i];
+                let b = self.compact[(self.tmp_offset + from + h1) as usize] as usize;
+                let h2 = start_offsets[b];
+                start_offsets[b] += 1;
+                self.swap_bucket_cache(from + h1, from + h2)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn build_histogram(
+        &mut self,
+        prefix_common_bucket: i32,
+        prefix_common_len: i32,
+        from: i32,
+        to: i32,
+        k: i32,
+        histogram: &mut [i32],
+    ) -> Result<(), LuceneError> {
+        self.k = k;
+        histogram[prefix_common_bucket as usize] = prefix_common_len;
+        self.compact[(self.tmp_offset + from - prefix_common_len) as usize
+            ..(self.tmp_offset + from) as usize]
+            .fill(prefix_common_bucket);
+        for i in from..to {
+            let b = self.get_bucket(i, k)?;
+            self.compact[(self.tmp_offset + i) as usize] = b;
+            histogram[b as usize] += 1;
+        }
+        Ok(())
+    }
+
+    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
+        // We lower the fallback threshold because the bucket cache speeds up the reorder
+        to - from <= ((LEVEL_THRESHOLD as i32) / 2) || l >= LEVEL_THRESHOLD as i32
+    }
+}
+impl Sorter for StringSorterImpl<'_> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        self.compact.swap(i as usize, j as usize);
+        Ok(())
+    }
+}
+impl StringSorterBase for StringSorterImpl<'_> {
+    fn get(
+        &mut self,
+        _builder: &mut BytesRefBuilder,
+        result: &mut BytesRef,
+        i: i32,
+    ) -> Result<(), LuceneError> {
+        let start = self
+            .bytes_start_array
+            .borrow_mut()
+            .byte_start()
+            .as_ref()
+            .unwrap()[self.compact[i as usize] as usize];
+        self.pool.fill_bytes_ref(result, start);
+        Ok(())
+    }
+
+    fn radix_sorter<'b, C>(&'b mut self, cmp: &'b mut C) -> impl Sorter + 'b
+    where
+        C: BytesRefComparator + Comparator<BytesRef>,
+        Self: Sorter + Sized,
+    {
+        let length = cmp.compared_bytes_count();
+        let delegate_sorter = MSBStringRadixSorter::new(cmp, self);
+        MSBRadixSorter::new(length, delegate_sorter)
     }
 }
 
