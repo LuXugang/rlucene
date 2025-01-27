@@ -23,19 +23,23 @@ use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::{AllocatorEnum, ByteBlockPool, DirectAllocator};
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::{Arc, Barrier, Mutex};
+use std::thread;
 
 #[allow(dead_code)] // for quick search
 pub struct TestBytesRefHash;
 
-fn new_pool() -> Rc<RefCell<ByteBlockPool>> {
-    Rc::new(RefCell::new(ByteBlockPool::new(AllocatorEnum::DA(
+fn new_pool() -> Arc<Mutex<ByteBlockPool>> {
+    Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DA(
         DirectAllocator::new(),
     ))))
 }
-fn new_hash(random: &mut StdRng, block_pool: Rc<RefCell<ByteBlockPool>>) -> BytesRefHash {
+fn new_hash(
+    random: &mut StdRng,
+    block_pool: Arc<Mutex<ByteBlockPool>>,
+) -> Result<BytesRefHash, LuceneError> {
     let init_size = 2 << (1 + random.gen_range(0..5));
     if random.gen_bool(0.5) {
         BytesRefHash::from_pool(block_pool)
@@ -43,7 +47,7 @@ fn new_hash(random: &mut StdRng, block_pool: Rc<RefCell<ByteBlockPool>>) -> Byte
         BytesRefHash::from_bytes_start_array(
             block_pool,
             init_size,
-            Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
+            Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
                 DirectBytesStartArray::new(init_size),
             ))),
         )
@@ -52,7 +56,7 @@ fn new_hash(random: &mut StdRng, block_pool: Rc<RefCell<ByteBlockPool>>) -> Byte
 #[test]
 fn test_size() -> Result<(), TestError> {
     let mut random = random();
-    let mut hash = new_hash(&mut random, new_pool());
+    let mut hash = new_hash(&mut random, new_pool())?;
     let mut ref_builder = BytesRefBuilder::new();
 
     let num = at_least(&mut random, 2);
@@ -80,7 +84,7 @@ fn test_size() -> Result<(), TestError> {
             if i % mod_val == 0 {
                 hash.clear()?;
                 assert_eq!(hash.size(), 0);
-                hash.reinit();
+                hash.reinit()?;
             }
         }
     }
@@ -89,7 +93,7 @@ fn test_size() -> Result<(), TestError> {
 #[test]
 fn test_get() -> Result<(), TestError> {
     let mut random = random();
-    let mut hash = new_hash(&mut random, new_pool());
+    let mut hash = new_hash(&mut random, new_pool())?;
     let mut ref_builder = BytesRefBuilder::new();
     let mut scratch = BytesRef::new();
 
@@ -125,20 +129,20 @@ fn test_get() -> Result<(), TestError> {
 
         for (key, value) in &strings {
             ref_builder.copy_chars_with_string(key)?;
-            hash.get(*value, &mut scratch);
+            hash.get(*value, &mut scratch)?;
             assert_eq!(*ref_builder.get(), scratch);
         }
 
         hash.clear()?;
         assert_eq!(hash.size(), 0);
-        hash.reinit();
+        hash.reinit()?;
     }
     Ok(())
 }
 #[test]
 fn test_compact() -> Result<(), TestError> {
     let mut random = random();
-    let mut hash = new_hash(&mut random, new_pool());
+    let mut hash = new_hash(&mut random, new_pool())?;
     let mut ref_builder = BytesRefBuilder::new();
 
     let num = at_least(&mut random, 2);
@@ -183,14 +187,14 @@ fn test_compact() -> Result<(), TestError> {
 
         hash.clear()?;
         assert_eq!(hash.size(), 0);
-        hash.reinit();
+        hash.reinit()?;
     }
     Ok(())
 }
 #[test]
 fn test_sort() -> Result<(), TestError> {
     let mut random = random();
-    let mut hash = new_hash(&mut random, new_pool());
+    let mut hash = new_hash(&mut random, new_pool())?;
     let mut ref_builder = BytesRefBuilder::new();
 
     let num = at_least(&mut random, 2);
@@ -220,7 +224,7 @@ fn test_sort() -> Result<(), TestError> {
             for (i, string) in strings.iter().enumerate() {
                 ref_builder.copy_chars_with_string(string)?;
                 let bytes_id = hash.ids[i];
-                hash.get(bytes_id, &mut scratch);
+                hash.get(bytes_id, &mut scratch)?;
                 let sorted_ref = scratch.clone();
                 assert_eq!(
                     *ref_builder.get(),
@@ -233,7 +237,7 @@ fn test_sort() -> Result<(), TestError> {
 
         hash.clear()?;
         assert_eq!(hash.size(), 0, "Hash should be empty after clear.");
-        hash.reinit();
+        hash.reinit()?;
     }
     Ok(())
 }
@@ -241,7 +245,7 @@ fn test_sort() -> Result<(), TestError> {
 #[test]
 fn test_add() -> Result<(), TestError> {
     let mut random = random();
-    let mut hash = new_hash(&mut random, new_pool());
+    let mut hash = new_hash(&mut random, new_pool())?;
     let mut ref_builder = BytesRefBuilder::new();
     let mut scratch = BytesRef::new();
 
@@ -272,7 +276,7 @@ fn test_add() -> Result<(), TestError> {
             } else {
                 assert!(!strings.insert(str_value.clone()));
                 assert!((-key - 1) < count);
-                hash.get((-key - 1) as i32, &mut scratch);
+                hash.get(-key - 1, &mut scratch)?;
                 assert_eq!(str_value, scratch.utf8_to_string()?);
                 assert_eq!(count, hash.size());
             }
@@ -281,14 +285,14 @@ fn test_add() -> Result<(), TestError> {
         assert_all_in(&strings, &mut hash)?;
         hash.clear()?;
         assert_eq!(hash.size(), 0);
-        hash.reinit();
+        hash.reinit()?;
     }
     Ok(())
 }
 #[test]
 fn test_find() -> Result<(), TestError> {
     let mut random = random();
-    let mut hash = new_hash(&mut random, new_pool());
+    let mut hash = new_hash(&mut random, new_pool())?;
     let mut ref_builder = BytesRefBuilder::new();
     let mut scratch = BytesRef::new();
 
@@ -309,12 +313,12 @@ fn test_find() -> Result<(), TestError> {
 
             ref_builder.copy_chars_with_string(&str_value)?;
             let count = hash.size();
-            let key = hash.find(ref_builder.get());
+            let key = hash.find(ref_builder.get())?;
 
             if key >= 0 {
                 assert!(!strings.insert(str_value.clone()));
                 assert!(key < count);
-                hash.get(key, &mut scratch);
+                hash.get(key, &mut scratch)?;
                 assert_eq!(str_value, scratch.utf8_to_string()?);
                 assert_eq!(count, hash.size());
             } else {
@@ -329,19 +333,113 @@ fn test_find() -> Result<(), TestError> {
         assert_all_in(&strings, &mut hash)?;
         hash.clear()?;
         assert_eq!(hash.size(), 0);
-        hash.reinit();
+        hash.reinit()?;
     }
     Ok(())
 }
 #[test]
 fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), TestError> {
-    // TODO: implement this test
+    let mut random = random();
+    let num = at_least(&mut random, 2);
+
+    for _ in 0..num {
+        let num_strings = 797;
+        let strings = Arc::new(Mutex::new(Vec::with_capacity(num_strings)));
+        let hash = Arc::new(Mutex::new(new_hash(&mut random, new_pool())?));
+
+        {
+            let mut hash_guard = hash.lock().unwrap();
+            for _ in 0..num_strings {
+                let str_value =
+                    TestUtil::random_realistic_unicode_string_impl(&mut random, 1, 1000);
+                hash_guard.add(&BytesRef::from_string(&str_value))?;
+                strings.lock().unwrap().push(str_value);
+            }
+        }
+
+        let hash_size = hash.lock().unwrap().size();
+
+        let not_found = Arc::new(AtomicI32::new(0));
+        let not_equals = Arc::new(AtomicI32::new(0));
+        let wrong_size = Arc::new(AtomicI32::new(0));
+
+        let num_threads = at_least(&mut random, 3);
+        let barrier = Arc::new(Barrier::new(num_threads as usize));
+        let mut handles = vec![];
+
+        for _ in 0..num_threads {
+            let hash_clone = Arc::clone(&hash);
+            let strings_clone = Arc::clone(&strings);
+            let not_found_clone = Arc::clone(&not_found);
+            let not_equals_clone = Arc::clone(&not_equals);
+            let wrong_size_clone = Arc::clone(&wrong_size);
+            let barrier_clone = Arc::clone(&barrier);
+            let loops = at_least(&mut random, 100);
+
+            let handle = thread::spawn(move || {
+                let mut scratch = BytesRef::new();
+                barrier_clone.wait();
+
+                for k in 0..loops {
+                    let strings_guard = strings_clone.lock().unwrap();
+                    let find =
+                        BytesRef::from_string(&strings_guard[k as usize % strings_guard.len()]);
+                    drop(strings_guard);
+
+                    let mut hash_guard = hash_clone.lock().unwrap();
+                    let id = hash_guard.find(&find).unwrap();
+
+                    if id < 0 {
+                        not_found_clone.fetch_add(1, Ordering::SeqCst);
+                    } else {
+                        hash_guard.get(id, &mut scratch).unwrap();
+                        if scratch != find {
+                            not_equals_clone.fetch_add(1, Ordering::SeqCst);
+                        }
+                    }
+                    if hash_guard.size() != hash_size {
+                        wrong_size_clone.fetch_add(1, Ordering::SeqCst);
+                    }
+                }
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().expect("Thread panicked");
+        }
+
+        assert_eq!(
+            not_found.load(Ordering::SeqCst),
+            0,
+            "No entries should be missing."
+        );
+        assert_eq!(
+            not_equals.load(Ordering::SeqCst),
+            0,
+            "All entries should match."
+        );
+        assert_eq!(
+            wrong_size.load(Ordering::SeqCst),
+            0,
+            "Hash size should remain consistent."
+        );
+
+        hash.lock().unwrap().clear()?;
+        assert_eq!(
+            hash.lock().unwrap().size(),
+            0,
+            "Hash should be empty after clear."
+        );
+        hash.lock().unwrap().reinit()?;
+    }
+
     Ok(())
 }
 #[test]
 fn test_large_value() -> Result<(), TestError> {
     let mut random = random();
-    let mut hash = new_hash(&mut random, new_pool());
+    let mut hash = new_hash(&mut random, new_pool())?;
 
     let sizes = [
         random.gen_range(0..5),
@@ -374,8 +472,8 @@ fn test_large_value() -> Result<(), TestError> {
 fn test_add_by_pool_offset() -> Result<(), TestError> {
     let mut random = random();
     let pool = new_pool();
-    let mut hash = new_hash(&mut random, pool.clone());
-    let mut offset_hash = new_hash(&mut random, pool);
+    let mut hash = new_hash(&mut random, pool.clone())?;
+    let mut offset_hash = new_hash(&mut random, pool)?;
     let mut ref_builder = BytesRefBuilder::new();
     let mut scratch = BytesRef::new();
 
@@ -403,7 +501,7 @@ fn test_add_by_pool_offset() -> Result<(), TestError> {
                 assert_eq!(unique_count, key);
                 assert_eq!(hash.size(), count + 1);
 
-                let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(key))?;
+                let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(key)?)?;
                 assert_eq!(unique_count, offset_key);
                 assert_eq!(offset_hash.size(), count + 1);
 
@@ -411,12 +509,12 @@ fn test_add_by_pool_offset() -> Result<(), TestError> {
             } else {
                 assert!(!strings.insert(str_value.clone()));
                 assert!((-key - 1) < count);
-                hash.get(-key - 1, &mut scratch);
+                hash.get(-key - 1, &mut scratch)?;
                 assert_eq!(str_value, scratch.utf8_to_string()?);
                 assert_eq!(count, hash.size());
-                let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1))?;
+                let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1)?)?;
                 assert!((-offset_key - 1) < count);
-                hash.get(-offset_key - 1, &mut scratch);
+                hash.get(-offset_key - 1, &mut scratch)?;
                 assert_eq!(str_value, scratch.utf8_to_string()?);
                 assert_eq!(count, hash.size());
             }
@@ -427,7 +525,7 @@ fn test_add_by_pool_offset() -> Result<(), TestError> {
         for string in &strings {
             ref_builder.copy_chars_with_string(string)?;
             let key = hash.add(ref_builder.get())?;
-            offset_hash.get(-key - 1, &mut scratch);
+            offset_hash.get(-key - 1, &mut scratch)?;
             let bytes_ref = scratch.clone();
             assert_eq!(*ref_builder.get(), bytes_ref, "Values should match.");
         }
@@ -441,8 +539,8 @@ fn test_add_by_pool_offset() -> Result<(), TestError> {
             "Offset hash should be empty after clear."
         );
 
-        hash.reinit();
-        offset_hash.reinit();
+        hash.reinit()?;
+        offset_hash.reinit()?;
     }
     Ok(())
 }
@@ -455,7 +553,7 @@ fn assert_all_in(strings: &HashSet<String>, hash: &mut BytesRefHash) -> Result<(
     for string in strings {
         ref_builder.copy_chars_with_string(string)?;
         let key = hash.add(ref_builder.get())?; // add again to check duplicates
-        hash.get((-key) - 1, &mut scratch);
+        hash.get((-key) - 1, &mut scratch)?;
         assert_eq!(*string, scratch.utf8_to_string()?);
         assert_eq!(
             count,

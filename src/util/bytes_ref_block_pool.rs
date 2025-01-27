@@ -20,11 +20,10 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{AllocatorEnum, ByteBlockPool, DirectAllocator, VecCopyOps};
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 pub struct BytesRefBlockPool {
-    byte_block_pool: Rc<RefCell<ByteBlockPool>>,
+    byte_block_pool: Arc<Mutex<ByteBlockPool>>,
 }
 impl Default for BytesRefBlockPool {
     fn default() -> Self {
@@ -37,25 +36,32 @@ impl BytesRefBlockPool {
     const BASE_RAM_BYTES: i32 = 0;
     pub fn new() -> BytesRefBlockPool {
         BytesRefBlockPool {
-            byte_block_pool: Rc::new(RefCell::new(ByteBlockPool::new(AllocatorEnum::DA(
+            byte_block_pool: Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DA(
                 DirectAllocator::new(),
             )))),
         }
     }
-    pub fn from_byte_block_pool(byte_block_pool: Rc<RefCell<ByteBlockPool>>) -> BytesRefBlockPool {
+    pub fn from_byte_block_pool(byte_block_pool: Arc<Mutex<ByteBlockPool>>) -> BytesRefBlockPool {
         BytesRefBlockPool { byte_block_pool }
     }
-    pub fn byte_block_pool(&mut self) -> Rc<RefCell<ByteBlockPool>> {
+    pub fn byte_block_pool(&mut self) -> Arc<Mutex<ByteBlockPool>> {
         self.byte_block_pool.clone()
     }
     /// Resets this buffer to the empty state.
     pub fn reset(&mut self) -> Result<(), LuceneError> {
-        self.byte_block_pool.borrow_mut().reset(false, false) // we don't need to 0-fill the buffers
+        let mut pool = self
+            .byte_block_pool
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        pool.reset(false, false) // we don't need to 0-fill the buffers
     }
 
     /// Populates the given `BytesRef` with the term starting at `start`.
-    pub fn fill_bytes_ref(&mut self, term: &mut BytesRef, start: i32) {
-        let mut pool = self.byte_block_pool.borrow_mut();
+    pub fn fill_bytes_ref(&mut self, term: &mut BytesRef, start: i32) -> Result<(), LuceneError> {
+        let mut pool = self
+            .byte_block_pool
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         let block = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
 
@@ -76,6 +82,7 @@ impl BytesRefBlockPool {
         term.offset = 0;
         term.length = length;
         debug_assert!(term.length >= 0);
+        Ok(())
     }
     /// Add a term, returning the start position on the underlying `ByteBlockPool`.
     /// This can be used to read back the value using `fill_bytes_ref`.
@@ -85,7 +92,10 @@ impl BytesRefBlockPool {
     pub fn add_bytes_ref(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         let length = bytes.length;
         let len2 = 2 + bytes.length;
-        let mut pool = self.byte_block_pool.borrow_mut();
+        let mut pool = self
+            .byte_block_pool
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         if len2 + pool.byte_upto > ByteBlockPool::BYTE_BLOCK_SIZE {
             if len2 > ByteBlockPool::BYTE_BLOCK_SIZE {
                 return Err(LuceneError::max_bytes_length_exceeded(format!(
@@ -126,9 +136,12 @@ impl BytesRefBlockPool {
         Ok(text_start)
     }
     /// Computes the hash of the BytesRef at the given start.
-    pub fn hash(&mut self, start: i32) -> i32 {
+    pub fn hash(&mut self, start: i32) -> Result<i32, LuceneError> {
         let offset = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
-        let mut pool = self.byte_block_pool.borrow_mut();
+        let mut pool = self
+            .byte_block_pool
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
 
         let (len, pos) = if (bytes[offset] & 0x80) == 0 {
@@ -140,12 +153,15 @@ impl BytesRefBlockPool {
             (len as usize, offset + 2)
         };
 
-        BytesRefHash::do_hash(bytes, pos, len)
+        Ok(BytesRefHash::do_hash(bytes, pos, len))
     }
     /// Computes the equality between the BytesRef at the given start position and the provided BytesRef.
-    pub fn equals(&mut self, start: i32, b: &BytesRef) -> bool {
+    pub fn equals(&mut self, start: i32, b: &BytesRef) -> Result<bool, LuceneError> {
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
-        let mut pool = self.byte_block_pool.borrow_mut();
+        let mut pool = self
+            .byte_block_pool
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
 
         let (length, offset) = if (bytes[pos] & 0x80) == 0 {
@@ -158,12 +174,18 @@ impl BytesRefBlockPool {
         };
 
         // Compare slices of bytes
-        bytes[offset..offset + length] == b.bytes[b.offset as usize..(b.offset + b.length) as usize]
+        Ok(bytes[offset..offset + length]
+            == b.bytes[b.offset as usize..(b.offset + b.length) as usize])
     }
 }
 impl Accountable for BytesRefBlockPool {
     fn ram_bytes_used(&self) -> i64 {
-        let pool = self.byte_block_pool.borrow_mut();
-        BytesRefBlockPool::BASE_RAM_BYTES as i64 + pool.ram_bytes_used()
+        match self.byte_block_pool.lock() {
+            Ok(pool) => BytesRefBlockPool::BASE_RAM_BYTES as i64 + pool.ram_bytes_used(),
+            Err(poisoned) => {
+                let pool = poisoned.into_inner();
+                BytesRefBlockPool::BASE_RAM_BYTES as i64 + pool.ram_bytes_used()
+            }
+        }
     }
 }
