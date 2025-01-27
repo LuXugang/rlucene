@@ -258,10 +258,10 @@ pub(crate) fn new_bytes_ref(
 pub(crate) fn get_seed_from_env() -> u64 {
     if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
         if let Ok(seed) = seed_str.parse::<u64>() {
-            println!("Using Global Seed from environment: {}", seed);
+            println!("Using Global Seed from environment: '{}'", seed);
             return seed;
         } else {
-            println!("Environment variable tests.seed is invalid: {}", seed_str);
+            println!("Environment variable tests.seed is invalid: '{}'", seed_str);
         }
     }
 
