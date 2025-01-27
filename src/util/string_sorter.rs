@@ -144,7 +144,7 @@ where
     }
 }
 
-pub struct StringIntroSorter<'a, T, C>
+pub struct IntroSorterImpl<'a, T, C>
 where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
@@ -159,7 +159,7 @@ where
     delegate_sorter: &'a mut T,
     k: Option<i32>,
 }
-impl<'a, T, C> StringIntroSorter<'a, T, C>
+impl<'a, T, C> IntroSorterImpl<'a, T, C>
 where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
@@ -168,8 +168,8 @@ where
         cmp: &'a mut C,
         delegate_sorter: &'a mut T,
         k: Option<i32>,
-    ) -> StringIntroSorter<'a, T, C> {
-        StringIntroSorter {
+    ) -> IntroSorterImpl<'a, T, C> {
+        IntroSorterImpl {
             pivot: BytesRef::default(),
             pivot_builder: BytesRefBuilder::default(),
             scratch1: BytesRefBuilder::default(),
@@ -182,7 +182,7 @@ where
         }
     }
 }
-impl<T, C> Sorter for StringIntroSorter<'_, T, C>
+impl<T, C> Sorter for IntroSorterImpl<'_, T, C>
 where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
@@ -231,7 +231,7 @@ where
     }
 }
 
-impl<T, C> IntroSorter for StringIntroSorter<'_, T, C>
+impl<T, C> IntroSorter for IntroSorterImpl<'_, T, C>
 where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
@@ -251,7 +251,7 @@ pub trait StringSorterBase {
         C: BytesRefComparator + Comparator<BytesRef>,
         Self: Sorter + Sized,
     {
-        StringIntroSorter::new(cmp, self, k)
+        IntroSorterImpl::new(cmp, self, k)
     }
     fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
     where
