@@ -21,7 +21,7 @@ use rand::Rng;
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::bytes_ref_array::BytesRefArray;
 use rlucene::util::bytes_ref_iterator::BytesRefIterator;
-use rlucene::util::{new_counter, Natural, NaturalOrder, SortableBytesRefArray};
+use rlucene::util::{CounterEnum, Natural, NaturalOrder, SortableBytesRefArray};
 use std::sync::{Arc, Mutex};
 
 #[allow(dead_code)] // for quick search
@@ -29,7 +29,7 @@ struct TestBytesRefArray;
 #[test]
 fn test_append() -> Result<(), TestError> {
     let mut random = random();
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let mut list = BytesRefArray::new(counter)?;
     let mut string_list = Vec::new();
 
@@ -86,7 +86,7 @@ fn test_append() -> Result<(), TestError> {
 #[test]
 fn test_sort() -> Result<(), TestError> {
     let mut random = random();
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let mut list = BytesRefArray::new(counter)?;
     let mut string_list = Vec::new();
 
@@ -155,7 +155,7 @@ fn test_sort() -> Result<(), TestError> {
 fn test_stable_sort() -> Result<(), TestError> {
     let mut random = random();
 
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let mut list = BytesRefArray::new(counter)?;
 
     let mut string_list = Vec::new();

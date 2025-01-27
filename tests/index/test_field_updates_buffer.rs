@@ -27,7 +27,7 @@ use rlucene::index::doc_values_update::{
 use rlucene::index::field_updates_buffer::FieldUpdatesBuffer;
 use rlucene::index::term::Term;
 use rlucene::index::BytesRef;
-use rlucene::util::new_counter;
+use rlucene::util::CounterEnum;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
@@ -36,7 +36,7 @@ pub struct TestFieldUpdatesBuffer;
 
 #[test]
 pub fn test_basics() -> Result<(), TestError> {
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let update = DocValuesUpdate::new(
         DocValuesType::Numeric,
         Term::from_text("id".to_string(), "1"),
@@ -100,7 +100,7 @@ pub fn test_basics() -> Result<(), TestError> {
 #[test]
 fn test_update_share_values() -> Result<(), TestError> {
     let mut random = random();
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let int_value = random.gen::<i32>();
     let value_for_three = random.gen_bool(0.5);
     let sub_update =
@@ -163,7 +163,7 @@ fn test_update_share_values() -> Result<(), TestError> {
 #[test]
 pub fn test_update_share_values_binary() -> Result<(), TestError> {
     let mut random = random();
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let value_for_three = random.gen_bool(0.5);
     let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
         BytesRef::from_string(""),
@@ -290,7 +290,7 @@ pub fn test_binary_random() -> Result<(), TestError> {
     let mut random = random();
     let mut updates = Vec::new();
     let num_updates = 1 + random.gen_range(0..1000);
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
     let mut random_update = get_random_binary_update(&mut random, 0);
     updates.push(random_update.clone());
@@ -347,7 +347,7 @@ pub fn test_numeric_random() -> Result<(), TestError> {
     let mut random = random();
     let mut updates = Vec::new();
     let num_updates = 1 + random.gen_range(0..1000);
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
     let mut random_update = get_random_numeric_update(&mut random, 0);
     updates.push(random_update.clone());
@@ -401,7 +401,7 @@ pub fn test_no_numeric_value() -> Result<(), TestError> {
         DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(None)),
     );
 
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let doc_id_up_to = update.doc_id_up_to;
     let buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), update, doc_id_up_to)?;
 
@@ -415,7 +415,7 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), TestError> {
     let mut random = random();
     let mut updates = Vec::new();
     let num_updates = 1 + random.gen_range(0..1000);
-    let counter = Arc::new(Mutex::new(new_counter(false)));
+    let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
     let term_field = random_from(vec!["id", "_id", "some_other_field"]);
     let doc_value = 1 + random.gen_range(0..1000);

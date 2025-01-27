@@ -18,7 +18,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{new_counter, CounterEnum, StringHelper, GOOD_FAST_HASH_SEED};
+use crate::util::{CounterEnum, StringHelper, GOOD_FAST_HASH_SEED};
 use std::sync::{Arc, Mutex};
 
 pub struct BytesRefHash {
@@ -82,7 +82,10 @@ impl DirectBytesStartArray {
         }
     }
     pub fn new(init_size: i32) -> Self {
-        DirectBytesStartArray::new_with_counter(init_size, Arc::new(Mutex::new(new_counter(false))))
+        DirectBytesStartArray::new_with_counter(
+            init_size,
+            Arc::new(Mutex::new(CounterEnum::new_counter(false))),
+        )
     }
 }
 impl BytesStartArray for DirectBytesStartArray {

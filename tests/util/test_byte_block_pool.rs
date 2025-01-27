@@ -22,7 +22,7 @@ use rand::{Rng, RngCore};
 use rlucene::index::{BytesRef, BytesRefBuilder};
 use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::{
-    new_counter, AllocatorEnum, ByteBlockPool, DirectAllocator, DirectTrackingAllocator, VecCopyOps,
+    AllocatorEnum, ByteBlockPool, CounterEnum, DirectAllocator, DirectTrackingAllocator, VecCopyOps,
 };
 use std::sync::{Arc, Mutex};
 
@@ -75,7 +75,7 @@ fn test_append_from_other_pool() -> Result<(), LuceneError> {
 #[test]
 fn test_read_and_write() -> Result<(), LuceneError> {
     let mut random = random();
-    let byte_used = Arc::new(Mutex::new(new_counter(false)));
+    let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
     pool.next_buffer()?;
     let reuse_first = random.gen_bool(0.5);
@@ -148,7 +148,7 @@ fn test_read_and_write() -> Result<(), LuceneError> {
 #[test]
 fn test_large_random_block() -> Result<(), TestError> {
     let mut random = random();
-    let byte_used = Arc::new(Mutex::new(new_counter(false)));
+    let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
     let _ = pool.next_buffer();
 

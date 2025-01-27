@@ -32,21 +32,6 @@ pub trait Counter {
     fn get(&self) -> i64;
 }
 
-/// Returns a new counter.
-///
-/// # Arguments
-/// * `thread_safe` - `true` if the returned counter can be used by multiple threads concurrently.
-///
-/// # Returns
-/// A new counter.
-pub fn new_counter(thread_safe: bool) -> CounterEnum {
-    if thread_safe {
-        CounterEnum::A(AtomicCounter::new())
-    } else {
-        CounterEnum::S(SerialCounter::new())
-    }
-}
-
 pub struct AtomicCounter {
     count: AtomicI64,
 }
@@ -100,6 +85,22 @@ impl Counter for SerialCounter {
 pub enum CounterEnum {
     A(AtomicCounter),
     S(SerialCounter),
+}
+impl CounterEnum {
+    /// Returns a new counter.
+    ///
+    /// # Arguments
+    /// * `thread_safe` - `true` if the returned counter can be used by multiple threads concurrently.
+    ///
+    /// # Returns
+    /// A new counter.
+    pub fn new_counter(thread_safe: bool) -> CounterEnum {
+        if thread_safe {
+            CounterEnum::A(AtomicCounter::new())
+        } else {
+            CounterEnum::S(SerialCounter::new())
+        }
+    }
 }
 impl Counter for CounterEnum {
     fn add_and_get(&mut self, delta: i64) -> i64 {
