@@ -216,9 +216,8 @@ fn test_sort() -> Result<(), TestError> {
             hash.sort()?;
             let len = hash.ids.len();
             assert!(strings.len() < len);
-            let i = 0;
             let mut scratch = BytesRef::new();
-            for (mut i, string) in strings.iter().enumerate() {
+            for (i, string) in strings.iter().enumerate() {
                 ref_builder.copy_chars_with_string(string)?;
                 let bytes_id = hash.ids[i];
                 hash.get(bytes_id, &mut scratch);
@@ -229,7 +228,6 @@ fn test_sort() -> Result<(), TestError> {
                     "Sorted value mismatch at index {}",
                     i
                 );
-                i += 1;
             }
         }
 

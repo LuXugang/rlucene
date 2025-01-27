@@ -22,9 +22,8 @@ use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
     AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
-    DirectAllocator, MSBRadixSorter, MSBRadixSorterBase, MSBStringRadixSorter, Natural, Sorter,
-    StringHelper, StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
-    LEVEL_THRESHOLD,
+    DirectAllocator, MSBRadixSorter, MSBRadixSorterBase, Natural, Sorter, StringHelper,
+    StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE, LEVEL_THRESHOLD,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -491,6 +490,7 @@ pub struct StringSorterImpl<'a> {
     pool: &'a mut BytesRefBlockPool,
     bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
     k: i32,
+    cmp: Natural,
 }
 impl<'a> StringSorterImpl<'a> {
     pub fn new(
@@ -505,6 +505,7 @@ impl<'a> StringSorterImpl<'a> {
             pool,
             bytes_start_array,
             k: 0,
+            cmp: Natural::default(),
         }
     }
     fn swap_bucket_cache(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
@@ -517,6 +518,13 @@ impl<'a> StringSorterImpl<'a> {
     }
 }
 impl MSBRadixSorterBase for StringSorterImpl<'_> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+        let mut scratch = BytesRefBuilder::new();
+        let mut scratch_bytes = BytesRef::new();
+        self.get(&mut scratch, &mut scratch_bytes, i)?;
+        Ok(self.cmp.byte_at(&scratch_bytes, k))
+    }
+
     fn reorder(
         &mut self,
         from: i32,
@@ -595,7 +603,7 @@ impl StringSorterBase for StringSorterImpl<'_> {
         Self: Sorter + Sized,
     {
         let length = cmp.compared_bytes_count();
-        let delegate_sorter = MSBStringRadixSorter::new(cmp, self);
+        let delegate_sorter = MSBStringHashRadixSorter::new(cmp, self);
         MSBRadixSorter::new(length, delegate_sorter)
     }
 }
@@ -712,5 +720,85 @@ impl BytesStartArray for BytesStartArrayEnum {
         match self {
             BytesStartArrayEnum::Direct(d) => d.byte_start(),
         }
+    }
+}
+pub struct MSBStringHashRadixSorter<'a, T, C>
+where
+    T: Sorter + StringSorterBase,
+    C: BytesRefComparator + Comparator<BytesRef>,
+{
+    cmp: &'a mut C,
+    delegate_sorter: &'a mut T,
+}
+impl<'a, T, C> MSBStringHashRadixSorter<'a, T, C>
+where
+    T: Sorter + StringSorterBase,
+    C: BytesRefComparator + Comparator<BytesRef>,
+{
+    pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
+        MSBStringHashRadixSorter {
+            cmp,
+            delegate_sorter,
+        }
+    }
+}
+
+impl<T, C> Sorter for MSBStringHashRadixSorter<'_, T, C>
+where
+    T: Sorter + StringSorterBase + MSBRadixSorterBase,
+    C: BytesRefComparator + Comparator<BytesRef>,
+{
+    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        self.delegate_sorter.swap(i, j)
+    }
+}
+
+impl<T, C> MSBRadixSorterBase for MSBStringHashRadixSorter<'_, T, C>
+where
+    T: Sorter + StringSorterBase + MSBRadixSorterBase,
+    C: BytesRefComparator + Comparator<BytesRef>,
+{
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+        self.delegate_sorter.byte_at(i, k)
+    }
+
+    fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
+        self.delegate_sorter
+            .fall_back_sorter::<T, C>(self.cmp, Some(k))
+    }
+
+    fn reorder(
+        &mut self,
+        from: i32,
+        to: i32,
+        start_offsets: &mut [i32],
+        end_offsets: &mut [i32],
+        k: i32,
+    ) -> Result<(), LuceneError> {
+        self.delegate_sorter
+            .reorder(from, to, start_offsets, end_offsets, k)
+    }
+
+    fn build_histogram(
+        &mut self,
+        prefix_common_bucket: i32,
+        prefix_common_len: i32,
+        from: i32,
+        to: i32,
+        k: i32,
+        histogram: &mut [i32],
+    ) -> Result<(), LuceneError> {
+        self.delegate_sorter.build_histogram(
+            prefix_common_bucket,
+            prefix_common_len,
+            from,
+            to,
+            k,
+            histogram,
+        )
+    }
+
+    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
+        self.delegate_sorter.should_fallback(from, to, l)
     }
 }
