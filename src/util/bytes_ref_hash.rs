@@ -745,6 +745,9 @@ impl BytesStartArray for BytesStartArrayEnum {
         }
     }
 }
+/// # Note
+/// In Java Lucene, BytesRefHash uses MSBStringRadixSorter. Due to language limitations,
+/// a new MSBStringHashRadixSorter is currently being used.
 pub struct MSBStringHashRadixSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
