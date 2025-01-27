@@ -117,9 +117,11 @@ impl BytesRefBlockPool {
         Ok(text_start)
     }
     /// Computes the hash of the BytesRef at the given start.
-    pub fn hash(start: i32, byte_block_pool: &mut ByteBlockPool) -> i32 {
+    pub fn hash(&mut self, start: i32) -> i32 {
         let offset = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
-        let bytes = byte_block_pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
+        let bytes = self
+            .byte_block_pool
+            .get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
 
         let (len, pos) = if (bytes[offset] & 0x80) == 0 {
             // length is 1 byte
@@ -133,9 +135,11 @@ impl BytesRefBlockPool {
         BytesRefHash::do_hash(bytes, pos, len)
     }
     /// Computes the equality between the BytesRef at the given start position and the provided BytesRef.
-    pub fn equals(start: i32, byte_block_pool: &mut ByteBlockPool, b: &BytesRef) -> bool {
+    pub fn equals(&mut self, start: i32, b: &BytesRef) -> bool {
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
-        let bytes = byte_block_pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
+        let bytes = self
+            .byte_block_pool
+            .get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
 
         let (length, offset) = if (bytes[pos] & 0x80) == 0 {
             // length is 1 byte
