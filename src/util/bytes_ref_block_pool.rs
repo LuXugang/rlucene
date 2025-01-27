@@ -14,24 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
 use crate::index::BytesRef;
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{AllocatorEnum, ByteBlockPool, DirectAllocator, VecCopyOps};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct BytesRefBlockPool {
     byte_block_pool: Rc<RefCell<ByteBlockPool>>,
 }
+impl Default for BytesRefBlockPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BytesRefBlockPool {
     // TODO: memory calculation not implemented
     const BASE_RAM_BYTES: i32 = 0;
     pub fn new() -> BytesRefBlockPool {
         BytesRefBlockPool {
-            byte_block_pool: Rc::new(RefCell::new(ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()))))
+            byte_block_pool: Rc::new(RefCell::new(ByteBlockPool::new(AllocatorEnum::DA(
+                DirectAllocator::new(),
+            )))),
         }
     }
     pub fn from_byte_block_pool(byte_block_pool: Rc<RefCell<ByteBlockPool>>) -> BytesRefBlockPool {
@@ -62,6 +70,7 @@ impl BytesRefBlockPool {
             )
         };
 
+        term.bytes = vec![0; length as usize];
         term.bytes
             .copy_from(&block[offset as usize..(offset + length) as usize], 0);
         term.offset = 0;
@@ -88,10 +97,10 @@ impl BytesRefBlockPool {
             pool.next_buffer()?;
         }
 
-        let buffer_upto =pool.byte_upto;
+        let buffer_upto = pool.byte_upto;
         let text_start = buffer_upto + pool.byte_offset;
         let buffer_index = pool.buffer_upto;
-        let buffer =pool.get_buffer(buffer_index);
+        let buffer = pool.get_buffer(buffer_index);
 
         // We first encode the length, followed by the bytes. Length is encoded as vInt,
         // but will consume 1 or 2 bytes at most (we reject too-long terms, above).

@@ -20,7 +20,10 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{AllocatorEnum, ByteBlockPool, Counter, CounterEnum, DirectAllocator, StringHelper, GOOD_FAST_HASH_SEED};
+use crate::util::{
+    AllocatorEnum, ByteBlockPool, Counter, CounterEnum, DirectAllocator, StringHelper,
+    GOOD_FAST_HASH_SEED,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -36,11 +39,19 @@ pub struct BytesRefHash {
     bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
     bytes_used: Arc<Mutex<CounterEnum>>,
 }
+impl Default for BytesRefHash {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;
 
     pub fn new() -> Self {
-        let pool = Rc::new(RefCell::new(ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()))));
+        let pool = Rc::new(RefCell::new(ByteBlockPool::new(AllocatorEnum::DA(
+            DirectAllocator::new(),
+        ))));
         BytesRefHash::from_pool(pool)
     }
     pub fn from_pool(pool: Rc<RefCell<ByteBlockPool>>) -> Self {
@@ -54,10 +65,11 @@ impl BytesRefHash {
         capacity: i32,
         bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
     ) -> Self {
+        let _ = bytes_start_array.borrow_mut().init();
         let bytes_used = bytes_start_array.borrow_mut().bytes_used();
-        let ref_pool= BytesRefBlockPool::from_byte_block_pool(pool);
+        let ref_pool = BytesRefBlockPool::from_byte_block_pool(pool);
         BytesRefHash {
-            pool:ref_pool,
+            pool: ref_pool,
             hash_size: capacity,
             hash_half_size: capacity >> 1,
             hash_mask: capacity - 1,
@@ -199,21 +211,42 @@ impl BytesRefHash {
         let mut e = self.ids[hash_pos as usize];
         if e == -1 {
             {
-                let mut byte_start_borrow = self.bytes_start_array.borrow_mut();
-                let bytes_start = byte_start_borrow.byte_start().as_mut().unwrap();
+                let length;
+                {
+                    let mut byte_start_borrow = self.bytes_start_array.borrow_mut();
+                    let bytes_start = byte_start_borrow.byte_start().as_mut().unwrap();
+                    length = bytes_start.len();
+                }
                 // new entry
-                if self.count >= bytes_start.len() as i32 {
+                if self.count as usize >= length {
                     self.bytes_start_array.borrow_mut().grow()?;
                     assert!(
-                        self.count < bytes_start.len() as i32 + 1,
+                        (self.count as usize)
+                            < self
+                                .bytes_start_array
+                                .borrow_mut()
+                                .byte_start()
+                                .as_ref()
+                                .unwrap()
+                                .len()
+                                + 1,
                         "count: {} len: {}",
                         self.count,
-                        bytes_start.len()
+                        self.bytes_start_array
+                            .borrow_mut()
+                            .byte_start()
+                            .as_ref()
+                            .unwrap()
+                            .len()
                     );
                 }
 
                 let byte_ref = self.pool.add_bytes_ref(bytes)?;
-                bytes_start[self.count as usize] = byte_ref;
+                self.bytes_start_array
+                    .borrow_mut()
+                    .byte_start()
+                    .as_mut()
+                    .unwrap()[self.count as usize] = byte_ref;
                 e = self.count;
                 self.count += 1;
                 assert_eq!(self.ids[hash_pos as usize], -1);
@@ -253,18 +286,14 @@ impl BytesRefHash {
         let mut byte_start_borrow = self.bytes_start_array.borrow_mut();
         let bytes_start_ref = byte_start_borrow.byte_start().as_ref().unwrap();
 
-        if e != -1
-            && !self.pool.equals(bytes_start_ref[e as usize], bytes)
-        {
+        if e != -1 && !self.pool.equals(bytes_start_ref[e as usize], bytes) {
             // Conflict; use linear probe to find an open slot
             // (see LUCENE-5604):
             loop {
                 code += 1;
                 hash_pos = code & self.hash_mask;
                 e = self.ids[hash_pos as usize];
-                if e == -1
-                    || self.pool.equals(bytes_start_ref[e as usize], bytes)
-                {
+                if e == -1 || self.pool.equals(bytes_start_ref[e as usize], bytes) {
                     break;
                 }
             }
@@ -303,21 +332,36 @@ impl BytesRefHash {
         if e == -1 {
             // New entry
             {
-                let mut byte_start_borrow = self.bytes_start_array.borrow_mut();
-                let bytes_start = byte_start_borrow.byte_start().as_mut().unwrap();
                 if self.count >= length as i32 {
                     self.bytes_start_array.borrow_mut().grow()?;
                     assert!(
-                        self.count < bytes_start.len() as i32 + 1,
+                        self.count
+                            < self
+                                .bytes_start_array
+                                .borrow_mut()
+                                .byte_start()
+                                .as_ref()
+                                .unwrap()
+                                .len() as i32
+                                + 1,
                         "count: {}, len: {}",
                         self.count,
-                        bytes_start.len()
+                        self.bytes_start_array
+                            .borrow_mut()
+                            .byte_start()
+                            .as_ref()
+                            .unwrap()
+                            .len()
                     );
                 }
 
                 e = self.count;
                 self.count += 1;
-                bytes_start[e as usize] = offset;
+                self.bytes_start_array
+                    .borrow_mut()
+                    .byte_start()
+                    .as_mut()
+                    .unwrap()[e as usize] = offset;
 
                 assert_eq!(self.ids[hash_pos as usize], -1);
                 self.ids[hash_pos as usize] = e;
@@ -344,9 +388,7 @@ impl BytesRefHash {
             let e0 = self.ids[i as usize];
             if e0 != -1 {
                 let code = if hash_on_data {
-                    self.pool.hash(
-                        bytes_start[e0 as usize],
-                    )
+                    self.pool.hash(bytes_start[e0 as usize])
                 } else {
                     bytes_start[e0 as usize]
                 };
@@ -392,6 +434,23 @@ impl BytesRefHash {
             // TODO: memory calculation not implemented
             self.bytes_used.lock().unwrap().add_and_get(0);
         }
+    }
+    /// Returns the `bytesStart` offset into the internally used `ByteBlockPool` for the given `bytes_id`.
+    ///
+    /// # Arguments
+    /// * `bytes_id` - The ID to look up.
+    ///
+    /// # Returns
+    /// The `bytesStart` offset into the internally used `ByteBlockPool` for the given ID.
+    #[cfg(feature = "test_only")]
+    pub fn byte_start(&self, bytes_id: i32) -> i32 {
+        let mut bytes_start_array = self.bytes_start_array.borrow_mut();
+        debug_assert!(
+            bytes_start_array.byte_start().is_some(),
+            "bytes_start is null - not initialized"
+        );
+        debug_assert!(bytes_id >= 0 || bytes_id < self.count);
+        bytes_start_array.byte_start().as_ref().unwrap()[bytes_id as usize]
     }
 }
 impl Accountable for BytesRefHash {
@@ -462,7 +521,8 @@ impl BytesStartArray for DirectBytesStartArray {
 
     fn grow(&mut self) -> Result<(), LuceneError> {
         debug_assert!(self.bytes_start.is_some());
-        ArrayUtil::grow_with_len(self.bytes_start.as_mut().unwrap(), self.init_size)
+        let length = self.bytes_start.as_ref().unwrap().len() as i32;
+        ArrayUtil::grow_i32(self.bytes_start.as_mut().unwrap(), length + 1)
     }
 
     fn clear(&mut self) -> Result<(), LuceneError> {
@@ -479,7 +539,7 @@ impl BytesStartArray for DirectBytesStartArray {
     }
 }
 
-pub(crate) enum BytesStartArrayEnum {
+pub enum BytesStartArrayEnum {
     Direct(DirectBytesStartArray),
 }
 impl BytesStartArray for BytesStartArrayEnum {

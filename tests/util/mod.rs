@@ -23,6 +23,7 @@ mod test_array_util;
 mod test_byte_block_pool;
 pub mod test_bytes_ref;
 mod test_bytes_ref_array;
+mod test_bytes_ref_hash;
 mod test_doc_id_set_builder;
 mod test_doc_id_set_iterator;
 mod test_docs_with_field_set;
