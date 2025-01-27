@@ -20,13 +20,13 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{Counter, CounterEnum, StringHelper, GOOD_FAST_HASH_SEED};
+use crate::util::{AllocatorEnum, ByteBlockPool, Counter, CounterEnum, DirectAllocator, StringHelper, GOOD_FAST_HASH_SEED};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 pub struct BytesRefHash {
-    pool: Rc<RefCell<BytesRefBlockPool>>,
+    pool: BytesRefBlockPool,
     hash_size: i32,
     hash_half_size: i32,
     hash_mask: i32,
@@ -40,23 +40,24 @@ impl BytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;
 
     pub fn new() -> Self {
-        let pool = Rc::new(RefCell::new(BytesRefBlockPool::new()));
+        let pool = Rc::new(RefCell::new(ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()))));
         BytesRefHash::from_pool(pool)
     }
-    pub fn from_pool(pool: Rc<RefCell<BytesRefBlockPool>>) -> Self {
+    pub fn from_pool(pool: Rc<RefCell<ByteBlockPool>>) -> Self {
         let bytes_start_array = Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
             DirectBytesStartArray::new(BytesRefHash::DEFAULT_CAPACITY),
         )));
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
     pub fn from_bytes_start_array(
-        pool: Rc<RefCell<BytesRefBlockPool>>,
+        pool: Rc<RefCell<ByteBlockPool>>,
         capacity: i32,
         bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
     ) -> Self {
         let bytes_used = bytes_start_array.borrow_mut().bytes_used();
+        let ref_pool= BytesRefBlockPool::from_byte_block_pool(pool);
         BytesRefHash {
-            pool,
+            pool:ref_pool,
             hash_size: capacity,
             hash_half_size: capacity >> 1,
             hash_mask: capacity - 1,
@@ -85,7 +86,7 @@ impl BytesRefHash {
     ///
     /// # Returns
     /// The given [`BytesRef`] instance populated with the bytes for the given `bytesID`.
-    pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) {
+    pub fn get(&mut self, bytes_id: i32, ref_: &mut BytesRef) {
         debug_assert!(
             self.bytes_start_array.borrow_mut().byte_start().is_some(),
             "bytes_start is null - not initialized"
@@ -97,7 +98,7 @@ impl BytesRefHash {
             "bytesID exceeds bytes_start len"
         );
         let value = bytes_start[bytes_id as usize];
-        self.pool.borrow_mut().fill_bytes_ref(ref_, value);
+        self.pool.fill_bytes_ref(ref_, value);
     }
 
     /// Returns the ids array in arbitrary order. Valid ids start at offset 0 and end at a limit of `size()` - 1.
@@ -151,7 +152,7 @@ impl BytesRefHash {
         self.count = 0;
 
         if reset_pool {
-            self.pool.borrow_mut().reset()?;
+            self.pool.reset()?;
         }
 
         self.bytes_start_array.borrow_mut().clear()?;
@@ -211,7 +212,7 @@ impl BytesRefHash {
                     );
                 }
 
-                let byte_ref = self.pool.borrow_mut().add_bytes_ref(bytes)?;
+                let byte_ref = self.pool.add_bytes_ref(bytes)?;
                 bytes_start[self.count as usize] = byte_ref;
                 e = self.count;
                 self.count += 1;
@@ -252,9 +253,8 @@ impl BytesRefHash {
         let mut byte_start_borrow = self.bytes_start_array.borrow_mut();
         let bytes_start_ref = byte_start_borrow.byte_start().as_ref().unwrap();
 
-        let mut pool = self.pool.borrow_mut();
         if e != -1
-            && !pool.equals(bytes_start_ref[e as usize], bytes)
+            && !self.pool.equals(bytes_start_ref[e as usize], bytes)
         {
             // Conflict; use linear probe to find an open slot
             // (see LUCENE-5604):
@@ -263,7 +263,7 @@ impl BytesRefHash {
                 hash_pos = code & self.hash_mask;
                 e = self.ids[hash_pos as usize];
                 if e == -1
-                    || pool.equals(bytes_start_ref[e as usize], bytes)
+                    || self.pool.equals(bytes_start_ref[e as usize], bytes)
                 {
                     break;
                 }
@@ -340,12 +340,11 @@ impl BytesRefHash {
         let mut new_hash = vec![-1; new_size as usize];
         let mut byte_start_borrow = self.bytes_start_array.borrow_mut();
         let bytes_start = byte_start_borrow.byte_start().as_ref().unwrap();
-        let mut pool = self.pool.borrow_mut();
         for i in 0..self.hash_size {
             let e0 = self.ids[i as usize];
             if e0 != -1 {
                 let code = if hash_on_data {
-                    pool.hash(
+                    self.pool.hash(
                         bytes_start[e0 as usize],
                     )
                 } else {
