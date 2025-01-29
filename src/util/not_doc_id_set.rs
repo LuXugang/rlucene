@@ -144,7 +144,7 @@ impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> i64 {
-        self.max_doc as i64
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Ok(self.max_doc as i64)
     }
 }

@@ -310,8 +310,8 @@ impl DocIdSetIterator for ShortArrayDISI<'_> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> i64 {
-        self.doc_ids.len() as i64
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Ok(self.doc_ids.len() as i64)
     }
 }
 
@@ -394,8 +394,8 @@ impl DocIdSetIterator for Iterator<'_> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> i64 {
-        self.cardinality
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Ok(self.cardinality)
     }
 }
 
@@ -465,7 +465,7 @@ impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
         }
     }
 
-    fn cost(&self) -> i64 {
+    fn cost(&self) -> Result<i64, LuceneError> {
         match self {
             DocIdSetIteratorEnum::Sparse(s) => s.cost(),
             DocIdSetIteratorEnum::Medium(m) => m.cost(),

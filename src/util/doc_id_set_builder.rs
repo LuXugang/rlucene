@@ -84,7 +84,7 @@ impl DocIdSetBuilder {
         &mut self,
         mut iter: impl DocIdSetIterator,
     ) -> Result<(), LuceneError> {
-        let cost = min(iter.cost(), i32::MAX as i64);
+        let cost = min(iter.cost()?, i32::MAX as i64);
         self.grow(cost as i32);
         if self.bit_set.is_some() {
             let _ = BitSet::or(self.bit_set.as_mut().unwrap(), iter);
@@ -224,7 +224,7 @@ impl DocIdSetIterator for DocIdSetBuilderIterator<'_> {
         }
     }
 
-    fn cost(&self) -> i64 {
+    fn cost(&self) -> Result<i64, LuceneError> {
         match self {
             DocIdSetBuilderIterator::F(bit_set) => bit_set.cost(),
             DocIdSetBuilderIterator::I(int_array) => int_array.cost(),

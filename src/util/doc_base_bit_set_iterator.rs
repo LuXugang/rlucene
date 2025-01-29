@@ -104,7 +104,7 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> i64 {
-        self.cost
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Ok(self.cost)
     }
 }

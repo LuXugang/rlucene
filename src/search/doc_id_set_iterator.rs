@@ -66,7 +66,9 @@ pub trait DocIdSetIterator {
     /// by some Scorers. If your implementation cannot efficiently determine that it should exhaust, it
     /// is recommended to check for this value in each call to this method.
     fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
-        unimplemented!("advance() must be implemented if it need to be used")
+        Err(LuceneError::unimplemented(
+            "advance() must be implemented if it need to be used",
+        ))
     }
     /// A slow (linear) implementation of [`advance`](DocIdSetIterator::advance) that relies on
     /// [`next_doc`](DocIdSetIterator::next_doc) to move beyond the target position.
@@ -84,8 +86,10 @@ pub trait DocIdSetIterator {
     /// Returns the estimated cost of this [`DocIdSetIterator`].
     /// This is generally an upper bound on the number of documents this iterator might match, but
     /// it may also be a rough heuristic, a hardcoded value, or otherwise completely inaccurate.
-    fn cost(&self) -> i64 {
-        unimplemented!("cost() must be implemented if it need to be used")
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Err(LuceneError::unimplemented(
+            "cost() must be implemented if it need to be used",
+        ))
     }
 }
 
@@ -126,8 +130,8 @@ impl DocIdSetIterator for EmptyDISI {
         Ok(NO_MORE_DOCS)
     }
 
-    fn cost(&self) -> i64 {
-        0
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Ok(0)
     }
 }
 
@@ -159,8 +163,8 @@ impl DocIdSetIterator for AllDocIdSetIterator {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> i64 {
-        self.max_doc as i64
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Ok(self.max_doc as i64)
     }
 }
 
@@ -219,8 +223,8 @@ impl DocIdSetIterator for Range {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> i64 {
-        (self.max_doc - self.min_doc) as i64
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Ok((self.max_doc - self.min_doc) as i64)
     }
 }
 

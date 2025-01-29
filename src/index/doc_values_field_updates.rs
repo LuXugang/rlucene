@@ -496,7 +496,7 @@ where
         self.iterator.advance(_target)
     }
 
-    fn cost(&self) -> i64 {
+    fn cost(&self) -> Result<i64, LuceneError> {
         self.iterator.cost()
     }
 }
@@ -551,7 +551,7 @@ where
         self.iterator.advance(_target)
     }
 
-    fn cost(&self) -> i64 {
+    fn cost(&self) -> Result<i64, LuceneError> {
         self.iterator.cost()
     }
 }

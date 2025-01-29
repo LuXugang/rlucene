@@ -239,7 +239,7 @@ fn test_misleading_disi_cost() -> Result<(), TestError> {
 }
 
 #[test]
-fn test_leverage_stats() {
+fn test_leverage_stats() -> Result<(), TestError> {
     // single-valued points
     let mut doc_count = 42;
     let mut value_count = 42;
@@ -257,7 +257,7 @@ fn test_leverage_stats() {
         DocIdSetBuilderEnum::I(_) => enum_type2,
     };
     assert_eq!(doc_id_set_type, enum_type1);
-    assert_eq!(set.iterator().unwrap().cost(), 2);
+    assert_eq!(set.iterator().unwrap().cost()?, 2);
 
     // multi-valued
     doc_count = 42;
@@ -274,7 +274,7 @@ fn test_leverage_stats() {
         DocIdSetBuilderEnum::I(_) => enum_type2,
     };
     assert_eq!(doc_id_set_type, enum_type1);
-    assert_eq!(set.iterator().unwrap().cost(), 1);
+    assert_eq!(set.iterator().unwrap().cost()?, 1);
 
     // incomplete stats
     doc_count = 42;
@@ -288,6 +288,7 @@ fn test_leverage_stats() {
     builder = DocIdSetBuilder::with_count(100, doc_count, value_count);
     assert_eq!(builder.get_num_values_per_doc() - 1.0, 0.0);
     assert!(builder.get_multi_valued());
+    Ok(())
 }
 
 #[test]
@@ -305,6 +306,6 @@ fn test_cost_is_correct_after_bit_set_upgrade() -> Result<(), TestError> {
         DocIdSetBuilderEnum::I(_) => enum_type2,
     };
     assert_eq!(doc_id_set_type, enum_type1);
-    assert_eq!(set.iterator().unwrap().cost(), 1000000 >> 6);
+    assert_eq!(set.iterator().unwrap().cost()?, 1000000 >> 6);
     Ok(())
 }

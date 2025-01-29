@@ -131,7 +131,7 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> i64 {
-        self.length as i64
+    fn cost(&self) -> Result<i64, LuceneError> {
+        Ok(self.length as i64)
     }
 }

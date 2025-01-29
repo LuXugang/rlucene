@@ -106,7 +106,7 @@ impl<T: BitSet> DocIdSetIterator for DocsWithFieldSetEnum<'_, T> {
         }
     }
 
-    fn cost(&self) -> i64 {
+    fn cost(&self) -> Result<i64, LuceneError> {
         match self {
             DocsWithFieldSetEnum::Dense(d) => d.cost(),
             DocsWithFieldSetEnum::Sparse(s) => s.cost(),

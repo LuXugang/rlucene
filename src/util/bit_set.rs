@@ -27,7 +27,7 @@ pub trait BitSet: Bits + Accountable {
     /// Builds a [`BitSet`] from the content of the provided [`DocIdSetIterator`].
     /// **Note**: This will fully consume the [`DocIdSetIterator`].
     fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType, LuceneError> {
-        let cost = it.cost();
+        let cost = it.cost()?;
         let threshold = max_doc >> 7;
         let mut set: BitSetType;
         if cost < (threshold as i64) {
