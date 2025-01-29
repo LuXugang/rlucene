@@ -59,7 +59,7 @@ impl<T> BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-    pub fn new_with_buffer_size(
+    pub fn with_buffer_size(
         sub_index_input: T,
         resource_desc: &str,
         buffer_size: i32,
@@ -76,23 +76,23 @@ where
             length: 0,
         })
     }
-    pub fn new_with_resource_desc(
+    pub fn with_resource_desc(
         sub_index_input: T,
         resource_desc: &str,
     ) -> Result<BufferedIndexInput<T>, LuceneError> {
-        Self::new_with_buffer_size(
+        Self::with_buffer_size(
             sub_index_input,
             resource_desc,
             BufferedIndexInput::BUFFER_SIZE,
         )
     }
 
-    pub fn new_with_io_context(
+    pub fn with_io_context(
         sub_index_input: T,
         resource_desc: &str,
         context: &IOContext,
     ) -> Result<BufferedIndexInput<T>, LuceneError> {
-        Self::new_with_buffer_size(sub_index_input, resource_desc, Self::buffer_size(context))
+        Self::with_buffer_size(sub_index_input, resource_desc, Self::buffer_size(context))
     }
 
     /// Returns default buffer sizes for the given [`IOContext`].

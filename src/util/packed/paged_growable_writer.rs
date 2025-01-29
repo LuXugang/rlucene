@@ -42,7 +42,7 @@ impl PagedGrowableWriter {
             fill_page,
         }
     }
-    pub fn new_with_fill_page(start_bits_per_value: i32, acceptable_overhead_ratio: f32) -> Self {
+    pub fn with_fill_page(start_bits_per_value: i32, acceptable_overhead_ratio: f32) -> Self {
         PagedGrowableWriter::new(start_bits_per_value, acceptable_overhead_ratio, true)
     }
 }

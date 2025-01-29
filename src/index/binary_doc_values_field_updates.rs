@@ -41,9 +41,9 @@ pub struct BinaryDocValuesFieldUpdates {
 impl BinaryDocValuesFieldUpdates {
     #[allow(unused)]
     fn new() -> Result<BinaryDocValuesFieldUpdates, LuceneError> {
-        let sub_reader1 = PagedGrowableWriter::new_with_fill_page(1, PackedInts::FAST);
+        let sub_reader1 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
         let offsets = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader1)?;
-        let sub_reader2 = PagedGrowableWriter::new_with_fill_page(1, PackedInts::FAST);
+        let sub_reader2 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
         let lengths = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader2)?;
         Ok(BinaryDocValuesFieldUpdates {
             offsets,

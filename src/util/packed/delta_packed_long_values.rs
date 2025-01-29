@@ -78,9 +78,9 @@ impl DeltaPackedLongValuesBuilder {
     #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
     pub fn new() -> DeltaPackedLongValuesBuilder {
-        Self::new_with_sub_builder(None)
+        Self::with_sub_builder(None)
     }
-    pub fn new_with_sub_builder(
+    pub fn with_sub_builder(
         sub_builder: Option<MonotonicLongValuesBuilder>,
     ) -> DeltaPackedLongValuesBuilder {
         Self {

@@ -47,10 +47,10 @@ pub struct DocIdSetBuilder {
 impl DocIdSetBuilder {
     /// Create a builder that can contain doc IDs between  0 and maxDoc.
     pub fn new(max_doc: i32) -> DocIdSetBuilder {
-        Self::new_with_count(max_doc, -1, -1)
+        Self::with_count(max_doc, -1, -1)
     }
 
-    pub fn new_with_count(max_doc: i32, doc_count: i32, value_count: i64) -> DocIdSetBuilder {
+    pub fn with_count(max_doc: i32, doc_count: i32, value_count: i64) -> DocIdSetBuilder {
         let multi_valued = doc_count < 0 || doc_count as i64 != value_count;
         let num_values_per_doc = if doc_count <= 0 || value_count < 0 {
             // assume one value per doc, this means the cost will be overestimated
@@ -138,7 +138,7 @@ impl DocIdSetBuilder {
         if self.bit_set.is_some() {
             debug_assert!(self.counter >= 0);
             let cost = (self.counter as f64 / self.num_values_per_doc).round();
-            let result = BitDocIdSet::new_with_cost(self.bit_set.take(), cost as i64)?;
+            let result = BitDocIdSet::with_cost(self.bit_set.take(), cost as i64)?;
             Ok(DocIdSetBuilderEnum::B(result))
         } else {
             self.buffer.sort();

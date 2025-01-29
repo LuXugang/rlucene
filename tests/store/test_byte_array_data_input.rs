@@ -28,7 +28,7 @@ struct TestByteArrayDataInput;
 #[test]
 fn test_basic() -> Result<(), TestError> {
     let bytes = vec![1, 65];
-    let mut data_input = ByteArrayDataInput::new_with_bytes(bytes);
+    let mut data_input = ByteArrayDataInput::with_bytes(bytes);
     assert_eq!(data_input.read_string()?, "A");
     assert!(data_input.eof());
     Ok(())
@@ -38,7 +38,7 @@ fn test_basic() -> Result<(), TestError> {
 fn test_data_types() -> Result<(), TestError> {
     // write some primitives using ByteArrayDataOutput:
     let mut bytes = vec![0u8; 32];
-    let mut out = ByteArrayDataOutput::new_with_bytes(&mut bytes);
+    let mut out = ByteArrayDataOutput::with_bytes(&mut bytes);
 
     out.write_byte(43)?;
     out.write_short(12345)?;
@@ -57,7 +57,7 @@ fn test_data_types() -> Result<(), TestError> {
     assert_eq!(buf.get_ref().len() - buf.position() as usize, 0);
 
     // read the primitives using ByteArrayDataInput:
-    let mut data_input = ByteArrayDataInput::new_with_range(bytes, 0, size);
+    let mut data_input = ByteArrayDataInput::with_range(bytes, 0, size);
     assert_eq!(data_input.read_byte()?, 43);
     assert_eq!(data_input.read_short()?, 12345);
     assert_eq!(data_input.read_int()?, 1234567890);

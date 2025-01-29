@@ -39,7 +39,7 @@ pub struct TestSegmentInfos;
 #[test]
 fn test_illegal_created_version() -> Result<(), TestError> {
     // Test for an indexCreatedVersionMajor less than 6
-    let result = SegmentInfos::new_with_defaults(5);
+    let result = SegmentInfos::with_defaults(5);
     assert!(result.is_err());
     if let Err(err) = result {
         assert!(err
@@ -49,7 +49,7 @@ fn test_illegal_created_version() -> Result<(), TestError> {
 
     // Test for an indexCreatedVersionMajor greater than LATEST.major
     let future_version = LATEST.major + 1;
-    let result = SegmentInfos::new_with_defaults(future_version);
+    let result = SegmentInfos::with_defaults(future_version);
     assert!(result.is_err());
     let expect = format!(
         "indexCreatedVersionMajor is in the future: {}",

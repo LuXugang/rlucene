@@ -59,7 +59,7 @@ fn test_reuse() -> Result<(), TestError> {
 #[test]
 fn test_constructor_with_expected_size() -> Result<(), TestError> {
     let mut random = random();
-    let mut o = ByteBuffersDataOutput::new_with_expected_size(0)?;
+    let mut o = ByteBuffersDataOutput::with_expected_size(0)?;
     o.write_byte(0)?;
     let (_length, mut result) = o.to_buffer_list();
     let capacity = result.get_mut(0).unwrap().get_ref().len();
@@ -70,7 +70,7 @@ fn test_constructor_with_expected_size() -> Result<(), TestError> {
 
     let mb = 1024 * 1024;
     let expected_size: i64 = random.gen_range(mb..mb * 1024);
-    let mut o = ByteBuffersDataOutput::new_with_expected_size(expected_size as i64)?;
+    let mut o = ByteBuffersDataOutput::with_expected_size(expected_size as i64)?;
     let _ = o.write_byte(0);
     let (_length, mut result) = o.to_buffer_list();
     let cap = result.get_mut(0).unwrap().get_ref().len();
@@ -167,7 +167,7 @@ fn test_copy_bytes_on_heap() -> Result<(), TestError> {
     let offset = random.gen_range(0..=100);
     let len = bytes.len() - offset;
     let bytes_clone = bytes.clone();
-    let mut input = ByteArrayDataInput::new_with_range(bytes, offset as i32, len as i32);
+    let mut input = ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
 
     let mut o = ByteBuffersDataOutput::new(
         ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
@@ -187,7 +187,7 @@ fn test_copy_bytes_on_direct_byte_buffer() -> Result<(), TestError> {
     let offset = random.gen_range(0..=100);
     let len = bytes.len() - offset;
     let bytes_clone = bytes.clone();
-    let mut input = ByteArrayDataInput::new_with_range(bytes, offset as i32, len as i32);
+    let mut input = ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
     let mut o = ByteBuffersDataOutput::new(
         ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
         ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,

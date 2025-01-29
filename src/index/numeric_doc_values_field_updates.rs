@@ -39,7 +39,7 @@ where
 }
 impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
     pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>, LuceneError> {
-        let sub_reader = PagedGrowableWriter::new_with_fill_page(1, PackedInts::DEFAULT);
+        let sub_reader = PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT);
         let values = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
@@ -49,7 +49,7 @@ impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
     }
 }
 impl NumericDocValuesFieldUpdates<PagedMutable> {
-    pub fn new_with_range(
+    pub fn with_range(
         min_value: i64,
         max_value: i64,
     ) -> Result<
@@ -60,7 +60,7 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
     > {
         let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
         let sub_reader =
-            PagedMutable::new_with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
+            PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
         let values = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,

@@ -42,7 +42,7 @@ impl SortedNumericSortField {
     /// * `field` - Name of the field to sort by. Must not be empty.
     /// * `sort_field_type` - Type of values.
     pub fn new(field: String, sort_field_type: SortFieldType) -> Result<Self, LuceneError> {
-        Self::new_with_reverse(field, sort_field_type, false)
+        Self::with_reverse(field, sort_field_type, false)
     }
 
     /// Creates a sort, possibly in reverse, by the minimum value in the set for the document.
@@ -52,12 +52,12 @@ impl SortedNumericSortField {
     /// * `field` - Name of the field to sort by. Must not be empty.
     /// * `sort_field_type` - Type of values.
     /// * `reverse` - `true` if natural order should be reversed.
-    pub fn new_with_reverse(
+    pub fn with_reverse(
         field: String,
         sort_field_type: SortFieldType,
         reverse: bool,
     ) -> Result<Self, LuceneError> {
-        Self::new_with_selector(
+        Self::with_selector(
             field,
             sort_field_type,
             reverse,
@@ -72,14 +72,14 @@ impl SortedNumericSortField {
     /// * `sort_field_type` - Type of values.
     /// * `reverse` - `true` if natural order should be reversed.
     /// * `selector` - Custom selector type for choosing the sort value from the set.
-    pub fn new_with_selector(
+    pub fn with_selector(
         field: String,
         sort_field_type: SortFieldType,
         reverse: bool,
         selector: SortedNumericSelectorType,
     ) -> Result<Self, LuceneError> {
         let sort_field =
-            SortField::new_with_reverse(Some(field.clone()), SortFieldType::Custom, reverse)?;
+            SortField::with_reverse(Some(field.clone()), SortFieldType::Custom, reverse)?;
         Ok(SortedNumericSortField {
             sort_field_type,
             selector,
@@ -238,7 +238,7 @@ impl SortFieldProvider for NumericProvider {
         let reverse = data_input.read_int()? == 1;
         let selector = SortedNumericSortField::read_selector_type(data_input)?;
         let mut sorted_numeric_sort_field =
-            SortedNumericSortField::new_with_selector(field_name, field_type, reverse, selector)?;
+            SortedNumericSortField::with_selector(field_name, field_type, reverse, selector)?;
         let value = data_input.read_int()?;
         if value == 1 {
             match field_type {

@@ -69,6 +69,6 @@ impl FSDirectoryBase for NIOFSDirectory {
         let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());
         // let resource_desc_string = resource_desc.to_string();
         let index_input = NIOFSIndexInput::new(file, &resource_desc);
-        BufferedIndexInput::new_with_io_context(index_input, &resource_desc, context)
+        BufferedIndexInput::with_io_context(index_input, &resource_desc, context)
     }
 }

@@ -205,7 +205,7 @@ impl RoaringDocIdSetBuilder {
                 self.buffer.clear();
                 self.sets[self.current_block as usize] = dense;
             } else {
-                let result = BitDocIdSet::new_with_cost(
+                let result = BitDocIdSet::with_cost(
                     Some(std::mem::take(&mut self.dense_buffer)),
                     self.current_block_cardinality as i64,
                 )?;

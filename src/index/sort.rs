@@ -28,7 +28,7 @@ impl Sort {
     /// Replace Java's `Sort.INDEXORDER` with this method.
     pub fn get_index_order() -> Result<Self, LuceneError> {
         let sort_field = SortFieldEnum::Sorter(SortField::get_field_doc()?);
-        Self::new_with_fields(vec![sort_field])
+        Self::with_fields(vec![sort_field])
     }
     /// Replace Java's `Sort.RELEVANCE` with this method.
     pub fn get_relevance() -> Result<Self, LuceneError> {
@@ -43,7 +43,7 @@ impl Sort {
     /// only with slightly more overhead.
     pub fn new() -> Result<Self, LuceneError> {
         let sort_field = SortFieldEnum::Sorter(SortField::get_field_score()?);
-        Self::new_with_fields(vec![sort_field])
+        Self::with_fields(vec![sort_field])
     }
 
     /// Sets the sort to the given criteria in succession.
@@ -57,7 +57,7 @@ impl Sort {
     ///
     /// # Errors
     /// Returns an error if the provided `fields` vector is empty.
-    pub fn new_with_fields(fields: Vec<SortFieldEnum>) -> Result<Self, LuceneError> {
+    pub fn with_fields(fields: Vec<SortFieldEnum>) -> Result<Self, LuceneError> {
         if fields.is_empty() {
             Err(LuceneError::illegal_argument(
                 "There must be at least 1 sort field".to_string(),

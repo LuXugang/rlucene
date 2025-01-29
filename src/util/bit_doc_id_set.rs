@@ -37,7 +37,7 @@ pub struct BitDocIdSet<T: BitSet> {
 /// Wraps the given [`BitSet`] as a [`DocIdSet`].
 /// The provided [`BitSet`] must not be modified afterwards.
 impl<T: BitSet> BitDocIdSet<T> {
-    pub fn new_with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, LuceneError> {
+    pub fn with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, LuceneError> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
@@ -53,7 +53,7 @@ impl<T: BitSet> BitDocIdSet<T> {
     /// as a cost.
     pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>, LuceneError> {
         let cost = set.as_ref().unwrap().approximate_cardinality();
-        Self::new_with_cost(set, cost as i64)
+        Self::with_cost(set, cost as i64)
     }
 }
 

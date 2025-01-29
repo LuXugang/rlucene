@@ -38,7 +38,7 @@ impl SortedSetSortField {
     /// * `field` - Name of the field to sort by.
     /// * `reverse` - `true` if natural order should be reversed.
     pub fn new(field: String, reverse: bool) -> Result<Self, LuceneError> {
-        Self::new_with_selector(field, reverse, SortedSetSelectorType::Min)
+        Self::with_selector(field, reverse, SortedSetSelectorType::Min)
     }
 
     /// Creates a sort, possibly in reverse, specifying how the sort value from the document's set is selected.
@@ -50,12 +50,12 @@ impl SortedSetSortField {
     /// * `selector` - Custom selector type for choosing the sort value from the set.
     /// # Note
     /// selectors other than [`SortedSetSelectorType#Min`](SortedSetSelectorType::Min) require optional codec support.
-    pub fn new_with_selector(
+    pub fn with_selector(
         field: String,
         reverse: bool,
         selector: SortedSetSelectorType,
     ) -> Result<Self, LuceneError> {
-        let sort_field = SortField::new_with_reverse(Some(field), SortFieldType::Custom, reverse)?;
+        let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
         Ok(SortedSetSortField {
             selector,
             sort_field,
@@ -153,7 +153,7 @@ impl SortFieldProvider for SetProvider {
         let reverse = data_input.read_int()? == 1;
         let selector = SortedSetSortField::read_selector_type(data_input)?;
         let mut sorted_set_sort_field =
-            SortedSetSortField::new_with_selector(field_name, reverse, selector)?;
+            SortedSetSortField::with_selector(field_name, reverse, selector)?;
 
         let value = data_input.read_int()?;
         match value {

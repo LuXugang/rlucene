@@ -30,19 +30,19 @@ pub struct PagedMutable {
     bits_per_value: i32,
 }
 impl PagedMutable {
-    pub fn new_with_overhead_ratio(
+    pub fn with_overhead_ratio(
         page_size: i32,
         bits_per_value: i32,
         acceptable_overhead_ratio: f32,
     ) -> Self {
         let format_and_bits =
             fastest_format_and_bits(page_size, bits_per_value, acceptable_overhead_ratio);
-        Self::new_with_format_and_bits(format_and_bits)
+        Self::with_format_and_bits(format_and_bits)
     }
-    fn new_with_format_and_bits(format_and_bits: FormatAndBits) -> Self {
-        Self::new_with_bits_and_format(format_and_bits.bits_per_value, format_and_bits.format)
+    fn with_format_and_bits(format_and_bits: FormatAndBits) -> Self {
+        Self::with_bits_and_format(format_and_bits.bits_per_value, format_and_bits.format)
     }
-    fn new_with_bits_and_format(bits_per_value: i32, format: Format) -> Self {
+    fn with_bits_and_format(bits_per_value: i32, format: Format) -> Self {
         Self {
             format,
             bits_per_value,
@@ -68,7 +68,7 @@ impl AbstractPagedMutableBase for PagedMutable {
         new_size: i64,
         page_size: i32,
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, LuceneError> {
-        let sub_reader = PagedMutable::new_with_bits_and_format(self.bits_per_value, self.format);
+        let sub_reader = PagedMutable::with_bits_and_format(self.bits_per_value, self.format);
         AbstractPagedMutable::new(self.bits_per_value, new_size, page_size, sub_reader)
     }
 

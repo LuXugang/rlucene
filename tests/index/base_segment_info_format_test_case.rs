@@ -325,7 +325,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let case = random.gen_range(0..10);
         match case {
             0 => {
-                let mut sort_field = SortField::new_with_reverse(
+                let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
                     SortFieldType::Int,
                     reversed,
@@ -336,7 +336,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             }
             1 => {
-                let mut sort_field = SortedNumericSortField::new_with_reverse(
+                let mut sort_field = SortedNumericSortField::with_reverse(
                     TestUtil::random_simple_string(random),
                     SortFieldType::Int,
                     reversed,
@@ -347,7 +347,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             }
             2 => {
-                let mut sort_field = SortField::new_with_reverse(
+                let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
                     SortFieldType::Long,
                     reversed,
@@ -358,7 +358,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             }
             3 => {
-                let mut sort_field = SortedNumericSortField::new_with_reverse(
+                let mut sort_field = SortedNumericSortField::with_reverse(
                     TestUtil::random_simple_string(random),
                     SortFieldType::Long,
                     reversed,
@@ -369,7 +369,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             }
             4 => {
-                let mut sort_field = SortField::new_with_reverse(
+                let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
                     SortFieldType::Float,
                     reversed,
@@ -380,7 +380,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             }
             5 => {
-                let mut sort_field = SortedNumericSortField::new_with_reverse(
+                let mut sort_field = SortedNumericSortField::with_reverse(
                     TestUtil::random_simple_string(random),
                     SortFieldType::Float,
                     reversed,
@@ -391,7 +391,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             }
             6 => {
-                let mut sort_field = SortField::new_with_reverse(
+                let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
                     SortFieldType::Double,
                     reversed,
@@ -402,7 +402,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             }
             7 => {
-                let mut sort_field = SortedNumericSortField::new_with_reverse(
+                let mut sort_field = SortedNumericSortField::with_reverse(
                     TestUtil::random_simple_string(random),
                     SortFieldType::Double,
                     reversed,
@@ -413,7 +413,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             }
             8 => {
-                let mut sort_field = SortField::new_with_reverse(
+                let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
                     SortFieldType::String,
                     reversed,
@@ -454,7 +454,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                         sort_fields.push(sort_field);
                     }
                 }
-                Some(Sort::new_with_fields(sort_fields)?)
+                Some(Sort::with_fields(sort_fields)?)
             };
             let sort_clone = sort.clone();
             let dir = Arc::new(Mutex::new(new_directory(random)?));

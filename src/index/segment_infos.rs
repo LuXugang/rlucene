@@ -131,7 +131,7 @@ impl SegmentInfos<DummyDirectory> {
     pub const VERSION_CURRENT: i32 = Self::VERSION_86;
     /// Name of the generation reference file name.
     pub const OLD_SEGMENTS_GEN: &'static str = "segments.gen";
-    pub fn new_with_defaults(index_created_version_major: i32) -> Result<Self, LuceneError> {
+    pub fn with_defaults(index_created_version_major: i32) -> Result<Self, LuceneError> {
         SegmentInfos::new(index_created_version_major)
     }
 }

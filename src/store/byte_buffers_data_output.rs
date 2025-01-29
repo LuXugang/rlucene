@@ -108,7 +108,7 @@ impl ByteBuffersDataOutput {
     ///
     /// # Arguments
     /// * `expected_size` - Estimated size of the output file.
-    pub fn new_with_expected_size(expected_size: i64) -> Result<Self, LuceneError> {
+    pub fn with_expected_size(expected_size: i64) -> Result<Self, LuceneError> {
         let block_bits = compute_block_size_bits_for(expected_size);
         Self::new(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
     }

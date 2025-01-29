@@ -85,7 +85,7 @@ impl SortField {
     /// # Errors
     ///
     /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
-    pub fn new_with_reverse(
+    pub fn with_reverse(
         field: Option<String>,
         field_type: SortFieldType,
         reverse: bool,
@@ -105,7 +105,7 @@ impl SortField {
     /// # Errors
     ///
     /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
-    pub fn new_with_comparator(
+    pub fn with_comparator(
         field: Option<String>,
         comparator: Option<FieldComparatorSourceEnum>,
     ) -> Result<Self, LuceneError> {
@@ -126,12 +126,12 @@ impl SortField {
     /// # Errors
     ///
     /// Returns an error if the `field` is `None` and the `field_type` is not `SCORE` or `DOC`.
-    pub fn new_with_comparator_reverse(
+    pub fn with_comparator_reverse(
         field: Option<String>,
         comparator: Option<FieldComparatorSourceEnum>,
         reverse: bool,
     ) -> Result<Self, LuceneError> {
-        let mut result = Self::new_with_comparator(field, comparator)?;
+        let mut result = Self::with_comparator(field, comparator)?;
         result.reverse = reverse;
         Ok(result)
     }
@@ -469,7 +469,7 @@ impl SortFieldProvider for Provider {
         let field_name = data_input.read_string()?;
         let field_type = SortFieldType::read_type(data_input)?;
         let reverse = data_input.read_int()? == 1;
-        let mut sort_field = SortField::new_with_reverse(Some(field_name), field_type, reverse)?;
+        let mut sort_field = SortField::with_reverse(Some(field_name), field_type, reverse)?;
         if data_input.read_int()? == 1 {
             match sort_field.field_type {
                 SortFieldType::String => {

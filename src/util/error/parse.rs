@@ -31,7 +31,7 @@ impl Parse {
             error: None,
         }
     }
-    pub fn new_with_error(msg: impl Into<String>, error: Option<IllegalArgumentError>) -> Self {
+    pub fn with_error(msg: impl Into<String>, error: Option<IllegalArgumentError>) -> Self {
         Self {
             message: msg.into(),
             position: 0,

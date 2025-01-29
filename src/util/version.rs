@@ -64,9 +64,9 @@ pub struct Version {
 }
 impl Version {
     fn new(major: i32, minor: i32, bug_fix: i32) -> Result<Version, IllegalArgumentError> {
-        Version::new_with_prerelease(major, minor, bug_fix, 0)
+        Version::with_prerelease(major, minor, bug_fix, 0)
     }
-    fn new_with_prerelease(
+    fn with_prerelease(
         major: i32,
         minor: i32,
         bug_fix: i32,
@@ -210,7 +210,7 @@ impl Version {
                 ));
             }
         }
-        let result = Version::new_with_prerelease(
+        let result = Version::with_prerelease(
             major.unwrap(),
             minor.unwrap(),
             bug_fix_value,
@@ -329,7 +329,7 @@ impl VersionError {
         VersionError::Parse(Parse::new(msg, position))
     }
     pub fn parse_error_with_error(msg: impl Into<String>, error: IllegalArgumentError) -> Self {
-        VersionError::Parse(Parse::new_with_error(msg, Option::from(error)))
+        VersionError::Parse(Parse::with_error(msg, Option::from(error)))
     }
     pub fn parse_int_error(input: impl Into<String>, source: ParseIntError) -> Self {
         VersionError::ParseIntError {

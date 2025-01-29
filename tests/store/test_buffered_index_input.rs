@@ -39,7 +39,7 @@ const TEST_FILE_LENGTH: i64 = 100 * 1024;
 fn test_read_byte() -> Result<(), TestError> {
     let sub_index_input = MyBufferedIndexInput::new();
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input,
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -56,7 +56,7 @@ fn test_read_bytes() -> Result<(), TestError> {
     let mut random = random();
     let sub_index_input = MyBufferedIndexInput::new();
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input,
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -164,9 +164,9 @@ fn check_read_bytes(
 
 #[test]
 fn test_eof() -> Result<(), TestError> {
-    let sub_index_input = MyBufferedIndexInput::new_with_len(1024);
+    let sub_index_input = MyBufferedIndexInput::with_len(1024);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input,
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -209,9 +209,9 @@ fn test_eof() -> Result<(), TestError> {
 #[test]
 fn test_backwards_byte_reads() -> Result<(), TestError> {
     let mut random = random();
-    let sub_index_input = MyBufferedIndexInput::new_with_len(1024 * 8);
+    let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input,
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -231,9 +231,9 @@ fn test_backwards_byte_reads() -> Result<(), TestError> {
 #[test]
 fn test_backwards_int_reads() -> Result<(), TestError> {
     let mut random = random();
-    let sub_index_input = MyBufferedIndexInput::new_with_len(1024 * 8);
+    let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input,
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -268,9 +268,9 @@ fn test_backwards_int_reads() -> Result<(), TestError> {
 #[test]
 fn test_backwards_long_reads() -> Result<(), TestError> {
     let mut random = random();
-    let sub_index_input = MyBufferedIndexInput::new_with_len(1024 * 8);
+    let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input,
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -311,9 +311,9 @@ fn test_read_floats() -> Result<(), TestError> {
     let mut random = random();
     let length: usize = 1024 * 8;
     let buffer_length: usize = random.gen_range(128..length / 8);
-    let sub_index_input = MyBufferedIndexInput::new_with_len(length as i64);
+    let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input.clone(),
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -372,9 +372,9 @@ fn test_read_ints() -> Result<(), TestError> {
     let mut random = random();
     let length: usize = 1024 * 8;
     let buffer_length: usize = random.gen_range(128..length / 8);
-    let sub_index_input = MyBufferedIndexInput::new_with_len(length as i64);
+    let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input.clone(),
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -431,9 +431,9 @@ fn test_read_longs() -> Result<(), TestError> {
     let mut random = random();
     let length: usize = 1024 * 8;
     let buffer_length: usize = random.gen_range(128..length / 8);
-    let sub_index_input = MyBufferedIndexInput::new_with_len(length as i64);
+    let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
     let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-    let mut input = BufferedIndexInput::new_with_buffer_size(
+    let mut input = BufferedIndexInput::with_buffer_size(
         sub_index_input.clone(),
         &resource_description,
         BufferedIndexInput::BUFFER_SIZE,
@@ -494,7 +494,7 @@ struct MyBufferedIndexInput {
 }
 
 impl MyBufferedIndexInput {
-    fn new_with_len(len: i64) -> Self {
+    fn with_len(len: i64) -> Self {
         Self {
             pos: 0,
             len,
@@ -502,7 +502,7 @@ impl MyBufferedIndexInput {
         }
     }
     fn new() -> Self {
-        Self::new_with_len(i64::MAX)
+        Self::with_len(i64::MAX)
     }
 }
 
@@ -520,7 +520,7 @@ fn byten(n: i64) -> u8 {
 
 impl Clone for MyBufferedIndexInput {
     fn clone(&self) -> Self {
-        MyBufferedIndexInput::new_with_len(self.len)
+        MyBufferedIndexInput::with_len(self.len)
     }
 }
 

@@ -113,13 +113,13 @@ pub(crate) fn new_io_context_with_default(
 
     if let Some(flush_info) = &old_context.flush_info {
         // Always return at least the estimatedSegmentSize of the incoming IOContext
-        Ok(IOContext::new_with_flush(FlushInfo::new(
+        Ok(IOContext::with_flush(FlushInfo::new(
             random_num_docs,
             size.max(flush_info.get_estimated_segment_size()),
         ))?)
     } else if let Some(merge_info) = &old_context.merge_info {
         // Always return at least the estimatedMergeBytes of the incoming IOContext
-        return Ok(IOContext::new_with_merge(MergeInfo::new(
+        return Ok(IOContext::with_merge(MergeInfo::new(
             random_num_docs,
             size.max(merge_info.get_estimated_merge_bytes()),
             random.gen_bool(0.5), // Randomly decide if it's an external merge
@@ -130,13 +130,13 @@ pub(crate) fn new_io_context_with_default(
         let context_type = random.gen_range(0..3);
         match context_type {
             0 => Ok(IOContext::default_io_context()?),
-            1 => Ok(IOContext::new_with_merge(MergeInfo::new(
+            1 => Ok(IOContext::with_merge(MergeInfo::new(
                 random_num_docs,
                 size,
                 true,
                 -1,
             ))?),
-            2 => Ok(IOContext::new_with_flush(FlushInfo::new(
+            2 => Ok(IOContext::with_flush(FlushInfo::new(
                 random_num_docs,
                 size,
             ))?),

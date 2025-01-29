@@ -780,7 +780,7 @@ fn test_paged_growable_writer() -> Result<(), TestError> {
     let initial_bit_width = TestUtil::next_int(&mut random, 1, 64);
 
     let sub_reader =
-        PagedGrowableWriter::new_with_fill_page(initial_bit_width, acceptable_overhead_ratio);
+        PagedGrowableWriter::with_fill_page(initial_bit_width, acceptable_overhead_ratio);
 
     let mut writer = AbstractPagedMutable::new(initial_bit_width, 0, page_size, sub_reader)?;
     assert_eq!(writer.size(), 0);
@@ -808,7 +808,7 @@ fn test_paged_growable_writer() -> Result<(), TestError> {
         bits_per_value,
         size,
         page_size,
-        PagedGrowableWriter::new_with_fill_page(bits_per_value, random.gen::<f32>()),
+        PagedGrowableWriter::with_fill_page(bits_per_value, random.gen::<f32>()),
     )?;
     assert_eq!(writer.size(), size);
 
@@ -861,7 +861,7 @@ fn test_paged_mutable() -> Result<(), TestError> {
     let acceptable_overhead_ratio = random.gen::<f32>() / 2.0;
 
     let mut sub_mutable =
-        PagedMutable::new_with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
+        PagedMutable::with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
     let mut writer = AbstractPagedMutable::new(bits_per_value, 0, page_size, sub_mutable)?;
     assert_eq!(writer.size(), 0);
 
@@ -883,7 +883,7 @@ fn test_paged_mutable() -> Result<(), TestError> {
 
     let acceptable_overhead_ratio = random.gen::<f32>();
     sub_mutable =
-        PagedMutable::new_with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
+        PagedMutable::with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
     writer = AbstractPagedMutable::new(bits_per_value, size, page_size, sub_mutable)?;
 
     assert_eq!(writer.size(), size);
@@ -1350,7 +1350,7 @@ fn test_block_packed_reader_writer() -> Result<(), TestError> {
         }
         // test in2
         {
-            let in2 = ByteArrayDataInput::new_with_bytes(buf);
+            let in2 = ByteArrayDataInput::with_bytes(buf);
             let mut in_ref = in2;
             let mut it = BlockPackedReaderIterator::new(
                 &mut in_ref,

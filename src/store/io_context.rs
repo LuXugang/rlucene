@@ -92,12 +92,12 @@ impl IOContext {
         })
     }
 
-    fn new_with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
+    fn with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
         Self::new(Some(Context::Default), Some(read_advice), None, None)
     }
 
     ///  Creates an `IOContext` for flushing.
-    pub fn new_with_flush(flush_info: FlushInfo) -> Result<IOContext, LuceneError> {
+    pub fn with_flush(flush_info: FlushInfo) -> Result<IOContext, LuceneError> {
         Self::new(
             Some(Context::Flush),
             Some(ReadAdvice::Sequential),
@@ -106,7 +106,7 @@ impl IOContext {
         )
     }
     ///  Creates an `IOContext` for merging.
-    pub fn new_with_merge(merge_info: MergeInfo) -> Result<IOContext, LuceneError> {
+    pub fn with_merge(merge_info: MergeInfo) -> Result<IOContext, LuceneError> {
         Self::new(
             Some(Context::Merge),
             Some(ReadAdvice::Sequential),
@@ -115,19 +115,19 @@ impl IOContext {
         )
     }
 
-    pub fn with_read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
+    pub fn read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
         if matches!(self.context, Context::Default) {
             // TODO: maybe should statically define all types of context
-            Self::new_with_read_advice(read_advice)
+            Self::with_read_advice(read_advice)
         } else {
             Ok(self.clone())
         }
     }
     pub fn default_io_context() -> Result<IOContext, LuceneError> {
-        Self::new_with_read_advice(ReadAdvice::default_read_advice())
+        Self::with_read_advice(ReadAdvice::default_read_advice())
     }
     pub fn read_once_io_context() -> Result<IOContext, LuceneError> {
-        Self::new_with_read_advice(ReadAdvice::Sequential)
+        Self::with_read_advice(ReadAdvice::Sequential)
     }
 }
 

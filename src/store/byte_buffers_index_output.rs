@@ -31,7 +31,7 @@ pub struct ByteBuffersIndexOutput<'a> {
     checksum: Hasher,
 }
 impl<'a> ByteBuffersIndexOutput<'a> {
-    pub fn new_with_checksum(
+    pub fn with_checksum(
         name: &str,
         resource_description: &str,
         delegate: &'a mut ByteBuffersDataOutput,
@@ -51,7 +51,7 @@ impl<'a> ByteBuffersIndexOutput<'a> {
         resource_description: &str,
         delegate: &'a mut ByteBuffersDataOutput,
     ) -> Self {
-        Self::new_with_checksum(name, resource_description, delegate, Hasher::new())
+        Self::with_checksum(name, resource_description, delegate, Hasher::new())
     }
     pub fn get_array_copy(&self) -> Vec<u8> {
         self.delegate.get_array_copy()

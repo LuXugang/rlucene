@@ -76,7 +76,7 @@ where
 
     T: FSDirectoryBase,
 {
-    pub fn new_with_lock_factory(
+    pub fn with_lock_factory(
         directory: PathBuf,
         lock_factory: D,
         sub_fs_directory: T,
@@ -236,7 +236,7 @@ where
         directory: PathBuf,
         sub_fs_directory: T,
     ) -> Result<FSDirectory<NativeFSLockFactory, T>, LuceneError> {
-        Self::new_with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
+        Self::with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
     }
 }
 

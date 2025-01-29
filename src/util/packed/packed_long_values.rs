@@ -61,7 +61,7 @@ impl PackedLongValues {
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, LuceneError> {
         let sub_builder = DeltaPackedLongValuesBuilder::new();
-        PackedLongValuesBuilder::new_with_sub_builder(
+        PackedLongValuesBuilder::with_sub_builder(
             page_size,
             acceptable_overhead_ratio,
             Some(sub_builder),
@@ -81,9 +81,8 @@ impl PackedLongValues {
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, LuceneError> {
         let sub_builder = MonotonicLongValuesBuilder::new();
-        let sub_delta_builder =
-            DeltaPackedLongValuesBuilder::new_with_sub_builder(Some(sub_builder));
-        PackedLongValuesBuilder::new_with_sub_builder(
+        let sub_delta_builder = DeltaPackedLongValuesBuilder::with_sub_builder(Some(sub_builder));
+        PackedLongValuesBuilder::with_sub_builder(
             page_size,
             acceptable_overhead_ratio,
             Some(sub_delta_builder),
@@ -195,9 +194,9 @@ impl PackedLongValuesBuilder {
         page_size: i32,
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder, LuceneError> {
-        Self::new_with_sub_builder(page_size, acceptable_overhead_ratio, None)
+        Self::with_sub_builder(page_size, acceptable_overhead_ratio, None)
     }
-    pub fn new_with_sub_builder(
+    pub fn with_sub_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
         sub_packed_long_values_builder: Option<DeltaPackedLongValuesBuilder>,
