@@ -60,7 +60,7 @@ impl BytesRefBuilder {
     pub fn set_byte_at(&mut self, offset: i32, value: u8) {
         self.bytes_ref.bytes[offset as usize] = value;
     }
-    fn grow(&mut self, capacity: i32) -> Result<(), LuceneError> {
+    pub fn grow(&mut self, capacity: i32) -> Result<(), LuceneError> {
         ArrayUtil::grow_with_len(&mut self.bytes_ref.bytes, capacity)
     }
     pub fn grow_no_copy(&mut self, capacity: i32) -> Result<(), LuceneError> {
