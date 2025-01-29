@@ -21,6 +21,7 @@ pub mod field_comparator_source;
 pub mod field_value_hit_queue;
 pub mod leaf_field_comparator;
 pub mod pruning;
+pub mod query;
 pub mod scorable;
 pub mod score_mode;
 pub mod sort_field;

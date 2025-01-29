@@ -32,7 +32,7 @@ pub struct BytesRefHash {
     hash_size: i32,
     hash_half_size: i32,
     hash_mask: i32,
-    count: i32,
+    pub(crate) count: i32,
     last_count: i32,
     pub ids: Vec<i32>,
     bytes_start_array: Arc<Mutex<BytesStartArrayEnum>>,
@@ -97,7 +97,7 @@ impl BytesRefHash {
     ///
     /// # Returns
     /// The given [`BytesRef`] instance populated with the bytes for the given `bytesID`.
-    pub fn get(&mut self, bytes_id: i32, ref_: &mut BytesRef) -> Result<(), LuceneError> {
+    pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) -> Result<(), LuceneError> {
         let mut bytes_start_array = self
             .bytes_start_array
             .lock()
@@ -298,11 +298,11 @@ impl BytesRefHash {
     ///
     /// # Returns
     /// The id of the given bytes, or `-1` if there is no mapping for the given bytes.
-    pub fn find(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
+    pub fn find(&self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         let hash_pos = self.find_hash(bytes)?;
         Ok(self.ids[hash_pos as usize])
     }
-    fn find_hash(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
+    fn find_hash(&self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         let mut bytes_start_array = self
             .bytes_start_array
             .lock()

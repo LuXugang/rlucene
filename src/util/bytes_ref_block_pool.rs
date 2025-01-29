@@ -57,7 +57,7 @@ impl BytesRefBlockPool {
     }
 
     /// Populates the given `BytesRef` with the term starting at `start`.
-    pub fn fill_bytes_ref(&mut self, term: &mut BytesRef, start: i32) -> Result<(), LuceneError> {
+    pub fn fill_bytes_ref(&self, term: &mut BytesRef, start: i32) -> Result<(), LuceneError> {
         let mut pool = self
             .byte_block_pool
             .lock()
@@ -156,7 +156,7 @@ impl BytesRefBlockPool {
         Ok(BytesRefHash::do_hash(bytes, pos, len))
     }
     /// Computes the equality between the BytesRef at the given start position and the provided BytesRef.
-    pub fn equals(&mut self, start: i32, b: &BytesRef) -> Result<bool, LuceneError> {
+    pub fn equals(&self, start: i32, b: &BytesRef) -> Result<bool, LuceneError> {
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
         let mut pool = self
             .byte_block_pool

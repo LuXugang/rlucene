@@ -157,7 +157,7 @@ impl FieldUpdatesBuffer {
         } else {
             BytesRef::default()
         };
-        let mut buffer = Self::new(bytes_used, &initial_value, doc_up_to, false)?;
+        let mut buffer = Self::new(bytes_used, initial_value, doc_up_to, false)?;
         if has_values {
             debug_assert!(buffer.byte_values.is_some());
             buffer.byte_values.as_mut().unwrap().append(&value)?;
@@ -266,7 +266,7 @@ impl FieldUpdatesBuffer {
         doc_up_to: i32,
     ) -> Result<(), LuceneError> {
         debug_assert!(self.is_numeric);
-        let ord = self.append(&term)?;
+        let ord = self.append(term)?;
         let field = term.field.clone();
         self.add(field, doc_up_to, ord, true)?;
         self.min_numeric = min(self.min_numeric, value);
@@ -303,6 +303,7 @@ impl FieldUpdatesBuffer {
         doc_up_to: i32,
     ) -> Result<(), LuceneError> {
         debug_assert!(!self.is_numeric);
+        debug_assert!(self.byte_values.is_some());
         let ord = self.append(term)?;
         self.byte_values.as_mut().unwrap().append(value)?;
         self.add(term.field.clone(), doc_up_to, ord, true)?;
