@@ -28,6 +28,7 @@ pub mod doc_values_type;
 pub mod doc_values_update;
 pub mod docs_with_field_set;
 mod documents_writer_delete_queue;
+mod documents_writer_per_thread;
 pub mod field_updates_buffer;
 mod index_commit;
 pub mod index_deletion_policy;
