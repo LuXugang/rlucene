@@ -1,0 +1,147 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::util::lucene_test_case::{at_least, random};
+use crate::util::test_error::TestError;
+use rand::{Rng, RngCore};
+use rlucene::index::buffered_updates::{BufferedUpdates, DeletedTerms};
+use rlucene::index::term::Term;
+use rlucene::index::BytesRef;
+use rlucene::search::term_query::TermQuery;
+use rlucene::util::accountable::Accountable;
+use std::collections::HashMap;
+
+#[allow(dead_code)] // for quick search
+pub struct TestBufferedUpdates;
+
+#[test]
+fn test_ram_bytes_used() -> Result<(), TestError> {
+    let mut random = random();
+    let mut bu = BufferedUpdates::new("seg1".to_string());
+
+    // TODO
+    // assert_eq!(bu.ram_bytes_used(), 0);
+    assert!(!bu.any());
+
+    let queries = at_least(&mut random, 1);
+    for _ in 0..queries {
+        let doc_id_upto = if random.gen_bool(0.5) {
+            i32::MAX
+        } else {
+            random.gen_range(0..100000)
+        };
+        let value = format!("{}", random.gen_range(0..100));
+        let term = Term::new("id".to_string(), BytesRef::from_string(&value));
+        bu.add_query(TermQuery::new(term.clone()), doc_id_upto)?;
+    }
+
+    let terms = at_least(&mut random, 1);
+    for _ in 0..terms {
+        let doc_id_upto = if random.gen_bool(0.5) {
+            i32::MAX
+        } else {
+            random.gen_range(0..100000)
+        };
+        let value = format!("{}", random.gen_range(0..100));
+        let term = Term::new("id".to_string(), BytesRef::from_string(&value));
+        bu.add_term(&term, doc_id_upto)?;
+    }
+
+    assert!(
+        bu.any(),
+        "We have added a lot of docIds, terms, and queries, but `any()` returned false."
+    );
+
+    // TODO
+    // let total_used = bu.ram_bytes_used();
+    // assert!(total_used > 0);
+
+    bu.clear_delete_terms()?;
+    assert!(
+        bu.any(),
+        "Only terms and docIds are cleaned, the queries should still be in memory."
+    );
+    // TODO
+    // assert!(
+    //     total_used > bu.ram_bytes_used(),
+    //     "Terms are cleaned, so memory usage should decrease."
+    // );
+
+    bu.clear()?;
+    assert!(!bu.any());
+    // TODO
+    // assert_eq!(bu.ram_bytes_used()?, 0);
+
+    Ok(())
+}
+#[test]
+fn test_deleted_terms() -> Result<(), TestError> {
+    let mut random = random();
+    let iters = at_least(&mut random, 10);
+    let fields = ["a".to_string(), "b".to_string(), "c".to_string()];
+    let mut actual = DeletedTerms::new();
+
+    for _ in 0..iters {
+        let mut expected = HashMap::new();
+        assert!(actual.is_empty());
+
+        let term_count = at_least(&mut random, 5000);
+        let max_bytes_num = random.gen_range(1..=3);
+
+        for _ in 0..term_count {
+            let byte_num = random.gen_range(1..=max_bytes_num);
+            let mut bytes = vec![0u8; byte_num];
+            random.fill_bytes(&mut bytes);
+
+            let field = &fields[random.gen_range(0..fields.len())];
+            let term = Term::new(field.clone(), BytesRef::from_bytes(bytes));
+            let value = random.gen_range(0..10_000_000);
+
+            expected.insert(term.clone(), value);
+            actual.put(&term, value)?;
+        }
+
+        assert_eq!(expected.len(), actual.size() as usize);
+
+        for (term, expected_value) in &expected {
+            assert_eq!(*expected_value, actual.get(term)?);
+        }
+
+        let mut expected_sorted: Vec<(Term, i32)> = expected
+            .iter()
+            .map(|(term, doc_id)| (Term::new(term.field.clone(), term.bytes.clone()), *doc_id))
+            .collect();
+        expected_sorted.sort_by_key(|entry| entry.0.clone());
+
+        let mut actual_sorted: Vec<_> = Vec::new();
+        actual.for_each_ordered(|term, doc_id| {
+            let copy = Term::new(term.field.clone(), term.bytes.clone());
+            actual_sorted.push((copy, doc_id));
+            Ok(())
+        })?;
+
+        assert_eq!(expected_sorted, actual_sorted);
+
+        actual.clear()?;
+        assert_eq!(actual.size(), 0);
+        assert_eq!(actual.ram_bytes_used(), 0);
+        let pool_guard = actual.get_pool();
+        let pool = pool_guard.lock().unwrap();
+        assert_eq!(pool.buffer_upto, -1);
+    }
+
+    Ok(())
+}

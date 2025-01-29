@@ -62,7 +62,7 @@ where
     segment_name: String,
 }
 impl BufferedUpdates<DummyQuery> {
-    /// Rough logic: HashMap has an array[Entry] with varying load factor.
+    /// Rough logic: HashMap has an array with varying load factor.
     /// Entry consists of Query key, Integer value, int hash, and Entry next.
     // TODO: memory calculation not implemented
     pub const BYTES_PER_DEL_QUERY: i32 = 0;
@@ -373,13 +373,14 @@ impl DeletedTerms {
     /// Consume all terms in a sorted order.
     ///
     /// Note: This is a destructive operation as it calls `BytesRefHash::sort()`.
-    pub fn for_each_ordered<T: DeletedTermConsumer>(
-        &mut self,
-        consumer: &mut T,
-    ) -> Result<(), LuceneError> {
+    pub fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<(), LuceneError>
+    where
+        F: FnMut(&Term, i32) -> Result<(), LuceneError>,
+    {
         let mut delete_fields: Vec<(&String, &mut BytesRefIntMap)> =
             self.delete_terms.iter_mut().collect();
         delete_fields.sort_by(|a, b| a.0.cmp(b.0));
+
         let mut scratch = Term::new("".to_string(), BytesRef::new());
         for (field, terms) in delete_fields {
             scratch.field = field.clone();
@@ -388,13 +389,13 @@ impl DeletedTerms {
             for i in 0..terms.bytes_ref_hash.count {
                 let index = indices[i as usize];
                 terms.bytes_ref_hash.get(index, &mut scratch.bytes)?;
-                consumer.accept(&scratch, terms.values[index as usize])?;
+                consumer(&scratch, terms.values[index as usize])?;
             }
         }
         Ok(())
     }
     #[cfg(feature = "test_only")]
-    pub fn pool(&self) -> Arc<Mutex<ByteBlockPool>> {
+    pub fn get_pool(&self) -> Arc<Mutex<ByteBlockPool>> {
         self.pool.clone()
     }
 }

@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex};
 pub struct ByteBlockPool {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
-    pub(crate) buffer_upto: i32,
+    pub buffer_upto: i32,
     allocator: AllocatorEnum,
     /// Offset from the start of the first buffer to the start of the current buffer, which is
     /// `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool maintains this offset because it is the first to

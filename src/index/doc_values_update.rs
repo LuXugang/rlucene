@@ -56,6 +56,7 @@ impl DocValuesUpdate {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn has_value(&self) -> bool {
         self.has_value
     }
@@ -109,6 +110,7 @@ pub struct BinaryDocValuesUpdate {
     value: Option<BytesRef>,
 }
 impl BinaryDocValuesUpdate {
+    #[allow(unused)]
     const RAW_VALUE_SIZE_IN_BYTES: i32 = 0;
     pub fn new(value: Option<BytesRef>) -> Self {
         BinaryDocValuesUpdate { value }

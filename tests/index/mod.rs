@@ -18,6 +18,7 @@ pub(crate) mod base_compound_format_test_case;
 pub(crate) mod base_index_file_format_test_case;
 pub(crate) mod base_live_docs_format_test_case;
 pub(crate) mod base_segment_info_format_test_case;
+mod test_buffered_updates;
 mod test_doc_values_field_updates;
 mod test_field_updates_buffer;
 mod test_segment_infos;
