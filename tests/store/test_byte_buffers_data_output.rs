@@ -27,7 +27,7 @@ impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
     type DO = ByteBuffersDataOutput;
 
     fn new_instance(&self) -> Result<Self::DO, TestError> {
-        Ok(ByteBuffersDataOutput::new_resettable_instance()?)
+        Ok(ByteBuffersDataOutput::with_resettable_instance()?)
     }
 
     fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8> {
@@ -140,7 +140,7 @@ fn test_sanity() -> Result<(), TestError> {
 #[test]
 fn test_large_array_add() -> Result<(), TestError> {
     let mut random = random();
-    let mut o = ByteBuffersDataOutput::new_resettable_instance()?;
+    let mut o = ByteBuffersDataOutput::with_resettable_instance()?;
     let mb = 1024 * 1024;
     let mut bytes = if is_night_mode() {
         let size = random.gen_range(5 * mb..=15 * mb);

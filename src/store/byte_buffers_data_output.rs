@@ -52,7 +52,7 @@ impl ByteBuffersDataOutput {
     pub const DEFAULT_MIN_BITS_PER_BLOCK: i32 = 10;
 
     ///Creates a new output with all defaults.
-    pub fn new_resettable_instance() -> Result<Self, LuceneError> {
+    pub fn with_resettable_instance() -> Result<Self, LuceneError> {
         Self::new(
             Self::DEFAULT_MIN_BITS_PER_BLOCK,
             Self::DEFAULT_MAX_BITS_PER_BLOCK,
