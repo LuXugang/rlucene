@@ -386,7 +386,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), TestError> {
                         BytesRef::from_string(&strings_guard[k as usize % strings_guard.len()]);
                     drop(strings_guard);
 
-                    let mut hash_guard = hash_clone.lock().unwrap();
+                    let hash_guard = hash_clone.lock().unwrap();
                     let id = hash_guard.find(&find).unwrap();
 
                     if id < 0 {

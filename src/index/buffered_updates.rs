@@ -18,6 +18,7 @@ use crate::index::doc_values_update::DocValuesUpdate;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::term::Term;
 use crate::index::BytesRef;
+use crate::search::dummy::dummy_query::DummyQuery;
 use crate::search::query::Query;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
@@ -57,18 +58,21 @@ where
     field_updates_bytes_used: Arc<Mutex<CounterEnum>>,
     verbose_deletes: bool,
     gen: i64,
+    #[allow(unused)]
     segment_name: String,
+}
+impl BufferedUpdates<DummyQuery> {
+    /// Rough logic: HashMap has an array[Entry] with varying load factor.
+    /// Entry consists of Query key, Integer value, int hash, and Entry next.
+    // TODO: memory calculation not implemented
+    pub const BYTES_PER_DEL_QUERY: i32 = 0;
+    pub const MAX_INT: i32 = i32::MAX;
 }
 
 impl<Q> BufferedUpdates<Q>
 where
     Q: Query + Eq + Hash,
 {
-    /// Rough logic: HashMap has an array[Entry] with varying load factor.
-    /// Entry consists of Query key, Integer value, int hash, and Entry next.
-    // TODO: memory calculation not implemented
-    pub const BYTES_PER_DEL_QUERY: i32 = 0;
-    pub const MAX_INT: i32 = i32::MAX;
     /// Creates a new `BufferedUpdates` instance.
     pub fn new(segment_name: String) -> Self {
         Self {
@@ -88,7 +92,7 @@ where
             self.bytes_used
                 .lock()
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .add_and_get(Self::BYTES_PER_DEL_QUERY as i64);
+                .add_and_get(BYTES_PER_DEL_QUERY);
         }
         Ok(())
     }
