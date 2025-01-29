@@ -24,8 +24,7 @@ use std::fmt::Display;
 /// An in-place update to a DocValues field.
 #[derive(Clone)]
 pub struct DocValuesUpdate {
-    #[allow(unused)]
-    pub doc_values_type: DocValuesType,
+    doc_values_type: DocValuesType,
     pub term: Term,
     pub field: String,
     // used in BufferedDeletes to apply this update only to a slice of docs. It's initialized to
@@ -56,7 +55,7 @@ impl DocValuesUpdate {
             sub_update,
         }
     }
-    #[allow(unused)]
+
     pub(crate) fn has_value(&self) -> bool {
         self.has_value
     }
@@ -92,12 +91,11 @@ impl Display for DocValuesUpdate {
     }
 }
 pub trait DocValuesUpdateBase {
-    #[allow(unused)]
     fn value_size_in_bytes(&self) -> i64 {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     fn value_to_string(&self) -> String;
-    #[allow(unused)]
+
     fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef) -> Result<(), LuceneError> {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
@@ -111,7 +109,6 @@ pub struct BinaryDocValuesUpdate {
     value: Option<BytesRef>,
 }
 impl BinaryDocValuesUpdate {
-    #[allow(unused)]
     const RAW_VALUE_SIZE_IN_BYTES: i32 = 0;
     pub fn new(value: Option<BytesRef>) -> Self {
         BinaryDocValuesUpdate { value }

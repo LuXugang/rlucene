@@ -71,7 +71,7 @@ impl FieldUpdatesBuffer {
     const STRING_SHALLOW_SIZE: i64 = 0;
     pub fn new(
         bytes_used: Arc<Mutex<CounterEnum>>,
-        initial_value: DocValuesUpdate,
+        initial_value: &DocValuesUpdate,
         doc_upto: i32,
         is_numeric: bool,
     ) -> Result<Self, LuceneError> {
@@ -114,7 +114,7 @@ impl FieldUpdatesBuffer {
     }
     pub fn from_numeric_update(
         bytes_used: Arc<Mutex<CounterEnum>>,
-        initial_value: DocValuesUpdate,
+        initial_value: &DocValuesUpdate,
         doc_up_to: i32,
     ) -> Result<Self, LuceneError> {
         let numeric = initial_value
@@ -144,7 +144,7 @@ impl FieldUpdatesBuffer {
 
     pub fn from_binary_update(
         bytes_used: Arc<Mutex<CounterEnum>>,
-        initial_value: DocValuesUpdate,
+        initial_value: &DocValuesUpdate,
         doc_up_to: i32,
     ) -> Result<Self, LuceneError> {
         let binary = initial_value
@@ -157,7 +157,7 @@ impl FieldUpdatesBuffer {
         } else {
             BytesRef::default()
         };
-        let mut buffer = Self::new(bytes_used, initial_value, doc_up_to, false)?;
+        let mut buffer = Self::new(bytes_used, &initial_value, doc_up_to, false)?;
         if has_values {
             debug_assert!(buffer.byte_values.is_some());
             buffer.byte_values.as_mut().unwrap().append(&value)?;
@@ -261,7 +261,7 @@ impl FieldUpdatesBuffer {
     }
     pub fn add_update_with_long(
         &mut self,
-        term: Term,
+        term: &Term,
         value: i64,
         doc_up_to: i32,
     ) -> Result<(), LuceneError> {
@@ -292,18 +292,18 @@ impl FieldUpdatesBuffer {
         Ok(())
     }
 
-    pub fn add_no_value(&mut self, term: Term, doc_up_to: i32) -> Result<(), LuceneError> {
-        let ord = self.append(&term)?;
+    pub fn add_no_value(&mut self, term: &Term, doc_up_to: i32) -> Result<(), LuceneError> {
+        let ord = self.append(term)?;
         self.add(term.field.clone(), doc_up_to, ord, false)
     }
     pub fn add_update_with_bytes_ref(
         &mut self,
-        term: Term,
+        term: &Term,
         value: &BytesRef,
         doc_up_to: i32,
     ) -> Result<(), LuceneError> {
         debug_assert!(!self.is_numeric);
-        let ord = self.append(&term)?;
+        let ord = self.append(term)?;
         self.byte_values.as_mut().unwrap().append(value)?;
         self.add(term.field.clone(), doc_up_to, ord, true)?;
         Ok(())

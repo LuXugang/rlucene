@@ -44,14 +44,18 @@ pub fn test_basics() -> Result<(), TestError> {
         BufferedUpdates::MAX_INT,
         DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(6))),
     );
-    let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), update, 15)?;
-    buffer.add_update_with_long(Term::from_text("id".to_string(), "10"), 6, 15)?;
+    let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, 15)?;
+    buffer.add_update_with_long(&Term::from_text("id".to_string(), "10"), 6, 15)?;
     assert!(buffer.has_single_value());
-    buffer.add_update_with_long(Term::from_text("id".to_string(), "8"), 12, 15)?;
+    buffer.add_update_with_long(&Term::from_text("id".to_string(), "8"), 12, 15)?;
     assert!(!buffer.has_single_value());
-    buffer.add_update_with_long(Term::from_text("some_other_field".to_string(), "8"), 13, 17)?;
+    buffer.add_update_with_long(
+        &Term::from_text("some_other_field".to_string(), "8"),
+        13,
+        17,
+    )?;
     assert!(!buffer.has_single_value());
-    buffer.add_update_with_long(Term::from_text("id".to_string(), "8"), 12, 16)?;
+    buffer.add_update_with_long(&Term::from_text("id".to_string(), "8"), 12, 16)?;
     assert!(!buffer.has_single_value());
     assert!(buffer.is_numeric());
     assert_eq!(buffer.get_max_numeric(), 13);
@@ -112,28 +116,28 @@ fn test_update_share_values() -> Result<(), TestError> {
         BufferedUpdates::MAX_INT,
         sub_update,
     );
-    let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), update, i32::MAX)?;
+    let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, i32::MAX)?;
     buffer.add_update_with_long(
-        Term::from_text("id".to_string(), "1"),
+        &Term::from_text("id".to_string(), "1"),
         int_value as i64,
         i32::MAX,
     )?;
     buffer.add_update_with_long(
-        Term::from_text("id".to_string(), "2"),
+        &Term::from_text("id".to_string(), "2"),
         int_value as i64,
         i32::MAX,
     )?;
     if value_for_three {
         buffer.add_update_with_long(
-            Term::from_text("id".to_string(), "3"),
+            &Term::from_text("id".to_string(), "3"),
             int_value as i64,
             i32::MAX,
         )?;
     } else {
-        buffer.add_no_value(Term::from_text("id".to_string(), "3"), i32::MAX)?;
+        buffer.add_no_value(&Term::from_text("id".to_string(), "3"), i32::MAX)?;
     }
     buffer.add_update_with_long(
-        Term::from_text("id".to_string(), "4"),
+        &Term::from_text("id".to_string(), "4"),
         int_value as i64,
         i32::MAX,
     )?;
@@ -175,29 +179,29 @@ pub fn test_update_share_values_binary() -> Result<(), TestError> {
         BufferedUpdates::MAX_INT,
         sub_update,
     );
-    let mut buffer = FieldUpdatesBuffer::from_binary_update(counter.clone(), update, i32::MAX)?;
+    let mut buffer = FieldUpdatesBuffer::from_binary_update(counter.clone(), &update, i32::MAX)?;
     buffer.add_update_with_bytes_ref(
-        Term::from_text("id".to_string(), "1"),
+        &Term::from_text("id".to_string(), "1"),
         &BytesRef::from_string(""),
         i32::MAX,
     )?;
     buffer.add_update_with_bytes_ref(
-        Term::from_text("id".to_string(), "2"),
+        &Term::from_text("id".to_string(), "2"),
         &BytesRef::from_string(""),
         i32::MAX,
     )?;
     if value_for_three {
         buffer.add_update_with_bytes_ref(
-            Term::from_text("id".to_string(), "3"),
+            &Term::from_text("id".to_string(), "3"),
             &BytesRef::from_string(""),
             i32::MAX,
         )?;
     } else {
-        buffer.add_no_value(Term::from_text("id".to_string(), "3"), i32::MAX)?;
+        buffer.add_no_value(&Term::from_text("id".to_string(), "3"), i32::MAX)?;
     }
 
     buffer.add_update_with_bytes_ref(
-        Term::from_text("id".to_string(), "4"),
+        &Term::from_text("id".to_string(), "4"),
         &BytesRef::from_string(""),
         i32::MAX,
     )?;
@@ -297,7 +301,7 @@ pub fn test_binary_random() -> Result<(), TestError> {
 
     let doc_id_up_to = random_update.doc_id_up_to;
     let mut buffer =
-        FieldUpdatesBuffer::from_binary_update(counter.clone(), random_update, doc_id_up_to)?;
+        FieldUpdatesBuffer::from_binary_update(counter.clone(), &random_update, doc_id_up_to)?;
 
     for i in 0..num_updates {
         random_update = get_random_binary_update(&mut random, i + 1);
@@ -306,12 +310,12 @@ pub fn test_binary_random() -> Result<(), TestError> {
 
         if random_update.has_value {
             buffer.add_update_with_bytes_ref(
-                random_update.term,
+                &random_update.term,
                 &random_update.sub_update.get_binary().unwrap().get_value(),
                 doc_id_up_to,
             )?;
         } else {
-            buffer.add_no_value(random_update.term, doc_id_up_to)?;
+            buffer.add_no_value(&random_update.term, doc_id_up_to)?;
         }
     }
     buffer.finish()?;
@@ -354,7 +358,7 @@ pub fn test_numeric_random() -> Result<(), TestError> {
 
     let doc_id_up_to = random_update.doc_id_up_to;
     let mut buffer =
-        FieldUpdatesBuffer::from_numeric_update(counter.clone(), random_update, doc_id_up_to)?;
+        FieldUpdatesBuffer::from_numeric_update(counter.clone(), &random_update, doc_id_up_to)?;
 
     let mut last_update: Option<DocValuesUpdate> = None;
     for i in 0..num_updates {
@@ -368,12 +372,12 @@ pub fn test_numeric_random() -> Result<(), TestError> {
 
         if random_update.has_value {
             buffer.add_update_with_long(
-                random_update.term,
+                &random_update.term,
                 random_update.sub_update.get_numeric().unwrap().get_value(),
                 doc_id_up_to,
             )?;
         } else {
-            buffer.add_no_value(random_update.term, doc_id_up_to)?;
+            buffer.add_no_value(&random_update.term, doc_id_up_to)?;
         }
     }
     buffer.finish()?;
@@ -403,7 +407,7 @@ pub fn test_no_numeric_value() -> Result<(), TestError> {
 
     let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
     let doc_id_up_to = update.doc_id_up_to;
-    let buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), update, doc_id_up_to)?;
+    let buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, doc_id_up_to)?;
 
     assert_eq!(buffer.get_min_numeric(), 0);
     assert_eq!(buffer.get_max_numeric(), 0);
@@ -436,7 +440,7 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), TestError> {
     updates.push(random_update.clone());
     let doc_id_up_to = random_update.doc_id_up_to;
     let mut buffer =
-        FieldUpdatesBuffer::from_numeric_update(counter.clone(), random_update, doc_id_up_to)?;
+        FieldUpdatesBuffer::from_numeric_update(counter.clone(), &random_update, doc_id_up_to)?;
 
     for i in 0..num_updates {
         random_update = DocValuesUpdate::new(
@@ -453,7 +457,7 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), TestError> {
             random_update = v
         }
         updates.push(random_update.clone());
-        buffer.add_update_with_long(random_update.term, doc_value, random_update.doc_id_up_to)?;
+        buffer.add_update_with_long(&random_update.term, doc_value, random_update.doc_id_up_to)?;
     }
 
     buffer.finish()?;
