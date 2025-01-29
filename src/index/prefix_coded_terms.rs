@@ -69,7 +69,7 @@ impl<'a> PrefixCodedTerms<'a> {
         )
     }
 }
-impl<'a> Hash for PrefixCodedTerms<'a> {
+impl Hash for PrefixCodedTerms<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for cursor in &self.content {
             cursor.get_ref().hash(state);
@@ -78,7 +78,7 @@ impl<'a> Hash for PrefixCodedTerms<'a> {
         self.del_gen.hash(state);
     }
 }
-impl<'a> PartialEq for PrefixCodedTerms<'a> {
+impl PartialEq for PrefixCodedTerms<'_> {
     fn eq(&self, other: &Self) -> bool {
         if std::ptr::eq(self, other) {
             return true;
@@ -94,7 +94,7 @@ impl<'a> PartialEq for PrefixCodedTerms<'a> {
     }
 }
 
-impl<'a> Eq for PrefixCodedTerms<'a> {}
+impl Eq for PrefixCodedTerms<'_> {}
 impl Accountable for PrefixCodedTerms<'_> {
     fn ram_bytes_used(&self) -> i64 {
         //TODO: memory calculation not implemented
@@ -103,14 +103,14 @@ impl Accountable for PrefixCodedTerms<'_> {
 }
 
 /// Builder for `PrefixCodedTerms`: call `add` repeatedly, then `finish`.
-pub struct Builder {
+pub struct PrefixCodedTermsBuilder {
     output: ByteBuffersDataOutput,
     last_term: Term,
     last_term_bytes: BytesRefBuilder,
     size: i64,
 }
 
-impl Builder {
+impl PrefixCodedTermsBuilder {
     /// Sole constructor.
     pub fn new() -> Result<Self, LuceneError> {
         Ok(Self {
@@ -135,7 +135,7 @@ impl Builder {
         let prefix: i32;
         if self.size > 0 && field == self.last_term.field {
             // Same field as the last term
-            prefix = StringHelper::bytes_difference(&self.last_term.bytes, &bytes)?;
+            prefix = StringHelper::bytes_difference(&self.last_term.bytes, bytes)?;
             self.output.write_vint(prefix << 1)?;
         } else {
             // Field change
@@ -152,7 +152,7 @@ impl Builder {
             0,
             suffix,
         )?;
-        self.last_term_bytes.copy_bytes_with_ref(&bytes)?;
+        self.last_term_bytes.copy_bytes_with_ref(bytes)?;
         self.last_term.bytes = self.last_term_bytes.get_bytes_ref();
         self.last_term.field = field;
         self.size += 1;
@@ -212,7 +212,7 @@ impl BytesRefIterator for TermIterator<'_> {
             if new_field {
                 self.field = self.input.read_string()?
             }
-            let prefix = (code >> 1);
+            let prefix = code >> 1;
             let suffix = self.input.read_vint()?;
             self.read_term_bytes(prefix, suffix)?;
             return Ok(Some(std::mem::take(&mut self.bytes)));
