@@ -256,6 +256,28 @@ impl BitUtil {
         }
     }
 
+    /// Returns the next highest power of two, or the current value if it's already a power of two or zero.
+    pub fn next_highest_power_of_two_with_i32(mut v: i32) -> i32 {
+        v -= 1;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        v + 1
+    }
+    /// Returns the next highest power of two, or the current value if it's already a power of two or zero.
+    pub fn next_highest_power_of_two_with_i64(mut v: i64) -> i64 {
+        v -= 1;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        v |= v >> 32;
+        v + 1
+    }
+
     pub fn zig_zag_decode_i32(i: u32) -> i32 {
         ((i >> 1) as i32) ^ -((i & 1) as i32)
     }
