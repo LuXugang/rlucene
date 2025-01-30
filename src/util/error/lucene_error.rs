@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::array_index_out_of_bounds::ArrayIndexOutOfBoundsError;
+use crate::util::error::buffer_allocation::BufferAllocationError;
 use crate::util::error::corrupt_index::CorruptIndexError;
 use crate::util::error::eof::Eof;
 use crate::util::error::illegal_argument::IllegalArgumentError;
@@ -25,6 +26,7 @@ use crate::util::error::index_not_found::IndexNotFound;
 use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::lock_already_held::LockAlreadyHeldError;
 use crate::util::error::lock_held_by_other::LockHeldByOtherError;
+use crate::util::error::lucene_error::LuceneError::BufferAllocation;
 use crate::util::error::max_bytes_length_exceeded::MaxBytesLengthExceededError;
 use crate::util::error::not_found::NotFoundError;
 use crate::util::error::number_format::NumberFormatError;
@@ -95,6 +97,9 @@ pub enum LuceneError {
 
     #[error("{0}")]
     MaxBytesLengthExceeded(#[from] MaxBytesLengthExceededError),
+
+    #[error("{0}")]
+    BufferAllocation(#[from] BufferAllocationError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -166,5 +171,8 @@ impl LuceneError {
     }
     pub fn max_bytes_length_exceeded(msg: impl Into<String>) -> Self {
         LuceneError::MaxBytesLengthExceeded(MaxBytesLengthExceededError::new(msg))
+    }
+    pub fn buffer_allocation(msg: impl Into<String>) -> Self {
+        LuceneError::BufferAllocation(BufferAllocationError::new(msg))
     }
 }
