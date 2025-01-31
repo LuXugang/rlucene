@@ -27,6 +27,8 @@ use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::lock_already_held::LockAlreadyHeldError;
 use crate::util::error::lock_held_by_other::LockHeldByOtherError;
 use crate::util::error::max_bytes_length_exceeded::MaxBytesLengthExceededError;
+use crate::util::error::merge::MergeError;
+use crate::util::error::merge_aborted::MergeAbortedError;
 use crate::util::error::not_found::NotFoundError;
 use crate::util::error::number_format::NumberFormatError;
 use crate::util::error::unimplemented::UnimplementedError;
@@ -34,7 +36,6 @@ use crate::util::error::unsupported_operation::UnsupportedOperationError;
 use std::io::Error;
 use std::string::FromUtf8Error;
 use thiserror::Error;
-use crate::util::error::merge::MergeError;
 
 #[derive(Debug, Error)]
 pub enum LuceneError {
@@ -103,6 +104,9 @@ pub enum LuceneError {
 
     #[error("{0}")]
     Merge(#[from] MergeError),
+
+    #[error("{0}")]
+    MergeAborted(#[from] MergeAbortedError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -180,5 +184,8 @@ impl LuceneError {
     }
     pub fn merge(msg: impl Into<String>) -> Self {
         LuceneError::Merge(MergeError::new(msg))
+    }
+    pub fn merge_abort(msg: impl Into<String>) -> Self {
+        LuceneError::MergeAborted(MergeAbortedError::new(msg))
     }
 }
