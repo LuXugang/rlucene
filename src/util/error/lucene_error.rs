@@ -34,6 +34,7 @@ use crate::util::error::unsupported_operation::UnsupportedOperationError;
 use std::io::Error;
 use std::string::FromUtf8Error;
 use thiserror::Error;
+use crate::util::error::merge::MergeError;
 
 #[derive(Debug, Error)]
 pub enum LuceneError {
@@ -99,6 +100,9 @@ pub enum LuceneError {
 
     #[error("{0}")]
     BufferAllocation(#[from] BufferAllocationError),
+
+    #[error("{0}")]
+    Merge(#[from] MergeError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -173,5 +177,8 @@ impl LuceneError {
     }
     pub fn buffer_allocation(msg: impl Into<String>) -> Self {
         LuceneError::BufferAllocation(BufferAllocationError::new(msg))
+    }
+    pub fn merge(msg: impl Into<String>) -> Self {
+        LuceneError::Merge(MergeError::new(msg))
     }
 }
