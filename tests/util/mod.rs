@@ -30,6 +30,7 @@ mod test_docs_with_field_set;
 pub mod test_error;
 mod test_fixed_bit_doc_id_set;
 mod test_fixed_bit_set;
+mod test_info_stream;
 mod test_int_array_doc_id_set;
 mod test_intro_selector;
 mod test_intro_sorter;
