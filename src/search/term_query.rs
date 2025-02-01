@@ -16,6 +16,7 @@
  */
 use crate::index::term::Term;
 use crate::search::query::Query;
+use std::fmt::Display;
 
 #[derive(Eq, Hash, PartialEq)]
 pub struct TermQuery {
@@ -27,3 +28,9 @@ impl TermQuery {
     }
 }
 impl Query for TermQuery {}
+
+impl Display for TermQuery {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        todo!()
+    }
+}

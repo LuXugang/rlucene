@@ -15,7 +15,13 @@
  * limitations under the License.
  */
 use crate::search::query::Query;
+use std::fmt::Display;
 
 #[derive(Eq, Hash, PartialEq)]
 pub struct DummyQuery {}
 impl Query for DummyQuery {}
+impl Display for DummyQuery {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        todo!()
+    }
+}

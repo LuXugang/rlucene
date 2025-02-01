@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
 use std::hash::Hash;
 
-pub trait Query: Eq + Hash {}
+pub trait Query: Eq + Hash + Display {}
