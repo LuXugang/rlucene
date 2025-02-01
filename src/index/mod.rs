@@ -22,6 +22,7 @@ pub mod bytes_ref_builder;
 pub use bytes_ref_builder::*;
 pub mod binary_doc_values;
 pub mod binary_doc_values_field_updates;
+mod buffered_updates_stream;
 pub mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_type;
@@ -50,6 +51,5 @@ pub mod segment_infos;
 pub mod sort;
 pub mod sort_field_provider;
 pub mod term;
-mod buffered_updates_stream;
 
 pub use index_file_names::*;

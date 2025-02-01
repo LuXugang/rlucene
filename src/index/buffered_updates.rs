@@ -48,7 +48,7 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 ///   or through synchronized code in the `DocumentsWriterDeleteQueue`.
 pub struct BufferedUpdates<Q>
 where
-    Q: Query + Eq + Hash,
+    Q: Query,
 {
     pub(crate) num_field_updates: AtomicI32,
     pub(crate) delete_terms: DeletedTerms,
@@ -71,7 +71,7 @@ impl BufferedUpdates<DummyQuery> {
 
 impl<Q> BufferedUpdates<Q>
 where
-    Q: Query + Eq + Hash,
+    Q: Query,
 {
     /// Creates a new `BufferedUpdates` instance.
     pub fn new(segment_name: String) -> Self {
@@ -223,7 +223,7 @@ where
 
 impl<Q> Accountable for BufferedUpdates<Q>
 where
-    Q: Query + Eq + Hash,
+    Q: Query,
 {
     fn ram_bytes_used(&self) -> i64 {
         // TODO: memory calculation not implemented
@@ -232,7 +232,7 @@ where
 }
 impl<Q> fmt::Display for BufferedUpdates<Q>
 where
-    Q: Query + Eq + Hash + fmt::Display,
+    Q: Query + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.verbose_deletes {

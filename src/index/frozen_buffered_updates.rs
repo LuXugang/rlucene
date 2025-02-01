@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::buffered_updates::BufferedUpdates;
+use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -25,20 +26,22 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::info_stream::{InfoStream, InfoStreamEnum};
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex};
-use crate::index::buffered_updates_stream::SegmentState;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 pub struct FrozenBufferedUpdates<D, Q>
 where
     D: Directory,
-    Q: Query + Eq + Hash,
+    Q: Query,
 {
     info_stream: Arc<Mutex<InfoStreamEnum>>,
     delete_terms: PrefixCodedTerms,
     delete_queries: Vec<Arc<Q>>,
     delete_query_limits: Vec<i32>,
     applied: AtomicBool,
-    pub (crate)apply_lock: Mutex<()>,
+    pub(crate) apply_lock: Mutex<()>,
     field_updates: HashMap<String, FieldUpdatesBuffer>,
     total_del_count: i64,
     field_updates_count: i32,
@@ -50,7 +53,7 @@ where
 impl<D, Q> FrozenBufferedUpdates<D, Q>
 where
     D: Directory,
-    Q: Query + Eq + Hash,
+    Q: Query,
 {
     // NOTE: we now apply this frozen packet immediately on creation, yet this process is heavy, and runs
     // in multiple threads, and this compression is sizable (~8.3% of the original size), so it's important
@@ -142,8 +145,8 @@ where
         );
         self.applied.load(Ordering::Relaxed)
     }
-    
-    pub fn apply(&self,seg_states: SegmentState){
+
+    pub fn apply(&self, seg_states: SegmentState) {
         unimplemented!()
     }
 }
