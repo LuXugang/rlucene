@@ -40,6 +40,7 @@ pub mod index_sorter;
 pub mod index_writer;
 pub mod leaf_metadata;
 pub mod leaf_reader_context;
+mod merge_policy;
 pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
 pub mod prefix_coded_terms;
