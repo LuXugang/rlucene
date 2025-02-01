@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::already_closed::AlreadyClosedError;
 use crate::util::error::array_index_out_of_bounds::ArrayIndexOutOfBoundsError;
 use crate::util::error::buffer_allocation::BufferAllocationError;
 use crate::util::error::corrupt_index::CorruptIndexError;
@@ -107,6 +108,9 @@ pub enum LuceneError {
 
     #[error("{0}")]
     MergeAborted(#[from] MergeAbortedError),
+
+    #[error("{0}")]
+    AlreadyClosed(#[from] AlreadyClosedError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -187,5 +191,8 @@ impl LuceneError {
     }
     pub fn merge_abort(msg: impl Into<String>) -> Self {
         LuceneError::MergeAborted(MergeAbortedError::new(msg))
+    }
+    pub fn already_closed(msg: impl Into<String>) -> Self {
+        LuceneError::AlreadyClosed(AlreadyClosedError::new(msg))
     }
 }
