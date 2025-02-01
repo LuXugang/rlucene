@@ -50,10 +50,10 @@ pub struct BufferedUpdates<Q>
 where
     Q: Query + Eq + Hash,
 {
-    num_field_updates: AtomicI32,
-    delete_terms: DeletedTerms,
-    delete_queries: HashMap<Q, i32>,
-    field_updates: HashMap<String, FieldUpdatesBuffer>,
+    pub(crate) num_field_updates: AtomicI32,
+    pub(crate) delete_terms: DeletedTerms,
+    pub(crate) delete_queries: HashMap<Arc<Q>, i32>,
+    pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
     bytes_used: Arc<Mutex<CounterEnum>>,
     field_updates_bytes_used: Arc<Mutex<CounterEnum>>,
     verbose_deletes: bool,
@@ -87,8 +87,12 @@ where
             segment_name,
         }
     }
-    pub fn add_query(&mut self, query: Q, doc_id_upto: i32) -> Result<(), LuceneError> {
-        if self.delete_queries.insert(query, doc_id_upto).is_none() {
+    pub fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) -> Result<(), LuceneError> {
+        if self
+            .delete_queries
+            .insert(query.clone(), doc_id_upto)
+            .is_none()
+        {
             self.bytes_used
                 .lock()
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?

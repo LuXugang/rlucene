@@ -50,5 +50,6 @@ pub mod segment_infos;
 pub mod sort;
 pub mod sort_field_provider;
 pub mod term;
+mod buffered_updates_stream;
 
 pub use index_file_names::*;

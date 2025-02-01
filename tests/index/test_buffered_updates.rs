@@ -23,6 +23,7 @@ use rlucene::index::BytesRef;
 use rlucene::search::term_query::TermQuery;
 use rlucene::util::accountable::Accountable;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 pub struct TestBufferedUpdates;
@@ -45,7 +46,7 @@ fn test_ram_bytes_used() -> Result<(), TestError> {
         };
         let value = format!("{}", random.gen_range(0..100));
         let term = Term::new("id".to_string(), BytesRef::from_string(&value));
-        bu.add_query(TermQuery::new(term.clone()), doc_id_upto)?;
+        bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto)?;
     }
 
     let terms = at_least(&mut random, 1);

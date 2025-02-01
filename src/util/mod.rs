@@ -45,7 +45,7 @@ pub mod fixed_bit_set;
 mod fixed_bits;
 pub mod group_vint_util;
 pub mod in_place_merge_sorter;
-mod info_stream;
+pub mod info_stream;
 pub mod int_array_doc_id_set;
 pub mod intro_selector;
 pub mod intro_sorter;
