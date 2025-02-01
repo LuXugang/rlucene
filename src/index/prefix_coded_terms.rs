@@ -33,8 +33,8 @@ use std::io::Cursor;
 ///
 /// # Lucene Internal
 #[derive(Debug)]
-pub struct PrefixCodedTerms<'a> {
-    content: Vec<Cursor<&'a [u8]>>,
+pub struct PrefixCodedTerms {
+    content: Vec<Cursor<Vec<u8>>>,
     content_len: i64,
     size: i64,
     del_gen: i64,
@@ -42,8 +42,8 @@ pub struct PrefixCodedTerms<'a> {
     lazy_hash: i32,
 }
 
-impl<'a> PrefixCodedTerms<'a> {
-    pub fn new(content: Vec<Cursor<&'a [u8]>>, content_len: i64, size: i64) -> Self {
+impl PrefixCodedTerms {
+    pub fn new(content: Vec<Cursor<Vec<u8>>>, content_len: i64, size: i64) -> Self {
         debug_assert!(!content.is_empty());
         PrefixCodedTerms {
             content,
@@ -63,13 +63,23 @@ impl<'a> PrefixCodedTerms<'a> {
         self.size
     }
     pub fn iterator(&self) -> TermIterator {
+        let content = self
+            .content
+            .iter()
+            .map(|cursor| {
+                let slice = cursor.get_ref().as_slice();
+                let mut cursor = Cursor::new(slice);
+                cursor.set_position(0);
+                cursor
+            })
+            .collect();
         TermIterator::new(
             self.del_gen,
-            ByteBuffersDataInput::new(self.content.clone(), self.content_len),
+            ByteBuffersDataInput::new(content, self.content_len),
         )
     }
 }
-impl Hash for PrefixCodedTerms<'_> {
+impl Hash for PrefixCodedTerms {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for cursor in &self.content {
             cursor.get_ref().hash(state);
@@ -78,7 +88,7 @@ impl Hash for PrefixCodedTerms<'_> {
         self.del_gen.hash(state);
     }
 }
-impl PartialEq for PrefixCodedTerms<'_> {
+impl PartialEq for PrefixCodedTerms {
     fn eq(&self, other: &Self) -> bool {
         if std::ptr::eq(self, other) {
             return true;
@@ -94,8 +104,8 @@ impl PartialEq for PrefixCodedTerms<'_> {
     }
 }
 
-impl Eq for PrefixCodedTerms<'_> {}
-impl Accountable for PrefixCodedTerms<'_> {
+impl Eq for PrefixCodedTerms {}
+impl Accountable for PrefixCodedTerms {
     fn ram_bytes_used(&self) -> i64 {
         //TODO: memory calculation not implemented
         0
@@ -161,7 +171,7 @@ impl PrefixCodedTermsBuilder {
     }
     /// return finalized form.
     pub fn finish(&mut self) -> Result<PrefixCodedTerms, LuceneError> {
-        let content = self.output.to_buffer_list();
+        let content = self.output.get_owned_buffer_list();
         Ok(PrefixCodedTerms::new(content.1, content.0, self.size))
     }
 }

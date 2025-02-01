@@ -237,6 +237,13 @@ impl ByteBuffersDataOutput {
             .collect();
         (self.size(), data)
     }
+    /// Moves the blocks out of the current object, transferring ownership.
+    pub fn get_owned_buffer_list(&mut self) -> (i64, Vec<Cursor<Vec<u8>>>) {
+        let size = self.size();
+        let old_blocks = std::mem::take(&mut self.blocks);
+        let data = old_blocks.into_iter().collect();
+        (size, data)
+    }
     #[allow(unused)]
     pub fn get_writeable_buffer_list(&mut self) -> Vec<&mut Cursor<Vec<u8>>> {
         todo!()
