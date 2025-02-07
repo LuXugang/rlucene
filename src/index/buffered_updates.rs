@@ -28,7 +28,6 @@ use crate::util::{AllocatorEnum, ByteBlockPool, Counter, CounterEnum, DirectTrac
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::hash::Hash;
 use std::sync::atomic::AtomicI32;
 use std::sync::{Arc, Mutex};
 

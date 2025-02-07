@@ -25,7 +25,6 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::info_stream::{InfoStream, InfoStreamEnum};
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,

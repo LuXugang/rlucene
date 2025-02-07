@@ -24,7 +24,7 @@ use std::fmt::Display;
 /// An in-place update to a DocValues field.
 #[derive(Clone)]
 pub struct DocValuesUpdate {
-    doc_values_type: DocValuesType,
+    pub(crate) doc_values_type: DocValuesType,
     pub term: Term,
     pub field: String,
     // used in BufferedDeletes to apply this update only to a slice of docs. It's initialized to
