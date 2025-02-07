@@ -155,6 +155,10 @@ impl BytesRefBuilder {
     }
     /// Build a new BytesRef that has the same content as this buffer.
     pub fn get_bytes_ref(&mut self) -> BytesRef {
-        std::mem::take(&mut self.bytes_ref)
+        BytesRef::from_bytes(ArrayUtil::copy_of_sub_array(
+            &self.bytes_ref.bytes,
+            0,
+            self.bytes_ref.length,
+        ))
     }
 }

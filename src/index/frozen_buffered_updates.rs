@@ -36,7 +36,7 @@ where
     Q: Query,
 {
     info_stream: Arc<Mutex<InfoStreamEnum>>,
-    delete_terms: PrefixCodedTerms,
+    pub delete_terms: PrefixCodedTerms,
     delete_queries: Vec<Arc<Q>>,
     delete_query_limits: Vec<i32>,
     applied: AtomicBool,

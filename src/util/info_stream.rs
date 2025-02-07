@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
-use byteorder::LE;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, Mutex};
 
@@ -59,7 +58,7 @@ impl InfoStream for NoOutput {
 }
 
 /// The default `InfoStream` used by a newly instantiated classes.
-pub fn get_default() -> Arc<Mutex<InfoStreamEnum>> {
+pub fn get_default_info_stream() -> Arc<Mutex<InfoStreamEnum>> {
     DEFAULT_INFOSTREAM.clone()
 }
 

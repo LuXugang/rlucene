@@ -25,7 +25,6 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::info_stream::InfoStreamEnum;
 use std::fmt::{Display, Formatter};
-use std::ptr::eq;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
 
@@ -154,7 +153,7 @@ where
         }
         global_state.tail = new_node;
 
-        Ok(self.get_next_sequence_number())
+        Ok(self.get_next_sequence_number(global_state.max_seq_no))
     }
 
     pub(crate) fn any_changes(&self) -> Result<bool, LuceneError> {
@@ -200,7 +199,7 @@ where
         Ok(())
     }
 
-    fn freeze_global_buffer<D>(
+    pub fn freeze_global_buffer<D>(
         &mut self,
         caller_slice: Option<&mut DeleteSlice<Q>>,
     ) -> Result<Option<FrozenBufferedUpdates<D, Q>>, LuceneError>
@@ -223,7 +222,6 @@ where
             // Update the callers slices so we are on the same page
             slice.slice_tail = current_tail.clone();
         }
-        global_state.apply(BufferedUpdates::MAX_INT)?;
         let result = self.freeze_global_buffer_internal(&mut global_state, current_tail)?;
         Ok(result)
     }
@@ -281,7 +279,7 @@ where
             Ok(None)
         }
     }
-    pub(crate) fn new_slice(&self) -> Result<DeleteSlice<Q>, LuceneError> {
+    pub fn new_slice(&self) -> Result<DeleteSlice<Q>, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -294,7 +292,7 @@ where
             .read()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         self.ensure_open(global_state.closed)?;
-        let mut seq_no = self.get_next_sequence_number();
+        let mut seq_no = self.get_next_sequence_number(global_state.max_seq_no);
         if !Arc::ptr_eq(&slice.slice_tail, &global_state.tail) {
             // new deletes arrived since we last checked
             slice.slice_tail = global_state.tail.clone();
@@ -331,13 +329,13 @@ where
         Ok(!global_state.closed)
     }
 
-    pub fn get_next_sequence_number(&self) -> i64 {
+    pub fn get_next_sequence_number(&self, max_seq_no: i64) -> i64 {
         let seq_no = self.next_seq_no.fetch_add(1, Ordering::SeqCst);
         debug_assert!(
-            seq_no <= self.global_buffer_lock.read().unwrap().max_seq_no,
+            seq_no <= max_seq_no,
             "seq_no={} vs max_seq_no={}",
             seq_no,
-            self.global_buffer_lock.read().unwrap().max_seq_no
+            max_seq_no
         );
         seq_no
     }
@@ -591,13 +589,7 @@ where
         //tail in this slice are not equal then there will be at least one more
         //non-null node in the slice!
         {
-            let next_guard =
-                self.slice_head.next.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock".to_string())
-                })?;
-            debug_assert!(next_guard.is_some());
-            let mut current = next_guard.as_ref().unwrap().clone();
-            current.apply(del, doc_id_upto)?;
+            let mut current = self.slice_head.clone();
             loop {
                 let next_node_guard = current.next.lock().map_err(|_| {
                     LuceneError::illegal_state("Failed to acquire lock".to_string())
@@ -606,10 +598,12 @@ where
                     next_node_guard.is_some(),
                     "slice property violated between the head on the tail must not be a null node"
                 );
+
+                next_node_guard.as_ref().unwrap().apply(del, doc_id_upto)?;
                 if Arc::ptr_eq(next_node_guard.as_ref().unwrap(), &self.slice_tail) {
                     break;
                 }
-                next_node_guard.as_ref().unwrap().apply(del, doc_id_upto)?;
+
                 let next_node = next_node_guard.as_ref().unwrap().clone();
                 drop(next_node_guard);
                 current = next_node;
@@ -631,7 +625,10 @@ where
     /// Returns `true` if the item of the given node matches the item in the tail.
     #[cfg(feature = "test_only")]
     pub fn is_tail_item(&self, item: &NodeEnum<Q>) -> bool {
-        if eq(&self.slice_tail.sub_node, item) {
+        let node1 = NodeEnum::get_node_base(&self.slice_tail.item);
+        let node2 = NodeEnum::get_node_base(item);
+        debug_assert!(node1.is_some() && node2.is_some());
+        if node1.as_ref().unwrap().item == node2.as_ref().unwrap().item {
             return true;
         }
         false
@@ -649,7 +646,7 @@ where
 {
     /// The next node in the list, or `None` if this is the last node.
     next: Mutex<Option<Arc<Node<Q>>>>,
-    sub_node: NodeEnum<Q>,
+    item: NodeEnum<Q>,
 }
 
 impl<Q> Node<Q>
@@ -659,7 +656,7 @@ where
     pub fn new(sub_node: NodeEnum<Q>) -> Self {
         Self {
             next: Mutex::new(None),
-            sub_node,
+            item: sub_node,
         }
     }
 }
@@ -672,7 +669,7 @@ where
         buffered_deletes: &mut BufferedUpdates<Q>,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
-        self.sub_node.apply(buffered_deletes, doc_id_upto)
+        self.item.apply(buffered_deletes, doc_id_upto)
     }
 }
 impl<Q> Display for Node<Q>
@@ -680,11 +677,17 @@ where
     Q: Query,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.sub_node)
+        write!(f, "{}", self.item)
     }
 }
 // empty node
 pub struct EmptyNode;
+impl Default for EmptyNode {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EmptyNode {
     pub fn new() -> Self {
         Self {}
@@ -925,6 +928,13 @@ where
             NodeEnum::TermNodeArray(node) => node.apply(buffered_deletes, doc_id_upto),
             NodeEnum::DocValuesUpdatesNode(node) => node.apply(buffered_deletes, doc_id_upto),
             NodeEnum::EmptyNode(node) => node.apply(buffered_deletes, doc_id_upto),
+        }
+    }
+    #[cfg(feature = "test_only")]
+    pub fn get_node_base(node: &NodeEnum<Q>) -> Option<&TermNodeArray> {
+        match node {
+            NodeEnum::TermNodeArray(node) => Some(node),
+            _ => None,
         }
     }
 }
