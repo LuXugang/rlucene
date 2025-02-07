@@ -99,9 +99,9 @@ where
         // TODO: memory calculation not implemented
         let bytes_used = 0;
 
-        let info_stream_guard = info_stream.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
-        })?;
+        let info_stream_guard = info_stream
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         if info_stream_guard.is_enabled("BD") {
             let private_segment_msg = if private_segment.is_none() {
                 "None".to_string()

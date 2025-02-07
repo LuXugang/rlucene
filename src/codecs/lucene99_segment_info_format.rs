@@ -255,9 +255,9 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         D: Directory,
     {
         let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
-        let directory = dir.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
-        })?;
+        let directory = dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         let mut input = directory.open_checksum_input(&file_name)?;
 
         let mut prior_e: Option<LuceneError> = None;
@@ -312,9 +312,9 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         D: Directory,
     {
         let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
-        let mut directory = dir.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
-        })?;
+        let mut directory = dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         let mut output = directory.create_output(&file_name, io_context)?;
         si.add_file(file_name.clone())?;
         CodecUtil::write_index_header(

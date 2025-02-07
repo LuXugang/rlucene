@@ -72,9 +72,9 @@ where
 
         let (version, entries) = Self::read_entries(&si.get_id(), &directory, &entries_file_name)?;
 
-        let dir = directory.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
-        })?;
+        let dir = directory
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         let mut handle = dir.open_input(
             &data_file_name,
             &IO_CONTEXT_DEFAULT.read_advice(ReadAdvice::Normal)?,
@@ -126,9 +126,9 @@ where
         dir: &Arc<Mutex<D>>,
         entries_file_name: &str,
     ) -> Result<(i32, HashMap<String, FileEntry>), LuceneError> {
-        let directory = dir.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
-        })?;
+        let directory = dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         let mut entries_stream = directory.open_checksum_input(entries_file_name)?;
         let result = (|| {
             let version = CodecUtil::check_index_header(

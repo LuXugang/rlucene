@@ -236,9 +236,11 @@ where
             return Ok(current_size);
         }
         let mut sum = 0;
-        let directory = self.info.dir.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
-        })?;
+        let directory = self
+            .info
+            .dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         for file_name in self.files()? {
             sum += directory.file_length(&file_name)?;
         }

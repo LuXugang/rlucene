@@ -235,7 +235,7 @@ where
         let mut input;
         {
             let dir = directory.lock().map_err(|_| {
-                LuceneError::illegal_argument("Failed to acquire directory lock.".to_string())
+                LuceneError::illegal_argument("Failed to acquire  lock.".to_string())
             })?;
             input = match dir.open_checksum_input(segment_file_name) {
                 Ok(input) => input,
@@ -794,9 +794,9 @@ where
                 "prepare_commit was already called".to_string(),
             ));
         }
-        let mut directory = dir.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
-        })?;
+        let mut directory = dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         directory.sync_metadata()?;
         self.write_with_directory(&mut directory)?;
         Ok(())
@@ -842,9 +842,9 @@ where
             .ok_or_else(|| {
                 LuceneError::illegal_state("Failed to generate destination file name.".to_string())
             })?;
-            let mut directory = dir.lock().map_err(|_| {
-                LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
-            })?;
+            let mut directory = dir
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
             directory.rename(&src, &dest)?;
             directory.sync_metadata()?;
             success_rename_and_sync = true;
@@ -861,7 +861,7 @@ where
                 if !success_rename_and_sync {
                     // Attempt to roll back the commit if renaming or syncing failed
                     let mut directory = dir.lock().map_err(|_| {
-                        LuceneError::illegal_state("Failed to acquire directory lock.".to_string())
+                        LuceneError::illegal_state("Failed to acquire  lock.".to_string())
                     })?;
                     self.rollback_commit(&mut directory);
                 }
