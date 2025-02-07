@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::lucene_error::LuceneError;
+use byteorder::LE;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, Mutex};
 
@@ -32,8 +34,8 @@ pub trait InfoStream: Send + Sync {
 
 /// A global, thread-safe reference to a default `InfoStream`,
 /// mirroring `private static InfoStream defaultInfoStream` in Java.
-static DEFAULT_INFOSTREAM: Lazy<Mutex<Arc<InfoStreamEnum>>> =
-    Lazy::new(|| Mutex::new(Arc::new(InfoStreamEnum::NoOutput(NoOutput))));
+static DEFAULT_INFOSTREAM: Lazy<Arc<Mutex<InfoStreamEnum>>> =
+    Lazy::new(|| Arc::new(Mutex::new(InfoStreamEnum::NoOutput(NoOutput))));
 
 /// Instance of InfoStream that does no logging at all.
 #[derive(Clone)]
@@ -57,15 +59,17 @@ impl InfoStream for NoOutput {
 }
 
 /// The default `InfoStream` used by a newly instantiated classes.
-pub fn get_default() -> Arc<InfoStreamEnum> {
-    let lock = DEFAULT_INFOSTREAM.lock().unwrap();
-    lock.clone()
+pub fn get_default() -> Arc<Mutex<InfoStreamEnum>> {
+    DEFAULT_INFOSTREAM.clone()
 }
 
 /// Sets the default [`InfoStream`] used by a newly instantiated classes.
-pub fn set_default(info_stream: Arc<InfoStreamEnum>) {
-    let mut lock = DEFAULT_INFOSTREAM.lock().unwrap();
+pub fn set_default(info_stream: InfoStreamEnum) -> Result<(), LuceneError> {
+    let mut lock = DEFAULT_INFOSTREAM
+        .lock()
+        .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
     *lock = info_stream;
+    Ok(())
 }
 #[derive(Clone)]
 pub enum InfoStreamEnum {
