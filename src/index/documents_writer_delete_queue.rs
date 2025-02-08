@@ -27,12 +27,14 @@ use crate::util::info_stream::InfoStreamEnum;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
+use std::thread;
+use std::time::Duration;
 
 pub struct DocumentsWriterDeleteQueue<Q>
 where
     Q: Query,
 {
-    global_buffer_lock: RwLock<GlobalState<Q>>,
+    pub global_buffer_lock: RwLock<GlobalState<Q>>,
     generation: i64,
     next_seq_no: Arc<AtomicI64>,
     info_stream: Arc<Mutex<InfoStreamEnum>>,
@@ -156,7 +158,7 @@ where
         Ok(self.get_next_sequence_number(global_state.max_seq_no))
     }
 
-    pub(crate) fn any_changes(&self) -> Result<bool, LuceneError> {
+    pub fn any_changes(&self) -> Result<bool, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .write()
@@ -180,7 +182,7 @@ where
             || !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail)
             || tail_next.is_some())
     }
-    fn try_apply_global_slice(&self) -> Result<(), LuceneError> {
+    pub fn try_apply_global_slice(&self) -> Result<(), LuceneError> {
         match self.global_buffer_lock.try_write() {
             Ok(mut global_state) => {
                 self.ensure_open(global_state.closed)?;
@@ -200,7 +202,7 @@ where
     }
 
     pub fn freeze_global_buffer<D>(
-        &mut self,
+        &self,
         caller_slice: Option<&mut DeleteSlice<Q>>,
     ) -> Result<Option<FrozenBufferedUpdates<D, Q>>, LuceneError>
     where
@@ -227,8 +229,7 @@ where
     }
     /// This may freeze the global buffer unless the delete queue has already been closed.
     /// If the queue has been closed, this method will return `None`.
-    #[allow(unused)]
-    fn maybe_freeze_global_buffer<D>(
+    pub fn maybe_freeze_global_buffer<D>(
         &mut self,
     ) -> Result<Option<FrozenBufferedUpdates<D, Q>>, LuceneError>
     where

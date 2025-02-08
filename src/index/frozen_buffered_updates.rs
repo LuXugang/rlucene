@@ -38,7 +38,7 @@ where
 {
     info_stream: Arc<Mutex<InfoStreamEnum>>,
     pub delete_terms: PrefixCodedTerms,
-    delete_queries: Vec<Arc<Q>>,
+    pub delete_queries: Vec<Arc<Q>>,
     delete_query_limits: Vec<i32>,
     applied: AtomicBool,
     pub(crate) apply_lock: Mutex<()>,
@@ -149,5 +149,10 @@ where
 
     pub fn apply(&self, _seg_states: SegmentState) {
         unimplemented!()
+    }
+    pub fn any(&self) -> bool {
+        self.delete_terms.size() > 0
+            || self.delete_queries.len() > 0
+            || self.field_updates_count > 0
     }
 }
