@@ -295,3 +295,860 @@ impl NumericUtils {
         Ok(BigInt::from_signed_bytes_be(&big_int_bytes))
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::index::BytesRef;
+    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::test_error::TestError;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::bit_util::BitUtil;
+    use crate::util::numeric_utils::NumericUtils;
+    use num_bigint::{BigInt, Sign};
+    use num_traits::{Float, FromPrimitive};
+    use rand::Rng;
+    use std::cmp::Ordering;
+    use std::ops::{Add, Sub};
+
+    #[allow(dead_code)] // for quick search
+    pub struct TestNumericUtils;
+    /// generate a series of encoded longs, each numerical one bigger than the one before. check for
+    ///correct ordering of the encoded bytes and that values round-trip.
+    #[test]
+    fn test_long_conversion_and_ordering() -> Result<(), TestError> {
+        let mut previous: Option<BytesRef> = None;
+        let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
+        for value in -100_000..100_000 {
+            NumericUtils::long_to_sortable_bytes(
+                value,
+                current.bytes.as_mut_slice(),
+                current.offset as usize,
+            );
+            if let Some(ref prev) = previous {
+                assert!(
+                    *prev < current,
+                    "Current value's encoded bytes are not larger than previous"
+                );
+            } else {
+                previous = Some(BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]));
+            }
+            let decoded_value = NumericUtils::sortable_bytes_to_long(
+                current.bytes.as_slice(),
+                current.offset as usize,
+            );
+            assert_eq!(
+                decoded_value, value,
+                "Forward and backward conversion failed for value"
+            );
+        }
+        Ok(())
+    }
+    /// generate a series of encoded ints, each numerical one bigger than the one before. check for
+    /// correct ordering of the encoded bytes and that values round-trip.
+    #[test]
+    fn test_int_conversion_and_ordering() -> Result<(), TestError> {
+        let mut previous: Option<BytesRef> = None;
+        let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
+
+        for value in -100_000..100_000 {
+            NumericUtils::int_to_sortable_bytes(value, current.bytes.as_mut_slice(), 0);
+
+            if let Some(ref prev) = previous {
+                assert!(
+                    *prev < current,
+                    "Current value's encoded bytes are not larger than previous"
+                );
+            }
+
+            let decoded_value = NumericUtils::sortable_bytes_to_int(
+                current.bytes.as_slice(),
+                current.offset as usize,
+            );
+            assert_eq!(
+                decoded_value, value,
+                "Forward and backward conversion failed for value: {}",
+                value
+            );
+            previous = Some(BytesRef::from_bytes(current.bytes.clone()));
+        }
+        Ok(())
+    }
+    /// generate a series of encoded BigIntegers, each numerical one bigger than the one before. check
+    /// for correct ordering of the encoded bytes and that values round-trip.
+    #[test]
+    fn test_big_int_conversion_and_ordering() -> Result<(), TestError> {
+        let mut random = random();
+        // Generate a random size between 3 and 16
+        let size = TestUtil::next_int(&mut random, 3, 16) as usize;
+        let mut previous: Option<BytesRef> = None;
+        let mut current = BytesRef::from_bytes(vec![0u8; size]);
+
+        for value in -100_000..100_000 {
+            let big_int = BigInt::from_i64(value).unwrap();
+            NumericUtils::big_int_to_sortable_bytes(
+                big_int.clone(),
+                size,
+                current.bytes.as_mut_slice(),
+                0,
+            )?;
+            if let Some(ref prev) = previous {
+                assert!(
+                    *prev < current,
+                    "Current value's encoded bytes are not larger than previous"
+                );
+            }
+            let decoded = NumericUtils::sortable_bytes_to_big_int(
+                current.bytes.as_slice(),
+                current.offset as usize,
+                size,
+            )?;
+            assert_eq!(
+                decoded, big_int,
+                "Forward and backward conversion failed for value: {}",
+                big_int
+            );
+            previous = Some(BytesRef::from_bytes(current.bytes.clone()));
+        }
+
+        Ok(())
+    }
+    /// Checks extreme values of `i64` for correct ordering of the encoded bytes and ensures
+    /// that the values can be correctly encoded and decoded (round-trip conversion).
+    #[test]
+    fn test_long_special_values() -> Result<(), TestError> {
+        let values: Vec<i64> = vec![
+            i64::MIN,
+            i64::MIN + 1,
+            i64::MIN + 2,
+            -5003400000000,
+            -4000,
+            -3000,
+            -2000,
+            -1000,
+            -1,
+            0,
+            1,
+            10,
+            300,
+            50006789999999999,
+            i64::MAX - 2,
+            i64::MAX - 1,
+            i64::MAX,
+        ];
+
+        let mut encoded: Vec<BytesRef> = values
+            .iter()
+            .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]))
+            .collect();
+
+        for (i, &value) in values.iter().enumerate() {
+            let offset = encoded[i].offset as usize;
+            NumericUtils::long_to_sortable_bytes(value, encoded[i].bytes.as_mut_slice(), offset);
+
+            // Check that the value can be decoded back correctly
+            let decoded_value =
+                NumericUtils::sortable_bytes_to_long(encoded[i].bytes.as_slice(), offset);
+            assert_eq!(
+                decoded_value, value,
+                "Forward and backward conversion failed for value: {}",
+                value
+            );
+        }
+
+        for i in 1..encoded.len() {
+            assert_eq!(
+                encoded[i - 1].cmp(&encoded[i]),
+                Ordering::Less,
+                "Encoded values are not in ascending order: {:?} >= {:?}",
+                encoded[i - 1],
+                encoded[i]
+            );
+        }
+
+        Ok(())
+    }
+    /// Checks extreme values of `i32` for correct ordering of the encoded bytes and ensures
+    /// that the values can be correctly encoded and decoded (round-trip conversion).
+    #[test]
+    fn test_int_special_values() -> Result<(), TestError> {
+        let values: Vec<i32> = vec![
+            i32::MIN,
+            i32::MIN + 1,
+            i32::MIN + 2,
+            -64765767,
+            -4000,
+            -3000,
+            -2000,
+            -1000,
+            -1,
+            0,
+            1,
+            10,
+            300,
+            765878989,
+            i32::MAX - 2,
+            i32::MAX - 1,
+            i32::MAX,
+        ];
+
+        let mut encoded: Vec<BytesRef> = values
+            .iter()
+            .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]))
+            .collect();
+
+        for (i, &value) in values.iter().enumerate() {
+            let offset = encoded[i].offset as usize;
+            NumericUtils::int_to_sortable_bytes(value, encoded[i].bytes.as_mut_slice(), offset);
+            let decoded_value =
+                NumericUtils::sortable_bytes_to_int(encoded[i].bytes.as_slice(), offset);
+            assert_eq!(
+                decoded_value, value,
+                "Forward and backward conversion failed for value: {}",
+                value
+            );
+        }
+        for i in 1..encoded.len() {
+            assert_eq!(
+                encoded[i - 1].cmp(&encoded[i]),
+                Ordering::Less,
+                "Encoded values are not in ascending order: {:?} >= {:?}",
+                encoded[i - 1],
+                encoded[i]
+            );
+        }
+
+        Ok(())
+    }
+    /// Checks extreme values of `BigInt` (4 bytes) for correct ordering of the encoded bytes
+    /// and ensures that the values can be correctly encoded and decoded (round-trip conversion).
+    #[test]
+    fn test_big_int_special_values() -> Result<(), TestError> {
+        use num_bigint::BigInt;
+        use num_traits::FromPrimitive;
+        let values: Vec<BigInt> = vec![
+            BigInt::from_i32(i32::MIN).unwrap(),
+            BigInt::from_i32(i32::MIN + 1).unwrap(),
+            BigInt::from_i32(i32::MIN + 2).unwrap(),
+            BigInt::from_i32(-64765767).unwrap(),
+            BigInt::from_i32(-4000).unwrap(),
+            BigInt::from_i32(-3000).unwrap(),
+            BigInt::from_i32(-2000).unwrap(),
+            BigInt::from_i32(-1000).unwrap(),
+            BigInt::from_i32(-1).unwrap(),
+            BigInt::from_i32(0).unwrap(),
+            BigInt::from_i32(1).unwrap(),
+            BigInt::from_i32(10).unwrap(),
+            BigInt::from_i32(300).unwrap(),
+            BigInt::from_i32(765878989).unwrap(),
+            BigInt::from_i32(i32::MAX - 2).unwrap(),
+            BigInt::from_i32(i32::MAX - 1).unwrap(),
+            BigInt::from_i32(i32::MAX).unwrap(),
+        ];
+        let mut encoded: Vec<BytesRef> = values
+            .iter()
+            .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]))
+            .collect();
+        for (i, value) in values.iter().enumerate() {
+            let offset = encoded[i].offset as usize;
+            NumericUtils::big_int_to_sortable_bytes(
+                value.clone(),
+                4, // Integer.BYTES = 4
+                encoded[i].bytes.as_mut_slice(),
+                offset,
+            )?;
+            let decoded_value = NumericUtils::sortable_bytes_to_big_int(
+                encoded[i].bytes.as_slice(),
+                offset,
+                BitUtil::INT_BYTES,
+            )?;
+            assert_eq!(
+                decoded_value, *value,
+                "Forward and backward conversion failed for BigInt: {}",
+                value
+            );
+        }
+        for i in 1..encoded.len() {
+            assert!(
+                encoded[i - 1] < encoded[i],
+                "Encoded values are not in ascending order: {:?} >= {:?}",
+                encoded[i - 1],
+                encoded[i]
+            );
+        }
+
+        Ok(())
+    }
+    /// Checks various sorted values of `f64` (including extreme values) for correct ordering of
+    /// the encoded bytes and ensures that the values can be correctly encoded and decoded (round-trip conversion).
+    #[test]
+    fn test_doubles() -> Result<(), TestError> {
+        let values: Vec<f64> = vec![
+            f64::NEG_INFINITY,
+            -2.3E25,
+            -1.0E15,
+            -1.0,
+            -1.0E-1,
+            -1.0E-2,
+            -0.0,
+            0.0,
+            1.0E-2,
+            1.0E-1,
+            1.0,
+            1.0E15,
+            2.3E25,
+            f64::INFINITY,
+            f64::NAN,
+        ];
+
+        let mut encoded: Vec<i64> = vec![0; values.len()];
+
+        // Check forward and back conversion
+        for (i, &value) in values.iter().enumerate() {
+            encoded[i] = NumericUtils::double_to_sortable_long(value);
+
+            let decoded = NumericUtils::sortable_long_to_double(encoded[i]);
+            assert!(
+                value == decoded || (value.is_nan() && decoded.is_nan()),
+                "Forward and backward conversion failed for value: {}, decoded: {}",
+                value,
+                decoded
+            );
+        }
+
+        // Check sort order (encoded values should be ascending)
+        for i in 1..encoded.len() {
+            assert!(
+                encoded[i - 1] < encoded[i],
+                "Encoded values are not in ascending order: {} >= {}",
+                encoded[i - 1],
+                encoded[i]
+            );
+        }
+
+        Ok(())
+    }
+    /// Tests that various representations of `NaN` for `f64` are correctly encoded such that
+    /// their sortable representation is greater than positive infinity.
+    #[test]
+    fn test_sortable_double_nan() -> Result<(), TestError> {
+        let double_nans: Vec<f64> = vec![
+            f64::NAN,
+            // f64::from_bits(0x7ff0000000000001),
+            f64::from_bits(0x7fffffffffffffff),
+            f64::from_bits(0xfff0000000000001),
+            f64::from_bits(0xffffffffffffffff),
+        ];
+        let plus_inf = NumericUtils::double_to_sortable_long(f64::INFINITY);
+        for &nan in &double_nans {
+            assert!(nan.is_nan(), "Value is not NaN: {}", nan);
+            let sortable = NumericUtils::double_to_sortable_long(nan);
+            assert!(
+                sortable > plus_inf,
+                "Double not sorted correctly: {}, long repr: {}, positive inf.: {}",
+                nan,
+                sortable,
+                plus_inf
+            );
+        }
+        Ok(())
+    }
+    /// Checks various sorted values of `f32` (including extreme values) for correct ordering of
+    /// the encoded bytes and ensures that the values can be correctly encoded and decoded (round-trip conversion).
+    #[test]
+    fn test_floats() -> Result<(), TestError> {
+        let values: Vec<f32> = vec![
+            f32::NEG_INFINITY,
+            -2.3E25_f32,
+            -1.0E15_f32,
+            -1.0_f32,
+            -1.0E-1_f32,
+            -1.0E-2_f32,
+            -0.0_f32,
+            0.0_f32,
+            1.0E-2_f32,
+            1.0E-1_f32,
+            1.0_f32,
+            1.0E15_f32,
+            2.3E25_f32,
+            f32::INFINITY,
+            f32::NAN,
+        ];
+
+        let mut encoded: Vec<i32> = vec![0; values.len()];
+
+        // Check forward and backward conversion
+        for (i, &value) in values.iter().enumerate() {
+            encoded[i] = NumericUtils::float_to_sortable_int(value);
+
+            let decoded = NumericUtils::sortable_int_to_float(encoded[i]);
+            assert!(
+                value == decoded || (value.is_nan() && decoded.is_nan()),
+                "Forward and backward conversion failed for value: {}, decoded: {}",
+                value,
+                decoded
+            );
+        }
+
+        // Check sort order (encoded values should be ascending)
+        for i in 1..encoded.len() {
+            assert!(
+                encoded[i - 1] < encoded[i],
+                "Encoded values are not in ascending order: {} >= {}",
+                encoded[i - 1],
+                encoded[i]
+            );
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_sortable_float_nan() -> Result<(), TestError> {
+        let float_nans: Vec<f32> = vec![
+            f32::NAN,
+            f32::from_bits(0x7f800001),
+            f32::from_bits(0x7fffffff),
+            f32::from_bits(0xff800001),
+            f32::from_bits(0xffffffff),
+        ];
+
+        let plus_inf = NumericUtils::float_to_sortable_int(f32::INFINITY);
+
+        for &nan in &float_nans {
+            assert!(nan.is_nan(), "Value is not NaN: {}", nan);
+
+            let sortable = NumericUtils::float_to_sortable_int(nan);
+
+            assert!(
+                sortable > plus_inf,
+                "Float not sorted correctly: {}, int repr: {}, positive inf.: {}",
+                nan,
+                sortable,
+                plus_inf
+            );
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_add() -> Result<(), TestError> {
+        let mut random = random();
+        let iters = at_least(&mut random, 1000);
+        let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
+
+        for _ in 0..iters {
+            let v1 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+            let v2 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+
+            let mut v1_bytes = vec![0u8; num_bytes];
+            let v1_raw_bytes = v1.to_signed_bytes_be();
+            assert!(v1_raw_bytes.len() <= num_bytes);
+            let start_pos = num_bytes.saturating_sub(v1_raw_bytes.len());
+            v1_bytes[start_pos..].copy_from_slice(&v1_raw_bytes);
+
+            let mut v2_bytes = vec![0u8; num_bytes];
+            let v2_raw_bytes = v2.to_signed_bytes_be();
+            assert!(v2_raw_bytes.len() <= num_bytes);
+            let start_pos = num_bytes.saturating_sub(v2_raw_bytes.len());
+            v2_bytes[start_pos..].copy_from_slice(&v2_raw_bytes);
+
+            let mut result = vec![0u8; num_bytes];
+
+            assert!(num_bytes <= u32::MAX as usize);
+            NumericUtils::add(num_bytes as u32, 0, &v1_bytes, &v2_bytes, &mut result)?;
+
+            let v1_clone = v1.clone();
+            let v2_clone = v2.clone();
+            let sum = v1.add(v2);
+
+            let result_bigint = BigInt::from_bytes_be(Sign::Plus, &result);
+            assert_eq!(
+                result_bigint, sum,
+                "sum={} v1={} v2={} but result={}",
+                sum, v1_clone, v2_clone, result_bigint
+            );
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_add() {
+        let bytes = vec![0xFF; 4];
+        let mut one = vec![0x00; 4];
+        one[3] = 1;
+        let result = NumericUtils::add(4, 0, &bytes, &one, &mut [0u8; 4]);
+        assert!(
+            result.is_err(),
+            "Expected an overflow error, but the operation succeeded"
+        );
+
+        if let Err(err) = result {
+            assert_eq!(
+                err.to_string(),
+                "a + b overflows bytesPerDim=4",
+                "Unexpected error message: {}",
+                err
+            );
+        }
+    }
+    #[test]
+    fn test_subtract() -> Result<(), TestError> {
+        let mut random = random();
+        let iters = at_least(&mut random, 1000);
+        let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
+
+        for _ in 0..iters {
+            let mut v1 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+            let mut v2 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+
+            if v1 < v2 {
+                std::mem::swap(&mut v1, &mut v2);
+            }
+
+            let mut v1_bytes = vec![0u8; num_bytes];
+            let v1_raw_bytes = v1.to_signed_bytes_be();
+            let start_pos = num_bytes.saturating_sub(v1_raw_bytes.len());
+            v1_bytes[start_pos..].copy_from_slice(&v1_raw_bytes);
+
+            let mut v2_bytes = vec![0u8; num_bytes];
+            let v2_raw_bytes = v2.to_signed_bytes_be();
+            let start_pos = num_bytes.saturating_sub(v2_raw_bytes.len());
+            v2_bytes[start_pos..].copy_from_slice(&v2_raw_bytes);
+
+            let mut result = vec![0u8; num_bytes];
+
+            NumericUtils::subtract(num_bytes as u32, 0, &v1_bytes, &v2_bytes, &mut result)?;
+
+            let v1_clone = v1.clone();
+            let v2_clone = v2.clone();
+            let diff = v1.sub(v2);
+
+            let result_bigint = BigInt::from_signed_bytes_be(&result);
+            assert_eq!(
+                result_bigint, diff,
+                "diff={} result={} v1={} v2={}",
+                diff, result_bigint, v1_clone, v2_clone
+            );
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_subtract() {
+        let mut v1 = vec![0x00; 4];
+        v1[3] = 0xF0;
+        let mut v2 = vec![0x00; 4];
+        v2[3] = 0xF1; // Represents a larger value
+        let result = NumericUtils::subtract(4, 0, &v1, &v2, &mut [0u8; 4]);
+        assert!(
+            result.is_err(),
+            "Expected an error, but the operation succeeded"
+        );
+        if let Err(err) = result {
+            assert_eq!(
+                err.to_string(),
+                "a < b",
+                "Unexpected error message: {}",
+                err
+            );
+        }
+    }
+    /// Tests round-trip encoding and decoding of random `i32` values.
+    #[test]
+    fn test_ints_round_trip() -> Result<(), TestError> {
+        let mut random = random();
+        let mut encoded = vec![0u8; BitUtil::INT_BYTES];
+        for _ in 0..10_000 {
+            let value = random.gen::<i32>();
+            NumericUtils::int_to_sortable_bytes(value, &mut encoded, 0);
+            let decoded = NumericUtils::sortable_bytes_to_int(&encoded, 0);
+            assert_eq!(
+                decoded, value,
+                "Round-trip encoding failed for value: {}, decoded: {}",
+                value, decoded
+            );
+        }
+        Ok(())
+    }
+    /// Tests round-trip encoding and decoding of random `i64` values.
+    #[test]
+    fn test_longs_round_trip() -> Result<(), TestError> {
+        let mut random = random();
+        let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
+        for _ in 0..10_000 {
+            let value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
+            NumericUtils::long_to_sortable_bytes(value, &mut encoded, 0);
+            let decoded = NumericUtils::sortable_bytes_to_long(&encoded, 0);
+            assert_eq!(
+                decoded, value,
+                "Round-trip encoding failed for value: {}, decoded: {}",
+                value, decoded
+            );
+        }
+
+        Ok(())
+    }
+    /// Tests round-trip encoding and decoding of random `f32` values.
+    #[test]
+    fn test_floats_round_trip() -> Result<(), TestError> {
+        let mut random = random();
+        let mut encoded = vec![0u8; BitUtil::INT_BYTES];
+        for _ in 0..10_000 {
+            let value = f32::from_bits(random.gen::<i32>() as u32);
+            let sortable_int = NumericUtils::float_to_sortable_int(value);
+            NumericUtils::int_to_sortable_bytes(sortable_int, &mut encoded, 0);
+            let decoded_sortable_int = NumericUtils::sortable_bytes_to_int(&encoded, 0);
+            let actual = NumericUtils::sortable_int_to_float(decoded_sortable_int);
+            let expected_vale = if value.is_nan() {
+                BitUtil::FLOAT_NAN_BITS
+            } else {
+                value.to_bits()
+            };
+            let actual_value = if actual.is_nan() {
+                BitUtil::FLOAT_NAN_BITS
+            } else {
+                actual.to_bits()
+            };
+            assert_eq!(
+                expected_vale, actual_value,
+                "Round-trip encoding failed for value: {}, decoded: {}",
+                value, actual
+            );
+        }
+
+        Ok(())
+    }
+    /// Tests round-trip encoding and decoding of random `f64` values.
+    #[test]
+    fn test_doubles_round_trip() -> Result<(), TestError> {
+        let mut random = random();
+        let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
+
+        for _ in 0..10_000 {
+            let value = f64::from_bits(TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64);
+            let sortable_long = NumericUtils::double_to_sortable_long(value);
+            NumericUtils::long_to_sortable_bytes(sortable_long, &mut encoded, 0);
+            let decoded_sortable_long = NumericUtils::sortable_bytes_to_long(&encoded, 0);
+            let actual = NumericUtils::sortable_long_to_double(decoded_sortable_long);
+            let expected_value = if value.is_nan() {
+                BitUtil::DOUBLE_NAN_BITS
+            } else {
+                value.to_bits()
+            };
+            let actual_value = if actual.is_nan() {
+                BitUtil::DOUBLE_NAN_BITS
+            } else {
+                actual.to_bits()
+            };
+            assert_eq!(
+                expected_value, actual_value,
+                "Round-trip encoding failed for value: {}, decoded: {}",
+                value, actual
+            );
+        }
+
+        Ok(())
+    }
+    /// Tests round-trip encoding and decoding of random `BigInt` values.
+    #[test]
+    fn test_big_ints_round_trip() -> Result<(), TestError> {
+        let mut random = random();
+        for _ in 0..10_000 {
+            let value = TestUtil::next_big_integer(&mut random, 16);
+            let length = value.to_signed_bytes_be().len();
+            let max_length =
+                TestUtil::next_int(&mut random, length as i32, length as i32 + 3) as usize;
+            let mut encoded = vec![0u8; max_length];
+            NumericUtils::big_int_to_sortable_bytes(value.clone(), max_length, &mut encoded, 0)?;
+            let decoded = NumericUtils::sortable_bytes_to_big_int(&encoded, 0, max_length)?;
+            assert_eq!(
+                decoded, value,
+                "Round-trip encoding failed for value: {}, decoded: {}",
+                value, decoded
+            );
+        }
+
+        Ok(())
+    }
+    /// Checks that the sort order of encoded integers is consistent with `i32::cmp`.
+    #[test]
+    fn test_ints_compare() -> Result<(), TestError> {
+        let mut random = random();
+        let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
+        let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
+
+        for _ in 0..10_000 {
+            let left_value = random.gen::<i32>();
+            let right_value = random.gen::<i32>();
+            NumericUtils::int_to_sortable_bytes(
+                left_value,
+                left.bytes.as_mut_slice(),
+                left.offset as usize,
+            );
+            NumericUtils::int_to_sortable_bytes(
+                right_value,
+                right.bytes.as_mut_slice(),
+                right.offset as usize,
+            );
+            let expected_sign = left_value.cmp(&right_value) as i32;
+            let actual_sign = left.cmp(&right) as i32;
+            assert_eq!(
+                expected_sign, actual_sign,
+                "Mismatch between numerical and lexicographic comparison for left: {}, right: {}",
+                left_value, right_value
+            );
+        }
+
+        Ok(())
+    }
+    /// Checks that the sort order of encoded `i64` values is consistent with `i64::cmp`.
+    #[test]
+    fn test_longs_compare() -> Result<(), TestError> {
+        let mut random = random();
+        let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
+        let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
+
+        for _ in 0..10_000 {
+            let left_value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
+            let right_value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
+            NumericUtils::long_to_sortable_bytes(
+                left_value,
+                left.bytes.as_mut_slice(),
+                left.offset as usize,
+            );
+            NumericUtils::long_to_sortable_bytes(
+                right_value,
+                right.bytes.as_mut_slice(),
+                right.offset as usize,
+            );
+            let expected_sign = left_value.cmp(&right_value) as i32;
+            let actual_sign = left.cmp(&right) as i32;
+            assert_eq!(
+                expected_sign, actual_sign,
+                "Mismatch between numerical and lexicographic comparison for left: {}, right: {}",
+                left_value, right_value
+            );
+        }
+
+        Ok(())
+    }
+    /// Checks that the sort order of encoded `f32` values is consistent with `f32::total_cmp`.
+    ///
+    /// This test ensures that when two random `f32` values are encoded using
+    /// `NumericUtils::float_to_sortable_int`, the lexicographic comparison of their
+    /// encoded byte representations is consistent with their numerical comparison.
+    #[test]
+    fn test_floats_compare() -> Result<(), TestError> {
+        let mut random = random();
+        let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
+        let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
+        for _ in 0..10_000 {
+            let left_value = to_positive_nan::<f32>(f32::from_bits(random.gen::<u32>()));
+            let right_value = to_positive_nan::<f32>(f32::from_bits(random.gen::<u32>()));
+            NumericUtils::int_to_sortable_bytes(
+                NumericUtils::float_to_sortable_int(left_value),
+                left.bytes.as_mut_slice(),
+                left.offset as usize,
+            );
+            NumericUtils::int_to_sortable_bytes(
+                NumericUtils::float_to_sortable_int(right_value),
+                right.bytes.as_mut_slice(),
+                right.offset as usize,
+            );
+            let expected_order = left_value.total_cmp(&right_value);
+            let actual_order = left.cmp(&right);
+            assert_eq!(
+                expected_order, actual_order,
+                "Mismatch between numerical and lexicographic comparison for left: {}, right: {}",
+                left_value, right_value
+            );
+        }
+
+        Ok(())
+    }
+    /// Checks that the sort order of encoded `f64` values is consistent with `f64::total_cmp`.
+    ///
+    /// This test ensures that when two random `f64` values are encoded using
+    /// `NumericUtils::double_to_sortable_long`, the lexicographic comparison of their
+    /// encoded byte representations is consistent with their numerical comparison.
+    #[test]
+    fn test_doubles_compare() -> Result<(), TestError> {
+        let mut random = random();
+        let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
+        let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
+
+        for _ in 0..10_000 {
+            let left_value = to_positive_nan::<f64>(f64::from_bits(TestUtil::next_long(
+                &mut random,
+                i64::MIN,
+                i64::MAX,
+            ) as u64));
+            let right_value = to_positive_nan::<f64>(f64::from_bits(TestUtil::next_long(
+                &mut random,
+                i64::MIN,
+                i64::MAX,
+            ) as u64));
+            NumericUtils::long_to_sortable_bytes(
+                NumericUtils::double_to_sortable_long(left_value),
+                &mut left.bytes,
+                left.offset as usize,
+            );
+            NumericUtils::long_to_sortable_bytes(
+                NumericUtils::double_to_sortable_long(right_value),
+                &mut right.bytes,
+                right.offset as usize,
+            );
+            let expected_sign = left_value.total_cmp(&right_value) as i32;
+            let actual_sign = left.cmp(&right) as i32;
+
+            // Assert that the numerical comparison matches the lexicographic comparison
+            assert_eq!(
+                expected_sign, actual_sign,
+                "Mismatch between numerical and lexicographic comparison for left: {}, right: {}",
+                left_value, right_value
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Checks that the sort order of encoded `BigInt` values is consistent with `BigInt::cmp`.
+    #[test]
+    fn test_big_ints_compare() -> Result<(), TestError> {
+        let mut random = random();
+        for _ in 0..10_000 {
+            let max_length = TestUtil::next_int(&mut random, 1, 16) as usize;
+            let left_value = TestUtil::next_big_integer(&mut random, max_length as i32);
+            let right_value = TestUtil::next_big_integer(&mut random, max_length as i32);
+            let mut left = BytesRef::from_bytes(vec![0u8; max_length]);
+            NumericUtils::big_int_to_sortable_bytes(
+                left_value.clone(),
+                max_length,
+                &mut left.bytes,
+                0,
+            )?;
+            let mut right = BytesRef::from_bytes(vec![0u8; max_length]);
+            NumericUtils::big_int_to_sortable_bytes(
+                right_value.clone(),
+                max_length,
+                &mut right.bytes,
+                0,
+            )?;
+            let expected_sign = left_value.cmp(&right_value) as i32;
+            let actual_sign = left.cmp(&right) as i32;
+            assert_eq!(
+                expected_sign, actual_sign,
+                "Mismatch between numerical and lexicographic comparison for left: {}, right: {}",
+                left_value, right_value
+            );
+        }
+
+        Ok(())
+    }
+
+    fn to_positive_nan<T: Float>(value: T) -> T {
+        if value.is_nan() {
+            Float::nan()
+        } else {
+            value
+        }
+    }
+}

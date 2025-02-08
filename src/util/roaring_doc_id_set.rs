@@ -474,3 +474,68 @@ impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::search::doc_id_set::DocIdSet;
+    use crate::test::util::base_doc_id_set_test_case::{
+        BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
+    };
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_error::TestError;
+    use crate::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
+    use rand::prelude::StdRng;
+
+    struct TestRoaringDocIdSet;
+    #[test]
+    fn test_bit_0() -> Result<(), TestError> {
+        let test_case = TestRoaringDocIdSet;
+        let mut random = random();
+        test_case.test_bit_0(&mut random)
+    }
+    #[test]
+    fn test_bit_1() -> Result<(), TestError> {
+        let test_case = TestRoaringDocIdSet;
+        let mut random = random();
+        test_case.test_bit_1(&mut random)
+    }
+    #[test]
+    fn test_bit_2() -> Result<(), TestError> {
+        let test_case = TestRoaringDocIdSet;
+        let mut random = random();
+        test_case.test_bit_2(&mut random)
+    }
+    #[test]
+    fn test_against_bit_set() -> Result<(), TestError> {
+        let test_case = TestRoaringDocIdSet;
+        let mut random = random();
+        test_case.test_against_bit_set(&mut random)
+    }
+    #[test]
+    fn test_ram_bytes_used() {
+        let test_case = TestRoaringDocIdSet;
+        let mut random = random();
+        test_case.test_ram_bytes_used(&mut random);
+    }
+    impl BaseDocIdSetTestCase for TestRoaringDocIdSet {
+        fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {
+            let mut builder = RoaringDocIdSetBuilder::new(length);
+            let iter = bs.iter();
+            for doc in iter {
+                let _ = builder.add(doc as i32);
+            }
+            builder.build()
+        }
+
+        fn assert_equals<T: DocIdSet>(
+            &self,
+            random: &mut StdRng,
+            num_bits: i32,
+            ds1: &bit_set::BitSet,
+            ds2: T,
+        ) -> Result<(), TestError> {
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
+        }
+    }
+    impl BaseDocIdSetTestCaseSupperImpl for TestRoaringDocIdSet {}
+}

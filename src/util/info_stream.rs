@@ -93,3 +93,20 @@ impl InfoStream for InfoStreamEnum {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::test::util::test_error::TestError;
+
+    #[allow(dead_code)] // for quick search
+    pub struct TestInfoStream;
+    #[test]
+    fn test_test_points_off() -> Result<(), TestError> {
+        // TODO:waiting for implementation after IndexWriter
+        Ok(())
+    }
+    #[test]
+    fn test_test_pointson() -> Result<(), TestError> {
+        // TODO:waiting for implementation after IndexWriter
+        Ok(())
+    }
+}

@@ -291,3 +291,100 @@ pub trait IntroSelectorBaseDefault {
         self.compare_pivot(j)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::selector::Selector;
+    use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault};
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
+    #[allow(dead_code)] // for quick search
+    pub struct TestIntroSelector;
+
+    #[test]
+    pub fn test_select() -> Result<(), LuceneError> {
+        let mut random = random();
+        for _ in 0..100 {
+            do_test_select(&mut random)?;
+        }
+        Ok(())
+    }
+
+    pub fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
+        let from: i32 = random.gen_range(0..5);
+        let to: i32 = from + TestUtil::next_int(random, 1, 10000);
+        let max: i32 = if random.gen_bool(0.5) {
+            random.gen_range(0..100)
+        } else {
+            random.gen_range(0..100000)
+        };
+
+        let arr: Vec<i32> = if max == 0 {
+            vec![0; to as usize + random.gen_range(0..5)]
+        } else {
+            (0..(to + random.gen_range(0..5)))
+                .map(|_| TestUtil::next_int(random, 0, max))
+                .collect()
+        };
+
+        let k = TestUtil::next_int(random, from, to - 1);
+        let mut expected = arr.clone();
+        let mut actual = arr.clone();
+        expected[from as usize..to as usize].sort();
+        let sub_selector = IntroSelectorImpl::new(&mut actual);
+        let mut selector = IntroSelector::new(sub_selector);
+        if random.gen_bool(0.5) {
+            Selector::select(&mut selector, from, to, k)?;
+        } else {
+            IntroSelector::select(&mut selector, from, to, k, random.gen_range(0..3))?;
+        }
+        assert_eq!(expected[k as usize], actual[k as usize]);
+        for i in 0..actual.len() {
+            if i < from as usize || i >= to as usize {
+                assert_eq!(arr[i], actual[i]);
+            } else if i <= k as usize {
+                assert!(actual[i] <= actual[k as usize]);
+            } else {
+                assert!(actual[i] >= actual[k as usize]);
+            }
+        }
+        Ok(())
+    }
+
+    pub struct IntroSelectorImpl<'a> {
+        pivot: i32,
+        actual: &'a mut Vec<i32>,
+    }
+    impl<'a> IntroSelectorImpl<'a> {
+        fn new(actual: &'a mut Vec<i32>) -> IntroSelectorImpl<'a> {
+            IntroSelectorImpl { pivot: 0, actual }
+        }
+    }
+    impl Selector for IntroSelectorImpl<'_> {
+        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+            self.actual.swap(i as usize, j as usize);
+            Ok(())
+        }
+    }
+
+    impl IntroSelectorBaseDefault for IntroSelectorImpl<'_> {
+        fn set_pivot(&mut self, i: i32) {
+            self.pivot = self.actual[i as usize];
+        }
+
+        fn compare_pivot(&self, j: i32) -> i32 {
+            let result = self.pivot.cmp(&self.actual[j as usize]);
+            match result {
+                std::cmp::Ordering::Less => -1,
+                std::cmp::Ordering::Equal => 0,
+                std::cmp::Ordering::Greater => 1,
+            }
+        }
+    }
+
+    impl IntroSelectorBase for IntroSelectorImpl<'_> {}
+}

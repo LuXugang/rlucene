@@ -480,3 +480,231 @@ pub trait MSBRadixSorterBase: Sorter {
         (to - from) <= LENGTH_THRESHOLD as i32 || l >= LEVEL_THRESHOLD as i32
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::index::{BytesRef, BytesRefBuilder};
+    use rand::rngs::StdRng;
+    use rand::{Rng, RngCore};
+
+    use crate::test::util::common_method::assert_vecs_equal;
+    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::test_error::TestError;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
+    use std::collections::{BTreeSet, HashSet};
+
+    #[allow(dead_code)] // for quick search
+    struct TestMSBRadixSorter;
+
+    fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), TestError> {
+        let mut expected: Vec<BytesRef> = refs[..len].to_vec();
+        expected.sort();
+
+        let mut max_length: i32 = 0;
+        for ref_item in &refs[..len] {
+            max_length = max_length.max(ref_item.length);
+        }
+
+        match random.gen_range(0..3) {
+            0 => max_length += TestUtil::next_int(random, 1, 5),
+            1 => max_length = i32::MAX,
+            _ => {}
+        }
+
+        let final_max_length = max_length;
+        let delegate_sorter = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
+        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate_sorter);
+        msb_radix_sorter.sort(0, len as i32)?;
+
+        assert_vecs_equal(&expected, &msb_radix_sorter.get_delegate_sorter().refs);
+        Ok(())
+    }
+    #[test]
+    fn test_empty() -> Result<(), TestError> {
+        let mut random = random();
+        let mut refs: Vec<BytesRef> = vec![BytesRef::default(); random.gen_range(0..5)];
+        assert!(test(&mut refs, 0, &mut random).is_ok());
+        test(&mut refs, 0, &mut random)
+    }
+    #[test]
+    fn test_one_value() -> Result<(), TestError> {
+        let mut random = random();
+
+        let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let mut refs = vec![bytes];
+        test(&mut refs, 1, &mut random)
+    }
+    #[test]
+    fn test_two_values() -> Result<(), TestError> {
+        let mut random = random();
+
+        let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let mut refs = vec![bytes1, bytes2];
+
+        test(&mut refs, 2, &mut random)
+    }
+
+    fn test_random_impl(
+        common_prefix_len: usize,
+        max_len: i32,
+        random: &mut StdRng,
+    ) -> Result<(), TestError> {
+        let mut common_prefix = vec![0u8; common_prefix_len];
+        random.fill_bytes(&mut common_prefix);
+        let len = random.gen_range(0..10000);
+        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.gen_range(0..50));
+        for _ in 0..len {
+            let mut b = vec![0u8; common_prefix_len + random.gen_range(0..max_len) as usize];
+            random.fill_bytes(&mut b[common_prefix_len..]);
+
+            b[..common_prefix_len].copy_from_slice(&common_prefix);
+
+            bytes.push(BytesRef::from_bytes(b));
+        }
+        test(&mut bytes, len, random)
+    }
+    #[test]
+    fn test_random() -> Result<(), TestError> {
+        let mut random = random();
+        for _ in 0..10 {
+            test_random_impl(0, 10, &mut random)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
+        let mut random = random();
+        for _ in 0..10 {
+            test_random_impl(0, 2, &mut random)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_with_shared_prefix() -> Result<(), TestError> {
+        let mut random = random();
+        for _ in 0..10 {
+            let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
+            test_random_impl(shared_prefix, 10, &mut random)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestError> {
+        let mut random = random();
+        for _ in 0..10 {
+            let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
+            test_random_impl(shared_prefix, 2, &mut random)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_random2() -> Result<(), TestError> {
+        let mut random = random();
+        // How large our alphabet is
+        let letter_count = TestUtil::next_int(&mut random, 2, 10);
+
+        // How many substring fragments to use
+        let substring_count = TestUtil::next_int(&mut random, 2, 10) as usize;
+        let mut substrings_set = HashSet::new();
+
+        // How many strings to make
+        let string_count = at_least(&mut random, 10000) as usize;
+        // let string_count = ;
+
+        // Generate unique substrings
+        while substrings_set.len() < substring_count {
+            let length = TestUtil::next_int(&mut random, 2, 10);
+            let bytes: Vec<u8> = (0..length)
+                .map(|_| random.gen_range(0..letter_count) as u8)
+                .collect();
+            let br = BytesRef::from_bytes(bytes);
+            substrings_set.insert(br);
+        }
+
+        let substrings: Vec<BytesRef> = Vec::from_iter(substrings_set);
+        let mut chance = vec![0.0; substrings.len()];
+        let mut sum = 0.0;
+
+        for chance_value in &mut chance {
+            *chance_value = random.gen::<f64>();
+            sum += *chance_value;
+        }
+
+        // give each substring a random chance of occurring:
+        let mut accum = 0.0;
+        for chance_value in chance.iter_mut() {
+            accum += *chance_value / sum;
+            *chance_value = accum;
+        }
+
+        // Generate unique strings
+        let mut strings_set = BTreeSet::new();
+        let mut iters = 0;
+        while strings_set.len() < string_count && iters < string_count * 5 {
+            let count = random.gen_range(1..=5);
+            let mut builder = BytesRefBuilder::new();
+            for _ in 0..count {
+                let v = random.gen::<f64>();
+                let mut accum = 0.0;
+                for (j, substring) in substrings.iter().enumerate() {
+                    accum += chance[j];
+                    if accum >= v {
+                        builder.append_ref(substring);
+                        break;
+                    }
+                }
+            }
+            let br = builder.get_bytes_ref();
+            strings_set.insert(br);
+            iters += 1;
+        }
+
+        // Run test with generated strings
+        let strings: Vec<BytesRef> = strings_set.into_iter().collect();
+        test(&mut strings.clone(), strings.len(), &mut random)
+    }
+
+    pub struct MSBRadixSorterImpl {
+        final_max_length: i32,
+        refs: Vec<BytesRef>,
+    }
+
+    impl MSBRadixSorterImpl {
+        fn new(final_max_length: i32, refs: Vec<BytesRef>) -> Self {
+            Self {
+                final_max_length,
+                refs,
+            }
+        }
+    }
+
+    impl MSBRadixSorterBase for MSBRadixSorterImpl {
+        fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+            assert!(
+                k < self.final_max_length,
+                "Index out of bounds: k={} exceeds final_max_length={}",
+                k,
+                self.final_max_length
+            );
+
+            let ref_item = &self.refs[i as usize];
+            if ref_item.length <= k {
+                Ok(-1)
+            } else {
+                Ok(ref_item.bytes[ref_item.offset as usize + k as usize] as i32)
+            }
+        }
+    }
+    impl Sorter for MSBRadixSorterImpl {
+        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+            self.refs.swap(i as usize, j as usize);
+            Ok(())
+        }
+    }
+}

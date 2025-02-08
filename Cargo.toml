@@ -16,7 +16,6 @@ rand = "0.8.5"
 fs2 = "0.4.3"
 chrono = "0.4.39"
 num-traits = "0.2.19"
-log = "0.4.25"
 
 [dev-dependencies]
 bit-set = "0.5.3"

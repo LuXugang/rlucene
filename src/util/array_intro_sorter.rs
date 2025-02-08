@@ -83,3 +83,95 @@ where
 }
 
 impl<T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'_, T, C> where T: Ord {}
+
+#[cfg(test)]
+mod tests {
+    use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
+    use crate::test::util::lucene_test_case::random;
+    use crate::util::{ArrayIntroSorter, Comparator, NaturalOrder, Sorter};
+    use rand::rngs::StdRng;
+
+    const STABLE: bool = false;
+
+    struct TestIntroSorter<T, C: Comparator<T>>
+    where
+        T: Ord,
+    {
+        _marker: std::marker::PhantomData<(T, C)>,
+    }
+    impl Default for TestIntroSorter<i32, NaturalOrder<i32>> {
+        fn default() -> Self {
+            TestIntroSorter {
+                _marker: std::marker::PhantomData,
+            }
+        }
+    }
+
+    impl<T, C: Comparator<T>> BaseSortTestCase for TestIntroSorter<T, C>
+    where
+        T: Ord,
+    {
+        fn new_sorter(&self, _random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter {
+            ArrayIntroSorter::new(arr, NaturalOrder::new())
+        }
+
+        fn get_stable(&self) -> bool {
+            STABLE
+        }
+    }
+
+    #[test]
+    fn test_empty() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_empty(&mut random);
+    }
+    #[test]
+    fn test_one() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_one(&mut random);
+    }
+    #[test]
+    fn test_two() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_two(&mut random);
+    }
+    #[test]
+    fn test_random() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_random(&mut random);
+    }
+    #[test]
+    fn test_random_low_cardinality() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_random_low_cardinality(&mut random);
+    }
+    #[test]
+    fn test_ascending() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_ascending(&mut random);
+    }
+    #[test]
+    fn test_ascending_sequences() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_ascending_sequences(&mut random);
+    }
+    #[test]
+    fn test_descending() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_descending(&mut random);
+    }
+    #[test]
+    fn test_strictly_descending() {
+        let mut random = random();
+        let case = TestIntroSorter::default();
+        case.test_strictly_descending(&mut random);
+    }
+}

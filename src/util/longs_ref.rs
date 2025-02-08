@@ -230,3 +230,45 @@ impl Comparator<LongsRef> for LongsRefComparator {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::util::test_error::TestError;
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::longs_ref::LongsRef;
+
+    #[allow(dead_code)] // for quick search
+    struct TestLongsRef;
+    #[test]
+    fn test_empty() {
+        let i = LongsRef::new();
+        assert_eq!(i.longs, LongsRef::new().longs);
+        assert_eq!(i.offset, 0);
+        assert_eq!(i.length, 0);
+    }
+
+    #[test]
+    fn test_from_longs() {
+        let longs = vec![1, 2, 3, 4];
+        let i = LongsRef::from_slice(longs.clone(), 0, 4);
+        assert_eq!(i.longs, i.longs);
+        assert_eq!(i.offset, 0);
+        assert_eq!(i.length, 4);
+
+        let i2 = LongsRef::from_slice(longs.clone(), 1, 3);
+        let expected_longs = vec![2, 3, 4];
+        let expected = LongsRef::from_slice(expected_longs, 0, 3);
+        assert!(i2.eq(&expected));
+
+        assert_ne!(i, i2);
+    }
+
+    #[test]
+    fn test_invalid_deep_copy() -> Result<(), TestError> {
+        let mut from = LongsRef::from_slice(vec![1, 2], 0, 2);
+        from.offset += 1;
+        let result = LongsRef::deep_copy_of(&from);
+        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        Ok(())
+    }
+}

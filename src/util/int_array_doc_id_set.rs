@@ -135,3 +135,75 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
         Ok(self.length as i64)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::search::doc_id_set::DocIdSet;
+    use crate::search::doc_id_set_iterator::NO_MORE_DOCS;
+    use crate::test::util::base_doc_id_set_test_case::{
+        BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
+    };
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_error::TestError;
+    use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
+    use rand::rngs::StdRng;
+
+    struct TestIntArrayDocIdSet;
+    impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
+        fn copy_of(&self, bs: &bit_set::BitSet, _length: i32) -> impl DocIdSet {
+            let mut docs: Vec<i32> = vec![];
+            let iter = bs.iter();
+            for doc in iter {
+                docs.push(doc as i32);
+            }
+            let l = docs.len() as i32;
+            docs.push(NO_MORE_DOCS);
+            let result = IntArrayDocIdSet::new(docs, l);
+            assert!(result.is_ok());
+            result.unwrap()
+        }
+
+        fn assert_equals<T: DocIdSet>(
+            &self,
+            random: &mut StdRng,
+            num_bits: i32,
+            ds1: &bit_set::BitSet,
+            ds2: T,
+        ) -> Result<(), TestError> {
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
+        }
+    }
+    #[test]
+    fn test_bit_0() -> Result<(), TestError> {
+        let test_case = TestIntArrayDocIdSet;
+        let mut random = random();
+        test_case.test_bit_0(&mut random)
+    }
+
+    #[test]
+    fn test_bit_1() -> Result<(), TestError> {
+        let test_case = TestIntArrayDocIdSet;
+        let mut random = random();
+        test_case.test_bit_1(&mut random)
+    }
+    #[test]
+    fn test_bit_2() -> Result<(), TestError> {
+        let test_case = TestIntArrayDocIdSet;
+        let mut random = random();
+        test_case.test_bit_2(&mut random)
+    }
+    #[test]
+    fn test_against_bit_set() -> Result<(), TestError> {
+        let test_case = TestIntArrayDocIdSet;
+        let mut random = random();
+        test_case.test_against_bit_set(&mut random)
+    }
+    #[test]
+    fn test_ram_bytes_used() {
+        let test_case = TestIntArrayDocIdSet;
+        let mut random = random();
+        test_case.test_ram_bytes_used(&mut random);
+    }
+
+    impl BaseDocIdSetTestCaseSupperImpl for TestIntArrayDocIdSet {}
+}

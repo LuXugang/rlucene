@@ -242,3 +242,56 @@ impl DocIdSetIterator for DummyDISI {
 /// When returned by [`next_doc`](DocIdSetIterator::next_doc), [`advance`](DocIdSetIterator::advance), and [`doc_id`](DocIdSetIterator::doc_id),
 /// it means there are no more documents in the iterator.
 pub const NO_MORE_DOCS: i32 = i32::MAX;
+
+#[cfg(test)]
+mod tests {
+    use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
+    use crate::test::util::test_error::TestError;
+
+    #[allow(dead_code)] // for quick search
+    struct TestDocIdSetIterator {}
+    #[test]
+    fn test_range_basic() -> Result<(), TestError> {
+        let result = Range::new(5, 8);
+        assert!(result.is_ok());
+        let mut disi = result?;
+        assert_eq!(-1, disi.doc_id());
+        assert_eq!(5, disi.next_doc()?);
+        assert_eq!(6, disi.next_doc()?);
+        assert_eq!(7, disi.next_doc()?);
+        assert_eq!(NO_MORE_DOCS, disi.next_doc()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_range() {
+        let disi_result = Range::new(5, 4);
+        assert!(disi_result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_min() {
+        let disi_result = Range::new(-1, 4);
+        assert!(disi_result.is_err());
+    }
+
+    #[test]
+    fn test_empty() {
+        let disi_result = Range::new(7, 7);
+        assert!(disi_result.is_err());
+    }
+
+    #[test]
+    fn test_advance() -> Result<(), TestError> {
+        let disi_result = Range::new(5, 20);
+        assert!(disi_result.is_ok());
+        let mut disi = disi_result?;
+        assert_eq!(-1, disi.doc_id());
+        assert_eq!(5, disi.next_doc()?);
+        assert_eq!(17, disi.advance(17)?);
+        assert_eq!(18, disi.next_doc()?);
+        assert_eq!(19, disi.next_doc()?);
+        assert_eq!(NO_MORE_DOCS, disi.next_doc()?);
+        Ok(())
+    }
+}
