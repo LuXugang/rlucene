@@ -19,10 +19,12 @@ use crate::util::error::lucene_error::LuceneError;
 use once_cell::sync::Lazy;
 use std::sync::atomic::AtomicI32;
 
+#[allow(unused)]
 pub static ITERATION_SEED: Lazy<AtomicI32> = Lazy::new(|| AtomicI32::new(0));
 /// Constants and utility functions for hash containers.
 pub struct HashContainers;
 
+#[allow(unused)]
 impl HashContainers {
     pub const DEFAULT_EXPECTED_ELEMENTS: i32 = 4;
     pub const DEFAULT_LOAD_FACTOR: f64 = 0.75;

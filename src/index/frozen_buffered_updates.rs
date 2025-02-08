@@ -30,6 +30,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
+#[allow(unused)]
 pub struct FrozenBufferedUpdates<D, Q>
 where
     D: Directory,
@@ -58,6 +59,7 @@ where
     // in multiple threads, and this compression is sizable (~8.3% of the original size), so it's important
     //we run this before applying the deletes/updates.
     // Query we often undercount (say 24 bytes), plus int.
+    #[allow(unused)]
     const BYTES_PER_DEL_QUERY: i32 = 0;
 
     pub fn new(
@@ -145,7 +147,7 @@ where
         self.applied.load(Ordering::Relaxed)
     }
 
-    pub fn apply(&self, seg_states: SegmentState) {
+    pub fn apply(&self, _seg_states: SegmentState) {
         unimplemented!()
     }
 }

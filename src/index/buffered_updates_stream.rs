@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[allow(unused)]
 pub struct BufferedUpdatesStream;
 
+#[allow(unused)]
 pub struct SegmentState;

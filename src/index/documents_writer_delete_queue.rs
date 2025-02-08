@@ -163,7 +163,7 @@ where
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         self.any_changes_with_lock(&global_state)
     }
-    pub(crate) fn any_changes_with_lock(
+    pub fn any_changes_with_lock(
         &self,
         global_state: &RwLockWriteGuard<GlobalState<Q>>,
     ) -> Result<bool, LuceneError> {
@@ -227,6 +227,7 @@ where
     }
     /// This may freeze the global buffer unless the delete queue has already been closed.
     /// If the queue has been closed, this method will return `None`.
+    #[allow(unused)]
     fn maybe_freeze_global_buffer<D>(
         &mut self,
     ) -> Result<Option<FrozenBufferedUpdates<D, Q>>, LuceneError>
@@ -491,7 +492,7 @@ where
     Q: Query,
 {
     fn drop(&mut self) {
-        if let Err(e) = self.close() {
+        if let Err(_e) = self.close() {
             // TODO:
         }
     }
@@ -513,12 +514,13 @@ where
         0
     }
 }
-struct GlobalState<Q>
+pub struct GlobalState<Q>
 where
     Q: Query,
 {
     tail: Arc<Node<Q>>,
     global_slice: DeleteSlice<Q>,
+    #[allow(unused)]
     generation: i64,
     global_buffered_updates: BufferedUpdates<Q>,
     max_seq_no: i64,

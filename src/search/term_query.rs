@@ -30,7 +30,7 @@ impl TermQuery {
 impl Query for TermQuery {}
 
 impl Display for TermQuery {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
         todo!()
     }
 }
