@@ -26,7 +26,7 @@ use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 ///
 /// # Note
 /// - This is an internal API and is not intended for external use.
-pub struct StringSorter<T, C>
+pub(crate) struct StringSorter<T, C>
 where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
@@ -44,7 +44,7 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    pub fn new(delegate_sorter: T, cmp: C) -> StringSorter<T, C> {
+    pub(crate) fn new(delegate_sorter: T, cmp: C) -> StringSorter<T, C> {
         StringSorter {
             delegate_sorter,
             scratch1: BytesRefBuilder::default(),
@@ -55,7 +55,8 @@ where
         }
     }
     #[cfg(feature = "test_only")]
-    pub fn get_delegate_sorter(&self) -> &T {
+    #[allow(unused)]
+    pub(crate) fn get_delegate_sorter(&self) -> &T {
         &self.delegate_sorter
     }
 }

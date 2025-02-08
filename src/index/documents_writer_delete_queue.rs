@@ -27,8 +27,8 @@ use crate::util::info_stream::InfoStreamEnum;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
-
-pub struct DocumentsWriterDeleteQueue<Q>
+#[allow(unused)]
+pub(crate) struct DocumentsWriterDeleteQueue<Q>
 where
     Q: Query,
 {
@@ -39,19 +39,15 @@ where
     start_seq_no: i64,
     previous_max_seq_id: i64,
 }
+#[allow(unused)]
 impl<Q> DocumentsWriterDeleteQueue<Q>
 where
     Q: Query,
 {
-    pub fn new(info_stream: Arc<Mutex<InfoStreamEnum>>) -> Self {
+    pub(crate) fn new(info_stream: Arc<Mutex<InfoStreamEnum>>) -> Self {
         Self::with_params(info_stream, 0, 1, 0)
     }
-}
-impl<Q> DocumentsWriterDeleteQueue<Q>
-where
-    Q: Query,
-{
-    pub fn with_params(
+    pub(crate) fn with_params(
         info_stream: Arc<Mutex<InfoStreamEnum>>,
         generation: i64,
         start_seq_no: i64,
@@ -76,19 +72,19 @@ where
             previous_max_seq_id,
         }
     }
-    pub fn add_delete_query(&self, queries: Vec<Arc<Q>>) -> Result<i64, LuceneError> {
+    pub(crate) fn add_delete_query(&self, queries: Vec<Arc<Q>>) -> Result<i64, LuceneError> {
         let query_array_node = Node::new(NodeEnum::QueryNodeArray(QueryNodeArray::new(queries)));
         let seq_no = self.add_node(Arc::new(query_array_node))?;
         self.try_apply_global_slice()?;
         Ok(seq_no)
     }
-    pub fn add_delete_term(&self, terms: Vec<Term>) -> Result<i64, LuceneError> {
+    pub(crate) fn add_delete_term(&self, terms: Vec<Term>) -> Result<i64, LuceneError> {
         let node = Node::new(NodeEnum::TermNodeArray(TermNodeArray::new(terms)));
         let seq_no = self.add_node(Arc::new(node))?;
         self.try_apply_global_slice()?;
         Ok(seq_no)
     }
-    pub fn add_doc_values_updates(
+    pub(crate) fn add_doc_values_updates(
         &self,
         updates: Vec<DocValuesUpdate>,
     ) -> Result<i64, LuceneError> {
@@ -99,20 +95,20 @@ where
         self.try_apply_global_slice()?;
         Ok(seq_no)
     }
-    pub fn new_node_for_term(term: Term) -> Node<Q> {
+    pub(crate) fn new_node_for_term(term: Term) -> Node<Q> {
         Node::new(NodeEnum::TermNode(TermNode::new(term)))
     }
 
-    pub fn new_node_for_query(query: Q) -> Node<Q> {
+    pub(crate) fn new_node_for_query(query: Q) -> Node<Q> {
         Node::new(NodeEnum::QueryNode(QueryNode::new(Arc::new(query))))
     }
 
-    pub fn new_node_for_doc_values(updates: &[DocValuesUpdate]) -> Node<Q> {
+    pub(crate) fn new_node_for_doc_values(updates: &[DocValuesUpdate]) -> Node<Q> {
         Node::new(NodeEnum::DocValuesUpdatesNode(DocValuesUpdatesNode::new(
             updates.to_vec(),
         )))
     }
-    pub fn add_with_slice(
+    pub(crate) fn add_with_slice(
         &self,
         delete_node: Arc<Node<Q>>,
         slice: &mut DeleteSlice<Q>,
@@ -137,7 +133,7 @@ where
         Ok(seq_no)
     }
 
-    pub fn add_node(&self, new_node: Arc<Node<Q>>) -> Result<i64, LuceneError> {
+    pub(crate) fn add_node(&self, new_node: Arc<Node<Q>>) -> Result<i64, LuceneError> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -156,14 +152,14 @@ where
         Ok(self.get_next_sequence_number(global_state.max_seq_no))
     }
 
-    pub fn any_changes(&self) -> Result<bool, LuceneError> {
+    pub(crate) fn any_changes(&self) -> Result<bool, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .write()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         self.any_changes_with_lock(&global_state)
     }
-    pub fn any_changes_with_lock(
+    pub(crate) fn any_changes_with_lock(
         &self,
         global_state: &RwLockWriteGuard<GlobalState<Q>>,
     ) -> Result<bool, LuceneError> {
@@ -180,7 +176,7 @@ where
             || !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail)
             || tail_next.is_some())
     }
-    pub fn try_apply_global_slice(&self) -> Result<(), LuceneError> {
+    pub(crate) fn try_apply_global_slice(&self) -> Result<(), LuceneError> {
         match self.global_buffer_lock.try_write() {
             Ok(mut global_state) => {
                 self.ensure_open(global_state.closed)?;
@@ -199,7 +195,7 @@ where
         Ok(())
     }
 
-    pub fn freeze_global_buffer<D>(
+    pub(crate) fn freeze_global_buffer<D>(
         &self,
         caller_slice: Option<&mut DeleteSlice<Q>>,
     ) -> Result<Option<FrozenBufferedUpdates<D, Q>>, LuceneError>
@@ -227,7 +223,7 @@ where
     }
     /// This may freeze the global buffer unless the delete queue has already been closed.
     /// If the queue has been closed, this method will return `None`.
-    pub fn maybe_freeze_global_buffer<D>(
+    pub(crate) fn maybe_freeze_global_buffer<D>(
         &self,
     ) -> Result<Option<FrozenBufferedUpdates<D, Q>>, LuceneError>
     where
@@ -279,14 +275,14 @@ where
             Ok(None)
         }
     }
-    pub fn new_slice(&self) -> Result<DeleteSlice<Q>, LuceneError> {
+    pub(crate) fn new_slice(&self) -> Result<DeleteSlice<Q>, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .read()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         Ok(DeleteSlice::new(global_state.tail.clone()))
     }
-    pub fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64, LuceneError> {
+    pub(crate) fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -302,7 +298,7 @@ where
     }
 
     /// Just like updateSlice, but does not assign a sequence number.
-    pub fn update_slice_no_seq_no(
+    pub(crate) fn update_slice_no_seq_no(
         &self,
         global_state: &mut RwLockWriteGuard<GlobalState<Q>>,
     ) -> bool {
@@ -321,7 +317,7 @@ where
         }
         Ok(())
     }
-    pub fn is_open(&self) -> Result<bool, LuceneError> {
+    pub(crate) fn is_open(&self) -> Result<bool, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -329,7 +325,7 @@ where
         Ok(!global_state.closed)
     }
 
-    pub fn get_next_sequence_number(&self, max_seq_no: i64) -> i64 {
+    pub(crate) fn get_next_sequence_number(&self, max_seq_no: i64) -> i64 {
         let seq_no = self.next_seq_no.fetch_add(1, Ordering::SeqCst);
         debug_assert!(
             seq_no <= max_seq_no,
@@ -339,7 +335,7 @@ where
         );
         seq_no
     }
-    pub fn close(&self) -> Result<(), LuceneError> {
+    pub(crate) fn close(&self) -> Result<(), LuceneError> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -364,14 +360,14 @@ where
         Ok(())
     }
     #[cfg(feature = "test_only")]
-    pub fn num_global_term_deletes(&self) -> Result<i32, LuceneError> {
+    pub(crate) fn num_global_term_deletes(&self) -> Result<i32, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .read()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         Ok(global_state.global_buffered_updates.delete_terms.size())
     }
-    pub fn clear(&self) -> Result<(), LuceneError> {
+    pub(crate) fn clear(&self) -> Result<(), LuceneError> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -381,7 +377,7 @@ where
         global_state.global_buffered_updates.clear()?;
         Ok(())
     }
-    pub fn get_buffered_updates_terms_size(&self) -> Result<i32, LuceneError> {
+    pub(crate) fn get_buffered_updates_terms_size(&self) -> Result<i32, LuceneError> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -395,18 +391,18 @@ where
         }
         Ok(global_state.global_buffered_updates.delete_terms.size())
     }
-    pub fn get_last_sequence_number(&self) -> i64 {
+    pub(crate) fn get_last_sequence_number(&self) -> i64 {
         self.next_seq_no.load(Ordering::SeqCst) - 1
     }
     /// Inserts a gap in the sequence numbers.
     /// This is used by IW during flush or commit to ensure any in-flight threads
     /// get sequence numbers inside the gap.
-    pub fn skip_sequence_numbers(&self, jump: i64) {
+    pub(crate) fn skip_sequence_numbers(&self, jump: i64) {
         self.next_seq_no.fetch_add(jump, Ordering::SeqCst);
     }
 
     /// Returns the maximum completed sequence number for this queue.
-    pub fn get_max_completed_seq_no(&self) -> i64 {
+    pub(crate) fn get_max_completed_seq_no(&self) -> i64 {
         let seq_no = self.next_seq_no.load(Ordering::SeqCst);
 
         if self.start_seq_no < seq_no {
@@ -434,7 +430,7 @@ where
     ///
     /// # Returns
     /// A new `DocumentsWriterDeleteQueue` as the successor of this queue.
-    pub fn advance_queue(
+    pub(crate) fn advance_queue(
         &self,
         max_num_pending_ops: i64,
     ) -> Result<DocumentsWriterDeleteQueue<Q>, LuceneError> {
@@ -469,7 +465,7 @@ where
 
     /// Returns the maximum sequence number for this queue.
     /// This value will change once this queue is advanced.
-    pub fn get_max_seq_no(&self) -> Result<i64, LuceneError> {
+    pub(crate) fn get_max_seq_no(&self) -> Result<i64, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -478,7 +474,7 @@ where
     }
 
     /// Returns `true` if the queue has been advanced.
-    pub fn is_advanced(&self) -> Result<bool, LuceneError> {
+    pub(crate) fn is_advanced(&self) -> Result<bool, LuceneError> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -513,7 +509,7 @@ where
         0
     }
 }
-pub struct GlobalState<Q>
+pub(crate) struct GlobalState<Q>
 where
     Q: Query,
 {
@@ -546,27 +542,28 @@ impl<Q> GlobalState<Q>
 where
     Q: Query,
 {
-    pub fn apply(&mut self, doc_id_upto: i32) -> Result<(), LuceneError> {
+    pub(crate) fn apply(&mut self, doc_id_upto: i32) -> Result<(), LuceneError> {
         self.global_slice
             .apply(&mut self.global_buffered_updates, doc_id_upto)
     }
 }
 
 /// A delete slice for buffered updates.
-pub struct DeleteSlice<Q>
+#[allow(unused)]
+pub(crate) struct DeleteSlice<Q>
 where
     Q: Query,
 {
     slice_head: Arc<Node<Q>>, // Head of the slice
     slice_tail: Arc<Node<Q>>, // Tail of the slice
 }
-
+#[allow(unused)]
 impl<Q> DeleteSlice<Q>
 where
     Q: Query,
 {
     /// Creates a new delete slice with the head and tail pointing to the same node.
-    pub fn new(current_tail: Arc<Node<Q>>) -> Self {
+    pub(crate) fn new(current_tail: Arc<Node<Q>>) -> Self {
         Self {
             // Initially this is a 0 length slice pointing to the 'current' tail of
             // the queue. Once we update the slice we only need to assign the tail and
@@ -576,7 +573,7 @@ where
         }
     }
 
-    pub fn apply(
+    pub(crate) fn apply(
         &mut self,
         del: &mut BufferedUpdates<Q>,
         doc_id_upto: i32,
@@ -614,18 +611,18 @@ where
         self.reset();
         Ok(())
     }
-    pub fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         // Reset to a 0 length slice
         self.slice_head = self.slice_tail.clone();
     }
     /// Returns `true` if the given node is the slice's tail.
-    pub fn is_tail(&self, node: &Arc<Node<Q>>) -> bool {
+    pub(crate) fn is_tail(&self, node: &Arc<Node<Q>>) -> bool {
         Arc::ptr_eq(&self.slice_tail, node)
     }
 
     /// Returns `true` if the item of the given node matches the item in the tail.
     #[cfg(feature = "test_only")]
-    pub fn is_tail_item(&self, item: &NodeEnum<Q>) -> bool {
+    pub(crate) fn is_tail_item(&self, item: &NodeEnum<Q>) -> bool {
         let node1 = NodeEnum::get_node_base(&self.slice_tail.item);
         let node2 = NodeEnum::get_node_base(item);
         debug_assert!(node1.is_some() && node2.is_some());
@@ -635,13 +632,13 @@ where
         false
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         Arc::ptr_eq(&self.slice_head, &self.slice_tail)
     }
 }
 
 /// Represents a node in a linked list.
-pub struct Node<Q>
+pub(crate) struct Node<Q>
 where
     Q: Query,
 {
@@ -654,7 +651,7 @@ impl<Q> Node<Q>
 where
     Q: Query,
 {
-    pub fn new(sub_node: NodeEnum<Q>) -> Self {
+    pub(crate) fn new(sub_node: NodeEnum<Q>) -> Self {
         Self {
             next: Mutex::new(None),
             item: sub_node,
@@ -682,7 +679,7 @@ where
     }
 }
 // empty node
-pub struct EmptyNode;
+pub(crate) struct EmptyNode;
 impl Default for EmptyNode {
     fn default() -> Self {
         Self::new()
@@ -690,7 +687,7 @@ impl Default for EmptyNode {
 }
 
 impl EmptyNode {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {}
     }
 }
@@ -712,11 +709,11 @@ impl Display for EmptyNode {
     }
 }
 // term node
-pub struct TermNode {
+pub(crate) struct TermNode {
     item: Term,
 }
 impl TermNode {
-    pub fn new(term: Term) -> Self {
+    pub(crate) fn new(term: Term) -> Self {
         Self { item: term }
     }
 }
@@ -738,7 +735,7 @@ impl Display for TermNode {
     }
 }
 // query node
-pub struct QueryNode<Q>
+pub(crate) struct QueryNode<Q>
 where
     Q: Query,
 {
@@ -748,7 +745,7 @@ impl<Q> QueryNode<Q>
 where
     Q: Query,
 {
-    pub fn new(query: Arc<Q>) -> Self {
+    pub(crate) fn new(query: Arc<Q>) -> Self {
         Self { item: query }
     }
 }
@@ -773,7 +770,7 @@ where
     }
 }
 // query node array
-pub struct QueryNodeArray<Q>
+pub(crate) struct QueryNodeArray<Q>
 where
     Q: Query,
 {
@@ -783,7 +780,7 @@ impl<Q> QueryNodeArray<Q>
 where
     Q: Query,
 {
-    pub fn new(nodes: Vec<Arc<Q>>) -> Self {
+    pub(crate) fn new(nodes: Vec<Arc<Q>>) -> Self {
         Self { item: nodes }
     }
 }
@@ -812,11 +809,12 @@ where
 }
 
 // term node array
-pub struct TermNodeArray {
+pub(crate) struct TermNodeArray {
     item: Vec<Term>,
 }
+#[allow(unused)]
 impl TermNodeArray {
-    pub fn new(nodes: Vec<Term>) -> Self {
+    pub(crate) fn new(nodes: Vec<Term>) -> Self {
         Self { item: nodes }
     }
 }
@@ -842,11 +840,12 @@ impl Display for TermNodeArray {
 }
 
 // doc values update node
-pub struct DocValuesUpdatesNode {
+#[allow(unused)]
+pub(crate) struct DocValuesUpdatesNode {
     item: Vec<DocValuesUpdate>,
 }
 impl DocValuesUpdatesNode {
-    pub fn new(nodes: Vec<DocValuesUpdate>) -> Self {
+    pub(crate) fn new(nodes: Vec<DocValuesUpdate>) -> Self {
         Self { item: nodes }
     }
 }
@@ -902,7 +901,8 @@ impl Display for DocValuesUpdatesNode {
     }
 }
 
-pub enum NodeEnum<Q>
+#[allow(unused)]
+pub(crate) enum NodeEnum<Q>
 where
     Q: Query,
 {
@@ -913,11 +913,12 @@ where
     TermNodeArray(TermNodeArray),
     DocValuesUpdatesNode(DocValuesUpdatesNode),
 }
+#[allow(unused)]
 impl<Q> NodeEnum<Q>
 where
     Q: Query,
 {
-    pub fn apply(
+    pub(crate) fn apply(
         &self,
         buffered_deletes: &mut BufferedUpdates<Q>,
         doc_id_upto: i32,
@@ -932,7 +933,7 @@ where
         }
     }
     #[cfg(feature = "test_only")]
-    pub fn get_node_base(node: &NodeEnum<Q>) -> Option<&TermNodeArray> {
+    pub(crate) fn get_node_base(node: &NodeEnum<Q>) -> Option<&TermNodeArray> {
         match node {
             NodeEnum::TermNodeArray(node) => Some(node),
             _ => None,

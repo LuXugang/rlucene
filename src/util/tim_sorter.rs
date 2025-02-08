@@ -468,7 +468,8 @@ mod tests {
     use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
-    use crate::util::{ArrayTimSorter, Comparator, NaturalOrder, Sorter, TimSorter};
+    use crate::util::array_tim_sorter::ArrayTimSorter;
+    use crate::util::{Comparator, NaturalOrder, Sorter, TimSorter};
     use rand::rngs::StdRng;
 
     struct TestTimSorter<T, C> {

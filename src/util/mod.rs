@@ -16,8 +16,8 @@
  */
 pub mod byte_block_pool;
 pub use byte_block_pool::*;
-pub mod array_intro_sorter;
-pub use array_intro_sorter::*;
+pub(crate) mod array_intro_sorter;
+pub(crate) use array_intro_sorter::*;
 pub mod bytes_ref_comparator;
 pub mod bytes_ref_iterator;
 pub mod comparator;
@@ -67,15 +67,14 @@ pub mod sortable_bytes_ref_array;
 pub mod sorter;
 pub mod sparse_fixed_bit_set;
 pub mod stable_msb_radix_sorter;
-pub mod stable_string_sorter;
+pub(crate) mod stable_string_sorter;
 pub mod strict_string_tokenizer;
 pub mod string_helper;
-pub mod string_sorter;
+pub(crate) mod string_sorter;
 pub mod tim_sorter;
 pub mod vec_copy_ops;
 pub mod version;
 
-pub use array_tim_sorter::*;
 pub use tim_sorter::*;
 
 pub use sorter::*;
@@ -92,7 +91,6 @@ pub use ram_usage_estimator::*;
 pub use sortable_bytes_ref_array::*;
 pub use stable_msb_radix_sorter::*;
 pub use stable_string_sorter::*;
-pub use strict_string_tokenizer::*;
 pub use string_helper::*;
 pub use string_sorter::*;
 pub use vec_copy_ops::*;

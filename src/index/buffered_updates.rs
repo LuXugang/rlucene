@@ -45,7 +45,8 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 /// # Note
 /// - Instances of this structure are accessed either via a private instance on `DocumentWriterPerThread`,
 ///   or through synchronized code in the `DocumentsWriterDeleteQueue`.
-pub struct BufferedUpdates<Q>
+#[allow(dead_code)]
+pub(crate) struct BufferedUpdates<Q>
 where
     Q: Query,
 {
@@ -60,6 +61,7 @@ where
     #[allow(unused)]
     segment_name: String,
 }
+#[allow(unused)]
 impl BufferedUpdates<DummyQuery> {
     /// Rough logic: HashMap has an array with varying load factor.
     /// Entry consists of Query key, Integer value, int hash, and Entry next.
@@ -68,12 +70,13 @@ impl BufferedUpdates<DummyQuery> {
     pub const MAX_INT: i32 = i32::MAX;
 }
 
+#[allow(unused)]
 impl<Q> BufferedUpdates<Q>
 where
     Q: Query,
 {
     /// Creates a new `BufferedUpdates` instance.
-    pub fn new(segment_name: String) -> Self {
+    pub(crate) fn new(segment_name: String) -> Self {
         Self {
             num_field_updates: AtomicI32::new(0),
             delete_terms: DeletedTerms::new(),
@@ -86,7 +89,7 @@ where
             segment_name,
         }
     }
-    pub fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) -> Result<(), LuceneError> {
+    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) -> Result<(), LuceneError> {
         if self
             .delete_queries
             .insert(query.clone(), doc_id_upto)
@@ -99,7 +102,7 @@ where
         }
         Ok(())
     }
-    pub fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<(), LuceneError> {
+    pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<(), LuceneError> {
         let current = self.delete_terms.get(term)?;
         if current != -1 && doc_id_upto < current {
             // Only record the new number if it's greater than the
@@ -116,7 +119,7 @@ where
         self.delete_terms.put(term, doc_id_upto)?;
         Ok(())
     }
-    pub fn add_numeric_update(
+    pub(crate) fn add_numeric_update(
         &mut self,
         update: &DocValuesUpdate,
         doc_id_upto: i32,
@@ -149,7 +152,7 @@ where
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
-    pub fn add_binary_update(
+    pub(crate) fn add_binary_update(
         &mut self,
         update: &DocValuesUpdate,
         doc_id_upto: i32,
@@ -182,11 +185,11 @@ where
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
-    pub fn clear_delete_terms(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn clear_delete_terms(&mut self) -> Result<(), LuceneError> {
         self.delete_terms.clear()?;
         Ok(())
     }
-    pub fn clear(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
         self.delete_terms.clear()?;
         self.delete_queries.clear();
         self.num_field_updates
@@ -210,7 +213,7 @@ where
         field_updates_bytes_used.add_and_get(used);
         Ok(())
     }
-    pub fn any(&self) -> bool {
+    pub(crate) fn any(&self) -> bool {
         self.delete_terms.size() > 0
             || !self.delete_queries.is_empty()
             || self
@@ -274,7 +277,7 @@ where
         }
     }
 }
-pub struct DeletedTerms {
+pub(crate) struct DeletedTerms {
     bytes_used: Arc<Mutex<CounterEnum>>,
     pool: Arc<Mutex<ByteBlockPool>>,
     delete_terms: HashMap<String, BytesRefIntMap>,
@@ -287,9 +290,10 @@ impl Default for DeletedTerms {
     }
 }
 
+#[allow(unused)]
 impl DeletedTerms {
     /// Creates a new instance of `DeletedTerms`.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let pool = Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DTA(
             DirectTrackingAllocator::new(bytes_used.clone()),
@@ -304,7 +308,7 @@ impl DeletedTerms {
     /// Gets the newest document ID of the deleted term.
     ///
     /// Returns the newest document ID if the term exists, otherwise returns `-1`.
-    pub fn get(&self, term: &Term) -> Result<i32, LuceneError> {
+    pub(crate) fn get(&self, term: &Term) -> Result<i32, LuceneError> {
         if let Some(hash) = self.delete_terms.get(&term.field) {
             Ok(hash.get(&term.bytes)?)
         } else {
@@ -314,7 +318,7 @@ impl DeletedTerms {
     /// Puts the newest document ID of the deleted term.
     ///
     /// Inserts the term and its corresponding document ID. If the term is new, increments the `terms_size`.
-    pub fn put(&mut self, term: &Term, value: i32) -> Result<(), LuceneError> {
+    pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<(), LuceneError> {
         let hash = self
             .delete_terms
             .entry(term.field.clone())
@@ -334,7 +338,7 @@ impl DeletedTerms {
 
         Ok(())
     }
-    pub fn clear(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
         self.pool
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
@@ -354,16 +358,16 @@ impl DeletedTerms {
         Ok(())
     }
 
-    pub fn size(&self) -> i32 {
+    pub(crate) fn size(&self) -> i32 {
         self.terms_size
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.terms_size == 0
     }
     /// Just for test, not efficient.
     #[cfg(feature = "test_only")]
-    pub fn key_set(&self) -> Result<HashSet<Term>, LuceneError> {
+    pub(crate) fn key_set(&self) -> Result<HashSet<Term>, LuceneError> {
         let mut set = HashSet::new();
         for (field, hash) in &self.delete_terms {
             for bytes in hash.key_set()? {
@@ -376,7 +380,7 @@ impl DeletedTerms {
     /// Consume all terms in a sorted order.
     ///
     /// Note: This is a destructive operation as it calls `BytesRefHash::sort()`.
-    pub fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<(), LuceneError>
+    pub(crate) fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<(), LuceneError>
     where
         F: FnMut(&Term, i32) -> Result<(), LuceneError>,
     {
@@ -398,10 +402,11 @@ impl DeletedTerms {
         Ok(())
     }
     #[cfg(feature = "test_only")]
-    pub fn get_pool(&self) -> Arc<Mutex<ByteBlockPool>> {
+    pub(crate) fn get_pool(&self) -> Arc<Mutex<ByteBlockPool>> {
         self.pool.clone()
     }
 }
+#[allow(unused)]
 pub trait DeletedTermConsumer {
     fn accept(&mut self, term: &Term, doc_id: i32) -> Result<(), LuceneError>;
 }
@@ -431,17 +436,18 @@ impl fmt::Display for DeletedTerms {
     }
 }
 
-pub struct BytesRefIntMap {
+#[allow(unused)]
+struct BytesRefIntMap {
     counter: Arc<Mutex<CounterEnum>>,
     pub(crate) bytes_ref_hash: BytesRefHash,
     values: Vec<i32>,
 }
-
+#[allow(unused)]
 impl BytesRefIntMap {
     // TODO: memory calculation not implemented
     const INIT_RAM_BYTES: i64 = 0;
 
-    pub fn new(
+    fn new(
         pool: Arc<Mutex<ByteBlockPool>>,
         counter: Arc<Mutex<CounterEnum>>,
     ) -> Result<Self, LuceneError> {
@@ -468,7 +474,7 @@ impl BytesRefIntMap {
             values,
         })
     }
-    pub fn key_set(&self) -> Result<HashSet<BytesRef>, LuceneError> {
+    fn key_set(&self) -> Result<HashSet<BytesRef>, LuceneError> {
         let mut scratch = BytesRef::new();
         let mut set = HashSet::new();
 
@@ -478,7 +484,7 @@ impl BytesRefIntMap {
         }
         Ok(set)
     }
-    pub fn put(&mut self, key: &BytesRef, value: i32) -> Result<bool, LuceneError> {
+    fn put(&mut self, key: &BytesRef, value: i32) -> Result<bool, LuceneError> {
         debug_assert!(value >= 0, "Value must be non-negative.");
         let e = self.bytes_ref_hash.add(key)?;
         if e < 0 {
@@ -498,7 +504,7 @@ impl BytesRefIntMap {
             Ok(true)
         }
     }
-    pub fn get(&self, key: &BytesRef) -> Result<i32, LuceneError> {
+    fn get(&self, key: &BytesRef) -> Result<i32, LuceneError> {
         let e = self.bytes_ref_hash.find(key)?;
         if e == -1 {
             Ok(-1)

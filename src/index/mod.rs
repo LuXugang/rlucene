@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-pub mod buffered_updates;
+pub(crate) mod buffered_updates;
 pub mod bytes_ref;
 pub use bytes_ref::*;
 pub mod bytes_ref_builder;
 pub use bytes_ref_builder::*;
 pub mod binary_doc_values;
-pub mod binary_doc_values_field_updates;
+pub(crate) mod binary_doc_values_field_updates;
 mod buffered_updates_stream;
-pub mod doc_values_field_updates;
+pub(crate) mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_type;
 pub mod doc_values_update;
 pub mod docs_with_field_set;
-pub mod documents_writer_delete_queue;
-mod documents_writer_per_thread;
+pub(crate) mod documents_writer_delete_queue;
+pub(crate) mod documents_writer_per_thread;
 pub mod field_term_iterator;
-pub mod field_updates_buffer;
-pub mod frozen_buffered_updates;
+pub(crate) mod field_updates_buffer;
+pub(crate) mod frozen_buffered_updates;
 mod index_commit;
 pub mod index_deletion_policy;
 pub mod index_file_names;

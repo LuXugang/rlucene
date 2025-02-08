@@ -31,7 +31,7 @@ use std::sync::{
 };
 
 #[allow(unused)]
-pub struct FrozenBufferedUpdates<D, Q>
+pub(crate) struct FrozenBufferedUpdates<D, Q>
 where
     D: Directory,
     Q: Query,
@@ -50,6 +50,7 @@ where
     private_segment: Option<Arc<SegmentCommitInfo<D>>>,
 }
 
+#[allow(unused)]
 impl<D, Q> FrozenBufferedUpdates<D, Q>
 where
     D: Directory,
@@ -59,7 +60,6 @@ where
     // in multiple threads, and this compression is sizable (~8.3% of the original size), so it's important
     //we run this before applying the deletes/updates.
     // Query we often undercount (say 24 bytes), plus int.
-    #[allow(unused)]
     const BYTES_PER_DEL_QUERY: i32 = 0;
 
     pub fn new(
@@ -139,7 +139,7 @@ where
     }
 
     /// Returns `true` if this buffered updates instance has already been applied.
-    pub fn is_applied(&self) -> bool {
+    pub(crate) fn is_applied(&self) -> bool {
         assert!(
             self.apply_lock.try_lock().is_err(),
             "The lock must be held by the current thread before checking applied state."
@@ -147,10 +147,10 @@ where
         self.applied.load(Ordering::Relaxed)
     }
 
-    pub fn apply(&self, _seg_states: SegmentState) {
+    pub(crate) fn apply(&self, _seg_states: SegmentState) {
         unimplemented!()
     }
-    pub fn any(&self) -> bool {
+    pub(crate) fn any(&self) -> bool {
         self.delete_terms.size() > 0
             || !self.delete_queries.is_empty()
             || self.field_updates_count > 0

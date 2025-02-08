@@ -22,7 +22,7 @@ use crate::util::{
     StableMSBRadixSorter, StableMSBRadixSorterBase, StringSorterBase,
 };
 
-pub struct StableStringSorter<T>
+pub(crate) struct StableStringSorter<T>
 where
     T: Sorter + StableStringSorterBase,
 {

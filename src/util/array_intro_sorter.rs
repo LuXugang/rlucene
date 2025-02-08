@@ -23,7 +23,7 @@ use crate::util::sorter::Sorter;
 ///
 /// # Note
 /// This is an internal API.
-pub struct ArrayIntroSorter<'a, T, C: Comparator<T>> {
+pub(crate) struct ArrayIntroSorter<'a, T, C: Comparator<T>> {
     pub arr: &'a mut Vec<T>,
     comparator: C,
     pivot: i32,

@@ -61,7 +61,7 @@ impl SortedSetSortField {
             sort_field,
         })
     }
-    pub fn read_selector_type<T: DataInput>(
+    fn read_selector_type<T: DataInput>(
         data_input: &mut T,
     ) -> Result<SortedSetSelectorType, LuceneError> {
         let selector_type = data_input.read_int()?;

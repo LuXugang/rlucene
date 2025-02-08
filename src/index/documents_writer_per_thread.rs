@@ -15,4 +15,4 @@
  * limitations under the License.
  */
 #[allow(unused)]
-pub struct DocumentsWriterPerThread;
+pub(crate) struct DocumentsWriterPerThread;

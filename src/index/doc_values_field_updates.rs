@@ -44,7 +44,8 @@ const SHIFT: i32 = 1;
 ///
 /// # Note
 /// This is an experimental feature and may change in future versions.
-pub struct DocValuesFieldUpdates<D>
+#[allow(unused)]
+pub(crate) struct DocValuesFieldUpdates<D>
 where
     D: DocValuesFieldUpdatesBase,
 {
@@ -56,11 +57,12 @@ where
     pub sub_update: D,
 }
 #[derive(Default)]
-pub struct DocValuesFieldInner {
+pub(crate) struct DocValuesFieldInner {
     pub finished: bool,
     pub docs: AbstractPagedMutable<PagedMutable>,
     pub size: i32,
 }
+#[allow(unused)]
 impl DocValuesFieldInner {
     pub(crate) fn new(bits_per_value: i32) -> Result<Self, LuceneError> {
         let sub_mutable =
@@ -72,18 +74,18 @@ impl DocValuesFieldInner {
             size: 0,
         })
     }
-    pub fn resize(&mut self, size: i32) -> Result<(), LuceneError> {
+    pub(crate) fn resize(&mut self, size: i32) -> Result<(), LuceneError> {
         self.docs = self.docs.resize(size as i64)?;
         Ok(())
     }
-    pub fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
+    pub(crate) fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
         let result = self.docs.grow_with_size(size as i64)?;
         if result.is_some() {
             self.docs = result.unwrap();
         }
         Ok(())
     }
-    pub fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         let tmp_doc = self.docs.get(j as i64)?;
         let value_i = self.docs.get(i as i64)?;
         self.docs.set(j as i64, value_i)?;
@@ -91,11 +93,12 @@ impl DocValuesFieldInner {
         Ok(())
     }
 }
+#[allow(unused)]
 impl<D> DocValuesFieldUpdates<D>
 where
     D: DocValuesFieldUpdatesBase,
 {
-    pub fn new(
+    pub(crate) fn new(
         max_doc: i32,
         del_gen: i64,
         field: String,
@@ -123,7 +126,7 @@ where
     }
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
-    pub fn add_value(&mut self, doc: i32, value: i64) -> Result<(), LuceneError> {
+    pub(crate) fn add_value(&mut self, doc: i32, value: i64) -> Result<(), LuceneError> {
         let index = if self.sub_update.need_add_doc() {
             self.add(doc)?
         } else {
@@ -139,7 +142,9 @@ where
         self.sub_update.add_byte_ref(doc, value, index)
     }
     /// Returns an iterator for updated documents and their values.
-    pub fn iterator(&mut self) -> Result<impl DocValuesFieldIterator + use<'_, D>, LuceneError> {
+    pub(crate) fn iterator(
+        &mut self,
+    ) -> Result<impl DocValuesFieldIterator + use<'_, D>, LuceneError> {
         self.ensure_finished()?;
         self.sub_update.iterator(self.inner.clone(), self.del_gen)
     }
@@ -155,7 +160,7 @@ where
     {
         self.sub_update.add_iterator(doc_id, iterator)
     }
-    pub fn finish(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn finish(&mut self) -> Result<(), LuceneError> {
         let mut inner = self
             .inner
             .lock()
@@ -199,7 +204,7 @@ where
         Ok(())
     }
     /// Returns true if this instance contains any updates.
-    pub fn any(&self) -> Result<bool, LuceneError> {
+    pub(crate) fn any(&self) -> Result<bool, LuceneError> {
         let inner = self
             .inner
             .lock()
@@ -212,7 +217,7 @@ where
         }
     }
     /// Adds an update that resets the document value.
-    pub fn reset(&mut self, doc: i32) -> Result<(), LuceneError> {
+    pub(crate) fn reset(&mut self, doc: i32) -> Result<(), LuceneError> {
         if self.sub_update.need_reset() {
             self.sub_update.reset(doc)
         } else {
@@ -220,7 +225,7 @@ where
         }
     }
 
-    pub fn add(&mut self, doc: i32) -> Result<i32, LuceneError> {
+    pub(crate) fn add(&mut self, doc: i32) -> Result<i32, LuceneError> {
         self.add_internal(doc, HAS_VALUE_MASK)
     }
     fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<i32, LuceneError> {
@@ -259,7 +264,7 @@ where
     //     inner.swap(i, j)?;
     //     Ok(())
     // }
-    pub fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
+    pub(crate) fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
         self.sub_update.grow(size)?;
         let mut inner = self
             .inner
@@ -268,7 +273,7 @@ where
         inner.grow(size)?;
         Ok(())
     }
-    pub fn resize(&mut self, size: i32) -> Result<(), LuceneError> {
+    pub(crate) fn resize(&mut self, size: i32) -> Result<(), LuceneError> {
         self.sub_update.resize(size)?;
         let mut inner = self
             .inner
@@ -288,6 +293,7 @@ where
         Ok(())
     }
 }
+#[allow(unused)]
 pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<PriorityQueueIterator<T>>, LuceneError>
 where
     T: DocValuesFieldIterator,
@@ -321,7 +327,8 @@ where
         todo!()
     }
 }
-pub trait DocValuesFieldUpdatesBase: Accountable {
+#[allow(unused)]
+pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<(), LuceneError>;
     fn add_byte_ref(&mut self, doc: i32, value: BytesRef, index: i32) -> Result<(), LuceneError>;
     fn add_iterator<T: DocValuesFieldIterator>(
@@ -436,6 +443,7 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 ///
 /// Only documents with updates are returned by this iterator, and the documents are returned
 /// in increasing order.
+#[allow(unused)]
 pub trait DocValuesFieldIterator: DocValuesIterator + Default + PartialEq {
     fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
         BinaryDocValuesImpl::new(iterator);
@@ -456,7 +464,7 @@ pub trait DocValuesFieldIterator: DocValuesIterator + Default + PartialEq {
     fn has_value(&mut self) -> bool;
 }
 /// Wraps the given iterator as a BinaryDocValues instance.
-pub struct BinaryDocValuesImpl<T>
+pub(crate) struct BinaryDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -511,7 +519,8 @@ where
 }
 
 /// Wraps the given iterator as a NumericDocValues instance.
-pub struct NumericDocValuesImpl<T>
+#[allow(unused)]
+pub(crate) struct NumericDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -565,7 +574,7 @@ where
     }
 }
 
-pub struct IteratorPQCmp<T>
+pub(crate) struct IteratorPQCmp<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -607,7 +616,7 @@ where
     }
 }
 
-pub struct PriorityQueueIterator<T>
+pub(crate) struct PriorityQueueIterator<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -699,7 +708,7 @@ where
 }
 
 #[derive(Default)]
-pub struct AbstractIterator<A>
+pub(crate) struct AbstractIterator<A>
 where
     A: AbstractIteratorBase + Default,
 {
@@ -809,7 +818,8 @@ pub trait AbstractIteratorBase {
     fn binary_value(&mut self) -> Result<BytesRef, LuceneError>;
 }
 
-pub struct SingleValueDocValuesFieldUpdates<S>
+#[allow(unused)]
+pub(crate) struct SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
 {
@@ -822,6 +832,7 @@ where
     lock: Arc<Mutex<()>>,
     dov_values_type: DocValuesType,
 }
+#[allow(unused)]
 impl<S> SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
@@ -945,6 +956,7 @@ where
     }
 }
 
+#[allow(unused)]
 pub trait SingleValueDocValuesFieldUpdatesBase {
     fn binary_value(&self) -> Result<BytesRef, LuceneError>;
     fn long_value(&self) -> Result<i64, LuceneError>;

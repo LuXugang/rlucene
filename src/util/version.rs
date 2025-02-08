@@ -17,7 +17,7 @@
 use crate::util::error::illegal_argument::IllegalArgumentError;
 use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::parse::Parse;
-use crate::util::StrictStringTokenizer;
+use crate::util::strict_string_tokenizer::StrictStringTokenizer;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fmt::{Display, Formatter};

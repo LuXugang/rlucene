@@ -32,7 +32,7 @@ use std::sync::{Arc, Mutex};
 ///
 /// # Note
 /// This API is experimental and may change in future versions.
-pub struct BinaryDocValuesFieldUpdates {
+pub(crate) struct BinaryDocValuesFieldUpdates {
     offsets: AbstractPagedMutable<PagedGrowableWriter>,
     lengths: AbstractPagedMutable<PagedGrowableWriter>,
     values: BytesRefBuilder,
@@ -144,6 +144,7 @@ pub struct BinaryDocValuesIterator<'a> {
     length: i32,
     values: Option<&'a mut BytesRef>,
 }
+#[allow(unused)]
 impl<'a> BinaryDocValuesIterator<'a> {
     pub fn new(
         offsets: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,

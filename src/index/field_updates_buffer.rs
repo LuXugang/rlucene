@@ -43,7 +43,7 @@ use std::sync::{Arc, Mutex};
 ///
 /// Along the same lines, this implementation optimizes the case when all updates have a value.
 /// Lastly, if all updates share the same value for a numeric field, we only store the value once.
-pub struct FieldUpdatesBuffer {
+pub(crate) struct FieldUpdatesBuffer {
     bytes_used: Arc<Mutex<CounterEnum>>,
     num_updates: i32,
     // we use a very simple approach and store the update term values without de-duplication
@@ -63,13 +63,13 @@ pub struct FieldUpdatesBuffer {
     is_numeric: bool,
     finished: bool,
 }
-
+#[allow(unused)]
 impl FieldUpdatesBuffer {
     #[allow(unused)]
     const SELF_SHALLOW_SIZE: i64 = 0;
     #[allow(unused)]
     const STRING_SHALLOW_SIZE: i64 = 0;
-    pub fn new(
+    fn new(
         bytes_used: Arc<Mutex<CounterEnum>>,
         initial_value: &DocValuesUpdate,
         doc_upto: i32,
@@ -112,7 +112,7 @@ impl FieldUpdatesBuffer {
         buffer.term_values.append(&initial_value.term.bytes)?;
         Ok(buffer)
     }
-    pub fn from_numeric_update(
+    pub(crate) fn from_numeric_update(
         bytes_used: Arc<Mutex<CounterEnum>>,
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
@@ -142,7 +142,7 @@ impl FieldUpdatesBuffer {
         Ok(buffer)
     }
 
-    pub fn from_binary_update(
+    pub(crate) fn from_binary_update(
         bytes_used: Arc<Mutex<CounterEnum>>,
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
@@ -170,7 +170,7 @@ impl FieldUpdatesBuffer {
         0
     }
 
-    pub fn get_max_numeric(&self) -> i64 {
+    pub(crate) fn get_max_numeric(&self) -> i64 {
         debug_assert!(self.is_numeric);
         if self.min_numeric == i64::MAX && self.max_numeric == i64::MIN {
             return 0;
@@ -178,14 +178,14 @@ impl FieldUpdatesBuffer {
         self.max_numeric
     }
 
-    pub fn get_min_numeric(&self) -> i64 {
+    pub(crate) fn get_min_numeric(&self) -> i64 {
         debug_assert!(self.is_numeric);
         if self.min_numeric == i64::MAX && self.max_numeric == i64::MIN {
             return 0;
         }
         self.min_numeric
     }
-    pub fn add(
+    pub(crate) fn add(
         &mut self,
         field: String,
         doc_upto: i32,
@@ -292,11 +292,11 @@ impl FieldUpdatesBuffer {
         Ok(())
     }
 
-    pub fn add_no_value(&mut self, term: &Term, doc_up_to: i32) -> Result<(), LuceneError> {
+    pub(crate) fn add_no_value(&mut self, term: &Term, doc_up_to: i32) -> Result<(), LuceneError> {
         let ord = self.append(term)?;
         self.add(term.field.clone(), doc_up_to, ord, false)
     }
-    pub fn add_update_with_bytes_ref(
+    pub(crate) fn add_update_with_bytes_ref(
         &mut self,
         term: &Term,
         value: &BytesRef,
@@ -310,13 +310,13 @@ impl FieldUpdatesBuffer {
         Ok(())
     }
 
-    pub fn append(&mut self, term: &Term) -> Result<i32, LuceneError> {
+    fn append(&mut self, term: &Term) -> Result<i32, LuceneError> {
         self.term_values.append(&term.bytes)?;
         let ord = self.num_updates;
         self.num_updates += 1;
         Ok(ord)
     }
-    pub fn finish(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn finish(&mut self) -> Result<(), LuceneError> {
         if self.finished {
             return Err(LuceneError::illegal_state(
                 "Buffer was finished already".to_string(),
@@ -337,7 +337,7 @@ impl FieldUpdatesBuffer {
 
         Ok(())
     }
-    pub fn assert_term_and_doc_in_order(&mut self) -> bool {
+    fn assert_term_and_doc_in_order(&mut self) -> bool {
         // it's used for debug_assert! , so we roughly copy data
         let mut iterator = self
             .term_values
@@ -373,7 +373,7 @@ impl FieldUpdatesBuffer {
         );
         true
     }
-    pub fn iterator(&self) -> Result<BufferedUpdateIterator, LuceneError> {
+    pub(crate) fn iterator(&self) -> Result<BufferedUpdateIterator, LuceneError> {
         if !self.finished {
             return Err(LuceneError::illegal_state(
                 "Buffer was not finished".to_string(),
@@ -381,15 +381,15 @@ impl FieldUpdatesBuffer {
         }
         Ok(BufferedUpdateIterator::new(self))
     }
-    pub fn is_numeric(&self) -> bool {
+    pub(crate) fn is_numeric(&self) -> bool {
         debug_assert!(self.is_numeric || self.byte_values.is_some());
         self.is_numeric
     }
-    pub fn has_single_value(&self) -> bool {
+    pub(crate) fn has_single_value(&self) -> bool {
         // we only do this optimization for numerics so far.
         self.is_numeric && self.numeric_values.as_ref().unwrap().len() == 1
     }
-    pub fn get_numeric_value(&self, idx: i32) -> i64 {
+    pub(crate) fn get_numeric_value(&self, idx: i32) -> i64 {
         if let Some(ref has_values) = self.has_values {
             if !has_values.get(idx) {
                 return 0;
@@ -400,7 +400,7 @@ impl FieldUpdatesBuffer {
         debug_assert!(length <= i32::MAX as usize);
         self.numeric_values.as_ref().unwrap()[Self::get_array_index(length as i32, idx) as usize]
     }
-    pub fn get_array_index(array_length: i32, index: i32) -> i32 {
+    fn get_array_index(array_length: i32, index: i32) -> i32 {
         assert!(
             array_length == 1 || array_length > index,
             "illegal array index length: {} index: {}",
@@ -411,6 +411,7 @@ impl FieldUpdatesBuffer {
     }
 }
 /// An iterator that iterates over all updates in insertion order.
+#[allow(unused)]
 pub struct BufferedUpdateIterator<'a> {
     term_values_iterator: IndexedBytesRefIteratorImpl<'a>,
     look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
@@ -423,6 +424,7 @@ pub struct BufferedUpdateIterator<'a> {
     field_updates_buffer: &'a FieldUpdatesBuffer,
 }
 
+#[allow(unused)]
 impl<'a> BufferedUpdateIterator<'a> {
     pub fn new(field_updates_buffer: &'a FieldUpdatesBuffer) -> Self {
         let term_values_iterator = field_updates_buffer
@@ -480,12 +482,12 @@ impl<'a> BufferedUpdateIterator<'a> {
     /// If all updates update a single field to the same value, then we can apply these updates in
     /// the term order instead of the request order as both will yield the same result. This
     /// optimization allows us to iterate the term dictionary faster and de-duplicate updates.
-    pub fn is_sorted_terms(&self) -> bool {
+    pub(crate) fn is_sorted_terms(&self) -> bool {
         self.field_updates_buffer.term_sort_state.indices.is_some()
     }
     /// Moves to the next BufferedUpdate or return null if all updates are consumed. The returned
     /// instance is a shared instance and must be fully consumed before the next call to this method.
-    pub fn next_value(&mut self) -> Result<Option<BufferedUpdate>, LuceneError> {
+    pub(crate) fn next_value(&mut self) -> Result<Option<BufferedUpdate>, LuceneError> {
         let mut buffered_update = BufferedUpdate::default();
         let next_term = self.next_term()?;
 
@@ -555,6 +557,7 @@ impl<'a> BufferedUpdateIterator<'a> {
 /// # Warning
 /// this struct should not be use in map or other data-structures that use hashCode / equals
 #[derive(Default, Clone)]
+#[allow(unused)]
 pub struct BufferedUpdate {
     /// the max document ID this update should be applied to.
     pub doc_up_to: i32,
@@ -570,6 +573,7 @@ pub struct BufferedUpdate {
     pub term_value: Option<BytesRef>,
 }
 
+#[allow(unused)]
 impl BufferedUpdate {
     pub fn new(
         doc_up_to: i32,

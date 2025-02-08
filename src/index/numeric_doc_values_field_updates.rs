@@ -29,7 +29,7 @@ use crate::util::packed::paged_mutable::PagedMutable;
 use crate::util::packed::PackedInts;
 use std::sync::{Arc, Mutex};
 
-pub struct NumericDocValuesFieldUpdates<T>
+pub(crate) struct NumericDocValuesFieldUpdates<T>
 where
     T: AbstractPagedMutableBase,
 {
@@ -37,6 +37,7 @@ where
     min_value: i64,
     lock: Arc<Mutex<()>>,
 }
+#[allow(unused)]
 impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
     pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>, LuceneError> {
         let sub_reader = PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT);
@@ -48,8 +49,9 @@ impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
         })
     }
 }
+#[allow(unused)]
 impl NumericDocValuesFieldUpdates<PagedMutable> {
-    pub fn with_range(
+    pub(crate) fn with_range(
         min_value: i64,
         max_value: i64,
     ) -> Result<
@@ -156,7 +158,7 @@ impl<'a, T> NumericDocValuesFieldUpdatesIterator<'a, T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    pub fn new(
+    pub(crate) fn new(
         values: Option<&'a mut AbstractPagedMutable<T>>,
         value: i64,
         min_value: i64,
@@ -191,8 +193,9 @@ where
 pub struct SingleValueNumericDocValuesFieldUpdates {
     value: i64,
 }
+#[allow(unused)]
 impl SingleValueNumericDocValuesFieldUpdates {
-    pub fn new(value: i64) -> SingleValueNumericDocValuesFieldUpdates {
+    pub(crate) fn new(value: i64) -> SingleValueNumericDocValuesFieldUpdates {
         SingleValueNumericDocValuesFieldUpdates { value }
     }
 }

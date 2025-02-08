@@ -33,7 +33,7 @@ impl<'a> StrictStringTokenizer<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Result<&'a str, IllegalStateError> {
+    pub(crate) fn next_token(&mut self) -> Result<&'a str, IllegalStateError> {
         if let Some(start) = self.pos {
             if start >= self.s.len() {
                 self.pos = None;
@@ -54,7 +54,7 @@ impl<'a> StrictStringTokenizer<'a> {
         }
     }
 
-    pub fn has_more_tokens(&self) -> bool {
+    pub(crate) fn has_more_tokens(&self) -> bool {
         self.pos.is_some()
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 #[allow(unused)]
-pub struct BufferedUpdatesStream;
+pub(crate) struct BufferedUpdatesStream;
 
 #[allow(unused)]
-pub struct SegmentState;
+pub(crate) struct SegmentState;

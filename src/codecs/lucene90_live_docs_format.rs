@@ -66,7 +66,7 @@ impl Lucene90LiveDocsFormat {
     pub fn new() -> Lucene90LiveDocsFormat {
         Lucene90LiveDocsFormat {}
     }
-    pub fn read_fixed_bit_set<T: IndexInput>(
+    fn read_fixed_bit_set<T: IndexInput>(
         input: &mut T,
         length: i32,
     ) -> Result<FixedBitSet, LuceneError> {

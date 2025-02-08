@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::array_tim_sorter::ArrayTimSorter;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::selector::Selector;
 use crate::util::{
-    ArrayIntroSorter, ArrayTimSorter, Comparator, IntroSelector, IntroSelectorBase,
-    IntroSelectorBaseDefault, NaturalOrder, Sorter, TimSorter, VecCopyOps,
+    ArrayIntroSorter, Comparator, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault,
+    NaturalOrder, Sorter, TimSorter, VecCopyOps,
 };
 use std::cmp::Ordering;
 use std::mem;
