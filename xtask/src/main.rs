@@ -55,7 +55,7 @@ fn main() {
         println!("Executing task: {}", task);
 
         let src_dir = project_dir.join("src");
-        let test_dir = project_dir.join("tests");
+        // let test_dir = project_dir.join("tests");
         match task {
             "license-check" => {
                 let license_path = find_file(&xtask_dir, "LICENSE_HEADER");
@@ -73,10 +73,11 @@ fn main() {
 
                 let src_valid =
                     tasks::license::license_checker::check_licenses_in_dir(&src_dir, &license_text);
-                let test_valid =
-                    tasks::license::license_checker::check_licenses_in_dir(&test_dir, &license_text);
+                // let test_valid =
+                //     tasks::license::license_checker::check_licenses_in_dir(&test_dir, &license_text);
 
-                if src_valid && test_valid {
+                // if src_valid && test_valid {
+                    if src_valid{
                     eprintln!("\x1b[32mAll files have the correct license header\x1b[0m.");
                 } else {
                     eprintln!(

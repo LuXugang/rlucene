@@ -228,3 +228,43 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::index::base_live_docs_format_test_case::BaseLiveDocsFormatTestCase;
+    use crate::test::util::lucene_test_case::is_night_mode;
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_error::TestError;
+
+    #[allow(dead_code)] // for quick search
+    pub struct TestLucene90LiveDocsFormat;
+    impl BaseLiveDocsFormatTestCase for TestLucene90LiveDocsFormat {}
+    #[test]
+    fn test_dense_live_docs() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene90LiveDocsFormat;
+        test.test_dense_live_docs(&mut random)
+    }
+    #[test]
+    fn test_empty_live_docs() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene90LiveDocsFormat;
+        test.test_empty_live_docs(&mut random)
+    }
+    #[test]
+    fn test_sparse_live_docs() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene90LiveDocsFormat;
+        test.test_sparse_live_docs(&mut random)
+    }
+    #[test]
+    fn test_over_flow_live_docs() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene90LiveDocsFormat;
+        if is_night_mode() {
+            test.test_over_flow(&mut random)
+        } else {
+            Ok(())
+        }
+    }
+}

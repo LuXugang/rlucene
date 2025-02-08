@@ -87,3 +87,64 @@ impl<T: Checksum> Checksum for BufferedChecksum<T> {
         self.upto = 0;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::store::{BufferedChecksum, Checksum, HasherChecksum};
+    use crc32fast::Hasher;
+    use rand::Rng;
+
+    #[allow(dead_code)] // for quick search
+    struct TestBufferedChecksum {}
+    #[test]
+    fn test_simple() {
+        let mut crc = Hasher::new();
+        crc.update(&[1]);
+        crc.update(&[2]);
+        crc.update(&[3]);
+
+        let mut buffered = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
+        buffered.update(1);
+        buffered.update(2);
+        buffered.update(3);
+
+        assert_eq!(buffered.get_value(), crc.finalize() as i64);
+    }
+
+    #[test]
+    fn test_random() {
+        let mut raw_crc = Hasher::new();
+        let mut buffered = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
+
+        let mut rng = rand::thread_rng();
+        let iterations = 10000;
+
+        for _ in 0..iterations {
+            match rng.gen_range(0..4) {
+                0 => {
+                    let length = rng.gen_range(0..1024);
+                    let mut bytes = vec![0; length];
+                    rng.fill(bytes.as_mut_slice());
+                    raw_crc.update(&bytes);
+                    buffered.update_bytes(&bytes, 0, length as i32);
+                }
+                1 => {
+                    let b = rng.gen_range(0..=255) as u8;
+                    raw_crc.update(&[b]);
+                    buffered.update(b);
+                }
+                2 => {
+                    raw_crc = Hasher::new();
+                    buffered.reset();
+                }
+                3 => {
+                    assert_eq!(buffered.get_value(), raw_crc.clone().finalize() as i64);
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        assert_eq!(buffered.get_value(), raw_crc.finalize() as i64);
+    }
+    // TODO: not finished
+}
