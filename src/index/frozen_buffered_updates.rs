@@ -152,7 +152,7 @@ where
     }
     pub fn any(&self) -> bool {
         self.delete_terms.size() > 0
-            || self.delete_queries.len() > 0
+            || !self.delete_queries.is_empty()
             || self.field_updates_count > 0
     }
 }

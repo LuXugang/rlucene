@@ -27,8 +27,6 @@ use crate::util::info_stream::InfoStreamEnum;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
-use std::thread;
-use std::time::Duration;
 
 pub struct DocumentsWriterDeleteQueue<Q>
 where
@@ -230,7 +228,7 @@ where
     /// This may freeze the global buffer unless the delete queue has already been closed.
     /// If the queue has been closed, this method will return `None`.
     pub fn maybe_freeze_global_buffer<D>(
-        &mut self,
+        &self,
     ) -> Result<Option<FrozenBufferedUpdates<D, Q>>, LuceneError>
     where
         D: Directory,
@@ -341,7 +339,7 @@ where
         );
         seq_no
     }
-    pub fn close(&mut self) -> Result<(), LuceneError> {
+    pub fn close(&self) -> Result<(), LuceneError> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -437,7 +435,7 @@ where
     /// # Returns
     /// A new `DocumentsWriterDeleteQueue` as the successor of this queue.
     pub fn advance_queue(
-        &mut self,
+        &self,
         max_num_pending_ops: i64,
     ) -> Result<DocumentsWriterDeleteQueue<Q>, LuceneError> {
         let mut global_state = self

@@ -38,8 +38,8 @@ use rlucene::util::error::lucene_error::LuceneError;
 use rlucene::util::info_stream::get_default_info_stream;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::{mpsc, Arc, Barrier, Mutex};
-use std::{hash, thread, vec};
+use std::sync::{Arc, Barrier, Mutex};
+use std::{thread, vec};
 
 #[allow(dead_code)]
 pub struct TestDocumentsWriterDeleteQueue;
@@ -47,7 +47,7 @@ pub struct TestDocumentsWriterDeleteQueue;
 #[test]
 fn test_update_delete_slices() -> Result<(), TestError> {
     let mut random = random();
-    let mut queue: DocumentsWriterDeleteQueue<DummyQuery> =
+    let queue: DocumentsWriterDeleteQueue<DummyQuery> =
         DocumentsWriterDeleteQueue::new(get_default_info_stream());
     let size = 200 + random.gen_range(0..500) * random_multiplier();
     let mut ids: Vec<i32> = Vec::with_capacity(size as usize);
@@ -157,7 +157,7 @@ fn test_clear() -> Result<(), TestError> {
 #[test]
 fn test_any_changes() -> Result<(), TestError> {
     let mut random = random();
-    let mut queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
+    let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
     let size = 200 + random.gen_range(0..500) * random_multiplier();
     let mut terms_since_freeze = 0;
     let mut queries_since_freeze = 0;
@@ -201,7 +201,7 @@ fn test_partially_applied_global_slice() -> Result<(), LuceneError> {
     });
     drop(lock);
     handle.join().unwrap();
-    let mut queue = queue.lock().unwrap();
+    let queue = queue.lock().unwrap();
     assert!(queue.any_changes()?);
     queue.try_apply_global_slice()?;
     assert!(queue.any_changes()?);
