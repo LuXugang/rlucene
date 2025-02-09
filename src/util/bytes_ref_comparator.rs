@@ -17,7 +17,7 @@
 use crate::index::BytesRef;
 use crate::util::comparator::Comparator;
 
-/// Specialized [`BytesRef`] comparator that [`StringSorter`](crate::util::string_sorter::StringSorter) has optimizations for.
+/// Specialized [`BytesRef`] comparator that `StringSorter` has optimizations for.
 ///
 /// # Note
 /// This is an internal API.

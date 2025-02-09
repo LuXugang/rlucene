@@ -27,6 +27,44 @@ use crate::util::info_stream::InfoStreamEnum;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
+/// [`DocumentsWriterDeleteQueue`] is a non-blocking linked pending deletes queue. Unlike other
+/// queue implementations, we only maintain the tail of the queue. The delete queue is always used
+/// in a context of a set of [`DocumentsWriterPerThread`](crate::index::documents_writer_per_thread::DocumentsWriterPerThread) instances and a global delete pool. Each
+/// DWPT and the global pool need to maintain their 'own' head of the queue (as a [`DeleteSlice`](DeleteSlice)
+/// instance per [`DocumentsWriterPerThread`](crate::index::documents_writer_per_thread::DocumentsWriterPerThread)). The differences between DWPT and the global pool are:
+///
+/// - DWPT starts maintaining a head after adding its first document (since for its segment-private
+///   deletes, only the deletes after that document are relevant)
+/// - The global pool starts maintaining the head immediately upon instance creation by taking the
+///   sentinel instance as its initial head
+///
+/// Since each [`DeleteSlice`](DeleteSlice) maintains its own head and the list is singly-linked, garbage
+/// collection prunes the list automatically. All nodes in the list that remain relevant should be
+/// directly or indirectly referenced by either:
+///
+/// - A DWPT's private [`DeleteSlice`](DeleteSlice)
+/// - The global [`BufferedUpdates`](BufferedUpdates) slice
+///
+/// Each DWPT and the global delete pool maintain their private [`DeleteSlice`](DeleteSlice) instance. For DWPT,
+/// updating a slice is equivalent to atomically finalizing a document. The slice update guarantees
+/// a "happens before" relationship to all other updates in the same indexing session. When a DWPT
+/// updates a document:
+///
+/// 1. Consumes a document and finishes its processing
+/// 2. Updates its private [`DeleteSlice`](DeleteSlice) through either:
+///    - [`update_slice`](DocumentsWriterDeleteQueue::update_slice), or
+///    - [`add_with_slice`](DocumentsWriterDeleteQueue::add_with_slice) (if the document has a delTerm)
+/// 3. Applies all deletes in the slice to its private [`BufferedUpdates`](BufferedUpdates) and resets it
+/// 4. Increments its internal document ID
+///
+/// The DWPT doesn't apply its current document's delete term until it updates its delete slice,
+/// ensuring update consistency. If the update fails before updating the [`DeleteSlice`], the delTerm
+/// won't be added to either its private deletes or the global deletes.
+///
+/// # Type References
+/// [`BufferedUpdates`](BufferedUpdates)
+/// [`DeleteSlice`](crate::index::DeleteSlice)
+/// [`DocumentsWriterPerThread`](crate::index::documents_writer_per_thread::DocumentsWriterPerThread)
 #[allow(unused)]
 pub(crate) struct DocumentsWriterDeleteQueue<Q>
 where
@@ -34,6 +72,8 @@ where
 {
     pub global_buffer_lock: RwLock<GlobalState<Q>>,
     generation: i64,
+    /// Generates the sequence number that IW returns to callers changing the index, showing the
+    /// effective serialization of all operations.
     next_seq_no: Arc<AtomicI64>,
     info_stream: Arc<Mutex<InfoStreamEnum>>,
     start_seq_no: i64,
@@ -282,6 +322,7 @@ where
             .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         Ok(DeleteSlice::new(global_state.tail.clone()))
     }
+    /// Negative result means there were new deletes since we last applied.
     pub(crate) fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64, LuceneError> {
         let global_state = self
             .global_buffer_lock
@@ -514,6 +555,9 @@ where
     Q: Query,
 {
     tail: Arc<Node<Q>>,
+    /// Used to record deletes against all prior (already written to disk) segments. Whenever any
+    /// segment flushes, we bundle up this set of deletes and insert into the buffered updates stream
+    /// before the newly flushed segment(s).
     global_slice: DeleteSlice<Q>,
     #[allow(unused)]
     generation: i64,

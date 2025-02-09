@@ -134,7 +134,7 @@ impl PrefixCodedTermsBuilder {
     pub fn add_term(&mut self, term: &Term) -> Result<(), LuceneError> {
         self.add(term.field.to_string(), &term.bytes)
     }
-    /// Add a term. This fully consumes the incoming [`BytesRef`](BytesRef).
+    /// Add a term. This fully consumes the incoming [`BytesRef`].
     pub fn add(&mut self, field: String, bytes: &BytesRef) -> Result<(), LuceneError> {
         debug_assert!(
             self.last_term == Term::from_empty("".to_string())
