@@ -14,23 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod codec;
-pub mod codec_util;
-pub mod compound_directory;
-pub mod compound_directory_enum;
-pub mod compound_format;
-mod compression;
-pub mod doc_values_format;
-pub mod field_infos_format;
-pub mod live_docs_format;
-pub mod lucene101_codec;
-pub mod lucene90;
-pub mod lucene90_live_docs_format;
-pub mod lucene99_segment_info_format;
-pub mod segment_info_format;
-pub mod simple_text_live_docs_format;
+use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
+use crate::store::DataOutput;
+use crate::util::error::lucene_error::LuceneError;
 
-pub use codec::*;
-pub use codec_util::*;
-pub use compound_format::*;
-pub use lucene90::*;
+/// A data compressor.
+pub trait Compressor {
+    /// Compress bytes into `out`. It is the responsibility of the compressor to add all
+    /// necessary information so that a `Decompressor` will know when to stop decompressing bytes
+    /// from the stream.
+    fn compress<D>(
+        &self,
+        buffers_input: &ByteBuffersDataInput,
+        out: &mut D,
+    ) -> Result<(), LuceneError>
+    where
+        D: DataOutput;
+}

@@ -35,6 +35,7 @@ pub mod bytes_ref_array;
 pub mod bytes_ref_block_pool;
 pub mod bytes_ref_hash;
 pub mod common_util;
+mod compress;
 pub mod constants;
 pub mod counter;
 pub mod cursor_ext;
