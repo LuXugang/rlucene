@@ -18,7 +18,7 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::CommonUtil;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// LZ4 compression and decompression routines.
 ///
@@ -28,8 +28,9 @@ use std::sync::{Arc, Mutex};
 /// only retains a better hash table that remembers about more occurrences of a previous 4-bytes
 /// sequence, and removes all the logic about handling of the case when overlapping matches are
 /// found.
+#[allow(unused)]
 pub struct LZ4;
-
+#[allow(unused)]
 impl LZ4 {
     /// Window size: this is the maximum supported distance between two strings so that LZ4 can replace
     /// the second one by a reference to the first one.
@@ -52,6 +53,7 @@ impl LZ4 {
     /// Note: This method expects the data to be read in little-endian byte order.
     /// Ensure that the input data is in little-endian format, or it may result in incorrect parsing.
     fn read_int(buf: &[u8], i: i32) -> i32 {
+        debug_assert!(i >= 0);
         // According to LZ4's algorithm the endianness does not matter at all:
         BitUtil::get_i32_le(buf, i as usize)
     }
@@ -126,23 +128,19 @@ impl LZ4 {
             let fast_len = (match_len + 7) & 0xFFF8;
 
             if match_dec < match_len || d_off + fast_len > dest_end {
-                // overlap -> naive incremental copy
-                let start = d_off - match_dec;
+                let mut start = (d_off - match_dec) as usize;
                 let end = d_off + match_len;
-                for (i, ref_idx) in (start..end).enumerate() {
-                    dest[d_off as usize + i] = dest[ref_idx as usize];
+
+                while d_off < end {
+                    dest[d_off as usize] = dest[start];
+                    start += 1;
+                    d_off += 1;
                 }
             } else {
-                // Non-overlap block copy
-                let src_start = d_off - match_dec;
-                let dest_start = d_off;
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        dest.as_ptr().add(src_start as usize),
-                        dest.as_mut_ptr().add(dest_start as usize),
-                        fast_len as usize,
-                    );
-                }
+                let start = (d_off - match_dec) as usize;
+                let end = d_off as usize;
+                let fast_len = fast_len as usize;
+                dest.copy_within(start..start + fast_len, end);
                 d_off += match_len;
             }
 
@@ -230,7 +228,7 @@ impl LZ4 {
     /// Compress `bytes[off:off+len]` into `out` using at most 16kB of memory.
     /// `ht` shouldn't be shared across threads but can safely be reused.
     pub fn compress<D>(
-        bytes: Arc<Mutex<Vec<u8>>>,
+        bytes: Arc<Vec<u8>>,
         off: i32,
         len: i32,
         out: &mut D,
@@ -246,7 +244,7 @@ impl LZ4 {
     /// must not be greater than `MAX_DISTANCE 64kB`, the maximum window size.
     /// `ht` shouldn't be shared across threads but can safely be reused.
     pub fn compress_with_dictionary<D>(
-        bytes: Arc<Mutex<Vec<u8>>>,
+        bytes: Arc<Vec<u8>>,
         dict_off: i32,
         dict_len: i32,
         len: i32,
@@ -256,13 +254,9 @@ impl LZ4 {
     where
         D: DataOutput,
     {
-        let mut bytes_guard = bytes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-
         // Ensure the indices are valid
-        CommonUtil::check_from_index_size(dict_off, dict_len, bytes_guard.len() as i32)?;
-        CommonUtil::check_from_index_size(dict_off + dict_len, len, bytes_guard.len() as i32)?;
+        CommonUtil::check_from_index_size(dict_off, dict_len, bytes.len() as i32)?;
+        CommonUtil::check_from_index_size(dict_off + dict_len, len, bytes.len() as i32)?;
 
         if dict_len > LZ4::MAX_DISTANCE {
             return Err(LuceneError::illegal_argument(format!(
@@ -278,7 +272,7 @@ impl LZ4 {
             let limit = end - LZ4::LAST_LITERALS;
             let match_limit = limit - LZ4::MIN_MATCH;
             ht.reset(bytes.clone(), dict_off, dict_len + len)?;
-            ht.init_dictionary(dict_len)?;
+            ht.init_dictionary(dict_len);
 
             'outer: while off <= limit {
                 // find a match
@@ -287,7 +281,7 @@ impl LZ4 {
                     if off >= match_limit {
                         break 'outer;
                     }
-                    ref_idx = ht.get(off)?;
+                    ref_idx = ht.get(off);
                     ref_idx == -1
                 } {
                     off += 1;
@@ -296,7 +290,7 @@ impl LZ4 {
                 // Compute match length
                 let mut match_len = LZ4::MIN_MATCH
                     + LZ4::common_bytes(
-                        bytes_guard.as_slice(),
+                        bytes.as_slice(),
                         ref_idx + LZ4::MIN_MATCH,
                         off + LZ4::MIN_MATCH,
                         limit,
@@ -304,15 +298,15 @@ impl LZ4 {
 
                 // Try to find a better match
                 let min = (off - LZ4::MAX_DISTANCE + 1).max(dict_off);
-                let mut r = ht.previous(ref_idx)?;
+                let mut r = ht.previous(ref_idx);
                 while r >= min {
                     assert_eq!(
-                        LZ4::read_int(bytes_guard.as_mut_slice(), r),
-                        LZ4::read_int(bytes_guard.as_mut_slice(), off)
+                        LZ4::read_int(bytes.as_slice(), r),
+                        LZ4::read_int(bytes.as_slice(), off)
                     );
                     let r_match_len = LZ4::MIN_MATCH
                         + LZ4::common_bytes(
-                            bytes_guard.as_mut_slice(),
+                            bytes.as_slice(),
                             r + LZ4::MIN_MATCH,
                             off + LZ4::MIN_MATCH,
                             limit,
@@ -322,18 +316,11 @@ impl LZ4 {
                         match_len = r_match_len;
                     }
 
-                    r = ht.previous(r)?;
+                    r = ht.previous(r);
                 }
 
                 // Encode match
-                LZ4::encode_sequence(
-                    bytes_guard.as_mut_slice(),
-                    anchor,
-                    ref_idx,
-                    off,
-                    match_len,
-                    out,
-                )?;
+                LZ4::encode_sequence(bytes.as_slice(), anchor, ref_idx, off, match_len, out)?;
                 off += match_len;
                 anchor = off;
             }
@@ -342,7 +329,7 @@ impl LZ4 {
         // Handle last literals
         let literal_len = end - anchor;
         assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == len);
-        LZ4::encode_last_literals(bytes_guard.as_mut_slice(), anchor, literal_len, out)?;
+        LZ4::encode_last_literals(bytes.as_slice(), anchor, literal_len, out)?;
 
         Ok(())
     }
@@ -351,20 +338,20 @@ impl LZ4 {
 /// A record of previous occurrences of sequences of 4 bytes.
 pub(crate) trait HashTable {
     /// Reset this hash table in order to compress the given content.
-    fn reset(&mut self, b: Arc<Mutex<Vec<u8>>>, off: i32, len: i32) -> Result<(), LuceneError>;
+    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError>;
 
     /// Init `dict_len` bytes to be used as a dictionary.
-    fn init_dictionary(&mut self, dict_len: i32) -> Result<(), LuceneError>;
+    fn init_dictionary(&mut self, dict_len: i32);
 
     /// Advance the cursor to `off` and return an index that stored the same 4 bytes as `b[off:off+4]`.
     /// This may only be called on strictly increasing sequences of offsets.
     /// A return value of `-1` indicates that no other index could be found.
-    fn get(&mut self, off: i32) -> Result<i32, LuceneError>;
+    fn get(&mut self, off: i32) -> i32;
 
     /// Return an index that is less than `off` and stores the same 4 bytes.
     /// Unlike `get`, it doesn't need to be called on increasing offsets.
     /// A return value of `-1` indicates that no other index could be found.
-    fn previous(&mut self, off: i32) -> Result<i32, LuceneError>;
+    fn previous(&mut self, off: i32) -> i32;
 
     /// For testing purposes.
     fn assert_reset(&self) -> bool;
@@ -477,7 +464,7 @@ impl Table for TableEnum {
 
 /// Simple lossy `HashTable` that only stores the last occurrence for each hash on `2^14` bytes of memory.
 pub(crate) struct FastCompressionHashTable {
-    bytes: Arc<Mutex<Vec<u8>>>,
+    bytes: Arc<Vec<u8>>,
     base: i32,
     last_off: i32,
     end: i32,
@@ -489,7 +476,7 @@ impl FastCompressionHashTable {
     /// Sole constructor
     pub fn new() -> Self {
         FastCompressionHashTable {
-            bytes: Arc::new(Mutex::new(vec![])),
+            bytes: Arc::new(vec![]),
             base: 0,
             last_off: 0,
             end: 0,
@@ -499,13 +486,8 @@ impl FastCompressionHashTable {
     }
 }
 impl HashTable for FastCompressionHashTable {
-    fn reset(&mut self, bytes: Arc<Mutex<Vec<u8>>>, off: i32, len: i32) -> Result<(), LuceneError> {
-        {
-            let bytes_guard = bytes
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            CommonUtil::check_from_index_size(off, len, bytes_guard.len() as i32)?;
-        }
+    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError> {
+        CommonUtil::check_from_index_size(off, len, bytes.len() as i32)?;
         self.bytes = bytes;
         self.base = off;
         self.end = off + len;
@@ -544,13 +526,9 @@ impl HashTable for FastCompressionHashTable {
         Ok(())
     }
 
-    fn init_dictionary(&mut self, dict_len: i32) -> Result<(), LuceneError> {
-        let mut bytes_guard = self
-            .bytes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    fn init_dictionary(&mut self, dict_len: i32) {
         for i in 0..dict_len {
-            let v = LZ4::read_int(bytes_guard.as_mut_slice(), self.base + i);
+            let v = LZ4::read_int(self.bytes.as_slice(), self.base + i);
             let h = LZ4::hash(v, self.hash_log);
             debug_assert!(self.hash_table.is_some());
             if let Some(table) = &mut self.hash_table {
@@ -558,17 +536,12 @@ impl HashTable for FastCompressionHashTable {
             }
         }
         self.last_off += dict_len;
-        Ok(())
     }
 
-    fn get(&mut self, off: i32) -> Result<i32, LuceneError> {
+    fn get(&mut self, off: i32) -> i32 {
         debug_assert!(off > self.last_off);
         debug_assert!(off < self.end);
-        let mut bytes_guard = self
-            .bytes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let v = LZ4::read_int(bytes_guard.as_mut_slice(), off);
+        let v = LZ4::read_int(self.bytes.as_slice(), off);
         let h = LZ4::hash(v, self.hash_log);
 
         let ref_idx = self.base
@@ -581,16 +554,16 @@ impl HashTable for FastCompressionHashTable {
 
         if ref_idx < off
             && off - ref_idx < LZ4::MAX_DISTANCE
-            && LZ4::read_int(bytes_guard.as_mut_slice(), ref_idx) == v
+            && LZ4::read_int(self.bytes.as_slice(), ref_idx) == v
         {
-            Ok(ref_idx)
+            ref_idx
         } else {
-            Ok(-1)
+            -1
         }
     }
 
-    fn previous(&mut self, _off: i32) -> Result<i32, LuceneError> {
-        Ok(-1)
+    fn previous(&mut self, _off: i32) -> i32 {
+        -1
     }
 
     fn assert_reset(&self) -> bool {
@@ -600,7 +573,7 @@ impl HashTable for FastCompressionHashTable {
 /// A higher-precision `HashTable`. It stores up to 256 occurrences of 4-bytes sequences in
 /// the last 2^16 bytes, which makes it much more likely to find matches than FastCompressionHashTable.
 pub struct HighCompressionHashTable {
-    bytes: Arc<Mutex<Vec<u8>>>,
+    bytes: Arc<Vec<u8>>,
     base: i32,
     next: i32,
     end: i32,
@@ -615,7 +588,7 @@ impl HighCompressionHashTable {
     /// Sole constructor
     pub fn new() -> Self {
         HighCompressionHashTable {
-            bytes: Arc::new(Mutex::new(vec![])),
+            bytes: Arc::new(vec![]),
             base: 0,
             next: 0,
             end: 0,
@@ -624,12 +597,8 @@ impl HighCompressionHashTable {
             attempts: 0,
         }
     }
-    fn add_hash(&mut self, off: i32) -> Result<(), LuceneError> {
-        let mut bytes_guard = self
-            .bytes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let v = LZ4::read_int(bytes_guard.as_mut_slice(), off);
+    fn add_hash(&mut self, off: i32) {
+        let v = LZ4::read_int(self.bytes.as_slice(), off);
         let h = LZ4::hash_hc(v);
         let mut delta = off - self.hash_table[h as usize];
         if delta <= 0 || delta >= LZ4::MAX_DISTANCE {
@@ -637,17 +606,11 @@ impl HighCompressionHashTable {
         }
         self.chain_table[(off & Self::MASK) as usize] = delta as u16;
         self.hash_table[h as usize] = off;
-        Ok(())
     }
 }
 impl HashTable for HighCompressionHashTable {
-    fn reset(&mut self, bytes: Arc<Mutex<Vec<u8>>>, off: i32, len: i32) -> Result<(), LuceneError> {
-        {
-            let bytes_guard = bytes
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            CommonUtil::check_from_index_size(off, len, bytes_guard.len() as i32)?;
-        }
+    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError> {
+        CommonUtil::check_from_index_size(off, len, bytes.len() as i32)?;
 
         if self.end - self.base < self.chain_table.len() as i32 {
             // The last call to compress was done on less than 64kB, let's not reset
@@ -687,58 +650,53 @@ impl HashTable for HighCompressionHashTable {
         Ok(())
     }
 
-    fn init_dictionary(&mut self, dict_len: i32) -> Result<(), LuceneError> {
-        todo!()
+    fn init_dictionary(&mut self, dict_len: i32) {
+        debug_assert!(self.next == self.base);
+        for i in 0..dict_len {
+            self.add_hash(self.base + i);
+        }
+        self.next += dict_len;
     }
 
-    fn get(&mut self, off: i32) -> Result<i32, LuceneError> {
+    fn get(&mut self, off: i32) -> i32 {
         debug_assert!(off >= self.next);
         debug_assert!(off < self.end);
 
         while self.next < off {
-            self.add_hash(self.next)?;
+            self.add_hash(self.next);
             self.next += 1;
         }
-
-        let mut bytes_guard = self
-            .bytes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let v = LZ4::read_int(bytes_guard.as_mut_slice(), off);
+        let v = LZ4::read_int(self.bytes.as_slice(), off);
         let h = LZ4::hash_hc(v);
 
         self.attempts = 0;
         let mut ref_idx = self.hash_table[h as usize];
         if ref_idx >= off {
             // remainder from a previous call to compress()
-            return Ok(-1);
+            return -1;
         }
         let min = std::cmp::max(self.base, off - LZ4::MAX_DISTANCE + 1);
         while ref_idx >= min && self.attempts < Self::MAX_ATTEMPTS {
+            if LZ4::read_int(self.bytes.as_slice(), ref_idx) == v {
+                return ref_idx;
+            }
             ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32 & 0xFFFF;
             self.attempts += 1;
-            if LZ4::read_int(bytes_guard.as_mut_slice(), ref_idx) == v {
-                return Ok(ref_idx);
-            }
         }
-        Ok(-1)
+        -1
     }
 
-    fn previous(&mut self, off: i32) -> Result<i32, LuceneError> {
-        let mut bytes_guard = self
-            .bytes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let v = LZ4::read_int(bytes_guard.as_mut_slice(), off);
-        let mut ref_idx = off - self.chain_table[(off & Self::MASK) as usize] as i32;
+    fn previous(&mut self, off: i32) -> i32 {
+        let v = LZ4::read_int(self.bytes.as_slice(), off);
+        let mut ref_idx = off - ((self.chain_table[(off & Self::MASK) as usize] as i32) & 0xFFFF);
         while ref_idx >= self.base && self.attempts < Self::MAX_ATTEMPTS {
+            if LZ4::read_int(self.bytes.as_slice(), ref_idx) == v {
+                return ref_idx;
+            }
             ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32 & 0xFFFF;
             self.attempts += 1;
-            if LZ4::read_int(bytes_guard.as_mut_slice(), ref_idx) == v {
-                return Ok(ref_idx);
-            }
         }
-        Ok(-1)
+        -1
     }
 
     fn assert_reset(&self) -> bool {
@@ -749,33 +707,34 @@ impl HashTable for HighCompressionHashTable {
     }
 }
 
+#[allow(unused)]
 pub enum HashTableEnum {
     FastCompressionHashTable(FastCompressionHashTable),
     HighCompressionHashTable(HighCompressionHashTable),
 }
 impl HashTable for HashTableEnum {
-    fn reset(&mut self, b: Arc<Mutex<Vec<u8>>>, off: i32, len: i32) -> Result<(), LuceneError> {
+    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError> {
         match self {
             HashTableEnum::FastCompressionHashTable(table) => table.reset(b, off, len),
             HashTableEnum::HighCompressionHashTable(table) => table.reset(b, off, len),
         }
     }
 
-    fn init_dictionary(&mut self, dict_len: i32) -> Result<(), LuceneError> {
+    fn init_dictionary(&mut self, dict_len: i32) {
         match self {
             HashTableEnum::FastCompressionHashTable(table) => table.init_dictionary(dict_len),
             HashTableEnum::HighCompressionHashTable(table) => table.init_dictionary(dict_len),
         }
     }
 
-    fn get(&mut self, off: i32) -> Result<i32, LuceneError> {
+    fn get(&mut self, off: i32) -> i32 {
         match self {
             HashTableEnum::FastCompressionHashTable(table) => table.get(off),
             HashTableEnum::HighCompressionHashTable(table) => table.get(off),
         }
     }
 
-    fn previous(&mut self, off: i32) -> Result<i32, LuceneError> {
+    fn previous(&mut self, off: i32) -> i32 {
         match self {
             HashTableEnum::FastCompressionHashTable(table) => table.previous(off),
             HashTableEnum::HighCompressionHashTable(table) => table.previous(off),
@@ -786,6 +745,546 @@ impl HashTable for HashTableEnum {
         match self {
             HashTableEnum::FastCompressionHashTable(table) => table.assert_reset(),
             HashTableEnum::HighCompressionHashTable(table) => table.assert_reset(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataOutput};
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::array_util::ArrayUtil;
+    use crate::util::compress::lz4::{FastCompressionHashTable, HighCompressionHashTable, LZ4};
+    use crate::util::compress::lz4::{HashTable, HashTableEnum};
+    use crate::util::error::lucene_error::LuceneError;
+    use rand::rngs::StdRng;
+    use rand::{Rng, RngCore};
+    use std::cmp::min;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestFastLZ4;
+    impl LZ4TestCase for TestFastLZ4 {
+        fn new_hash_table(&self) -> AssertingHashTable {
+            AssertingHashTable::new(HashTableEnum::FastCompressionHashTable(
+                FastCompressionHashTable::new(),
+            ))
+        }
+    }
+    #[test]
+    fn test_empty_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_empty(&mut random)
+    }
+    #[test]
+    fn test_short_literals_and_matches_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_short_literals_and_matches(&mut random)
+    }
+    #[test]
+    fn test_long_matches_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_long_matches(&mut random)
+    }
+    #[test]
+    fn test_long_literals_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_long_literals(&mut random)
+    }
+    #[test]
+    fn test_match_right_before_last_literals_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_match_right_before_last_literals(&mut random)
+    }
+    #[test]
+    fn test_incompressible_random_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_incompressible_random(&mut random)
+    }
+    #[test]
+    fn test_compressible_random_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_compressible_random(&mut random)
+    }
+    #[test]
+    fn test_lucene5201_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_lucene5201(&mut random)
+    }
+    #[test]
+    fn test_use_dictionary_fast() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestFastLZ4;
+        case.test_use_dictionary(&mut random)
+    }
+
+    #[allow(dead_code)] // for quick search
+    struct TestHighLZ4;
+    impl LZ4TestCase for TestHighLZ4 {
+        fn new_hash_table(&self) -> AssertingHashTable {
+            AssertingHashTable::new(HashTableEnum::HighCompressionHashTable(
+                HighCompressionHashTable::new(),
+            ))
+        }
+    }
+    #[test]
+    fn test_empty_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_empty(&mut random)
+    }
+    #[test]
+    fn test_short_literals_and_matches_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_short_literals_and_matches(&mut random)
+    }
+    #[test]
+    fn test_long_matches_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_long_matches(&mut random)
+    }
+    #[test]
+    fn test_long_literals_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_long_literals(&mut random)
+    }
+    #[test]
+    fn test_match_right_before_last_literals_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_match_right_before_last_literals(&mut random)
+    }
+    #[test]
+    fn test_incompressible_random_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_incompressible_random(&mut random)
+    }
+    #[test]
+    fn test_compressible_random_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_compressible_random(&mut random)
+    }
+    #[test]
+    fn test_lucene5201_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_lucene5201(&mut random)
+    }
+    #[test]
+    fn test_use_dictionary_high() -> Result<(), LuceneError> {
+        let mut random = random();
+        let case = TestHighLZ4;
+        case.test_use_dictionary(&mut random)
+    }
+
+    trait LZ4TestCase {
+        fn new_hash_table(&self) -> AssertingHashTable;
+
+        fn do_test(
+            random: &mut StdRng,
+            data: Vec<u8>,
+            hash_table: &mut AssertingHashTable,
+        ) -> Result<(), LuceneError> {
+            // this triggers special reset logic for high compression
+            let offset = if data.len() >= (1 << 16) || random.gen_bool(0.5) {
+                random.gen_range(0..10)
+            } else {
+                (1 << 16) - data.len() as i32 / 2
+            };
+
+            let mut copy = vec![0; data.len() + offset as usize + random.gen_range(0..10)];
+            copy[offset as usize..offset as usize + data.len()].copy_from_slice(&data);
+            Self::do_test_with_offset(
+                random,
+                Arc::new(copy),
+                offset,
+                data.len() as i32,
+                hash_table,
+            )
+        }
+
+        fn do_test_with_offset(
+            random: &mut StdRng,
+            data: Arc<Vec<u8>>,
+            offset: i32,
+            length: i32,
+            hash_table: &mut AssertingHashTable,
+        ) -> Result<(), LuceneError> {
+            let mut out = ByteBuffersDataOutput::with_resettable_instance()?;
+            LZ4::compress(data.clone(), offset, length, &mut out, &mut hash_table.ht)?;
+
+            let compressed = out.get_array_copy();
+            let mut off = 0;
+            let mut decompressed_off = 0;
+
+            loop {
+                let token = compressed[off];
+                off += 1;
+                let mut literal_len = (token >> 4) as i32;
+
+                if literal_len == 0x0F {
+                    while compressed[off] == 0xFF {
+                        literal_len += 0xFF;
+                        off += 1;
+                    }
+                    literal_len += compressed[off] as i32;
+                    off += 1;
+                }
+                // skip literals
+                off += literal_len as usize;
+                decompressed_off += literal_len;
+                // check that the stream ends with literals and that there are at least
+                // 5 of them
+                if off == compressed.len() {
+                    assert_eq!(length, decompressed_off);
+                    assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == length);
+                    break;
+                }
+
+                let match_dec = (compressed[off] as i32) | ((compressed[off + 1] as i32) << 8);
+                off += 2;
+
+                assert!(match_dec > 0 && match_dec <= decompressed_off);
+
+                let mut match_len = token as i32 & 0x0F;
+                if match_len == 0x0F {
+                    while compressed[off] == 0xFF {
+                        match_len += 0xFF;
+                        off += 1;
+                    }
+                    match_len += compressed[off] as i32;
+                    off += 1;
+                }
+                match_len += LZ4::MIN_MATCH;
+                {
+                    // if the match ends prematurely, the next sequence should not have
+                    // literals or this means we are wasting space
+                    if decompressed_off + match_len < length - LZ4::LAST_LITERALS {
+                        let more_common_bytes = data
+                            [offset as usize + decompressed_off as usize + match_len as usize]
+                            == data[offset as usize + decompressed_off as usize
+                                - match_dec as usize
+                                + match_len as usize];
+                        let next_sequence_has_literals = compressed[off] >> 4 != 0;
+                        assert!(!(more_common_bytes && next_sequence_has_literals));
+                    }
+                }
+
+                decompressed_off += match_len;
+            }
+
+            assert_eq!(length, decompressed_off);
+
+            // Compress once again with the same hash table to test reuse
+            let mut out2 = ByteBuffersDataOutput::with_resettable_instance()?;
+            LZ4::compress(data.clone(), offset, length, &mut out2, &mut hash_table.ht)?;
+            assert_eq!(compressed, out2.get_array_copy());
+
+            let compressed_clone = compressed.clone();
+            // Now restore and compare bytes
+            let mut restored = vec![0; length as usize + random.gen_range(0..10)];
+            let mut input = ByteArrayDataInput::with_bytes(compressed);
+            LZ4::decompress(&mut input, length, &mut restored, 0)?;
+
+            assert!(off <= i32::MAX as usize);
+            let left = ArrayUtil::copy_of_sub_array(data.as_slice(), offset, offset + length);
+            let right = ArrayUtil::copy_of_sub_array(&restored, 0, length);
+            assert_eq!(left, right);
+
+            // Now restore with an offset
+            let restore_offset: i32 = random.gen_range(1..10);
+            restored = vec![0; restore_offset as usize + length as usize + random.gen_range(0..10)];
+            let mut input = ByteArrayDataInput::with_bytes(compressed_clone);
+            LZ4::decompress(&mut input, length, &mut restored, restore_offset)?;
+
+            let left = ArrayUtil::copy_of_sub_array(data.as_slice(), offset, offset + length);
+            let right =
+                ArrayUtil::copy_of_sub_array(&restored, restore_offset, restore_offset + length);
+            assert_eq!(left, right);
+
+            Ok(())
+        }
+
+        fn do_test_with_dictionary(
+            random: &mut StdRng,
+            data: Vec<u8>,
+            hash_table: &mut AssertingHashTable,
+        ) -> Result<(), LuceneError> {
+            let mut copy = ByteBuffersDataOutput::with_resettable_instance()?;
+            let dict_off = random.gen_range(0..10);
+            copy.write_bytes(vec![0u8; dict_off as usize])?;
+
+            // Create a dictionary from substrings of the input to compress
+            let mut dict_len = 0;
+            let mut i = TestUtil::next_int(random, 0, data.len() as i32);
+            while i < data.len() as i32 && dict_len < LZ4::MAX_DISTANCE {
+                let l = min(
+                    data.len() - i as usize,
+                    TestUtil::next_int(random, 1, 32) as usize,
+                );
+                let l = min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
+                debug_assert!(l <= i32::MAX as usize);
+                copy.write_bytes_range(&data, i, l as i32)?;
+                dict_len += l as i32;
+                i += l as i32;
+                i += TestUtil::next_int(random, 1, 32);
+            }
+
+            let data_length = data.len();
+            assert!(data_length <= i32::MAX as usize);
+            copy.write_bytes(data)?;
+            copy.write_bytes(vec![0u8; random.gen_range(0..10)])?;
+
+            let copy_bytes = Arc::new(copy.get_array_copy());
+            Self::do_test_with_dictionary_inner(
+                random,
+                copy_bytes,
+                dict_off,
+                dict_len,
+                data_length as i32,
+                hash_table,
+            )
+        }
+
+        fn do_test_with_dictionary_inner(
+            random: &mut StdRng,
+            data: Arc<Vec<u8>>,
+            dict_off: i32,
+            dict_len: i32,
+            length: i32,
+            hash_table: &mut AssertingHashTable,
+        ) -> Result<(), LuceneError> {
+            let mut out = ByteBuffersDataOutput::with_resettable_instance()?;
+            LZ4::compress_with_dictionary(
+                data.clone(),
+                dict_off,
+                dict_len,
+                length,
+                &mut out,
+                &mut hash_table.ht,
+            )?;
+            let compressed = out.get_array_copy();
+
+            // Compress once again with the same hash table to test reuse
+            let mut out2 = ByteBuffersDataOutput::with_resettable_instance()?;
+            LZ4::compress_with_dictionary(
+                data.clone(),
+                dict_off,
+                dict_len,
+                length,
+                &mut out2,
+                &mut hash_table.ht,
+            )?;
+            assert_eq!(compressed, out2.get_array_copy());
+
+            // Now restore and compare bytes
+            let restore_offset = TestUtil::next_int(random, 1, 10);
+            let mut restored =
+                vec![0; (restore_offset + dict_len + length + random.gen_range(0..10)) as usize];
+            restored[restore_offset as usize..(restore_offset + dict_len) as usize]
+                .copy_from_slice(&data[dict_off as usize..(dict_off + dict_len) as usize]);
+
+            let mut input = ByteArrayDataInput::with_bytes(compressed);
+            LZ4::decompress(&mut input, length, &mut restored, dict_len + restore_offset)?;
+
+            let left = ArrayUtil::copy_of_sub_array(
+                data.as_slice(),
+                dict_off + dict_len,
+                dict_off + dict_len + length,
+            );
+            let right = ArrayUtil::copy_of_sub_array(
+                &restored,
+                dict_len + restore_offset,
+                dict_len + restore_offset + length,
+            );
+            assert_eq!(left, right);
+
+            Ok(())
+        }
+        fn test_empty(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+            // literals and match lengths <= 15
+            let data: Vec<u8> = "".to_string().into_bytes();
+            Self::do_test(random, data, &mut self.new_hash_table())
+        }
+
+        fn test_short_literals_and_matches(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+            // literals and match lengths <= 15
+            let data: Vec<u8> = "1234562345673456745678910123".to_string().into_bytes();
+            Self::do_test(random, data.clone(), &mut self.new_hash_table())?;
+            Self::do_test_with_dictionary(random, data.clone(), &mut self.new_hash_table())?;
+            Ok(())
+        }
+
+        fn test_long_matches(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+            // match length >= 20
+            let len = random.gen_range(300..1024);
+            let mut data = vec![0u8; len];
+            for (index, element) in data.iter_mut().enumerate() {
+                *element = index as u8;
+            }
+            Self::do_test(random, data, &mut self.new_hash_table())?;
+            Ok(())
+        }
+        fn test_long_literals(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+            // long literals (length >= 16) which are not the last literals
+            let len = random.gen_range(400..1024);
+            let mut data = vec![0u8; len];
+            random.fill_bytes(&mut data);
+            let match_ref = random.gen_range(0..30);
+            let match_off = random.gen_range(len - 40..len - 20);
+            let match_length = random.gen_range(4..10);
+            data.copy_within(match_ref..match_ref + match_length, match_off);
+            Self::do_test(random, data, &mut self.new_hash_table())?;
+            Ok(())
+        }
+
+        fn test_match_right_before_last_literals(
+            &self,
+            random: &mut StdRng,
+        ) -> Result<(), LuceneError> {
+            let data = vec![1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5];
+            Self::do_test(random, data, &mut self.new_hash_table())?;
+            Ok(())
+        }
+
+        fn test_incompressible_random(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+            let len = random.gen_range(1..1 << 18);
+            let mut b = vec![0u8; len];
+            random.fill_bytes(&mut b);
+            let b_clone = b.clone();
+            Self::do_test(random, b, &mut self.new_hash_table())?;
+            Self::do_test_with_dictionary(random, b_clone, &mut self.new_hash_table())?;
+            Ok(())
+        }
+
+        fn test_compressible_random(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+            let len = random.gen_range(1..1 << 18);
+            let mut b = vec![0u8; len];
+            let base = random.gen_range(0..256);
+            let max_delta = 1 + random.gen_range(0..8);
+            for elem in b.iter_mut() {
+                *elem = (base + random.gen_range(0..max_delta)) as u8;
+            }
+            let b_clone = b.clone();
+            Self::do_test(random, b, &mut self.new_hash_table())?;
+            Self::do_test_with_dictionary(random, b_clone, &mut self.new_hash_table())?;
+            Ok(())
+        }
+        fn test_lucene5201(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+            let data: Vec<i8> = vec![
+                14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 72, 14, 72, 14, 85, 3, 72, 14, 72, 14,
+                72, 14, 72, 14, 72, 14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3,
+                72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 50, 64, 0, 46, -1, 0, 0, 0, 29, 3, 85, 8,
+                -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0,
+                2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68,
+                -113, 0, 50, 64, 0, 47, -105, 0, 0, 0, 30, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6,
+                0, 68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, 85, 8, -113, 0, 68,
+                -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6,
+                0, 68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0,
+                2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68,
+                -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6,
+                0, 68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2,
+                3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0,
+                68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 50, 64, 0, 50, 53, 0,
+                0, 0, 34, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3,
+                -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0,
+                2, 3, -97, 6, 0, 68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -113, 0, 2, 3, -97, 6, 0,
+                68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3,
+                0, 120, 64, 0, 52, -88, 0, 0, 0, 39, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72,
+                13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72,
+                13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72,
+                13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85,
+                5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72,
+                13, 85, 5, 72, 13, 72, 13, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13,
+                85, 5, 72, 13, 85, 5, 72, 13, -19, -24, -101, -35,
+            ];
+            let len = data.len() as i32;
+            let data_u8: Vec<u8> = data.iter().map(|&x| x as u8).collect();
+            Self::do_test_with_offset(
+                random,
+                Arc::new(data_u8),
+                9,
+                len - 9,
+                &mut self.new_hash_table(),
+            )
+        }
+
+        fn test_use_dictionary(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+            let b: Vec<i8> = vec![1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+            let dict_off = 0;
+            let dict_len = 6;
+            let len = (b.len() - dict_len) as i32;
+            let byte: Arc<Vec<u8>> = Arc::new(b.iter().map(|&x| x as u8).collect());
+
+            Self::do_test_with_dictionary_inner(
+                random,
+                byte.clone(),
+                dict_off,
+                dict_len as i32,
+                len,
+                &mut self.new_hash_table(),
+            )?;
+            let mut out = ByteBuffersDataOutput::with_resettable_instance()?;
+            LZ4::compress_with_dictionary(
+                byte.clone(),
+                dict_off,
+                dict_len as i32,
+                len,
+                &mut out,
+                &mut self.new_hash_table().ht,
+            )?;
+
+            // The compressed output is smaller than the original input despite being incompressible on its
+            // own
+            assert!(out.size() < len as i64);
+            Ok(())
+        }
+    }
+
+    struct AssertingHashTable {
+        ht: HashTableEnum,
+    }
+    impl AssertingHashTable {
+        fn new(ht: HashTableEnum) -> Self {
+            AssertingHashTable { ht }
+        }
+    }
+    impl HashTable for AssertingHashTable {
+        fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError> {
+            self.ht.reset(b, off, len)?;
+            assert!(self.ht.assert_reset());
+            Ok(())
+        }
+
+        fn init_dictionary(&mut self, dict_len: i32) {
+            assert!(self.ht.assert_reset());
+            self.ht.init_dictionary(dict_len)
+        }
+
+        fn get(&mut self, off: i32) -> i32 {
+            self.ht.get(off)
+        }
+
+        fn previous(&mut self, off: i32) -> i32 {
+            self.ht.previous(off)
+        }
+
+        fn assert_reset(&self) -> bool {
+            unreachable!()
         }
     }
 }
