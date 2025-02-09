@@ -336,7 +336,7 @@ impl LZ4 {
 }
 
 /// A record of previous occurrences of sequences of 4 bytes.
-pub(crate) trait HashTable {
+pub trait HashTable {
     /// Reset this hash table in order to compress the given content.
     fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError>;
 
@@ -463,7 +463,7 @@ impl Table for TableEnum {
 }
 
 /// Simple lossy `HashTable` that only stores the last occurrence for each hash on `2^14` bytes of memory.
-pub(crate) struct FastCompressionHashTable {
+pub struct FastCompressionHashTable {
     bytes: Arc<Vec<u8>>,
     base: i32,
     last_off: i32,

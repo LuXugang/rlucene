@@ -24,8 +24,8 @@ pub trait Compressor {
     /// necessary information so that a `Decompressor` will know when to stop decompressing bytes
     /// from the stream.
     fn compress<D>(
-        &self,
-        buffers_input: &ByteBuffersDataInput,
+        &mut self,
+        buffers_input: &mut ByteBuffersDataInput,
         out: &mut D,
     ) -> Result<(), LuceneError>
     where
