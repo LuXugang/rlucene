@@ -601,7 +601,7 @@ mod tests {
             limit: i32,
         ) -> Result<Vec<u8>, TestError> {
             assert!(off <= limit);
-            assert!(len <= limit);
+            assert!(limit <= len);
             let compressed = self.compress(decompressed, off, min(len, limit), limit)?;
             let compressed_copy = compressed.clone();
             let restored = self.decompress(compressed, limit)?;
