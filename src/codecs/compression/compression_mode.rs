@@ -451,7 +451,9 @@ mod tests {
             } else {
                 let mut arr = vec![0u8; new_length as usize];
                 for i in 0..length {
-                    arr[i as usize] = random.gen_range(0..=max) as u8;
+                    // TODO: 为什么这里使用0..max就报错呢？
+                    // arr[i as usize] = random.gen_range(0..=max) as u8;
+                    arr[i as usize] = random.gen();
                 }
                 arr
             }
@@ -539,18 +541,18 @@ mod tests {
                 let (decompressed, limit) = Self::random_array(random);
                 let decompressed_len = decompressed.len();
                 assert!(decompressed_len <= i32::MAX as usize);
-                let valid_data_len = min(decompressed_len, limit as usize) as i32;
+                assert!(limit as usize <= decompressed_len);
                 let off = if random.gen_bool(0.5) {
                     0
                 } else {
-                    TestUtil::next_int(random, 0, valid_data_len)
+                    TestUtil::next_int(random, 0, limit)
                 };
                 let len = if random.gen_bool(0.5) {
-                    valid_data_len - off
+                    limit - off
                 } else {
-                    TestUtil::next_int(random, 0, valid_data_len - off)
+                    TestUtil::next_int(random, 0, limit - off)
                 };
-                let compressed = self.compress(&decompressed, off, len, limit)?;
+                let compressed = self.compress(decompressed.as_slice(), off, len, limit)?;
                 let restored = self.decompress(compressed, len)?;
                 assert_eq!(
                     ArrayUtil::copy_of_sub_array(&decompressed, off, off + len),
@@ -598,10 +600,16 @@ mod tests {
             len: i32,
             limit: i32,
         ) -> Result<Vec<u8>, TestError> {
+            assert!(off <= limit);
+            assert!(len <= limit);
             let compressed = self.compress(decompressed, off, min(len, limit), limit)?;
             let compressed_copy = compressed.clone();
             let restored = self.decompress(compressed, limit)?;
             assert_eq!(limit as usize, restored.len());
+            assert_eq!(
+                ArrayUtil::copy_of_sub_array(decompressed, off, off + min(len, limit)),
+                restored
+            );
             Ok(compressed_copy)
         }
 
@@ -682,41 +690,19 @@ mod tests {
     }
     #[test]
     fn test_decompress() -> Result<(), TestError> {
-        {
-            let mut random = random();
-            TestFastCompressionMode.test_decompress(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestFastDecompressionMode.test_decompress(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestHighCompressionMode.test_decompress(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestLZ4WithPresetDictCompressionMode.test_decompress(&mut random)
-        }
+        let mut random = random();
+        TestFastCompressionMode.test_decompress(&mut random)?;
+        TestFastDecompressionMode.test_decompress(&mut random)?;
+        TestHighCompressionMode.test_decompress(&mut random)?;
+        TestLZ4WithPresetDictCompressionMode.test_decompress(&mut random)
     }
     #[test]
     fn test_partial_decompress() -> Result<(), TestError> {
-        {
-            let mut random = random();
-            TestFastCompressionMode.test_partial_decompress(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestFastDecompressionMode.test_partial_decompress(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestHighCompressionMode.test_partial_decompress(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestLZ4WithPresetDictCompressionMode.test_partial_decompress(&mut random)
-        }
+        let mut random = random();
+        TestFastCompressionMode.test_partial_decompress(&mut random)?;
+        TestFastDecompressionMode.test_partial_decompress(&mut random)?;
+        TestHighCompressionMode.test_partial_decompress(&mut random)?;
+        TestLZ4WithPresetDictCompressionMode.test_partial_decompress(&mut random)
     }
     #[test]
     fn test_empty_sequence() -> Result<(), TestError> {
@@ -727,60 +713,27 @@ mod tests {
     }
     #[test]
     fn test_short_sequence() -> Result<(), TestError> {
-        {
-            let mut random = random();
-            TestFastCompressionMode.test_short_sequence(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestFastDecompressionMode.test_short_sequence(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestHighCompressionMode.test_short_sequence(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestLZ4WithPresetDictCompressionMode.test_short_sequence(&mut random)
-        }
+        let mut random = random();
+        TestFastCompressionMode.test_short_sequence(&mut random)?;
+        TestFastDecompressionMode.test_short_sequence(&mut random)?;
+        TestHighCompressionMode.test_short_sequence(&mut random)?;
+        TestLZ4WithPresetDictCompressionMode.test_short_sequence(&mut random)
     }
     #[test]
     fn test_incompressible() -> Result<(), TestError> {
-        {
-            let mut random = random();
-            TestFastCompressionMode.test_incompressible(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestFastDecompressionMode.test_incompressible(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestHighCompressionMode.test_incompressible(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestLZ4WithPresetDictCompressionMode.test_incompressible(&mut random)
-        }
+        let mut random = random();
+        TestFastCompressionMode.test_incompressible(&mut random)?;
+        TestFastDecompressionMode.test_incompressible(&mut random)?;
+        TestHighCompressionMode.test_incompressible(&mut random)?;
+        TestLZ4WithPresetDictCompressionMode.test_incompressible(&mut random)
     }
     #[test]
     fn test_constant() -> Result<(), TestError> {
-        {
-            let mut random = random();
-            TestFastCompressionMode.test_constant(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestFastDecompressionMode.test_constant(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestHighCompressionMode.test_constant(&mut random)?;
-        }
-        {
-            let mut random = random();
-            TestLZ4WithPresetDictCompressionMode.test_constant(&mut random)
-        }
+        let mut random = random();
+        TestFastCompressionMode.test_constant(&mut random)?;
+        TestFastDecompressionMode.test_constant(&mut random)?;
+        TestHighCompressionMode.test_constant(&mut random)?;
+        TestLZ4WithPresetDictCompressionMode.test_constant(&mut random)
     }
     #[test]
     fn test_extremely_large_input() -> Result<(), TestError> {

@@ -429,10 +429,8 @@ mod tests {
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::{random, random_from_seed};
     use crate::test::util::test_error::TestError;
-    
-    
+
     use rand::Rng;
-    
 
     struct TestByteBuffersDataOutput;
     impl BaseDataOutputTestCase for TestByteBuffersDataOutput {

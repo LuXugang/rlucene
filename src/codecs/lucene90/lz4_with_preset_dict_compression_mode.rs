@@ -180,12 +180,6 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
         while offset_in_block < offset + length {
             let bytes_to_decompress = (offset + length - offset_in_block).min(block_length);
             LZ4::decompress(input, bytes_to_decompress, &mut self.buffer, dict_length)?;
-
-            bytes.bytes[bytes.length as usize..(bytes.length + bytes_to_decompress) as usize]
-                .copy_from_slice(
-                    &self.buffer
-                        [dict_length as usize..(dict_length + bytes_to_decompress) as usize],
-                );
             bytes.bytes.copy_from(
                 &self.buffer[dict_length as usize..(dict_length + bytes_to_decompress) as usize],
                 bytes.length as usize,
@@ -234,8 +228,17 @@ impl LZ4WithPresetDictCompressor {
             &mut self.hash_table,
         )?;
         // Write the number of compressed bytes
-        out.write_vint((self.compressed.size() - prev_compressed_size) as i32)?;
-        Ok(())
+        let compressed_bytes = i32::try_from(self.compressed.size() - prev_compressed_size);
+        match compressed_bytes {
+            Ok(compressed_bytes) => {
+                out.write_vint(compressed_bytes)?;
+                Ok(())
+            }
+            Err(_) => Err(LuceneError::integer_overflow(format!(
+                "compressed_bytes:{}",
+                self.compressed.size() - prev_compressed_size
+            ))),
+        }
     }
 }
 impl Compressor for LZ4WithPresetDictCompressor {
@@ -281,10 +284,8 @@ impl Compressor for LZ4WithPresetDictCompressor {
             self.do_compress(Arc::new(moved_data), dict_length, l, out)?;
             start += block_length;
         }
-
         // We only wrote lengths so far, now write compressed data
         self.compressed.copy_to(out)?;
-
         Ok(())
     }
 }
