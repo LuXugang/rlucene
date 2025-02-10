@@ -52,6 +52,28 @@ enum CompressionModeEnum {
     Fast(LZ4FastCompressionMode),
 }
 
+impl Display for CompressionModeEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompressionModeEnum::Fast(mode) => write!(f, "{}", mode),
+        }
+    }
+}
+
+impl CompressionModeBase for CompressionModeEnum {
+    fn new_compressor(&self) -> CompressorEnum {
+        match self {
+            CompressionModeEnum::Fast(mode) => mode.new_compressor(),
+        }
+    }
+
+    fn new_decompressor(&self) -> DecompressorEnum {
+        match self {
+            CompressionModeEnum::Fast(mode) => mode.new_decompressor(),
+        }
+    }
+}
+
 /// A compression mode that trades compression ratio for speed. Although the compression ratio
 /// might remain high, compression and decompression are very fast. Use this mode with indices that
 /// have a high update rate but should be able to load documents from disk quickly.
@@ -250,5 +272,294 @@ impl Compressor for CompressorEnum {
             CompressorEnum::LZ4High(compressor) => compressor.compress(buffers_input, out),
             CompressorEnum::Deflate(compressor) => compressor.compress(buffers_input, out),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::codecs::compression::compression_mode::{
+        CompressionModeBase, CompressionModeEnum, CompressorEnum, DecompressorEnum,
+        LZ4FastCompressionMode,
+    };
+    use crate::codecs::compression::compressor::Compressor;
+    use crate::codecs::compression::decompressor::Decompressor;
+    use crate::index::BytesRef;
+    use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
+    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
+    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random};
+    use crate::test::util::test_error::TestError;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::array_util::ArrayUtil;
+    
+    use rand::rngs::StdRng;
+    use rand::Rng;
+    use std::cmp::min;
+    use std::io::Cursor;
+
+    trait AbstractTestCompressionMode {
+        fn get_mode(&self) -> CompressionModeEnum;
+        fn random_array(random: &mut StdRng) -> (Vec<u8>, i32) {
+            let bigsize = if is_night_mode() {
+                192 * 1024
+            } else {
+                33 * 1024
+            };
+            let max = if random.gen_bool(0.5) {
+                random.gen_range(0..4)
+            } else {
+                random.gen_range(0..255)
+            };
+            let length = if random.gen_bool(0.5) {
+                random.gen_range(0..20)
+            } else {
+                random.gen_range(0..bigsize)
+            };
+            (Self::random_array_impl(random, length, max), length)
+        }
+        fn random_array_impl(random: &mut StdRng, length: i32, max: i32) -> Vec<u8> {
+            let remainder = length % 1024;
+            let new_length = if remainder == 0 {
+                length
+            } else {
+                length + (1024 - remainder)
+            };
+            if length == 0 {
+                vec![0u8; 1024]
+            } else {
+                let mut arr = vec![0u8; new_length as usize];
+                for i in 0..length {
+                    arr[i as usize] = random.gen_range(0..=max) as u8;
+                }
+                arr
+            }
+        }
+        fn compress(
+            &self,
+            decompressed: &[u8],
+            off: i32,
+            len: i32,
+            limit: i32,
+        ) -> Result<Vec<u8>, TestError> {
+            let mut compressor = self.get_mode().new_compressor();
+            Self::compress_with_compressor(&mut compressor, decompressed, off, len, limit)
+        }
+
+        fn compress_with_compressor(
+            compressor: &mut CompressorEnum,
+            decompressed: &[u8],
+            off: i32,
+            len: i32,
+            limit: i32,
+        ) -> Result<Vec<u8>, TestError> {
+            let compressed_len = len * 3 + 16;
+            let mut compressed = vec![0; compressed_len as usize]; // should be enough
+            let mut cursor_vec = Vec::new();
+            let chunk_size = 1024;
+            let decompressed_len = decompressed.len() as i64;
+            let vec = vec![0u8; chunk_size];
+            let empty = vec.as_slice();
+            if decompressed_len == 0 {
+                cursor_vec.push(Cursor::new(empty));
+            } else {
+                for chunk in decompressed.chunks(chunk_size) {
+                    cursor_vec.push(Cursor::new(chunk));
+                }
+            }
+
+            let mut input = ByteBuffersDataInput::new(cursor_vec, limit as i64)
+                .slice(off as i64, limit as i64)?;
+            let mut out = ByteArrayDataOutput::with_bytes(&mut compressed);
+
+            compressor.compress(&mut input, &mut out)?;
+            let compressed_len = out.get_position();
+            let result = ArrayUtil::copy_of_sub_array(&compressed, 0, compressed_len);
+            Ok(result)
+        }
+
+        fn decompress(
+            &self,
+            compressed: Vec<u8>,
+            original_length: i32,
+        ) -> Result<Vec<u8>, TestError> {
+            let decompressor = self.get_mode().new_decompressor();
+            Self::decompress_with_decompressor(&decompressor, compressed, original_length)
+        }
+
+        fn decompress_with_decompressor(
+            decompressor: &DecompressorEnum,
+            compressed: Vec<u8>,
+            original_length: i32,
+        ) -> Result<Vec<u8>, TestError> {
+            let mut bytes = BytesRef::default();
+            let mut input = ByteArrayDataInput::with_bytes(compressed);
+            decompressor.decompress(&mut input, original_length, 0, original_length, &mut bytes)?;
+            Ok(BytesRef::deep_copy_of(&bytes).bytes)
+        }
+        fn decompress_with_range(
+            &self,
+            compressed: Vec<u8>,
+            original_length: i32,
+            offset: i32,
+            length: i32,
+        ) -> Result<Vec<u8>, TestError> {
+            let decompressor = self.get_mode().new_decompressor();
+            let mut bytes = BytesRef::default();
+            let mut input = ByteArrayDataInput::with_bytes(compressed);
+            decompressor.decompress(&mut input, original_length, offset, length, &mut bytes)?;
+            Ok(BytesRef::deep_copy_of(&bytes).bytes)
+        }
+
+        fn test_decompress(&self, random: &mut StdRng) -> Result<(), TestError> {
+            let iterations = at_least(random, 3);
+            for _ in 0..iterations {
+                let (decompressed, limit) = Self::random_array(random);
+                let decompressed_len = decompressed.len();
+                assert!(decompressed_len <= i32::MAX as usize);
+                let valid_data_len = min(decompressed_len, limit as usize) as i32;
+                let off = if random.gen_bool(0.5) {
+                    0
+                } else {
+                    TestUtil::next_int(random, 0, valid_data_len)
+                };
+                let len = if random.gen_bool(0.5) {
+                    valid_data_len - off
+                } else {
+                    TestUtil::next_int(random, 0, valid_data_len - off)
+                };
+                let compressed = self.compress(&decompressed, off, len, limit)?;
+                let restored = self.decompress(compressed, len)?;
+                assert_eq!(
+                    ArrayUtil::copy_of_sub_array(&decompressed, off, off + len),
+                    restored
+                );
+            }
+            Ok(())
+        }
+
+        fn test_partial_decompress(&self, random: &mut StdRng) -> Result<(), TestError> {
+            let iterations = at_least(random, 3);
+            for _ in 0..iterations {
+                let (decompressed, limit) = Self::random_array(random);
+                let compressed =
+                    self.compress(&decompressed, 0, decompressed.len() as i32, limit)?;
+                assert!(decompressed.len() <= i32::MAX as usize);
+                let valid_len = min(decompressed.len(), limit as usize) as i32;
+                let (offset, length) = if valid_len == 0 {
+                    (0, 0)
+                } else {
+                    let offset_inner = random.gen_range(0..valid_len);
+                    (offset_inner, random.gen_range(0..valid_len - offset_inner))
+                };
+                let restored = self.decompress_with_range(compressed, valid_len, offset, length)?;
+                assert_eq!(
+                    ArrayUtil::copy_of_sub_array(&decompressed, offset, offset + length),
+                    restored
+                );
+            }
+            Ok(())
+        }
+
+        fn test(&self, decompressed: &[u8], limit: i32) -> Result<Vec<u8>, TestError> {
+            self.test_with_range(decompressed, 0, decompressed.len() as i32, limit)
+        }
+
+        fn test_with_range(
+            &self,
+            decompressed: &[u8],
+            off: i32,
+            len: i32,
+            limit: i32,
+        ) -> Result<Vec<u8>, TestError> {
+            let compressed = self.compress(decompressed, off, len, limit)?;
+            let compressed_copy = compressed.clone();
+            let restored = self.decompress(compressed, limit)?;
+            assert_eq!(limit as usize, restored.len());
+            Ok(compressed_copy)
+        }
+
+        fn test_empty_sequence(&self) -> Result<(), TestError> {
+            self.test(&[], 0)?;
+            Ok(())
+        }
+
+        fn test_short_sequence(&self, random: &mut StdRng) -> Result<(), TestError> {
+            let limit = random.gen_range(0..256);
+            let mut bytes = vec![0u8; 1024];
+            for byte in bytes.iter_mut().take(limit) {
+                *byte = random.gen();
+            }
+            self.test(&bytes, limit as i32)?;
+            Ok(())
+        }
+
+        fn test_incompressible(&self, random: &mut StdRng) -> Result<(), TestError> {
+            let limit = random.gen_range(20..=256);
+            let mut decompressed = vec![0; 1024];
+            for byte in decompressed.iter_mut().take(limit) {
+                *byte = random.gen();
+            }
+            self.test(&decompressed, limit as i32)?;
+            Ok(())
+        }
+
+        fn test_constant(&self, random: &mut StdRng) -> Result<(), TestError> {
+            let limit = TestUtil::next_int(random, 1, 10000);
+            let mut decompressed = vec![0; 10240];
+            for byte in decompressed.iter_mut().take(limit as usize) {
+                *byte = random.gen();
+            }
+            self.test(&decompressed, limit)?;
+            Ok(())
+        }
+
+        fn test_extremely_large_input(&self) -> Result<(), TestError> {
+            let limit = 1 << 24; // 16MB
+            let mut decompressed = vec![0u8; limit as usize];
+            for (i, byte) in decompressed.iter_mut().enumerate() {
+                *byte = (i & 0x0F) as u8
+            }
+            self.test(&decompressed, limit)?;
+            Ok(())
+        }
+    }
+
+    struct TestFastCompressionMode;
+    impl AbstractTestCompressionMode for TestFastCompressionMode {
+        fn get_mode(&self) -> CompressionModeEnum {
+            CompressionModeEnum::Fast(LZ4FastCompressionMode)
+        }
+    }
+    #[test]
+    fn test_decompress_fast_c_m() -> Result<(), TestError> {
+        let mut random = random();
+        TestFastCompressionMode.test_decompress(&mut random)
+    }
+    #[test]
+    fn test_partial_decompress_fast_c_m() -> Result<(), TestError> {
+        let mut random = random();
+        TestFastCompressionMode.test_partial_decompress(&mut random)
+    }
+    #[test]
+    fn test_empty_sequence_fast_c_m() -> Result<(), TestError> {
+        TestFastCompressionMode.test_empty_sequence()
+    }
+    #[test]
+    fn test_short_sequence_fast_c_m() -> Result<(), TestError> {
+        let mut random = random();
+        TestFastCompressionMode.test_short_sequence(&mut random)
+    }
+    #[test]
+    fn test_incompressible() -> Result<(), TestError> {
+        let mut random = random();
+        TestFastCompressionMode.test_incompressible(&mut random)
+    }
+    #[test]
+    fn test_constant() -> Result<(), TestError> {
+        let mut random = random();
+        TestFastCompressionMode.test_constant(&mut random)
+    }
+    #[test]
+    fn test_extremely_large_input() -> Result<(), TestError> {
+        TestFastCompressionMode.test_extremely_large_input()
     }
 }

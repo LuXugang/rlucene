@@ -472,6 +472,12 @@ pub struct FastCompressionHashTable {
     hash_table: Option<TableEnum>,
 }
 
+impl Default for FastCompressionHashTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FastCompressionHashTable {
     /// Sole constructor
     pub fn new() -> Self {
@@ -580,6 +586,12 @@ pub struct HighCompressionHashTable {
     hash_table: Vec<i32>,
     chain_table: Vec<u16>,
     attempts: i32,
+}
+
+impl Default for HighCompressionHashTable {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HighCompressionHashTable {
@@ -763,7 +775,6 @@ mod tests {
     use std::cmp::min;
     use std::sync::Arc;
 
-    #[allow(dead_code)] // for quick search
     struct TestFastLZ4;
     impl LZ4TestCase for TestFastLZ4 {
         fn new_hash_table(&self) -> AssertingHashTable {

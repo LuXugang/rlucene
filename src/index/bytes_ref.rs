@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{StringHelper, GOOD_FAST_HASH_SEED};
 use std::cmp::Ordering;
@@ -114,7 +115,9 @@ impl BytesRef {
     ///
     /// The returned `BytesRef` will have a length equal to `other.length` and an offset of zero.
     pub fn deep_copy_of(other: &BytesRef) -> BytesRef {
-        Self::from_vec(other.bytes.clone(), 0, other.length)
+        let bytes =
+            ArrayUtil::copy_of_sub_array(&other.bytes, other.offset, other.offset + other.length);
+        BytesRef::from_vec(bytes, 0, other.length)
     }
     /// Performs internal consistency checks. Always returns `true` (or throws `IllegalStateError`).
     pub fn is_valid(&self) -> Result<bool, LuceneError> {
