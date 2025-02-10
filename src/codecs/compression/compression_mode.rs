@@ -40,7 +40,7 @@ impl CompressionMode {
     pub fn fast() -> CompressionModeEnum {
         CompressionModeEnum::Fast(LZ4FastCompressionMode)
     }
-    pub fn high_compression() -> CompressionModeEnum {
+    pub fn fast_decompression() -> CompressionModeEnum {
         CompressionModeEnum::High(LZ4HighCompressionMode)
     }
 }
@@ -563,11 +563,11 @@ mod tests {
             CompressionMode::fast()
         }
     }
-    // TestHighCompressionMode
-    struct TestHighCompressionMode;
-    impl AbstractTestCompressionMode for TestHighCompressionMode {
+    // TestFastDecompressionMode
+    struct TestFastDecompressionMode;
+    impl AbstractTestCompressionMode for TestFastDecompressionMode {
         fn get_mode(&self) -> CompressionModeEnum {
-            CompressionMode::high_compression()
+            CompressionMode::fast_decompression()
         }
     }
     #[test]
@@ -583,13 +583,13 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_partial_decompress(&mut random)
+            TestFastDecompressionMode.test_partial_decompress(&mut random)
         }
     }
     #[test]
     fn test_empty_sequence() -> Result<(), TestError> {
         TestFastCompressionMode.test_empty_sequence()?;
-        TestHighCompressionMode.test_empty_sequence()
+        TestFastDecompressionMode.test_empty_sequence()
     }
     #[test]
     fn test_short_sequence() -> Result<(), TestError> {
@@ -599,7 +599,7 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_short_sequence(&mut random)
+            TestFastDecompressionMode.test_short_sequence(&mut random)
         }
     }
     #[test]
@@ -610,7 +610,7 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_incompressible(&mut random)
+            TestFastDecompressionMode.test_incompressible(&mut random)
         }
     }
     #[test]
@@ -621,12 +621,12 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_constant(&mut random)
+            TestFastDecompressionMode.test_constant(&mut random)
         }
     }
     #[test]
     fn test_extremely_large_input() -> Result<(), TestError> {
         TestFastCompressionMode.test_extremely_large_input()?;
-        TestHighCompressionMode.test_extremely_large_input()
+        TestFastDecompressionMode.test_extremely_large_input()
     }
 }
