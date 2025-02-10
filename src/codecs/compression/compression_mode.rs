@@ -290,7 +290,7 @@ mod tests {
     use crate::test::util::test_error::TestError;
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::ArrayUtil;
-    
+
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cmp::min;
@@ -333,6 +333,7 @@ mod tests {
                 arr
             }
         }
+
         fn compress(
             &self,
             decompressed: &[u8],
@@ -367,7 +368,7 @@ mod tests {
             }
 
             let mut input = ByteBuffersDataInput::new(cursor_vec, limit as i64)
-                .slice(off as i64, limit as i64)?;
+                .slice(off as i64, len as i64)?;
             let mut out = ByteArrayDataOutput::with_bytes(&mut compressed);
 
             compressor.compress(&mut input, &mut out)?;
@@ -440,8 +441,12 @@ mod tests {
             let iterations = at_least(random, 3);
             for _ in 0..iterations {
                 let (decompressed, limit) = Self::random_array(random);
-                let compressed =
-                    self.compress(&decompressed, 0, decompressed.len() as i32, limit)?;
+                let compressed = self.compress(
+                    &decompressed,
+                    0,
+                    min(decompressed.len(), limit as usize) as i32,
+                    limit,
+                )?;
                 assert!(decompressed.len() <= i32::MAX as usize);
                 let valid_len = min(decompressed.len(), limit as usize) as i32;
                 let (offset, length) = if valid_len == 0 {
@@ -470,7 +475,7 @@ mod tests {
             len: i32,
             limit: i32,
         ) -> Result<Vec<u8>, TestError> {
-            let compressed = self.compress(decompressed, off, len, limit)?;
+            let compressed = self.compress(decompressed, off, min(len, limit), limit)?;
             let compressed_copy = compressed.clone();
             let restored = self.decompress(compressed, limit)?;
             assert_eq!(limit as usize, restored.len());
