@@ -183,9 +183,20 @@ impl ByteBuffersDataOutput {
         self.current_block_index = (self.blocks.len() - 1) as i32;
     }
     /// Copies the current content of this object into another [`DataOutput`].
-    #[allow(unused)]
-    fn copy_to<T: DataInput>(&mut self, _output: T) -> Result<(), LuceneError> {
-        unimplemented!("")
+    fn copy_to<D: DataOutput>(&mut self, output: &mut D) -> Result<(), LuceneError> {
+        debug_assert!(!self.blocks.is_empty());
+        for (index, block) in self.blocks.iter().enumerate() {
+            if index == self.current_block_index as usize {
+                let end = block.position() as usize;
+                output.write_bytes_range(block.get_ref(), 0, end as i32)?;
+            } else {
+                let len = block.get_ref().len();
+                debug_assert!(len <= i32::MAX as usize);
+                debug_assert!(len == 1 << self.block_bits);
+                output.write_bytes_with_len(block.get_ref(), len as i32)?;
+            }
+        }
+        Ok(())
     }
     /// The number of bytes written to this output so far.
     pub fn size(&self) -> i64 {
@@ -416,7 +427,10 @@ mod tests {
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::{random, random_from_seed};
     use crate::test::util::test_error::TestError;
+    use crate::util::WritableCursorExt;
+    use byteorder::WriteBytesExt;
     use rand::Rng;
+    use std::io::Cursor;
 
     struct TestByteBuffersDataOutput;
     impl BaseDataOutputTestCase for TestByteBuffersDataOutput {

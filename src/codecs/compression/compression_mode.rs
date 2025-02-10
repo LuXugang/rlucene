@@ -385,8 +385,7 @@ impl Compressor for CompressorEnum {
 #[cfg(test)]
 mod tests {
     use crate::codecs::compression::compression_mode::{
-        CompressionMode, CompressionModeBase, CompressionModeEnum, CompressorEnum,
-        DecompressorEnum,
+        CompressionMode, CompressionModeBase, CompressionModeEnum, CompressorEnum, DecompressorEnum,
     };
     use crate::codecs::compression::compressor::Compressor;
     use crate::codecs::compression::decompressor::Decompressor;
