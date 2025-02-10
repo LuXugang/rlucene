@@ -48,6 +48,7 @@ pub(crate) mod bulk_operation_packed_dummy;
 pub(crate) mod bulk_operation_packed_enum;
 pub(crate) mod bulk_operation_packed_single_block;
 pub(crate) mod delta_packed_long_values;
+mod direct_writer;
 pub mod format_behavior;
 pub mod growable_writer;
 pub mod monotonic_block_packed_reader;
@@ -67,6 +68,5 @@ mod read_enum;
 
 pub use format_behavior::*;
 pub use mutable_packed64_enum::*;
-pub use packed64::*;
 pub use packed64_single_block::*;
 pub use packed_ints::*;
