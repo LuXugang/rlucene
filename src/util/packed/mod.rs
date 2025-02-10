@@ -56,7 +56,7 @@ pub mod monotonic_block_packed_writer;
 pub(crate) mod monotonic_long_values;
 mod mutable_enum;
 pub(crate) mod mutable_packed64_enum;
-pub(crate) mod packed64;
+pub mod packed64;
 pub(crate) mod packed64_single_block;
 pub mod packed_ints;
 pub mod packed_long_values;

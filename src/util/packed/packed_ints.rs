@@ -1093,14 +1093,15 @@ mod tests {
     use crate::util::packed::growable_writer::GrowableWriter;
     use crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
     use crate::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter;
+    use crate::util::packed::packed64::Packed64;
     use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
     use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
     use crate::util::packed::paged_mutable::PagedMutable;
     use crate::util::packed::Format::{Packed, PackedSingleBlock};
     use crate::util::packed::{
         create, is_supported, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl,
-        MutablePacked64Enum, NullReader, Packed64, PackedImpl, PackedInts, PackedSingleBlockImpl,
-        Reader, ReaderIterator, Writer, MAX_SUPPORTED_BITS_PER_VALUE,
+        MutablePacked64Enum, NullReader, PackedImpl, PackedInts, PackedSingleBlockImpl, Reader,
+        ReaderIterator, Writer, MAX_SUPPORTED_BITS_PER_VALUE,
     };
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
