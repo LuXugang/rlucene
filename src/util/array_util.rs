@@ -240,7 +240,7 @@ impl ArrayUtil {
     }
     /// Returns a vector whose size is at least `min_size`, generally over-allocating
     /// exponentially, and it will not copy the original data to the new vector.
-    pub fn grow_no_copy<T>(vec: &mut [T], min_size: i32) -> Result<Option<Vec<T>>, LuceneError>
+    pub fn grow_no_copy<T>(vec: &[T], min_size: i32) -> Result<Option<Vec<T>>, LuceneError>
     where
         T: Default + Clone,
     {

@@ -15,5 +15,5 @@
  * limitations under the License.
  */
 pub mod compression_mode;
-mod compressor;
-mod decompressor;
+pub mod compressor;
+pub mod decompressor;

@@ -935,7 +935,7 @@ mod tests {
             length: i32,
             hash_table: &mut AssertingHashTable,
         ) -> Result<(), LuceneError> {
-            let mut out = ByteBuffersDataOutput::with_resettable_instance()?;
+            let mut out = ByteBuffersDataOutput::with_resettable_instance();
             LZ4::compress(data.clone(), offset, length, &mut out, &mut hash_table.ht)?;
 
             let compressed = out.get_array_copy();
@@ -1001,7 +1001,7 @@ mod tests {
             assert_eq!(length, decompressed_off);
 
             // Compress once again with the same hash table to test reuse
-            let mut out2 = ByteBuffersDataOutput::with_resettable_instance()?;
+            let mut out2 = ByteBuffersDataOutput::with_resettable_instance();
             LZ4::compress(data.clone(), offset, length, &mut out2, &mut hash_table.ht)?;
             assert_eq!(compressed, out2.get_array_copy());
 
@@ -1035,7 +1035,7 @@ mod tests {
             data: Vec<u8>,
             hash_table: &mut AssertingHashTable,
         ) -> Result<(), LuceneError> {
-            let mut copy = ByteBuffersDataOutput::with_resettable_instance()?;
+            let mut copy = ByteBuffersDataOutput::with_resettable_instance();
             let dict_off = random.gen_range(0..10);
             copy.write_bytes(vec![0u8; dict_off as usize])?;
 
@@ -1079,7 +1079,7 @@ mod tests {
             length: i32,
             hash_table: &mut AssertingHashTable,
         ) -> Result<(), LuceneError> {
-            let mut out = ByteBuffersDataOutput::with_resettable_instance()?;
+            let mut out = ByteBuffersDataOutput::with_resettable_instance();
             LZ4::compress_with_dictionary(
                 data.clone(),
                 dict_off,
@@ -1091,7 +1091,7 @@ mod tests {
             let compressed = out.get_array_copy();
 
             // Compress once again with the same hash table to test reuse
-            let mut out2 = ByteBuffersDataOutput::with_resettable_instance()?;
+            let mut out2 = ByteBuffersDataOutput::with_resettable_instance();
             LZ4::compress_with_dictionary(
                 data.clone(),
                 dict_off,
@@ -1249,7 +1249,7 @@ mod tests {
                 len,
                 &mut self.new_hash_table(),
             )?;
-            let mut out = ByteBuffersDataOutput::with_resettable_instance()?;
+            let mut out = ByteBuffersDataOutput::with_resettable_instance();
             LZ4::compress_with_dictionary(
                 byte.clone(),
                 dict_off,

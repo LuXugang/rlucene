@@ -52,12 +52,14 @@ impl ByteBuffersDataOutput {
     pub const DEFAULT_MIN_BITS_PER_BLOCK: i32 = 10;
 
     ///Creates a new output with all defaults.
-    pub fn with_resettable_instance() -> Result<Self, LuceneError> {
-        Self::new(
+    pub fn with_resettable_instance() -> Self {
+        let result = Self::new(
             Self::DEFAULT_MIN_BITS_PER_BLOCK,
             Self::DEFAULT_MAX_BITS_PER_BLOCK,
             true,
-        )
+        );
+        debug_assert!(result.is_ok());
+        result.unwrap()
     }
     /// Expert: Creates a new output with custom parameters.
     ///
@@ -183,7 +185,7 @@ impl ByteBuffersDataOutput {
         self.current_block_index = (self.blocks.len() - 1) as i32;
     }
     /// Copies the current content of this object into another [`DataOutput`].
-    fn copy_to<D: DataOutput>(&mut self, output: &mut D) -> Result<(), LuceneError> {
+    pub(crate) fn copy_to<D: DataOutput>(&mut self, output: &mut D) -> Result<(), LuceneError> {
         debug_assert!(!self.blocks.is_empty());
         for (index, block) in self.blocks.iter().enumerate() {
             if index == self.current_block_index as usize {
@@ -427,17 +429,17 @@ mod tests {
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::{random, random_from_seed};
     use crate::test::util::test_error::TestError;
-    use crate::util::WritableCursorExt;
-    use byteorder::WriteBytesExt;
+    
+    
     use rand::Rng;
-    use std::io::Cursor;
+    
 
     struct TestByteBuffersDataOutput;
     impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
         type DO = ByteBuffersDataOutput;
 
         fn new_instance(&self) -> Result<Self::DO, TestError> {
-            Ok(ByteBuffersDataOutput::with_resettable_instance()?)
+            Ok(ByteBuffersDataOutput::with_resettable_instance())
         }
 
         fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8> {
@@ -550,7 +552,7 @@ mod tests {
     #[test]
     fn test_large_array_add() -> Result<(), TestError> {
         let mut random = random();
-        let mut o = ByteBuffersDataOutput::with_resettable_instance()?;
+        let mut o = ByteBuffersDataOutput::with_resettable_instance();
         let mb = 1024 * 1024;
         let mut bytes = if is_night_mode() {
             let size = random.gen_range(5 * mb..=15 * mb);

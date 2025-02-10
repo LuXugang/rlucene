@@ -32,7 +32,7 @@ pub trait Decompressor: Clone {
     /// - `length`: Bytes after `offset + length` do not need to be decompressed.
     /// - `bytes`: A reference to a `BytesRef` where to store the decompressed data.
     fn decompress<I>(
-        &self,
+        &mut self,
         input: &mut I,
         original_length: i32,
         offset: i32,

@@ -16,5 +16,6 @@
  */
 pub mod lucene90_compound_format;
 pub mod lucene90_compound_reader;
+pub mod lz4_with_preset_dict_compression_mode;
 
 pub use lucene90_compound_format::*;

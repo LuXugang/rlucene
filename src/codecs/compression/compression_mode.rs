@@ -16,6 +16,9 @@
  */
 use crate::codecs::compression::compressor::Compressor;
 use crate::codecs::compression::decompressor::Decompressor;
+use crate::codecs::lz4_with_preset_dict_compression_mode::{
+    LZ4WithPresetDictCompressionMode, LZ4WithPresetDictCompressor, LZ4WithPresetDictDecompressor,
+};
 use crate::index::BytesRef;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
@@ -50,7 +53,7 @@ impl CompressionMode {
     }
 }
 
-trait CompressionModeBase: Display {
+pub(crate) trait CompressionModeBase: Display {
     /// Create a new `Compressor` instance.
     fn new_compressor(&self) -> CompressorEnum;
     /// Create a new `Decompressor` instance.
@@ -122,6 +125,7 @@ enum CompressionModeEnum {
     Fast(LZ4FastCompressionMode),
     High(LZ4HighCompressionMode),
     Deflate(DeflateCompressionMode),
+    LZ4Dict(LZ4WithPresetDictCompressionMode),
 }
 
 impl Display for CompressionModeEnum {
@@ -130,6 +134,7 @@ impl Display for CompressionModeEnum {
             CompressionModeEnum::Fast(mode) => write!(f, "{}", mode),
             CompressionModeEnum::High(mode) => write!(f, "{}", mode),
             CompressionModeEnum::Deflate(mode) => write!(f, "{}", mode),
+            CompressionModeEnum::LZ4Dict(mode) => write!(f, "{}", mode),
         }
     }
 }
@@ -140,6 +145,7 @@ impl CompressionModeBase for CompressionModeEnum {
             CompressionModeEnum::Fast(mode) => mode.new_compressor(),
             CompressionModeEnum::High(mode) => mode.new_compressor(),
             CompressionModeEnum::Deflate(mode) => mode.new_compressor(),
+            CompressionModeEnum::LZ4Dict(mode) => mode.new_compressor(),
         }
     }
 
@@ -148,6 +154,7 @@ impl CompressionModeBase for CompressionModeEnum {
             CompressionModeEnum::Fast(mode) => mode.new_decompressor(),
             CompressionModeEnum::High(mode) => mode.new_decompressor(),
             CompressionModeEnum::Deflate(mode) => mode.new_decompressor(),
+            CompressionModeEnum::LZ4Dict(mode) => mode.new_decompressor(),
         }
     }
 }
@@ -160,7 +167,7 @@ impl Clone for LZ4Decompressor {
 }
 impl Decompressor for LZ4Decompressor {
     fn decompress<I>(
-        &self,
+        &mut self,
         input: &mut I,
         original_length: i32,
         offset: i32,
@@ -192,6 +199,7 @@ impl Decompressor for LZ4Decompressor {
 pub enum DecompressorEnum {
     LZ4(LZ4Decompressor),
     Deflate(DeflateDecompressor),
+    LZ4Dict(LZ4WithPresetDictDecompressor),
 }
 
 impl Clone for DecompressorEnum {
@@ -201,13 +209,16 @@ impl Clone for DecompressorEnum {
             DecompressorEnum::Deflate(decompressor) => {
                 DecompressorEnum::Deflate(decompressor.clone())
             }
+            DecompressorEnum::LZ4Dict(decompressor) => {
+                DecompressorEnum::LZ4Dict(decompressor.clone())
+            }
         }
     }
 }
 
 impl Decompressor for DecompressorEnum {
     fn decompress<I>(
-        &self,
+        &mut self,
         input: &mut I,
         original_length: i32,
         offset: i32,
@@ -222,6 +233,9 @@ impl Decompressor for DecompressorEnum {
                 decompressor.decompress(input, original_length, offset, length, bytes)
             }
             DecompressorEnum::Deflate(decompressor) => {
+                decompressor.decompress(input, original_length, offset, length, bytes)
+            }
+            DecompressorEnum::LZ4Dict(decompressor) => {
                 decompressor.decompress(input, original_length, offset, length, bytes)
             }
         }
@@ -291,7 +305,7 @@ impl Clone for DeflateDecompressor {
 
 impl Decompressor for DeflateDecompressor {
     fn decompress<I>(
-        &self,
+        &mut self,
         input: &mut I,
         original_length: i32,
         offset: i32,
@@ -364,6 +378,7 @@ pub enum CompressorEnum {
     LZ4Fast(LZ4FastCompressor),
     LZ4High(LZ4HighCompressor),
     Deflate(DeflateCompressor),
+    LZ4Dict(LZ4WithPresetDictCompressor),
 }
 impl Compressor for CompressorEnum {
     fn compress<D>(
@@ -378,6 +393,7 @@ impl Compressor for CompressorEnum {
             CompressorEnum::LZ4Fast(compressor) => compressor.compress(buffers_input, out),
             CompressorEnum::LZ4High(compressor) => compressor.compress(buffers_input, out),
             CompressorEnum::Deflate(compressor) => compressor.compress(buffers_input, out),
+            CompressorEnum::LZ4Dict(compressor) => compressor.compress(buffers_input, out),
         }
     }
 }
@@ -397,6 +413,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::ArrayUtil;
 
+    use crate::codecs::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cmp::min;
@@ -488,12 +505,12 @@ mod tests {
             compressed: Vec<u8>,
             original_length: i32,
         ) -> Result<Vec<u8>, TestError> {
-            let decompressor = self.get_mode().new_decompressor();
-            Self::decompress_with_decompressor(&decompressor, compressed, original_length)
+            let mut decompressor = self.get_mode().new_decompressor();
+            Self::decompress_with_decompressor(&mut decompressor, compressed, original_length)
         }
 
         fn decompress_with_decompressor(
-            decompressor: &DecompressorEnum,
+            decompressor: &mut DecompressorEnum,
             compressed: Vec<u8>,
             original_length: i32,
         ) -> Result<Vec<u8>, TestError> {
@@ -509,7 +526,7 @@ mod tests {
             offset: i32,
             length: i32,
         ) -> Result<Vec<u8>, TestError> {
-            let decompressor = self.get_mode().new_decompressor();
+            let mut decompressor = self.get_mode().new_decompressor();
             let mut bytes = BytesRef::default();
             let mut input = ByteArrayDataInput::with_bytes(compressed);
             decompressor.decompress(&mut input, original_length, offset, length, &mut bytes)?;
@@ -655,6 +672,14 @@ mod tests {
             CompressionMode::high_compression()
         }
     }
+
+    // TestLZ4WithPresetDictCompressionMode
+    struct TestLZ4WithPresetDictCompressionMode;
+    impl AbstractTestCompressionMode for TestLZ4WithPresetDictCompressionMode {
+        fn get_mode(&self) -> CompressionModeEnum {
+            CompressionModeEnum::LZ4Dict(LZ4WithPresetDictCompressionMode)
+        }
+    }
     #[test]
     fn test_decompress() -> Result<(), TestError> {
         {
@@ -667,7 +692,11 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_decompress(&mut random)
+            TestHighCompressionMode.test_decompress(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestLZ4WithPresetDictCompressionMode.test_decompress(&mut random)
         }
     }
     #[test]
@@ -682,14 +711,19 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_partial_decompress(&mut random)
+            TestHighCompressionMode.test_partial_decompress(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestLZ4WithPresetDictCompressionMode.test_partial_decompress(&mut random)
         }
     }
     #[test]
     fn test_empty_sequence() -> Result<(), TestError> {
         TestFastCompressionMode.test_empty_sequence()?;
         TestFastDecompressionMode.test_empty_sequence()?;
-        TestHighCompressionMode.test_empty_sequence()
+        TestHighCompressionMode.test_empty_sequence()?;
+        TestLZ4WithPresetDictCompressionMode.test_empty_sequence()
     }
     #[test]
     fn test_short_sequence() -> Result<(), TestError> {
@@ -703,7 +737,11 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_short_sequence(&mut random)
+            TestHighCompressionMode.test_short_sequence(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestLZ4WithPresetDictCompressionMode.test_short_sequence(&mut random)
         }
     }
     #[test]
@@ -718,7 +756,11 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_incompressible(&mut random)
+            TestHighCompressionMode.test_incompressible(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestLZ4WithPresetDictCompressionMode.test_incompressible(&mut random)
         }
     }
     #[test]
@@ -733,13 +775,18 @@ mod tests {
         }
         {
             let mut random = random();
-            TestHighCompressionMode.test_constant(&mut random)
+            TestHighCompressionMode.test_constant(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestLZ4WithPresetDictCompressionMode.test_constant(&mut random)
         }
     }
     #[test]
     fn test_extremely_large_input() -> Result<(), TestError> {
         TestFastCompressionMode.test_extremely_large_input()?;
         TestFastDecompressionMode.test_extremely_large_input()?;
-        TestHighCompressionMode.test_extremely_large_input()
+        TestHighCompressionMode.test_extremely_large_input()?;
+        TestLZ4WithPresetDictCompressionMode.test_extremely_large_input()
     }
 }

@@ -124,7 +124,7 @@ impl PrefixCodedTermsBuilder {
     /// Sole constructor.
     pub fn new() -> Result<Self, LuceneError> {
         Ok(Self {
-            output: ByteBuffersDataOutput::with_resettable_instance()?,
+            output: ByteBuffersDataOutput::with_resettable_instance(),
             last_term: Term::from_empty("".to_string()),
             last_term_bytes: BytesRefBuilder::new(),
             size: 0,
