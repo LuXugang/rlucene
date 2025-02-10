@@ -40,6 +40,9 @@ impl CompressionMode {
     pub fn fast() -> CompressionModeEnum {
         CompressionModeEnum::Fast(LZ4FastCompressionMode)
     }
+    pub fn high_compression() -> CompressionModeEnum {
+        CompressionModeEnum::High(LZ4HighCompressionMode)
+    }
 }
 
 trait CompressionModeBase: Display {
@@ -50,12 +53,14 @@ trait CompressionModeBase: Display {
 }
 enum CompressionModeEnum {
     Fast(LZ4FastCompressionMode),
+    High(LZ4HighCompressionMode),
 }
 
 impl Display for CompressionModeEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CompressionModeEnum::Fast(mode) => write!(f, "{}", mode),
+            CompressionModeEnum::High(mode) => write!(f, "{}", mode),
         }
     }
 }
@@ -64,12 +69,14 @@ impl CompressionModeBase for CompressionModeEnum {
     fn new_compressor(&self) -> CompressorEnum {
         match self {
             CompressionModeEnum::Fast(mode) => mode.new_compressor(),
+            CompressionModeEnum::High(mode) => mode.new_compressor(),
         }
     }
 
     fn new_decompressor(&self) -> DecompressorEnum {
         match self {
             CompressionModeEnum::Fast(mode) => mode.new_decompressor(),
+            CompressionModeEnum::High(mode) => mode.new_decompressor(),
         }
     }
 }
@@ -88,6 +95,27 @@ impl Display for LZ4FastCompressionMode {
 impl CompressionModeBase for LZ4FastCompressionMode {
     fn new_compressor(&self) -> CompressorEnum {
         CompressorEnum::LZ4Fast(LZ4FastCompressor::new())
+    }
+
+    fn new_decompressor(&self) -> DecompressorEnum {
+        DecompressorEnum::LZ4(LZ4Decompressor)
+    }
+}
+
+/// This compression mode is similar to `FAST` but it spends more time compressing in order
+/// to improve the compression ratio. This compression mode is best used with indices that have a
+/// low update rate but should be able to load documents from disk quickly.
+struct LZ4HighCompressionMode;
+
+impl Display for LZ4HighCompressionMode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HIGH_COMPRESSION")
+    }
+}
+
+impl CompressionModeBase for LZ4HighCompressionMode {
+    fn new_compressor(&self) -> CompressorEnum {
+        CompressorEnum::LZ4High(LZ4HighCompressor::new(HighCompressionHashTable::new()))
     }
 
     fn new_decompressor(&self) -> DecompressorEnum {
@@ -278,8 +306,8 @@ impl Compressor for CompressorEnum {
 #[cfg(test)]
 mod tests {
     use crate::codecs::compression::compression_mode::{
-        CompressionModeBase, CompressionModeEnum, CompressorEnum, DecompressorEnum,
-        LZ4FastCompressionMode,
+        CompressionMode, CompressionModeBase, CompressionModeEnum, CompressorEnum,
+        DecompressorEnum, LZ4FastCompressionMode,
     };
     use crate::codecs::compression::compressor::Compressor;
     use crate::codecs::compression::decompressor::Decompressor;
@@ -528,43 +556,77 @@ mod tests {
         }
     }
 
+    // TestFastCompressionMode
     struct TestFastCompressionMode;
     impl AbstractTestCompressionMode for TestFastCompressionMode {
         fn get_mode(&self) -> CompressionModeEnum {
-            CompressionModeEnum::Fast(LZ4FastCompressionMode)
+            CompressionMode::fast()
+        }
+    }
+    // TestHighCompressionMode
+    struct TestHighCompressionMode;
+    impl AbstractTestCompressionMode for TestHighCompressionMode {
+        fn get_mode(&self) -> CompressionModeEnum {
+            CompressionMode::high_compression()
         }
     }
     #[test]
-    fn test_decompress_fast_c_m() -> Result<(), TestError> {
+    fn test_decompress() -> Result<(), TestError> {
         let mut random = random();
         TestFastCompressionMode.test_decompress(&mut random)
     }
     #[test]
-    fn test_partial_decompress_fast_c_m() -> Result<(), TestError> {
-        let mut random = random();
-        TestFastCompressionMode.test_partial_decompress(&mut random)
+    fn test_partial_decompress() -> Result<(), TestError> {
+        {
+            let mut random = random();
+            TestFastCompressionMode.test_partial_decompress(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestHighCompressionMode.test_partial_decompress(&mut random)
+        }
     }
     #[test]
-    fn test_empty_sequence_fast_c_m() -> Result<(), TestError> {
-        TestFastCompressionMode.test_empty_sequence()
+    fn test_empty_sequence() -> Result<(), TestError> {
+        TestFastCompressionMode.test_empty_sequence()?;
+        TestHighCompressionMode.test_empty_sequence()
     }
     #[test]
-    fn test_short_sequence_fast_c_m() -> Result<(), TestError> {
-        let mut random = random();
-        TestFastCompressionMode.test_short_sequence(&mut random)
+    fn test_short_sequence() -> Result<(), TestError> {
+        {
+            let mut random = random();
+            TestFastCompressionMode.test_short_sequence(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestHighCompressionMode.test_short_sequence(&mut random)
+        }
     }
     #[test]
     fn test_incompressible() -> Result<(), TestError> {
-        let mut random = random();
-        TestFastCompressionMode.test_incompressible(&mut random)
+        {
+            let mut random = random();
+            TestFastCompressionMode.test_incompressible(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestHighCompressionMode.test_incompressible(&mut random)
+        }
     }
     #[test]
     fn test_constant() -> Result<(), TestError> {
-        let mut random = random();
-        TestFastCompressionMode.test_constant(&mut random)
+        {
+            let mut random = random();
+            TestFastCompressionMode.test_constant(&mut random)?;
+        }
+        {
+            let mut random = random();
+            TestHighCompressionMode.test_constant(&mut random)
+        }
     }
     #[test]
     fn test_extremely_large_input() -> Result<(), TestError> {
-        TestFastCompressionMode.test_extremely_large_input()
+        TestFastCompressionMode.test_extremely_large_input()?;
+        TestHighCompressionMode.test_extremely_large_input()
     }
 }
