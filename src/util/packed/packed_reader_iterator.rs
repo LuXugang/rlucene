@@ -23,7 +23,7 @@ use crate::util::packed::format_behavior::FormatBehavior;
 use crate::util::packed::{Decoder, Format, ReaderIterator};
 use std::fmt::Display;
 
-pub struct PackedReaderIterator<'a, D>
+pub(crate) struct PackedReaderIterator<'a, D>
 where
     D: DataInput,
 {

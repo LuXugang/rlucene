@@ -17,7 +17,7 @@
 use crate::util::packed::{Decoder, Encoder, PackedInts};
 use std::cmp::Ordering;
 
-pub struct BulkOperationPacked<T>
+pub(crate) struct BulkOperationPacked<T>
 where
     T: Decoder + Encoder,
 {

@@ -21,7 +21,7 @@ use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
 use crate::util::packed::{Encoder, Format, PackedInts, Writer};
 
-pub struct PackedWriter<'a, T>
+pub(crate) struct PackedWriter<'a, T>
 where
     T: DataOutput + 'a,
 {
@@ -68,7 +68,7 @@ where
             data_output,
         }
     }
-    pub fn flush(&mut self) -> Result<(), LuceneError> {
+    fn flush(&mut self) -> Result<(), LuceneError> {
         self.encoder.encode_i64_to_u8(
             &self.next_values,
             0,

@@ -55,7 +55,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// # Errors
     ///
     /// Returns an `IoError` if the reading fails.
-    pub fn read_vlong(data_input: &mut T) -> Result<i64, LuceneError> {
+    fn read_vlong(data_input: &mut T) -> Result<i64, LuceneError> {
         let mut l = 0u64;
         for shift in (0..56).step_by(7) {
             let b = data_input.read_byte()?;
@@ -146,7 +146,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
                 self.block_size,
                 bits_per_value,
             );
-            self.data_input.skip_bytes(block_bytes)?;
+            self.skip_bytes(block_bytes)?;
             self.ord += self.block_size as i64;
             count -= self.block_size as i64;
         }
@@ -162,7 +162,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         self.off += count as i32;
         Ok(())
     }
-    pub fn skip_bytes(&mut self, count: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, count: i64) -> Result<(), LuceneError> {
         if self.data_input.is_index_input() {
             let new_position = self.data_input.get_file_pointer_in_data_input() + count;
             self.data_input.seek_in_data_input(new_position)?;
@@ -238,7 +238,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         Ok(&self.values_ref)
     }
 
-    pub fn refill(&mut self) -> Result<(), LuceneError> {
+    fn refill(&mut self) -> Result<(), LuceneError> {
         let token = self.data_input.read_byte()? as i32;
         let min_equals_0 = (token & MIN_VALUE_EQUALS_0) != 0;
         let bits_per_value = token >> BPV_SHIFT;

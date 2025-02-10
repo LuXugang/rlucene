@@ -18,7 +18,7 @@ use crate::util::packed::bulk_operation::BulkOperation;
 use crate::util::packed::{Decoder, Encoder};
 
 #[derive(Default)]
-pub struct BulkOperationPacked1;
+pub(crate) struct BulkOperationPacked1;
 impl BulkOperationPacked1 {
     pub const fn new() -> Self {
         BulkOperationPacked1

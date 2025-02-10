@@ -26,7 +26,7 @@ use crate::util::packed::packed64_single_block::{
 use crate::util::packed::{Mutable, MutableImpl, Reader};
 use std::fmt::{Display, Formatter};
 
-pub enum MutablePacked64Enum {
+pub(crate) enum MutablePacked64Enum {
     P64SingleBlock1(MutableImpl<Packed64SingleBlock<Packed64SingleBlock1>>),
     P64SingleBlock2(MutableImpl<Packed64SingleBlock<Packed64SingleBlock2>>),
     P64SingleBlock3(MutableImpl<Packed64SingleBlock<Packed64SingleBlock3>>),

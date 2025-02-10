@@ -19,7 +19,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::monotonic_block_packed_reader::expected;
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
-pub struct MonotonicLongValues {
+pub(crate) struct MonotonicLongValues {
     averages: Vec<f32>,
 }
 
@@ -28,7 +28,7 @@ impl MonotonicLongValues {
     #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
 
-    pub fn new(averages: Vec<f32>) -> Self {
+    pub(crate) fn new(averages: Vec<f32>) -> Self {
         Self { averages }
     }
     pub(crate) fn decode_block(
@@ -59,7 +59,7 @@ impl MonotonicLongValues {
     }
 }
 
-pub struct MonotonicLongValuesBuilder {
+pub(crate) struct MonotonicLongValuesBuilder {
     averages: Vec<f32>,
 }
 

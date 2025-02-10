@@ -23,7 +23,7 @@ pub(crate) const MIN_BLOCK_SIZE: i32 = 64;
 pub(crate) const MAX_BLOCK_SIZE: i32 = 1 << (30 - 3);
 pub(crate) const MIN_VALUE_EQUALS_0: i32 = 1 << 0;
 pub(crate) const BPV_SHIFT: i32 = 1;
-pub struct AbstractBlockPackedWriter<'a, T: DataOutput, D: AbstractBlockPackedWriterBase> {
+pub(crate) struct AbstractBlockPackedWriter<'a, T: DataOutput, D: AbstractBlockPackedWriterBase> {
     out: &'a mut T,
     values: Vec<i64>,
     blocks: Vec<u8>,
@@ -103,7 +103,7 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     ///
     /// Returns an error if the writer has already finished or the offset is invalid.
     #[cfg(feature = "test_only")]
-    pub fn add_block_of_zeros(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn add_block_of_zeros(&mut self) -> Result<(), LuceneError> {
         self.check_not_finished()?;
         if self.off != 0 && self.off as usize != self.values.len() {
             return Err(LuceneError::illegal_state(format!("{}", self.off)));
@@ -227,7 +227,7 @@ pub(crate) fn write_vlong<T: DataOutput>(out: &mut T, mut i: i64) -> Result<(), 
     out.write_byte(i as u8)?;
     Ok(())
 }
-pub trait AbstractBlockPackedWriterBase {
+pub(crate) trait AbstractBlockPackedWriterBase {
     fn flush<T: DataOutput>(
         &mut self,
         out: &mut T,

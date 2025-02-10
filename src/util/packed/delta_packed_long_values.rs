@@ -19,7 +19,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::monotonic_long_values::{MonotonicLongValues, MonotonicLongValuesBuilder};
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
-pub struct DeltaPackedLongValues {
+pub(crate) struct DeltaPackedLongValues {
     pub(crate) sub_long_value: Option<MonotonicLongValues>,
     pub(crate) mins: Vec<i64>,
 }
@@ -63,7 +63,7 @@ impl DeltaPackedLongValues {
     }
 }
 
-pub struct DeltaPackedLongValuesBuilder {
+pub(crate) struct DeltaPackedLongValuesBuilder {
     pub(crate) sub_builder: Option<MonotonicLongValuesBuilder>,
     pub(crate) mins: Vec<i64>,
 }

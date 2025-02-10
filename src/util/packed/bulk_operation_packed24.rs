@@ -18,7 +18,7 @@ use crate::util::packed::bulk_operation::BulkOperation;
 use crate::util::packed::{Decoder, Encoder};
 
 #[derive(Default)]
-pub struct BulkOperationPacked24;
+pub(crate) struct BulkOperationPacked24;
 impl Decoder for BulkOperationPacked24 {
     fn decode_u64_to_i32(
         &self,

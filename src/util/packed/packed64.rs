@@ -36,7 +36,7 @@ use std::fmt::{Display, Formatter};
 /// faster.
 ///
 /// See [LUCENE-4062](https://issues.apache.org/jira/browse/LUCENE-4062) for details.
-pub struct Packed64 {
+pub(crate) struct Packed64 {
     /// Values are stored contiguously in the blocks array.
     blocks: Vec<u64>,
     /// A right-aligned mask of width `bits_per_value` used by the `get` method.
