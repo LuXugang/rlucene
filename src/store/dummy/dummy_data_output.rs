@@ -14,12 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod base_bit_set_test_case;
-pub(crate) mod base_doc_id_set_test_case;
-pub(crate) mod base_sort_test_case;
-pub(crate) mod common_method;
-pub(crate) mod id_set_common;
-pub(crate) mod lucene_test_case;
-mod packed;
-pub mod test_error;
-pub mod test_util;
+use crate::store::DataOutput;
+use crate::util::error::lucene_error::LuceneError;
+
+pub struct DummyDataOutput;
+impl DataOutput for DummyDataOutput {
+    fn write_byte(&mut self, _b: u8) -> Result<(), LuceneError> {
+        unreachable!("DummyDataOutput should not be called");
+    }
+
+    fn write_bytes_range(
+        &mut self,
+        _b: &[u8],
+        _offset: i32,
+        _length: i32,
+    ) -> Result<(), LuceneError> {
+        unreachable!("DummyDataOutput should not be called");
+    }
+}

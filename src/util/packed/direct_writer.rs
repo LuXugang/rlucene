@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::dummy::dummy_data_output::DummyDataOutput;
 use crate::store::DataOutput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
@@ -38,7 +39,6 @@ where
     next_blocks: Vec<u8>,
     next_values: Vec<i64>,
 }
-
 impl<'a, D> DirectWriter<'a, D>
 where
     D: DataOutput,
@@ -48,7 +48,7 @@ where
         num_values: i64,
         bits_per_value: i32,
     ) -> Result<Self, LuceneError> {
-        let memory_budget_in_bits = u8::BITS as i32 * PackedInts::DEFAULT_BUFFER_SIZE;
+        let memory_budget_in_bits = i8::BITS as i32 * PackedInts::DEFAULT_BUFFER_SIZE;
         // For every value we need 64 bits for the value and bitsPerValue for the encoded value
         let mut buffer_size = memory_budget_in_bits / (u64::BITS as i32 + bits_per_value);
         debug_assert!(buffer_size > 0);
@@ -66,7 +66,7 @@ where
         }
         let next_values = vec![0i64; buffer_size as usize];
         let next_blocks_size =
-            (buffer_size * bits_per_value) as usize / u8::BITS as usize + u64::BITS as usize - 1;
+            (buffer_size * bits_per_value) as usize / i8::BITS as usize + BitUtil::LONG_BYTES - 1;
         let next_blocks = vec![0u8; next_blocks_size];
 
         Ok(DirectWriter {
@@ -127,15 +127,15 @@ where
     fn encode(next_values: &[i64], up_to: usize, next_blocks: &mut [u8], bits_per_value: i32) {
         if bits_per_value & 7 == 0 {
             // bitsPerValue is a multiple of 8: 8, 16, 24, 32, 30, 48, 56, 64
-            let bytes_per_value = bits_per_value / u8::BITS as i32;
+            let bytes_per_value = bits_per_value / i8::BITS as i32;
             let mut o = 0;
             for i in 0..up_to {
                 let l = next_values[i];
-                if bits_per_value > u32::BITS as i32 {
+                if bits_per_value > i32::BITS as i32 {
                     BitUtil::set_i64_le(next_blocks, o, l);
-                } else if bits_per_value > u16::BITS as i32 {
+                } else if bits_per_value > i16::BITS as i32 {
                     BitUtil::set_i32_le(next_blocks, o, l as i32);
-                } else if bits_per_value > u8::BITS as i32 {
+                } else if bits_per_value > i8::BITS as i32 {
                     BitUtil::set_i16_le(next_blocks, o, l as i16);
                 } else {
                     next_blocks[o] = l as u8;
@@ -153,13 +153,13 @@ where
                     v |= next_values[i + j] << (bits_per_value as i64 * j as i64);
                 }
                 BitUtil::set_i64_le(next_blocks, o, v);
-                o += u64::BITS as usize;
+                o += BitUtil::LONG_BYTES;
                 i += values_per_long;
             }
         } else {
             // bitsPerValue is 12, 20 or 28
             // Write values 2 by 2
-            let num_bytes_for_2_values = ((bits_per_value * 2) as u32 / u8::BITS) as usize;
+            let num_bytes_for_2_values = ((bits_per_value * 2) as u32 / i8::BITS) as usize;
             let mut i = 0;
             let mut o = 0;
             while i < up_to {
@@ -193,16 +193,16 @@ where
         // 32 - 20 = 12 bits of padding
         let padding_bits_needed = if self.bits_per_value > u32::BITS as i32 {
             u64::BITS as i32 - self.bits_per_value
-        } else if self.bits_per_value > u16::BITS as i32 {
+        } else if self.bits_per_value > i16::BITS as i32 {
             u32::BITS as i32 - self.bits_per_value
-        } else if self.bits_per_value > u8::BITS as i32 {
-            u16::BITS as i32 - self.bits_per_value
+        } else if self.bits_per_value > i8::BITS as i32 {
+            i16::BITS as i32 - self.bits_per_value
         } else {
             0
         };
 
         debug_assert!(padding_bits_needed >= 0);
-        let padding_bytes_needed = (padding_bits_needed + u8::BITS as i32 - 1) / u8::BITS as i32;
+        let padding_bytes_needed = (padding_bits_needed + i8::BITS as i32 - 1) / i8::BITS as i32;
         debug_assert!(padding_bytes_needed <= 3);
 
         for _ in 0..padding_bytes_needed {
@@ -228,6 +228,21 @@ where
         }
         DirectWriter::new(output, num_values, bits_per_value)
     }
+
+    /// Returns how many bits are required to hold values up to and including `max_value`, interpreted as an unsigned value.
+    ///
+    /// # Parameters
+    /// - `max_value`: The maximum value that should be representable.
+    ///
+    /// # Returns
+    /// The amount of bits needed to represent values from 0 to `max_value`.
+    ///
+    /// # See also
+    /// `PackedInts::unsigned_bits_required(long)`
+    const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
+        [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64];
+}
+impl DirectWriter<'_, DummyDataOutput> {
     /// Round a number of bits per value to the next amount of bits per value that is supported by this
     /// writer.
     ///
@@ -259,16 +274,4 @@ where
     pub fn unsigned_bits_required(max_value: i64) -> i32 {
         Self::round_bits(PackedInts::unsigned_bits_required(max_value))
     }
-    /// Returns how many bits are required to hold values up to and including `max_value`, interpreted as an unsigned value.
-    ///
-    /// # Parameters
-    /// - `max_value`: The maximum value that should be representable.
-    ///
-    /// # Returns
-    /// The amount of bits needed to represent values from 0 to `max_value`.
-    ///
-    /// # See also
-    /// `PackedInts::unsigned_bits_required(long)`
-    const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
-        [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64];
 }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::store::random_access_input::RandomAccessInput;
+use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::LongValues;
 /// Retrieves an instance previously written by `DirectWriter`.
@@ -145,11 +146,11 @@ where
             };
             let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
             for i in 0..DirectReader::MERGE_BUFFER_SIZE as usize {
-                if self.bits_per_value > u32::BITS as i32 {
+                if self.bits_per_value > i32::BITS as i32 {
                     self.buffer[i] = self.slice.read_long(offset)? & mask;
-                } else if self.bits_per_value > u16::BITS as i32 {
+                } else if self.bits_per_value > i16::BITS as i32 {
                     self.buffer[i] = (self.slice.read_int(offset)? as i64) & mask;
-                } else if self.bits_per_value > u8::BITS as i32 {
+                } else if self.bits_per_value > i8::BITS as i32 {
                     self.buffer[i] = self.slice.read_short(offset)? as u16 as i64;
                 } else {
                     self.buffer[i] = self.slice.read_byte(offset)? as i64;
@@ -168,21 +169,21 @@ where
                     self.buffer[i] = (bits as u64 >> (j * self.bits_per_value)) as i64 & mask;
                     i += 1;
                 }
-                offset += u64::BITS as i64;
+                offset += BitUtil::LONG_BYTES as i64;
             }
         } else {
             // bitsPerValue is 12, 20 or 28; read values 2 by 2
-            let num_bytes_for_2_values = (self.bits_per_value * 2) / u8::BITS as i32;
+            let num_bytes_for_2_values = (self.bits_per_value * 2) / i8::BITS as i32;
             let mask = (1i64 << self.bits_per_value) - 1;
             let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
             for i in (0..DirectReader::MERGE_BUFFER_SIZE as usize).step_by(2) {
-                let l = if num_bytes_for_2_values > i32::BITS as i32 {
+                let l = if num_bytes_for_2_values > BitUtil::INT_BYTES as i32 {
                     self.slice.read_long(offset)?
                 } else {
                     self.slice.read_int(offset)? as i64
                 };
                 self.buffer[i] = l & mask;
-                self.buffer[i + 1] = (l >> self.bits_per_value) & mask;
+                self.buffer[i + 1] = (l as u64 >> self.bits_per_value) as i64 & mask;
                 offset += num_bytes_for_2_values as i64;
             }
         }
@@ -194,6 +195,7 @@ where
     R: RandomAccessInput,
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+        debug_assert!(index >= 0);
         debug_assert!(index < self.num_values);
         let block_index = index >> DirectReader::MERGE_BUFFER_SHIFT;
         if self.block_index != block_index {
@@ -373,8 +375,7 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let short_val = self.input.read_short(self.offset + (index << 1))?;
-        let result = short_val as u16;
+        let result = self.input.read_short(self.offset + (index << 1))? as u16;
         Ok(result as i64)
     }
 }
