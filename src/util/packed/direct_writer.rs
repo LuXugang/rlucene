@@ -53,17 +53,7 @@ where
         let mut buffer_size = memory_budget_in_bits / (u64::BITS as i32 + bits_per_value);
         debug_assert!(buffer_size > 0);
         // Round to the next multiple of 64
-        match i32::try_from(buffer_size + 63) {
-            Ok(sum) => {
-                buffer_size = ((sum as u32) & 0xFFFFFFC0) as i32;
-            }
-            Err(_) => {
-                return Err(LuceneError::integer_overflow(format!(
-                    "buffer_size + 63:{}",
-                    buffer_size + 63
-                )))
-            }
-        }
+        buffer_size = ((buffer_size + 63) as u32 & 0xFFFFFFC0) as i32;
         let next_values = vec![0i64; buffer_size as usize];
         let next_blocks_size =
             (buffer_size * bits_per_value) as usize / i8::BITS as usize + BitUtil::LONG_BYTES - 1;
@@ -129,8 +119,7 @@ where
             // bitsPerValue is a multiple of 8: 8, 16, 24, 32, 30, 48, 56, 64
             let bytes_per_value = bits_per_value / i8::BITS as i32;
             let mut o = 0;
-            for i in 0..up_to {
-                let l = next_values[i];
+            for &l in next_values.iter().take(up_to) {
                 if bits_per_value > i32::BITS as i32 {
                     BitUtil::set_i64_le(next_blocks, o, l);
                 } else if bits_per_value > i16::BITS as i32 {

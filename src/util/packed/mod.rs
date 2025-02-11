@@ -57,7 +57,7 @@ pub mod growable_writer;
 pub mod monotonic_block_packed_reader;
 pub mod monotonic_block_packed_writer;
 pub(crate) mod monotonic_long_values;
-mod mutable_enum;
+pub mod mutable_enum;
 pub(crate) mod mutable_packed64_enum;
 pub mod packed64;
 pub(crate) mod packed64_single_block;
@@ -70,6 +70,5 @@ pub mod paged_mutable;
 mod read_enum;
 
 pub use format_behavior::*;
-pub use mutable_packed64_enum::*;
 pub use packed64_single_block::*;
 pub use packed_ints::*;

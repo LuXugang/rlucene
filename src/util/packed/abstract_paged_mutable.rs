@@ -29,7 +29,7 @@ const MAX_BLOCK_SIZE: i32 = 1 << 30;
 /// # Lucene Internal
 /// This is an internal utility for use within the Lucene system.
 #[derive(Default)]
-pub struct AbstractPagedMutable<T>
+pub(crate) struct AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase,
 {
@@ -173,6 +173,7 @@ where
         let new_size = min_size + extra;
         Ok(Some(self.resize(new_size)?))
     }
+    #[allow(unused)]
     pub fn grow(&mut self) -> Result<Option<AbstractPagedMutable<T>>, LuceneError> {
         self.grow_with_size(self.size() << 1)
     }
@@ -214,7 +215,7 @@ where
         )
     }
 }
-pub trait AbstractPagedMutableBase: Default {
+pub(crate) trait AbstractPagedMutableBase: Default {
     fn new_mutable(
         &self,
         value_count: i32,

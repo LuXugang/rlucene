@@ -66,7 +66,7 @@ impl PackedInts {
     ///
     /// # Returns
     /// A decoder.
-    pub fn get_decoder(
+    pub(crate) fn get_decoder(
         format: Format,
         version: i32,
         bits_per_value: i32,
@@ -83,7 +83,7 @@ impl PackedInts {
     ///
     /// # Returns
     /// A result containing a reference to the encoder, or an error if the version is invalid.
-    pub fn get_encoder(
+    pub(crate) fn get_encoder(
         format: Format,
         version: i32,
         bits_per_value: i32,
@@ -144,7 +144,7 @@ impl PackedInts {
     /// # Returns
     /// A mutable packed integer array.
     ///
-    pub fn get_mutable(
+    pub(crate) fn get_mutable(
         value_count: i32,
         bits_per_value: i32,
         acceptable_overhead_ratio: f32,
@@ -159,7 +159,7 @@ impl PackedInts {
     }
 
     /// Same as [`get_mutable`](PackedInts::get_mutable) with a pre-computed number of bits per value and format.
-    pub fn get_mutable_impl(
+    pub(crate) fn get_mutable_impl(
         value_count: i32,
         bits_per_value: i32,
         format: Format,
@@ -209,7 +209,8 @@ impl PackedInts {
     /// # Returns
     /// A `Writer` instance.
     ///
-    pub fn get_writer_no_header<T>(
+    #[allow(unused)]
+    pub(crate) fn get_writer_no_header<T>(
         out: &'_ mut T,
         format: Format,
         value_count: i32,
@@ -1093,15 +1094,16 @@ mod tests {
     use crate::util::packed::growable_writer::GrowableWriter;
     use crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
     use crate::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter;
+    use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
     use crate::util::packed::packed64::Packed64;
     use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
     use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
     use crate::util::packed::paged_mutable::PagedMutable;
     use crate::util::packed::Format::{Packed, PackedSingleBlock};
     use crate::util::packed::{
-        create, is_supported, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl,
-        MutablePacked64Enum, NullReader, PackedImpl, PackedInts, PackedSingleBlockImpl, Reader,
-        ReaderIterator, Writer, MAX_SUPPORTED_BITS_PER_VALUE,
+        create, is_supported, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl, NullReader,
+        PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
+        MAX_SUPPORTED_BITS_PER_VALUE,
     };
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};

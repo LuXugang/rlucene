@@ -301,8 +301,8 @@ pub fn test_monotonic_binary_search_random() -> Result<(), TestError> {
         let mut array = vec![0; array_length];
         let base: i64 = random.gen();
         let bpv = TestUtil::next_int(&mut random, 4, 61);
-        for i in 0..array.len() {
-            array[i] = base + TestUtil::next_long(&mut random, 0, (1 << bpv) - 1);
+        for value in array.iter_mut() {
+            *value = base + TestUtil::next_long(&mut random, 0, (1 << bpv) - 1);
         }
         array.sort();
         let block_shift = TestUtil::next_int(&mut random, 2, 10);
@@ -352,7 +352,7 @@ where
         if array.is_empty() {
             assert_eq!(-1, reader.binary_search(0, array.len() as i64, 42)?);
         } else {
-            for (i, &val) in array.iter().enumerate() {
+            for &val in array.iter() {
                 let index = reader.binary_search(0, array.len() as i64, val)?;
                 let len = array.len();
                 assert!(index >= 0 && (index as usize) < len);

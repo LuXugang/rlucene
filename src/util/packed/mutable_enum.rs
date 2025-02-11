@@ -17,7 +17,8 @@
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::growable_writer::GrowableWriter;
-use crate::util::packed::{DummyMutable, Mutable, MutablePacked64Enum, Reader};
+use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
+use crate::util::packed::{DummyMutable, Mutable, Reader};
 use std::fmt::Display;
 
 pub(crate) enum MutableEnum {

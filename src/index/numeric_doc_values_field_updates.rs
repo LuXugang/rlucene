@@ -146,7 +146,7 @@ where
     }
 }
 #[derive(Default)]
-pub struct NumericDocValuesFieldUpdatesIterator<'a, T>
+pub(crate) struct NumericDocValuesFieldUpdatesIterator<'a, T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {

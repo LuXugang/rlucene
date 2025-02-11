@@ -196,7 +196,7 @@ impl PackedLongValuesBuilder {
     ) -> Result<PackedLongValuesBuilder, LuceneError> {
         Self::with_sub_builder(page_size, acceptable_overhead_ratio, None)
     }
-    pub fn with_sub_builder(
+    pub(crate) fn with_sub_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
         sub_packed_long_values_builder: Option<DeltaPackedLongValuesBuilder>,

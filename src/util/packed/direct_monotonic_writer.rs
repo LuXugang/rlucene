@@ -56,8 +56,8 @@ where
         num_values: i64,
         block_shift: i32,
     ) -> Result<Self, LuceneError> {
-        if block_shift < DirectMonotonicWriter::MIN_BLOCK_SHIFT
-            || block_shift > DirectMonotonicWriter::MAX_BLOCK_SHIFT
+        if !(DirectMonotonicWriter::MIN_BLOCK_SHIFT..=DirectMonotonicWriter::MAX_BLOCK_SHIFT)
+            .contains(&block_shift)
         {
             return Err(LuceneError::illegal_argument(format!(
                 "blockShift must be in [{}-{}], got {}",

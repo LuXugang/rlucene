@@ -16,9 +16,11 @@
  */
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::packed::{Mutable, MutablePacked64Enum, PackedInts, Reader};
+use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
+use crate::util::packed::{Mutable, PackedInts, Reader};
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
+
 /// Implements [`Mutable`], but grows the bit count of the underlying packed ints
 /// on-demand.
 ///
@@ -28,7 +30,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// # Internal
 /// This is an internal API and may change in future versions.
-pub struct GrowableWriter {
+pub(crate) struct GrowableWriter {
     current_mask: i64,
     current: MutablePacked64Enum,
     acceptable_overhead_ratio: f32,
@@ -55,6 +57,7 @@ impl GrowableWriter {
             PackedInts::max_value(bits_per_value)
         }
     }
+    #[allow(unused)]
     pub fn get_mutable(&self) -> &MutablePacked64Enum {
         &self.current
     }
@@ -81,6 +84,7 @@ impl GrowableWriter {
         self.current_mask = Self::mask(self.current.get_bits_per_value());
         Ok(())
     }
+    #[allow(unused)]
     pub fn resize(&mut self, new_size: i32) -> Result<GrowableWriter, LuceneError> {
         let mut next = GrowableWriter::new(
             self.current.get_bits_per_value(),

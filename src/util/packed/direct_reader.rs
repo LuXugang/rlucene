@@ -30,14 +30,15 @@ impl DirectReader {
     const MERGE_BUFFER_MASK: i32 = DirectReader::MERGE_BUFFER_SIZE - 1;
 
     /// Retrieves an instance from the specified slice, decoding `bits_per_value` for each value.
-    pub fn get_instance<R>(slice: Arc<Mutex<R>>, bits_per_value: i32) -> DirectPackedEnum<R>
+    #[allow(unused)]
+    pub(crate) fn get_instance<R>(slice: Arc<Mutex<R>>, bits_per_value: i32) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,
     {
         Self::get_instance_with_offset(slice, bits_per_value, 0)
     }
     /// Retrieves an instance from the specified `offset` of the given slice, decoding `bits_per_value` for each value.
-    pub fn get_instance_with_offset<R>(
+    pub(crate) fn get_instance_with_offset<R>(
         slice: Arc<Mutex<R>>,
         bits_per_value: i32,
         offset: i64,
@@ -64,7 +65,8 @@ impl DirectReader {
         }
     }
     /// Retrieves an instance specialized for merges, typically faster for sequential access but slower for random access.
-    pub fn get_merge_instance<R>(
+    #[allow(unused)]
+    pub(crate) fn get_merge_instance<R>(
         slice: Arc<Mutex<R>>,
         bits_per_value: i32,
         num_values: i64,
@@ -75,7 +77,7 @@ impl DirectReader {
         Self::get_merge_instance_with_base_offset(slice, bits_per_value, 0, num_values)
     }
     /// Retrieves an instance specialized for merges, typically faster for sequential access.
-    pub fn get_merge_instance_with_base_offset<R>(
+    pub(crate) fn get_merge_instance_with_base_offset<R>(
         slice: Arc<Mutex<R>>,
         bits_per_value: i32,
         base_offset: i64,
@@ -93,7 +95,7 @@ impl DirectReader {
     }
 }
 
-struct LongValuesImpl<R>
+pub(crate) struct LongValuesImpl<R>
 where
     R: RandomAccessInput,
 {
@@ -212,7 +214,7 @@ where
     }
 }
 
-struct DirectPackedReader1<R>
+pub(crate) struct DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
@@ -242,7 +244,7 @@ where
     }
 }
 
-struct DirectPackedReader2<R>
+pub(crate) struct DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
@@ -276,7 +278,7 @@ where
     }
 }
 
-struct DirectPackedReader4<R>
+pub(crate) struct DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
@@ -310,7 +312,7 @@ where
     }
 }
 
-struct DirectPackedReader8<R>
+pub(crate) struct DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
@@ -343,7 +345,7 @@ where
     }
 }
 
-struct DirectPackedReader12<R>
+pub(crate) struct DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
@@ -378,7 +380,7 @@ where
     }
 }
 
-struct DirectPackedReader16<R>
+pub(crate) struct DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
@@ -409,7 +411,7 @@ where
         Ok(result as i64)
     }
 }
-struct DirectPackedReader20<R>
+pub(crate) struct DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
@@ -444,7 +446,7 @@ where
     }
 }
 
-struct DirectPackedReader24<R>
+pub(crate) struct DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
@@ -477,7 +479,7 @@ where
     }
 }
 
-struct DirectPackedReader28<R>
+pub(crate) struct DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
@@ -512,7 +514,7 @@ where
     }
 }
 
-struct DirectPackedReader32<R>
+pub(crate) struct DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
@@ -545,7 +547,7 @@ where
     }
 }
 
-struct DirectPackedReader40<R>
+pub(crate) struct DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
@@ -578,7 +580,7 @@ where
     }
 }
 
-struct DirectPackedReader48<R>
+pub(crate) struct DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
@@ -611,7 +613,7 @@ where
     }
 }
 
-struct DirectPackedReader56<R>
+pub(crate) struct DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
@@ -644,7 +646,7 @@ where
     }
 }
 
-struct DirectPackedReader64<R>
+pub(crate) struct DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {
@@ -676,7 +678,7 @@ where
     }
 }
 
-pub enum DirectPackedEnum<R>
+pub(crate) enum DirectPackedEnum<R>
 where
     R: RandomAccessInput,
 {

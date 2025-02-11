@@ -47,7 +47,7 @@ fn test_simple() -> Result<(), TestError> {
         writer.finish()?;
     }
     let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
-    let mut slice = input.random_access_slice(0, input.length())?;
+    let slice = input.random_access_slice(0, input.length())?;
     let mut reader =
         DirectReader::get_instance_with_offset(Arc::new(Mutex::new(slice)), bits_per_value, 0);
     assert_eq!(1, reader.get(0)?);
@@ -151,7 +151,7 @@ where
         }
 
         let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
-        let mut slice = Arc::new(Mutex::new(input.random_access_slice(0, input.length())?));
+        let slice = Arc::new(Mutex::new(input.random_access_slice(0, input.length())?));
         let mut reader = if merge {
             DirectReader::get_merge_instance_with_base_offset(
                 slice.clone(),

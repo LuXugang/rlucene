@@ -44,6 +44,7 @@ use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
 use crate::util::packed::{Decoder, Encoder, Format};
 /// Padding Value to make compiler happy
+#[allow(unused)]
 pub(crate) const PACKED_DUMMY: BulkOperationPackedEnum =
     BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new());
 pub(crate) const PACKED_BULK_OPS: [BulkOperationPackedEnum; 64] = [
@@ -188,7 +189,7 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
         }
     }
 }
-pub fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
+pub(crate) fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
     match format {
         Format::Packed(..) => {
             debug_assert!(

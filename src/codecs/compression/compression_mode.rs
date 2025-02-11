@@ -39,8 +39,10 @@ use std::sync::Arc;
 ///
 /// # Experimental
 /// This feature is experimental. Its behavior might change in future versions.
+#[allow(unused)]
 pub struct CompressionMode;
 
+#[allow(unused)]
 impl CompressionMode {
     pub fn fast() -> CompressionModeEnum {
         CompressionModeEnum::Fast(LZ4FastCompressionMode)
@@ -53,6 +55,7 @@ impl CompressionMode {
     }
 }
 
+#[allow(unused)]
 pub(crate) trait CompressionModeBase: Display {
     /// Create a new `Compressor` instance.
     fn new_compressor(&self) -> CompressorEnum;
@@ -62,7 +65,7 @@ pub(crate) trait CompressionModeBase: Display {
 /// A compression mode that trades compression ratio for speed. Although the compression ratio
 /// might remain high, compression and decompression are very fast. Use this mode with indices that
 /// have a high update rate but should be able to load documents from disk quickly.
-struct LZ4FastCompressionMode;
+pub(crate) struct LZ4FastCompressionMode;
 
 impl Display for LZ4FastCompressionMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -82,7 +85,8 @@ impl CompressionModeBase for LZ4FastCompressionMode {
 /// A compression mode that trades speed for compression ratio. Although compression and
 /// decompression might be slow, this compression mode should provide a good compression ratio.
 /// This mode might be interesting if/when your index size is much bigger than your OS cache.
-struct DeflateCompressionMode;
+#[allow(unused)]
+pub(crate) struct DeflateCompressionMode;
 
 impl Display for DeflateCompressionMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -103,7 +107,7 @@ impl CompressionModeBase for DeflateCompressionMode {
 /// This compression mode is similar to `FAST` but it spends more time compressing in order
 /// to improve the compression ratio. This compression mode is best used with indices that have a
 /// low update rate but should be able to load documents from disk quickly.
-struct LZ4HighCompressionMode;
+pub(crate) struct LZ4HighCompressionMode;
 
 impl Display for LZ4HighCompressionMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -121,7 +125,8 @@ impl CompressionModeBase for LZ4HighCompressionMode {
     }
 }
 
-enum CompressionModeEnum {
+#[allow(unused)]
+pub(crate) enum CompressionModeEnum {
     Fast(LZ4FastCompressionMode),
     High(LZ4HighCompressionMode),
     Deflate(DeflateCompressionMode),
@@ -159,7 +164,7 @@ impl CompressionModeBase for CompressionModeEnum {
     }
 }
 
-struct LZ4Decompressor;
+pub struct LZ4Decompressor;
 impl Clone for LZ4Decompressor {
     fn clone(&self) -> Self {
         LZ4Decompressor
@@ -196,6 +201,7 @@ impl Decompressor for LZ4Decompressor {
     }
 }
 
+#[allow(unused)]
 pub enum DecompressorEnum {
     LZ4(LZ4Decompressor),
     Deflate(DeflateDecompressor),
@@ -242,10 +248,11 @@ impl Decompressor for DecompressorEnum {
     }
 }
 
-struct LZ4FastCompressor {
+pub(crate) struct LZ4FastCompressor {
     ht: HashTableEnum,
 }
 impl LZ4FastCompressor {
+    #[allow(unused)]
     pub fn new() -> Self {
         LZ4FastCompressor {
             ht: HashTableEnum::FastCompressionHashTable(FastCompressionHashTable::new()),
@@ -269,10 +276,11 @@ impl Compressor for LZ4FastCompressor {
     }
 }
 
-struct LZ4HighCompressor {
+pub(crate) struct LZ4HighCompressor {
     ht: HashTableEnum,
 }
 impl LZ4HighCompressor {
+    #[allow(unused)]
     pub fn new(ht: HighCompressionHashTable) -> Self {
         LZ4HighCompressor {
             ht: HashTableEnum::HighCompressionHashTable(ht),
@@ -295,7 +303,7 @@ impl Compressor for LZ4HighCompressor {
     }
 }
 
-struct DeflateDecompressor;
+pub struct DeflateDecompressor;
 
 impl Clone for DeflateDecompressor {
     fn clone(&self) -> Self {
@@ -343,10 +351,11 @@ impl Decompressor for DeflateDecompressor {
     }
 }
 
-struct DeflateCompressor {
+pub(crate) struct DeflateCompressor {
     level: u32,
 }
 
+#[allow(unused)]
 impl DeflateCompressor {
     pub fn new(level: u32) -> Self {
         DeflateCompressor { level }
@@ -374,6 +383,7 @@ impl Compressor for DeflateCompressor {
     }
 }
 
+#[allow(unused)]
 pub enum CompressorEnum {
     LZ4Fast(LZ4FastCompressor),
     LZ4High(LZ4HighCompressor),
@@ -439,7 +449,7 @@ mod tests {
             };
             (Self::random_array_impl(random, length, max), length)
         }
-        fn random_array_impl(random: &mut StdRng, length: i32, max: i32) -> Vec<u8> {
+        fn random_array_impl(random: &mut StdRng, length: i32, _max: i32) -> Vec<u8> {
             let remainder = length % 1024;
             let new_length = if remainder == 0 {
                 length

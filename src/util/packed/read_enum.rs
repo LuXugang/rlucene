@@ -16,7 +16,8 @@
  */
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::packed::{MutablePacked64Enum, NullReader, Reader};
+use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
+use crate::util::packed::{NullReader, Reader};
 
 pub enum PackedIntsReadEnum {
     PackedReader(MutablePacked64Enum),

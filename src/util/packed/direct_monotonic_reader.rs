@@ -67,7 +67,7 @@ impl<R> DirectMonotonicReader<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(
+    pub(crate) fn new(
         block_shift: i32,
         readers: Vec<DirectPackedEnum<R>>,
         mins: Vec<i64>,
@@ -137,12 +137,10 @@ where
                 hi = mid - 1;
             } else {
                 let mid_val = self.get(mid)?;
-                if mid_val < key {
-                    lo = mid + 1;
-                } else if mid_val > key {
-                    hi = mid - 1;
-                } else {
-                    return Ok(mid);
+                match mid_val.cmp(&key) {
+                    std::cmp::Ordering::Less => lo = mid + 1,
+                    std::cmp::Ordering::Greater => hi = mid - 1,
+                    std::cmp::Ordering::Equal => return Ok(mid),
                 }
             }
         }
