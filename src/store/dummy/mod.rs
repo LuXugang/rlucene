@@ -20,3 +20,4 @@ pub mod dummy_directory;
 pub mod dummy_index_input;
 pub mod dummy_index_output;
 pub mod dummy_lock;
+pub mod dummy_random_access_input;

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::{Arc, Mutex};
 use crate::store::data_output::DataOutput;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput};
@@ -27,6 +26,7 @@ use crate::util::packed::direct_writer::DirectWriter;
 use crate::util::packed::PackedInts;
 use rand::rngs::StdRng;
 use rand::Rng;
+use std::sync::{Arc, Mutex};
 
 #[allow(dead_code)] // for quick search
 pub struct TestDirectPacked;
@@ -48,7 +48,8 @@ fn test_simple() -> Result<(), TestError> {
     }
     let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let mut slice = input.random_access_slice(0, input.length())?;
-    let mut reader = DirectReader::get_instance_with_offset(Arc::new(Mutex::new(slice)), bits_per_value, 0);
+    let mut reader =
+        DirectReader::get_instance_with_offset(Arc::new(Mutex::new(slice)), bits_per_value, 0);
     assert_eq!(1, reader.get(0)?);
     assert_eq!(0, reader.get(1)?);
     assert_eq!(2, reader.get(2)?);

@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::{Arc, Mutex};
 use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::long_values::LongValues;
+use crate::util::long_values::{LongValues, Zeroes};
+use std::sync::{Arc, Mutex};
 /// Retrieves an instance previously written by `DirectWriter`.
 ///
 /// # See also
@@ -126,9 +126,10 @@ where
 
     fn fill_buffer(&mut self, index: i64) -> Result<(), LuceneError> {
         // NOTE: we're not allowed to read more than 3 bytes past the last value
-        let mut slice= self.slice.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .slice
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         if index >= self.num_values - DirectReader::MERGE_BUFFER_SIZE as i64 {
             // 128 values left or less
             let mut slow_instance = DirectReader::get_instance_with_offset(
@@ -232,9 +233,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         let shift = (index & 7) as i32;
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
         Ok(result as i64)
     }
@@ -264,9 +266,10 @@ where
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
         let shift = ((index & 3) as i32) << 1;
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let byte = slice.read_byte(self.offset + (index >> 2))?;
         let result = (byte >> shift) & 0x3;
         Ok(result as i64)
@@ -297,9 +300,10 @@ where
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
         let shift = ((index & 1) as i32) << 2;
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let byte = slice.read_byte(self.offset + (index >> 1))?;
         let result = (byte >> shift) & 0xF;
         Ok(result as i64)
@@ -329,9 +333,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let byte = slice.read_byte(self.offset + index)?;
         let result = byte;
         Ok(result as i64)
@@ -363,9 +368,10 @@ where
         debug_assert!(index >= 0);
         let off = (index * 12) >> 3;
         let shift = ((index & 1) as i32) << 2;
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let short_val = slice.read_short(self.offset + off)?;
         let result = ((short_val as u16) >> shift) & 0xFFF;
         Ok(result as i64)
@@ -395,9 +401,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let result = slice.read_short(self.offset + (index << 1))? as u16;
         Ok(result as i64)
     }
@@ -427,9 +434,10 @@ where
         debug_assert!(index >= 0);
         let off = (index * 20) >> 3;
         let shift = ((index & 1) as i32) << 2;
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let int_val = slice.read_int(self.offset + off)?;
         let result = (int_val >> shift) & 0xFFFFF;
         Ok(result as i64)
@@ -459,9 +467,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let int_val = slice.read_int(self.offset + index * 3)?;
         let result = int_val & 0xFFFFFF;
         Ok(result as i64)
@@ -493,9 +502,10 @@ where
         debug_assert!(index >= 0);
         let off = (index * 28) >> 3;
         let shift = ((index & 1) as i32) << 2;
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let int_val = slice.read_int(self.offset + off)?;
         let result = (int_val >> shift) & 0xFFFFFFF;
         Ok(result as i64)
@@ -525,9 +535,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let int_val = slice.read_int(self.offset + (index << 2))?;
         let result = int_val as u32;
         Ok(result as i64)
@@ -557,9 +568,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let long_val = slice.read_long(self.offset + index * 5)?;
         let result = long_val & 0xFFFFFFFFFF;
         Ok(result)
@@ -589,9 +601,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let long_val = slice.read_long(self.offset + index * 6)?;
         let result = long_val & 0xFFFFFFFFFFFF;
         Ok(result)
@@ -621,9 +634,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let long_val = slice.read_long(self.offset + index * 7)?;
         let result = long_val & 0xFFFFFFFFFFFFFF;
         Ok(result)
@@ -653,9 +667,10 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice= self.input.lock().map_err(|_| {
-            LuceneError::illegal_state("Failed to acquire lock".to_string())
-        })?;
+        let mut slice = self
+            .input
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let result = slice.read_long(self.offset + (index << 3))?;
         Ok(result)
     }
@@ -680,6 +695,7 @@ where
     DirectPackedReader56(DirectPackedReader56<R>),
     DirectPackedReader64(DirectPackedReader64<R>),
     LongValuesImpl(LongValuesImpl<R>),
+    Zeroes(Zeroes),
 }
 impl<R> LongValues for DirectPackedEnum<R>
 where
@@ -702,6 +718,7 @@ where
             DirectPackedEnum::DirectPackedReader56(reader) => reader.get(index),
             DirectPackedEnum::DirectPackedReader64(reader) => reader.get(index),
             DirectPackedEnum::LongValuesImpl(reader) => reader.get(index),
+            DirectPackedEnum::Zeroes(reader) => reader.get(index),
         }
     }
 }
