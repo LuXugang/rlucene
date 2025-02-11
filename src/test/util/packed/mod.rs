@@ -79,7 +79,7 @@ fn test_random() -> Result<(), TestError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     for bpv in 1..=64 {
-        do_test_bpv(&mut random,&mut dir, bpv, 0, false)?;
+        do_test_bpv(&mut random, &mut dir, bpv, 0, false)?;
     }
     Ok(())
 }
@@ -90,7 +90,7 @@ fn test_random_with_offset() -> Result<(), TestError> {
     let mut dir = new_directory(&mut random)?;
     let offset = TestUtil::next_int(&mut random, 1, 100);
     for bpv in 1..=64 {
-        do_test_bpv(&mut random,&mut dir, bpv, offset as i64, false)?;
+        do_test_bpv(&mut random, &mut dir, bpv, offset as i64, false)?;
     }
     Ok(())
 }
@@ -100,7 +100,7 @@ fn test_random_merge() -> Result<(), TestError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     for bpv in 1..=64 {
-        do_test_bpv(&mut random,&mut dir, bpv, 0, true)?;
+        do_test_bpv(&mut random, &mut dir, bpv, 0, true)?;
     }
     Ok(())
 }
@@ -111,12 +111,18 @@ fn test_random_merge_with_offset() -> Result<(), TestError> {
     let mut dir = new_directory(&mut random)?;
     let offset = TestUtil::next_int(&mut random, 1, 100);
     for bpv in 1..=64 {
-        do_test_bpv(&mut random,&mut dir, bpv, offset as i64, true)?;
+        do_test_bpv(&mut random, &mut dir, bpv, offset as i64, true)?;
     }
     Ok(())
 }
 
-fn do_test_bpv<D>(random:&mut StdRng,directory: &mut D, bpv: i32, offset: i64, merge: bool) -> Result<(), TestError>
+fn do_test_bpv<D>(
+    random: &mut StdRng,
+    directory: &mut D,
+    bpv: i32,
+    offset: i64,
+    merge: bool,
+) -> Result<(), TestError>
 where
     D: Directory,
 {

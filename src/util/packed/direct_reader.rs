@@ -149,7 +149,7 @@ where
                 if self.bits_per_value > i32::BITS as i32 {
                     self.buffer[i] = self.slice.read_long(offset)? & mask;
                 } else if self.bits_per_value > i16::BITS as i32 {
-                    self.buffer[i] = (self.slice.read_int(offset)? as i64) & mask;
+                    self.buffer[i] = (self.slice.read_int(offset)? as u32 as i64) & mask;
                 } else if self.bits_per_value > i8::BITS as i32 {
                     self.buffer[i] = self.slice.read_short(offset)? as u16 as i64;
                 } else {
