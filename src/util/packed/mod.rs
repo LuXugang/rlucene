@@ -48,6 +48,7 @@ pub(crate) mod bulk_operation_packed_dummy;
 pub(crate) mod bulk_operation_packed_enum;
 pub(crate) mod bulk_operation_packed_single_block;
 pub(crate) mod delta_packed_long_values;
+mod direct_reader;
 mod direct_writer;
 pub mod format_behavior;
 pub mod growable_writer;
