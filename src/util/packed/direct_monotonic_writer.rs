@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::IndexOutput;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
@@ -40,25 +41,28 @@ where
     finished: bool,
     previous: i64,
 }
+impl DirectMonotonicWriter<'_, DummyIndexOutput> {
+    pub const MIN_BLOCK_SHIFT: i32 = 2;
+    pub const MAX_BLOCK_SHIFT: i32 = 22;
+}
 
 impl<'a, I> DirectMonotonicWriter<'a, I>
 where
     I: IndexOutput,
 {
-    pub const MIN_BLOCK_SHIFT: i32 = 2;
-    pub const MAX_BLOCK_SHIFT: i32 = 22;
-
     fn new(
         meta_out: &'a mut I,
         data_out: &'a mut I,
         num_values: i64,
         block_shift: i32,
     ) -> Result<Self, LuceneError> {
-        if block_shift < Self::MIN_BLOCK_SHIFT || block_shift > Self::MAX_BLOCK_SHIFT {
+        if block_shift < DirectMonotonicWriter::MIN_BLOCK_SHIFT
+            || block_shift > DirectMonotonicWriter::MAX_BLOCK_SHIFT
+        {
             return Err(LuceneError::illegal_argument(format!(
                 "blockShift must be in [{}-{}], got {}",
-                Self::MIN_BLOCK_SHIFT,
-                Self::MAX_BLOCK_SHIFT,
+                DirectMonotonicWriter::MIN_BLOCK_SHIFT,
+                DirectMonotonicWriter::MAX_BLOCK_SHIFT,
                 block_shift
             )));
         }

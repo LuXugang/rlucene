@@ -1,0 +1,406 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::store::directory::Directory;
+use crate::store::dummy::dummy_index_output::DummyIndexOutput;
+use crate::store::index_output::IndexOutput;
+use crate::store::{IOContext, IndexInput};
+use crate::test::util::lucene_test_case::{at_least, new_directory, random};
+use crate::test::util::test_error::TestError;
+use crate::test::util::test_util::TestUtil;
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::long_values::LongValues;
+use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
+use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
+use rand::rngs::StdRng;
+use rand::Rng;
+use std::sync::{Arc, Mutex};
+
+#[allow(dead_code)] // for quick search
+pub struct TestDirectMonotonic;
+
+#[test]
+fn test_validation() {
+    let mut meta_out = DummyIndexOutput;
+    let mut data_out = DummyIndexOutput;
+    let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, -1, 0);
+    matches!(result, Err(LuceneError::IllegalArgument(msg)) if "numValues can't be negative, got -1".eq(&msg.message));
+
+    let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 10, 1);
+    matches!(result, Err(LuceneError::IllegalArgument(msg)) if "blockShift must be in [2-22], got 1".eq(&msg.message));
+
+    let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 1 << 40, 5);
+    matches!(result, Err(LuceneError::IllegalArgument(msg)) if "blockShift is too low for the provided number of values: blockShift=5, numValues=1099511627776, MAX_ARRAY_LENGTH=".eq(&msg.message));
+}
+#[test]
+pub fn test_empty() -> Result<(), TestError> {
+    let mut random = random();
+    let mut dir = new_directory(&mut random)?;
+    let block_shift = TestUtil::next_int(
+        &mut random,
+        DirectMonotonicWriter::MIN_BLOCK_SHIFT,
+        DirectMonotonicWriter::MAX_BLOCK_SHIFT,
+    );
+
+    let data_length;
+    {
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut writer =
+            DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 0, block_shift)?;
+        writer.finish()?;
+        data_length = data_out.get_file_pointer();
+    }
+
+    {
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta = DirectMonotonicReader::load_meta(&mut meta_in, 0, block_shift)?;
+        let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+        DirectMonotonicReader::get_instance(&meta, slice)?;
+    }
+    Ok(())
+}
+#[test]
+pub fn test_simple() -> Result<(), TestError> {
+    let mut random = random();
+    let mut dir = new_directory(&mut random)?;
+    let block_shift = 2;
+
+    let actual_values = vec![1, 2, 5, 7, 8, 100];
+    let num_values = actual_values.len();
+
+    let data_length;
+    {
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut writer = DirectMonotonicWriter::get_instance(
+            &mut meta_out,
+            &mut data_out,
+            num_values as i64,
+            block_shift,
+        )?;
+        for &v in &actual_values {
+            writer.add(v)?;
+        }
+        writer.finish()?;
+        data_length = data_out.get_file_pointer();
+    }
+
+    {
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta = DirectMonotonicReader::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+        let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+        let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
+        for (i, &v) in actual_values.iter().enumerate() {
+            assert_eq!(v, values.get(i as i64)?);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+pub fn test_constant_slope() -> Result<(), TestError> {
+    let mut random = random();
+    let mut dir = new_directory(&mut random)?;
+    let block_shift = TestUtil::next_int(
+        &mut random,
+        DirectMonotonicWriter::MIN_BLOCK_SHIFT,
+        DirectMonotonicWriter::MAX_BLOCK_SHIFT,
+    );
+    let num_values = TestUtil::next_int(&mut random, 1, 1 << 20);
+    let min: i64 = random.gen();
+    let upper = random.gen_range(0..20);
+    let inc = random.gen_range(0..1 << upper);
+
+    let actual_values: Vec<i64> = (0..num_values).map(|i| min + inc * i as i64).collect();
+
+    let data_length;
+    {
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut writer = DirectMonotonicWriter::get_instance(
+            &mut meta_out,
+            &mut data_out,
+            num_values as i64,
+            block_shift,
+        )?;
+        for &v in &actual_values {
+            writer.add(v)?;
+        }
+        writer.finish()?;
+        data_length = data_out.get_file_pointer();
+    }
+
+    {
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta = DirectMonotonicReader::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+        let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+        let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
+        for (i, &v) in actual_values.iter().enumerate() {
+            assert_eq!(v, values.get(i as i64)?);
+        }
+        assert_eq!(0, data_in.get_file_pointer());
+    }
+
+    Ok(())
+}
+
+#[test]
+pub fn test_zero_values_small_blob_shift() -> Result<(), TestError> {
+    let mut random = random();
+    let mut dir = new_directory(&mut random)?;
+    let num_values = TestUtil::next_int(&mut random, 8, 1 << 20);
+    let block_shift = TestUtil::next_int(
+        &mut random,
+        DirectMonotonicWriter::MIN_BLOCK_SHIFT,
+        (num_values as f64).log2() as i32 - 1,
+    );
+
+    let data_length;
+    {
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut writer = DirectMonotonicWriter::get_instance(
+            &mut meta_out,
+            &mut data_out,
+            num_values as i64,
+            block_shift,
+        )?;
+        for _ in 0..num_values {
+            writer.add(0)?;
+        }
+        writer.finish()?;
+        data_length = data_out.get_file_pointer();
+    }
+
+    {
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta = DirectMonotonicReader::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+        assert_eq!(meta_in.length(), meta_in.get_file_pointer());
+        meta_in.seek(0)?;
+        let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+        let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
+        for _ in 0..num_values {
+            assert_eq!(0, values.get(0)?);
+        }
+        assert_eq!(0, data_in.get_file_pointer());
+    }
+    Ok(())
+}
+#[test]
+pub fn test_random() -> Result<(), TestError> {
+    let mut random = random();
+    do_test_random(&mut random, false)
+}
+
+#[test]
+pub fn test_random_merging() -> Result<(), TestError> {
+    let mut random = random();
+    do_test_random(&mut random, true)
+}
+
+fn do_test_random(random: &mut StdRng, merging: bool) -> Result<(), TestError> {
+    let iters = at_least(random, 3);
+    for _ in 0..iters {
+        let mut dir = new_directory(random)?;
+        let block_shift = TestUtil::next_int(
+            random,
+            DirectMonotonicWriter::MIN_BLOCK_SHIFT,
+            DirectMonotonicWriter::MAX_BLOCK_SHIFT,
+        );
+        let max_num_values = 1 << 20;
+        let num_values = if random.gen_bool(0.5) {
+            TestUtil::next_int(random, 1, max_num_values)
+        } else {
+            let num_blocks = TestUtil::next_int(random, 0, max_num_values >> block_shift);
+            TestUtil::next_int(random, 0, num_blocks) << block_shift
+        };
+
+        let mut actual_values = Vec::with_capacity(num_values as usize);
+        let mut previous: i64 = random.gen();
+        if num_values > 0 {
+            actual_values.push(previous);
+        }
+        for _ in 1..num_values {
+            let upper = 1 << random.gen_range(1..20);
+            let value = random.gen_range(0..upper) as i64;
+            previous += value;
+            actual_values.push(previous);
+        }
+
+        let data_length;
+        {
+            let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+            let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+            let mut writer = DirectMonotonicWriter::get_instance(
+                &mut meta_out,
+                &mut data_out,
+                num_values as i64,
+                block_shift,
+            )?;
+            for &v in &actual_values {
+                writer.add(v)?;
+            }
+            writer.finish()?;
+            data_length = data_out.get_file_pointer();
+        }
+
+        {
+            let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+            let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+            let meta =
+                DirectMonotonicReader::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+            let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+            let mut values =
+                DirectMonotonicReader::get_instance_with_merging(&meta, slice, merging)?;
+            for (i, &v) in actual_values.iter().enumerate() {
+                assert_eq!(v, values.get(i as i64)?);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+pub fn test_monotonic_binary_search() -> Result<(), TestError> {
+    let mut random = random();
+    let mut dir = new_directory(&mut random)?;
+    do_test_monotonic_binary_search_against_long_array(
+        &mut random,
+        &mut dir,
+        &[4, 7, 8, 10, 19, 30, 55, 78, 100],
+        2,
+    )
+}
+
+#[test]
+pub fn test_monotonic_binary_search_random() -> Result<(), TestError> {
+    let mut random = random();
+    let mut dir = new_directory(&mut random)?;
+    let iters = at_least(&mut random, 100);
+    for _ in 0..iters {
+        let upper = 1 << random.gen_range(0..14);
+        let array_length = random.gen_range(0..upper);
+        let mut array = vec![0; array_length];
+        let base: i64 = random.gen();
+        let bpv = TestUtil::next_int(&mut random, 4, 61);
+        for i in 0..array.len() {
+            array[i] = base + TestUtil::next_long(&mut random, 0, (1 << bpv) - 1);
+        }
+        array.sort();
+        let block_shift = TestUtil::next_int(&mut random, 2, 10);
+        do_test_monotonic_binary_search_against_long_array(
+            &mut random,
+            &mut dir,
+            &array,
+            block_shift,
+        )?;
+    }
+    Ok(())
+}
+
+fn do_test_monotonic_binary_search_against_long_array<D>(
+    random: &mut StdRng,
+    dir: &mut D,
+    array: &[i64],
+    block_shift: i32,
+) -> Result<(), TestError>
+where
+    D: Directory,
+{
+    {
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut writer = DirectMonotonicWriter::get_instance(
+            &mut meta_out,
+            &mut data_out,
+            array.len() as i64,
+            block_shift,
+        )?;
+        for &l in array {
+            writer.add(l)?;
+        }
+        writer.finish()?;
+    }
+
+    {
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta = DirectMonotonicReader::load_meta(&mut meta_in, array.len() as i64, block_shift)?;
+        let slice = Arc::new(Mutex::new(
+            data_in.random_access_slice(0, dir.file_length("data")?)?,
+        ));
+        let mut reader = DirectMonotonicReader::get_instance(&meta, slice.clone())?;
+
+        if array.is_empty() {
+            assert_eq!(-1, reader.binary_search(0, array.len() as i64, 42)?);
+        } else {
+            for (i, &val) in array.iter().enumerate() {
+                let index = reader.binary_search(0, array.len() as i64, val)?;
+                let len = array.len();
+                assert!(index >= 0 && (index as usize) < len);
+                assert_eq!(val, array[index as usize]);
+            }
+            if array[0] != i64::MIN {
+                assert_eq!(
+                    -1,
+                    reader.binary_search(0, array.len() as i64, array[0] - 1)?
+                );
+            }
+            if array[array.len() - 1] != i64::MAX {
+                assert_eq!(
+                    -1 - array.len() as i64,
+                    reader.binary_search(0, array.len() as i64, array[array.len() - 1] + 1)?
+                );
+            }
+            if array.len() <= 2 {
+                // no op
+            } else {
+                for i in 0..array.len() - 2 {
+                    if array[i] + 1 < array[i + 1] {
+                        let intermediate = if random.gen_bool(0.5) {
+                            array[i] + 1
+                        } else {
+                            array[i + 1] - 1
+                        };
+                        let index = reader.binary_search(0, array.len() as i64, intermediate)?;
+                        assert!(index < 0);
+                        match i32::try_from(index) {
+                            Ok(index) => {
+                                let insertion_point = -1 - index;
+                                assert!(
+                                    insertion_point > 0 && (insertion_point as usize) < array.len()
+                                );
+                                assert!(array[insertion_point as usize] > intermediate);
+                                assert!(array[(insertion_point - 1) as usize] < intermediate);
+                            }
+                            Err(_) => {
+                                unreachable!()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    dir.delete_file("meta")?;
+    dir.delete_file("data")?;
+    Ok(())
+}

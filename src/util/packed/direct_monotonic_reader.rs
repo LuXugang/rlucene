@@ -34,6 +34,35 @@ where
     bpvs: Vec<u8>,
 }
 
+impl DirectMonotonicReader<DummyRandomAccessInput> {
+    pub fn load_meta<I>(
+        meta_in: &mut I,
+        num_values: i64,
+        block_shift: i32,
+    ) -> Result<Meta, LuceneError>
+    where
+        I: IndexInput,
+    {
+        let mut all_values_zero = true;
+        let mut meta = Meta::new(num_values, block_shift);
+        for i in 0..meta.num_blocks {
+            let min = meta_in.read_long()?;
+            meta.mins[i] = min;
+            let avg_int = meta_in.read_int()?;
+            meta.avgs[i] = f32::from_bits(avg_int as u32);
+            meta.offsets[i] = meta_in.read_long()?;
+            let bpv = meta_in.read_byte()?;
+            meta.bpvs[i] = bpv;
+            all_values_zero = all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
+        }
+        if all_values_zero {
+            Ok(Meta::single_zero_block())
+        } else {
+            Ok(meta)
+        }
+    }
+}
+
 impl<R> DirectMonotonicReader<R>
 where
     R: RandomAccessInput,
@@ -119,6 +148,7 @@ where
         }
         Ok(-1 - lo)
     }
+
     pub fn get_instance(meta: &Meta, data: Arc<Mutex<R>>) -> Result<Self, LuceneError> {
         Self::get_instance_with_merging(meta, data, false)
     }
@@ -198,34 +228,8 @@ impl Meta {
         }
     }
 
+    /// Unlike Java Lucene, here we return a new object with identical properties.
     pub fn single_zero_block() -> Self {
         Meta::new(1, 63)
-    }
-
-    pub fn load_meta<I>(
-        meta_in: &mut I,
-        num_values: i64,
-        block_shift: i32,
-    ) -> Result<Self, LuceneError>
-    where
-        I: IndexInput,
-    {
-        let mut all_values_zero = true;
-        let mut meta = Meta::new(num_values, block_shift);
-        for i in 0..meta.num_blocks {
-            let min = meta_in.read_long()?;
-            meta.mins[i] = min;
-            let avg_int = meta_in.read_int()?;
-            meta.avgs[i] = f32::from_bits(avg_int as u32);
-            meta.offsets[i] = meta_in.read_long()?;
-            let bpv = meta_in.read_byte()?;
-            meta.bpvs[i] = bpv;
-            all_values_zero = all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
-        }
-        if all_values_zero {
-            Ok(Meta::single_zero_block())
-        } else {
-            Ok(meta)
-        }
     }
 }
