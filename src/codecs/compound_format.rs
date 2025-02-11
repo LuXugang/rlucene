@@ -25,7 +25,7 @@ use std::sync::{Arc, Mutex};
 /// Encodes/decodes compound files
 pub trait CompoundFormat {
     /// Returns a read-only view of the compound files in this segment.
-    fn get_compound_reader<D: Directory<Output = I>, I: IndexInput<Slice = I> + RandomAccessInput>(
+    fn get_compound_reader<D: Directory<IndexInputType= I>, I: IndexInput<Slice = I> + RandomAccessInput>(
         &self,
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,

@@ -297,7 +297,7 @@ where
         &mut self,
         name: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput + 'static, LuceneError> {
+    ) -> Result<Self::IndexOutputType, LuceneError> {
         let mut pending_deletes = self
             .pending_deletes
             .lock()
@@ -329,12 +329,14 @@ where
             CHUNK_SIZE,
         )
     }
+
+    type IndexOutputType = OutputStreamIndexOutput<File>;
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError> {
+    ) -> Result<Self::IndexOutputType, LuceneError> {
         let mut pending_deletes = self
             .pending_deletes
             .lock()
@@ -433,8 +435,8 @@ where
         Ok(())
     }
 
-    type Output = T::Output;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
+    type IndexInputType = T::Output;
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError> {
         self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)

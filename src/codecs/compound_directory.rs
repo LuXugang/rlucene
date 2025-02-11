@@ -57,7 +57,7 @@ where
 
 impl<D, I> Directory for CompoundDirectory<D, I>
 where
-    D: Directory<Output = I>,
+    D: Directory<IndexInputType= I>,
     I: IndexInput<Slice = I> + RandomAccessInput,
 {
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
@@ -78,19 +78,20 @@ where
         &mut self,
         _name: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput + 'static, LuceneError> {
-        Err::<DummyIndexOutput, LuceneError>(LuceneError::unsupported_operation(
+    ) -> Result<Self::IndexOutputType, LuceneError> {
+        Err(LuceneError::unsupported_operation(
             "create_output".to_string(),
         ))
     }
 
+    type IndexOutputType = DummyIndexOutput;
     fn create_temp_output(
         &mut self,
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError> {
-        Err::<DummyIndexOutput, LuceneError>(LuceneError::unsupported_operation(
+    ) -> Result<Self::IndexOutputType, LuceneError> {
+        Err(LuceneError::unsupported_operation(
             "create_temp_output".to_string(),
         ))
     }
@@ -107,9 +108,9 @@ where
         Err(LuceneError::unsupported_operation("rename".to_string()))
     }
 
-    type Output = D::Output;
+    type IndexInputType = D::IndexInputType;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError> {
         self.sub_compound_dir.open_input(name, context)
     }
 

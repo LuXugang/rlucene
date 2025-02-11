@@ -54,7 +54,7 @@ where
 }
 impl<D, I> Lucene90CompoundReader<D, I>
 where
-    D: Directory<Output = I>,
+    D: Directory<IndexInputType= I>,
     I: IndexInput + RandomAccessInput,
 {
     pub fn new(directory: Arc<Mutex<D>>, si: &SegmentInfo<D>) -> Result<Self, LuceneError> {
@@ -210,20 +210,21 @@ where
         &mut self,
         _name: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput + 'static, LuceneError> {
-        Err::<DummyIndexOutput, LuceneError>(LuceneError::illegal_state(
+    ) -> Result<Self::IndexOutputType, LuceneError> {
+        Err(LuceneError::illegal_state(
             "create_output() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))
     }
 
+    type IndexOutputType = D::IndexOutputType;
     fn create_temp_output(
         &mut self,
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError> {
-        Err::<DummyIndexOutput, LuceneError>(LuceneError::illegal_state(
+    ) -> Result<Self::IndexOutputType, LuceneError> {
+        Err(LuceneError::illegal_state(
             "create_temp_output() wrapped by CompoundDirectory, this method should never not be called".to_string(),
         ))
     }
@@ -249,9 +250,9 @@ where
         ))
     }
 
-    type Output = I;
+    type IndexInputType = I;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError> {
         let id = IndexFileNames::strip_segment_name(name);
         let entry = match self.entries.get(id) {
             Some(entry) => entry,

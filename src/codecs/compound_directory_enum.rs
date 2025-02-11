@@ -46,7 +46,7 @@ where
 
 impl<D, I> Directory for CompoundDirectoryEnum<D, I>
 where
-    D: Directory<Output = I>,
+    D: Directory<IndexInputType= I>,
     I: IndexInput<Slice = I> + RandomAccessInput,
 {
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
@@ -71,18 +71,20 @@ where
         &mut self,
         name: &str,
         context: &IOContext,
-    ) -> Result<impl IndexOutput + 'static, LuceneError> {
+    ) -> Result<Self::IndexOutputType, LuceneError> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.create_output(name, context),
         }
     }
+
+    type IndexOutputType = D::IndexOutputType;
 
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError> {
+    ) -> Result<Self::IndexOutputType, LuceneError> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => {
                 reader.create_temp_output(prefix, suffix, context)
@@ -108,9 +110,9 @@ where
         }
     }
 
-    type Output = D::Output;
+    type IndexInputType = D::IndexInputType;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.open_input(name, context),
         }

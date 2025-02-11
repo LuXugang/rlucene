@@ -45,7 +45,7 @@ use tempfile::Builder;
 
 pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {
-    type Directory: Directory<Output = Self::Output> + Send + Sync + 'static;
+    type Directory: Directory<IndexInputType= Self::Output> + Send + Sync + 'static;
     type Output: IndexInput + RandomAccessInput + Send + Sync + 'static;
     fn get_directory(&self, path: PathBuf) -> Result<Self::Directory, TestError>;
 

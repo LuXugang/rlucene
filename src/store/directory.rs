@@ -91,7 +91,7 @@ pub trait Directory: Display + Sized {
         &mut self,
         name: &str,
         context: &IOContext,
-    ) -> Result<impl IndexOutput + 'static, LuceneError>;
+    ) -> Result<Self::IndexOutputType, LuceneError>;
 
     /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance
     /// for appending data to this file.
@@ -102,12 +102,13 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `prefix` - The prefix for the temporary file name.
     /// * `suffix` - The suffix for the temporary file name.
+    type IndexOutputType: IndexOutput;
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<impl IndexOutput, LuceneError>;
+    ) -> Result<Self::IndexOutputType, LuceneError>;
     /// Ensures that any writings to these files are moved to stable storage (made durable).
     ///
     /// Lucene uses this to properly commit changes to the index, preventing corruption in case of a
@@ -145,8 +146,8 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file.
-    type Output: IndexInput + RandomAccessInput;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::Output, LuceneError>;
+    type IndexInputType: IndexInput + RandomAccessInput;
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError>;
 
     /// Opens a checksum-computing stream for reading an existing file.
     ///
@@ -161,7 +162,7 @@ pub trait Directory: Display + Sized {
     fn open_checksum_input(
         &self,
         name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::Output>, LuceneError> {
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInputType>, LuceneError> {
         Ok(BufferedChecksumIndexInput::new(
             self.open_input(name, &IOContext::read_once_io_context()?)?,
         ))

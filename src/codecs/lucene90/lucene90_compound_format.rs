@@ -131,7 +131,7 @@ impl Lucene90CompoundFormat {
 
 impl CompoundFormat for Lucene90CompoundFormat {
     fn get_compound_reader<
-        D: Directory<Output = I>,
+        D: Directory<IndexInputType= I>,
         I: IndexInput<Slice = I> + RandomAccessInput,
     >(
         &self,
