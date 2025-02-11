@@ -20,7 +20,7 @@ use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{IOContext, IndexInput, IndexOutput};
+use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -57,7 +57,7 @@ where
 
 impl<D, I> Directory for CompoundDirectory<D, I>
 where
-    D: Directory<IndexInputType= I>,
+    D: Directory<IndexInputType = I>,
     I: IndexInput<Slice = I> + RandomAccessInput,
 {
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
@@ -110,7 +110,11 @@ where
 
     type IndexInputType = D::IndexInputType;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType, LuceneError> {
         self.sub_compound_dir.open_input(name, context)
     }
 

@@ -20,11 +20,10 @@ use crate::codecs::CodecUtil;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{IOContext, IndexInput, IndexOutput, ReadAdvice, IO_CONTEXT_DEFAULT};
+use crate::store::{IOContext, IndexInput, ReadAdvice, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -54,7 +53,7 @@ where
 }
 impl<D, I> Lucene90CompoundReader<D, I>
 where
-    D: Directory<IndexInputType= I>,
+    D: Directory<IndexInputType = I>,
     I: IndexInput + RandomAccessInput,
 {
     pub fn new(directory: Arc<Mutex<D>>, si: &SegmentInfo<D>) -> Result<Self, LuceneError> {
@@ -252,7 +251,11 @@ where
 
     type IndexInputType = I;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType, LuceneError> {
         let id = IndexFileNames::strip_segment_name(name);
         let entry = match self.entries.get(id) {
             Some(entry) => entry,

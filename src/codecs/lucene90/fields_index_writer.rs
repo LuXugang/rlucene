@@ -14,4 +14,290 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub struct FieldsIndexWriter;
+use crate::codecs::CodecUtil;
+use crate::index::IndexFileNames;
+use crate::store::directory::Directory;
+use crate::store::dummy::dummy_directory::DummyDirectory;
+use crate::store::dummy::dummy_index_output::DummyIndexOutput;
+use crate::store::{DataInput, IOContext, IndexOutput};
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
+use crate::util::IOUtils;
+use std::sync::{Arc, Mutex};
+
+#[allow(unused)]
+pub(crate) struct FieldsIndexWriter<D, I>
+where
+    D: Directory,
+    I: IndexOutput,
+{
+    dir: Arc<Mutex<D>>,
+    name: String,
+    suffix: String,
+    extension: String,
+    codec_name: String,
+    id: Vec<u8>,
+    block_shift: i32,
+    io_context: IOContext,
+    // Using Option to wrap the IndexOutput makes it easier to release the resource,
+    // which avoids the need to implement the IndexOutput's Default trait.
+    docs_out: Option<I>,
+    file_pointers_out: Option<I>,
+    total_docs: i32,
+    total_chunks: i32,
+    previous_fp: i64,
+}
+
+#[allow(unused)]
+impl FieldsIndexWriter<DummyDirectory, DummyIndexOutput> {
+    pub(crate) const VERSION_START: i32 = 0;
+    pub(crate) const VERSION_CURRENT: i32 = 0;
+}
+
+#[allow(unused)]
+impl<D, I> FieldsIndexWriter<D, I>
+where
+    D: Directory<IndexOutputType = I>,
+    I: IndexOutput,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        dir: Arc<Mutex<D>>,
+        name: String,
+        suffix: String,
+        extension: String,
+        codec_name: String,
+        id: Vec<u8>,
+        block_shift: i32,
+        io_context: IOContext,
+    ) -> Result<Self, LuceneError> {
+        let mut dir_guard = dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut docs_out =
+            dir_guard.create_temp_output(&name, &format!("{}-doc_ids", codec_name), &io_context)?;
+        CodecUtil::write_header(
+            &mut docs_out,
+            &format!("{}Docs", codec_name),
+            FieldsIndexWriter::VERSION_CURRENT,
+        )?;
+
+        let mut file_pointers_out = dir_guard.create_temp_output(
+            &name,
+            &format!("{}file_pointers", codec_name),
+            &io_context,
+        )?;
+        drop(dir_guard);
+        CodecUtil::write_header(
+            &mut file_pointers_out,
+            &format!("{}FilePointers", codec_name),
+            FieldsIndexWriter::VERSION_CURRENT,
+        )?;
+
+        Ok(FieldsIndexWriter {
+            dir,
+            name,
+            suffix,
+            extension,
+            codec_name,
+            id,
+            block_shift,
+            io_context,
+            docs_out: Option::from(docs_out),
+            file_pointers_out: Option::from(file_pointers_out),
+            total_docs: 0,
+            total_chunks: 0,
+            previous_fp: 0,
+        })
+    }
+    fn write_index(&mut self, num_docs: i32, start_pointer: i64) -> Result<(), LuceneError> {
+        debug_assert!(start_pointer >= self.previous_fp);
+        debug_assert!(self.docs_out.is_some());
+        debug_assert!(self.file_pointers_out.is_some());
+        self.docs_out.as_mut().unwrap().write_vint(num_docs)?;
+        self.file_pointers_out
+            .as_mut()
+            .unwrap()
+            .write_vlong(start_pointer - self.previous_fp)?;
+        self.previous_fp = start_pointer;
+        self.total_docs += num_docs;
+        self.total_chunks += 1;
+        Ok(())
+    }
+
+    fn finish(
+        &mut self,
+        num_docs: i32,
+        max_pointer: i64,
+        meta_out: &mut I,
+    ) -> Result<(), LuceneError> {
+        if num_docs != self.total_docs {
+            return Err(LuceneError::illegal_state(format!(
+                "Expected {} docs, but got {}",
+                num_docs, self.total_docs
+            )));
+        }
+
+        CodecUtil::write_footer(self.docs_out.as_mut().unwrap())?;
+        CodecUtil::write_footer(self.docs_out.as_mut().unwrap())?;
+        let docs_out_file_name = self.docs_out.as_ref().unwrap().get_name().to_string();
+        let file_pointers_out_file_name = self
+            .file_pointers_out
+            .as_ref()
+            .unwrap()
+            .get_name()
+            .to_string();
+        let _ = std::mem::take(&mut self.docs_out);
+        let _ = std::mem::take(&mut self.file_pointers_out);
+
+        let mut data_out = self
+            .dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
+            .create_output(
+                &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
+                &self.io_context,
+            )?;
+        CodecUtil::write_index_header(
+            &mut data_out,
+            &format!("{}Idx", self.codec_name),
+            FieldsIndexWriter::VERSION_CURRENT,
+            &self.id,
+            &self.suffix,
+        )?;
+
+        meta_out.write_int(num_docs)?;
+        meta_out.write_int(self.block_shift)?;
+        meta_out.write_int(self.total_chunks + 1)?;
+        meta_out.write_long(data_out.get_file_pointer())?;
+
+        {
+            let mut docs_in = self
+                .dir
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
+                .open_checksum_input(&docs_out_file_name)?;
+            let mut prior_e = None;
+            let result: Result<(), LuceneError> = (|| {
+                CodecUtil::check_header(
+                    &mut docs_in,
+                    &format!("{}Docs", self.codec_name),
+                    FieldsIndexWriter::VERSION_CURRENT,
+                    FieldsIndexWriter::VERSION_CURRENT,
+                )?;
+
+                let mut docs = DirectMonotonicWriter::get_instance(
+                    meta_out,
+                    &mut data_out,
+                    (self.total_chunks + 1) as i64,
+                    self.block_shift,
+                )?;
+                let mut doc = 0;
+                docs.add(doc)?;
+                for i in 0..self.total_chunks {
+                    doc += docs_in.read_vint()? as i64;
+                    docs.add(doc)?;
+                }
+                docs.finish()?;
+
+                if doc != self.total_docs as i64 {
+                    return Err(LuceneError::corrupt_index("Docs don't add up".to_string()));
+                }
+                Ok(())
+            })();
+            if let Err(e) = result {
+                prior_e = Some(e);
+            }
+
+            if prior_e.is_some() {
+                CodecUtil::check_footer_with_error(&mut docs_in, &mut prior_e.unwrap())?;
+            } else {
+                CodecUtil::check_footer(&mut docs_in)?;
+            }
+        }
+        self.dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
+            .delete_file(&docs_out_file_name)?;
+        meta_out.write_long(data_out.get_file_pointer())?;
+        {
+            let mut file_pointers_in = self
+                .dir
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
+                .open_checksum_input(&file_pointers_out_file_name)?;
+            let mut prior_e = None;
+            let result = (|| {
+                CodecUtil::check_header(
+                    &mut file_pointers_in,
+                    &format!("{}FilePointers", self.codec_name),
+                    FieldsIndexWriter::VERSION_CURRENT,
+                    FieldsIndexWriter::VERSION_CURRENT,
+                )?;
+
+                let mut file_pointers = DirectMonotonicWriter::get_instance(
+                    meta_out,
+                    &mut data_out,
+                    (self.total_chunks + 1) as i64,
+                    self.block_shift,
+                )?;
+                let mut fp = 0;
+                for _ in 0..self.total_chunks {
+                    fp += file_pointers_in.read_vlong()?;
+                    file_pointers.add(fp)?;
+                }
+                if max_pointer < fp {
+                    return Err(LuceneError::corrupt_index(
+                        "File pointers don't add up".to_string(),
+                    ));
+                }
+                file_pointers.add(max_pointer)?;
+                file_pointers.finish()?;
+                Ok(())
+            })();
+            if let Err(e) = result {
+                prior_e = Some(e);
+            }
+            if prior_e.is_some() {
+                CodecUtil::check_footer_with_error(&mut file_pointers_in, &mut prior_e.unwrap())?;
+            } else {
+                CodecUtil::check_footer(&mut file_pointers_in)?;
+            }
+        }
+        self.dir
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
+            .delete_file(&file_pointers_out_file_name)?;
+        meta_out.write_long(data_out.get_file_pointer())?;
+        meta_out.write_long(max_pointer)?;
+        CodecUtil::write_footer(&mut data_out)?;
+        Ok(())
+    }
+}
+impl<D, I> Drop for FieldsIndexWriter<D, I>
+where
+    D: Directory,
+    I: IndexOutput,
+{
+    fn drop(&mut self) {
+        let mut files = Vec::new();
+        if self.docs_out.is_some() {
+            files.push(self.docs_out.as_ref().unwrap().get_name().to_string());
+            let _ = self.docs_out.take();
+        }
+        if self.file_pointers_out.is_some() {
+            files.push(
+                self.file_pointers_out
+                    .as_ref()
+                    .unwrap()
+                    .get_name()
+                    .to_string(),
+            );
+            let _ = self.file_pointers_out.take();
+        }
+        match IOUtils::delete_files(Arc::clone(&self.dir), files) {
+            Ok(_) => (),
+            Err(e) => eprintln!("Failed to delete files: {:?}", e),
+        }
+    }
+}

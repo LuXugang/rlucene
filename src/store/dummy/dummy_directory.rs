@@ -75,7 +75,11 @@ impl Directory for DummyDirectory {
 
     type IndexInputType = DummyIndexInput;
 
-    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(
+        &self,
+        _name: &str,
+        _context: &IOContext,
+    ) -> Result<Self::IndexInputType, LuceneError> {
         unreachable!("DummyDirectory should not be called")
     }
     #[allow(refining_impl_trait)]

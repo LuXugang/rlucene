@@ -19,7 +19,7 @@ use crate::store::directory::{get_temp_file_name, Directory};
 use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::lock::Lock;
 use crate::store::lock_factory::LockFactory;
-use crate::store::{IOContext, IndexOutput, NativeFSLockFactory, OutputStreamIndexOutput};
+use crate::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::IOUtils;
 use std::collections::HashSet;
@@ -436,7 +436,11 @@ where
     }
 
     type IndexInputType = T::Output;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType, LuceneError> {
         self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)

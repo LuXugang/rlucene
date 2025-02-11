@@ -147,7 +147,11 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `name` - The name of an existing file.
     type IndexInputType: IndexInput + RandomAccessInput;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType, LuceneError>;
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType, LuceneError>;
 
     /// Opens a checksum-computing stream for reading an existing file.
     ///
