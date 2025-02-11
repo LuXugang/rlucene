@@ -17,20 +17,24 @@
 use crate::store::random_access_input::RandomAccessInput;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::LongValues;
-
+/// Retrieves an instance previously written by `DirectWriter`.
+///
+/// # See also
+/// [`DirectWriter`](crate::util::packed::direct_writer::DirectWriter)
 pub struct DirectReader;
 impl DirectReader {
     pub(crate) const MERGE_BUFFER_SHIFT: i32 = 7;
     const MERGE_BUFFER_SIZE: i32 = 1 << DirectReader::MERGE_BUFFER_SHIFT;
     const MERGE_BUFFER_MASK: i32 = DirectReader::MERGE_BUFFER_SIZE - 1;
 
+    /// Retrieves an instance from the specified slice, decoding `bits_per_value` for each value.
     pub fn get_instance<R>(slice: &mut R, bits_per_value: i32) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,
     {
         Self::get_instance_with_offset(slice, bits_per_value, 0)
     }
-
+    /// Retrieves an instance from the specified `offset` of the given slice, decoding `bits_per_value` for each value.
     pub fn get_instance_with_offset<R>(
         slice: &mut R,
         bits_per_value: i32,
@@ -57,12 +61,23 @@ impl DirectReader {
             _ => unreachable!(),
         }
     }
-
+    /// Retrieves an instance specialized for merges, typically faster for sequential access but slower for random access.
     pub fn get_merge_instance<R>(
         slice: &mut R,
         bits_per_value: i32,
         num_values: i64,
+    ) -> DirectPackedEnum<R>
+    where
+        R: RandomAccessInput,
+    {
+        Self::get_merge_instance_with_base_offset(slice, bits_per_value, 0, num_values)
+    }
+    /// Retrieves an instance specialized for merges, typically faster for sequential access.
+    pub fn get_merge_instance_with_base_offset<R>(
+        slice: &mut R,
+        bits_per_value: i32,
         base_offset: i64,
+        num_values: i64,
     ) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,
