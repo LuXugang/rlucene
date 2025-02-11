@@ -21,7 +21,10 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use std::sync::{Arc, Mutex};
-
+/// Retrieves an instance previously written by [`DirectMonotonicWriter`](crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
+///
+/// # See also
+/// `DirectMonotonicWriter`
 pub struct DirectMonotonicReader<R>
 where
     R: RandomAccessInput,
@@ -35,6 +38,10 @@ where
 }
 
 impl DirectMonotonicReader<DummyRandomAccessInput> {
+    /// Load metadata from the given [`IndexInput`].
+    ///
+    /// # See also
+    /// `DirectMonotonicReader::getInstance(Meta, RandomAccessInput)`
     pub fn load_meta<I>(
         meta_in: &mut I,
         num_values: i64,
@@ -91,6 +98,7 @@ where
         })
     }
 
+    /// Get lower/upper bounds for the value at a given index without hitting the direct reader.
     fn get_bounds(&self, index: i64) -> Result<[i64; 2], LuceneError> {
         match i32::try_from((index as u64) >> self.block_shift) {
             Ok(block) => {
@@ -146,11 +154,12 @@ where
         }
         Ok(-1 - lo)
     }
-
+    /// Retrieves a non-merging instance from the specified slice.
     pub fn get_instance(meta: &Meta, data: Arc<Mutex<R>>) -> Result<Self, LuceneError> {
         Self::get_instance_with_merging(meta, data, false)
     }
 
+    /// Retrieves an instance from the specified slice.
     pub fn get_instance_with_merging(
         meta: &Meta,
         data: Arc<Mutex<R>>,
@@ -199,7 +208,8 @@ where
         Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)
     }
 }
-
+/// In-memory metadata that needs to be kept around for [`DirectMonotonicReader`] to read data
+/// from disk.
 pub struct Meta {
     pub block_shift: i32,
     pub num_blocks: usize,

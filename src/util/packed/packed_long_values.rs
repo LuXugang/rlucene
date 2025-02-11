@@ -55,7 +55,7 @@ impl PackedLongValues {
         Self::packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
-    /// Return a new [`DeltaPackedLongValuesBuilder`] that will compress efficiently integers that are close to each other.
+    /// Return a new `DeltaPackedLongValuesBuilder` that will compress efficiently integers that are close to each other.
     pub fn delta_packed_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,

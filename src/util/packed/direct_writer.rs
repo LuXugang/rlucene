@@ -20,12 +20,12 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::Format::Packed;
 use crate::util::packed::{FormatBehavior, PackedImpl, PackedInts};
-/// Writer for packed integers that can be directly read from a [`Directory`] via [`DirectReader`].
+/// Writer for packed integers that can be directly read from a [`Directory`](crate::store::directory::Directory) via [`DirectReader`](crate::util::packed::direct_reader::DirectReader).
 ///
 /// Unlike `PackedInts`, this optimizes for read I/O operations and supports values exceeding 2^31 (2 billion).
 ///
 ///
-/// See also: [`DirectReader`](DirectReader)
+/// See also: [`DirectReader`](crate::util::packed::direct_reader::DirectReader)
 pub struct DirectWriter<'a, D>
 where
     D: DataOutput,
