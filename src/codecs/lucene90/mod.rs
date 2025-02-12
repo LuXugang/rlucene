@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod fields_index;
+mod fields_index_reader;
 mod fields_index_writer;
 pub mod lucene90_compound_format;
 pub mod lucene90_compound_reader;
