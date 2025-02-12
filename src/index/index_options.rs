@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/// Controls how much information is stored in the postings lists.
+///
+/// # Experimental
 pub enum IndexOptions {
     /// Not indexed
     NONE,

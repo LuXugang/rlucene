@@ -52,5 +52,7 @@ pub mod sort;
 pub mod sort_field_provider;
 pub mod term;
 mod doc_values_skip_index_type;
+mod vector_encoding;
+mod vector_similarity_function;
 
 pub use index_file_names::*;
