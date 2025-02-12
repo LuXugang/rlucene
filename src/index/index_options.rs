@@ -17,6 +17,7 @@
 /// Controls how much information is stored in the postings lists.
 ///
 /// # Experimental
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum IndexOptions {
     /// Not indexed
     NONE,

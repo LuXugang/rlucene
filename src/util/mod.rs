@@ -31,6 +31,7 @@ pub mod bit_set_iterator;
 pub mod bit_set_type;
 pub mod bit_util;
 pub mod bits;
+pub mod bkd;
 pub mod bytes_ref_array;
 pub mod bytes_ref_block_pool;
 pub mod bytes_ref_hash;

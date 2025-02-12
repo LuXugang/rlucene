@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 /// The numeric datatype of the vector values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VectorEncoding {
     /**
      * Encodes vector using 8 bits of precision per sample. Values provided with higher precision (e.g.,
