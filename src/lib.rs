@@ -17,7 +17,6 @@
 
 pub mod codecs;
 pub mod index;
-pub mod internal;
 pub mod search;
 pub mod store;
 #[cfg(test)]

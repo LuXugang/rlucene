@@ -22,7 +22,6 @@ use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::LuceneError;
 use std::cmp::Ordering;
-use std::cmp::Ordering::Less;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
