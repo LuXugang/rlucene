@@ -14,4 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod lucene94_field_infos_format;
+pub mod lucene94_field_infos_format;

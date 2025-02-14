@@ -103,6 +103,11 @@ impl Lucene94FieldInfosFormat {
     pub const PARENT_FIELD_FIELD: u8 = 0x10;
     pub const DOCVALUES_SKIPPER: u8 = 0x20;
 }
+impl Default for Lucene94FieldInfosFormat {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl Lucene94FieldInfosFormat {
     pub fn new() -> Self {
         Lucene94FieldInfosFormat {}

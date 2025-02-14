@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::compound_format::CompoundFormat;
+use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
@@ -26,7 +27,7 @@ pub trait Codec {
     // type DocValuesFormat;
     // type StoredFieldsFormat;
     // type TermVectorsFormat;
-    // type FieldInfosFormat;
+    type FieldInfosFormat: FieldInfosFormat;
     type SegmentInfoFormat: SegmentInfoFormat;
     // type NormsFormat;
     type LiveDocsFormat: LiveDocsFormat;
@@ -45,8 +46,8 @@ pub trait Codec {
     // /// Encodes/decodes term vectors
     // fn term_vectors_format(&self) -> &Self::TermVectorsFormat;
     //
-    // /// Encodes/decodes field infos file
-    // fn field_infos_format(&self) -> &Self::FieldInfosFormat;
+    /// Encodes/decodes field infos file
+    fn field_infos_format(&self) -> Self::FieldInfosFormat;
 
     /// Encodes/decodes segment info file
     fn segment_info_format(&self) -> Self::SegmentInfoFormat;

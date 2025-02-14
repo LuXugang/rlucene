@@ -26,7 +26,7 @@ pub mod live_docs_format;
 pub mod lucene101_codec;
 pub mod lucene90;
 pub mod lucene90_live_docs_format;
-mod lucene94;
+pub mod lucene94;
 pub mod lucene99_segment_info_format;
 pub mod points_format;
 pub mod segment_info_format;
