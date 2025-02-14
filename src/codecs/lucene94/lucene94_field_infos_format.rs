@@ -375,7 +375,6 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
             .create_output(&file_name, io_context)?;
 
-        // 写入索引头
         CodecUtil::write_index_header(
             &mut output,
             Self::CODEC_NAME,
@@ -387,13 +386,11 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
         output.write_vint(infos.size() as i32)?;
 
         for fi in infos.iter() {
-            // 检查一致性
             fi.check_consistency()?;
 
             output.write_string(&fi.name)?;
             output.write_vint(fi.number)?;
 
-            // 计算 bits 标记
             let mut bits: u8 = 0;
             if fi.has_term_vectors() {
                 bits |= Self::STORE_TERMVECTOR;
@@ -420,7 +417,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             ))?;
 
             output.write_long(fi.get_doc_values_gen())?;
-            output.write_map_of_strings(&*fi.attributes().lock().map_err(|_| {
+            output.write_map_of_strings(&*fi.attributes()?.lock().map_err(|_| {
                 LuceneError::illegal_state("Failed to acquire lock on lock.".to_string())
             })?)?;
 

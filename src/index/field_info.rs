@@ -35,38 +35,29 @@ pub struct FieldInfo {
 
     /// Internal field number
     pub number: i32,
-
     doc_values_type: DocValuesType,
-
     doc_values_skip_index: DocValuesSkipIndexType,
-
     // True if any document indexed term vectors
     store_term_vector: bool,
-
     omit_norms: bool, // omit norms associated with indexed fields
-
     index_options: IndexOptions,
-    store_payloads: bool, // whether this field stores payloads together with term positions
-
-    attributes: Arc<Mutex<HashMap<String, String>>>,
-
+    pub(crate) properties: Arc<Mutex<Properties>>,
     dv_gen: i64,
-
     ///  If both of these are positive it means this field indexed points (see [`PointsFormat`](crate::codecs::points_format::PointsFormat)).
     point_dimension_count: i32,
-
     point_index_dimension_count: i32,
     point_num_bytes: i32,
-
     // if it is a positive value, it means this field indexes vectors
     vector_dimension: i32,
     vector_encoding: VectorEncoding,
     vector_similarity_function: VectorSimilarityFunction,
-
     // whether this field is used as the soft-deletes field
     soft_deletes_field: bool,
-
     is_parent_field: bool,
+}
+pub struct Properties {
+    pub(crate)attributes: Arc<Mutex<HashMap<String, String>>>,
+    store_payloads: bool, // whether this field stores payloads together with term positions
 }
 
 impl FieldInfo {
@@ -100,6 +91,10 @@ impl FieldInfo {
         } else {
             (false, false, false)
         };
+        let properties = Arc::new(Mutex::new(Properties {
+            attributes,
+            store_payloads,
+        }));
 
         FieldInfo {
             name,
@@ -109,8 +104,7 @@ impl FieldInfo {
             store_term_vector,
             omit_norms,
             index_options,
-            store_payloads,
-            attributes,
+            properties,
             dv_gen,
             point_dimension_count,
             point_index_dimension_count,
@@ -135,13 +129,17 @@ impl FieldInfo {
                 self.name
             )));
         }
+        let properties = self
+            .properties
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         if self.index_options != IndexOptions::None {
             // Cannot store payloads unless positions are indexed
             if self
                 .index_options
                 .cmp(&IndexOptions::DocsAndFreqsAndPositions)
                 == Ordering::Less
-                && self.store_payloads
+                && properties.store_payloads
             {
                 return Err(LuceneError::illegal_argument(format!(
                     "indexed field '{}' cannot have payloads without positions",
@@ -155,7 +153,7 @@ impl FieldInfo {
                     self.name
                 )));
             }
-            if self.store_payloads {
+            if properties.store_payloads {
                 return Err(LuceneError::illegal_argument(format!(
                     "non-indexed field '{}' cannot store payloads",
                     self.name
@@ -168,6 +166,7 @@ impl FieldInfo {
                 )));
             }
         }
+        drop(properties);
 
         if !self
             .doc_values_skip_index
@@ -564,9 +563,15 @@ impl FieldInfo {
     }
 
     /// Set store payloads
-    pub fn set_store_payloads(&mut self) -> Result<(), LuceneError> {
-        if self.index_options >= IndexOptions::DocsAndFreqsAndPositions {
-            self.store_payloads = true;
+    pub fn set_store_payloads(&self) -> Result<(), LuceneError> {
+        {
+            let mut properties = self
+                .properties
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+            if self.index_options >= IndexOptions::DocsAndFreqsAndPositions {
+                properties.store_payloads = true;
+            }
         }
         self.check_consistency()?;
         Ok(())
@@ -596,7 +601,12 @@ impl FieldInfo {
 
     /// Returns true if any payloads exist for this field.
     pub fn has_payloads(&self) -> bool {
-        self.store_payloads
+        let properties = self
+            .properties
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))
+            .unwrap();
+        properties.store_payloads
     }
 
     /// Returns true if any term vectors exist for this field.
@@ -611,7 +621,11 @@ impl FieldInfo {
 
     /// Get a codec attribute value, or None if it does not exist
     pub fn get_attribute(&self, key: &str) -> Result<Option<String>, LuceneError> {
-        let attributes = self
+        let properties = self
+            .properties
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let attributes = properties
             .attributes
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
@@ -629,12 +643,12 @@ impl FieldInfo {
     /// If a value already exists for the key in the field, it will be replaced with the new value.
     /// If the value of the attributes for the same field is changed between documents, the behavior
     /// after merge is undefined.
-    pub fn put_attribute(
-        &mut self,
-        key: String,
-        value: String,
-    ) -> Result<Option<String>, LuceneError> {
-        let mut attributes = self
+    pub fn put_attribute(&self, key: String, value: String) -> Result<Option<String>, LuceneError> {
+        let properties = self
+            .properties
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut attributes = properties
             .attributes
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
@@ -643,8 +657,12 @@ impl FieldInfo {
     }
 
     /// Returns internal codec attributes map.
-    pub fn attributes(&self) -> Arc<Mutex<HashMap<String, String>>> {
-        self.attributes.clone()
+    pub fn attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>,LuceneError> {
+        let properties = self
+            .properties
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        Ok(properties.attributes.clone())
     }
 
     /// Returns true if this field is configured and used as the soft-deletes field.
