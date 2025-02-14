@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use strum_macros::FromRepr;
 /// The numeric datatype of the vector values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr)]
+#[repr(u8)]
 pub enum VectorEncoding {
     /**
      * Encodes vector using 8 bits of precision per sample. Values provided with higher precision (e.g.,

@@ -14,13 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use strum_macros::FromRepr;
+
 /// Controls how much information is stored in the postings lists.
 ///
 /// # Experimental
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr)]
+#[repr(u8)]
 pub enum IndexOptions {
     /// Not indexed
-    NONE,
+    None,
     /// Only documents are indexed: term frequencies and positions are omitted.
     /// Phrase and other positional queries on the field will throw an exception,
     /// and scoring will behave as if any term in the document appears only once.

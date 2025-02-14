@@ -14,13 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use strum_macros::FromRepr;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr)]
-#[repr(u8)]
-pub enum VectorSimilarityFunction {
-    Euclidean,
-    DotProduct,
-    Cosine,
-    MaximumInnerProduct,
-}
+mod lucene94_field_infos_format;

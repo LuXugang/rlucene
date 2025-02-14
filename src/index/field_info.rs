@@ -94,7 +94,7 @@ impl FieldInfo {
     ) -> Self {
         let doc_values_type = doc_values;
 
-        let (store_term_vector, store_payloads, omit_norms) = if index_options != IndexOptions::NONE
+        let (store_term_vector, store_payloads, omit_norms) = if index_options != IndexOptions::None
         {
             (store_term_vector, store_payloads, omit_norms)
         } else {
@@ -129,13 +129,13 @@ impl FieldInfo {
     ///
     /// Returns `IllegalArgumentException` if some options are incorrect
     pub fn check_consistency(&self) -> Result<(), LuceneError> {
-        if self.index_options == IndexOptions::NONE {
+        if self.index_options == IndexOptions::None {
             return Err(LuceneError::illegal_argument(format!(
                 "IndexOptions must not be null (field: '{}')",
                 self.name
             )));
         }
-        if self.index_options != IndexOptions::NONE {
+        if self.index_options != IndexOptions::None {
             // Cannot store payloads unless positions are indexed
             if self
                 .index_options
@@ -249,7 +249,7 @@ impl FieldInfo {
 
         Self::verify_same_index_options(field_name, &self.index_options, &other.index_options)?;
 
-        if self.index_options != IndexOptions::NONE {
+        if self.index_options != IndexOptions::None {
             Self::verify_same_omit_norms(field_name, self.omit_norms, other.omit_norms)?;
             Self::verify_same_store_term_vectors(
                 field_name,
@@ -519,7 +519,7 @@ impl FieldInfo {
         Ok(())
     }
 
-    /// Returns IndexOptions for the field, or IndexOptions.NONE if the field is not indexed
+    /// Returns IndexOptions for the field, or IndexOptions.None if the field is not indexed
     pub fn get_index_options(&self) -> IndexOptions {
         self.index_options
     }
@@ -534,7 +534,7 @@ impl FieldInfo {
         self.number
     }
 
-    /// Returns DocValuesType of the docValues; this is DocValuesType.NONE if the field has no docvalues.
+    /// Returns DocValuesType of the docValues; this is DocValuesType.None if the field has no docvalues.
     pub fn get_doc_values_type(&self) -> DocValuesType {
         self.doc_values_type
     }
@@ -579,7 +579,7 @@ impl FieldInfo {
 
     /// Omit norms for this field.
     pub fn set_omits_norms(&mut self) -> Result<(), LuceneError> {
-        if self.index_options == IndexOptions::NONE {
+        if self.index_options == IndexOptions::None {
             return Err(LuceneError::illegal_argument(
                 "cannot omit norms: this field is not indexed".to_string(),
             ));
@@ -591,7 +591,7 @@ impl FieldInfo {
 
     /// Returns true if this field actually has any norms.
     pub fn has_norms(&self) -> bool {
-        self.index_options != IndexOptions::NONE && !self.omit_norms
+        self.index_options != IndexOptions::None && !self.omit_norms
     }
 
     /// Returns true if any payloads exist for this field.
@@ -643,8 +643,8 @@ impl FieldInfo {
     }
 
     /// Returns internal codec attributes map.
-    pub fn attributes(&self) -> &Arc<Mutex<HashMap<String, String>>> {
-        &self.attributes
+    pub fn attributes(&self) -> Arc<Mutex<HashMap<String, String>>> {
+        self.attributes.clone()
     }
 
     /// Returns true if this field is configured and used as the soft-deletes field.

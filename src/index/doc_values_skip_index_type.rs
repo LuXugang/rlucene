@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 use crate::index::doc_values_type::DocValuesType;
+use strum_macros::FromRepr;
 
 /// Options for skip indexes on doc values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr)]
+#[repr(u8)]
 pub enum DocValuesSkipIndexType {
     /// No skip index should be created.
     None,

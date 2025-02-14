@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use strum_macros::FromRepr;
+
 /// DocValues types. Note that DocValues is strongly typed, so a field cannot have different types
 /// across different documents.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, FromRepr)]
+#[repr(u8)]
 pub enum DocValuesType {
     /// No doc values for this field.
     None,

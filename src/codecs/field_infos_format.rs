@@ -14,4 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait FieldInfosFormat {}
+use crate::index::field_infos::FieldInfos;
+use crate::index::segment_info::SegmentInfo;
+use crate::store::directory::Directory;
+use crate::store::IOContext;
+use crate::util::error::lucene_error::LuceneError;
+use std::sync::{Arc, Mutex};
+
+/// Encodes/decodes FieldInfos
+///
+/// # Experimental
+pub trait FieldInfosFormat {
+    /// Reads the FieldInfos previously written.
+    fn read<D>(
+        &self,
+        directory: Arc<Mutex<D>>,
+        segment_info: &SegmentInfo<D>,
+        segment_suffix: &str,
+        io_context: &IOContext,
+    ) -> Result<FieldInfos, LuceneError>
+    where
+        D: Directory;
+
+    /// Writes the provided FieldInfos.
+    fn write<D>(
+        &self,
+        directory: Arc<Mutex<D>>,
+        segment_info: &SegmentInfo<D>,
+        segment_suffix: &str,
+        infos: &FieldInfos,
+        io_context: &IOContext,
+    ) -> Result<(), LuceneError>
+    where
+        D: Directory;
+}

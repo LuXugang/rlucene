@@ -89,7 +89,7 @@ impl FieldInfos {
             }
 
             has_term_vectors |= info.has_term_vectors();
-            has_postings |= info.get_index_options() != IndexOptions::NONE;
+            has_postings |= info.get_index_options() != IndexOptions::None;
             has_prox |= info.get_index_options() >= IndexOptions::DocsAndFreqsAndPositions;
             has_freq |= info.get_index_options() != IndexOptions::DOCS;
             has_offsets |=
@@ -331,7 +331,7 @@ impl<'a> IntoIterator for &'a FieldInfos {
 //             l.reader()
 //                 .get_field_infos()
 //                 .iter()
-//                 .filter(|fi| fi.get_index_options() != IndexOptions::NONE)
+//                 .filter(|fi| fi.get_index_options() != IndexOptions::None)
 //                 .map(|fi| fi.name.clone())
 //         })
 //         .collect()
@@ -466,7 +466,7 @@ impl FieldNumbers {
                 field_properties
                     .number_to_name
                     .insert(field_number, field_name.to_string());
-                let index_options_props = if fi.get_index_options() != IndexOptions::NONE {
+                let index_options_props = if fi.get_index_options() != IndexOptions::None {
                     Some(IndexOptionsProperties {
                         store_term_vectors: fi.has_term_vectors(),
                         omit_norms: fi.omits_norms(),
@@ -573,7 +573,7 @@ impl FieldNumbers {
             &field_properties.index_options,
             &fi.get_index_options(),
         )?;
-        if field_properties.index_options != IndexOptions::NONE {
+        if field_properties.index_options != IndexOptions::None {
             debug_assert!(field_properties.index_options_properties.is_some());
             let current_term_vector = field_properties
                 .index_options_properties
@@ -659,7 +659,7 @@ impl FieldNumbers {
                     false,
                     false,
                     false,
-                    IndexOptions::NONE,
+                    IndexOptions::None,
                     dv_type,
                     DocValuesSkipIndexType::None,
                     -1,
@@ -700,7 +700,7 @@ impl FieldNumbers {
                         dv_type, field_name
                     )));
             }
-            if field_props.index_options != IndexOptions::NONE {
+            if field_props.index_options != IndexOptions::None {
                 return Err(LuceneError::illegal_argument(format!(
                         "Can't update [{:?}] doc values; the field [{}] must be doc values only field, but is also indexed with postings.",
                         dv_type, field_name
@@ -756,7 +756,7 @@ impl FieldNumbers {
                 false,
                 false,
                 false,
-                IndexOptions::NONE,
+                IndexOptions::None,
                 dv_type,
                 DocValuesSkipIndexType::None,
                 -1,
@@ -851,7 +851,7 @@ mod tests {
                 false,
                 false,
                 false,
-                IndexOptions::NONE,
+                IndexOptions::None,
                 DocValuesType::None,
                 DocValuesSkipIndexType::None,
                 -1,
@@ -873,7 +873,7 @@ mod tests {
             false,
             false,
             false,
-            IndexOptions::NONE,
+            IndexOptions::None,
             DocValuesType::None,
             DocValuesSkipIndexType::None,
             -1,
@@ -896,7 +896,7 @@ mod tests {
             false,
             false,
             false,
-            IndexOptions::NONE,
+            IndexOptions::None,
             DocValuesType::None,
             DocValuesSkipIndexType::None,
             -1,
