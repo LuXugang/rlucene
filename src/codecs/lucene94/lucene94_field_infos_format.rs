@@ -30,9 +30,61 @@ use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
+/// Lucene 9.0 Field Infos format.
+///
+/// Field names are stored in the field info file with the suffix `.fnm`.
+///
+/// # FieldInfos (`.fnm`) Structure
+/// `Header, FieldsCount, <FieldName, FieldNumber, FieldBits, DocValuesBits, DocValuesGen, Attributes, DimensionCount, DimensionNumBytes>^FieldsCount, Footer`
+///
+/// # Data Types
+/// - **Header** → [`CodecUtil::check_index_header`](CodecUtil::check_index_header)
+/// - **FieldsCount** → [`DataOutput::write_vint`](DataOutput::write_vint)
+/// - **FieldName** → [`DataOutput::write_string`](DataOutput::write_string)
+/// - **FieldBits, IndexOptions, DocValuesBits** → [`DataOutput::write_byte`](DataOutput::write_byte)
+/// - **FieldNumber, DimensionCount, DimensionNumBytes** → [`DataOutput::write_int`](DataOutput::write_int)
+/// - **Attributes** → [`DataOutput::write_map_of_strings`](DataOutput::write_map_of_strings)
+/// - **DocValuesGen** → [`DataOutput::write_long`](DataOutput::write_long)
+/// - **Footer** → [`CodecUtil::write_footer`](CodecUtil::write_footer)
+///
+/// # Field Descriptions
+/// - **FieldsCount**: The number of fields in this file.
+/// - **FieldName**: Name of the field as a UTF-8 string.
+/// - **FieldNumber**: The field's number. Unlike previous versions, fields are explicitly numbered rather than implicitly by order.
+/// - **FieldBits**: A byte containing field options:
+///   - `0x1`: Term vectors stored.
+///   - `0x2`: Norms omitted for the indexed field.
+///   - `0x4`: Payloads stored for the indexed field.
+/// - **IndexOptions**: A byte containing index options:
+///   - `0`: Not indexed.
+///   - `1`: Indexed as `DOCS_ONLY`.
+///   - `2`: Indexed as `DOCS_AND_FREQS`.
+///   - `3`: Indexed as `DOCS_AND_FREQS_AND_POSITIONS`.
+///   - `4`: Indexed as `DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS`.
+/// - **DocValuesBits**: A byte containing per-document value types:
+///   - High-order bits represent `norms` options.
+///   - Low-order bits represent `DocValues` options:
+///     - `0`: No DocValues.
+///     - `1`: `NumericDocValues` (`DocValuesType::NUMERIC`).
+///     - `2`: `BinaryDocValues` (`DocValuesType::BINARY`).
+///     - `3`: `SortedDocValues` (`DocValuesType::SORTED`).
+/// - **DocValuesGen**: The generation count of the field's `DocValues`.
+///   - `-1`: No `DocValues` updates.
+///   - `>0`: Updates stored by `DocValuesFormat`.
+/// - **Attributes**: A key-value map of codec-private attributes.
+/// - **PointDimensionCount, PointNumBytes**: Non-zero if the field is indexed as points (e.g., using `LongPoint`).
+/// - **VectorDimension**: Non-zero if the field is indexed as vectors.
+/// - **VectorEncoding**: A byte indicating the encoding of vector values:
+///   - `0`: `BYTE` (samples stored as signed bytes).
+///   - `1`: `FLOAT32` (samples stored in IEEE 32-bit floating point format).
+/// - **VectorSimilarityFunction**: A byte representing the similarity function used:
+///   - `0`: `EUCLIDEAN` [`VectorSimilarityFunction::EUCLIDEAN`](VectorSimilarityFunction::Euclidean).
+///   - `1`: `DOT_PRODUCT` [`VectorSimilarityFunction::DOT_PRODUCT`](VectorSimilarityFunction::DotProduct).
+///   - `2`: `COSINE` [`VectorSimilarityFunction::COSINE`](VectorSimilarityFunction::Cosine).
+///   - `3`: `MAXIMUM_INNER_PRODUCT` [`VectorSimilarityFunction::MAXIMUM_INNER_PRODUCT`](VectorSimilarityFunction::MaximumInnerProduct).
+///
+/// # Experimental
 pub struct Lucene94FieldInfosFormat;
-
 impl Lucene94FieldInfosFormat {
     pub const EXTENSION: &'static str = "fnm";
     // Codec header
