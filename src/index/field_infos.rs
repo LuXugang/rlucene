@@ -835,9 +835,10 @@ impl Builder {
                 .properties
                 .lock()
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            let attributes_guard = properties.attributes.lock().map_err(|_| {
-                LuceneError::illegal_state("Failed to acquire lock.".to_string())
-            })?;
+            let attributes_guard = properties
+                .attributes
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
             for (k, v) in attributes_guard.iter() {
                 cur_fi.put_attribute(k.clone(), v.clone())?;
             }

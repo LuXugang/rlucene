@@ -56,7 +56,7 @@ pub struct FieldInfo {
     is_parent_field: bool,
 }
 pub struct Properties {
-    pub(crate)attributes: Arc<Mutex<HashMap<String, String>>>,
+    pub(crate) attributes: Arc<Mutex<HashMap<String, String>>>,
     store_payloads: bool, // whether this field stores payloads together with term positions
 }
 
@@ -657,7 +657,7 @@ impl FieldInfo {
     }
 
     /// Returns internal codec attributes map.
-    pub fn attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>,LuceneError> {
+    pub fn attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>, LuceneError> {
         let properties = self
             .properties
             .lock()
