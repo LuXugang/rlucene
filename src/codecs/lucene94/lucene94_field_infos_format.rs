@@ -435,3 +435,25 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_error::TestError;
+
+    pub struct TestLucene94FieldInfosFormat;
+    impl BaseFieldInfoFormatTestCase for TestLucene94FieldInfosFormat {}
+    #[test]
+    fn test_one_field() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene94FieldInfosFormat;
+        test.test_one_field(&mut random)
+    }
+    #[test]
+    fn test_immutable_attributes() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene94FieldInfosFormat;
+        test.test_immutable_attributes(&mut random)
+    }
+}

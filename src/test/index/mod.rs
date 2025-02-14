@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod base_compound_format_test_case;
-pub mod base_index_file_format_test_case;
-pub mod base_live_docs_format_test_case;
-pub mod base_segment_info_format_test_case;
+pub(crate) mod base_compound_format_test_case;
+pub(crate) mod base_field_info_format_test_case;
+pub(crate) mod base_index_file_format_test_case;
+pub(crate) mod base_live_docs_format_test_case;
+pub(crate) mod base_segment_info_format_test_case;
