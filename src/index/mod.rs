@@ -32,6 +32,7 @@ pub mod docs_with_field_set;
 pub(crate) mod documents_writer_delete_queue;
 pub(crate) mod documents_writer_per_thread;
 mod field_info;
+mod field_infos;
 pub mod field_term_iterator;
 pub(crate) mod field_updates_buffer;
 pub(crate) mod frozen_buffered_updates;

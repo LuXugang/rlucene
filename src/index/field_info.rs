@@ -247,28 +247,28 @@ impl FieldInfo {
     pub fn verify_same_schema(&self, other: &FieldInfo) -> Result<(), LuceneError> {
         let field_name = &self.name;
 
-        self.verify_same_index_options(field_name, &self.index_options, &other.index_options)?;
+        Self::verify_same_index_options(field_name, &self.index_options, &other.index_options)?;
 
         if self.index_options != IndexOptions::NONE {
-            self.verify_same_omit_norms(field_name, self.omit_norms, other.omit_norms)?;
-            self.verify_same_store_term_vectors(
+            Self::verify_same_omit_norms(field_name, self.omit_norms, other.omit_norms)?;
+            Self::verify_same_store_term_vectors(
                 field_name,
                 self.store_term_vector,
                 other.store_term_vector,
             )?;
         }
 
-        self.verify_same_doc_values_type(
+        Self::verify_same_doc_values_type(
             field_name,
             &self.doc_values_type,
             &other.doc_values_type,
         )?;
-        self.verify_same_doc_values_skip_index(
+        Self::verify_same_doc_values_skip_index(
             field_name,
             &self.doc_values_skip_index,
             &other.doc_values_skip_index,
         )?;
-        self.verify_same_points_options(
+        Self::verify_same_points_options(
             field_name,
             self.point_dimension_count,
             self.point_index_dimension_count,
@@ -277,7 +277,7 @@ impl FieldInfo {
             other.point_index_dimension_count,
             other.point_num_bytes,
         )?;
-        self.verify_same_vector_options(
+        Self::verify_same_vector_options(
             field_name,
             self.vector_dimension,
             &self.vector_encoding,
@@ -291,8 +291,7 @@ impl FieldInfo {
     }
 
     /// Verify that the provided index options are the same
-    pub fn verify_same_index_options(
-        &self,
+    pub(crate) fn verify_same_index_options(
         field_name: &str,
         index_options1: &IndexOptions,
         index_options2: &IndexOptions,
@@ -307,8 +306,7 @@ impl FieldInfo {
     }
 
     /// Verify that the provided docValues type are the same
-    pub fn verify_same_doc_values_type(
-        &self,
+    pub(crate) fn verify_same_doc_values_type(
         field_name: &str,
         doc_values_type1: &DocValuesType,
         doc_values_type2: &DocValuesType,
@@ -323,8 +321,7 @@ impl FieldInfo {
     }
 
     /// Verify that the provided docValuesSkipIndex are the same
-    pub fn verify_same_doc_values_skip_index(
-        &self,
+    pub(crate) fn verify_same_doc_values_skip_index(
         field_name: &str,
         skip_index1: &DocValuesSkipIndexType,
         skip_index2: &DocValuesSkipIndexType,
@@ -339,8 +336,7 @@ impl FieldInfo {
     }
 
     /// Verify that the provided store term vectors options are the same
-    pub fn verify_same_store_term_vectors(
-        &self,
+    pub(crate) fn verify_same_store_term_vectors(
         field_name: &str,
         store_term_vector1: bool,
         store_term_vector2: bool,
@@ -355,8 +351,7 @@ impl FieldInfo {
     }
 
     /// Verify that the provided omitNorms are the same
-    pub fn verify_same_omit_norms(
-        &self,
+    pub(crate) fn verify_same_omit_norms(
         field_name: &str,
         omit_norms1: bool,
         omit_norms2: bool,
@@ -371,8 +366,7 @@ impl FieldInfo {
     }
 
     /// Verify that the provided points indexing options are the same
-    pub fn verify_same_points_options(
-        &self,
+    pub(crate) fn verify_same_points_options(
         field_name: &str,
         point_dimension_count1: i32,
         index_dimension_count1: i32,
@@ -394,8 +388,7 @@ impl FieldInfo {
     }
 
     /// Verify that the provided vector indexing options are the same
-    pub fn verify_same_vector_options(
-        &self,
+    pub(crate) fn verify_same_vector_options(
         field_name: &str,
         vd1: i32,
         ve1: &VectorEncoding,

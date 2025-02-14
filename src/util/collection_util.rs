@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
-pub enum VectorSimilarityFunction {
-    EUCLIDEAN,
+use std::collections::HashMap;
+
+pub struct CollectionUtil;
+
+impl CollectionUtil {
+    pub fn new_hashmap<K, V>(size: i32) -> HashMap<K, V> {
+        let capacity = ((size as f32) / 0.75f32 + 1f32) as usize;
+        HashMap::with_capacity(capacity)
+    }
 }
