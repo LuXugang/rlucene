@@ -125,8 +125,6 @@ impl FieldInfos {
             }
         }
 
-        let by_number: Vec<Arc<FieldInfo>>;
-
         if field_number_strictly_ascending && (max_field_number as usize == infos.len() - 1) {
             // The input FieldInfo[] contains all fields numbered from 0 to infos.length - 1, and they are
             // sorted, use it directly. This is an optimization when reading a segment with all fields
@@ -145,7 +143,7 @@ impl FieldInfos {
                 }
             }
         }
-        by_number = infos.clone();
+        let by_number: Vec<Arc<FieldInfo>> = infos.clone();
 
         Ok(FieldInfos {
             has_freq,
@@ -489,8 +487,8 @@ impl FieldNumbers {
                     },
                     field_vector_properties: FieldVectorProperties {
                         num_dimensions: fi.get_vector_dimension(),
-                        vector_encoding: fi.get_vector_encoding().clone(),
-                        similarity_function: fi.get_vector_similarity_function().clone(),
+                        vector_encoding: *fi.get_vector_encoding(),
+                        similarity_function: *fi.get_vector_similarity_function(),
                     },
                 };
                 let number = new_props.number;
@@ -638,7 +636,6 @@ impl FieldNumbers {
     /// # Errors
     /// - Returns an error if the field must exist but does not.
     /// - Returns an error if the field exists but is not a doc-values-only field with the provided doc values type.
-
     pub fn verify_or_create_dv_only_field(
         &mut self,
         field_name: &str,
@@ -672,13 +669,13 @@ impl FieldNumbers {
                     0,
                     0,
                     VectorEncoding::FLOAT32(4),
-                    VectorSimilarityFunction::EUCLIDEAN,
+                    VectorSimilarityFunction::Euclidean,
                     self.soft_deletes_field_name
                         .as_ref()
-                        .map_or(false, |s| s == field_name),
+                        .is_some_and(|s| s == field_name),
                     self.parent_field_name
                         .as_ref()
-                        .map_or(false, |s| s == field_name),
+                        .is_some_and(|s| s == field_name),
                 );
                 self.add_or_get_impl(Arc::new(fi), &mut field_properties_guard)?;
             }
@@ -736,12 +733,11 @@ impl FieldNumbers {
         dv_type: DocValuesType,
         new_field_number: i32,
     ) -> Result<Option<FieldInfo>, LuceneError> {
-        let field_props;
         let field_properties_guard = self
             .field_properties
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        field_props = field_properties_guard.properties.get(field_name);
+        let field_props = field_properties_guard.properties.get(field_name);
         if let Some(fp) = field_props {
             if dv_type != fp.doc_values_type {
                 return Ok(None);
@@ -749,11 +745,11 @@ impl FieldNumbers {
             let is_soft_deletes_field = self
                 .soft_deletes_field_name
                 .as_ref()
-                .map_or(false, |s| s == field_name);
+                .is_some_and(|s| s == field_name);
             let is_parent_field = self
                 .parent_field_name
                 .as_ref()
-                .map_or(false, |s| s == field_name);
+                .is_some_and(|s| s == field_name);
             Ok(Some(FieldInfo::new(
                 field_name.to_string(),
                 new_field_number,
@@ -770,7 +766,7 @@ impl FieldNumbers {
                 0,
                 0,
                 VectorEncoding::FLOAT32(4),
-                VectorSimilarityFunction::EUCLIDEAN,
+                VectorSimilarityFunction::Euclidean,
                 is_soft_deletes_field,
                 is_parent_field,
             )))
@@ -803,3 +799,118 @@ impl FieldNumbers {
 
 // TODO:
 pub(crate) struct Builder;
+
+#[cfg(test)]
+mod tests {
+    use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
+    use crate::index::doc_values_type::DocValuesType;
+    use crate::index::field_info::FieldInfo;
+    use crate::index::field_infos::FieldNumbers;
+    use crate::index::index_options::IndexOptions;
+    use crate::index::vector_encoding::VectorEncoding;
+    use crate::index::vector_similarity_function::VectorSimilarityFunction;
+    use crate::test::util::test_error::TestError;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn test_field_infos() -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_field_attributes() -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_field_attributes_single_segment() -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_merged_field_infos_empty() -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_merged_field_infos_single_leaf() -> Result<(), TestError> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_field_numbers_auto_increment() -> Result<(), TestError> {
+        let mut field_numbers = FieldNumbers::new(
+            Some("softDeletes".to_string()),
+            Some("parentDoc".to_string()),
+        )?;
+        for i in 0..10 {
+            let fi = FieldInfo::new(
+                format!("field{}", i),
+                -1,
+                false,
+                false,
+                false,
+                IndexOptions::NONE,
+                DocValuesType::None,
+                DocValuesSkipIndexType::None,
+                -1,
+                Arc::new(Mutex::new(HashMap::new())),
+                0,
+                0,
+                0,
+                0,
+                VectorEncoding::FLOAT32(4),
+                VectorSimilarityFunction::Euclidean,
+                false,
+                false,
+            );
+            field_numbers.add_or_get(Arc::new(fi))?;
+        }
+        let idx = field_numbers.add_or_get(Arc::new(FieldInfo::new(
+            "EleventhField".to_string(),
+            -1,
+            false,
+            false,
+            false,
+            IndexOptions::NONE,
+            DocValuesType::None,
+            DocValuesSkipIndexType::None,
+            -1,
+            Arc::new(Mutex::new(HashMap::new())),
+            0,
+            0,
+            0,
+            0,
+            VectorEncoding::FLOAT32(4),
+            VectorSimilarityFunction::Euclidean,
+            false,
+            false,
+        )))?;
+        assert_eq!(10, idx, "Field numbers 0 through 9 were allocated");
+
+        field_numbers.clear()?;
+        let idx = field_numbers.add_or_get(Arc::new(FieldInfo::new(
+            "PostClearField".to_string(),
+            -1,
+            false,
+            false,
+            false,
+            IndexOptions::NONE,
+            DocValuesType::None,
+            DocValuesSkipIndexType::None,
+            -1,
+            Arc::new(Mutex::new(HashMap::new())),
+            0,
+            0,
+            0,
+            0,
+            VectorEncoding::FLOAT32(4),
+            VectorSimilarityFunction::Euclidean,
+            false,
+            false,
+        )))?;
+        assert_eq!(0, idx, "Field numbers should reset after clear()");
+        Ok(())
+    }
+}

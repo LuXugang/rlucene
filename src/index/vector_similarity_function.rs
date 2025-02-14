@@ -16,5 +16,5 @@
  */
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum VectorSimilarityFunction {
-    EUCLIDEAN,
+    Euclidean,
 }
