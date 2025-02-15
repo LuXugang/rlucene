@@ -18,7 +18,7 @@ use strum_macros::FromRepr;
 
 /// DocValues types. Note that DocValues is strongly typed, so a field cannot have different types
 /// across different documents.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, FromRepr)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, FromRepr, Hash)]
 #[repr(u8)]
 pub enum DocValuesType {
     /// No doc values for this field.

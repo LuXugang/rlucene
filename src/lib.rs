@@ -16,6 +16,7 @@
  */
 
 pub mod codecs;
+mod document;
 pub mod index;
 pub mod search;
 pub mod store;

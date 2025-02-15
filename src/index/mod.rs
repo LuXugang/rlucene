@@ -42,6 +42,7 @@ pub mod index_file_names;
 pub mod index_options;
 pub mod index_sorter;
 pub mod index_writer;
+pub mod indexable_field_type;
 pub mod leaf_metadata;
 pub mod leaf_reader_context;
 mod merge_policy;
