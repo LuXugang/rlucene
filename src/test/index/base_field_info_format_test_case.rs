@@ -33,7 +33,7 @@ use crate::store::IOContext;
 use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
-use crate::test::util::lucene_test_case::{at_least, new_directory, random};
+use crate::test::util::lucene_test_case::{at_least, new_directory};
 use crate::test::util::test_error::TestError;
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::LuceneError;
@@ -175,7 +175,7 @@ pub trait BaseFieldInfoFormatTestCase {
                 DocValuesType::SortedSet,
             ];
             let doc_values_skip_index_type =
-                if valid_doc_values.contains(&field_type.doc_values_type()) {
+                if valid_doc_values.contains(field_type.doc_values_type()) {
                     field_type.doc_values_skip_index_type()
                 } else {
                     &DocValuesSkipIndexType::None

@@ -59,6 +59,7 @@ pub mod long_values;
 pub mod longs_ref;
 pub mod most_significant_bit_radix_sort;
 pub mod not_doc_id_set;
+pub mod number;
 pub mod numeric_utils;
 pub mod output_enum;
 pub mod packed;
