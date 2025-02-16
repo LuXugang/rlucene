@@ -115,7 +115,7 @@ impl FieldType {
     /// Subclasses should call this within setters for additional state.
     pub(crate) fn check_if_frozen(&self) -> Result<(), LuceneError> {
         if self.frozen {
-            return Err(LuceneError::illegal_argument(
+            return Err(LuceneError::illegal_state(
                 "this FieldType is already frozen and cannot be changed",
             ));
         }
@@ -208,7 +208,6 @@ impl FieldType {
     /// Error if this FieldType is frozen against future modifications or if the provided value is invalid.
     fn set_index_options(&mut self, value: IndexOptions) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
-        // In Rust, we assume that value is valid (not None)
         self.index_options = value;
         Ok(())
     }
@@ -219,11 +218,11 @@ impl FieldType {
         dimension_count: i32,
         dimension_num_bytes: i32,
     ) -> Result<(), LuceneError> {
-        self.set_dimensions_full(dimension_count, dimension_count, dimension_num_bytes)
+        self.set_dimensions_all(dimension_count, dimension_count, dimension_num_bytes)
     }
 
     /// Enables points indexing with selectable dimension indexing.
-    fn set_dimensions_full(
+    fn set_dimensions_all(
         &mut self,
         dimension_count: i32,
         index_dimension_count: i32,
@@ -538,5 +537,165 @@ impl fmt::Display for FieldType {
         }
 
         write!(f, "{}", result)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::document::FieldType;
+    use crate::index::doc_values_type::DocValuesType;
+    use crate::index::index_options::IndexOptions;
+    use crate::index::indexable_field_type::IndexableFieldType;
+    use crate::index::point_values::PointValues;
+    use crate::index::vector_encoding::VectorEncoding;
+    use crate::index::vector_similarity_function::VectorSimilarityFunction;
+    use crate::test::util::lucene_test_case::random;
+    use crate::util::error::lucene_error::LuceneError;
+    use rand::rngs::StdRng;
+    use rand::Rng;
+    use std::hash::{DefaultHasher, Hash, Hasher};
+
+    #[test]
+    fn test_equals() -> Result<(), LuceneError> {
+        let ft = FieldType::new();
+        assert_eq!(ft, ft);
+        assert_ne!(Some(ft.clone()), None);
+
+        let ft2 = FieldType::new();
+        assert_eq!(ft, ft2);
+        let mut hasher1 = DefaultHasher::new();
+        ft.hash(&mut hasher1);
+        let mut hasher2 = DefaultHasher::new();
+        ft2.hash(&mut hasher2);
+        assert_eq!(hasher1.finish(), hasher2.finish());
+
+        let mut ft3 = FieldType::new();
+        ft3.set_index_options(IndexOptions::DocsAndFreqs)?;
+        assert_ne!(ft3, ft);
+
+        let mut ft4 = FieldType::new();
+        ft4.set_doc_values_type(DocValuesType::Binary)?;
+        assert_ne!(ft4, ft);
+
+        let mut ft5 = FieldType::new();
+        ft5.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
+        assert_ne!(ft5, ft);
+
+        let mut ft6 = FieldType::new();
+        ft6.set_stored(true)?;
+        assert_ne!(ft6, ft);
+
+        let mut ft7 = FieldType::new();
+        ft7.set_omit_norms(true)?;
+        assert_ne!(ft7, ft);
+
+        let mut ft10 = FieldType::new();
+        ft10.set_store_term_vectors(true)?;
+        assert_ne!(ft10, ft);
+
+        let mut ft11 = FieldType::new();
+        ft11.set_dimensions(1, 4)?;
+        assert_ne!(ft11, ft);
+        Ok(())
+    }
+
+    #[test]
+    fn test_points_to_string() -> Result<(), LuceneError> {
+        let mut ft = FieldType::new();
+        ft.set_dimensions(1, PointValues::MAX_NUM_BYTES)?;
+        let expected = format!(
+            "pointDimensionCount=1,pointIndexDimensionCount=1,pointNumBytes={}",
+            PointValues::MAX_NUM_BYTES
+        );
+        let s = ft.to_string();
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_attribute_map_frozen() -> Result<(), LuceneError> {
+        let mut ft = FieldType::new();
+        ft.put_attribute("dummy".to_string(), "d".to_string())?;
+        ft.freeze();
+        let result = ft.put_attribute("dummy".to_string(), "a".to_string());
+        matches!(result, Err(LuceneError::IllegalState(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_attribute_map_not_frozen() -> Result<(), LuceneError> {
+        let mut ft = FieldType::new();
+        ft.put_attribute("dummy".to_string(), "d".to_string())?;
+        ft.put_attribute("dummy".to_string(), "a".to_string())?;
+        let attributes = ft.get_attributes();
+        let attrs = attributes.lock().unwrap();
+        let len = attrs.len();
+        assert_eq!(len, 1);
+        match attrs.get("dummy") {
+            Some(value) => assert_eq!(value, "a"),
+            None => unreachable!(),
+        }
+        Ok(())
+    }
+
+    fn random_value_bool(random: &mut StdRng) -> bool {
+        random.gen_bool(0.5)
+    }
+
+    fn random_value_int(random: &mut StdRng) -> i32 {
+        random.gen_range(1..=100)
+    }
+
+    // Generates a random FieldType.
+    fn random_field_type(random: &mut StdRng) -> Result<FieldType, LuceneError> {
+        let mut ft = FieldType::new();
+        let max_idx_dims = PointValues::MAX_INDEX_DIMENSIONS;
+        let max_dims = PointValues::MAX_DIMENSIONS;
+        let max_bytes = PointValues::MAX_NUM_BYTES;
+        let dim = random.gen_range(1..=max_dims);
+        let idx_dim = random.gen_range(1..=max_idx_dims.min(dim));
+        let num_bytes = random.gen_range(1..=max_bytes);
+        ft.set_dimensions_all(dim, idx_dim, num_bytes)?;
+        ft.set_stored(random_value_bool(random))?;
+        ft.set_tokenized(random_value_bool(random))?;
+        ft.set_store_term_vectors(random_value_bool(random))?;
+        ft.set_store_term_vector_offsets(random_value_bool(random))?;
+        ft.set_store_term_vector_positions(random_value_bool(random))?;
+        ft.set_store_term_vector_payloads(random_value_bool(random))?;
+        ft.set_omit_norms(random_value_bool(random))?;
+        let options = if random_value_bool(random) {
+            IndexOptions::DocsAndFreqs
+        } else {
+            IndexOptions::DocsAndFreqsAndPositions
+        };
+        ft.set_index_options(options)?;
+        let dv = if random_value_bool(random) {
+            DocValuesType::Binary
+        } else {
+            DocValuesType::None
+        };
+        ft.set_doc_values_type(dv)?;
+
+        if random_value_bool(random) {
+            let vec_dim = random.gen_range(1..=4);
+            ft.set_vector_attributes(
+                vec_dim,
+                VectorEncoding::FLOAT32(4),
+                VectorSimilarityFunction::Euclidean,
+            )?;
+        }
+        ft.put_attribute("random".to_string(), "value".to_string())?;
+        Ok(ft)
+    }
+
+    #[test]
+    fn test_copy_constructor() -> Result<(), LuceneError> {
+        let mut random = random();
+        let iters = 10;
+        for _ in 0..iters {
+            let ft = random_field_type(&mut random)?;
+            let ft2 = FieldType::from_ref(&ft)?;
+            assert_eq!(ft, ft2);
+        }
+        Ok(())
     }
 }
