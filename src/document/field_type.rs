@@ -50,6 +50,12 @@ pub struct FieldType {
     attributes: Arc<Mutex<HashMap<String, String>>>,
 }
 
+impl Default for FieldType {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FieldType {
     /// Creates a new FieldType with default properties.
     pub fn new() -> Self {
