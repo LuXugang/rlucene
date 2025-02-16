@@ -456,4 +456,28 @@ mod tests {
         let test = TestLucene94FieldInfosFormat;
         test.test_immutable_attributes(&mut random)
     }
+    #[test]
+    fn test_exception_on_create_output() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene94FieldInfosFormat;
+        test.test_exception_on_create_output(&mut random)
+    }
+    #[test]
+    fn test_exception_on_close_output() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene94FieldInfosFormat;
+        test.test_exception_on_close_output(&mut random)
+    }
+    #[test]
+    fn test_exception_on_open_input() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene94FieldInfosFormat;
+        test.test_exception_on_open_input(&mut random)
+    }
+    #[test]
+    fn test_exception_on_close_input() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene94FieldInfosFormat;
+        test.test_exception_on_close_input(&mut random)
+    }
 }
