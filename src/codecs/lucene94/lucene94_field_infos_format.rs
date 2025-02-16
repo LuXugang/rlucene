@@ -118,8 +118,8 @@ impl Lucene94FieldInfosFormat {
             DocValuesType::Numeric => 1,
             DocValuesType::Binary => 2,
             DocValuesType::Sorted => 3,
-            DocValuesType::SortedSet => 4,
-            DocValuesType::SortedNumeric => 5,
+            DocValuesType::SortedNumeric => 4,
+            DocValuesType::SortedSet => 5,
         }
     }
 
@@ -479,5 +479,11 @@ mod tests {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_close_input(&mut random)
+    }
+    #[test]
+    fn test_random() -> Result<(), TestError> {
+        let mut random = random();
+        let test = TestLucene94FieldInfosFormat;
+        test.test_random(&mut random)
     }
 }

@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use strum_macros::FromRepr;
+use strum_macros::{EnumCount, FromRepr};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, EnumCount)]
 #[repr(u8)]
 pub enum VectorSimilarityFunction {
     Euclidean,

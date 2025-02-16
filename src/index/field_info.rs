@@ -123,50 +123,45 @@ impl FieldInfo {
     ///
     /// Returns `IllegalArgumentException` if some options are incorrect
     pub fn check_consistency(&self) -> Result<(), LuceneError> {
-        if self.index_options == IndexOptions::None {
-            return Err(LuceneError::illegal_argument(format!(
-                "IndexOptions must not be null (field: '{}')",
-                self.name
-            )));
-        }
-        let properties = self
-            .properties
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
-        if self.index_options != IndexOptions::None {
-            // Cannot store payloads unless positions are indexed
-            if self
-                .index_options
-                .cmp(&IndexOptions::DocsAndFreqsAndPositions)
-                == Ordering::Less
-                && properties.store_payloads
-            {
-                return Err(LuceneError::illegal_argument(format!(
-                    "indexed field '{}' cannot have payloads without positions",
-                    self.name
-                )));
-            }
-        } else {
-            if self.store_term_vector {
-                return Err(LuceneError::illegal_argument(format!(
-                    "non-indexed field '{}' cannot store term vectors",
-                    self.name
-                )));
-            }
-            if properties.store_payloads {
-                return Err(LuceneError::illegal_argument(format!(
-                    "non-indexed field '{}' cannot store payloads",
-                    self.name
-                )));
-            }
-            if self.omit_norms {
-                return Err(LuceneError::illegal_argument(format!(
-                    "non-indexed field '{}' cannot omit norms",
-                    self.name
-                )));
+        {
+            let properties = self
+                .properties
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+            if self.index_options != IndexOptions::None {
+                // Cannot store payloads unless positions are indexed
+                if self
+                    .index_options
+                    .cmp(&IndexOptions::DocsAndFreqsAndPositions)
+                    == Ordering::Less
+                    && properties.store_payloads
+                {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "indexed field '{}' cannot have payloads without positions",
+                        self.name
+                    )));
+                }
+            } else {
+                if self.store_term_vector {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "non-indexed field '{}' cannot store term vectors",
+                        self.name
+                    )));
+                }
+                if properties.store_payloads {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "non-indexed field '{}' cannot store payloads",
+                        self.name
+                    )));
+                }
+                if self.omit_norms {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "non-indexed field '{}' cannot omit norms",
+                        self.name
+                    )));
+                }
             }
         }
-        drop(properties);
 
         if !self
             .doc_values_skip_index

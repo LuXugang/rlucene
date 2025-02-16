@@ -16,12 +16,15 @@
  */
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::lucene101_codec::Lucene101Codec;
-use crate::codecs::Codec;
+use crate::codecs::{get_default_code, Codec};
+use crate::document::field_type::FieldType;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::index_options::IndexOptions;
+use crate::index::indexable_field_type::IndexableFieldType;
+use crate::index::point_values::PointValues;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
@@ -30,13 +33,16 @@ use crate::store::IOContext;
 use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
-use crate::test::util::lucene_test_case::new_directory;
+use crate::test::util::lucene_test_case::{at_least, new_directory, random};
 use crate::test::util::test_error::TestError;
+use crate::test::util::test_util::TestUtil;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::{StringHelper, LATEST};
 use rand::rngs::StdRng;
 use rand::Rng;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
+use strum::EnumCount;
 
 pub trait BaseFieldInfoFormatTestCase {
     fn support_doc_values_skip_index(&self) -> bool {
@@ -113,6 +119,199 @@ pub trait BaseFieldInfoFormatTestCase {
         // no necessary to implement
         Ok(())
     }
+    // Test field infos read/write with random fields, with different values.
+    fn test_random(&self, random: &mut StdRng) -> Result<(), TestError> {
+        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let codec = get_default_code();
+        let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
+        let num_fields = at_least(random, 2000);
+        let mut field_names = HashSet::new();
+        for _ in 0..num_fields {
+            field_names.insert(TestUtil::random_unicode_string(random));
+        }
+        let soft_deletes_field = if random.gen_bool(0.5) {
+            Some(TestUtil::random_unicode_string(random))
+        } else {
+            None
+        };
+
+        let mut parent_field = if random.gen_bool(0.5) {
+            Some(TestUtil::random_unicode_string(random))
+        } else {
+            None
+        };
+
+        // Ensure softDeletesField and parentField are not equal.
+        if soft_deletes_field.is_some() && soft_deletes_field == parent_field {
+            parent_field = None;
+        }
+
+        // Create a new FieldInfos builder.
+        let soft_deletes_field_clone = soft_deletes_field.clone();
+        let parent_field_clone = parent_field.clone();
+        let mut builder =
+            IndexPackageAccessImpl.new_field_infos_builder(soft_deletes_field, parent_field)?;
+
+        for field in field_names {
+            // Generate a random field type for this field.
+            let field_type = self.random_field_type(random, &field)?;
+
+            let mut store_term_vectors = false;
+            let mut store_payloads = false;
+            let mut omit_norms = false;
+
+            if field_type.index_options() != &IndexOptions::None {
+                store_term_vectors = field_type.store_term_vectors();
+                omit_norms = field_type.omit_norms();
+                if field_type.index_options() >= &IndexOptions::DocsAndFreqsAndPositions {
+                    store_payloads = random.gen_bool(0.5);
+                }
+            }
+
+            let valid_doc_values = [
+                DocValuesType::Numeric,
+                DocValuesType::Sorted,
+                DocValuesType::SortedNumeric,
+                DocValuesType::SortedSet,
+            ];
+            let doc_values_skip_index_type =
+                if valid_doc_values.contains(&field_type.doc_values_type()) {
+                    field_type.doc_values_skip_index_type()
+                } else {
+                    &DocValuesSkipIndexType::None
+                };
+
+            // Create a new FieldInfo for this field.
+            let soft_deletes_field = match soft_deletes_field_clone {
+                Some(ref s) => field == *s,
+                None => false,
+            };
+            let parent_field = match parent_field_clone {
+                Some(ref s) => field == *s,
+                None => false,
+            };
+            let mut fi = FieldInfo::new(
+                field.clone(),
+                -1,
+                store_term_vectors,
+                omit_norms,
+                store_payloads,
+                *field_type.index_options(),
+                *field_type.doc_values_type(),
+                *doc_values_skip_index_type,
+                -1,
+                Arc::new(Mutex::new(HashMap::new())),
+                field_type.point_dimension_count(),
+                field_type.point_index_dimension_count(),
+                field_type.point_num_bytes(),
+                field_type.vector_dimension(),
+                *field_type.vector_encoding(),
+                *field_type.vector_similarity_function(),
+                soft_deletes_field,
+                parent_field,
+            );
+            Self::add_attributes(&mut fi);
+            builder.add(Arc::new(fi))?;
+        }
+
+        let infos = builder.finish()?;
+
+        // Write the FieldInfos to the directory.
+        codec.field_infos_format().write(
+            dir.clone(),
+            &segment_info,
+            "",
+            &infos,
+            &IOContext::default_io_context()?,
+        )?;
+
+        // Read the FieldInfos back from the directory.
+        let infos2 = codec.field_infos_format().read(
+            dir.clone(),
+            &segment_info,
+            "",
+            &IOContext::default_io_context()?,
+        )?;
+
+        // Verify that the written and read FieldInfos are equal.
+        Self::assert_field_infos_equals(&infos, &infos2)?;
+        Ok(())
+    }
+
+    fn get_vectors_max_dimensions(field_name: &str) -> i32 {
+        // TODO
+        1024
+    }
+
+    fn random_field_type(
+        &self,
+        random: &mut StdRng,
+        field_name: &str,
+    ) -> Result<FieldType, LuceneError> {
+        let mut field_type = FieldType::new();
+
+        if random.gen_bool(0.5) {
+            field_type.set_index_options(
+                IndexOptions::from_repr(random.gen_range(0..IndexOptions::COUNT) as u8).unwrap(),
+            )?;
+            field_type.set_omit_norms(random.gen_bool(0.5))?;
+
+            if random.gen_bool(0.5) {
+                field_type.set_store_term_vectors(true)?;
+                if field_type.index_options() >= &IndexOptions::DocsAndFreqsAndPositions {
+                    field_type.set_store_term_vector_positions(random.gen_bool(0.5))?;
+                    field_type.set_store_term_vector_offsets(random.gen_bool(0.5))?;
+                    if field_type.store_term_vector_positions() {
+                        field_type.set_store_term_vector_payloads(random.gen_bool(0.5))?;
+                    }
+                }
+            }
+        }
+
+        if random.gen_bool(0.5) {
+            let current =
+                DocValuesType::from_repr(random.gen_range(0..DocValuesType::COUNT) as u8).unwrap();
+            field_type.set_doc_values_type(
+                DocValuesType::from_repr(random.gen_range(0..DocValuesType::COUNT) as u8).unwrap(),
+            )?;
+            if current == DocValuesType::Numeric
+                || current == DocValuesType::SortedNumeric
+                || current == DocValuesType::Sorted
+                || current == DocValuesType::SortedSet
+            {
+                field_type.set_doc_values_skip_index_type(
+                    if self.support_doc_values_skip_index() {
+                        DocValuesSkipIndexType::Range
+                    } else {
+                        DocValuesSkipIndexType::None
+                    },
+                )?;
+            }
+        }
+
+        if random.gen_bool(0.5) {
+            let dimension = 1 + random.gen_range(0..PointValues::MAX_DIMENSIONS);
+            let index_dimension = 1 + random
+                .gen_range(0..std::cmp::min(dimension, PointValues::MAX_INDEX_DIMENSIONS));
+            let dimension_num_bytes = 1 + random.gen_range(0..PointValues::MAX_NUM_BYTES);
+            field_type.set_dimensions_all(dimension, index_dimension, dimension_num_bytes)?;
+        }
+
+        if random.gen_bool(0.5) && Self::get_vectors_max_dimensions(field_name) > 0 {
+            let max_dims = Self::get_vectors_max_dimensions(field_name);
+            let dimension = 1 + random.gen_range(0..max_dims);
+            let similarity_function = VectorSimilarityFunction::from_repr(
+                random.gen_range(0..VectorSimilarityFunction::COUNT) as u8,
+            )
+            .unwrap();
+            let encoding =
+                VectorEncoding::from_repr(random.gen_range(0..VectorEncoding::COUNT) as u8)
+                    .unwrap();
+            field_type.set_vector_attributes(dimension, encoding, similarity_function)?;
+        }
+
+        Ok(field_type)
+    }
     /// Hook to add any codec attributes to fieldinfo instances added in this test.
     fn add_attributes(_fi: &FieldInfo) {}
     /// Asserts equality for the entirety of FieldInfos
@@ -120,7 +319,6 @@ pub trait BaseFieldInfoFormatTestCase {
         expected: &FieldInfos,
         actual: &FieldInfos,
     ) -> Result<(), TestError> {
-        // Assert that both FieldInfos have the same size
         assert_eq!(expected.size(), actual.size());
 
         for expected_field in expected.iter() {

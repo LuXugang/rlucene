@@ -119,7 +119,7 @@ impl FieldType {
     }
     /// Throws an error if this FieldType is frozen.
     /// Subclasses should call this within setters for additional state.
-    pub(crate) fn check_if_frozen(&self) -> Result<(), LuceneError> {
+    pub fn check_if_frozen(&self) -> Result<(), LuceneError> {
         if self.frozen {
             return Err(LuceneError::illegal_state(
                 "this FieldType is already frozen and cannot be changed",
@@ -139,7 +139,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    fn set_stored(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_stored(&mut self, value: bool) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.stored = value;
         Ok(())
@@ -150,7 +150,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    fn set_tokenized(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_tokenized(&mut self, value: bool) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.tokenized = value;
         Ok(())
@@ -161,7 +161,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    fn set_store_term_vectors(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_store_term_vectors(&mut self, value: bool) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.store_term_vectors = value;
         Ok(())
@@ -171,7 +171,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    fn set_store_term_vector_offsets(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_store_term_vector_offsets(&mut self, value: bool) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.store_term_vector_offsets = value;
         Ok(())
@@ -182,7 +182,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    fn set_store_term_vector_positions(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_store_term_vector_positions(&mut self, value: bool) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.store_term_vector_positions = value;
         Ok(())
@@ -192,7 +192,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    fn set_store_term_vector_payloads(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_store_term_vector_payloads(&mut self, value: bool) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.store_term_vector_payloads = value;
         Ok(())
@@ -202,7 +202,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    fn set_omit_norms(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_omit_norms(&mut self, value: bool) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.omit_norms = value;
         Ok(())
@@ -212,14 +212,14 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications or if the provided value is invalid.
-    fn set_index_options(&mut self, value: IndexOptions) -> Result<(), LuceneError> {
+    pub fn set_index_options(&mut self, value: IndexOptions) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.index_options = value;
         Ok(())
     }
 
     /// Enables points indexing.
-    fn set_dimensions(
+    pub fn set_dimensions(
         &mut self,
         dimension_count: i32,
         dimension_num_bytes: i32,
@@ -228,7 +228,7 @@ impl FieldType {
     }
 
     /// Enables points indexing with selectable dimension indexing.
-    fn set_dimensions_all(
+    pub fn set_dimensions_all(
         &mut self,
         dimension_count: i32,
         index_dimension_count: i32,
@@ -312,7 +312,7 @@ impl FieldType {
     }
 
     /// Enables vector indexing, with the specified number of dimensions and distance function.
-    fn set_vector_attributes(
+    pub fn set_vector_attributes(
         &mut self,
         num_dimensions: i32,
         encoding: VectorEncoding,
@@ -336,7 +336,11 @@ impl FieldType {
     /// This is a key-value mapping for the field that the codec can use to store additional metadata.
     ///
     /// If a value already exists for the field, it will be replaced with the new value.
-    fn put_attribute(&mut self, key: String, value: String) -> Result<Option<String>, LuceneError> {
+    pub fn put_attribute(
+        &mut self,
+        key: String,
+        value: String,
+    ) -> Result<Option<String>, LuceneError> {
         self.check_if_frozen()?;
         let mut attrs = self
             .attributes
@@ -350,7 +354,10 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications or if the provided type is invalid.
-    fn set_doc_values_type(&mut self, doc_values_type: DocValuesType) -> Result<(), LuceneError> {
+    pub fn set_doc_values_type(
+        &mut self,
+        doc_values_type: DocValuesType,
+    ) -> Result<(), LuceneError> {
         self.check_if_frozen()?;
         self.doc_values_type = doc_values_type;
         Ok(())
@@ -359,7 +366,7 @@ impl FieldType {
     ///
     /// This is typically useful on fields that are part of the index sort, or that correlate with fields that are part of the index sort,
     /// so that values can be expected to be clustered in the doc ID space.
-    fn set_doc_values_skip_index_type(
+    pub fn set_doc_values_skip_index_type(
         &mut self,
         skip_index: DocValuesSkipIndexType,
     ) -> Result<(), LuceneError> {
@@ -566,6 +573,8 @@ mod tests {
     use rand::Rng;
     use std::hash::{DefaultHasher, Hash, Hasher};
 
+    #[allow(dead_code)] // for quick search
+    struct TestFieldType;
     #[test]
     fn test_equals() -> Result<(), LuceneError> {
         let ft = FieldType::new();
