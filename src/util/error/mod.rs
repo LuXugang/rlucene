@@ -31,6 +31,7 @@ pub mod lucene_error;
 mod max_bytes_length_exceeded;
 mod merge;
 mod merge_aborted;
+mod need_implemented;
 mod not_found;
 mod number_format;
 pub mod parse;

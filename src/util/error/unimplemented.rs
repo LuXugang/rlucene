@@ -17,11 +17,11 @@
 use std::fmt;
 
 #[derive(Debug)]
-pub struct UnimplementedError {
+pub struct NotImplementedError {
     pub message: String,
 }
 
-impl UnimplementedError {
+impl NotImplementedError {
     pub fn new(msg: impl Into<String>) -> Self {
         Self {
             message: msg.into(),
@@ -35,10 +35,10 @@ impl UnimplementedError {
     }
 }
 
-impl fmt::Display for UnimplementedError {
+impl fmt::Display for NotImplementedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message)
     }
 }
 
-impl std::error::Error for UnimplementedError {}
+impl std::error::Error for NotImplementedError {}

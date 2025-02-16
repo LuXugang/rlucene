@@ -14,6 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analyzer;
-pub mod dummy;
-pub mod token_stream;
+use std::fmt;
+
+#[derive(Debug)]
+pub struct NeedImplementedError {
+    pub message: String,
+}
+
+impl NeedImplementedError {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
+            message: msg.into(),
+        }
+    }
+
+    pub fn with_format(args: impl fmt::Display) -> Self {
+        Self {
+            message: args.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for NeedImplementedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for NeedImplementedError {}

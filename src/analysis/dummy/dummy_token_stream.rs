@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analyzer;
-pub mod dummy;
-pub mod token_stream;
+use crate::analysis::token_stream::TokenStream;
+
+#[derive(Debug)]
+pub struct DummyTokenStream;
+
+impl TokenStream for DummyTokenStream {}

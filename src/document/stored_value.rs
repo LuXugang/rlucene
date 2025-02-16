@@ -17,6 +17,7 @@
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
+use std::sync::Arc;
 
 /// Abstraction around a stored value.
 ///
@@ -32,7 +33,7 @@ pub enum StoredValue {
     /// Type of double values.
     Double(f64),
     /// Type of binary values.
-    Binary(BytesRef),
+    Binary(Arc<BytesRef>),
     /// Type of string values.
     String(String),
 }
@@ -90,7 +91,7 @@ impl StoredValue {
     }
 
     /// Ctor for binary values.
-    pub fn new_binary(value: BytesRef) -> Self {
+    pub fn new_binary(value: Arc<BytesRef>) -> Self {
         StoredValue::Binary(value)
     }
 
@@ -164,7 +165,7 @@ impl StoredValue {
     }
 
     /// Set a binary value.
-    pub fn set_binary_value(&mut self, value: BytesRef) -> Result<(), LuceneError> {
+    pub fn set_binary_value(&mut self, value: Arc<BytesRef>) -> Result<(), LuceneError> {
         if let StoredValue::Binary(ref mut v) = self {
             *v = value;
             Ok(())

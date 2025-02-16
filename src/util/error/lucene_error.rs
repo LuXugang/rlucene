@@ -30,9 +30,10 @@ use crate::util::error::lock_held_by_other::LockHeldByOtherError;
 use crate::util::error::max_bytes_length_exceeded::MaxBytesLengthExceededError;
 use crate::util::error::merge::MergeError;
 use crate::util::error::merge_aborted::MergeAbortedError;
+use crate::util::error::need_implemented::NeedImplementedError;
 use crate::util::error::not_found::NotFoundError;
 use crate::util::error::number_format::NumberFormatError;
-use crate::util::error::unimplemented::UnimplementedError;
+use crate::util::error::unimplemented::NotImplementedError;
 use crate::util::error::unsupported_operation::UnsupportedOperationError;
 use std::io::Error;
 use std::string::FromUtf8Error;
@@ -95,7 +96,7 @@ pub enum LuceneError {
     NumberFormat(#[from] NumberFormatError),
 
     #[error("{0}")]
-    Unimplemented(#[from] UnimplementedError),
+    NeedImplemented(#[from] NeedImplementedError),
 
     #[error("{0}")]
     MaxBytesLengthExceeded(#[from] MaxBytesLengthExceededError),
@@ -111,6 +112,9 @@ pub enum LuceneError {
 
     #[error("{0}")]
     AlreadyClosed(#[from] AlreadyClosedError),
+
+    #[error("{0}")]
+    NotImplemented(#[from] NotImplementedError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -177,8 +181,8 @@ impl LuceneError {
     pub fn number_format(msg: impl Into<String>) -> Self {
         LuceneError::NumberFormat(NumberFormatError::new(msg))
     }
-    pub fn unimplemented(msg: impl Into<String>) -> Self {
-        LuceneError::Unimplemented(UnimplementedError::new(msg))
+    pub fn need_implemented(msg: impl Into<String>) -> Self {
+        LuceneError::NeedImplemented(NeedImplementedError::new(msg))
     }
     pub fn max_bytes_length_exceeded(msg: impl Into<String>) -> Self {
         LuceneError::MaxBytesLengthExceeded(MaxBytesLengthExceededError::new(msg))
@@ -194,5 +198,8 @@ impl LuceneError {
     }
     pub fn already_closed(msg: impl Into<String>) -> Self {
         LuceneError::AlreadyClosed(AlreadyClosedError::new(msg))
+    }
+    pub fn not_implemented(msg: impl Into<String>) -> Self {
+        LuceneError::NotImplemented(NotImplementedError::new(msg))
     }
 }

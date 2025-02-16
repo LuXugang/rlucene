@@ -66,7 +66,7 @@ pub trait DocIdSetIterator {
     /// by some Scorers. If your implementation cannot efficiently determine that it should exhaust, it
     /// is recommended to check for this value in each call to this method.
     fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
-        Err(LuceneError::unimplemented(
+        Err(LuceneError::need_implemented(
             "advance() must be implemented if it need to be used",
         ))
     }
@@ -87,7 +87,7 @@ pub trait DocIdSetIterator {
     /// This is generally an upper bound on the number of documents this iterator might match, but
     /// it may also be a rough heuristic, a hardcoded value, or otherwise completely inaccurate.
     fn cost(&self) -> Result<i64, LuceneError> {
-        Err(LuceneError::unimplemented(
+        Err(LuceneError::need_implemented(
             "cost() must be implemented if it need to be used",
         ))
     }

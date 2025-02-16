@@ -17,7 +17,7 @@
 use num_traits::ToPrimitive;
 #[derive(Debug, Clone, Copy)]
 pub enum Number {
-    I8(i8),
+    U8(u8),
     I16(i16),
     I32(i32),
     I64(i64),
@@ -26,20 +26,20 @@ pub enum Number {
 }
 
 impl Number {
-    pub fn to_i8(&self) -> Option<i8> {
+    pub fn to_i8(&self) -> Option<u8> {
         match *self {
-            Number::I8(n) => Some(n),
-            Number::I16(n) => n.to_i8(),
-            Number::I32(n) => n.to_i8(),
-            Number::I64(n) => n.to_i8(),
-            Number::F32(n) => n.to_i8(),
-            Number::F64(n) => n.to_i8(),
+            Number::U8(n) => Some(n),
+            Number::I16(n) => n.to_u8(),
+            Number::I32(n) => n.to_u8(),
+            Number::I64(n) => n.to_u8(),
+            Number::F32(n) => n.to_u8(),
+            Number::F64(n) => n.to_u8(),
         }
     }
 
     pub fn to_i16(&self) -> Option<i16> {
         match *self {
-            Number::I8(n) => Some(n as i16),
+            Number::U8(n) => Some(n as i8 as i16),
             Number::I16(n) => Some(n),
             Number::I32(n) => n.to_i16(),
             Number::I64(n) => n.to_i16(),
@@ -50,7 +50,7 @@ impl Number {
 
     pub fn to_i32(&self) -> Option<i32> {
         match *self {
-            Number::I8(n) => Some(n as i32),
+            Number::U8(n) => Some(n as i8 as i32),
             Number::I16(n) => Some(n as i32),
             Number::I32(n) => Some(n),
             Number::I64(n) => n.to_i32(),
@@ -61,7 +61,7 @@ impl Number {
 
     pub fn to_i64(&self) -> Option<i64> {
         match *self {
-            Number::I8(n) => Some(n as i64),
+            Number::U8(n) => Some(n as i8 as i64),
             Number::I16(n) => Some(n as i64),
             Number::I32(n) => Some(n as i64),
             Number::I64(n) => Some(n),
@@ -72,7 +72,7 @@ impl Number {
 
     pub fn to_f32(&self) -> Option<f32> {
         match *self {
-            Number::I8(n) => (n as i32).to_f32(),
+            Number::U8(n) => (n as i8 as i32).to_f32(),
             Number::I16(n) => (n as i32).to_f32(),
             Number::I32(n) => n.to_f32(),
             Number::I64(n) => n.to_f32(),
@@ -83,12 +83,22 @@ impl Number {
 
     pub fn to_f64(&self) -> Option<f64> {
         match *self {
-            Number::I8(n) => (n as i32).to_f64(),
+            Number::U8(n) => (n as i8 as i32).to_f64(),
             Number::I16(n) => (n as i32).to_f64(),
             Number::I32(n) => n.to_f64(),
             Number::I64(n) => n.to_f64(),
             Number::F32(n) => n.to_f64(),
             Number::F64(n) => Some(n),
+        }
+    }
+    pub fn as_string(&self) -> String {
+        match *self {
+            Number::U8(n) => n.to_string(),
+            Number::I16(n) => n.to_string(),
+            Number::I32(n) => n.to_string(),
+            Number::I64(n) => n.to_string(),
+            Number::F32(n) => n.to_string(),
+            Number::F64(n) => n.to_string(),
         }
     }
 }

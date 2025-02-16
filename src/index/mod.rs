@@ -32,6 +32,7 @@ pub mod docs_with_field_set;
 mod documents_writer;
 pub(crate) mod documents_writer_delete_queue;
 pub(crate) mod documents_writer_per_thread;
+pub mod dummy;
 pub mod field_info;
 pub mod field_infos;
 pub mod field_term_iterator;

@@ -22,8 +22,10 @@ use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::number::Number;
 use std::io::Read;
+use std::sync::Arc;
 
 /// Represents a single field for indexing. IndexWriter consumes Iterable<IndexableField> as a
 /// document.
@@ -31,13 +33,17 @@ use std::io::Read;
 /// @lucene.experimental
 pub trait IndexableField {
     /// Field name
-    fn name(&self) -> &str;
+    fn name(&self) -> Result<&str, LuceneError> {
+        Err(LuceneError::not_implemented("name is not implemented"))
+    }
 
     /// {@link IndexableFieldType} describing the properties of this field.
-    fn field_type<I>(&self) -> &I
-    where
-        I: IndexableFieldType;
-
+    type FieldType: IndexableFieldType;
+    fn field_type(&self) -> Result<&Self::FieldType, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "field_type is not implemented",
+        ))
+    }
     /// Creates the TokenStream used for indexing this field. If appropriate, implementations should
     /// use the given Analyzer to create the TokenStreams.
     ///
@@ -52,33 +58,69 @@ pub trait IndexableField {
     /// TokenStream value for indexing the document. Should always return a non-null value if
     /// the field is to be indexed.
     type TokenStreamType: TokenStream;
-    fn token_stream<A, T>(&self, analyzer: &A, reuse: Option<T>) -> Self::TokenStreamType
-    where
-        A: Analyzer,
-        T: TokenStream;
-
+    fn token_stream(
+        &self,
+        _analyzer: Option<&impl Analyzer>,
+        _reuse: Option<&impl TokenStream>,
+    ) -> Result<Self::TokenStreamType, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "token_stream is not implemented",
+        ))
+    }
     /// Non-null if this field has a binary value.
-    fn binary_value(&self) -> Option<BytesRef>;
+    fn binary_value(&mut self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "binary_value is not implemented",
+        ))
+    }
 
     /// Non-null if this field has a string value.
-    fn string_value(&self) -> Option<String>;
+    fn string_value(&self) -> Result<Option<String>, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "string_value is not implemented",
+        ))
+    }
 
     /// Non-null if this field has a string value.
-    fn get_char_sequence_value(&self) -> Option<String> {
+    fn get_char_sequence_value(&self) -> Result<Option<String>, LuceneError> {
         self.string_value()
     }
 
     /// Non-null if this field has a Reader value.
-    fn reader_value<R: Read>(&self) -> Option<R>;
+    type ReadType: Read;
+    fn reader_value(&self) -> Result<Option<Self::ReadType>, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "reader_value is not implemented",
+        ))
+    }
 
     /// Non-null if this field has a numeric value.
-    fn numeric_value(&self) -> Option<Number>;
+    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "numeric_value is not implemented",
+        ))
+    }
 
     /// Stored value. This method is called to populate stored fields and must return a non-null value
     /// if the field stored.
-    fn stored_value(&self) -> &StoredValue;
+    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "stored_value is not implemented",
+        ))
+    }
 
     /// Describes how this field should be inverted. This must return a non-null value if the field
     /// indexes terms and postings.
-    fn invertable_type(&self) -> &InvertableType;
+    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "invertable_type is not implemented",
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // TODO:waiting for implementation after IndexWriter
+    #[allow(dead_code)]
+    struct TestIndexableField;
 }

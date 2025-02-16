@@ -14,6 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analyzer;
-pub mod dummy;
-pub mod token_stream;
+use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::document::field::FieldBase;
+use crate::index::dummy::dummy_indexable_field_type::DummyIndexableFieldType;
+use crate::index::indexable_field::IndexableField;
+use crate::util::dummy::dummy_read::DummyRead;
+
+pub struct DummyField;
+impl FieldBase for DummyField {}
+impl IndexableField for DummyField {
+    type FieldType = DummyIndexableFieldType;
+    type TokenStreamType = DummyTokenStream;
+    type ReadType = DummyRead;
+}

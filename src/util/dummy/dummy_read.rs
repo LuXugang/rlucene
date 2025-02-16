@@ -14,6 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analyzer;
-pub mod dummy;
-pub mod token_stream;
+use std::io::Read;
+
+#[derive(Debug)]
+pub struct DummyRead;
+impl Read for DummyRead {
+    fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+        unreachable!()
+    }
+}
