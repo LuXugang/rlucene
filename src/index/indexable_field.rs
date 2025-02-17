@@ -27,7 +27,7 @@ use crate::util::number::Number;
 use std::io::Read;
 use std::sync::Arc;
 
-/// Represents a single field for indexing. IndexWriter consumes Iterable<IndexableField> as a
+/// Represents a single field for indexing. IndexWriter consumes `Iterable<IndexableField>` as a
 /// document.
 ///
 /// @lucene.experimental

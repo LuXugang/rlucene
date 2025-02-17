@@ -53,7 +53,7 @@ use std::sync::Arc;
 /// so they can be returned with document hits.
 ///
 /// # Note
-/// The field type is an `IndexableFieldType`. Modifying the state of the [`IndexableFieldType`](IndexableFieldType)
+/// The field type is an `IndexableFieldType`. Modifying the state of the [`IndexableFieldType`]
 /// will affect any field using it. It is strongly recommended not to make changes
 /// after field instantiation.
 pub struct Field {
@@ -66,8 +66,8 @@ pub struct Field {
 }
 impl Field {
     /// Expert: creates a field with no initial value. This is intended to be used by custom
-    /// [`Field`](Field) sub-classes with pre-configured
-    /// [`IndexableFieldType`](IndexableFieldType).
+    /// [`Field`] sub-classes with pre-configured
+    /// [`IndexableFieldType`].
     ///
     /// # Parameters
     /// - `name`: Field name.

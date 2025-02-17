@@ -38,13 +38,13 @@ use std::sync::{Arc, Mutex};
 /// `Header, FieldsCount, <FieldName, FieldNumber, FieldBits, DocValuesBits, DocValuesGen, Attributes, DimensionCount, DimensionNumBytes>^FieldsCount, Footer`
 ///
 /// # Data Types
-/// - **Header** → [`CodecUtil::check_index_header`](CodecUtil::check_index_header)
-/// - **FieldsCount** → [`DataOutput::write_vint`](DataOutput::write_vint)
-/// - **FieldName** → [`DataOutput::write_string`](DataOutput::write_string)
-/// - **FieldBits, IndexOptions, DocValuesBits** → [`DataOutput::write_byte`](DataOutput::write_byte)
-/// - **FieldNumber, DimensionCount, DimensionNumBytes** → [`DataOutput::write_int`](DataOutput::write_int)
-/// - **Attributes** → [`DataOutput::write_map_of_strings`](DataOutput::write_map_of_strings)
-/// - **DocValuesGen** → [`DataOutput::write_long`](DataOutput::write_long)
+/// - **Header** → [`CodecUtil::check_index_header`]
+/// - **FieldsCount** → [`DataOutput::write_vint`]
+/// - **FieldName** → [`DataOutput::write_string`]
+/// - **FieldBits, IndexOptions, DocValuesBits** → [`DataOutput::write_byte`]
+/// - **FieldNumber, DimensionCount, DimensionNumBytes** → [`DataOutput::write_int`]
+/// - **Attributes** → [`DataOutput::write_map_of_strings`]
+/// - **DocValuesGen** → [`DataOutput::write_long`]
 /// - **Footer** → [`CodecUtil::write_footer`](CodecUtil::write_footer)
 ///
 /// # Field Descriptions

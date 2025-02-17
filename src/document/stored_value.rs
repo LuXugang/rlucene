@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 /// Abstraction around a stored value.
 ///
-/// See: [`IndexableField`]
+/// See: [`IndexableField`](crate::index::indexable_field::IndexableField)
 #[derive(Debug, Clone)]
 pub enum StoredValue {
     /// Type of integer values.
