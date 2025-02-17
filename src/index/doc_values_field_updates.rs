@@ -1090,14 +1090,15 @@ mod tests {
     };
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
     use crate::test::util::lucene_test_case::{random, rarely};
-    use crate::test::util::test_error::TestError;
+
+    use crate::util::error::lucene_error::LuceneError;
     use rand::prelude::SliceRandom;
     use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     pub struct TestDocValuesFieldUpdates;
     #[test]
-    fn test_merge_iterator() -> Result<(), TestError> {
+    fn test_merge_iterator() -> Result<(), LuceneError> {
         let mut random = random();
         let sub_update1 = NumericDocValuesFieldUpdates::new()?;
         let mut updates1 = DocValuesFieldUpdates::new(
@@ -1191,7 +1192,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_update_and_reset_same_doc() -> Result<(), TestError> {
+    fn test_update_and_reset_same_doc() -> Result<(), LuceneError> {
         let sub_update = NumericDocValuesFieldUpdates::new()?;
         let mut updates = DocValuesFieldUpdates::new(
             2,
@@ -1213,7 +1214,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_update_and_reset_update_same_doc() -> Result<(), TestError> {
+    fn test_update_and_reset_update_same_doc() -> Result<(), LuceneError> {
         let sub_update = NumericDocValuesFieldUpdates::new()?;
         let mut updates = DocValuesFieldUpdates::new(
             3,
@@ -1237,7 +1238,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_updates_and_reset_random() -> Result<(), TestError> {
+    fn test_updates_and_reset_random() -> Result<(), LuceneError> {
         let mut random = random();
 
         let sub_update = NumericDocValuesFieldUpdates::new()?;
@@ -1294,7 +1295,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_shared_value_updates() -> Result<(), TestError> {
+    fn test_shared_value_updates() -> Result<(), LuceneError> {
         let mut random = random();
 
         let del_gen = random.gen::<i64>();

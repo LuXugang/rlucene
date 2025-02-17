@@ -29,8 +29,9 @@ use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::util::lucene_test_case::{at_least, new_directory};
-use crate::test::util::test_error::TestError;
+
 use crate::test::util::test_util::TestUtil;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::{StringHelper, Version};
 use num_bigint::BigInt;
 use rand::rngs::StdRng;
@@ -40,7 +41,7 @@ use std::sync::{Arc, Mutex};
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     /// Test files map
-    fn test_files(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_files(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
@@ -70,7 +71,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         assert_eq!(info.files()?, info2.files()?);
         Ok(())
     }
-    fn test_has_blocks(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_has_blocks(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         assert!(self.supports_has_blocks());
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
@@ -104,7 +105,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     /// Tests SI writer adds itself to files...
-    fn test_adds_self_to_files(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_adds_self_to_files(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
@@ -151,7 +152,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
     /// Test diagnostics map
-    fn test_diagnostics(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_diagnostics(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let mut diagnostics: HashMap<String, String> = HashMap::new();
@@ -193,7 +194,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
     /// Test attributes map
-    fn test_attributes(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_attributes(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let mut attributes: HashMap<String, String> = HashMap::new();
@@ -240,7 +241,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     /// Test unique ID
-    fn test_unique_id(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_unique_id(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
@@ -273,7 +274,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
     /// Test versions
-    fn test_versions(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_versions(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let io_context = IOContext::default_io_context()?;
 
         for version in self.get_versions() {
@@ -320,7 +321,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
 
-    fn random_index_sort_field(random: &mut StdRng) -> Result<Option<SortFieldEnum>, TestError> {
+    fn random_index_sort_field(random: &mut StdRng) -> Result<Option<SortFieldEnum>, LuceneError> {
         let reversed = random.gen_bool(0.5);
         let case = random.gen_range(0..10);
         match case {
@@ -435,7 +436,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         }
     }
     /// Test sort
-    fn test_sort(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_sort(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         assert!(
             self.supports_index_sort(),
             "test requires a codec that can read/write index sort"
@@ -491,25 +492,25 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         }
         Ok(())
     }
-    fn test_exception_on_create_output(&self) -> Result<(), TestError> {
+    fn test_exception_on_create_output(&self) -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
-    fn test_exception_on_close_output(&self) -> Result<(), TestError> {
+    fn test_exception_on_close_output(&self) -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
-    fn test_exception_on_open_input(&self) -> Result<(), TestError> {
+    fn test_exception_on_open_input(&self) -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
-    fn test_exception_on_close_input(&self) -> Result<(), TestError> {
+    fn test_exception_on_close_input(&self) -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
 
     /// Sets some otherwise hard-to-test properties: random segment names, ID values, document count, etc and round-trips
-    fn test_random(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_random(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let versions = self.get_versions();
         let io_context = IOContext::default_io_context()?;
 
@@ -581,7 +582,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     fn assert_equals<D: Directory>(
         expected: &SegmentInfo<D>,
         actual: &SegmentInfo<D>,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         assert!(
             Arc::ptr_eq(&expected.dir, &actual.dir),
             "Directory references are not the same"

@@ -90,7 +90,7 @@ impl IndexSorter for IndexSortEnum {
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::common_method::assert_vecs_equal;
-    use crate::test::util::test_error::TestError;
+
     use crate::util::bytes_ref_comparator::{BytesRefComparator, Natural};
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
@@ -106,7 +106,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestStringSorter;
 
-    fn test(refs: Vec<BytesRef>, len: usize) -> Result<(), TestError> {
+    fn test(refs: Vec<BytesRef>, len: usize) -> Result<(), LuceneError> {
         test_impl(refs.clone(), len, Natural::default())?;
         test_impl(refs.clone(), len, NaturalOrder::default())?;
         test_stable(refs.clone(), len, Natural::default())?;
@@ -118,7 +118,7 @@ mod tests {
         refs: Vec<BytesRef>,
         len: usize,
         comparator: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let mut expected: Vec<BytesRef> = refs.clone();
         expected.sort();
         let delegate_sorter = StringSorterTestImpl::new(refs.clone());
@@ -133,7 +133,7 @@ mod tests {
         refs: Vec<BytesRef>,
         len: usize,
         comparator: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let mut expected: Vec<BytesRef> = refs[..len].to_vec();
         let mut actual = refs[..len].to_vec();
         expected.sort();
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty() -> Result<(), TestError> {
+    fn test_empty() -> Result<(), LuceneError> {
         let mut random = random();
         let len = random.gen_range(0..5);
         let refs: Vec<BytesRef> = (0..len).map(|_| BytesRef::default()).collect();
@@ -180,14 +180,14 @@ mod tests {
     }
 
     #[test]
-    fn test_one_value() -> Result<(), TestError> {
+    fn test_one_value() -> Result<(), LuceneError> {
         let mut random = random();
         let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         test(vec![bytes], 1)
     }
 
     #[test]
-    fn test_two_values() -> Result<(), TestError> {
+    fn test_two_values() -> Result<(), LuceneError> {
         let mut random = random();
         let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
@@ -198,7 +198,7 @@ mod tests {
         common_prefix_len: usize,
         max_len: usize,
         random: &mut StdRng,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.gen_range(0..100000);
@@ -214,7 +214,7 @@ mod tests {
         test(bytes, len)
     }
     #[test]
-    fn test_random() -> Result<(), TestError> {
+    fn test_random() -> Result<(), LuceneError> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
@@ -223,7 +223,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
+    fn test_random_with_lots_of_duplicates() -> Result<(), LuceneError> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
@@ -232,7 +232,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_with_shared_prefix() -> Result<(), TestError> {
+    fn test_random_with_shared_prefix() -> Result<(), LuceneError> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
@@ -242,7 +242,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestError> {
+    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), LuceneError> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {

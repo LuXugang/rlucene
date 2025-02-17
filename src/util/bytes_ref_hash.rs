@@ -833,7 +833,7 @@ where
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
     use crate::util::error::lucene_error::LuceneError;
@@ -871,7 +871,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_size() -> Result<(), TestError> {
+    fn test_size() -> Result<(), LuceneError> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -908,7 +908,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_get() -> Result<(), TestError> {
+    fn test_get() -> Result<(), LuceneError> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -957,7 +957,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_compact() -> Result<(), TestError> {
+    fn test_compact() -> Result<(), LuceneError> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1009,7 +1009,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_sort() -> Result<(), TestError> {
+    fn test_sort() -> Result<(), LuceneError> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1060,7 +1060,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add() -> Result<(), TestError> {
+    fn test_add() -> Result<(), LuceneError> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1107,7 +1107,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_find() -> Result<(), TestError> {
+    fn test_find() -> Result<(), LuceneError> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1155,7 +1155,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), TestError> {
+    fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), LuceneError> {
         let mut random = random();
         let num = at_least(&mut random, 2);
 
@@ -1254,7 +1254,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_large_value() -> Result<(), TestError> {
+    fn test_large_value() -> Result<(), LuceneError> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
 
@@ -1286,7 +1286,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_add_by_pool_offset() -> Result<(), TestError> {
+    fn test_add_by_pool_offset() -> Result<(), LuceneError> {
         let mut random = random();
         let pool = new_pool();
         let mut hash = new_hash(&mut random, pool.clone())?;
@@ -1362,7 +1362,10 @@ mod tests {
         Ok(())
     }
 
-    fn assert_all_in(strings: &HashSet<String>, hash: &mut BytesRefHash) -> Result<(), TestError> {
+    fn assert_all_in(
+        strings: &HashSet<String>,
+        hash: &mut BytesRefHash,
+    ) -> Result<(), LuceneError> {
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();
         let count = hash.size();

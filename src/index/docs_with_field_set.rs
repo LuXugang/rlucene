@@ -152,14 +152,15 @@ mod tests {
     use crate::search::doc_id_set::DocIdSet;
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
     use crate::test::util::lucene_test_case::random;
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
+    use crate::util::error::lucene_error::LuceneError;
     use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     struct TestDocsWithFieldSet {}
     #[test]
-    fn test_dense() -> Result<(), TestError> {
+    fn test_dense() -> Result<(), LuceneError> {
         let mut set = DocsWithFieldSet::new();
         let mut it = set.iterator().unwrap();
         assert_eq!(it.next_doc()?, NO_MORE_DOCS);
@@ -185,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse() -> Result<(), TestError> {
+    fn test_sparse() -> Result<(), LuceneError> {
         let mut random = random();
         let mut set = DocsWithFieldSet::new();
         let doc = random.gen_range(0..10000);
@@ -203,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_then_sparse() -> Result<(), TestError> {
+    fn test_dense_then_sparse() -> Result<(), LuceneError> {
         let mut random = random();
         let dense_count = random.gen_range(1..10000);
         let next_doc = dense_count + random.gen_range(1..10000);

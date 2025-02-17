@@ -26,7 +26,7 @@ use crate::test::util::lucene_test_case::{at_least, is_night_mode};
 use crate::test::util::lucene_test_case::{
     new_directory, new_io_context, random_from_seed, slow_file_exists,
 };
-use crate::test::util::test_error::TestError;
+
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::lucene_error::LuceneError;
@@ -47,9 +47,9 @@ pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {
     type Directory: Directory<IndexInputType = Self::Output> + Send + Sync + 'static;
     type Output: IndexInput + RandomAccessInput + Send + Sync + 'static;
-    fn get_directory(&self, path: PathBuf) -> Result<Self::Directory, TestError>;
+    fn get_directory(&self, path: PathBuf) -> Result<Self::Directory, LuceneError>;
 
-    fn test_copy_from(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_copy_from(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut temp_dir = Builder::new().prefix("testCopy").tempdir()?;
         let source = Arc::new(Mutex::new(self.get_directory(temp_dir.into_path())?));
         let mut dest = new_directory(random)?;
@@ -66,7 +66,7 @@ pub trait BaseDirectoryTestCase {
         source: Arc<Mutex<T>>,
         dest: &mut impl Directory,
         random: &mut StdRng,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let mut bytes = vec![0u8; 20000];
         let io_context = new_io_context(random)?;
         random.fill(&mut bytes[..]);
@@ -89,7 +89,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_rename(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_rename(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testRename").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let num_bytes = random.gen_range(0..20000);
@@ -115,7 +115,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_delete_file(&self) -> Result<(), TestError> {
+    fn test_delete_file(&self) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testDeleteFile").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
 
@@ -141,7 +141,7 @@ pub trait BaseDirectoryTestCase {
         ));
         Ok(())
     }
-    fn test_byte(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_byte(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testByte").tempdir()?;
         let io_context = new_io_context(random)?;
 
@@ -160,7 +160,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_short(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_short(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testShort").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -178,7 +178,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_int(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_int(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testInt").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -196,7 +196,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_long(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_long(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testLong").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -214,7 +214,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_aligned_little_endian_longs(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_aligned_little_endian_longs(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new()
             .prefix("testAlignedLittleEndianLongs")
             .tempdir()?;
@@ -241,7 +241,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_unaligned_little_endian_longs(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_unaligned_little_endian_longs(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new()
             .prefix("testUnalignedLittleEndianLongs")
             .tempdir()?;
@@ -268,7 +268,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_little_endian_longs_underflow(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_little_endian_longs_underflow(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new()
             .prefix("testLittleEndianLongsUnderflow")
             .tempdir()?;
@@ -297,7 +297,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_aligned_ints(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_aligned_ints(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testAlignedInts").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -320,7 +320,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_unaligned_ints(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_unaligned_ints(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testUnalignedInts").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let padding = random.gen_range(1..=3);
@@ -350,7 +350,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_ints_underflow(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_ints_underflow(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testIntsUnderflow").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -379,7 +379,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_aligned_floats(&self) -> Result<(), TestError> {
+    fn test_aligned_floats(&self) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testAlignedFloats").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = IOContext::default_io_context()?;
@@ -401,7 +401,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_unaligned_floats(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_unaligned_floats(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let padding = random.gen_range(1..=3);
         let io_context = new_io_context(random)?;
 
@@ -431,7 +431,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_floats_underflow(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_floats_underflow(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testFloatsUnderflow").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -455,7 +455,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_string(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_string(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testString").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -473,7 +473,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_vint(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_vint(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testVInt").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -491,7 +491,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_vlong(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_vlong(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testVLong").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -509,7 +509,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_zint(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_zint(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut ints = Vec::new();
         let num_ints = random.gen_range(0..10);
 
@@ -554,7 +554,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_zlong(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_zlong(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut longs = Vec::new();
         let num_longs = random.gen_range(0..10);
         let io_context = new_io_context(random)?;
@@ -598,7 +598,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_set_of_strings(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_set_of_strings(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testSetOfStrings").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
@@ -645,7 +645,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_map_of_strings(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_map_of_strings(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut map = HashMap::new();
         map.insert("test1".to_string(), "value1".to_string());
         map.insert("test2".to_string(), "value2".to_string());
@@ -696,7 +696,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_checksum(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_checksum(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         use crc32fast::Hasher;
 
         let num_bytes = random.gen_range(0..20000);
@@ -726,13 +726,13 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     #[allow(unused)]
-    fn test_detect_close(&self) -> Result<(), TestError> {
+    fn test_detect_close(&self) -> Result<(), LuceneError> {
         //in Rust, it is not necessary to explicitly call close.
         // Resources are automatically closed when they go out of scope,
         // and the drop method is invoked.
         Ok(())
     }
-    fn test_thread_safety_in_list_all(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_thread_safety_in_list_all(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testThreadSafety")
             .tempdir()?;
@@ -746,7 +746,7 @@ pub trait BaseDirectoryTestCase {
         let dir_writer = Arc::clone(&dir);
         let stop_writer = Arc::clone(&stop);
         let seed: u64 = random.gen();
-        let writer = thread::spawn(move || -> Result<(), TestError> {
+        let writer = thread::spawn(move || -> Result<(), LuceneError> {
             let mut rng = random_from_seed(seed);
             let file_count = rng.gen_range(500..=1000);
             let io_context = IOContext::default_io_context()?;
@@ -758,7 +758,7 @@ pub trait BaseDirectoryTestCase {
                     }
                     assert!(slow_file_exists(&*dir, &file_name)?);
                 } else {
-                    return Err(TestError::IllegalState(IllegalStateError::new(
+                    return Err(LuceneError::IllegalState(IllegalStateError::new(
                         "Failed to acquire lock in writer",
                     )));
                 }
@@ -771,7 +771,7 @@ pub trait BaseDirectoryTestCase {
         // Reader thread
         let dir_reader = Arc::clone(&dir);
         let stop_reader = Arc::clone(&stop);
-        let reader = thread::spawn(move || -> Result<(), TestError> {
+        let reader = thread::spawn(move || -> Result<(), LuceneError> {
             let mut rng = random_from_seed(seed);
 
             while !stop_reader.load(Ordering::SeqCst) {
@@ -800,10 +800,10 @@ pub trait BaseDirectoryTestCase {
                                 // 忽略 AccessDenied 错误
                             }
                             Err(e) => {
-                                return Err(TestError::LuceneError(LuceneError::IoWithPath {
+                                return Err(LuceneError::IoWithPath {
                                     path: file.to_string(),
                                     source: Error::new(ErrorKind::Other, format!("{:?}", e)),
-                                }));
+                                });
                             }
                         }
                         if rng.gen_range(0..3) == 0 {
@@ -842,7 +842,10 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_file_exists_in_list_after_created(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_file_exists_in_list_after_created(
+        &self,
+        random: &mut StdRng,
+    ) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testFileExistsInListAfterCreated")
             .tempdir()?;
@@ -871,7 +874,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_seek_to_eof_then_back(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_seek_to_eof_then_back(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testSeekToEOFThenBack")
             .tempdir()?;
@@ -901,7 +904,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_illegal_eof(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_illegal_eof(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testIllegalEOF")
             .tempdir()?;
@@ -921,7 +924,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_seek_past_eof(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_seek_past_eof(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testSeekPastEOF")
             .tempdir()?;
@@ -956,7 +959,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_slice_out_of_bounds(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_slice_out_of_bounds(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testSliceOutOfBounds")
             .tempdir()?;
@@ -988,11 +991,11 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     #[allow(unused)]
-    fn test_no_dir(&self) -> Result<(), TestError> {
+    fn test_no_dir(&self) -> Result<(), LuceneError> {
         // TODO
         unimplemented!("DirectoryReader not Implemented")
     }
-    fn test_copy_bytes(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_copy_bytes(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().prefix("testCopyBytes").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
@@ -1075,7 +1078,7 @@ pub trait BaseDirectoryTestCase {
         ((idx % 256) * (1 + (idx / 256))) as u8
     }
 
-    fn test_copy_bytes_with_threads(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_copy_bytes_with_threads(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testCopyBytesWithThreads")
             .tempdir()?;
@@ -1150,7 +1153,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_fsync_doesnt_create_new_files(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_fsync_doesnt_create_new_files(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().prefix("nocreate").tempdir()?;
         let path = temp_dir.path().to_path_buf();
 
@@ -1186,7 +1189,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_random_long(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_random_long(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().prefix("testLongs").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
@@ -1259,7 +1262,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_random_int(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_random_int(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().prefix("testInts").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
@@ -1333,7 +1336,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_random_short(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_random_short(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().prefix("testShorts").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
@@ -1406,7 +1409,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_random_byte(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_random_byte(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().prefix("testBytes").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
@@ -1472,7 +1475,7 @@ pub trait BaseDirectoryTestCase {
         bytes: &[u8],
         bytes_offset: usize,
         random: &mut StdRng,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let to_read = bytes.len() - bytes_offset;
 
         for i in 0..to_read {
@@ -1497,7 +1500,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_slice_of_slice(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_slice_of_slice(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().prefix("sliceOfSlice").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
@@ -1578,7 +1581,7 @@ pub trait BaseDirectoryTestCase {
     }
     /// This test verifies that writes larger than the size of the buffer output will correctly
     /// increment the file pointer.
-    fn test_large_writes(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_large_writes(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().prefix("largeWrites").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
@@ -1599,7 +1602,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     /// This test verifies that the `to_string` implementation of `IndexOutput` contains the file name.
-    fn test_index_output_to_string(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_index_output_to_string(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
@@ -1616,16 +1619,16 @@ pub trait BaseDirectoryTestCase {
     /// This test ensures that double-closing an `IndexOutput` does not cause any issues.
     /// Rust Lucene automatically closes resources when they go out of scope, so this test is not applicable.
     #[allow(unused)]
-    fn test_double_close_output(&self, _random: &mut StdRng) -> Result<(), TestError> {
+    fn test_double_close_output(&self, _random: &mut StdRng) -> Result<(), LuceneError> {
         Ok(())
     }
     /// Rust Lucene automatically closes resources when they go out of scope, so this test is not applicable.
     #[allow(unused)]
-    fn test_double_close_input(&self) -> Result<(), TestError> {
+    fn test_double_close_input(&self) -> Result<(), LuceneError> {
         Ok(())
     }
     /// This test ensures that `create_temp_output` generates unique files and writes/reads data correctly.
-    fn test_create_temp_output(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_create_temp_output(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
@@ -1656,7 +1659,7 @@ pub trait BaseDirectoryTestCase {
     }
     /// This test ensures that attempting to create an output for an existing file results in an error,
     /// and after deleting the file, it can be created again.
-    fn test_create_output_for_existing_file(&self) -> Result<(), TestError> {
+    fn test_create_output_for_existing_file(&self) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = IOContext::default_io_context()?;
@@ -1682,7 +1685,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_seek_to_end_of_file(&self) -> Result<(), TestError> {
+    fn test_seek_to_end_of_file(&self) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = IOContext::default_io_context()?;
@@ -1704,7 +1707,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_seek_beyond_end_of_file(&self) -> Result<(), TestError> {
+    fn test_seek_beyond_end_of_file(&self) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new().tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = IOContext::default_io_context()?;
@@ -1728,7 +1731,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_pending_deletions(&self, _random: &mut StdRng) -> Result<(), TestError> {
+    fn test_pending_deletions(&self, _random: &mut StdRng) -> Result<(), LuceneError> {
         // TODO: does not implemented "VirusCheckingFS" yet, so this test is not applicable
         // let temp_dir = tempfile::Builder::new().prefix("virusChecker").tempdir()?;
         // let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
@@ -1790,7 +1793,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_list_all_is_sorted(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_list_all_is_sorted(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("test_list_all_is_sorted")
             .tempdir()?;
@@ -1833,7 +1836,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_data_types(&self) -> Result<(), TestError> {
+    fn test_data_types(&self) -> Result<(), LuceneError> {
         let mut values: [i64; 4] = [43, 12345, 123456, 1234567890];
         let temp_dir = tempfile::Builder::new()
             .prefix("test_data_types")
@@ -1864,7 +1867,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_group_vint_overflow(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_group_vint_overflow(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = tempfile::Builder::new()
             .prefix("testGroupVIntOverflow")
             .tempdir()?;
@@ -1909,7 +1912,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_group_vint(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_group_vint(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir1 = tempfile::Builder::new()
             .prefix("testGroupVInt1")
             .tempdir()?;
@@ -1946,7 +1949,7 @@ pub trait BaseDirectoryTestCase {
         min_bpv: usize,
         max_bpv: usize,
         max_num_values: usize,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let mut values = vec![0i64; max_num_values];
         let mut num_values_array = vec![0usize; iterations];
         let io_context = IOContext::default_io_context()?;
@@ -2002,7 +2005,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    fn test_prefetch(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_prefetch(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let start_offset = 0;
         let temp_dir = tempfile::Builder::new().prefix("test_prefetch").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
@@ -2072,7 +2075,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
 
-    fn test_prefetch_on_slice(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_prefetch_on_slice(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let start_offset = random.gen_range(1..1024);
         let temp_dir = tempfile::Builder::new().prefix("test_prefetch").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;

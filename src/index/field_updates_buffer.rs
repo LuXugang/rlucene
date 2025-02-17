@@ -617,8 +617,9 @@ mod tests {
     use crate::index::term::Term;
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::{random, rarely};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
+    use crate::util::error::lucene_error::LuceneError;
     use crate::util::CounterEnum;
     use rand::rngs::StdRng;
     use rand::Rng;
@@ -629,7 +630,7 @@ mod tests {
     pub struct TestFieldUpdatesBuffer;
 
     #[test]
-    pub fn test_basics() -> Result<(), TestError> {
+    pub fn test_basics() -> Result<(), LuceneError> {
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let update = DocValuesUpdate::new(
             DocValuesType::Numeric,
@@ -696,7 +697,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_update_share_values() -> Result<(), TestError> {
+    fn test_update_share_values() -> Result<(), LuceneError> {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let int_value = random.gen::<i32>();
@@ -761,7 +762,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    pub fn test_update_share_values_binary() -> Result<(), TestError> {
+    pub fn test_update_share_values_binary() -> Result<(), LuceneError> {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let value_for_three = random.gen_bool(0.5);
@@ -887,7 +888,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_binary_random() -> Result<(), TestError> {
+    pub fn test_binary_random() -> Result<(), LuceneError> {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.gen_range(0..1000);
@@ -944,7 +945,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    pub fn test_numeric_random() -> Result<(), TestError> {
+    pub fn test_numeric_random() -> Result<(), LuceneError> {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.gen_range(0..1000);
@@ -993,7 +994,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    pub fn test_no_numeric_value() -> Result<(), TestError> {
+    pub fn test_no_numeric_value() -> Result<(), LuceneError> {
         let update = DocValuesUpdate::new(
             DocValuesType::Numeric,
             Term::from_text("id".to_string(), "1"),
@@ -1013,7 +1014,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), TestError> {
+    pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), LuceneError> {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.gen_range(0..1000);
@@ -1074,7 +1075,7 @@ mod tests {
         buffer: &FieldUpdatesBuffer,
         updates: &mut [DocValuesUpdate],
         term_sorted: bool,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let mut updates = updates.to_owned();
         if term_sorted {
             updates.sort_by(|a, b| a.term.bytes.cmp(&b.term.bytes));

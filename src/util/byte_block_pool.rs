@@ -458,7 +458,7 @@ impl AllocatorEnum {
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::{
@@ -590,7 +590,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_large_random_block() -> Result<(), TestError> {
+    fn test_large_random_block() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let mut pool =

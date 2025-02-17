@@ -279,14 +279,14 @@ pub static GOOD_FAST_HASH_SEED: Lazy<i32> = Lazy::new(|| {
 mod tests {
     use crate::test::util::lucene_test_case::new_bytes_ref_from_string;
     use crate::test::util::lucene_test_case::random;
-    use crate::test::util::test_error::TestError;
+
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::StringHelper;
 
     #[allow(dead_code)] // for quick search
     pub struct TestStringHelper;
     #[test]
-    fn test_bytes_difference() -> Result<(), TestError> {
+    fn test_bytes_difference() -> Result<(), LuceneError> {
         let mut random = random();
         let left = new_bytes_ref_from_string(&mut random, "foobar")?;
         let right = new_bytes_ref_from_string(&mut random, "foozo")?;
@@ -343,7 +343,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_starts_with() -> Result<(), TestError> {
+    fn test_starts_with() -> Result<(), LuceneError> {
         let mut random = random();
         let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foo")?;
@@ -351,7 +351,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_ends_with() -> Result<(), TestError> {
+    fn test_ends_with() -> Result<(), LuceneError> {
         let mut random = random();
         let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "bar")?;
@@ -359,7 +359,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_starts_with_whole() -> Result<(), TestError> {
+    fn test_starts_with_whole() -> Result<(), LuceneError> {
         let mut random = random();
         let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
@@ -367,7 +367,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_ends_with_whole() -> Result<(), TestError> {
+    fn test_ends_with_whole() -> Result<(), LuceneError> {
         let mut random = random();
         let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
@@ -375,7 +375,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_murmur_hash3() -> Result<(), TestError> {
+    fn test_murmur_hash3() -> Result<(), LuceneError> {
         let mut random = random();
         // Hashes computed using murmur3_32 from https://code.google.com/p/pyfasthash
         assert_eq!(
@@ -409,7 +409,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_sort_key_length() -> Result<(), TestError> {
+    fn test_sort_key_length() -> Result<(), LuceneError> {
         let mut random = random();
         assert_eq!(
             StringHelper::sort_key_length(

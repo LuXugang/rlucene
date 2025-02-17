@@ -35,6 +35,7 @@ use crate::util::error::not_found::NotFoundError;
 use crate::util::error::number_format::NumberFormatError;
 use crate::util::error::unimplemented::NotImplementedError;
 use crate::util::error::unsupported_operation::UnsupportedOperationError;
+use crate::util::VersionError;
 use std::io::Error;
 use std::string::FromUtf8Error;
 use thiserror::Error;
@@ -115,6 +116,8 @@ pub enum LuceneError {
 
     #[error("{0}")]
     NotImplemented(#[from] NotImplementedError),
+    #[error("{0}")]
+    VersionError(#[from] VersionError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {

@@ -521,8 +521,9 @@ mod tests {
     use crate::index::BytesRef;
     use crate::search::term_query::TermQuery;
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::util::accountable::Accountable;
+    use crate::util::error::lucene_error::LuceneError;
     use rand::{Rng, RngCore};
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -531,7 +532,7 @@ mod tests {
     pub struct TestBufferedUpdates;
 
     #[test]
-    fn test_ram_bytes_used() -> Result<(), TestError> {
+    fn test_ram_bytes_used() -> Result<(), LuceneError> {
         let mut random = random();
         let mut bu = BufferedUpdates::new("seg1".to_string());
 
@@ -591,7 +592,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_deleted_terms() -> Result<(), TestError> {
+    fn test_deleted_terms() -> Result<(), LuceneError> {
         let mut random = random();
         let iters = at_least(&mut random, 10);
         let fields = ["a".to_string(), "b".to_string(), "c".to_string()];

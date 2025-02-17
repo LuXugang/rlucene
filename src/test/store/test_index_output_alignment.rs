@@ -17,7 +17,7 @@
 use crate::store::data_output::DataOutput;
 use crate::store::{align_offset, IndexOutput, OutputStreamIndexOutput};
 use crate::test::util::lucene_test_case::{random, random_multiplier};
-use crate::test::util::test_error::TestError;
+
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use rand::Rng;
@@ -26,7 +26,7 @@ use rand::Rng;
 struct TestIndexOutputAlignment;
 
 #[test]
-fn test_alignment_calculation() -> Result<(), TestError> {
+fn test_alignment_calculation() -> Result<(), LuceneError> {
     // Test alignment with various sizes
     assert_eq!(align_offset(0, BitUtil::LONG_BYTES as i32)?, 0);
     assert_eq!(align_offset(0, BitUtil::INT_BYTES as i32)?, 0);

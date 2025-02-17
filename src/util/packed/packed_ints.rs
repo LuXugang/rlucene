@@ -1083,7 +1083,7 @@ mod tests {
     };
     use crate::test::util::lucene_test_case::{at_least, is_night_mode};
     use crate::test::util::lucene_test_case::{new_directory, new_io_context, random, rarely};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::long_values::LongValues;
@@ -1146,7 +1146,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_bits_required() -> Result<(), TestError> {
+    fn test_bits_required() -> Result<(), LuceneError> {
         assert_eq!(PackedInts::bits_required((2u64.pow(61) - 1) as i64)?, 61);
         assert_eq!(PackedInts::bits_required(0x1FFFFFFFFFFFFFFF)?, 61);
         assert_eq!(PackedInts::bits_required(0x3FFFFFFFFFFFFFFF)?, 62);
@@ -1173,7 +1173,7 @@ mod tests {
         );
     }
     #[test]
-    fn test_packed_ints() -> Result<(), TestError> {
+    fn test_packed_ints() -> Result<(), LuceneError> {
         let mut random = random();
         let num = at_least(&mut random, 3);
         let io_context = new_io_context(&mut random)?;
@@ -1293,7 +1293,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_end_pointer() -> Result<(), TestError> {
+    fn test_end_pointer() -> Result<(), LuceneError> {
         let mut random = random();
 
         let mut directory = new_directory(&mut random)?;
@@ -1355,7 +1355,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_controlled_equality() -> Result<(), TestError> {
+    fn test_controlled_equality() -> Result<(), LuceneError> {
         const VALUE_COUNT: i32 = 255;
         const BITS_PER_VALUE: i32 = 8;
 
@@ -1373,7 +1373,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_bulk_copy() -> Result<(), TestError> {
+    fn test_random_bulk_copy() -> Result<(), LuceneError> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3);
 
@@ -1445,7 +1445,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_equality() -> Result<(), TestError> {
+    fn test_random_equality() -> Result<(), LuceneError> {
         let mut random = random();
         let num_iters = if is_night_mode() {
             at_least(&mut random, 10)
@@ -1464,7 +1464,7 @@ mod tests {
         value_count: i32,
         bits_per_value: i32,
         random: u64,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let mut packed_ints = create_packed_ints(value_count, bits_per_value)?;
 
         for packed_int in &mut packed_ints {
@@ -1479,7 +1479,7 @@ mod tests {
     fn create_packed_ints(
         value_count: i32,
         bits_per_value: i32,
-    ) -> Result<Vec<MutablePacked64Enum>, TestError> {
+    ) -> Result<Vec<MutablePacked64Enum>, LuceneError> {
         let mut packed_ints: Vec<MutablePacked64Enum> = Vec::new();
         let packed64 = Packed64::new(value_count, bits_per_value);
         let mutable_impl = MutableImpl::new(packed64);
@@ -1498,7 +1498,7 @@ mod tests {
         packed_int: &mut MutablePacked64Enum,
         bits_per_value: i32,
         seed: u64,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let max_value = if bits_per_value == 64 {
             i64::MAX
         } else {
@@ -1527,13 +1527,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_list_equality(packed_ints: &mut [MutablePacked64Enum]) -> Result<(), TestError> {
+    fn assert_list_equality(packed_ints: &mut [MutablePacked64Enum]) -> Result<(), LuceneError> {
         assert_list_equality_impl("", packed_ints)
     }
     fn assert_list_equality_impl(
         message: &str,
         packed_ints: &mut [MutablePacked64Enum],
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         if packed_ints.is_empty() {
             return Ok(());
         }
@@ -1568,7 +1568,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_secondary_block_change() -> Result<(), TestError> {
+    fn test_secondary_block_change() -> Result<(), LuceneError> {
         let mut mutable = MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(26, 5)));
         mutable.set(24, 31)?;
         assert_eq!(mutable.get(24)?, 31, "The value #24 should be correct");
@@ -1582,11 +1582,11 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_int_overflow() -> Result<(), TestError> {
+    fn test_int_overflow() -> Result<(), LuceneError> {
         Ok(())
     }
     #[test]
-    fn test_fill() -> Result<(), TestError> {
+    fn test_fill() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = 1111;
         let from = random.gen_range(0..value_count + 1);
@@ -1616,7 +1616,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_packed_ints_null() -> Result<(), TestError> {
+    fn test_packed_ints_null() -> Result<(), LuceneError> {
         let mut random = random();
         // must be > 10 for the bulk reads below
         let size = TestUtil::next_int(&mut random, 11, 256);
@@ -1656,7 +1656,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_bulk_get() -> Result<(), TestError> {
+    fn test_bulk_get() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = 1111;
         let index = random.gen_range(0..value_count) as usize;
@@ -1707,7 +1707,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bulk_set() -> Result<(), TestError> {
+    fn test_bulk_set() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = 1111;
         let index = random.gen_range(0..value_count);
@@ -1758,7 +1758,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_copy() -> Result<(), TestError> {
+    fn test_copy() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = TestUtil::next_int(&mut random, 5, 600);
         let off1 = random.gen_range(0..value_count);
@@ -1804,7 +1804,7 @@ mod tests {
     }
 
     #[test]
-    fn test_growable_writer() -> Result<(), TestError> {
+    fn test_growable_writer() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = 113 + random.gen_range(0..1112);
 
@@ -1840,7 +1840,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_paged_growable_writer() -> Result<(), TestError> {
+    fn test_paged_growable_writer() -> Result<(), LuceneError> {
         let mut random = random();
 
         let page_size = 1 << TestUtil::next_int(&mut random, 6, 30);
@@ -1922,7 +1922,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_paged_mutable() -> Result<(), TestError> {
+    fn test_paged_mutable() -> Result<(), LuceneError> {
         let mut random = random();
         let bits_per_value = TestUtil::next_int(&mut random, 1, 64);
         let max = PackedInts::max_value(bits_per_value);
@@ -2000,7 +2000,7 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_decode() -> Result<(), TestError> {
+    fn test_encode_decode() -> Result<(), LuceneError> {
         let mut random = random();
 
         for format in &[
@@ -2201,7 +2201,7 @@ mod tests {
         Monotonic,
     }
     #[test]
-    fn test_packed_long_values() -> Result<(), TestError> {
+    fn test_packed_long_values() -> Result<(), LuceneError> {
         let mut random = random();
 
         let arr_size = if is_night_mode() {
@@ -2311,7 +2311,7 @@ mod tests {
         // PackedDataOutput is only used for tests, so we don't need to test it
     }
     #[test]
-    fn test_block_packed_reader_writer() -> Result<(), TestError> {
+    fn test_block_packed_reader_writer() -> Result<(), LuceneError> {
         let mut random = random();
         let iters = at_least(&mut random, 2);
         for _ in 0..iters {
@@ -2478,7 +2478,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_monotonic_block_packed_reader_writer() -> Result<(), TestError> {
+    fn test_monotonic_block_packed_reader_writer() -> Result<(), LuceneError> {
         let mut random = random();
         let iters = at_least(&mut random, 2);
         for _ in 0..iters {
@@ -2538,7 +2538,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_block_reader_overflow() -> Result<(), TestError> {
+    fn test_block_reader_overflow() -> Result<(), LuceneError> {
         if !is_night_mode() {
             return Ok(());
         }

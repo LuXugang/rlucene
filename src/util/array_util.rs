@@ -618,7 +618,7 @@ impl ByteArrayComparator for ByteByteArrayComparator {
 #[cfg(test)]
 mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::{
         ArrayUtil, ByteArrayComparator, U32byteArrayComparator, U64byteArrayComparator,
@@ -751,7 +751,7 @@ mod tests {
         array
     }
     #[test]
-    fn test_intro_sort() -> Result<(), TestError> {
+    fn test_intro_sort() -> Result<(), LuceneError> {
         let mut random = random();
         let num = at_least(&mut random, 50);
         for _ in 0..num {
@@ -786,7 +786,7 @@ mod tests {
     // This is a test for LUCENE-3054 (which fails without the merge sort fall back with stack
     // overflow in most cases)
     #[test]
-    fn test_quick_to_heap_sort_fallback() -> Result<(), TestError> {
+    fn test_quick_to_heap_sort_fallback() -> Result<(), LuceneError> {
         let mut random = random();
         let num = at_least(&mut random, 10);
         for _ in 0..num {
@@ -799,7 +799,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_tim_sort() -> Result<(), TestError> {
+    fn test_tim_sort() -> Result<(), LuceneError> {
         let mut random = random();
         let num = at_least(&mut random, 50);
 

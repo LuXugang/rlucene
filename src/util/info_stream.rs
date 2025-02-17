@@ -95,17 +95,17 @@ impl InfoStream for InfoStreamEnum {
 }
 #[cfg(test)]
 mod tests {
-    use crate::test::util::test_error::TestError;
+    use crate::util::error::lucene_error::LuceneError;
 
     #[allow(dead_code)] // for quick search
     pub struct TestInfoStream;
     #[test]
-    fn test_test_points_off() -> Result<(), TestError> {
+    fn test_test_points_off() -> Result<(), LuceneError> {
         // TODO:waiting for implementation after IndexWriter
         Ok(())
     }
     #[test]
-    fn test_test_pointson() -> Result<(), TestError> {
+    fn test_test_pointson() -> Result<(), LuceneError> {
         // TODO:waiting for implementation after IndexWriter
         Ok(())
     }

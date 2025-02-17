@@ -252,16 +252,17 @@ mod tests {
     use crate::index::prefix_coded_terms::PrefixCodedTermsBuilder;
     use crate::index::term::Term;
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
+    use crate::util::error::lucene_error::LuceneError;
     use std::collections::BTreeSet;
 
     #[allow(dead_code)] // for quick search
     pub struct TestPrefixCodedTerms;
 
     #[test]
-    fn test_empty() -> Result<(), TestError> {
+    fn test_empty() -> Result<(), LuceneError> {
         let mut builder = PrefixCodedTermsBuilder::new()?;
         let prefix_coded_terms = builder.finish()?;
         let mut iter = prefix_coded_terms.iterator();
@@ -269,7 +270,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_one() -> Result<(), TestError> {
+    fn test_one() -> Result<(), LuceneError> {
         let term = Term::from_text("foo".to_string(), "bogus");
         let mut builder = PrefixCodedTermsBuilder::new()?;
         builder.add_term(&term)?;
@@ -284,7 +285,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random() -> Result<(), TestError> {
+    fn test_random() -> Result<(), LuceneError> {
         let mut random = random();
         let mut terms = BTreeSet::new();
         let nterms = at_least(&mut random, 10_000);

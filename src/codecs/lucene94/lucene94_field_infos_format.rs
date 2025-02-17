@@ -440,48 +440,48 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 mod tests {
     use crate::test::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
     use crate::test::util::lucene_test_case::random;
-    use crate::test::util::test_error::TestError;
+    use crate::util::error::lucene_error::LuceneError;
 
     pub struct TestLucene94FieldInfosFormat;
     impl BaseFieldInfoFormatTestCase for TestLucene94FieldInfosFormat {}
     #[test]
-    fn test_one_field() -> Result<(), TestError> {
+    fn test_one_field() -> Result<(), LuceneError> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_one_field(&mut random)
     }
     #[test]
-    fn test_immutable_attributes() -> Result<(), TestError> {
+    fn test_immutable_attributes() -> Result<(), LuceneError> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_immutable_attributes(&mut random)
     }
     #[test]
-    fn test_exception_on_create_output() -> Result<(), TestError> {
+    fn test_exception_on_create_output() -> Result<(), LuceneError> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_create_output(&mut random)
     }
     #[test]
-    fn test_exception_on_close_output() -> Result<(), TestError> {
+    fn test_exception_on_close_output() -> Result<(), LuceneError> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_close_output(&mut random)
     }
     #[test]
-    fn test_exception_on_open_input() -> Result<(), TestError> {
+    fn test_exception_on_open_input() -> Result<(), LuceneError> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_open_input(&mut random)
     }
     #[test]
-    fn test_exception_on_close_input() -> Result<(), TestError> {
+    fn test_exception_on_close_input() -> Result<(), LuceneError> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_close_input(&mut random)
     }
     #[test]
-    fn test_random() -> Result<(), TestError> {
+    fn test_random() -> Result<(), LuceneError> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_random(&mut random)

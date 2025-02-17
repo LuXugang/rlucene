@@ -92,9 +92,10 @@ mod tests {
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
     };
     use crate::test::util::lucene_test_case::random;
-    use crate::test::util::test_error::TestError;
+
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
+    use crate::util::error::lucene_error::LuceneError;
     use crate::util::fixed_bit_set::FixedBitSet;
     use rand::prelude::StdRng;
 
@@ -116,7 +117,7 @@ mod tests {
             num_bits: i32,
             ds1: &bit_set::BitSet,
             ds2: T,
-        ) -> Result<(), TestError> {
+        ) -> Result<(), LuceneError> {
             BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }
     }
@@ -124,25 +125,25 @@ mod tests {
     pub struct TestFixedBitDocIdSet;
 
     #[test]
-    fn test_bit_0() -> Result<(), TestError> {
+    fn test_bit_0() -> Result<(), LuceneError> {
         let test_case = TestFixedBitDocIdSet;
         let mut random = random();
         test_case.test_bit_0(&mut random)
     }
     #[test]
-    fn test_bit_1() -> Result<(), TestError> {
+    fn test_bit_1() -> Result<(), LuceneError> {
         let test_case = TestFixedBitDocIdSet;
         let mut random = random();
         test_case.test_bit_1(&mut random)
     }
     #[test]
-    fn test_bit_2() -> Result<(), TestError> {
+    fn test_bit_2() -> Result<(), LuceneError> {
         let test_case = TestFixedBitDocIdSet;
         let mut random = random();
         test_case.test_bit_2(&mut random)
     }
     #[test]
-    fn test_against_bit_set() -> Result<(), TestError> {
+    fn test_against_bit_set() -> Result<(), LuceneError> {
         let test_case = TestFixedBitDocIdSet;
         let mut random = random();
         test_case.test_against_bit_set(&mut random)

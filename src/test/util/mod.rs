@@ -22,5 +22,4 @@ pub(crate) mod id_set_common;
 pub(crate) mod index_package_access;
 pub(crate) mod lucene_test_case;
 mod packed;
-pub mod test_error;
 pub mod test_util;

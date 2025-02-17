@@ -630,7 +630,6 @@ mod tests {
 
     use crate::index::indexable_field::IndexableField;
     use crate::index::BytesRef;
-    use crate::test::util::test_error::TestError;
 
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::number::Number;
@@ -644,7 +643,7 @@ mod tests {
     struct TestField;
 
     #[test]
-    fn test_double_point() -> Result<(), TestError> {
+    fn test_double_point() -> Result<(), LuceneError> {
         let mut field = DoublePoint::new("foo", &[5.0])?;
         let mut result = try_set_byte_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
@@ -675,7 +674,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_double_point_2d() -> Result<(), TestError> {
+    fn test_double_point_2d() -> Result<(), LuceneError> {
         let mut field = DoublePoint::new("foo", &[5.0, 4.0])?;
         let mut result = try_set_byte_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));

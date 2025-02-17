@@ -18,8 +18,9 @@ use crate::store::data_output::DataOutput;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput};
 use crate::test::util::lucene_test_case::{is_night_mode, new_directory, random};
-use crate::test::util::test_error::TestError;
+
 use crate::test::util::test_util::TestUtil;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_reader::DirectReader;
 use crate::util::packed::direct_writer::DirectWriter;
@@ -32,7 +33,7 @@ use std::sync::{Arc, Mutex};
 pub struct TestDirectPacked;
 
 #[test]
-fn test_simple() -> Result<(), TestError> {
+fn test_simple() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let bits_per_value = DirectWriter::bits_required(2)?;
@@ -59,7 +60,7 @@ fn test_simple() -> Result<(), TestError> {
 }
 /// test exception is delivered if you add the wrong number of values.
 #[test]
-fn test_not_enough_values() -> Result<(), TestError> {
+fn test_not_enough_values() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let bits_per_value = DirectWriter::bits_required(2)?;
@@ -77,7 +78,7 @@ fn test_not_enough_values() -> Result<(), TestError> {
 }
 
 #[test]
-fn test_random() -> Result<(), TestError> {
+fn test_random() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     for bpv in 1..=64 {
@@ -87,7 +88,7 @@ fn test_random() -> Result<(), TestError> {
 }
 
 #[test]
-fn test_random_with_offset() -> Result<(), TestError> {
+fn test_random_with_offset() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let offset = TestUtil::next_int(&mut random, 1, 100);
@@ -98,7 +99,7 @@ fn test_random_with_offset() -> Result<(), TestError> {
 }
 
 #[test]
-fn test_random_merge() -> Result<(), TestError> {
+fn test_random_merge() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     for bpv in 1..=1 {
@@ -108,7 +109,7 @@ fn test_random_merge() -> Result<(), TestError> {
 }
 
 #[test]
-fn test_random_merge_with_offset() -> Result<(), TestError> {
+fn test_random_merge_with_offset() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let offset = TestUtil::next_int(&mut random, 1, 100);
@@ -124,7 +125,7 @@ fn do_test_bpv<D>(
     bpv: i32,
     offset: i64,
     merge: bool,
-) -> Result<(), TestError>
+) -> Result<(), LuceneError>
 where
     D: Directory,
 {

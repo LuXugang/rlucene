@@ -364,7 +364,8 @@ mod tests {
     use crate::test::store::base_data_output_test_case::add_random_data;
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::random;
-    use crate::test::util::test_error::TestError;
+
+    use crate::util::error::lucene_error::LuceneError;
     use rand::Rng;
     use rand_xoshiro::rand_core::SeedableRng;
     use rand_xoshiro::Xoroshiro128Plus;
@@ -373,7 +374,7 @@ mod tests {
     struct TestByteBuffersDataInput;
 
     #[test]
-    fn test_sanity() -> Result<(), TestError> {
+    fn test_sanity() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         let mut o1 = out.get_data_input();
         assert_eq!(0, o1.length());
@@ -400,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_reads() -> Result<(), TestError> {
+    fn test_random_reads() -> Result<(), LuceneError> {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         let seed: u64 = random.gen();
@@ -417,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_reads_on_slices() -> Result<(), TestError> {
+    fn test_random_reads_on_slices() -> Result<(), LuceneError> {
         let mut random = random();
         let reps = random.gen_range(1..=20);
         for _i in 0..=reps {
@@ -447,7 +448,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_seek_empty() -> Result<(), TestError> {
+    fn test_seek_empty() -> Result<(), LuceneError> {
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         let mut data_input = dst.get_data_input();
         let mut result = data_input.seek(0);
@@ -462,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn test_seek_and_skip() -> Result<(), TestError> {
+    fn test_seek_and_skip() -> Result<(), LuceneError> {
         let mut random = random();
         let reps = random.gen_range(1..=20);
         for _i in 0..reps {
@@ -518,7 +519,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_slicing_window() -> Result<(), TestError> {
+    fn test_slicing_window() -> Result<(), LuceneError> {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         assert_eq!(0, dst.get_data_input().slice(0, 0)?.length());
@@ -540,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn test_eof_on_array_read_past_buffer_size() -> Result<(), TestError> {
+    fn test_eof_on_array_read_past_buffer_size() -> Result<(), LuceneError> {
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         let bytes: Vec<u8> = vec![0; 10];
         dst.write_bytes(bytes)?;
@@ -552,7 +553,7 @@ mod tests {
     }
 
     #[test]
-    fn test_slicing_large_buffers() -> Result<(), TestError> {
+    fn test_slicing_large_buffers() -> Result<(), LuceneError> {
         // Simulate a "large" (> 4GB) input by duplicating
         // buffers with the same content.
         let mut random = random();

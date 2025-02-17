@@ -428,15 +428,15 @@ mod tests {
     use crate::test::store::base_data_output_test_case::{add_random_data, BaseDataOutputTestCase};
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::{random, random_from_seed};
-    use crate::test::util::test_error::TestError;
 
+    use crate::util::error::lucene_error::LuceneError;
     use rand::Rng;
 
     struct TestByteBuffersDataOutput;
     impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
         type DO = ByteBuffersDataOutput;
 
-        fn new_instance(&self) -> Result<Self::DO, TestError> {
+        fn new_instance(&self) -> Result<Self::DO, LuceneError> {
             Ok(ByteBuffersDataOutput::with_resettable_instance())
         }
 
@@ -446,7 +446,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reuse() -> Result<(), TestError> {
+    fn test_reuse() -> Result<(), LuceneError> {
         let mut random = random();
         let mut o = ByteBuffersDataOutput::new(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
@@ -467,7 +467,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_constructor_with_expected_size() -> Result<(), TestError> {
+    fn test_constructor_with_expected_size() -> Result<(), LuceneError> {
         let mut random = random();
         let mut o = ByteBuffersDataOutput::with_expected_size(0)?;
         o.write_byte(0)?;
@@ -496,7 +496,7 @@ mod tests {
     }
 
     #[test]
-    fn test_randomized_writes() -> Result<(), TestError> {
+    fn test_randomized_writes() -> Result<(), LuceneError> {
         let mut test = TestByteBuffersDataOutput;
         let mut random = random();
         // here could use any DataInput impl because this test does not test ByteArrayDataInput
@@ -527,7 +527,7 @@ mod tests {
         assert!(o.is_err());
     }
     #[test]
-    fn test_sanity() -> Result<(), TestError> {
+    fn test_sanity() -> Result<(), LuceneError> {
         let case = TestByteBuffersDataOutput;
         let mut o = case.new_instance()?;
 
@@ -548,7 +548,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_large_array_add() -> Result<(), TestError> {
+    fn test_large_array_add() -> Result<(), LuceneError> {
         let mut random = random();
         let mut o = ByteBuffersDataOutput::with_resettable_instance();
         let mb = 1024 * 1024;
@@ -570,7 +570,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_copy_bytes_on_heap() -> Result<(), TestError> {
+    fn test_copy_bytes_on_heap() -> Result<(), LuceneError> {
         let mut random = random();
         let mut bytes = vec![0u8; 1024 * 8 + 10];
         random.fill(&mut bytes[..]);
@@ -590,7 +590,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_copy_bytes_on_direct_byte_buffer() -> Result<(), TestError> {
+    fn test_copy_bytes_on_direct_byte_buffer() -> Result<(), LuceneError> {
         let mut random = random();
         let mut bytes = vec![0u8; 1024 * 8 + 10];
         random.fill(&mut bytes[..]);

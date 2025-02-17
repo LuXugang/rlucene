@@ -677,7 +677,7 @@ mod tests {
 
     use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
     use crate::test::util::lucene_test_case::{is_night_mode, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
@@ -889,7 +889,7 @@ mod tests {
         a: &bit_set::BitSet,
         b: &FixedBitSet,
         mode: i32,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         match mode {
             1 => do_iterate1(random, a, b),
             2 => do_iterate2(random, a, b),
@@ -901,7 +901,7 @@ mod tests {
         random: &mut StdRng,
         a: &bit_set::BitSet,
         b: &FixedBitSet,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         assert_eq!(a.len(), b.cardinality() as usize);
         let mut iterator = BitSetIterator::new(b, 0).unwrap();
         let iter = a.iter();
@@ -921,7 +921,7 @@ mod tests {
         random: &mut StdRng,
         a: &bit_set::BitSet,
         b: &FixedBitSet,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         assert_eq!(a.len(), b.cardinality() as usize);
         let mut iterator = BitSetIterator::new(b, 0).unwrap();
         let iter = a.iter();
@@ -937,7 +937,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) -> Result<(), TestError> {
+    fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) -> Result<(), LuceneError> {
         // let max_size = random.gen_range(1200..=i32::MAX);
         let max_size = random.gen_range(1200..=100000);
         let mut a0: bit_set::BitSet = Default::default();
@@ -1060,7 +1060,7 @@ mod tests {
     }
 
     #[test]
-    fn test_small() -> Result<(), TestError> {
+    fn test_small() -> Result<(), LuceneError> {
         let mut random = random();
         let iters = if is_night_mode() {
             random.gen_range(1000..100000)
@@ -1284,7 +1284,7 @@ mod tests {
     }
 
     #[test]
-    fn test_and_not() -> Result<(), TestError> {
+    fn test_and_not() -> Result<(), LuceneError> {
         let mut random = random();
 
         let num_bits2 = random.gen_range(1000..=2000);

@@ -902,37 +902,38 @@ mod tests {
     use crate::index::index_options::IndexOptions;
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
-    use crate::test::util::test_error::TestError;
+
+    use crate::util::error::lucene_error::LuceneError;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
     #[test]
-    fn test_field_infos() -> Result<(), TestError> {
+    fn test_field_infos() -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_field_attributes() -> Result<(), TestError> {
+    fn test_field_attributes() -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_field_attributes_single_segment() -> Result<(), TestError> {
+    fn test_field_attributes_single_segment() -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_merged_field_infos_empty() -> Result<(), TestError> {
+    fn test_merged_field_infos_empty() -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_merged_field_infos_single_leaf() -> Result<(), TestError> {
+    fn test_merged_field_infos_single_leaf() -> Result<(), LuceneError> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_field_numbers_auto_increment() -> Result<(), TestError> {
+    fn test_field_numbers_auto_increment() -> Result<(), LuceneError> {
         let mut field_numbers = FieldNumbers::new(
             Some("softDeletes".to_string()),
             Some("parentDoc".to_string()),

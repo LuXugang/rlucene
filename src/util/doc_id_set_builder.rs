@@ -237,7 +237,7 @@ mod tests {
     use crate::search::doc_id_set::DocIdSet;
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
     use crate::test::util::lucene_test_case::{is_night_mode, random, rarely};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
@@ -246,6 +246,7 @@ mod tests {
     use crate::util::doc_id_set_builder::{
         DocIdSetBuilder, DocIdSetBuilderEnum, DocIdSetBuilderIterator,
     };
+    use crate::util::error::lucene_error::LuceneError;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
@@ -254,7 +255,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetBuilder {}
     #[test]
-    fn test_empty() -> Result<(), TestError> {
+    fn test_empty() -> Result<(), LuceneError> {
         let mut random = random();
         let max_doc = random.gen_range(1..1000);
         let doc_id_set: Option<IntArrayDocIdSet> = None;
@@ -268,7 +269,7 @@ mod tests {
     fn assert_equals<T1: DocIdSet, T2: DocIdSet>(
         mut d1: Option<T1>,
         mut d2: Option<T2>,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         if d1.is_none() {
             if d2.is_none() {
                 assert_eq!(
@@ -305,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse() -> Result<(), TestError> {
+    fn test_sparse() -> Result<(), LuceneError> {
         let mut random = random();
         let max_doc = 1000000 + random.gen_range(0..1000000);
         let mut builder = DocIdSetBuilder::new(max_doc);
@@ -337,7 +338,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_dense() -> Result<(), TestError> {
+    fn test_dense() -> Result<(), LuceneError> {
         let mut random = random();
         let max_doc = 1000000 + random.gen_range(0..1000000);
         let mut builder = DocIdSetBuilder::new(max_doc);
@@ -369,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random() -> Result<(), TestError> {
+    fn test_random() -> Result<(), LuceneError> {
         let mut random = random();
         let max_doc = if is_night_mode() {
             TestUtil::next_int(&mut random, 1, 10000000)
@@ -435,7 +436,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_misleading_disi_cost() -> Result<(), TestError> {
+    fn test_misleading_disi_cost() -> Result<(), LuceneError> {
         let mut random = random();
         let max_doc = TestUtil::next_int(&mut random, 1000, 10000);
         let mut builder = DocIdSetBuilder::new(max_doc);
@@ -458,7 +459,7 @@ mod tests {
     }
 
     #[test]
-    fn test_leverage_stats() -> Result<(), TestError> {
+    fn test_leverage_stats() -> Result<(), LuceneError> {
         // single-valued points
         let mut doc_count = 42;
         let mut value_count = 42;
@@ -511,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cost_is_correct_after_bit_set_upgrade() -> Result<(), TestError> {
+    fn test_cost_is_correct_after_bit_set_upgrade() -> Result<(), LuceneError> {
         let max_doc = 1000000;
         let mut builder = DocIdSetBuilder::new(max_doc);
         for i in 0..1000000 >> 6 {

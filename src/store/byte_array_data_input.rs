@@ -147,13 +147,13 @@ mod tests {
     use crate::store::data_input::DataInput;
     use crate::store::data_output::DataOutput;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
-    use crate::test::util::test_error::TestError;
+    use crate::util::error::lucene_error::LuceneError;
 
     #[allow(dead_code)] // for quick search
     struct TestByteArrayDataInput;
 
     #[test]
-    fn test_basic() -> Result<(), TestError> {
+    fn test_basic() -> Result<(), LuceneError> {
         let bytes = vec![1, 65];
         let mut data_input = ByteArrayDataInput::with_bytes(bytes);
         assert_eq!(data_input.read_string()?, "A");
@@ -162,7 +162,7 @@ mod tests {
     }
 
     #[test]
-    fn test_data_types() -> Result<(), TestError> {
+    fn test_data_types() -> Result<(), LuceneError> {
         // write some primitives using ByteArrayDataOutput:
         let mut bytes = vec![0u8; 32];
         let mut out = ByteArrayDataOutput::with_bytes(&mut bytes);

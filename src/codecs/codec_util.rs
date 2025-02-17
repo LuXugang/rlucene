@@ -770,7 +770,7 @@ mod tests {
         ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput,
         DataOutput, IndexOutput,
     };
-    use crate::test::util::test_error::TestError;
+
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::StringHelper;
     use std::fmt::{Display, Formatter};
@@ -780,7 +780,7 @@ mod tests {
     struct TestCodecUtil;
 
     #[test]
-    fn test_header_length() -> Result<(), TestError> {
+    fn test_header_length() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
@@ -795,7 +795,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_too_long_header() -> Result<(), TestError> {
+    fn test_write_too_long_header() -> Result<(), LuceneError> {
         let too_long: String = "a".repeat(128);
 
         let mut output = ByteBuffersDataOutput::with_resettable_instance();
@@ -807,7 +807,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_non_ascii_header() -> Result<(), TestError> {
+    fn test_write_non_ascii_header() -> Result<(), LuceneError> {
         let non_ascii_header = "\u{1234}".to_string();
 
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
@@ -819,7 +819,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_header_wrong_magic() -> Result<(), TestError> {
+    fn test_read_header_wrong_magic() -> Result<(), LuceneError> {
         let mut output = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut index_output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
@@ -836,7 +836,7 @@ mod tests {
     }
 
     #[test]
-    fn test_checksum_entire_file() -> Result<(), TestError> {
+    fn test_checksum_entire_file() -> Result<(), LuceneError> {
         let mut output = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut index_output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
@@ -851,7 +851,7 @@ mod tests {
     }
     #[test]
     // TODO:This test does not reflect the nested error; it needs to be improved.
-    fn test_check_footer_valid() -> Result<(), TestError> {
+    fn test_check_footer_valid() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
@@ -873,7 +873,7 @@ mod tests {
 
     #[test]
     // TODO:This test does not reflect the nested error; it needs to be improved.
-    fn test_check_footer_valid_at_footer() -> Result<(), TestError> {
+    fn test_check_footer_valid_at_footer() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
@@ -899,7 +899,7 @@ mod tests {
     }
     #[test]
     // TODO: This test does not fully reflect the nested error; it needs to be improved.
-    fn test_check_footer_valid_past_footer() -> Result<(), TestError> {
+    fn test_check_footer_valid_past_footer() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
@@ -932,7 +932,7 @@ mod tests {
     }
     #[test]
     // TODO: This test does not fully reflect the nested error; it needs to be improved.
-    fn test_check_footer_invalid() -> Result<(), TestError> {
+    fn test_check_footer_invalid() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
@@ -958,7 +958,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_segment_header_length() -> Result<(), TestError> {
+    fn test_segment_header_length() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
@@ -991,7 +991,7 @@ mod tests {
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
     }
     #[test]
-    fn test_write_very_long_suffix() -> Result<(), TestError> {
+    fn test_write_very_long_suffix() -> Result<(), LuceneError> {
         let just_long_enough: String = "a".repeat(255);
 
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
@@ -1029,7 +1029,7 @@ mod tests {
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
     }
     #[test]
-    fn test_read_bogus_crc() -> Result<(), TestError> {
+    fn test_read_bogus_crc() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
@@ -1057,7 +1057,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_bogus_crc() -> Result<(), TestError> {
+    fn test_write_bogus_crc() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         let output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
         let fake_checksum = AtomicI64::new(0);
@@ -1086,7 +1086,7 @@ mod tests {
     }
     #[test]
     // TODO: This test does not fully reflect the nested error; it needs to be improved.
-    fn test_truncated_file_throws_corrupt_index_exception() -> Result<(), TestError> {
+    fn test_truncated_file_throws_corrupt_index_exception() -> Result<(), LuceneError> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         let _output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 

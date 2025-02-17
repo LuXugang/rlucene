@@ -233,7 +233,7 @@ impl Comparator<LongsRef> for LongsRefComparator {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::util::test_error::TestError;
+
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::longs_ref::LongsRef;
 
@@ -264,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_deep_copy() -> Result<(), TestError> {
+    fn test_invalid_deep_copy() -> Result<(), LuceneError> {
         let mut from = LongsRef::from_slice(vec![1, 2], 0, 2);
         from.offset += 1;
         let result = LongsRef::deep_copy_of(&from);

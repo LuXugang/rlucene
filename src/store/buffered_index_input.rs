@@ -787,7 +787,7 @@ mod tests {
     use crate::store::random_access_input::RandomAccessInput;
     use crate::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput};
     use crate::test::util::lucene_test_case::random;
-    use crate::test::util::test_error::TestError;
+
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::ReadableCursorExt;
@@ -805,7 +805,7 @@ mod tests {
     // is working as expected.
     // Our input comes from a dynamically generated/ "file" - see
     // MyBufferedIndexInput below.
-    fn test_read_byte() -> Result<(), TestError> {
+    fn test_read_byte() -> Result<(), LuceneError> {
         let sub_index_input = MyBufferedIndexInput::new();
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
@@ -821,7 +821,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_bytes() -> Result<(), TestError> {
+    fn test_read_bytes() -> Result<(), LuceneError> {
         let mut random = random();
         let sub_index_input = MyBufferedIndexInput::new();
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -880,7 +880,7 @@ mod tests {
         size: i32,
         pos: i32,
         buffer: &mut Vec<u8>,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         // Just to see that "offset" is treated properly in read_bytes(), we
         // add an arbitrary offset at the beginning of the array
         let offset = size % 10; // arbitrary offset
@@ -932,7 +932,7 @@ mod tests {
     }
 
     #[test]
-    fn test_eof() -> Result<(), TestError> {
+    fn test_eof() -> Result<(), LuceneError> {
         let sub_index_input = MyBufferedIndexInput::with_len(1024);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
@@ -958,25 +958,25 @@ mod tests {
 
         // Test block read past end of file
         let mut result = check_read_bytes(&mut input, 11, pos as i32, &mut buffer);
-        assert!(matches!(result, Err(TestError::LuceneError(_))));
+        assert!(matches!(result, Err(LuceneError::Eof(_))));
 
         input.seek(pos as i64)?;
 
         result = check_read_bytes(&mut input, 50, pos as i32, &mut buffer);
         // Test large block read past end of file
-        assert!(matches!(result, Err(TestError::LuceneError(_))));
+        assert!(matches!(result, Err(LuceneError::Eof(_))));
 
         input.seek(pos as i64)?;
 
         result = check_read_bytes(&mut input, 100000, pos as i32, &mut buffer);
         // Test massive block read past end of file
-        assert!(matches!(result, Err(TestError::LuceneError(_))));
+        assert!(matches!(result, Err(LuceneError::Eof(_))));
 
         Ok(())
     }
 
     #[test]
-    fn test_backwards_byte_reads() -> Result<(), TestError> {
+    fn test_backwards_byte_reads() -> Result<(), LuceneError> {
         let mut random = random();
         let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -998,7 +998,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backwards_int_reads() -> Result<(), TestError> {
+    fn test_backwards_int_reads() -> Result<(), LuceneError> {
         let mut random = random();
         let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -1035,7 +1035,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backwards_long_reads() -> Result<(), TestError> {
+    fn test_backwards_long_reads() -> Result<(), LuceneError> {
         let mut random = random();
         let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -1076,7 +1076,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_read_floats() -> Result<(), TestError> {
+    fn test_read_floats() -> Result<(), LuceneError> {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.gen_range(128..length / 8);
@@ -1138,7 +1138,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_read_ints() -> Result<(), TestError> {
+    fn test_read_ints() -> Result<(), LuceneError> {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.gen_range(128..length / 8);
@@ -1198,7 +1198,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_read_longs() -> Result<(), TestError> {
+    fn test_read_longs() -> Result<(), LuceneError> {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.gen_range(128..length / 8);

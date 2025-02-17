@@ -299,9 +299,10 @@ impl NumericUtils {
 mod tests {
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_util::BitUtil;
+    use crate::util::error::lucene_error::LuceneError;
     use crate::util::numeric_utils::NumericUtils;
     use num_bigint::{BigInt, Sign};
     use num_traits::{Float, FromPrimitive};
@@ -314,7 +315,7 @@ mod tests {
     /// generate a series of encoded longs, each numerical one bigger than the one before. check for
     ///correct ordering of the encoded bytes and that values round-trip.
     #[test]
-    fn test_long_conversion_and_ordering() -> Result<(), TestError> {
+    fn test_long_conversion_and_ordering() -> Result<(), LuceneError> {
         let mut previous: Option<BytesRef> = None;
         let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
         for value in -100_000..100_000 {
@@ -345,7 +346,7 @@ mod tests {
     /// generate a series of encoded ints, each numerical one bigger than the one before. check for
     /// correct ordering of the encoded bytes and that values round-trip.
     #[test]
-    fn test_int_conversion_and_ordering() -> Result<(), TestError> {
+    fn test_int_conversion_and_ordering() -> Result<(), LuceneError> {
         let mut previous: Option<BytesRef> = None;
         let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
 
@@ -375,7 +376,7 @@ mod tests {
     /// generate a series of encoded BigIntegers, each numerical one bigger than the one before. check
     /// for correct ordering of the encoded bytes and that values round-trip.
     #[test]
-    fn test_big_int_conversion_and_ordering() -> Result<(), TestError> {
+    fn test_big_int_conversion_and_ordering() -> Result<(), LuceneError> {
         let mut random = random();
         // Generate a random size between 3 and 16
         let size = TestUtil::next_int(&mut random, 3, 16) as usize;
@@ -414,7 +415,7 @@ mod tests {
     /// Checks extreme values of `i64` for correct ordering of the encoded bytes and ensures
     /// that the values can be correctly encoded and decoded (round-trip conversion).
     #[test]
-    fn test_long_special_values() -> Result<(), TestError> {
+    fn test_long_special_values() -> Result<(), LuceneError> {
         let values: Vec<i64> = vec![
             i64::MIN,
             i64::MIN + 1,
@@ -469,7 +470,7 @@ mod tests {
     /// Checks extreme values of `i32` for correct ordering of the encoded bytes and ensures
     /// that the values can be correctly encoded and decoded (round-trip conversion).
     #[test]
-    fn test_int_special_values() -> Result<(), TestError> {
+    fn test_int_special_values() -> Result<(), LuceneError> {
         let values: Vec<i32> = vec![
             i32::MIN,
             i32::MIN + 1,
@@ -521,7 +522,7 @@ mod tests {
     /// Checks extreme values of `BigInt` (4 bytes) for correct ordering of the encoded bytes
     /// and ensures that the values can be correctly encoded and decoded (round-trip conversion).
     #[test]
-    fn test_big_int_special_values() -> Result<(), TestError> {
+    fn test_big_int_special_values() -> Result<(), LuceneError> {
         use num_bigint::BigInt;
         use num_traits::FromPrimitive;
         let values: Vec<BigInt> = vec![
@@ -580,7 +581,7 @@ mod tests {
     /// Checks various sorted values of `f64` (including extreme values) for correct ordering of
     /// the encoded bytes and ensures that the values can be correctly encoded and decoded (round-trip conversion).
     #[test]
-    fn test_doubles() -> Result<(), TestError> {
+    fn test_doubles() -> Result<(), LuceneError> {
         let values: Vec<f64> = vec![
             f64::NEG_INFINITY,
             -2.3E25,
@@ -629,7 +630,7 @@ mod tests {
     /// Tests that various representations of `NaN` for `f64` are correctly encoded such that
     /// their sortable representation is greater than positive infinity.
     #[test]
-    fn test_sortable_double_nan() -> Result<(), TestError> {
+    fn test_sortable_double_nan() -> Result<(), LuceneError> {
         let double_nans: Vec<f64> = vec![
             f64::NAN,
             // f64::from_bits(0x7ff0000000000001),
@@ -654,7 +655,7 @@ mod tests {
     /// Checks various sorted values of `f32` (including extreme values) for correct ordering of
     /// the encoded bytes and ensures that the values can be correctly encoded and decoded (round-trip conversion).
     #[test]
-    fn test_floats() -> Result<(), TestError> {
+    fn test_floats() -> Result<(), LuceneError> {
         let values: Vec<f32> = vec![
             f32::NEG_INFINITY,
             -2.3E25_f32,
@@ -701,7 +702,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_sortable_float_nan() -> Result<(), TestError> {
+    fn test_sortable_float_nan() -> Result<(), LuceneError> {
         let float_nans: Vec<f32> = vec![
             f32::NAN,
             f32::from_bits(0x7f800001),
@@ -729,7 +730,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_add() -> Result<(), TestError> {
+    fn test_add() -> Result<(), LuceneError> {
         let mut random = random();
         let iters = at_least(&mut random, 1000);
         let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
@@ -790,7 +791,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_subtract() -> Result<(), TestError> {
+    fn test_subtract() -> Result<(), LuceneError> {
         let mut random = random();
         let iters = at_least(&mut random, 1000);
         let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
@@ -853,7 +854,7 @@ mod tests {
     }
     /// Tests round-trip encoding and decoding of random `i32` values.
     #[test]
-    fn test_ints_round_trip() -> Result<(), TestError> {
+    fn test_ints_round_trip() -> Result<(), LuceneError> {
         let mut random = random();
         let mut encoded = vec![0u8; BitUtil::INT_BYTES];
         for _ in 0..10_000 {
@@ -870,7 +871,7 @@ mod tests {
     }
     /// Tests round-trip encoding and decoding of random `i64` values.
     #[test]
-    fn test_longs_round_trip() -> Result<(), TestError> {
+    fn test_longs_round_trip() -> Result<(), LuceneError> {
         let mut random = random();
         let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
         for _ in 0..10_000 {
@@ -888,7 +889,7 @@ mod tests {
     }
     /// Tests round-trip encoding and decoding of random `f32` values.
     #[test]
-    fn test_floats_round_trip() -> Result<(), TestError> {
+    fn test_floats_round_trip() -> Result<(), LuceneError> {
         let mut random = random();
         let mut encoded = vec![0u8; BitUtil::INT_BYTES];
         for _ in 0..10_000 {
@@ -918,7 +919,7 @@ mod tests {
     }
     /// Tests round-trip encoding and decoding of random `f64` values.
     #[test]
-    fn test_doubles_round_trip() -> Result<(), TestError> {
+    fn test_doubles_round_trip() -> Result<(), LuceneError> {
         let mut random = random();
         let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
 
@@ -949,7 +950,7 @@ mod tests {
     }
     /// Tests round-trip encoding and decoding of random `BigInt` values.
     #[test]
-    fn test_big_ints_round_trip() -> Result<(), TestError> {
+    fn test_big_ints_round_trip() -> Result<(), LuceneError> {
         let mut random = random();
         for _ in 0..10_000 {
             let value = TestUtil::next_big_integer(&mut random, 16);
@@ -970,7 +971,7 @@ mod tests {
     }
     /// Checks that the sort order of encoded integers is consistent with `i32::cmp`.
     #[test]
-    fn test_ints_compare() -> Result<(), TestError> {
+    fn test_ints_compare() -> Result<(), LuceneError> {
         let mut random = random();
         let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
@@ -1001,7 +1002,7 @@ mod tests {
     }
     /// Checks that the sort order of encoded `i64` values is consistent with `i64::cmp`.
     #[test]
-    fn test_longs_compare() -> Result<(), TestError> {
+    fn test_longs_compare() -> Result<(), LuceneError> {
         let mut random = random();
         let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
@@ -1036,7 +1037,7 @@ mod tests {
     /// `NumericUtils::float_to_sortable_int`, the lexicographic comparison of their
     /// encoded byte representations is consistent with their numerical comparison.
     #[test]
-    fn test_floats_compare() -> Result<(), TestError> {
+    fn test_floats_compare() -> Result<(), LuceneError> {
         let mut random = random();
         let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
@@ -1070,7 +1071,7 @@ mod tests {
     /// `NumericUtils::double_to_sortable_long`, the lexicographic comparison of their
     /// encoded byte representations is consistent with their numerical comparison.
     #[test]
-    fn test_doubles_compare() -> Result<(), TestError> {
+    fn test_doubles_compare() -> Result<(), LuceneError> {
         let mut random = random();
         let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
@@ -1112,7 +1113,7 @@ mod tests {
 
     /// Checks that the sort order of encoded `BigInt` values is consistent with `BigInt::cmp`.
     #[test]
-    fn test_big_ints_compare() -> Result<(), TestError> {
+    fn test_big_ints_compare() -> Result<(), LuceneError> {
         let mut random = random();
         for _ in 0..10_000 {
             let max_length = TestUtil::next_int(&mut random, 1, 16) as usize;

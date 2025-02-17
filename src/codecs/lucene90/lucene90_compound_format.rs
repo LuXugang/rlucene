@@ -218,7 +218,7 @@ mod tests {
     };
     use crate::test::util::lucene_test_case::new_directory;
     use crate::test::util::lucene_test_case::random;
-    use crate::test::util::test_error::TestError;
+
     use crate::util::error::lucene_error::LuceneError;
     use rand::prelude::SliceRandom;
     use rand::Rng;
@@ -227,142 +227,142 @@ mod tests {
     pub struct TestLucene90CompoundFormat;
     impl BaseCompoundFormatTestCase for TestLucene90CompoundFormat {}
     #[test]
-    fn test_empty() -> Result<(), TestError> {
+    fn test_empty() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_empty(&mut random)
     }
     #[test]
-    fn test_single_file() -> Result<(), TestError> {
+    fn test_single_file() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_single_file(&mut random)
     }
     #[test]
-    fn test_two_files() -> Result<(), TestError> {
+    fn test_two_files() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_two_files(&mut random)
     }
     #[test]
-    fn test_double_close() -> Result<(), TestError> {
+    fn test_double_close() -> Result<(), LuceneError> {
         let case = TestLucene90CompoundFormat;
         case.test_double_close()
     }
     #[test]
-    fn test_pass_io_context() -> Result<(), TestError> {
+    fn test_pass_io_context() -> Result<(), LuceneError> {
         let case = TestLucene90CompoundFormat;
         case.test_pass_io_context()
     }
     #[test]
-    fn test_large_cfs() -> Result<(), TestError> {
+    fn test_large_cfs() -> Result<(), LuceneError> {
         let case = TestLucene90CompoundFormat;
         case.test_large_cfs()
     }
     #[test]
-    fn test_list_all() -> Result<(), TestError> {
+    fn test_list_all() -> Result<(), LuceneError> {
         let case = TestLucene90CompoundFormat;
         case.test_list_all()
     }
     #[test]
-    fn test_create_output_disabled() -> Result<(), TestError> {
+    fn test_create_output_disabled() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_create_output_disabled(&mut random)
     }
     #[test]
-    fn test_delete_file_disabled() -> Result<(), TestError> {
+    fn test_delete_file_disabled() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_delete_file_disabled(&mut random)
     }
     #[test]
-    fn test_rename_file_disabled() -> Result<(), TestError> {
+    fn test_rename_file_disabled() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_rename_file_disabled(&mut random)
     }
     #[test]
-    fn test_sync_disabled() -> Result<(), TestError> {
+    fn test_sync_disabled() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_sync_disabled(&mut random)
     }
     #[test]
-    fn test_make_lock_disabled() -> Result<(), TestError> {
+    fn test_make_lock_disabled() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_make_lock_disabled(&mut random)
     }
     #[test]
-    fn test_random_files() -> Result<(), TestError> {
+    fn test_random_files() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_random_files(&mut random)
     }
     #[test]
-    fn test_many_sub_files() -> Result<(), TestError> {
+    fn test_many_sub_files() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_many_sub_files(&mut random)
     }
     #[test]
-    fn test_cloned_streams_closing() -> Result<(), TestError> {
+    fn test_cloned_streams_closing() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_cloned_streams_closing(&mut random)
     }
     #[test]
-    fn test_random_access() -> Result<(), TestError> {
+    fn test_random_access() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_random_access(&mut random)
     }
     #[test]
-    fn test_random_access_clones() -> Result<(), TestError> {
+    fn test_random_access_clones() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_random_access_clones(&mut random)
     }
     #[test]
-    fn test_file_not_found() -> Result<(), TestError> {
+    fn test_file_not_found() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_file_not_found(&mut random)
     }
     #[test]
-    fn test_read_past_eof() -> Result<(), TestError> {
+    fn test_read_past_eof() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_read_past_eof(&mut random)
     }
     #[test]
-    fn test_resource_name_inside_compound_file() -> Result<(), TestError> {
+    fn test_resource_name_inside_compound_file() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_resource_name_inside_compound_file(&mut random)
     }
     #[test]
-    fn test_missing_codec_headers_are_caught() -> Result<(), TestError> {
+    fn test_missing_codec_headers_are_caught() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_missing_codec_headers_are_caught(&mut random)
     }
     #[test]
-    fn test_corrupt_files_are_caught() -> Result<(), TestError> {
+    fn test_corrupt_files_are_caught() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_corrupt_files_are_caught(&mut random)
     }
     #[test]
-    fn test_check_integrity() -> Result<(), TestError> {
+    fn test_check_integrity() -> Result<(), LuceneError> {
         let mut random = random();
         let case = TestLucene90CompoundFormat;
         case.test_check_integrity(&mut random)
     }
 
     #[test]
-    fn test_file_length_ordering() -> Result<(), TestError> {
+    fn test_file_length_ordering() -> Result<(), LuceneError> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         let segment = "_123";

@@ -246,12 +246,12 @@ pub const NO_MORE_DOCS: i32 = i32::MAX;
 #[cfg(test)]
 mod tests {
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
-    use crate::test::util::test_error::TestError;
+    use crate::util::error::lucene_error::LuceneError;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetIterator {}
     #[test]
-    fn test_range_basic() -> Result<(), TestError> {
+    fn test_range_basic() -> Result<(), LuceneError> {
         let result = Range::new(5, 8);
         assert!(result.is_ok());
         let mut disi = result?;
@@ -282,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn test_advance() -> Result<(), TestError> {
+    fn test_advance() -> Result<(), LuceneError> {
         let disi_result = Range::new(5, 20);
         assert!(disi_result.is_ok());
         let mut disi = disi_result?;

@@ -378,9 +378,10 @@ impl StringSorterBase for StringSorterImpl<'_> {
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
+    use crate::util::error::lucene_error::LuceneError;
     use crate::util::{BytesRefArray, CounterEnum, Natural, NaturalOrder, SortableBytesRefArray};
     use rand::Rng;
     use std::sync::{Arc, Mutex};
@@ -388,7 +389,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestBytesRefArray;
     #[test]
-    fn test_append() -> Result<(), TestError> {
+    fn test_append() -> Result<(), LuceneError> {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let mut list = BytesRefArray::new(counter)?;
@@ -445,7 +446,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_sort() -> Result<(), TestError> {
+    fn test_sort() -> Result<(), LuceneError> {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let mut list = BytesRefArray::new(counter)?;
@@ -513,7 +514,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_stable_sort() -> Result<(), TestError> {
+    fn test_stable_sort() -> Result<(), LuceneError> {
         let mut random = random();
 
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));

@@ -244,7 +244,7 @@ mod tests {
     use crate::index::index_options::IndexOptions;
     use crate::index::indexable_field::IndexableField;
     use crate::index::indexable_field_type::IndexableFieldType;
-    use crate::test::util::test_error::TestError;
+
     use crate::util::error::lucene_error::LuceneError;
     use std::sync::Arc;
 
@@ -253,7 +253,7 @@ mod tests {
     /// # Errors
     /// - Returns an error if an exception occurs during execution.
     #[test]
-    fn test_binary_field() -> Result<(), TestError> {
+    fn test_binary_field() -> Result<(), LuceneError> {
         let binary_val = "this text will be stored as a byte array in the index";
         let binary_val2 = "this text will be also stored as a byte array in the index";
 
@@ -317,7 +317,7 @@ mod tests {
     /// # Errors
     /// - Returns an error if an exception occurs.
     #[test]
-    fn test_remove_for_new_document() -> Result<(), TestError> {
+    fn test_remove_for_new_document() -> Result<(), LuceneError> {
         let mut doc = make_document_with_fields()?;
         assert_eq!(10, doc.get_fields().len());
 
@@ -360,7 +360,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_clear_document() -> Result<(), TestError> {
+    fn test_clear_document() -> Result<(), LuceneError> {
         let mut doc = make_document_with_fields()?;
         assert_eq!(doc.get_fields().len(), 10);
         doc.clear();
@@ -375,16 +375,16 @@ mod tests {
     }
 
     #[test]
-    fn test_get_values_for_new_document() -> Result<(), TestError> {
+    fn test_get_values_for_new_document() -> Result<(), LuceneError> {
         do_assert(&make_document_with_fields()?, false)
     }
     #[test]
-    fn test_get_values_for_indexed_document() -> Result<(), TestError> {
+    fn test_get_values_for_indexed_document() -> Result<(), LuceneError> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
     #[test]
-    fn test_get_values() -> Result<(), TestError> {
+    fn test_get_values() -> Result<(), LuceneError> {
         let doc = make_document_with_fields()?;
 
         let keyword_values = doc.get_values("keyword")?;
@@ -405,7 +405,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_position_increment_multi_fields() -> Result<(), TestError> {
+    fn test_position_increment_multi_fields() -> Result<(), LuceneError> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
@@ -448,7 +448,7 @@ mod tests {
         Ok(doc)
     }
 
-    fn do_assert(doc: &Document, from_index: bool) -> Result<(), TestError> {
+    fn do_assert(doc: &Document, from_index: bool) -> Result<(), LuceneError> {
         let keyword_field_values = doc.get_fields_with_name("keyword");
         let text_field_values = doc.get_fields_with_name("text");
         let unindexed_field_values = doc.get_fields_with_name("unindexed");
@@ -503,7 +503,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_field_set_value() -> Result<(), TestError> {
+    fn test_field_set_value() -> Result<(), LuceneError> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
@@ -514,7 +514,7 @@ mod tests {
     }
 
     #[test]
-    fn test_numeric_field_as_string() -> Result<(), TestError> {
+    fn test_numeric_field_as_string() -> Result<(), LuceneError> {
         // TODO : IndexWriter not implemented
         Ok(())
     }

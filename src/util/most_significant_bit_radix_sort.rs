@@ -488,7 +488,7 @@ mod tests {
 
     use crate::test::util::common_method::assert_vecs_equal;
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
@@ -497,7 +497,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestMSBRadixSorter;
 
-    fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), TestError> {
+    fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut expected: Vec<BytesRef> = refs[..len].to_vec();
         expected.sort();
 
@@ -521,14 +521,14 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_empty() -> Result<(), TestError> {
+    fn test_empty() -> Result<(), LuceneError> {
         let mut random = random();
         let mut refs: Vec<BytesRef> = vec![BytesRef::default(); random.gen_range(0..5)];
         assert!(test(&mut refs, 0, &mut random).is_ok());
         test(&mut refs, 0, &mut random)
     }
     #[test]
-    fn test_one_value() -> Result<(), TestError> {
+    fn test_one_value() -> Result<(), LuceneError> {
         let mut random = random();
 
         let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
@@ -536,7 +536,7 @@ mod tests {
         test(&mut refs, 1, &mut random)
     }
     #[test]
-    fn test_two_values() -> Result<(), TestError> {
+    fn test_two_values() -> Result<(), LuceneError> {
         let mut random = random();
 
         let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
@@ -550,7 +550,7 @@ mod tests {
         common_prefix_len: usize,
         max_len: i32,
         random: &mut StdRng,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.gen_range(0..10000);
@@ -566,7 +566,7 @@ mod tests {
         test(&mut bytes, len, random)
     }
     #[test]
-    fn test_random() -> Result<(), TestError> {
+    fn test_random() -> Result<(), LuceneError> {
         let mut random = random();
         for _ in 0..10 {
             test_random_impl(0, 10, &mut random)?;
@@ -575,7 +575,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_lots_of_duplicates() -> Result<(), TestError> {
+    fn test_random_with_lots_of_duplicates() -> Result<(), LuceneError> {
         let mut random = random();
         for _ in 0..10 {
             test_random_impl(0, 2, &mut random)?;
@@ -584,7 +584,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_shared_prefix() -> Result<(), TestError> {
+    fn test_random_with_shared_prefix() -> Result<(), LuceneError> {
         let mut random = random();
         for _ in 0..10 {
             let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
@@ -594,7 +594,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), TestError> {
+    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), LuceneError> {
         let mut random = random();
         for _ in 0..10 {
             let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
@@ -604,7 +604,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random2() -> Result<(), TestError> {
+    fn test_random2() -> Result<(), LuceneError> {
         let mut random = random();
         // How large our alphabet is
         let letter_count = TestUtil::next_int(&mut random, 2, 10);

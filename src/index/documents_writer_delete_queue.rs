@@ -1038,7 +1038,7 @@ mod tests {
     use crate::search::term_query::TermQuery;
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::test::util::lucene_test_case::{random, random_multiplier};
-    use crate::test::util::test_error::TestError;
+
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::info_stream::get_default_info_stream;
@@ -1052,7 +1052,7 @@ mod tests {
     pub struct TestDocumentsWriterDeleteQueue;
 
     #[test]
-    fn test_update_delete_slices() -> Result<(), TestError> {
+    fn test_update_delete_slices() -> Result<(), LuceneError> {
         let mut random = random();
         let queue: DocumentsWriterDeleteQueue<DummyQuery> =
             DocumentsWriterDeleteQueue::new(get_default_info_stream());
@@ -1136,7 +1136,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_clear() -> Result<(), TestError> {
+    fn test_clear() -> Result<(), LuceneError> {
         let mut random = random();
         let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
         assert!(!queue.any_changes()?);
@@ -1162,7 +1162,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_any_changes() -> Result<(), TestError> {
+    fn test_any_changes() -> Result<(), LuceneError> {
         let mut random = random();
         let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
         let size = 200 + random.gen_range(0..500) * random_multiplier();
@@ -1221,7 +1221,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_stress_delete_queue() -> Result<(), TestError> {
+    fn test_stress_delete_queue() -> Result<(), LuceneError> {
         let mut random = random();
         let queue = Arc::new(DocumentsWriterDeleteQueue::<DummyQuery>::new(
             get_default_info_stream(),
@@ -1287,7 +1287,7 @@ mod tests {
     }
 
     #[test]
-    fn test_close() -> Result<(), TestError> {
+    fn test_close() -> Result<(), LuceneError> {
         {
             let mut random = random();
             let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());

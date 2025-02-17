@@ -1406,7 +1406,7 @@ mod tests {
     use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
     use crate::test::util::lucene_test_case::new_directory;
     use crate::test::util::lucene_test_case::random;
-    use crate::test::util::test_error::TestError;
+
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
@@ -1417,7 +1417,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     pub struct TestSegmentInfos;
     #[test]
-    fn test_illegal_created_version() -> Result<(), TestError> {
+    fn test_illegal_created_version() -> Result<(), LuceneError> {
         // Test for an indexCreatedVersionMajor less than 6
         let result = SegmentInfos::with_defaults(5);
         assert!(result.is_err());
@@ -1441,7 +1441,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_versions_no_segments() -> Result<(), TestError> {
+    fn test_versions_no_segments() -> Result<(), LuceneError> {
         let mut random = random();
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut sis = SegmentInfos::new(LATEST.major)?;
@@ -1456,7 +1456,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_versions_one_segment() -> Result<(), TestError> {
+    fn test_versions_one_segment() -> Result<(), LuceneError> {
         let mut random = random();
         let dir = new_directory(&mut random)?;
         let directory = Arc::new(Mutex::new(dir));
@@ -1508,7 +1508,7 @@ mod tests {
     }
 
     #[test]
-    fn test_versions_two_segments() -> Result<(), TestError> {
+    fn test_versions_two_segments() -> Result<(), LuceneError> {
         let mut random = random();
         let dir = new_directory(&mut random)?;
         let directory = Arc::new(Mutex::new(dir));
@@ -1605,7 +1605,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_to_string() -> Result<(), TestError> {
+    fn test_to_string() -> Result<(), LuceneError> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         // Diagnostics map
@@ -1713,7 +1713,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_id_changes_on_advance() -> Result<(), TestError> {
+    fn test_id_changes_on_advance() -> Result<(), LuceneError> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         let id = StringHelper::random_id();
@@ -1783,7 +1783,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), TestError> {
+    fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), LuceneError> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         let id = StringHelper::random_id();
@@ -1887,7 +1887,7 @@ mod tests {
                         Err(LuceneError::CorruptIndex(_)) => {
                             // Corruption detected
                         }
-                        Err(err) => return Err(err.into()),
+                        Err(err) => return Err(err),
                     }
                     corrupt = true;
                 } else if file.eq("extra0") {
@@ -1912,7 +1912,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_add_diagnostics() -> Result<(), TestError> {
+    fn test_add_diagnostics() -> Result<(), LuceneError> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         // Diagnostics map

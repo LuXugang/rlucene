@@ -19,7 +19,7 @@ use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::index_output::IndexOutput;
 use crate::store::{IOContext, IndexInput};
 use crate::test::util::lucene_test_case::{at_least, new_directory, random};
-use crate::test::util::test_error::TestError;
+
 use crate::test::util::test_util::TestUtil;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
@@ -53,7 +53,7 @@ fn test_validation() {
     );
 }
 #[test]
-pub fn test_empty() -> Result<(), TestError> {
+pub fn test_empty() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let block_shift = TestUtil::next_int(
@@ -82,7 +82,7 @@ pub fn test_empty() -> Result<(), TestError> {
     Ok(())
 }
 #[test]
-pub fn test_simple() -> Result<(), TestError> {
+pub fn test_simple() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let block_shift = 2;
@@ -121,7 +121,7 @@ pub fn test_simple() -> Result<(), TestError> {
 }
 
 #[test]
-pub fn test_constant_slope() -> Result<(), TestError> {
+pub fn test_constant_slope() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let block_shift = TestUtil::next_int(
@@ -169,7 +169,7 @@ pub fn test_constant_slope() -> Result<(), TestError> {
 }
 
 #[test]
-pub fn test_zero_values_small_blob_shift() -> Result<(), TestError> {
+pub fn test_zero_values_small_blob_shift() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let num_values = TestUtil::next_int(&mut random, 8, 1 << 20);
@@ -212,18 +212,18 @@ pub fn test_zero_values_small_blob_shift() -> Result<(), TestError> {
     Ok(())
 }
 #[test]
-pub fn test_random() -> Result<(), TestError> {
+pub fn test_random() -> Result<(), LuceneError> {
     let mut random = random();
     do_test_random(&mut random, false)
 }
 
 #[test]
-pub fn test_random_merging() -> Result<(), TestError> {
+pub fn test_random_merging() -> Result<(), LuceneError> {
     let mut random = random();
     do_test_random(&mut random, true)
 }
 
-fn do_test_random(random: &mut StdRng, merging: bool) -> Result<(), TestError> {
+fn do_test_random(random: &mut StdRng, merging: bool) -> Result<(), LuceneError> {
     let iters = at_least(random, 3);
     for _ in 0..iters {
         let mut dir = new_directory(random)?;
@@ -286,7 +286,7 @@ fn do_test_random(random: &mut StdRng, merging: bool) -> Result<(), TestError> {
 }
 
 #[test]
-pub fn test_monotonic_binary_search() -> Result<(), TestError> {
+pub fn test_monotonic_binary_search() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     do_test_monotonic_binary_search_against_long_array(
@@ -298,7 +298,7 @@ pub fn test_monotonic_binary_search() -> Result<(), TestError> {
 }
 
 #[test]
-pub fn test_monotonic_binary_search_random() -> Result<(), TestError> {
+pub fn test_monotonic_binary_search_random() -> Result<(), LuceneError> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
     let iters = at_least(&mut random, 100);
@@ -328,7 +328,7 @@ fn do_test_monotonic_binary_search_against_long_array<D>(
     dir: &mut D,
     array: &[i64],
     block_shift: i32,
-) -> Result<(), TestError>
+) -> Result<(), LuceneError>
 where
     D: Directory,
 {

@@ -23,8 +23,9 @@ use crate::store::{
     FSDirectory, IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE,
 };
 use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
-use crate::test::util::test_error::TestError;
+
 use crate::test::util::test_util::TestUtil;
+use crate::util::error::lucene_error::LuceneError;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::fmt;
@@ -89,20 +90,20 @@ pub(crate) fn rarely(random: &mut StdRng) -> bool {
 // TODO: When we have implemented multiple directories, we need to select one randomly. Currently, we choose NIOFSDirectory.
 pub(crate) fn new_directory(
     _random: &mut StdRng,
-) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, TestError> {
+) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, LuceneError> {
     let temp_dir = TempDir::new()?;
     let sub_directory = NIOFSDirectory::new();
-    Ok(FSDirectory::new(temp_dir.into_path(), sub_directory)?)
+    FSDirectory::new(temp_dir.into_path(), sub_directory)
 }
 
-pub(crate) fn new_io_context(random: &mut StdRng) -> Result<IOContext, TestError> {
+pub(crate) fn new_io_context(random: &mut StdRng) -> Result<IOContext, LuceneError> {
     new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
 }
 
 pub(crate) fn new_io_context_with_default(
     random: &mut StdRng,
     old_context: &IOContext,
-) -> Result<IOContext, TestError> {
+) -> Result<IOContext, LuceneError> {
     if *old_context == *IO_CONTEXT_READ_ONCE {
         // Don't modify the READONCE singleton
         return Ok(old_context.clone());
@@ -120,12 +121,12 @@ pub(crate) fn new_io_context_with_default(
         ))?)
     } else if let Some(merge_info) = &old_context.merge_info {
         // Always return at least the estimatedMergeBytes of the incoming IOContext
-        return Ok(IOContext::with_merge(MergeInfo::new(
+        return IOContext::with_merge(MergeInfo::new(
             random_num_docs,
             size.max(merge_info.get_estimated_merge_bytes()),
             random.gen_bool(0.5), // Randomly decide if it's an external merge
             random.gen_range(1..=100),
-        ))?);
+        ));
     } else {
         // Make a totally random IOContext, except READONCE which has semantic implications
         let context_type = random.gen_range(0..3);
@@ -145,7 +146,7 @@ pub(crate) fn new_io_context_with_default(
         }
     }
 }
-pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, TestError> {
+pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, LuceneError> {
     let result = dir.open_input(name, &IOContext::default_io_context()?);
     match result {
         Ok(_) => Ok(true),
@@ -158,7 +159,7 @@ pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool,
 pub(crate) fn new_bytes_ref_from_string(
     random: &mut StdRng,
     s: &str,
-) -> Result<BytesRef, TestError> {
+) -> Result<BytesRef, LuceneError> {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
 }
@@ -169,7 +170,7 @@ pub(crate) fn new_bytes_ref_from_string(
 pub(crate) fn new_bytes_ref_from_bytes_ref(
     random: &mut StdRng,
     b: &BytesRef,
-) -> Result<BytesRef, TestError> {
+) -> Result<BytesRef, LuceneError> {
     assert!(b.is_valid()?);
     new_bytes_ref(random, &b.bytes, b.offset, b.length)
 }
@@ -180,14 +181,14 @@ pub(crate) fn new_bytes_ref_from_bytes_ref(
 pub(crate) fn new_bytes_ref_from_bytes(
     random: &mut StdRng,
     bytes_in: &[u8],
-) -> Result<BytesRef, TestError> {
+) -> Result<BytesRef, LuceneError> {
     new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
 }
 
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and non-zero
 /// end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, TestError> {
+pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, LuceneError> {
     new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref` function
 }
 
@@ -198,7 +199,7 @@ pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, TestE
 pub(crate) fn new_bytes_ref_with_length(
     byte_length: i32,
     random: &mut StdRng,
-) -> Result<BytesRef, TestError> {
+) -> Result<BytesRef, LuceneError> {
     let bytes_in = vec![0u8; byte_length as usize];
     new_bytes_ref(random, &bytes_in, 0, byte_length)
 }
@@ -210,7 +211,7 @@ pub(crate) fn new_bytes_ref(
     bytes_in: &[u8],
     offset: i32,
     length: i32,
-) -> Result<BytesRef, TestError> {
+) -> Result<BytesRef, LuceneError> {
     assert!(
         bytes_in.len() >= (offset + length) as usize,
         "got offset={} length={} bytesIn.length={}",

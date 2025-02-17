@@ -34,7 +34,7 @@ use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
 use crate::test::util::lucene_test_case::{at_least, new_directory};
-use crate::test::util::test_error::TestError;
+
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{StringHelper, LATEST};
@@ -48,7 +48,7 @@ pub trait BaseFieldInfoFormatTestCase {
     fn support_doc_values_skip_index(&self) -> bool {
         true
     }
-    fn test_one_field(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_one_field(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let codec = Lucene101Codec;
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
@@ -94,33 +94,33 @@ pub trait BaseFieldInfoFormatTestCase {
         Ok(())
     }
     /// Test field infos attributes coming back are not mutable.
-    fn test_immutable_attributes(&self, _random: &mut StdRng) -> Result<(), TestError> {
+    fn test_immutable_attributes(&self, _random: &mut StdRng) -> Result<(), LuceneError> {
         // no necessary to implement
         Ok(())
     }
 
-    fn test_exception_on_create_output(&self, _random: &mut StdRng) -> Result<(), TestError> {
+    fn test_exception_on_create_output(&self, _random: &mut StdRng) -> Result<(), LuceneError> {
         // TODO
         // no necessary to implement
         Ok(())
     }
-    fn test_exception_on_close_output(&self, _random: &mut StdRng) -> Result<(), TestError> {
+    fn test_exception_on_close_output(&self, _random: &mut StdRng) -> Result<(), LuceneError> {
         // TODO
         // no necessary to implement
         Ok(())
     }
-    fn test_exception_on_open_input(&self, _random: &mut StdRng) -> Result<(), TestError> {
+    fn test_exception_on_open_input(&self, _random: &mut StdRng) -> Result<(), LuceneError> {
         // TODO
         // no necessary to implement
         Ok(())
     }
-    fn test_exception_on_close_input(&self, _random: &mut StdRng) -> Result<(), TestError> {
+    fn test_exception_on_close_input(&self, _random: &mut StdRng) -> Result<(), LuceneError> {
         // TODO
         // no necessary to implement
         Ok(())
     }
     // Test field infos read/write with random fields, with different values.
-    fn test_random(&self, random: &mut StdRng) -> Result<(), TestError> {
+    fn test_random(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
@@ -318,7 +318,7 @@ pub trait BaseFieldInfoFormatTestCase {
     fn assert_field_infos_equals(
         expected: &FieldInfos,
         actual: &FieldInfos,
-    ) -> Result<(), TestError> {
+    ) -> Result<(), LuceneError> {
         assert_eq!(expected.size(), actual.size());
 
         for expected_field in expected.iter() {
@@ -357,7 +357,7 @@ pub trait BaseFieldInfoFormatTestCase {
         random: &mut StdRng,
         dir: Arc<Mutex<D>>,
         name: &str,
-    ) -> Result<SegmentInfo<D>, TestError> {
+    ) -> Result<SegmentInfo<D>, LuceneError> {
         let min_version = if random.gen_bool(0.5) {
             None
         } else {
