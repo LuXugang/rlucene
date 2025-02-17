@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[allow(clippy::module_inception)]
 pub mod document;
 pub mod double_field;
 pub mod double_point;
 pub mod dummy;
 pub mod field;
+pub mod field_enum;
 pub mod field_type;
 pub mod float_field;
 pub mod int_field;
@@ -32,3 +34,5 @@ pub mod stored_field;
 pub mod stored_value;
 pub mod string_field;
 pub mod text_field;
+
+pub use field_enum::*;

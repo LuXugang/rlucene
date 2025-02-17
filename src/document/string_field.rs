@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::document::field::{Field, FieldBase, Store};
 use crate::document::field_type::FieldType;
 use crate::document::invertable_field::InvertableType;
@@ -22,9 +21,9 @@ use crate::document::stored_value::StoredValue;
 use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
-use crate::util::dummy::dummy_read::DummyRead;
 use crate::util::error::lucene_error::LuceneError;
 use once_cell::sync::Lazy;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
@@ -69,7 +68,8 @@ impl StringField {
     /// - `name`: Field name.
     /// - `value`: String value.
     /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn with_string(name: &str, value: &str, store: bool) -> Result<Self, LuceneError> {
+    pub fn with_string(name: &str, value: &str, store: Store) -> Result<Self, LuceneError> {
+        let store = store.into();
         let field_type = if store {
             Arc::clone(&TYPE_STORED)
         } else {
@@ -78,7 +78,7 @@ impl StringField {
         let value_str = Arc::new(value.to_string());
         let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
         let binary_value = Arc::new(BytesRef::from_string(value));
-        let stored_value = if store == Store::Yes.into() {
+        let stored_value = if store {
             None
         } else {
             Option::from(StoredValue::new_string(value_str.clone()))
@@ -99,15 +99,16 @@ impl StringField {
     pub fn with_bytes_ref(
         name: &str,
         value: Arc<BytesRef>,
-        store: bool,
+        store: Store,
     ) -> Result<Self, LuceneError> {
+        let store = store.into();
         let field_type = if store {
             Arc::clone(&TYPE_STORED)
         } else {
             Arc::clone(&TYPE_NOT_STORED)
         };
         let parent_field = Field::with_bytes_ref(name, value.clone(), field_type.clone())?;
-        let stored_value = if store == Store::Yes.into() {
+        let stored_value = if store {
             None
         } else {
             Option::from(StoredValue::new_binary(value.clone()))
@@ -140,6 +141,13 @@ impl FieldBase for StringField {
         Ok(())
     }
 }
+
+impl Display for StringField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.parent_field.fmt(f)
+    }
+}
+
 impl IndexableField for StringField {
     fn name(&self) -> &str {
         self.parent_field.name()
@@ -151,8 +159,6 @@ impl IndexableField for StringField {
         self.parent_field.field_type()
     }
 
-    type TokenStreamType = DummyTokenStream;
-
     fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
         Ok(Some(self.binary_value.clone()))
     }
@@ -160,8 +166,6 @@ impl IndexableField for StringField {
     fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
         self.parent_field.string_value()
     }
-
-    type ReadType = DummyRead;
 
     fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
         Ok(self.stored_value.clone())

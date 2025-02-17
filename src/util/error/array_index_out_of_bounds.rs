@@ -28,12 +28,6 @@ impl ArrayIndexOutOfBoundsError {
             message: msg.into(),
         }
     }
-
-    pub fn with_format(args: impl fmt::Display) -> Self {
-        Self {
-            message: args.to_string(),
-        }
-    }
 }
 
 impl Display for ArrayIndexOutOfBoundsError {

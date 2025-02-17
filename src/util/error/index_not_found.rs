@@ -27,12 +27,6 @@ impl IndexNotFound {
             message: msg.into(),
         }
     }
-
-    pub fn with_format(args: impl fmt::Display) -> Self {
-        Self {
-            message: args.to_string(),
-        }
-    }
 }
 
 impl fmt::Display for IndexNotFound {

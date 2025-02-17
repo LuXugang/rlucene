@@ -20,18 +20,19 @@ use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
+use crate::document::{ReaderEnum, TokenStreamEnum};
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::number::Number;
-use std::io::Read;
+use std::fmt::Display;
 use std::sync::Arc;
 
 /// Represents a single field for indexing. IndexWriter consumes `Iterable<IndexableField>` as a
 /// document.
 ///
 /// @lucene.experimental
-pub trait IndexableField {
+pub trait IndexableField: Display {
     /// Field name
     fn name(&self) -> &str;
 
@@ -51,12 +52,11 @@ pub trait IndexableField {
     /// # Returns
     /// TokenStream value for indexing the document. Should always return a non-null value if
     /// the field is to be indexed.
-    type TokenStreamType: TokenStream;
     fn token_stream(
         &self,
         _analyzer: Option<&impl Analyzer>,
         _reuse: Option<&impl TokenStream>,
-    ) -> Result<Self::TokenStreamType, LuceneError> {
+    ) -> Result<TokenStreamEnum, LuceneError> {
         Err(LuceneError::not_implemented(
             "token_stream is not implemented",
         ))
@@ -81,8 +81,7 @@ pub trait IndexableField {
     }
 
     /// Non-null if this field has a Reader value.
-    type ReadType: Read;
-    fn reader_value(&self) -> Result<Option<Self::ReadType>, LuceneError> {
+    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
         Err(LuceneError::not_implemented(
             "reader_value is not implemented",
         ))

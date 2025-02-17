@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::document::field_type::FieldType;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
 use crate::util::bit_util::BitUtil;
-use crate::util::dummy::dummy_read::DummyRead;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::number::Number;
 use crate::util::numeric_utils::NumericUtils;
@@ -106,9 +104,6 @@ impl IndexableField for DoublePoint {
     fn field_type(&self) -> &Self::FieldType {
         self.parent_field.field_type()
     }
-
-    type TokenStreamType = DummyTokenStream;
-    type ReadType = DummyRead;
 
     fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
         if self.parent_field.field_type().point_dimension_count() != 1 {

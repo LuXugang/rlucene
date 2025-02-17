@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
-use crate::document::field::{Field, FieldBase, ReaderEnum, TokenStreamEnum};
+use crate::analysis::analyzer::Analyzer;
+use crate::analysis::token_stream::TokenStream;
+use crate::document::field::{Field, FieldBase, Store};
+use crate::document::field_enum::{ReaderEnum, TokenStreamEnum};
 use crate::document::field_type::FieldType;
+use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field::IndexableField;
-use crate::util::dummy::dummy_read::DummyRead;
+use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::number::Number;
 use once_cell::sync::Lazy;
 use std::fmt;
 use std::sync::Arc;
@@ -76,7 +80,8 @@ impl TextField {
     /// - `name`: Field name.
     /// - `value`: String value.
     /// - `store`: `Store::Yes` if the content should also be stored.
-    pub fn with_string(name: &str, value: &str, store: bool) -> Result<Self, LuceneError> {
+    pub fn with_string(name: &str, value: &str, store: Store) -> Result<Self, LuceneError> {
+        let store = store.into();
         let value_str = Arc::new(value.to_string());
         let field_type = if store {
             Arc::clone(&TYPE_STORED)
@@ -128,11 +133,40 @@ impl IndexableField for TextField {
         self.parent_field.field_type()
     }
 
-    type TokenStreamType = DummyTokenStream;
-    type ReadType = DummyRead;
+    fn token_stream(
+        &self,
+        analyzer: Option<&impl Analyzer>,
+        reuse: Option<&impl TokenStream>,
+    ) -> Result<TokenStreamEnum, LuceneError> {
+        self.parent_field.token_stream(analyzer, reuse)
+    }
+
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+        self.parent_field.binary_value()
+    }
+
+    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+        self.parent_field.string_value()
+    }
+
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+        self.parent_field.get_char_sequence_value()
+    }
+
+    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+        self.parent_field.reader_value()
+    }
+
+    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+        self.parent_field.numeric_value()
+    }
 
     fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
         Ok(self.stored_value.clone())
+    }
+
+    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+        todo!()
     }
 }
 

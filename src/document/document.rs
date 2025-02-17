@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::document::field_enum::Fields;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
-use std::fmt::Display;
 use std::sync::Arc;
 use std::vec::IntoIter;
 
@@ -31,25 +31,16 @@ use std::vec::IntoIter;
 ///
 /// Note that fields which are *not* [`IndexableFieldType::stored`](crate::index::indexable_field_type::IndexableFieldType::stored) are *not* available in documents
 /// retrieved from the index, e.g. with [`ScoreDoc::doc`](crate::search::score_doc::ScoreDoc) or [`StoredFields::document(i32)`](crate::index::stored_fields::StoredFields::document).
-pub struct Document<I>
-where
-    I: IndexableField,
-{
-    fields: Vec<Arc<I>>,
+pub struct Document {
+    fields: Vec<Fields>,
 }
-impl<I> Default for Document<I>
-where
-    I: IndexableField + Display,
-{
+impl Default for Document {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<I> Document<I>
-where
-    I: IndexableField + Display,
-{
+impl Document {
     /// Constructs a new document with no fields.
     pub fn new() -> Self {
         Document { fields: Vec::new() }
@@ -61,8 +52,8 @@ where
     /// to an index. These methods cannot be used to change the content of an existing index! In order
     /// to achieve this, a document has to be deleted from an index and a new changed version of that
     /// document has to be added.
-    pub fn add(&mut self, field: Arc<I>) {
-        self.fields.push(field);
+    pub fn add<T: Into<Fields>>(&mut self, field: T) {
+        self.fields.push(field.into());
     }
     /// Removes the field with the specified name from the document. If multiple fields exist with this
     /// name, this method removes the first field that has been added. If there is no field with the
@@ -138,12 +129,9 @@ where
     /// - `name`: the name of the field.
     ///
     /// # Returns
-    /// An `Option<Arc<I>>`, where `None` means no matching field is found.
-    pub fn get_field(&self, name: &str) -> Option<Arc<I>> {
-        self.fields
-            .iter()
-            .find(|field| field.name() == name)
-            .cloned()
+    /// An `Option<Arc>`,  `None` means no matching field is found.
+    pub fn get_field(&self, name: &str) -> Option<&Fields> {
+        self.fields.iter().find(|field| field.name() == name)
     }
 
     /// Returns an array of `IndexableField`s with the given name. This method returns an empty
@@ -153,25 +141,24 @@ where
     /// - `name`: the name of the field.
     ///
     /// # Returns
-    /// A `Vec<Arc<I>>` array containing the matching fields.
-    pub fn get_fields_with_name(&self, name: &str) -> Vec<Arc<I>> {
+    /// A `Vec<Arc>` array containing the matching fields.
+    pub fn get_fields_with_name(&self, name: &str) -> Vec<&Fields> {
         self.fields
             .iter()
             .filter(|field| field.name() == name)
-            .cloned()
             .collect()
     }
 
-    /// Returns a `Vec<Arc<I>>` containing all the fields in a document.
+    /// Returns a `Vec<Arc>` containing all the fields in a document.
     ///
     /// # Note
     /// Fields that are not stored are not available in documents retrieved from the index,
     /// e.g., when using `StoredFields::document(int)`.
     ///
     /// # Returns
-    /// An immutable `Vec<Arc<I>>` containing all fields in the document.
-    pub fn get_fields(&self) -> Vec<Arc<I>> {
-        self.fields.to_vec()
+    /// An immutable `Vec<Arc>` containing all fields in the document.
+    pub fn get_fields(&self) -> Vec<&Fields> {
+        self.fields.iter().collect()
     }
     /// Returns an array of values of the field specified by the `name`. This method returns an empty
     /// array when there are no matching fields. It never returns `None`. For a numeric `StoredField`,
@@ -205,7 +192,7 @@ where
     /// - `name`: the name of the field.
     ///
     /// # Returns
-    /// An `Option<Arc<String>>`, where `None` means no string value is found (e.g., for binary fields).
+    /// An `Option<Arc<String>>`,  `None` means no string value is found (e.g., for binary fields).
     pub fn get(&self, name: &str) -> Result<Option<Arc<String>>, LuceneError> {
         for field in &self.fields {
             if field.name() == name {
@@ -223,10 +210,7 @@ where
         self.fields.clear();
     }
 }
-impl<I> fmt::Display for Document<I>
-where
-    I: IndexableField + Display,
-{
+impl fmt::Display for Document {
     /// Prints the fields of a document for human consumption.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Document<")?;
@@ -240,14 +224,298 @@ where
         write!(f, ">")
     }
 }
-impl<I> IntoIterator for Document<I>
-where
-    I: IndexableField,
-{
-    type Item = Arc<I>;
-    type IntoIter = IntoIter<Arc<I>>;
+impl IntoIterator for Document {
+    type Item = Fields;
+    type IntoIter = IntoIter<Fields>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::document::document::Document;
+    use crate::document::field::{Field, Store};
+    use crate::document::field_type::FieldType;
+    use crate::document::stored_field::StoredField;
+    use crate::document::string_field::StringField;
+    use crate::document::text_field::TextField;
+    use crate::index::index_options::IndexOptions;
+    use crate::index::indexable_field::IndexableField;
+    use crate::index::indexable_field_type::IndexableFieldType;
+    use crate::test::util::test_error::TestError;
+    use crate::util::error::lucene_error::LuceneError;
+    use std::sync::Arc;
+
+    /// Tests the [`Document::remove_field`] method for a brand-new `Document` that has not been indexed yet.
+    ///
+    /// # Errors
+    /// - Returns an error if an exception occurs during execution.
+    #[test]
+    fn test_binary_field() -> Result<(), TestError> {
+        let binary_val = "this text will be stored as a byte array in the index";
+        let binary_val2 = "this text will be also stored as a byte array in the index";
+
+        let mut doc = Document::new();
+
+        let mut ft = FieldType::new();
+        ft.set_stored(true)?;
+        let ft_arc = Arc::new(ft);
+
+        let string_fld =
+            Field::with_string("string", Arc::new(binary_val.to_string()), ft_arc.clone())?;
+        let binary_fld = StoredField::with_binary("binary", binary_val.as_bytes().to_vec())?;
+        let binary_fld2 = StoredField::with_binary("binary", binary_val2.as_bytes().to_vec())?;
+
+        assert!(binary_fld.binary_value()?.is_some());
+        assert!(string_fld.field_type().stored());
+        assert_eq!(binary_fld.field_type().index_options(), &IndexOptions::None);
+        doc.add(binary_fld);
+        doc.add(string_fld);
+
+        assert_eq!(doc.get_fields().len(), 2);
+
+        match doc.get_binary_value("binary")? {
+            Some(bf) => {
+                let bf_value = bf.utf8_to_string()?;
+                assert_eq!(bf_value, binary_val);
+            }
+            None => {
+                unreachable!()
+            }
+        }
+        match doc.get("string")? {
+            Some(sf) => {
+                assert_eq!(sf, binary_val.to_string().into());
+            }
+            None => {
+                unreachable!()
+            }
+        }
+
+        doc.add(binary_fld2);
+        assert_eq!(doc.get_fields().len(), 3);
+
+        let binary_tests = doc.get_binary_values("binary")?;
+        assert_eq!(binary_tests.len(), 2);
+
+        let binary_test = binary_tests[0].utf8_to_string()?;
+        let binary_test2 = binary_tests[1].utf8_to_string()?;
+
+        assert_ne!(binary_test, binary_test2);
+        assert_eq!(binary_test, binary_val);
+        assert_eq!(binary_test2, binary_val2);
+        doc.remove_field("string");
+        assert_eq!(doc.get_fields().len(), 2);
+        doc.remove_fields("binary");
+        assert_eq!(doc.get_fields().len(), 0);
+        Ok(())
+    }
+    /// Tests the [`Document::remove_field`] method for a brand-new `Document` that has not been indexed yet.
+    ///
+    /// # Errors
+    /// - Returns an error if an exception occurs.
+    #[test]
+    fn test_remove_for_new_document() -> Result<(), TestError> {
+        let mut doc = make_document_with_fields()?;
+        assert_eq!(10, doc.get_fields().len());
+
+        doc.remove_fields("keyword");
+        assert_eq!(8, doc.get_fields().len());
+
+        doc.remove_fields("doesnotexists"); // removing non-existing fields is
+        doc.remove_fields("keyword"); // removing a field more than once
+        assert_eq!(8, doc.get_fields().len());
+
+        doc.remove_field("text");
+        assert_eq!(7, doc.get_fields().len());
+
+        doc.remove_field("text");
+        assert_eq!(6, doc.get_fields().len());
+
+        doc.remove_field("text");
+        assert_eq!(6, doc.get_fields().len());
+
+        doc.remove_field("doesnotexists"); // removing non-existing fields is
+        assert_eq!(6, doc.get_fields().len());
+
+        doc.remove_fields("unindexed");
+        assert_eq!(4, doc.get_fields().len());
+
+        doc.remove_fields("unstored");
+        assert_eq!(2, doc.get_fields().len());
+
+        doc.remove_fields("doesnotexists"); // removing non-existing fields is
+        assert_eq!(2, doc.get_fields().len());
+
+        doc.remove_fields("indexed_not_tokenized");
+        assert_eq!(0, doc.get_fields().len());
+
+        Ok(())
+    }
+    #[test]
+    fn test_constructor_exceptions() -> Result<(), LuceneError> {
+        // TODO : IndexWriter not implemented
+        Ok(())
+    }
+    #[test]
+    fn test_clear_document() -> Result<(), TestError> {
+        let mut doc = make_document_with_fields()?;
+        assert_eq!(doc.get_fields().len(), 10);
+        doc.clear();
+        assert_eq!(doc.get_fields().len(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_fields_immutable() -> Result<(), LuceneError> {
+        //`fields` is an immutable slice.
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_values_for_new_document() -> Result<(), TestError> {
+        do_assert(&make_document_with_fields()?, false)
+    }
+    #[test]
+    fn test_get_values_for_indexed_document() -> Result<(), TestError> {
+        // TODO : IndexWriter not implemented
+        Ok(())
+    }
+    #[test]
+    fn test_get_values() -> Result<(), TestError> {
+        let doc = make_document_with_fields()?;
+
+        let keyword_values = doc.get_values("keyword")?;
+        let keyword_str: Vec<&str> = keyword_values.iter().map(|s| s.as_str()).collect();
+        assert_eq!(keyword_str, vec!["test1", "test2"]);
+
+        let text_values = doc.get_values("text")?;
+        let text_str: Vec<&str> = text_values.iter().map(|s| s.as_str()).collect();
+        assert_eq!(text_str, vec!["test1", "test2"]);
+
+        let unindexed_values = doc.get_values("unindexed")?;
+        let unindexed_str: Vec<&str> = unindexed_values.iter().map(|s| s.as_str()).collect();
+        assert_eq!(unindexed_str, vec!["test1", "test2"]);
+
+        let nope_values = doc.get_values("nope")?;
+        assert!(nope_values.is_empty());
+
+        Ok(())
+    }
+    #[test]
+    fn test_position_increment_multi_fields() -> Result<(), TestError> {
+        // TODO : IndexWriter not implemented
+        Ok(())
+    }
+
+    fn make_document_with_fields() -> Result<Document, LuceneError> {
+        let mut doc = Document::new();
+        let mut stored = FieldType::new();
+        stored.set_stored(true)?;
+        let stored = Arc::new(stored);
+        let mut indexed_not_tokenized = FieldType::new();
+        indexed_not_tokenized.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
+        indexed_not_tokenized.set_tokenized(false)?;
+        let indexed_not_tokenized = Arc::new(indexed_not_tokenized);
+        doc.add(StringField::with_string("keyword", "test1", Store::Yes)?);
+        doc.add(StringField::with_string("keyword", "test2", Store::Yes)?);
+        doc.add(TextField::with_string("text", "test1", Store::Yes)?);
+        doc.add(TextField::with_string("text", "test2", Store::Yes)?);
+        doc.add(Field::with_string(
+            "unindexed",
+            Arc::new("test1".to_string()),
+            stored.clone(),
+        )?);
+        doc.add(Field::with_string(
+            "unindexed",
+            Arc::new("test2".to_string()),
+            stored.clone(),
+        )?);
+        doc.add(TextField::with_string("unstored", "test1", Store::No)?);
+        doc.add(TextField::with_string("unstored", "test2", Store::No)?);
+        doc.add(Field::with_string(
+            "indexed_not_tokenized",
+            Arc::new("test1".to_string()),
+            indexed_not_tokenized.clone(),
+        )?);
+        doc.add(Field::with_string(
+            "indexed_not_tokenized",
+            Arc::new("test2".to_string()),
+            indexed_not_tokenized.clone(),
+        )?);
+        Ok(doc)
+    }
+
+    fn do_assert(doc: &Document, from_index: bool) -> Result<(), TestError> {
+        let keyword_field_values = doc.get_fields_with_name("keyword");
+        let text_field_values = doc.get_fields_with_name("text");
+        let unindexed_field_values = doc.get_fields_with_name("unindexed");
+        let unstored_field_values = doc.get_fields_with_name("unstored");
+
+        assert_eq!(keyword_field_values.len(), 2);
+        assert_eq!(text_field_values.len(), 2);
+        assert_eq!(unindexed_field_values.len(), 2);
+        // this test cannot work for documents retrieved from the index
+        // since unstored fields will obviously not be returned
+        if !from_index {
+            assert_eq!(unstored_field_values.len(), 2);
+        }
+
+        assert_eq!(
+            keyword_field_values[0].string_value()?,
+            Some(Arc::new("test1".to_string()))
+        );
+        assert_eq!(
+            keyword_field_values[1].string_value()?,
+            Some(Arc::new("test2".to_string()))
+        );
+        assert_eq!(
+            text_field_values[0].string_value()?,
+            Some(Arc::new("test1".to_string()))
+        );
+        assert_eq!(
+            text_field_values[1].string_value()?,
+            Some(Arc::new("test2".to_string()))
+        );
+        assert_eq!(
+            unindexed_field_values[0].string_value()?,
+            Some(Arc::new("test1".to_string()))
+        );
+        assert_eq!(
+            unindexed_field_values[1].string_value()?,
+            Some(Arc::new("test2".to_string()))
+        );
+        // this test cannot work for documents retrieved from the index
+        // since unstored fields will obviously not be returned
+        if !from_index {
+            assert_eq!(
+                unstored_field_values[0].string_value()?,
+                Some(Arc::new("test1".to_string()))
+            );
+            assert_eq!(
+                unstored_field_values[1].string_value()?,
+                Some(Arc::new("test2".to_string()))
+            );
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_field_set_value() -> Result<(), TestError> {
+        // TODO : IndexWriter not implemented
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_fields() {
+        // TODO : IndexWriter not implemented
+    }
+
+    #[test]
+    fn test_numeric_field_as_string() -> Result<(), TestError> {
+        // TODO : IndexWriter not implemented
+        Ok(())
     }
 }

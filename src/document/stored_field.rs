@@ -14,13 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::document::field::{Field, FieldDataEnum};
+use crate::analysis::analyzer::Analyzer;
+use crate::analysis::token_stream::TokenStream;
+use crate::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::document::field_type::FieldType;
+use crate::document::invertable_field::InvertableType;
+use crate::document::stored_value::StoredValue;
+use crate::document::{ReaderEnum, TokenStreamEnum};
+use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::number::Number;
 use once_cell::sync::Lazy;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+
 /// Type for a stored-only field.
 static TYPE: Lazy<Arc<FieldType>> = Lazy::new(|| {
     let mut ft = FieldType::new();
@@ -32,7 +40,6 @@ static TYPE: Lazy<Arc<FieldType>> = Lazy::new(|| {
 /// A field whose value is stored so that [`IndexSearcher::stored_fields`](crate::search::index_searcher::IndexSearcher::stored_fields) and [`IndexReader::stored_fields`](crate::search::index_searcher::IndexSearcher::stored_fields)
 /// will return the field and its value.
 pub struct StoredField {
-    #[allow(unused)]
     parent_field: Field,
 }
 #[allow(unused)]
@@ -182,5 +189,60 @@ impl StoredField {
         let mut parent_field = Field::new(name, Arc::clone(&TYPE));
         parent_field.fields_data = Option::from(fields_data.clone());
         Ok(Self { parent_field })
+    }
+}
+impl FieldBase for StoredField {}
+
+impl Display for StoredField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.parent_field.fmt(f)
+    }
+}
+
+impl IndexableField for StoredField {
+    fn name(&self) -> &str {
+        self.parent_field.name()
+    }
+
+    type FieldType = FieldType;
+
+    fn field_type(&self) -> &Self::FieldType {
+        self.parent_field.field_type()
+    }
+
+    fn token_stream(
+        &self,
+        analyzer: Option<&impl Analyzer>,
+        reuse: Option<&impl TokenStream>,
+    ) -> Result<TokenStreamEnum, LuceneError> {
+        self.parent_field.token_stream(analyzer, reuse)
+    }
+
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+        self.parent_field.binary_value()
+    }
+
+    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+        self.parent_field.string_value()
+    }
+
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+        self.parent_field.get_char_sequence_value()
+    }
+
+    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+        self.parent_field.reader_value()
+    }
+
+    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+        self.parent_field.numeric_value()
+    }
+
+    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+        self.parent_field.stored_value()
+    }
+
+    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+        self.parent_field.invertable_type()
     }
 }

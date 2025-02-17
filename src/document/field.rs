@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::analysis::analyzer::Analyzer;
-use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::analysis::token_stream::TokenStream;
+use crate::document::field_enum::{ReaderEnum, TokenStreamEnum};
 use crate::document::field_type::FieldType;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
@@ -25,13 +25,12 @@ use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
-use crate::util::dummy::dummy_read::DummyRead;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::number::Number;
 use std::fmt;
 use std::fmt::{Debug, Display};
-use std::io::Cursor;
 use std::sync::Arc;
+
 /// Expert: directly creates a field for a document. Most users should use one of the
 /// convenience subclasses:
 ///
@@ -76,7 +75,7 @@ impl Field {
     /// # Errors
     /// - Returns an error if either the `name` or `field_type` is `None`.
     pub fn new(name: &str, indexable_field_type: Arc<FieldType>) -> Self {
-        Field {
+        Self {
             indexable_field_type,
             name: name.to_string(),
             fields_data: None,
@@ -450,13 +449,11 @@ impl IndexableField for Field {
         &self.indexable_field_type
     }
 
-    type TokenStreamType = DummyTokenStream;
-
     fn token_stream(
         &self,
         _analyzer: Option<&impl Analyzer>,
         _reuse: Option<&impl TokenStream>,
-    ) -> Result<Self::TokenStreamType, LuceneError> {
+    ) -> Result<TokenStreamEnum, LuceneError> {
         todo!()
     }
 
@@ -490,13 +487,11 @@ impl IndexableField for Field {
         }
     }
 
-    type ReadType = DummyRead;
-
     /// Returns the value of the field as a `Reader`, or `None` if not set.
     /// If `None`, the `String` value or binary value is used.
     ///
     /// Exactly one of `string_value()`, `reader_value()`, or `binary_value()` must be set.
-    fn reader_value(&self) -> Result<Option<Self::ReadType>, LuceneError> {
+    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
         todo!()
     }
 
@@ -536,6 +531,7 @@ impl IndexableField for Field {
         Ok(&InvertableType::TokenStream)
     }
 }
+impl FieldBase for Field {}
 impl Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}<{}:", self.indexable_field_type, self.name)?;
@@ -625,22 +621,12 @@ pub enum FieldDataEnum {
     TokenStream(TokenStreamEnum),
 }
 
-#[derive(Debug, Clone)]
-pub enum ReaderEnum {
-    CursorStr(Arc<Cursor<String>>),
-}
-
-#[derive(Debug, Clone)]
-pub enum TokenStreamEnum {
-    Dummy(Arc<DummyTokenStream>),
-}
-
 #[cfg(test)]
 mod tests {
     use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
     use crate::document::double_point::DoublePoint;
 
-    use crate::document::field::{Field, FieldBase, ReaderEnum, TokenStreamEnum};
+    use crate::document::field::{Field, FieldBase};
 
     use crate::index::indexable_field::IndexableField;
     use crate::index::BytesRef;
@@ -649,6 +635,7 @@ mod tests {
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::number::Number;
 
+    use crate::document::field_enum::{ReaderEnum, TokenStreamEnum};
     use crate::document::field_type::FieldType;
     use crate::index::index_options::IndexOptions;
     use std::sync::Arc;
