@@ -692,8 +692,7 @@ mod tests {
             assert!(v >= min_target_size);
         }
     }
-    fn parse_int(s: &str) -> Result<i32, LuceneError> {
-        let mut random = random();
+    fn parse_int(random: &mut StdRng, s: &str) -> Result<i32, LuceneError> {
         let start = random.gen_range(0..5);
         let extra_length = random.gen_range(0..4);
         let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
@@ -703,34 +702,35 @@ mod tests {
     }
     #[test]
     fn test_parse_int() {
-        let result = parse_int("");
-        matches!(result, Err(LuceneError::NumberFormat(_)));
+        let mut random = random();
+        let result = parse_int(&mut random, "");
+        assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
 
-        let result = parse_int("foo");
-        matches!(result, Err(LuceneError::NumberFormat(_)));
+        let result = parse_int(&mut random, "foo");
+        assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
 
-        let result = parse_int(&i64::MAX.to_string());
-        matches!(result, Err(LuceneError::NumberFormat(_)));
+        let result = parse_int(&mut random, &i64::MAX.to_string());
+        assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
 
-        let result = parse_int("0.34");
-        matches!(result, Err(LuceneError::NumberFormat(_)));
+        let result = parse_int(&mut random, "0.34");
+        assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
 
-        let result = parse_int("1");
+        let result = parse_int(&mut random, "1");
         assert!(result.is_ok());
         let value = result.unwrap();
         assert_eq!(value, 1, "{} does not equal: 1", value);
 
-        let result = parse_int("-10000");
+        let result = parse_int(&mut random, "-10000");
         assert!(result.is_ok());
         let value = result.unwrap();
         assert_eq!(value, -10000, "{} does not equal: -10000", value);
 
-        let result = parse_int("1923");
+        let result = parse_int(&mut random, "1923");
         assert!(result.is_ok());
         let value = result.unwrap();
         assert_eq!(value, 1923, "{} does not equal: 1923", value);
 
-        let result = parse_int("-1");
+        let result = parse_int(&mut random, "-1");
         assert!(result.is_ok());
         let value = result.unwrap();
         assert_eq!(value, -1, "{} does not equal: -1", value);
@@ -1011,7 +1011,7 @@ mod tests {
         assert_eq!(arr, vec![1, 2, 3, 0, 0]);
         let mut arr: Vec<i16> = vec![1, 2, 3];
         let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<i32> = vec![1, 2, 3];
         ArrayUtil::grow_exact(&mut arr, 4)?;
@@ -1021,7 +1021,7 @@ mod tests {
         assert_eq!(arr, vec![1, 2, 3, 0, 0]);
         let mut arr: Vec<i32> = vec![1, 2, 3];
         let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<i64> = vec![1, 2, 3];
         ArrayUtil::grow_exact(&mut arr, 4)?;
@@ -1031,7 +1031,7 @@ mod tests {
         assert_eq!(arr, vec![1, 2, 3, 0, 0]);
         let mut arr: Vec<i64> = vec![1, 2, 3];
         let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<f32> = vec![0.1, 0.2, 0.3];
         ArrayUtil::grow_exact(&mut arr, 4)?;
@@ -1042,7 +1042,7 @@ mod tests {
         assert!((arr[4] - 0.0).abs() < 0.001);
         let mut arr: Vec<f32> = vec![1.0, 2.0, 3.0];
         let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
         ArrayUtil::grow_exact(&mut arr, 4)?;
@@ -1053,7 +1053,7 @@ mod tests {
         assert!((arr[4] - 0.0).abs() < 0.001);
         let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
         let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<i8> = vec![1, 2, 3];
         ArrayUtil::grow_exact(&mut arr, 4)?;
@@ -1063,7 +1063,7 @@ mod tests {
         assert_eq!(arr, vec![1, 2, 3, 0, 0]);
         let mut arr: Vec<i8> = vec![1, 2, 3];
         let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<char> = vec!['a', 'b', 'c'];
         ArrayUtil::grow_exact(&mut arr, 4)?;
@@ -1073,7 +1073,7 @@ mod tests {
         assert_eq!(arr, vec!['a', 'b', 'c', '\0', '\0']);
         let mut arr: Vec<char> = vec!['a', 'b', 'c'];
         let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<Option<String>> = vec![
             Some("a1".to_string()),
@@ -1112,7 +1112,7 @@ mod tests {
             Some("c".to_string()),
         ];
         let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         Ok(())
     }
@@ -1125,11 +1125,11 @@ mod tests {
 
         // If minLength > maxLength, we throw an exception
         let result = ArrayUtil::grow_in_range(&mut array, 1, 0);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         let result = ArrayUtil::grow_in_range(&mut array, 4, 3);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         let result = ArrayUtil::grow_in_range(&mut array, 5, 4);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 
         // If minLength is sufficient, we return the array
         ArrayUtil::grow_in_range(&mut array, 1, 4)?;

@@ -124,6 +124,13 @@ impl Field {
                 "It doesn't make sense to index offsets on binary fields",
             ));
         }
+        if indexable_field_type.index_options() != &IndexOptions::None
+            && indexable_field_type.tokenized()
+        {
+            return Err(LuceneError::illegal_argument(
+                "cannot set a BytesRef value on a tokenized field",
+            ));
+        }
         if indexable_field_type.index_options() == &IndexOptions::None
             && indexable_field_type.point_dimension_count() == 0
             && indexable_field_type.doc_values_type() == &DocValuesType::None
@@ -497,16 +504,18 @@ mod tests {
     use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
     use crate::document::double_point::DoublePoint;
     
-    use crate::document::field::{FieldBase, ReaderEnum, TokenStreamEnum};
-    
+
+    use crate::document::field::{Field, FieldBase, ReaderEnum, TokenStreamEnum};
+
     use crate::index::indexable_field::IndexableField;
     use crate::index::BytesRef;
     use crate::test::util::test_error::TestError;
-    
+
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::number::Number;
-    
-    
+
+    use crate::document::field_type::FieldType;
+    use crate::index::index_options::IndexOptions;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
@@ -515,17 +524,27 @@ mod tests {
     #[test]
     fn test_double_point() -> Result<(), TestError> {
         let mut field = DoublePoint::new("foo", &[5.0])?;
-        try_set_byte_value(&mut field);
-        try_set_bytes_value(&mut field);
-        try_set_bytes_ref_value(&mut field);
+        let mut result = try_set_byte_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_bytes_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_bytes_ref_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
         field.set_double_value(6.0)?;
-        try_set_int_value(&mut field);
-        try_set_long_value(&mut field);
-        try_set_float_value(&mut field);
-        try_set_reader_value(&mut field);
-        try_set_short_value(&mut field);
-        try_set_string_value(&mut field);
-        try_set_token_stream_value(&mut field);
+        result = try_set_int_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_long_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_float_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_reader_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_short_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_string_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_token_stream_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
         match field.numeric_value() {
             Ok(Some(Number::F64(value))) => assert_eq!(value, 6.0),
             _ => unreachable!(),
@@ -536,18 +555,29 @@ mod tests {
     #[test]
     fn test_double_point_2d() -> Result<(), TestError> {
         let mut field = DoublePoint::new("foo", &[5.0, 4.0])?;
-        try_set_byte_value(&mut field);
-        try_set_bytes_value(&mut field);
-        try_set_bytes_ref_value(&mut field);
-        try_set_double_value(&mut field);
-        field.set_double_values(&[6.0, 7.0])?; 
-        try_set_int_value(&mut field);
-        try_set_long_value(&mut field);
-        try_set_float_value(&mut field);
-        try_set_reader_value(&mut field);
-        try_set_short_value(&mut field);
-        try_set_string_value(&mut field);
-        try_set_token_stream_value(&mut field);
+        let mut result = try_set_byte_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_bytes_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_bytes_ref_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_double_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        field.set_double_values(&[6.0, 7.0])?;
+        result = try_set_int_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_long_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_float_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_reader_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_short_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_string_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        result = try_set_token_stream_value(&mut field);
+        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
 
         let result = field.numeric_value();
         assert!(result.is_err() || matches!(result, Ok(Some(_)) if false));
@@ -562,61 +592,262 @@ mod tests {
 
         Ok(())
     }
-
-    fn try_set_byte_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_byte_value(10);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    #[test]
+    fn test_double_doc_values_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
     }
-    fn try_set_bytes_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_bytes_value(Arc::new(BytesRef::from_bytes(vec![5, 5])));
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
-    }
-
-    fn try_set_bytes_ref_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_bytes_value(Arc::new(BytesRef::from_string("bogus")));
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    #[test]
+    fn test_float_doc_values_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
     }
 
-    fn try_set_double_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_double_value(f64::MAX);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    #[test]
+    fn test_float_point() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
     }
 
-    fn try_set_int_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_int_value(i32::MAX);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    #[test]
+    fn test_float_point_2d() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
     }
 
-    fn try_set_long_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_long_value(i64::MAX);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    #[test]
+    fn test_int_point() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
     }
 
-    fn try_set_float_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_float_value(f32::MAX);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    #[test]
+    fn test_int_point_2d() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
     }
 
-    fn try_set_reader_value<F: FieldBase>(f: &mut F) {
+    #[test]
+    fn test_int_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_long_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_float_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_numeric_doc_values_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_long_point() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_long_point_2d() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_sorted_bytes_doc_values_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_binary_doc_values_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_binary_string_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_text_field_string() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_text_field_reader() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_stored_field_bytes() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_stored_field_string() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_stored_field_int() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_stored_field_double() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_stored_field_float() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_stored_field_long() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_indexed_binary_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_knn_vector_field() -> Result<(), LuceneError> {
+        // TODO
+        Ok(())
+    }
+
+    fn try_set_byte_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_byte_value(10)
+    }
+    fn try_set_bytes_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_bytes_value(Arc::new(BytesRef::from_bytes(vec![5, 5])))
+    }
+
+    fn try_set_bytes_ref_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_bytes_value(Arc::new(BytesRef::from_string("bogus")))
+    }
+
+    fn try_set_double_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_double_value(f64::MAX)
+    }
+
+    fn try_set_int_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_int_value(i32::MAX)
+    }
+
+    fn try_set_long_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_long_value(i64::MAX)
+    }
+
+    fn try_set_float_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_float_value(f32::MAX)
+    }
+
+    fn try_set_reader_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
         let cursor = Arc::new(std::io::Cursor::new("BOO!".to_string()));
         let read = ReaderEnum::CursorStr(cursor);
-        let result = f.set_reader_value(Arc::from(read));
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+        f.set_reader_value(Arc::from(read))
     }
 
-    fn try_set_short_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_short_value(i16::MAX);
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    fn try_set_short_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_short_value(i16::MAX)
     }
 
-    fn try_set_string_value<F: FieldBase>(f: &mut F) {
-        let result = f.set_string_value("BOO!".to_string());
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    fn try_set_string_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+        f.set_string_value("BOO!".to_string())
     }
 
-    fn try_set_token_stream_value<F: FieldBase>(f: &mut F) {
+    fn try_set_token_stream_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
         let token_stream = TokenStreamEnum::Dummy(Arc::new(DummyTokenStream));
-        let result = f.set_token_stream(Arc::new(token_stream));
-        matches!(result, Err(LuceneError::IllegalArgument(_)));
+        f.set_token_stream(Arc::new(token_stream))
+    }
+    #[test]
+    fn test_disabled_field() -> Result<(), LuceneError> {
+        let ft = FieldType::new();
+        let result = Field::with_string(
+            Arc::new("foo".to_string()),
+            Arc::new("".to_string()),
+            Arc::new(ft),
+        );
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        Ok(())
+    }
+    #[test]
+    fn test_tokenized_binary_field() -> Result<(), LuceneError> {
+        let mut ft = FieldType::new();
+        ft.set_tokenized(true)?;
+        ft.set_index_options(IndexOptions::DOCS)?;
+        let result = Field::with_bytes_ref(
+            Arc::new("foo".to_string()),
+            Arc::new(BytesRef::new()),
+            Arc::new(ft),
+        );
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        Ok(())
+    }
+    #[test]
+    fn test_offsets_binary_field() -> Result<(), LuceneError> {
+        let mut ft = FieldType::new();
+        ft.set_tokenized(false)?;
+        ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
+        let result = Field::with_bytes_ref(
+            Arc::new("foo".to_string()),
+            Arc::new(BytesRef::new()),
+            Arc::new(ft),
+        );
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        Ok(())
+    }
+    #[test]
+    fn test_term_vectors_offsets_binary_field() -> Result<(), LuceneError> {
+        let mut ft = FieldType::new();
+        ft.set_tokenized(false)?;
+        ft.set_store_term_vectors(true)?;
+        ft.set_store_term_vector_offsets(true)?;
+        ft.set_store_term_vector_offsets(true)?;
+        let result = Field::with_bytes_ref(
+            Arc::new("foo".to_string()),
+            Arc::new(BytesRef::new()),
+            Arc::new(ft),
+        );
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        Ok(())
     }
 }

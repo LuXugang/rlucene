@@ -1297,14 +1297,14 @@ mod tests {
                 queue.close()?; // double close
             }
             let result = queue.add_delete_term(vec![Term::from_text("foo".to_string(), "bar")]);
-            matches!(result, Err(LuceneError::AlreadyClosed(_)));
+            assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.freeze_global_buffer::<DummyDirectory>(None);
-            matches!(result, Err(LuceneError::AlreadyClosed(_)));
+            assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.add_delete_query(vec![Arc::new(TermQuery::new(Term::from_text(
                 "foo".to_string(),
                 "bar",
             )))]);
-            matches!(result, Err(LuceneError::AlreadyClosed(_)));
+            assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
 
             let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
                 BytesRef::from_string(""),
@@ -1317,7 +1317,7 @@ mod tests {
                 sub_update,
             );
             let result = queue.add_doc_values_updates(vec![update]);
-            matches!(result, Err(LuceneError::AlreadyClosed(_)));
+            assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.maybe_freeze_global_buffer::<DummyDirectory>()?;
             assert!(result.is_none());
             assert!(!queue.is_open()?);
@@ -1327,7 +1327,7 @@ mod tests {
                 DocumentsWriterDeleteQueue::new(get_default_info_stream());
             queue.add_delete_term(vec![Term::from_text("foo".to_string(), "bar")])?;
             let result = queue.close();
-            matches!(result, Err(LuceneError::IllegalState(_)));
+            assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
             assert!(queue.is_open()?);
             queue.try_apply_global_slice()?;

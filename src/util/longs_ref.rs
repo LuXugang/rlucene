@@ -268,7 +268,7 @@ mod tests {
         let mut from = LongsRef::from_slice(vec![1, 2], 0, 2);
         from.offset += 1;
         let result = LongsRef::deep_copy_of(&from);
-        matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+        assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
         Ok(())
     }
 }

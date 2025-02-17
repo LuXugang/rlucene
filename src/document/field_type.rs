@@ -638,7 +638,7 @@ mod tests {
         ft.put_attribute("dummy".to_string(), "d".to_string())?;
         ft.freeze();
         let result = ft.put_attribute("dummy".to_string(), "a".to_string());
-        matches!(result, Err(LuceneError::IllegalState(_)));
+        assert!(matches!(result, Err(LuceneError::IllegalState(_))));
         Ok(())
     }
 

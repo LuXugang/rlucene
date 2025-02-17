@@ -1278,7 +1278,7 @@ mod tests {
                     if i < sizes.len() - 1 {
                         unreachable!("Unexpected exception at size: {}: {:?}", size, e);
                     }
-                    matches!(e, LuceneError::MaxBytesLengthExceeded(_));
+                    assert!(matches!(e, LuceneError::MaxBytesLengthExceeded(_)));
                 }
             }
         }

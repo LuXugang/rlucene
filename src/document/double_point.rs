@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
 use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::document::field_type::FieldType;
@@ -26,6 +25,7 @@ use crate::util::dummy::dummy_read::DummyRead;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::number::Number;
 use crate::util::numeric_utils::NumericUtils;
+use std::fmt;
 use std::sync::Arc;
 
 pub struct DoublePoint {
@@ -147,7 +147,10 @@ impl fmt::Display for DoublePoint {
                     if dim > 0 {
                         write!(f, ",")?;
                     }
-                    let value = Self::decode_dimension(&bytes.bytes, bytes.offset as usize + dim as usize * BitUtil::DOUBLE_BYTES);
+                    let value = Self::decode_dimension(
+                        &bytes.bytes,
+                        bytes.offset as usize + dim as usize * BitUtil::DOUBLE_BYTES,
+                    );
                     write!(f, "{}", value)?;
                 }
             }

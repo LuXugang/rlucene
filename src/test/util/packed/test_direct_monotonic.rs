@@ -21,6 +21,7 @@ use crate::store::{IOContext, IndexInput};
 use crate::test::util::lucene_test_case::{at_least, new_directory, random};
 use crate::test::util::test_error::TestError;
 use crate::test::util::test_util::TestUtil;
+use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
@@ -36,14 +37,20 @@ pub struct TestDirectMonotonic;
 fn test_validation() {
     let mut meta_out = DummyIndexOutput;
     let mut data_out = DummyIndexOutput;
-    let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, -1, 0);
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if "numValues can't be negative, got -1".eq(&msg.message));
+    let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, -1, 10);
+    assert!(
+        matches!(result, Err(LuceneError::IllegalArgument(msg)) if "numValues can't be negative, got -1".eq(&msg.message))
+    );
 
     let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 10, 1);
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if "blockShift must be in [2-22], got 1".eq(&msg.message));
+    assert!(
+        matches!(result, Err(LuceneError::IllegalArgument(msg)) if "blockShift must be in [2-22], got 1".eq(&msg.message))
+    );
 
     let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 1 << 40, 5);
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if "blockShift is too low for the provided number of values: blockShift=5, numValues=1099511627776, MAX_ARRAY_LENGTH=".eq(&msg.message));
+    assert!(
+        matches!(result, Err(LuceneError::IllegalArgument(msg)) if format!("blockShift is too low for the provided number of values: blockShift=5, numValues=1099511627776, MAX_ARRAY_LENGTH={}",ArrayUtil::MAX_ARRAY_LENGTH).eq(&msg.message))
+    );
 }
 #[test]
 pub fn test_empty() -> Result<(), TestError> {
