@@ -35,7 +35,7 @@ pub enum StoredValue {
     /// Type of binary values.
     Binary(Arc<BytesRef>),
     /// Type of string values.
-    String(String),
+    String(Arc<String>),
 }
 
 /// Type of a [`StoredValue`].
@@ -96,7 +96,7 @@ impl StoredValue {
     }
 
     /// Ctor for string values.
-    pub fn new_string(value: String) -> Self {
+    pub fn new_string(value: Arc<String>) -> Self {
         StoredValue::String(value)
     }
 
@@ -178,7 +178,7 @@ impl StoredValue {
     }
 
     /// Set a string value.
-    pub fn set_string_value(&mut self, value: String) -> Result<(), LuceneError> {
+    pub fn set_string_value(&mut self, value: Arc<String>) -> Result<(), LuceneError> {
         if let StoredValue::String(ref mut v) = self {
             *v = value;
             Ok(())

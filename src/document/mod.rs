@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod double_point;
 pub mod dummy;
 pub mod field;
 pub mod field_type;

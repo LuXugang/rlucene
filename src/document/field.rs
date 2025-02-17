@@ -17,7 +17,6 @@
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::analysis::token_stream::TokenStream;
-use crate::document::dummy::dummy_filed::DummyField;
 use crate::document::field_type::FieldType;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
@@ -31,61 +30,89 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::number::Number;
 use std::fmt;
 use std::fmt::{Debug, Display};
-use std::io::Read;
+use std::io::Cursor;
 use std::sync::Arc;
 
-pub struct Field<R, T, F>
-where
-    R: Read + Debug,
-    T: TokenStream + Debug,
-    F: FieldBase + IndexableField,
-{
-    indexable_field_type: FieldType,
-    name: String,
-    fields_data: Option<FieldDataEnum<R, T>>,
-    delegate: Option<F>,
+pub struct Field {
+    indexable_field_type: Arc<FieldType>,
+    name: Arc<String>,
+    pub(crate) fields_data: Option<FieldDataEnum>,
 }
-impl<F> Field<DummyRead, DummyTokenStream, F>
-where
-    F: FieldBase + IndexableField,
-{
-    pub fn new_with_delegate(
-        name: String,
-        indexable_field_type: FieldType,
-        delegate: Option<F>,
-    ) -> Self {
+impl Field {
+    pub fn new(name: Arc<String>, indexable_field_type: Arc<FieldType>) -> Self {
         Field {
             indexable_field_type,
             name,
             fields_data: None,
-            delegate,
         }
     }
-    pub fn with_binary_delegate(
-        name: String,
+    pub fn with_reader(
+        name: Arc<String>,
+        reader: ReaderEnum,
+        indexable_field_type: Arc<FieldType>,
+    ) -> Result<Self, LuceneError> {
+        if indexable_field_type.stored() {
+            return Err(LuceneError::illegal_argument(
+                "fields with a Reader value cannot be stored",
+            ));
+        }
+        if !indexable_field_type.tokenized() {
+            return Err(LuceneError::illegal_argument(
+                "non-tokenized fields must use String values",
+            ));
+        }
+        Ok(Field {
+            indexable_field_type,
+            name,
+            fields_data: Some(FieldDataEnum::Reader(reader)),
+        })
+    }
+    pub fn with_token_stream(
+        name: Arc<String>,
+        token_stream: TokenStreamEnum,
+        indexable_field_type: Arc<FieldType>,
+    ) -> Result<Self, LuceneError> {
+        if !indexable_field_type.tokenized()
+            || indexable_field_type.index_options() == &IndexOptions::None
+        {
+            return Err(LuceneError::illegal_argument(
+                "TokenStream fields must be indexed and tokenized",
+            ));
+        }
+        if indexable_field_type.stored() {
+            return Err(LuceneError::illegal_argument(
+                "TokenStream fields cannot be stored",
+            ));
+        }
+        Ok(Field {
+            indexable_field_type,
+            name,
+            fields_data: Some(FieldDataEnum::TokenStream(token_stream)),
+        })
+    }
+    pub fn with_binary(
+        name: Arc<String>,
         value: Vec<u8>,
-        indexable_field_type: FieldType,
-        delegate: Option<F>,
+        indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
         let len = value.len() as i32;
-        Self::with_binary_range_delegate(name, value, 0, len, indexable_field_type, delegate)
+        Self::with_binary_range(name, value, 0, len, indexable_field_type)
     }
-    pub fn with_binary_range_delegate(
-        name: String,
+    pub fn with_binary_range(
+        name: Arc<String>,
         value: Vec<u8>,
         offset: i32,
         length: i32,
-        indexable_field_type: FieldType,
-        delegate: Option<F>,
+        indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
         let value = Arc::new(BytesRef::from_vec(value, offset, length));
-        Self::with_bytes_ref_delegate(name, value, indexable_field_type, delegate)
+        Self::with_bytes_ref(name, value, indexable_field_type)
     }
-    pub fn with_bytes_ref_delegate(
-        name: String,
+
+    pub fn with_bytes_ref(
+        name: Arc<String>,
         bytes: Arc<BytesRef>,
-        indexable_field_type: FieldType,
-        delegate: Option<F>,
+        indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
         if indexable_field_type
             .index_options()
@@ -108,14 +135,12 @@ where
             indexable_field_type,
             name,
             fields_data: Some(FieldDataEnum::Binary(bytes)),
-            delegate,
         })
     }
-    pub fn with_string_delegate(
-        name: String,
-        value: String,
-        indexable_field_type: FieldType,
-        delegate: Option<F>,
+    pub fn with_string(
+        name: Arc<String>,
+        value: Arc<String>,
+        indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
         if !indexable_field_type.stored()
             && indexable_field_type.index_options() == &IndexOptions::None
@@ -128,61 +153,19 @@ where
             indexable_field_type,
             name,
             fields_data: Some(FieldDataEnum::String(value)),
-            delegate,
         })
     }
-}
-
-impl Field<DummyRead, DummyTokenStream, DummyField> {
-    pub fn new(name: String, indexable_field_type: FieldType) -> Self {
-        Self::new_with_delegate(name, indexable_field_type, None)
-    }
-
-    pub fn with_binary(
-        name: String,
-        value: Vec<u8>,
-        indexable_field_type: FieldType,
-    ) -> Result<Self, LuceneError> {
-        let len = value.len() as i32;
-        Self::with_binary_range(name, value, 0, len, indexable_field_type)
-    }
-    pub fn with_binary_range(
-        name: String,
-        value: Vec<u8>,
-        offset: i32,
-        length: i32,
-        indexable_field_type: FieldType,
-    ) -> Result<Self, LuceneError> {
-        let value = Arc::new(BytesRef::from_vec(value, offset, length));
-        Self::with_bytes_ref(name, value, indexable_field_type)
-    }
-    pub fn with_bytes_ref(
-        name: String,
-        bytes: Arc<BytesRef>,
-        indexable_field_type: FieldType,
-    ) -> Result<Self, LuceneError> {
-        Self::with_bytes_ref_delegate(name, bytes, indexable_field_type, None)
-    }
-
-    pub fn with_string(
-        name: String,
-        value: String,
-        indexable_field_type: FieldType,
-    ) -> Result<Self, LuceneError> {
-        Self::with_string_delegate(name, value, indexable_field_type, None)
-    }
-    pub fn set_string_value(&mut self, value: String) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_string_value(value.clone()) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
+    pub fn token_stream_value(&self) -> Result<Option<TokenStreamEnum>, LuceneError> {
+        if let Some(token_stream) = &self.fields_data {
+            match token_stream {
+                FieldDataEnum::TokenStream(token_stream) => Ok(Option::from(token_stream.clone())),
+                _ => Ok(None),
             }
+        } else {
+            Ok(None)
         }
-
+    }
+    pub fn set_string_value(&mut self, value: Arc<String>) -> Result<(), LuceneError> {
         match &self.fields_data {
             Some(FieldDataEnum::String(_)) => {}
             _ => {
@@ -196,240 +179,7 @@ impl Field<DummyRead, DummyTokenStream, DummyField> {
         self.fields_data = Some(FieldDataEnum::String(value));
         Ok(())
     }
-
-    pub fn set_vec_value(&mut self, value: Vec<u8>) -> Result<(), LuceneError> {
-        self.set_bytes_value(Arc::new(BytesRef::from_bytes(value)))
-    }
-    pub fn set_bytes_value(&mut self, value: Arc<BytesRef>) -> Result<(), LuceneError> {
-        if self.delegate.is_some() {
-            match self
-                .delegate
-                .as_mut()
-                .unwrap()
-                .set_bytes_value(value.clone())
-            {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-        match &self.fields_data {
-            Some(FieldDataEnum::Binary(_)) => {}
-            _ => {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot change value type from {:?} to BytesRef",
-                    self.fields_data
-                )));
-            }
-        }
-        self.fields_data = Some(FieldDataEnum::Binary(value));
-        Ok(())
-    }
-    pub fn set_byte_value(&mut self, value: u8) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_byte_value(value) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-        match &self.fields_data {
-            Some(FieldDataEnum::Number(_)) => {}
-            _ => {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot change value type from {:?} to Byte",
-                    self.fields_data
-                )));
-            }
-        }
-        self.fields_data = Some(FieldDataEnum::Number(Number::U8(value)));
-        Ok(())
-    }
-    pub fn set_short_value(&mut self, value: i16) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_short_value(value) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-        match &self.fields_data {
-            Some(FieldDataEnum::Number(_)) => {}
-            _ => {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot change value type from {:?} to Short",
-                    self.fields_data
-                )));
-            }
-        }
-        self.fields_data = Some(FieldDataEnum::Number(Number::I16(value)));
-        Ok(())
-    }
-    pub fn set_int_value(&mut self, value: i32) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_int_value(value) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-
-        match &self.fields_data {
-            Some(FieldDataEnum::Number(_)) => {}
-            _ => {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot change value type from {:?} to Integer",
-                    self.fields_data
-                )));
-            }
-        }
-
-        self.fields_data = Some(FieldDataEnum::Number(Number::I32(value)));
-        Ok(())
-    }
-
-    pub fn set_long_value(&mut self, value: i64) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_long_value(value) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-
-        match &self.fields_data {
-            Some(FieldDataEnum::Number(_)) => {}
-            _ => {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot change value type from {:?} to Long",
-                    self.fields_data
-                )));
-            }
-        }
-
-        self.fields_data = Some(FieldDataEnum::Number(Number::I64(value)));
-        Ok(())
-    }
-
-    pub fn set_float_value(&mut self, value: f32) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_float_value(value) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-
-        match &self.fields_data {
-            Some(FieldDataEnum::Number(_)) => {}
-            _ => {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot change value type from {:?} to Float",
-                    self.fields_data
-                )));
-            }
-        }
-
-        self.fields_data = Some(FieldDataEnum::Number(Number::F32(value)));
-        Ok(())
-    }
-
-    pub fn set_double_value(&mut self, value: f64) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_double_value(value) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-
-        match &self.fields_data {
-            Some(FieldDataEnum::Number(_)) => {}
-            _ => {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot change value type from {:?} to Double",
-                    self.fields_data
-                )));
-            }
-        }
-
-        self.fields_data = Some(FieldDataEnum::Number(Number::F64(value)));
-        Ok(())
-    }
-}
-impl<R, F> Field<R, DummyTokenStream, F>
-where
-    R: Read + Debug,
-    F: FieldBase + IndexableField,
-{
-    pub fn with_reader_delegate(
-        name: String,
-        reader: Arc<R>,
-        indexable_field_type: FieldType,
-        delegate: Option<F>,
-    ) -> Result<Self, LuceneError> {
-        if indexable_field_type.stored() {
-            return Err(LuceneError::illegal_argument(
-                "fields with a Reader value cannot be stored",
-            ));
-        }
-        if !indexable_field_type.tokenized() {
-            return Err(LuceneError::illegal_argument(
-                "non-tokenized fields must use String values",
-            ));
-        }
-        Ok(Field {
-            indexable_field_type,
-            name,
-            fields_data: Some(FieldDataEnum::Reader(reader)),
-            delegate,
-        })
-    }
-}
-impl<R> Field<R, DummyTokenStream, DummyField>
-where
-    R: Read + Debug,
-{
-    pub fn with_reader(
-        name: String,
-        reader: Arc<R>,
-        indexable_field_type: FieldType,
-    ) -> Result<Self, LuceneError> {
-        Self::with_reader_delegate(name, reader, indexable_field_type, None)
-    }
-    pub fn set_reader_value(&mut self, value: Arc<R>) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_reader_value(value.clone()) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-
+    pub fn set_reader_value(&mut self, value: ReaderEnum) -> Result<(), LuceneError> {
         match &self.fields_data {
             Some(FieldDataEnum::Reader(_)) => {}
             _ => {
@@ -443,50 +193,108 @@ where
         self.fields_data = Some(FieldDataEnum::Reader(value));
         Ok(())
     }
-}
-
-impl<T, F> Field<DummyRead, T, F>
-where
-    T: TokenStream + Debug,
-    F: FieldBase + IndexableField,
-{
-    pub fn with_token_stream_delegate(
-        name: String,
-        token_stream: Arc<T>,
-        indexable_field_type: FieldType,
-        delegate: Option<F>,
-    ) -> Result<Self, LuceneError> {
-        if !indexable_field_type.tokenized()
-            || indexable_field_type.index_options() == &IndexOptions::None
-        {
-            return Err(LuceneError::illegal_argument(
-                "TokenStream fields must be indexed and tokenized",
-            ));
-        }
-        if indexable_field_type.stored() {
-            return Err(LuceneError::illegal_argument(
-                "TokenStream fields cannot be stored",
-            ));
-        }
-        Ok(Field {
-            indexable_field_type,
-            name,
-            fields_data: Some(FieldDataEnum::TokenStream(token_stream)),
-            delegate,
-        })
+    pub fn set_vec_value(&mut self, value: Vec<u8>) -> Result<(), LuceneError> {
+        self.set_bytes_value(Arc::new(BytesRef::from_bytes(value)))
     }
-    pub fn set_token_stream(&mut self, token_stream: Arc<T>) -> Result<(), LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.set_token_stream(token_stream.clone()) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
+    pub fn set_bytes_value(&mut self, value: Arc<BytesRef>) -> Result<(), LuceneError> {
+        match &self.fields_data {
+            Some(FieldDataEnum::Binary(_)) => {}
+            _ => {
+                return Err(LuceneError::illegal_argument(format!(
+                    "cannot change value type from {:?} to BytesRef",
+                    self.fields_data
+                )));
+            }
+        }
+        self.fields_data = Some(FieldDataEnum::Binary(value));
+        Ok(())
+    }
+    pub fn set_byte_value(&mut self, value: u8) -> Result<(), LuceneError> {
+        match &self.fields_data {
+            Some(FieldDataEnum::Number(Number::U8(_))) => {}
+            _ => {
+                return Err(LuceneError::illegal_argument(format!(
+                    "cannot change value type from {:?} to Byte",
+                    self.fields_data
+                )));
+            }
+        }
+        self.fields_data = Some(FieldDataEnum::Number(Number::U8(value)));
+        Ok(())
+    }
+    pub fn set_short_value(&mut self, value: i16) -> Result<(), LuceneError> {
+        match &self.fields_data {
+            Some(FieldDataEnum::Number(Number::I16(_))) => {}
+            _ => {
+                return Err(LuceneError::illegal_argument(format!(
+                    "cannot change value type from {:?} to Short",
+                    self.fields_data
+                )));
+            }
+        }
+        self.fields_data = Some(FieldDataEnum::Number(Number::I16(value)));
+        Ok(())
+    }
+    pub fn set_int_value(&mut self, value: i32) -> Result<(), LuceneError> {
+        match &self.fields_data {
+            Some(FieldDataEnum::Number(Number::I32(_))) => {}
+            _ => {
+                return Err(LuceneError::illegal_argument(format!(
+                    "cannot change value type from {:?} to Integer",
+                    self.fields_data
+                )));
             }
         }
 
+        self.fields_data = Some(FieldDataEnum::Number(Number::I32(value)));
+        Ok(())
+    }
+
+    pub fn set_long_value(&mut self, value: i64) -> Result<(), LuceneError> {
+        match &self.fields_data {
+            Some(FieldDataEnum::Number(Number::I64(_))) => {}
+            _ => {
+                return Err(LuceneError::illegal_argument(format!(
+                    "cannot change value type from {:?} to Long",
+                    self.fields_data
+                )));
+            }
+        }
+
+        self.fields_data = Some(FieldDataEnum::Number(Number::I64(value)));
+        Ok(())
+    }
+
+    pub fn set_float_value(&mut self, value: f32) -> Result<(), LuceneError> {
+        match &self.fields_data {
+            Some(FieldDataEnum::Number(Number::F32(_))) => {}
+            _ => {
+                return Err(LuceneError::illegal_argument(format!(
+                    "cannot change value type from {:?} to Float",
+                    self.fields_data
+                )));
+            }
+        }
+
+        self.fields_data = Some(FieldDataEnum::Number(Number::F32(value)));
+        Ok(())
+    }
+
+    pub fn set_double_value(&mut self, value: f64) -> Result<(), LuceneError> {
+        match &self.fields_data {
+            Some(FieldDataEnum::Number(Number::F64(_))) => {}
+            _ => {
+                return Err(LuceneError::illegal_argument(format!(
+                    "cannot change value type from {:?} to Double",
+                    self.fields_data
+                )));
+            }
+        }
+
+        self.fields_data = Some(FieldDataEnum::Number(Number::F64(value)));
+        Ok(())
+    }
+    pub fn set_token_stream(&mut self, token_stream: TokenStreamEnum) -> Result<(), LuceneError> {
         match &self.fields_data {
             Some(FieldDataEnum::TokenStream(_)) => {}
             _ => {
@@ -501,32 +309,7 @@ where
         Ok(())
     }
 }
-impl<T> Field<DummyRead, T, DummyField>
-where
-    T: TokenStream + Debug,
-{
-    pub fn with_token_stream(
-        name: String,
-        token_stream: Arc<T>,
-        indexable_field_type: FieldType,
-    ) -> Result<Self, LuceneError> {
-        Self::with_token_stream_delegate(name, token_stream, indexable_field_type, None)
-    }
-    pub fn token_stream_value(&self) -> Result<Option<Arc<T>>, LuceneError> {
-        if let Some(FieldDataEnum::TokenStream(ref token_stream)) = &self.fields_data {
-            Ok(Some(token_stream.clone()))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-impl<R, T, F> IndexableField for Field<R, T, F>
-where
-    R: Read + Debug,
-    T: TokenStream + Debug,
-    F: FieldBase + IndexableField,
-{
+impl IndexableField for Field {
     fn name(&self) -> Result<&str, LuceneError> {
         Ok(&self.name)
     }
@@ -548,16 +331,6 @@ where
     }
 
     fn binary_value(&mut self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
-        if let Some(delegate) = &mut self.delegate {
-            match delegate.binary_value() {
-                Ok(r) => return Ok(r),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
         if let Some(FieldDataEnum::Binary(ref bytes)) = &self.fields_data {
             Ok(Some(bytes.clone()))
         } else {
@@ -565,37 +338,17 @@ where
         }
     }
 
-    fn string_value(&self) -> Result<Option<String>, LuceneError> {
-        if let Some(delegate) = &self.delegate {
-            match delegate.string_value() {
-                Ok(r) => return Ok(r),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
+    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
         if let Some(FieldDataEnum::String(ref s)) = &self.fields_data {
             Ok(Some(s.clone()))
         } else if let Some(FieldDataEnum::Number(val)) = &self.fields_data {
-            Ok(Some(val.as_string()))
+            Ok(Some(Arc::from(val.as_string())))
         } else {
             Ok(None)
         }
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<String>, LuceneError> {
-        if let Some(delegate) = &self.delegate {
-            match delegate.get_char_sequence_value() {
-                Ok(r) => return Ok(r),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
         if let Some(FieldDataEnum::String(ref s)) = &self.fields_data {
             Ok(Some(s.clone()))
         } else {
@@ -610,16 +363,6 @@ where
     }
 
     fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
-        if let Some(delegate) = &self.delegate {
-            match delegate.numeric_value() {
-                Ok(r) => return Ok(r),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
         if let Some(FieldDataEnum::Number(ref n)) = &self.fields_data {
             Ok(Some(*n))
         } else {
@@ -628,16 +371,6 @@ where
     }
 
     fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
-        if let Some(delegate) = &self.delegate {
-            match delegate.stored_value() {
-                Ok(r) => return Ok(r),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
         if !self.indexable_field_type.stored() {
             return Ok(None);
         }
@@ -662,25 +395,10 @@ where
     }
 
     fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
-        if let Some(delegate) = &self.delegate {
-            match delegate.invertable_type() {
-                Ok(r) => return Ok(r),
-                Err(e) => {
-                    if !matches!(e, LuceneError::NotImplemented(_)) {
-                        return Err(e);
-                    }
-                }
-            }
-        }
         Ok(&InvertableType::TokenStream)
     }
 }
-impl<R, T, F> Display for Field<R, T, F>
-where
-    R: Read + Debug,
-    T: TokenStream + Debug,
-    F: FieldBase + IndexableField,
-{
+impl Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}<{}:", self.indexable_field_type, self.name)?;
 
@@ -728,10 +446,7 @@ pub trait FieldBase {
             "set_double_value is not implemented",
         ))
     }
-    fn set_token_stream<T: TokenStream>(
-        &mut self,
-        _token_stream: Arc<T>,
-    ) -> Result<(), LuceneError> {
+    fn set_token_stream(&mut self, _token_stream: Arc<TokenStreamEnum>) -> Result<(), LuceneError> {
         Err(LuceneError::not_implemented(
             "set_token_stream is not implemented",
         ))
@@ -741,7 +456,7 @@ pub trait FieldBase {
             "set_string_value is not implemented",
         ))
     }
-    fn set_reader_value<R: Read>(&mut self, _value: Arc<R>) -> Result<(), LuceneError> {
+    fn set_reader_value(&mut self, _value: Arc<ReaderEnum>) -> Result<(), LuceneError> {
         Err(LuceneError::not_implemented(
             "set_reader_value is not implemented",
         ))
@@ -759,14 +474,149 @@ pub enum Store {
 }
 
 #[derive(Debug)]
-pub enum FieldDataEnum<R, T>
-where
-    R: Read + Debug,
-    T: TokenStream + Debug,
-{
+pub enum FieldDataEnum {
     Number(Number),
     Binary(Arc<BytesRef>),
-    String(String),
-    Reader(Arc<R>),
-    TokenStream(Arc<T>),
+    String(Arc<String>),
+    Reader(ReaderEnum),
+    TokenStream(TokenStreamEnum),
+}
+
+#[derive(Debug, Clone)]
+pub enum ReaderEnum {
+    CursorStr(Arc<Cursor<String>>),
+}
+
+#[derive(Debug, Clone)]
+pub enum TokenStreamEnum {
+    Dummy(Arc<DummyTokenStream>),
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+    use crate::document::double_point::DoublePoint;
+    
+    use crate::document::field::{FieldBase, ReaderEnum, TokenStreamEnum};
+    
+    use crate::index::indexable_field::IndexableField;
+    use crate::index::BytesRef;
+    use crate::test::util::test_error::TestError;
+    
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::number::Number;
+    
+    
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestField;
+
+    #[test]
+    fn test_double_point() -> Result<(), TestError> {
+        let mut field = DoublePoint::new("foo", &[5.0])?;
+        try_set_byte_value(&mut field);
+        try_set_bytes_value(&mut field);
+        try_set_bytes_ref_value(&mut field);
+        field.set_double_value(6.0)?;
+        try_set_int_value(&mut field);
+        try_set_long_value(&mut field);
+        try_set_float_value(&mut field);
+        try_set_reader_value(&mut field);
+        try_set_short_value(&mut field);
+        try_set_string_value(&mut field);
+        try_set_token_stream_value(&mut field);
+        match field.numeric_value() {
+            Ok(Some(Number::F64(value))) => assert_eq!(value, 6.0),
+            _ => unreachable!(),
+        }
+        assert_eq!("DoublePoint <foo:6>", field.to_string());
+        Ok(())
+    }
+    #[test]
+    fn test_double_point_2d() -> Result<(), TestError> {
+        let mut field = DoublePoint::new("foo", &[5.0, 4.0])?;
+        try_set_byte_value(&mut field);
+        try_set_bytes_value(&mut field);
+        try_set_bytes_ref_value(&mut field);
+        try_set_double_value(&mut field);
+        field.set_double_values(&[6.0, 7.0])?; 
+        try_set_int_value(&mut field);
+        try_set_long_value(&mut field);
+        try_set_float_value(&mut field);
+        try_set_reader_value(&mut field);
+        try_set_short_value(&mut field);
+        try_set_string_value(&mut field);
+        try_set_token_stream_value(&mut field);
+
+        let result = field.numeric_value();
+        assert!(result.is_err() || matches!(result, Ok(Some(_)) if false));
+
+        if let Err(err) = result {
+            assert!(err
+                .to_string()
+                .contains("cannot convert to a single numeric value"));
+        }
+
+        assert_eq!(field.to_string(), "DoublePoint <foo:6,7>");
+
+        Ok(())
+    }
+
+    fn try_set_byte_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_byte_value(10);
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+    fn try_set_bytes_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_bytes_value(Arc::new(BytesRef::from_bytes(vec![5, 5])));
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_bytes_ref_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_bytes_value(Arc::new(BytesRef::from_string("bogus")));
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_double_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_double_value(f64::MAX);
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_int_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_int_value(i32::MAX);
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_long_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_long_value(i64::MAX);
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_float_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_float_value(f32::MAX);
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_reader_value<F: FieldBase>(f: &mut F) {
+        let cursor = Arc::new(std::io::Cursor::new("BOO!".to_string()));
+        let read = ReaderEnum::CursorStr(cursor);
+        let result = f.set_reader_value(Arc::from(read));
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_short_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_short_value(i16::MAX);
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_string_value<F: FieldBase>(f: &mut F) {
+        let result = f.set_string_value("BOO!".to_string());
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
+
+    fn try_set_token_stream_value<F: FieldBase>(f: &mut F) {
+        let token_stream = TokenStreamEnum::Dummy(Arc::new(DummyTokenStream));
+        let result = f.set_token_stream(Arc::new(token_stream));
+        matches!(result, Err(LuceneError::IllegalArgument(_)));
+    }
 }

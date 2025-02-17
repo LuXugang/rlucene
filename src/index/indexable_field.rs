@@ -75,14 +75,14 @@ pub trait IndexableField {
     }
 
     /// Non-null if this field has a string value.
-    fn string_value(&self) -> Result<Option<String>, LuceneError> {
+    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
         Err(LuceneError::not_implemented(
             "string_value is not implemented",
         ))
     }
 
     /// Non-null if this field has a string value.
-    fn get_char_sequence_value(&self) -> Result<Option<String>, LuceneError> {
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
         self.string_value()
     }
 

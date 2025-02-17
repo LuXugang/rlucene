@@ -130,7 +130,7 @@ impl FieldType {
     /// Prevents future changes.
     /// It is recommended that this is called once the FieldType's properties have been set,
     /// to prevent unintentional state changes.
-    fn freeze(&mut self) {
+    pub fn freeze(&mut self) {
         self.frozen = true;
     }
 
