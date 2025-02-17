@@ -60,6 +60,7 @@ pub mod segment_info;
 pub mod segment_infos;
 pub mod sort;
 pub mod sort_field_provider;
+pub mod stored_fields;
 pub mod term;
 pub mod vector_encoding;
 pub mod vector_similarity_function;

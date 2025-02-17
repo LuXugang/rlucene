@@ -343,7 +343,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             }
             Ok(infos)
         })();
-        let mut prior_e = None;
+        let mut prior_e;
         match result {
             Ok(infos) => {
                 CodecUtil::check_footer(&mut input)?;

@@ -439,8 +439,8 @@ impl Field {
     }
 }
 impl IndexableField for Field {
-    fn name(&self) -> Result<&str, LuceneError> {
-        Ok(&self.name)
+    fn name(&self) -> &str {
+        self.name.as_str()
     }
 
     type FieldType = FieldType;
@@ -460,7 +460,7 @@ impl IndexableField for Field {
         todo!()
     }
 
-    fn binary_value(&mut self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
         if let Some(FieldDataEnum::Binary(ref bytes)) = &self.fields_data {
             Ok(Some(bytes.clone()))
         } else {

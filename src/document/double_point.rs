@@ -109,6 +109,10 @@ impl FieldBase for DoublePoint {
     }
 }
 impl IndexableField for DoublePoint {
+    fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
     type FieldType = FieldType;
     type TokenStreamType = DummyTokenStream;
     type ReadType = DummyRead;

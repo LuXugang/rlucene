@@ -24,6 +24,7 @@ pub mod leaf_field_comparator;
 pub mod pruning;
 pub mod query;
 pub mod scorable;
+pub mod score_doc;
 pub mod score_mode;
 pub mod sort_field;
 pub mod sorted_numeric_selector;

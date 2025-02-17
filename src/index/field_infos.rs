@@ -358,7 +358,7 @@ struct IndexOptionsProperties {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct FieldProperties {
+pub(crate) struct FieldProperties {
     pub number: i32,
     pub index_options: IndexOptions,
     pub index_options_properties: Option<IndexOptionsProperties>,

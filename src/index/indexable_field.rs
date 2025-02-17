@@ -33,9 +33,7 @@ use std::sync::Arc;
 /// @lucene.experimental
 pub trait IndexableField {
     /// Field name
-    fn name(&self) -> Result<&str, LuceneError> {
-        Err(LuceneError::not_implemented("name is not implemented"))
-    }
+    fn name(&self) -> &str;
 
     /// {@link IndexableFieldType} describing the properties of this field.
     type FieldType: IndexableFieldType;
@@ -68,7 +66,7 @@ pub trait IndexableField {
         ))
     }
     /// Non-null if this field has a binary value.
-    fn binary_value(&mut self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
         Err(LuceneError::not_implemented(
             "binary_value is not implemented",
         ))
