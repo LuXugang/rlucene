@@ -14,8 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::analyzer::Analyzer;
+use crate::analysis::token_stream::TokenStream;
 use crate::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::document::field_type::FieldType;
+use crate::document::fields::{ReaderEnum, TokenStreamEnum};
+use crate::document::invertable_field::InvertableType;
+use crate::document::stored_value::StoredValue;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
@@ -105,6 +110,26 @@ impl IndexableField for DoublePoint {
         self.parent_field.field_type()
     }
 
+    fn token_stream(
+        &self,
+        analyzer: Option<&impl Analyzer>,
+        reuse: Option<&impl TokenStream>,
+    ) -> Result<TokenStreamEnum, LuceneError> {
+        self.parent_field.token_stream(analyzer, reuse)
+    }
+
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+        self.parent_field.binary_value()
+    }
+
+    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+        self.parent_field.string_value()
+    }
+
+    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+        todo!()
+    }
+
     fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
         if self.parent_field.field_type().point_dimension_count() != 1 {
             return Err(LuceneError::illegal_argument(format!(
@@ -124,6 +149,14 @@ impl IndexableField for DoublePoint {
                 Ok(None)
             }
         }
+    }
+
+    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+        todo!()
+    }
+
+    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+        todo!()
     }
 }
 impl fmt::Display for DoublePoint {

@@ -56,59 +56,30 @@ pub trait IndexableField: Display {
         &self,
         _analyzer: Option<&impl Analyzer>,
         _reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum, LuceneError> {
-        Err(LuceneError::not_implemented(
-            "token_stream is not implemented",
-        ))
-    }
+    ) -> Result<TokenStreamEnum, LuceneError>;
     /// Non-null if this field has a binary value.
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
-        Err(LuceneError::not_implemented(
-            "binary_value is not implemented",
-        ))
-    }
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError>;
 
     /// Non-null if this field has a string value.
-    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
-        Err(LuceneError::not_implemented(
-            "string_value is not implemented",
-        ))
-    }
-
+    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError>;
     /// Non-null if this field has a string value.
     fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
         self.string_value()
     }
 
     /// Non-null if this field has a Reader value.
-    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
-        Err(LuceneError::not_implemented(
-            "reader_value is not implemented",
-        ))
-    }
+    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError>;
 
     /// Non-null if this field has a numeric value.
-    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
-        Err(LuceneError::not_implemented(
-            "numeric_value is not implemented",
-        ))
-    }
+    fn numeric_value(&self) -> Result<Option<Number>, LuceneError>;
 
     /// Stored value. This method is called to populate stored fields and must return a non-null value
     /// if the field stored.
-    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
-        Err(LuceneError::not_implemented(
-            "stored_value is not implemented",
-        ))
-    }
+    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError>;
 
     /// Describes how this field should be inverted. This must return a non-null value if the field
     /// indexes terms and postings.
-    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
-        Err(LuceneError::not_implemented(
-            "invertable_type is not implemented",
-        ))
-    }
+    fn invertable_type(&self) -> Result<&InvertableType, LuceneError>;
 }
 
 #[cfg(test)]

@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::analyzer::Analyzer;
+use crate::analysis::token_stream::TokenStream;
 use crate::document::field::{Field, FieldBase, Store};
 use crate::document::field_type::FieldType;
+use crate::document::fields::{ReaderEnum, TokenStreamEnum};
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::number::Number;
 use once_cell::sync::Lazy;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -159,12 +163,28 @@ impl IndexableField for StringField {
         self.parent_field.field_type()
     }
 
+    fn token_stream(
+        &self,
+        analyzer: Option<&impl Analyzer>,
+        reuse: Option<&impl TokenStream>,
+    ) -> Result<TokenStreamEnum, LuceneError> {
+        self.parent_field.token_stream(analyzer, reuse)
+    }
+
     fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
         Ok(Some(self.binary_value.clone()))
     }
 
     fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
         self.parent_field.string_value()
+    }
+
+    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+        self.parent_field.reader_value()
+    }
+
+    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+        self.parent_field.numeric_value()
     }
 
     fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
