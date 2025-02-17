@@ -14,20 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod double_field;
-pub mod double_point;
-pub mod dummy;
-pub mod field;
-pub mod field_type;
-pub mod float_field;
-pub mod int_field;
-pub mod invertable_field;
-pub mod long_field;
-pub mod numeric_doc_values_field;
-pub mod sorted_doc_values_field;
-pub mod sorted_numeric_doc_values_field;
-pub mod sorted_set_doc_values_field;
-pub mod stored_field;
-pub mod stored_value;
-pub mod string_field;
-pub mod text_field;
+#[allow(unused)]
+pub struct FloatField;
