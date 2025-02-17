@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::document::field_enum::Fields;
+use crate::document::fields::Fields;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
@@ -247,6 +247,9 @@ mod tests {
 
     use crate::util::error::lucene_error::LuceneError;
     use std::sync::Arc;
+
+    #[allow(dead_code)]
+    struct TestDocument; // for quick search
 
     /// Tests the [`Document::remove_field`] method for a brand-new `Document` that has not been indexed yet.
     ///

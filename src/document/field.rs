@@ -16,8 +16,8 @@
  */
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
-use crate::document::field_enum::{ReaderEnum, TokenStreamEnum};
 use crate::document::field_type::FieldType;
+use crate::document::fields::{ReaderEnum, TokenStreamEnum};
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::doc_values_type::DocValuesType;
@@ -634,8 +634,8 @@ mod tests {
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::number::Number;
 
-    use crate::document::field_enum::{ReaderEnum, TokenStreamEnum};
     use crate::document::field_type::FieldType;
+    use crate::document::fields::{ReaderEnum, TokenStreamEnum};
     use crate::index::index_options::IndexOptions;
     use std::sync::Arc;
 

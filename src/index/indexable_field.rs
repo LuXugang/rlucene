@@ -18,9 +18,9 @@
 
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
+use crate::document::fields::{ReaderEnum, TokenStreamEnum};
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
-use crate::document::{ReaderEnum, TokenStreamEnum};
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
