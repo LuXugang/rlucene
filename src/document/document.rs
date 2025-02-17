@@ -37,6 +37,15 @@ where
 {
     fields: Vec<Arc<I>>,
 }
+impl<I> Default for Document<I>
+where
+    I: IndexableField + Display,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<I> Document<I>
 where
     I: IndexableField + Display,

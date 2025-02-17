@@ -14,5 +14,173 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::document::field::{Field, FieldDataEnum};
+use crate::document::field_type::FieldType;
+use crate::index::BytesRef;
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::number::Number;
+use once_cell::sync::Lazy;
+use std::sync::Arc;
+/// Type for a stored-only field.
+static TYPE: Lazy<Arc<FieldType>> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_stored(true)
+        .expect("set_stored(true) should never fail in this context");
+    ft.freeze();
+    Arc::new(ft)
+});
+/// A field whose value is stored so that [`IndexSearcher::stored_fields`](crate::search::index_searcher::IndexSearcher::stored_fields) and [`IndexReader::stored_fields`](crate::search::index_searcher::IndexSearcher::stored_fields)
+/// will return the field and its value.
+pub struct StoredField {
+    #[allow(unused)]
+    parent_field: Field,
+}
 #[allow(unused)]
-pub struct StoredField;
+impl StoredField {
+    /// Expert: allows you to customize the [`FieldType`].
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `field_type`: Custom [`FieldType`] for this field.
+    pub fn new(name: &str, file_type: FieldType) -> Self {
+        let parent_field = Field::new(name, Arc::new(file_type));
+        Self { parent_field }
+    }
+    /// Expert: allows you to customize the [`FieldType`].
+    ///
+    /// # Note
+    /// The provided byte array is **not copied**, so ensure that it is not modified
+    /// until you are done using this field.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `bytes`: Byte array pointing to binary content (**not copied**).
+    /// - `field_type`: Custom [`FieldType`] for this field.
+    pub fn with_bytes_ref_and_type(
+        name: &str,
+        bytes: Arc<BytesRef>,
+        file_type: FieldType,
+    ) -> Result<Self, LuceneError> {
+        let parent_field = Field::with_bytes_ref(name, bytes.clone(), Arc::new(file_type))?;
+        Ok(Self { parent_field })
+    }
+    /// Creates a stored-only field with the given binary value.
+    ///
+    /// # Note
+    /// The provided byte array is **not copied**, so ensure that it is not modified
+    /// until you are done using this field.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: Byte array pointing to binary content.
+    pub fn with_binary(name: &str, value: Vec<u8>) -> Result<Self, LuceneError> {
+        let len = value.len();
+        debug_assert!(len <= i32::MAX as usize);
+        let bytes_ref = Arc::new(BytesRef::from_vec(value, 0, len as i32));
+        let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
+        Ok(Self { parent_field })
+    }
+    /// Creates a stored-only field with the given binary value.
+    ///
+    /// # Note
+    /// The provided byte array is **not copied**, so ensure that it is not modified
+    /// until you are done using this field.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: Byte array pointing to binary content .
+    /// - `offset`: Starting position in the byte array.
+    /// - `length`: Valid length of the byte array.
+    pub fn with_binary_range(
+        name: &str,
+        value: Vec<u8>,
+        offset: i32,
+        length: i32,
+    ) -> Result<Self, LuceneError> {
+        let bytes_ref = Arc::new(BytesRef::from_vec(value, offset, length));
+        let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
+        Ok(Self { parent_field })
+    }
+    /// Creates a stored-only field with the given binary value.
+    ///
+    /// # Note
+    /// The provided [`BytesRef`] is **not copied**, so ensure that it is not modified
+    /// until you are done using this field.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: [`BytesRef`] pointing to binary content (**not copied**).
+    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef>) -> Result<Self, LuceneError> {
+        let parent_field = Field::with_bytes_ref(name, value.clone(), Arc::clone(&TYPE))?;
+        Ok(Self { parent_field })
+    }
+    /// Creates a stored-only field with the given string value.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: String value.
+    pub fn with_string(name: &str, value: &str) -> Result<Self, LuceneError> {
+        let value_str = Arc::new(value.to_string());
+        let parent_field = Field::with_string(name, value_str, Arc::clone(&TYPE))?;
+        Ok(Self { parent_field })
+    }
+    /// Expert: allows customization of the [`FieldType`].
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: String value.
+    /// - `field_type`: Custom [`FieldType`] for this field.
+    pub fn with_string_and_type(
+        name: &str,
+        value: &str,
+        file_type: FieldType,
+    ) -> Result<Self, LuceneError> {
+        let value_str = Arc::new(value.to_string());
+        let parent_field = Field::with_string(name, value_str, Arc::new(file_type))?;
+        Ok(Self { parent_field })
+    }
+    /// Creates a stored-only field with the given i32 value.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: i32 value.
+    pub fn with_i32(name: &str, value: i32) -> Result<Self, LuceneError> {
+        let fields_data = FieldDataEnum::Number(Number::I32(value));
+        let mut parent_field = Field::new(name, Arc::clone(&TYPE));
+        parent_field.fields_data = Option::from(fields_data.clone());
+        Ok(Self { parent_field })
+    }
+    /// Creates a stored-only field with the given long value.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: Long value.
+    pub fn with_i64(name: &str, value: i64) -> Result<Self, LuceneError> {
+        let fields_data = FieldDataEnum::Number(Number::I64(value));
+        let mut parent_field = Field::new(name, Arc::clone(&TYPE));
+        parent_field.fields_data = Option::from(fields_data.clone());
+        Ok(Self { parent_field })
+    }
+    /// Creates a stored-only field with the given f32 value.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: f32 value.
+    pub fn with_f32(name: &str, value: f32) -> Result<Self, LuceneError> {
+        let fields_data = FieldDataEnum::Number(Number::F32(value));
+        let mut parent_field = Field::new(name, Arc::clone(&TYPE));
+        parent_field.fields_data = Option::from(fields_data.clone());
+        Ok(Self { parent_field })
+    }
+    /// Creates a stored-only field with the given f64 value.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: f64 value.
+    pub fn with_f64(name: &str, value: f64) -> Result<Self, LuceneError> {
+        let fields_data = FieldDataEnum::Number(Number::F64(value));
+        let mut parent_field = Field::new(name, Arc::clone(&TYPE));
+        parent_field.fields_data = Option::from(fields_data.clone());
+        Ok(Self { parent_field })
+    }
+}

@@ -14,5 +14,160 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::document::field::{Field, FieldBase, Store};
+use crate::document::field_type::FieldType;
+use crate::document::invertable_field::InvertableType;
+use crate::document::stored_value::StoredValue;
+use crate::index::index_options::IndexOptions;
+use crate::index::indexable_field::IndexableField;
+use crate::index::BytesRef;
+use crate::util::dummy::dummy_read::DummyRead;
+use crate::util::error::lucene_error::LuceneError;
+use once_cell::sync::Lazy;
+use std::sync::Arc;
+
+/// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
+static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_omit_norms(true)
+        .expect("set_omit_norms(true) should never fail in this context");
+    ft.set_index_options(IndexOptions::DOCS)
+        .expect("set_index_options should never fail in this context");
+    ft.set_tokenized(false)
+        .expect("set_tokenized(false) should never fail in this context");
+    ft.freeze();
+    Arc::new(ft)
+});
+/// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored.
+static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_omit_norms(true)
+        .expect("set_omit_norms(true) should never fail in this context");
+    ft.set_index_options(IndexOptions::DOCS)
+        .expect("set_index_options should never fail in this context");
+    ft.set_stored(true)
+        .expect("set_stored(true) should never fail in this context");
+    ft.set_tokenized(false)
+        .expect("set_tokenized(false) should never fail in this context");
+    ft.freeze();
+    Arc::new(ft)
+});
+/// A field that is indexed but not tokenized: the entire string value is indexed as a single token.
+/// For example, this might be used for a `country` field or an `id` field.
+/// If sorting on this field is required, add a [`SortedDocValuesField`](crate::document::sorted_doc_values_field::SortedDocValuesField) separately to the document.
+pub struct StringField {
+    parent_field: Field,
+    binary_value: Arc<BytesRef>,
+    stored_value: Option<StoredValue>,
+}
 #[allow(unused)]
-pub struct StringField;
+impl StringField {
+    /// Creates a new textual `StringField`, indexing the provided string value as a single token.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: String value.
+    /// - `stored`: `Store::Yes` if the content should also be stored.
+    pub fn with_string(name: &str, value: &str, store: bool) -> Result<Self, LuceneError> {
+        let field_type = if store {
+            Arc::clone(&TYPE_STORED)
+        } else {
+            Arc::clone(&TYPE_NOT_STORED)
+        };
+        let value_str = Arc::new(value.to_string());
+        let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
+        let binary_value = Arc::new(BytesRef::from_string(value));
+        let stored_value = if store == Store::Yes.into() {
+            None
+        } else {
+            Option::from(StoredValue::new_string(value_str.clone()))
+        };
+        Ok(Self {
+            parent_field,
+            binary_value,
+            stored_value,
+        })
+    }
+    /// Creates a new binary `StringField`, indexing the provided binary (`BytesRef`) value as a single token.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: `BytesRef` value. The provided value is **not cloned**, so it must not be modified
+    ///   until the document(s) holding it have been indexed.
+    /// - `stored`: `Store::Yes` if the content should also be stored.
+    pub fn with_bytes_ref(
+        name: &str,
+        value: Arc<BytesRef>,
+        store: bool,
+    ) -> Result<Self, LuceneError> {
+        let field_type = if store {
+            Arc::clone(&TYPE_STORED)
+        } else {
+            Arc::clone(&TYPE_NOT_STORED)
+        };
+        let parent_field = Field::with_bytes_ref(name, value.clone(), field_type.clone())?;
+        let stored_value = if store == Store::Yes.into() {
+            None
+        } else {
+            Option::from(StoredValue::new_binary(value.clone()))
+        };
+        Ok(Self {
+            parent_field,
+            binary_value: value,
+            stored_value,
+        })
+    }
+}
+
+impl FieldBase for StringField {
+    fn set_bytes_value(&mut self, value: Arc<BytesRef>) -> Result<(), LuceneError> {
+        self.parent_field.set_bytes_value(value.clone())?;
+        if let Some(ref mut stored_value) = self.stored_value {
+            stored_value.set_binary_value(value.clone())?;
+        }
+        self.binary_value = value;
+        Ok(())
+    }
+
+    fn set_string_value(&mut self, value: &str) -> Result<(), LuceneError> {
+        let value_str = Arc::new(value.to_string());
+        self.parent_field.set_string_value(value_str.clone())?;
+        if let Some(ref mut stored_value) = self.stored_value {
+            stored_value.set_string_value(value_str.clone())?;
+        }
+        self.binary_value = Arc::new(BytesRef::from_string(value));
+        Ok(())
+    }
+}
+impl IndexableField for StringField {
+    fn name(&self) -> &str {
+        self.parent_field.name()
+    }
+
+    type FieldType = FieldType;
+
+    fn field_type(&self) -> &Self::FieldType {
+        self.parent_field.field_type()
+    }
+
+    type TokenStreamType = DummyTokenStream;
+
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+        Ok(Some(self.binary_value.clone()))
+    }
+
+    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+        self.parent_field.string_value()
+    }
+
+    type ReadType = DummyRead;
+
+    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+        Ok(self.stored_value.clone())
+    }
+
+    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+        Ok(&InvertableType::BINARY)
+    }
+}

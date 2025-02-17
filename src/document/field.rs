@@ -60,7 +60,7 @@ pub struct Field {
     /// Field's type.
     indexable_field_type: Arc<FieldType>,
     /// Field's name.
-    name: Arc<String>,
+    name: String,
     /// Field's value.
     pub(crate) fields_data: Option<FieldDataEnum>,
 }
@@ -75,10 +75,10 @@ impl Field {
     ///
     /// # Errors
     /// - Returns an error if either the `name` or `field_type` is `None`.
-    pub fn new(name: Arc<String>, indexable_field_type: Arc<FieldType>) -> Self {
+    pub fn new(name: &str, indexable_field_type: Arc<FieldType>) -> Self {
         Field {
             indexable_field_type,
-            name,
+            name: name.to_string(),
             fields_data: None,
         }
     }
@@ -92,7 +92,7 @@ impl Field {
     /// # Errors
     /// - Returns an error if the field's type is `stored()`, or if `tokenized()` is `false`.
     pub fn with_reader(
-        name: Arc<String>,
+        name: &str,
         reader: ReaderEnum,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
@@ -108,7 +108,7 @@ impl Field {
         }
         Ok(Field {
             indexable_field_type,
-            name,
+            name: name.to_string(),
             fields_data: Some(FieldDataEnum::Reader(reader)),
         })
     }
@@ -122,7 +122,7 @@ impl Field {
     /// # Errors
     /// - Returns an error if the field's type is `stored()`, `tokenized()` is `false`, or `indexed()` is `false`.
     pub fn with_token_stream(
-        name: Arc<String>,
+        name: &str,
         token_stream: TokenStreamEnum,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
@@ -140,7 +140,7 @@ impl Field {
         }
         Ok(Field {
             indexable_field_type,
-            name,
+            name: name.to_string(),
             fields_data: Some(FieldDataEnum::TokenStream(token_stream)),
         })
     }
@@ -158,7 +158,7 @@ impl Field {
     /// # Errors
     /// - Returns an error if the field's type is `indexed()`.
     pub fn with_binary(
-        name: Arc<String>,
+        name: &str,
         value: Vec<u8>,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
@@ -181,7 +181,7 @@ impl Field {
     /// # Errors
     /// - Returns an error if the field's type is `indexed()`.
     pub fn with_binary_range(
-        name: Arc<String>,
+        name: &str,
         value: Vec<u8>,
         offset: i32,
         length: i32,
@@ -204,7 +204,7 @@ impl Field {
     /// # Errors
     /// - Returns an error if the field's type is `indexed()`.
     pub fn with_bytes_ref(
-        name: Arc<String>,
+        name: &str,
         bytes: Arc<BytesRef>,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
@@ -234,7 +234,7 @@ impl Field {
         }
         Ok(Field {
             indexable_field_type,
-            name,
+            name: name.to_string(),
             fields_data: Some(FieldDataEnum::Binary(bytes)),
         })
     }
@@ -249,7 +249,7 @@ impl Field {
     /// - Returns an error if the field's type is neither `indexed()` nor `stored()`.
     /// - Returns an error if `indexed()` is `false` but `store_term_vectors()` is `true`.
     pub fn with_string(
-        name: Arc<String>,
+        name: &str,
         value: Arc<String>,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self, LuceneError> {
@@ -262,7 +262,7 @@ impl Field {
         }
         Ok(Field {
             indexable_field_type,
-            name,
+            name: name.to_string(),
             fields_data: Some(FieldDataEnum::String(value)),
         })
     }
@@ -446,8 +446,8 @@ impl IndexableField for Field {
     type FieldType = FieldType;
 
     /// Returns the [`FieldType`] for this field.
-    fn field_type(&self) -> Result<&Self::FieldType, LuceneError> {
-        Ok(&self.indexable_field_type)
+    fn field_type(&self) -> &Self::FieldType {
+        &self.indexable_field_type
     }
 
     type TokenStreamType = DummyTokenStream;
@@ -589,7 +589,7 @@ pub trait FieldBase {
             "set_token_stream is not implemented",
         ))
     }
-    fn set_string_value(&mut self, _value: String) -> Result<(), LuceneError> {
+    fn set_string_value(&mut self, _value: &str) -> Result<(), LuceneError> {
         Err(LuceneError::not_implemented(
             "set_string_value is not implemented",
         ))
@@ -610,8 +610,13 @@ pub enum Store {
     /// Do not store the field value in the index.
     No,
 }
+impl From<Store> for bool {
+    fn from(store: Store) -> bool {
+        matches!(store, Store::Yes)
+    }
+}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FieldDataEnum {
     Number(Number),
     Binary(Arc<BytesRef>),
@@ -921,7 +926,7 @@ mod tests {
     }
 
     fn try_set_string_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
-        f.set_string_value("BOO!".to_string())
+        f.set_string_value("BOO!")
     }
 
     fn try_set_token_stream_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
@@ -931,11 +936,7 @@ mod tests {
     #[test]
     fn test_disabled_field() -> Result<(), LuceneError> {
         let ft = FieldType::new();
-        let result = Field::with_string(
-            Arc::new("foo".to_string()),
-            Arc::new("".to_string()),
-            Arc::new(ft),
-        );
+        let result = Field::with_string("foo", Arc::new("".to_string()), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -944,11 +945,7 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(true)?;
         ft.set_index_options(IndexOptions::DOCS)?;
-        let result = Field::with_bytes_ref(
-            Arc::new("foo".to_string()),
-            Arc::new(BytesRef::new()),
-            Arc::new(ft),
-        );
+        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -957,11 +954,7 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(false)?;
         ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
-        let result = Field::with_bytes_ref(
-            Arc::new("foo".to_string()),
-            Arc::new(BytesRef::new()),
-            Arc::new(ft),
-        );
+        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -972,11 +965,7 @@ mod tests {
         ft.set_store_term_vectors(true)?;
         ft.set_store_term_vector_offsets(true)?;
         ft.set_store_term_vector_offsets(true)?;
-        let result = Field::with_bytes_ref(
-            Arc::new("foo".to_string()),
-            Arc::new(BytesRef::new()),
-            Arc::new(ft),
-        );
+        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }

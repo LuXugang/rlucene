@@ -190,7 +190,7 @@ pub trait BaseFieldInfoFormatTestCase {
                 Some(ref s) => field == *s,
                 None => false,
             };
-            let mut fi = FieldInfo::new(
+            let fi = FieldInfo::new(
                 field.clone(),
                 -1,
                 store_term_vectors,
@@ -210,7 +210,7 @@ pub trait BaseFieldInfoFormatTestCase {
                 soft_deletes_field,
                 parent_field,
             );
-            Self::add_attributes(&mut fi);
+            Self::add_attributes(&fi);
             builder.add(Arc::new(fi))?;
         }
 

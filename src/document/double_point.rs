@@ -29,10 +29,7 @@ use std::fmt;
 use std::sync::Arc;
 
 pub struct DoublePoint {
-    field_type: Arc<FieldType>,
-    name: Arc<String>,
-    field: Field,
-    fields_data: FieldDataEnum,
+    parent_field: Field,
 }
 impl DoublePoint {
     pub fn new(name: &str, point: &[f64]) -> Result<DoublePoint, LuceneError> {
@@ -40,16 +37,9 @@ impl DoublePoint {
         let len = packed.len();
         let value = Arc::new(BytesRef::from_vec(packed, 0, len as i32));
         debug_assert!(len <= i32::MAX as usize);
-        let fields_data = FieldDataEnum::Binary(value.clone());
         let field_type = Arc::new(Self::get_type(point.len() as i32)?);
-        let name_str = Arc::new(name.to_string());
-        let field = Field::with_bytes_ref(name_str.clone(), value, field_type.clone())?;
-        Ok(DoublePoint {
-            field_type: field_type.clone(),
-            name: name_str,
-            field,
-            fields_data,
-        })
+        let parent_field = Field::with_bytes_ref(name, value, field_type.clone())?;
+        Ok(DoublePoint { parent_field })
     }
 
     fn get_type(num_dims: i32) -> Result<FieldType, LuceneError> {
@@ -60,11 +50,11 @@ impl DoublePoint {
     }
     /// Change the values of this field
     pub fn set_double_values(&mut self, point: &[f64]) -> Result<(), LuceneError> {
-        if self.field_type.point_dimension_count() as usize != point.len() {
+        if self.parent_field.field_type().point_dimension_count() as usize != point.len() {
             return Err(LuceneError::illegal_argument( format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
-                self.name,
-                self.field_type.point_dimension_count(),
+                self.parent_field.name(),
+                self.parent_field.field_type().point_dimension_count(),
                 point.len()
             )));
         }
@@ -72,9 +62,7 @@ impl DoublePoint {
         let len = packed.len();
         let value = Arc::new(BytesRef::from_vec(packed, 0, len as i32));
         debug_assert!(len <= i32::MAX as usize);
-        let fields_data = FieldDataEnum::Binary(value.clone());
-        self.field.fields_data = Option::from(FieldDataEnum::Binary(value));
-        self.fields_data = fields_data;
+        self.parent_field.fields_data = Option::from(FieldDataEnum::Binary(value));
         Ok(())
     }
     fn pack(point: &[f64]) -> Result<Vec<u8>, LuceneError> {
@@ -110,28 +98,31 @@ impl FieldBase for DoublePoint {
 }
 impl IndexableField for DoublePoint {
     fn name(&self) -> &str {
-        self.name.as_str()
+        self.parent_field.name()
     }
 
     type FieldType = FieldType;
+
+    fn field_type(&self) -> &Self::FieldType {
+        self.parent_field.field_type()
+    }
+
     type TokenStreamType = DummyTokenStream;
     type ReadType = DummyRead;
 
     fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
-        if self.field_type.point_dimension_count() != 1 {
+        if self.parent_field.field_type().point_dimension_count() != 1 {
             return Err(LuceneError::illegal_argument(format!(
                 "this field (name={}) uses {} dimensions; cannot convert to a single numeric value",
-                self.name,
-                self.field_type.point_dimension_count()
+                self.parent_field.name(),
+                self.parent_field.field_type().point_dimension_count()
             )));
         }
-        match self.fields_data {
-            FieldDataEnum::Binary(ref bytes) => {
+        match &self.parent_field.fields_data {
+            Some(FieldDataEnum::Binary(bytes)) => {
                 debug_assert!(bytes.length == BitUtil::DOUBLE_BYTES as i32);
-                Ok(Option::from(Number::F64(Self::decode_dimension(
-                    &bytes.bytes,
-                    0,
-                ))))
+                let value = Self::decode_dimension(&bytes.bytes, bytes.offset as usize);
+                Ok(Some(Number::F64(value)))
             }
             _ => {
                 debug_assert!(false, "no possible here");
@@ -142,11 +133,11 @@ impl IndexableField for DoublePoint {
 }
 impl fmt::Display for DoublePoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "DoublePoint <{}:", self.name)?;
+        write!(f, "DoublePoint <{}:", self.parent_field.name())?;
 
-        match &self.fields_data {
-            FieldDataEnum::Binary(bytes) => {
-                let dim_count = self.field_type.point_dimension_count();
+        match &self.parent_field.fields_data {
+            Some(FieldDataEnum::Binary(bytes)) => {
+                let dim_count = self.parent_field.field_type().point_dimension_count();
                 for dim in 0..dim_count {
                     if dim > 0 {
                         write!(f, ",")?;

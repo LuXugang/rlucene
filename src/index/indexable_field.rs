@@ -37,11 +37,7 @@ pub trait IndexableField {
 
     /// {@link IndexableFieldType} describing the properties of this field.
     type FieldType: IndexableFieldType;
-    fn field_type(&self) -> Result<&Self::FieldType, LuceneError> {
-        Err(LuceneError::not_implemented(
-            "field_type is not implemented",
-        ))
-    }
+    fn field_type(&self) -> &Self::FieldType;
     /// Creates the TokenStream used for indexing this field. If appropriate, implementations should
     /// use the given Analyzer to create the TokenStreams.
     ///

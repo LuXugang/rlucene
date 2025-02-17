@@ -14,5 +14,130 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::document::field::{Field, FieldBase, ReaderEnum, TokenStreamEnum};
+use crate::document::field_type::FieldType;
+use crate::document::stored_value::StoredValue;
+use crate::index::index_options::IndexOptions;
+use crate::index::indexable_field::IndexableField;
+use crate::util::dummy::dummy_read::DummyRead;
+use crate::util::error::lucene_error::LuceneError;
+use once_cell::sync::Lazy;
+use std::fmt;
+use std::sync::Arc;
+
+/// Indexed, tokenized, not stored.
+static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
+        .expect("set_index_options should never fail in this context");
+    ft.set_tokenized(true)
+        .expect("set_tokenized(true) should never fail in this context");
+    ft.freeze();
+    Arc::new(ft)
+});
+/// Indexed, tokenized, stored.
+static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
+    let mut ft = FieldType::new();
+    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
+        .expect("set_index_options should never fail in this context");
+    ft.set_tokenized(true)
+        .expect("set_tokenized(true) should never fail in this context");
+    ft.set_stored(true)
+        .expect("set_stored(true) should never fail in this context");
+    ft.freeze();
+    Arc::new(ft)
+});
+/// A field that is indexed and tokenized, without term vectors.
+/// For example, this would be used on a `body` field that contains the bulk of a document's text.
+pub struct TextField {
+    parent_field: Field,
+    stored_value: Option<StoredValue>,
+}
+
 #[allow(unused)]
-pub struct TextField;
+impl TextField {
+    /// Creates a new un-stored `TextField` with a `ReaderEnum` value.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `reader`: `ReaderEnum` value.
+    pub fn with_reader(name: &str, reader: ReaderEnum) -> Result<Self, LuceneError> {
+        let name_arc = Arc::new(name.to_string());
+        let parent_field = Field::with_reader(name, reader, Arc::clone(&TYPE_NOT_STORED))?;
+        Ok(Self {
+            parent_field,
+            stored_value: None,
+        })
+    }
+    /// Creates a new `TextField` with a string value.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `value`: String value.
+    /// - `store`: `Store::Yes` if the content should also be stored.
+    pub fn with_string(name: &str, value: &str, store: bool) -> Result<Self, LuceneError> {
+        let value_str = Arc::new(value.to_string());
+        let field_type = if store {
+            Arc::clone(&TYPE_STORED)
+        } else {
+            Arc::clone(&TYPE_NOT_STORED)
+        };
+        let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
+        let stored_value = if store {
+            Some(StoredValue::new_string(value_str))
+        } else {
+            None
+        };
+        Ok(Self {
+            parent_field,
+            stored_value,
+        })
+    }
+    /// Creates a new un-stored `TextField` with a `TokenStreamEnum` value.
+    ///
+    /// # Parameters
+    /// - `name`: Field name.
+    /// - `stream`: `TokenStream` value.
+    pub fn with_token_stream(name: &str, stream: TokenStreamEnum) -> Result<Self, LuceneError> {
+        let parent_field = Field::with_token_stream(name, stream, Arc::clone(&TYPE_NOT_STORED))?;
+        Ok(Self {
+            parent_field,
+            stored_value: None,
+        })
+    }
+}
+impl FieldBase for TextField {
+    fn set_string_value(&mut self, value: &str) -> Result<(), LuceneError> {
+        let value_str = Arc::new(value.to_string());
+        self.parent_field.set_string_value(value_str.clone())?;
+        if let Some(ref mut sv) = self.stored_value {
+            sv.set_string_value(value_str)?;
+        }
+        Ok(())
+    }
+}
+impl IndexableField for TextField {
+    fn name(&self) -> &str {
+        self.parent_field.name()
+    }
+
+    type FieldType = FieldType;
+
+    fn field_type(&self) -> &Self::FieldType {
+        self.parent_field.field_type()
+    }
+
+    type TokenStreamType = DummyTokenStream;
+    type ReadType = DummyRead;
+
+    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+        Ok(self.stored_value.clone())
+    }
+}
+
+impl fmt::Display for TextField {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "TextField(name: {})", self.parent_field.name())
+    }
+}

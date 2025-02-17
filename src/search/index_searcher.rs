@@ -14,22 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod doc_id_set;
-pub mod doc_id_set_iterator;
-pub mod dummy;
-pub mod field_comparator;
-pub mod field_comparator_source;
-pub mod field_value_hit_queue;
-pub mod index_searcher;
-pub mod leaf_field_comparator;
-pub mod pruning;
-pub mod query;
-pub mod scorable;
-pub mod score_doc;
-pub mod score_mode;
-pub mod sort_field;
-pub mod sorted_numeric_selector;
-pub mod sorted_numeric_sort_field;
-pub mod sorted_set_selector;
-pub mod sorted_set_sort_field;
-pub mod term_query;
+#[allow(unused)]
+pub struct IndexSearcher;
+#[allow(unused)]
+impl IndexSearcher {
+    pub fn stored_fields(&self) {}
+}
