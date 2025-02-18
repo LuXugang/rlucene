@@ -59,7 +59,7 @@ impl Sort {
     /// # Errors
     /// Returns an error if the provided `fields` vector is empty.
     /// # Note
-    /// You could use [`push_sort_fields`] to init SortFieldEnum vector.
+    /// You could use [`push_sort_fields`](crate::search::sort_field_enum::SortFieldVecExt::push_sort_fields) to init SortFieldEnum vector.
     /// # Example
     /// ```rust
     /// use rlucene::index::sort::Sort;
