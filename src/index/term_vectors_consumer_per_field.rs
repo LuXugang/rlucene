@@ -17,13 +17,13 @@
 use crate::index::parallel_postings_array::{PostingsArrayBase, PostingsArrayEnum};
 
 pub(crate) struct TermVectorsPostingsArray;
-impl TermVectorsPostingsArray {
-    pub(crate) fn new_instance(size: i32) -> TermVectorsPostingsArray {
-        todo!()
-    }
-}
+impl TermVectorsPostingsArray {}
 impl PostingsArrayBase for TermVectorsPostingsArray {
     fn bytes_per_posting(&self) -> i32 {
+        todo!()
+    }
+
+    fn new_instance(&self, size: i32) -> Self {
         todo!()
     }
 

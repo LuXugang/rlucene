@@ -19,7 +19,7 @@ use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 
-struct ParallelPostingsArray {
+pub(crate) struct ParallelPostingsArray {
     size: i32,
     text_starts: Vec<i32>, // maps term ID to the term's text start in the bytesHash
     address_offset: Vec<i32>, // maps term ID to current stream address
@@ -27,9 +27,9 @@ struct ParallelPostingsArray {
 }
 
 impl ParallelPostingsArray {
-    const BYTES_PER_POSTING: i32 = 3 * BitUtil::INT_BYTES as i32;
+    pub(crate) const BYTES_PER_POSTING: i32 = 3 * BitUtil::INT_BYTES as i32;
 
-    fn new(size: i32) -> Self {
+    pub(crate) fn new(size: i32) -> Self {
         let vec_size = size as usize;
         Self {
             size,
@@ -38,15 +38,14 @@ impl ParallelPostingsArray {
             byte_starts: vec![0; vec_size],
         }
     }
-    fn new_instance(size: i32) -> ParallelPostingsArray {
-        ParallelPostingsArray::new(size)
-    }
 }
 impl PostingsArrayBase for ParallelPostingsArray {
     fn bytes_per_posting(&self) -> i32 {
         Self::BYTES_PER_POSTING
     }
-
+    fn new_instance(&self, size: i32) -> ParallelPostingsArray {
+        ParallelPostingsArray::new(size)
+    }
     fn copy_to(&self, to_array: &mut PostingsArrayEnum, num_to_copy: i32) {
         let num_to_copy = num_to_copy as usize;
         if let PostingsArrayEnum::Parallel(to_array) = to_array {
@@ -56,13 +55,14 @@ impl PostingsArrayBase for ParallelPostingsArray {
                 .copy_from_slice(&self.address_offset[..num_to_copy]);
             to_array.byte_starts[..num_to_copy].copy_from_slice(&self.byte_starts[..num_to_copy]);
         } else {
-            debug_assert!(false, "unreachable");
+            debug_assert!(false, "should never happen");
         }
     }
 }
 
 pub(crate) trait PostingsArrayBase {
     fn bytes_per_posting(&self) -> i32;
+    fn new_instance(&self, size: i32) -> Self;
     fn copy_to(&self, to_array: &mut PostingsArrayEnum, num_to_copy: i32);
 }
 
@@ -80,14 +80,10 @@ impl PostingsArrayEnum {
         };
         let new_size = ArrayUtil::oversize(size + 1, bytes_per_posting);
         let mut new_array = match self {
-            PostingsArrayEnum::Parallel(_) => {
-                PostingsArrayEnum::Parallel(ParallelPostingsArray::new_instance(new_size))
-            }
-            PostingsArrayEnum::FreqProx(_) => {
-                PostingsArrayEnum::FreqProx(FreqProxPostingsArray::new_instance(new_size))
-            }
-            PostingsArrayEnum::TermVectors(_) => {
-                PostingsArrayEnum::TermVectors(TermVectorsPostingsArray::new_instance(new_size))
+            PostingsArrayEnum::Parallel(p) => PostingsArrayEnum::Parallel(p.new_instance(new_size)),
+            PostingsArrayEnum::FreqProx(f) => PostingsArrayEnum::FreqProx(f.new_instance(new_size)),
+            PostingsArrayEnum::TermVectors(t) => {
+                PostingsArrayEnum::TermVectors(t.new_instance(new_size))
             }
         };
         self.copy_to(&mut new_array, size);
@@ -100,6 +96,16 @@ impl PostingsArrayBase for PostingsArrayEnum {
             PostingsArrayEnum::Parallel(p) => p.bytes_per_posting(),
             PostingsArrayEnum::FreqProx(p) => p.bytes_per_posting(),
             PostingsArrayEnum::TermVectors(p) => p.bytes_per_posting(),
+        }
+    }
+
+    fn new_instance(&self, size: i32) -> Self {
+        match self {
+            PostingsArrayEnum::Parallel(p) => PostingsArrayEnum::Parallel(p.new_instance(size)),
+            PostingsArrayEnum::FreqProx(f) => PostingsArrayEnum::FreqProx(f.new_instance(size)),
+            PostingsArrayEnum::TermVectors(t) => {
+                PostingsArrayEnum::TermVectors(t.new_instance(size))
+            }
         }
     }
 
