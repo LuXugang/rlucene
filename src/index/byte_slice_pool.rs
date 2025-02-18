@@ -166,10 +166,8 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{
-        AllocatorEnum, ByteBlockPool, CounterEnum, DirectAllocator, DirectTrackingAllocator,
-        VecCopyOps,
-    };
+    use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
+    use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocator, VecCopyOps};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::sync::{Arc, Mutex};

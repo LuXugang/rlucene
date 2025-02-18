@@ -52,6 +52,7 @@ pub mod group_vint_util;
 pub mod in_place_merge_sorter;
 pub mod info_stream;
 pub mod int_array_doc_id_set;
+pub mod int_block_pool;
 pub mod intro_selector;
 pub mod intro_sorter;
 mod ints_ref;

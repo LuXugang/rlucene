@@ -20,10 +20,11 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
 use crate::util::{
-    AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
-    DirectAllocator, MSBRadixSorter, MSBRadixSorterBase, Natural, Sorter, StringHelper,
-    StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE, LEVEL_THRESHOLD,
+    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorter,
+    MSBRadixSorterBase, Natural, Sorter, StringHelper, StringSorter, StringSorterBase,
+    GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE, LEVEL_THRESHOLD,
 };
 use std::sync::{Arc, Mutex};
 
@@ -837,7 +838,8 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{AllocatorEnum, ByteBlockPool, DirectAllocator};
+    use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
+    use crate::util::ByteBlockPool;
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::collections::{HashMap, HashSet};

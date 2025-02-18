@@ -19,7 +19,8 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{AllocatorEnum, ByteBlockPool, DirectAllocator, VecCopyOps};
+use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
+use crate::util::{ByteBlockPool, VecCopyOps};
 use std::sync::{Arc, Mutex};
 
 pub struct BytesRefBlockPool {

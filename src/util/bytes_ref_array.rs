@@ -20,11 +20,12 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::int_block_pool::AllocatorEnum;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
-    AllocatorEnum, ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
-    DirectTrackingAllocator, MSBRadixSorterBase, Sorter, StableStringSorter,
-    StableStringSorterBase, StringSorter, StringSorterBase,
+    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, DirectTrackingAllocator,
+    MSBRadixSorterBase, Sorter, StableStringSorter, StableStringSorterBase, StringSorter,
+    StringSorterBase,
 };
 use std::sync::{Arc, Mutex};
 

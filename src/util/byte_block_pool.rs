@@ -17,6 +17,7 @@
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::int_block_pool::{Allocator, AllocatorEnum};
 use crate::util::{Counter, CounterEnum, VecCopyOps};
 use std::cmp::min;
 use std::sync::{Arc, Mutex};
@@ -330,55 +331,10 @@ impl Accountable for ByteBlockPool {
     }
 }
 
-/// Abstract trait for allocating and freeing byte blocks.
-pub trait Allocator {
-    fn recycle_byte_blocks(
-        &mut self,
-        blocks: &[Vec<u8>],
-        start: i32,
-        end: i32,
-    ) -> Result<(), LuceneError>;
-    fn get_byte_block(&mut self) -> Result<Vec<u8>, LuceneError>;
-    fn get_block_size(&self) -> i32;
-}
-
-pub struct DirectAllocator {
-    block_size: i32,
-}
-impl Default for DirectAllocator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl DirectAllocator {
-    pub fn new() -> Self {
-        DirectAllocator {
-            block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
-        }
-    }
-}
-impl Allocator for DirectAllocator {
-    fn recycle_byte_blocks(
-        &mut self,
-        _blocks: &[Vec<u8>],
-        _start: i32,
-        _end: i32,
-    ) -> Result<(), LuceneError> {
-        Ok(())
-    }
-
-    fn get_byte_block(&mut self) -> Result<Vec<u8>, LuceneError> {
-        Ok(vec![0; self.block_size as usize])
-    }
-
-    fn get_block_size(&self) -> i32 {
-        self.block_size
-    }
-}
+/// A simple `Allocator` that never recycles, but tracks how much total RAM is in use. */
 pub struct DirectTrackingAllocator {
     block_size: i32,
-    byte_used: Arc<Mutex<CounterEnum>>,
+    pub(crate) byte_used: Arc<Mutex<CounterEnum>>,
 }
 impl DirectTrackingAllocator {
     pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Self {
@@ -415,46 +371,6 @@ impl Allocator for DirectTrackingAllocator {
     }
 }
 
-pub enum AllocatorEnum {
-    DA(DirectAllocator),
-    DTA(DirectTrackingAllocator),
-}
-impl AllocatorEnum {
-    fn get_used(&self) -> Result<i64, LuceneError> {
-        match self {
-            AllocatorEnum::DA(_da) => Ok(0),
-            AllocatorEnum::DTA(dta) => Ok(dta
-                .byte_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .get()),
-        }
-    }
-    fn recycle_byte_blocks(
-        &mut self,
-        blocks: &[Vec<u8>],
-        start: i32,
-        end: i32,
-    ) -> Result<(), LuceneError> {
-        match self {
-            AllocatorEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
-            AllocatorEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
-        }
-    }
-    fn get_block_size(&self) -> i32 {
-        match self {
-            AllocatorEnum::DA(da) => da.get_block_size(),
-            AllocatorEnum::DTA(dta) => dta.get_block_size(),
-        }
-    }
-    fn get_byte_block(&mut self) -> Result<Vec<u8>, LuceneError> {
-        match self {
-            AllocatorEnum::DA(da) => da.get_byte_block(),
-            AllocatorEnum::DTA(dta) => dta.get_byte_block(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
@@ -462,10 +378,8 @@ mod tests {
 
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{
-        AllocatorEnum, ByteBlockPool, CounterEnum, DirectAllocator, DirectTrackingAllocator,
-        VecCopyOps,
-    };
+    use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
+    use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocator, VecCopyOps};
     use rand::distributions::Alphanumeric;
     use rand::{Rng, RngCore};
     use std::sync::{Arc, Mutex};
