@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fst::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
 use crate::util::fst::reverse_bytes_reader::ReverseBytesReader;
 use crate::util::fst::reverse_random_access_reader::ReverseRandomAccessReader;
+use std::fmt::{Display, Formatter};
 
 /// Reads bytes stored in an FST.
 pub trait BytesReader: DataInput {

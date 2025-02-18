@@ -23,6 +23,7 @@ pub use bytes_ref_builder::*;
 pub mod binary_doc_values;
 pub(crate) mod binary_doc_values_field_updates;
 mod buffered_updates_stream;
+mod byte_slice_pool;
 pub(crate) mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_skip_index_type;

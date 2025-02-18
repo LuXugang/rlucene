@@ -14,18 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::IndexInput;
 use std::sync::{Arc, Mutex};
-use crate::store::{DataOutput, IndexInput};
 
 pub struct OffHeapFSTStore<I>
-where I: IndexInput
+where
+    I: IndexInput,
 {
     input: Arc<Mutex<I>>,
     offset: i64,
     num_bytes: i64,
 }
-impl <I> OffHeapFSTStore<I>
-where I: IndexInput
+impl<I> OffHeapFSTStore<I>
+where
+    I: IndexInput,
 {
     pub fn new(input: Arc<Mutex<I>>, offset: i64, num_bytes: i64) -> Self {
         Self {
