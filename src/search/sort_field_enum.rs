@@ -95,3 +95,13 @@ impl From<SortedSetSortField> for SortFieldEnum {
         SortFieldEnum::SortedSet(sort_field)
     }
 }
+
+pub trait SortFieldVecExt {
+    fn push_sort_fields(&mut self, item: impl Into<SortFieldEnum>);
+}
+
+impl SortFieldVecExt for Vec<SortFieldEnum> {
+    fn push_sort_fields(&mut self, item: impl Into<SortFieldEnum>) {
+        self.push(item.into());
+    }
+}

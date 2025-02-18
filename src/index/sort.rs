@@ -58,6 +58,23 @@ impl Sort {
     ///
     /// # Errors
     /// Returns an error if the provided `fields` vector is empty.
+    /// # Note
+    /// You could use [`push_sort_fields`] to init SortFieldEnum vector.
+    /// # Example
+    /// ```rust
+    /// use rlucene::index::sort::Sort;
+    /// use rlucene::search::sort_field::{SortField, SortFieldType};
+    /// use rlucene::search::sort_field_enum::SortFieldVecExt;
+    /// use rlucene::search::sorted_numeric_sort_field::SortedNumericSortField;
+    /// use rlucene::search::sorted_set_sort_field::SortedSetSortField;
+    /// let sort_field1 = SortField::new(Some("field1".to_string()), SortFieldType::Custom).unwrap();
+    /// let sort_field2 = SortedSetSortField::new("field2".to_string(), false).unwrap();
+    /// let mut fileds = Vec::new();
+    /// fileds.push_sort_fields(sort_field1);
+    /// fileds.push_sort_fields(sort_field2);
+    /// let sort = Sort::with_fields(fileds);
+    /// assert!(sort.is_ok());
+    /// ```
     pub fn with_fields(fields: Vec<SortFieldEnum>) -> Result<Self, LuceneError> {
         if fields.is_empty() {
             Err(LuceneError::illegal_argument(
