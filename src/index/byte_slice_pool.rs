@@ -176,9 +176,10 @@ mod tests {
     fn test_alloc_known_size_slice() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DTA(
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
             DirectTrackingAllocator::new(byte_used),
-        ))));
+        )));
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         pool.lock().unwrap().next_buffer()?;
         let mut slice_pool = ByteSlicePool::new(pool.clone());
 
@@ -228,9 +229,8 @@ mod tests {
     }
     #[test]
     fn test_alloc_large_slice() -> Result<(), LuceneError> {
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DA(
-            DirectAllocator::new(),
-        ))));
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         let mut slice_pool = ByteSlicePool::new(pool.clone());
         assert_eq!(0, slice_pool.new_slice(ByteBlockPool::BYTE_BLOCK_SIZE)?);
         {
@@ -462,9 +462,10 @@ mod tests {
     fn test_random_interleaved_slices() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DTA(
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
             DirectTrackingAllocator::new(byte_used),
-        ))));
+        )));
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         let slice_pool = Arc::new(Mutex::new(ByteSlicePool::new(pool.clone())));
 
         let n_iterations = random.gen_range(1..=3); // 1-3 iterations with buffer resets

@@ -26,7 +26,7 @@ pub struct ByteBlockPool {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
     pub buffer_upto: i32,
-    allocator: AllocatorEnum,
+    allocator: Arc<Mutex<AllocatorEnum>>,
     /// Offset from the start of the first buffer to the start of the current buffer, which is
     /// `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool maintains this offset because it is the first to
     /// overflow if there are too many allocated blocks.
@@ -64,7 +64,7 @@ impl ByteBlockPool {
     /// # Note
     /// This is an internal API.
     ///
-    pub fn new(allocator: AllocatorEnum) -> Self {
+    pub fn new(allocator: Arc<Mutex<AllocatorEnum>>) -> Self {
         ByteBlockPool {
             buffers: vec![],
             buffer_upto: -1,
@@ -92,6 +92,8 @@ impl ByteBlockPool {
             if self.buffer_upto > 0 || !reuse_first {
                 let offset = if reuse_first { 1 } else { 0 };
                 self.allocator
+                    .lock()
+                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
                     .recycle_byte_blocks(&self.buffers, offset, self.buffer_upto + 1)?;
                 for _i in offset as usize..(self.buffer_upto + 1) as usize {
                     self.buffers.pop();
@@ -116,7 +118,12 @@ impl ByteBlockPool {
     /// immediately.
     pub fn next_buffer(&mut self) -> Result<Option<()>, LuceneError> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
-            self.buffers.push(self.allocator.get_byte_block()?);
+            self.buffers.push(
+                self.allocator
+                    .lock()
+                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+                    .get_byte_block()?,
+            );
         }
         // Allocate new buffer and advance the pool to it
         self.buffer_upto += 1;
@@ -315,14 +322,23 @@ impl ByteBlockPool {
         self.buffers[buffer_index][pos as usize]
     }
     /// the current position (in absolute value) of this byte pool .
-    pub fn get_position(&self) -> i64 {
-        (self.buffer_upto * self.allocator.get_block_size() + self.byte_upto) as i64
+    pub fn get_position(&self) -> Result<i64, LuceneError> {
+        Ok((self.buffer_upto
+            * self
+                .allocator
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+                .get_block_size()
+            + self.byte_upto) as i64)
     }
     pub fn get_buffer(&mut self, buffer_index: i32) -> &mut Vec<u8> {
         &mut self.buffers[buffer_index as usize]
     }
     pub fn get_bytes_used(&self) -> Result<i64, LuceneError> {
-        self.allocator.get_used()
+        self.allocator
+            .lock()
+            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+            .get_used()
     }
 }
 impl Accountable for ByteBlockPool {
@@ -389,7 +405,8 @@ mod tests {
     #[test]
     fn test_append_from_other_pool() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut pool = ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()));
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let mut pool = ByteBlockPool::new(allocator);
         let num_bytes = at_least(&mut random, 2 << 16) as usize;
         let bytes = (&mut random)
             .sample_iter(&Alphanumeric)
@@ -401,7 +418,8 @@ mod tests {
         pool.append(&bytes)?;
         let bytes_length = bytes.len();
 
-        let mut another_pool = ByteBlockPool::new(AllocatorEnum::DA(DirectAllocator::new()));
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let mut another_pool = ByteBlockPool::new(allocator);
         let existing_bytes = vec![0; at_least(&mut random, 500) as usize];
         another_pool.append(&existing_bytes)?;
 
@@ -414,7 +432,7 @@ mod tests {
         another_pool.append_from_byte_block_pool(&pool, offset as i64, length as i32)?;
         assert_eq!(
             (existing_bytes.len() + length) as i64,
-            another_pool.get_position()
+            another_pool.get_position()?
         );
 
         let mut result = vec![0; length];
@@ -434,8 +452,10 @@ mod tests {
     fn test_read_and_write() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let mut pool =
-            ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
+            DirectTrackingAllocator::new(byte_used.clone()),
+        )));
+        let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
         let reuse_first = random.gen_bool(0.5);
         for _j in 0..2 {
@@ -508,8 +528,10 @@ mod tests {
     fn test_large_random_block() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let mut pool =
-            ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(byte_used)));
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
+            DirectTrackingAllocator::new(byte_used.clone()),
+        )));
+        let mut pool = ByteBlockPool::new(allocator);
         let _ = pool.next_buffer();
 
         let mut total_bytes = 0;
@@ -531,7 +553,7 @@ mod tests {
             total_bytes += size;
 
             // make sure we report the correct position
-            assert_eq!(total_bytes as i64, pool.get_position());
+            assert_eq!(total_bytes as i64, pool.get_position()?);
         }
 
         let mut position = 0;

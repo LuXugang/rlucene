@@ -296,9 +296,10 @@ impl DeletedTerms {
     /// Creates a new instance of `DeletedTerms`.
     pub(crate) fn new() -> Self {
         let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DTA(
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
             DirectTrackingAllocator::new(bytes_used.clone()),
-        ))));
+        )));
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         Self {
             bytes_used,
             pool,

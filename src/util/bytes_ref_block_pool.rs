@@ -36,10 +36,9 @@ impl BytesRefBlockPool {
     // TODO: memory calculation not implemented
     const BASE_RAM_BYTES: i32 = 0;
     pub fn new() -> BytesRefBlockPool {
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
         BytesRefBlockPool {
-            byte_block_pool: Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DA(
-                DirectAllocator::new(),
-            )))),
+            byte_block_pool: Arc::new(Mutex::new(ByteBlockPool::new(allocator))),
         }
     }
     pub fn from_byte_block_pool(byte_block_pool: Arc<Mutex<ByteBlockPool>>) -> BytesRefBlockPool {

@@ -299,9 +299,9 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 let mut attributes = Arc::new(Mutex::new(input.read_map_of_strings()?));
                 // just use the last field's map if it's the same:
                 if *attributes.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock on lock.".to_string())
+                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
                 })? == *last_attributes.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock on lock.".to_string())
+                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
                 })? {
                     attributes = last_attributes.clone();
                 }
@@ -418,7 +418,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 
             output.write_long(fi.get_doc_values_gen())?;
             output.write_map_of_strings(&*fi.attributes()?.lock().map_err(|_| {
-                LuceneError::illegal_state("Failed to acquire lock on lock.".to_string())
+                LuceneError::illegal_state("Failed to acquire lock.".to_string())
             })?)?;
 
             output.write_vint(fi.get_point_dimension_count())?;

@@ -43,9 +43,8 @@ impl BytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;
 
     pub fn new() -> Result<Self, LuceneError> {
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DA(
-            DirectAllocator::new(),
-        ))));
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         BytesRefHash::from_pool(pool)
     }
     pub fn from_pool(pool: Arc<Mutex<ByteBlockPool>>) -> Result<Self, LuceneError> {
@@ -851,9 +850,8 @@ mod tests {
     pub struct TestBytesRefHash;
 
     fn new_pool() -> Arc<Mutex<ByteBlockPool>> {
-        Arc::new(Mutex::new(ByteBlockPool::new(AllocatorEnum::DA(
-            DirectAllocator::new(),
-        ))))
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        Arc::new(Mutex::new(ByteBlockPool::new(allocator)))
     }
     fn new_hash(
         random: &mut StdRng,

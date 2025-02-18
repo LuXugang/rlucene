@@ -20,12 +20,11 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::int_block_pool::AllocatorEnum;
+use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
-    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, DirectTrackingAllocator,
-    MSBRadixSorterBase, Sorter, StableStringSorter, StableStringSorterBase, StringSorter,
-    StringSorterBase,
+    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorterBase,
+    Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase,
 };
 use std::sync::{Arc, Mutex};
 
@@ -46,9 +45,8 @@ pub struct BytesRefArray {
 }
 impl BytesRefArray {
     pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Result<BytesRefArray, LuceneError> {
-        let mut pool = ByteBlockPool::new(AllocatorEnum::DTA(DirectTrackingAllocator::new(
-            byte_used.clone(),
-        )));
+        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
         let offsets = Vec::new();
         byte_used
