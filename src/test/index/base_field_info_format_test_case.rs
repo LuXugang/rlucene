@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::codecs::field_infos_format::FieldInfosFormat;
-use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::{get_default_code, Codec};
 use crate::document::field_type::FieldType;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -50,7 +49,7 @@ pub trait BaseFieldInfoFormatTestCase {
     }
     fn test_one_field(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
-        let codec = Lucene101Codec;
+        let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
 
         let fi = Arc::new(Self::create_field_info());

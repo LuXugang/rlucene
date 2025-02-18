@@ -307,10 +307,11 @@ impl ByteBlockPool {
     ///
     /// # Returns
     /// The byte at the specified offset.
-    pub fn read_byte(&self, offset: i64) -> Option<u8> {
-        let buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
+    pub fn read_byte(&self, offset: i64) -> u8 {
+        debug_assert!(offset >= 0);
+        let buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT) as usize;
         let pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
-        Some(self.buffers[buffer_index][pos as usize])
+        self.buffers[buffer_index][pos as usize]
     }
     /// the current position (in absolute value) of this byte pool .
     pub fn get_position(&self) -> i64 {

@@ -101,12 +101,12 @@ mod tests {
     pub struct TestInfoStream;
     #[test]
     fn test_test_points_off() -> Result<(), LuceneError> {
-        // TODO:waiting for implementation after IndexWriter
+        // TODO : IndexWriter not implemented
         Ok(())
     }
     #[test]
     fn test_test_pointson() -> Result<(), LuceneError> {
-        // TODO:waiting for implementation after IndexWriter
+        // TODO : IndexWriter not implemented
         Ok(())
     }
 }

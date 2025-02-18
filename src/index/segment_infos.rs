@@ -16,7 +16,7 @@
  */
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
-use crate::codecs::{Codec, CodecUtil, LATEST_CODEC};
+use crate::codecs::{get_default_code, Codec, CodecUtil, LATEST_CODEC};
 use crate::index::index_commit::{DummyIndexCommit, IndexCommit};
 use crate::index::index_writer::IndexWriter;
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -514,7 +514,7 @@ where
 
     pub fn read_codec<I: DataInput>(input: &mut I) -> Result<Lucene101Codec, LuceneError> {
         let name = input.read_string()?;
-        let codec = Lucene101Codec;
+        let codec = get_default_code();
         if codec.get_name() != name {
             return Err(LuceneError::corrupt_index(format!(
                 "codec name mismatch: {} != {}",

@@ -47,6 +47,7 @@ pub mod dummy;
 pub mod error;
 pub mod fixed_bit_set;
 mod fixed_bits;
+mod fst;
 pub mod group_vint_util;
 pub mod in_place_merge_sorter;
 pub mod info_stream;
