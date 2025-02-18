@@ -32,7 +32,7 @@ use std::hash::{Hash, Hasher};
 pub struct SortedNumericSortField {
     sort_field_type: SortFieldType,
     selector: SortedNumericSelectorType,
-    sort_field: SortField,
+    parent_sort: SortField,
 }
 impl SortedNumericSortField {
     /// Creates a sort by the minimum value in the set for the document.
@@ -83,7 +83,7 @@ impl SortedNumericSortField {
         Ok(SortedNumericSortField {
             sort_field_type,
             selector,
-            sort_field,
+            parent_sort: sort_field,
         })
     }
     pub fn read_selector_type<T: DataInput>(
@@ -107,7 +107,7 @@ impl SortFiledBase for SortedNumericSortField {
         &mut self,
         missing_value: Option<MissingValueEnum>,
     ) -> Result<(), LuceneError> {
-        self.sort_field.missing_value = missing_value;
+        self.parent_sort.missing_value = missing_value;
         Ok(())
     }
 
@@ -133,12 +133,12 @@ impl SortFiledBase for SortedNumericSortField {
     }
 
     fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError> {
-        debug_assert!(self.sort_field.get_field().is_some());
-        out.write_string(self.sort_field.get_field().unwrap())?;
+        debug_assert!(self.parent_sort.get_field().is_some());
+        out.write_string(self.parent_sort.get_field().unwrap())?;
         out.write_string(&self.sort_field_type.to_string())?;
-        out.write_int(if self.sort_field.reverse { 1 } else { 0 })?;
+        out.write_int(if self.parent_sort.reverse { 1 } else { 0 })?;
         out.write_int(self.selector as i32)?;
-        if let Some(missing_value) = &self.sort_field.missing_value {
+        if let Some(missing_value) = &self.parent_sort.missing_value {
             out.write_int(1)?;
             match self.sort_field_type {
                 SortFieldType::Int => {
@@ -199,15 +199,15 @@ impl SortFiledBase for SortedNumericSortField {
 impl Display for SortedNumericSortField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buffer = String::new();
-        debug_assert!(self.sort_field.get_field().is_some());
+        debug_assert!(self.parent_sort.get_field().is_some());
         buffer.push_str(&format!(
             "<sortednumeric: \"{}\">",
-            self.sort_field.get_field().unwrap()
+            self.parent_sort.get_field().unwrap()
         ));
-        if self.sort_field.reverse {
+        if self.parent_sort.reverse {
             buffer.push('!');
         }
-        if let Some(missing_value) = &self.sort_field.missing_value {
+        if let Some(missing_value) = &self.parent_sort.missing_value {
             buffer.push_str(&format!(" missingValue={}", missing_value));
         }
         buffer.push_str(&format!(" selector={:?}", self.selector));
@@ -219,7 +219,7 @@ impl Hash for SortedNumericSortField {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.sort_field_type.hash(state);
         self.selector.hash(state);
-        self.sort_field.hash(state);
+        self.parent_sort.hash(state);
     }
 }
 
@@ -290,7 +290,7 @@ impl SortFieldProvider for NumericProvider {
 }
 impl PartialEq for SortedNumericSortField {
     fn eq(&self, other: &Self) -> bool {
-        if self.sort_field != other.sort_field {
+        if self.parent_sort != other.parent_sort {
             return false;
         }
         self.selector == other.selector && self.sort_field_type == other.sort_field_type

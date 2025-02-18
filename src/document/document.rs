@@ -157,8 +157,8 @@ impl Document {
     ///
     /// # Returns
     /// An immutable `Vec<Arc>` containing all fields in the document.
-    pub fn get_fields(&self) -> Vec<&Fields> {
-        self.fields.iter().collect()
+    pub fn get_fields(&self) -> &[Fields] {
+        &self.fields
     }
     /// Returns an array of values of the field specified by the `name`. This method returns an empty
     /// array when there are no matching fields. It never returns `None`. For a numeric `StoredField`,

@@ -348,11 +348,11 @@ impl SparseFixedBitSet {
         Ok(())
     }
     #[cfg(feature = "test_only")]
-    pub fn get_indices(&self) -> &Vec<i64> {
+    pub fn get_indices(&self) -> &[i64] {
         &self.indices
     }
     #[cfg(feature = "test_only")]
-    pub fn get_bits(&self) -> &Vec<Option<Vec<u64>>> {
+    pub fn get_bits(&self) -> &[Option<Vec<u64>>] {
         &self.bits
     }
     #[cfg(feature = "test_only")]

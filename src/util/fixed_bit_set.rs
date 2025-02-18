@@ -201,7 +201,7 @@ impl FixedBitSet {
     }
 
     #[allow(unused)]
-    fn get_bits(&self) -> &Vec<i64> {
+    fn get_bits(&self) -> &[i64] {
         &self.bits
     }
 

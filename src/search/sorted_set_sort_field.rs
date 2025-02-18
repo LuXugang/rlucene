@@ -28,7 +28,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone)]
 pub struct SortedSetSortField {
     selector: SortedSetSelectorType,
-    sort_field: SortField,
+    parent_sort: SortField,
 }
 impl SortedSetSortField {
     /// Creates a sort, possibly in reverse, by the minimum value in the set for the document.
@@ -58,7 +58,7 @@ impl SortedSetSortField {
         let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
         Ok(SortedSetSortField {
             selector,
-            sort_field,
+            parent_sort: sort_field,
         })
     }
     fn read_selector_type<T: DataInput>(
@@ -81,15 +81,15 @@ impl SortedSetSortField {
 impl Display for SortedSetSortField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buffer = String::new();
-        debug_assert!(self.sort_field.get_field().is_some());
+        debug_assert!(self.parent_sort.get_field().is_some());
         buffer.push_str(&format!(
             "<sortedset: \"{}\">",
-            self.sort_field.get_field().unwrap()
+            self.parent_sort.get_field().unwrap()
         ));
-        if self.sort_field.reverse {
+        if self.parent_sort.reverse {
             buffer.push('!');
         }
-        if let Some(missing_value) = &self.sort_field.missing_value {
+        if let Some(missing_value) = &self.parent_sort.missing_value {
             buffer.push_str(&format!(" missingValue={}", missing_value));
         }
         buffer.push_str(&format!(" selector={:?}", self.selector));
@@ -103,7 +103,7 @@ impl SortFiledBase for SortedSetSortField {
     ) -> Result<(), LuceneError> {
         match missing_value {
             Some(MissingValueEnum::StringFirst) | Some(MissingValueEnum::StringLast) => {
-                self.sort_field.missing_value = missing_value;
+                self.parent_sort.missing_value = missing_value;
                 Ok(())
             }
             _ => Err(LuceneError::illegal_argument(
@@ -120,11 +120,11 @@ impl SortFiledBase for SortedSetSortField {
     }
 
     fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError> {
-        debug_assert!(self.sort_field.get_field().is_some());
-        out.write_string(self.sort_field.get_field().unwrap())?;
-        out.write_int(if self.sort_field.reverse { 1 } else { 0 })?;
+        debug_assert!(self.parent_sort.get_field().is_some());
+        out.write_string(self.parent_sort.get_field().unwrap())?;
+        out.write_int(if self.parent_sort.reverse { 1 } else { 0 })?;
         out.write_int(self.selector as i32)?;
-        match self.sort_field.missing_value {
+        match self.parent_sort.missing_value {
             Some(MissingValueEnum::StringFirst) => out.write_int(1)?,
             Some(MissingValueEnum::StringLast) => out.write_int(2)?,
             _ => out.write_int(0)?,
@@ -135,7 +135,7 @@ impl SortFiledBase for SortedSetSortField {
 impl Hash for SortedSetSortField {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.selector.hash(state);
-        self.sort_field.hash(state);
+        self.parent_sort.hash(state);
     }
 }
 
@@ -175,7 +175,7 @@ impl SortFieldProvider for SetProvider {
 }
 impl PartialEq for SortedSetSortField {
     fn eq(&self, other: &Self) -> bool {
-        if self.sort_field != other.sort_field {
+        if self.parent_sort != other.parent_sort {
             return false;
         }
         self.selector == other.selector
