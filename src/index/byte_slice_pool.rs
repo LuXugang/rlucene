@@ -484,30 +484,31 @@ mod tests {
                 let i = random.gen_range(0..n);
                 let succeeded = slice_writers[i].write_slice()?;
                 if !succeeded {
-                    for j in 0..n {
-                        while slice_writers[j].write_slice()? {}
-                    }
+                    slice_writers
+                        .iter_mut()
+                        .take(n)
+                        .for_each(|writer| while writer.write_slice().unwrap_or(false) {});
                     break;
                 }
             }
 
             // Init slice readers
-            for i in 0..n {
+            slice_writers.iter().take(n).for_each(|writer| {
                 slice_readers.push(SliceReader::new(
                     slice_pool.clone(),
-                    slice_writers[i].size,
-                    slice_writers[i].first_slice_offset,
-                    slice_writers[i].first_slice,
+                    writer.size,
+                    writer.first_slice_offset,
+                    writer.first_slice,
                 ));
-            }
+            });
 
             // Read slices
             loop {
                 let i = rand::thread_rng().gen_range(0..n);
                 let succeeded = slice_readers[i].read_slice();
                 if !succeeded {
-                    for j in 0..n {
-                        while slice_readers[j].read_slice() {}
+                    for j in slice_readers.iter_mut().take(n) {
+                        while j.read_slice() {}
                     }
                     break;
                 }
