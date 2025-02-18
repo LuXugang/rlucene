@@ -16,9 +16,8 @@
  */
 use crate::index::index_sorter::{IndexSortEnum, StringSorter};
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::search::sort_field::{
-    MissingValueEnum, SortField, SortFieldEnum, SortFieldType, SortFiledBase,
-};
+use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
+use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_set_selector::SortedSetSelectorType;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;

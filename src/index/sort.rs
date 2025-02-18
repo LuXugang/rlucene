@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::sort_field::{SortField, SortFieldEnum};
+use crate::search::sort_field::SortField;
+use crate::search::sort_field_enum::SortFieldEnum;
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt;
 use std::fmt::Display;

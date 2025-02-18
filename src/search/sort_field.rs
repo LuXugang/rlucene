@@ -20,8 +20,7 @@ use crate::index::index_sorter::{
 };
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::field_comparator_source::FieldComparatorSourceEnum;
-use crate::search::sorted_numeric_sort_field::SortedNumericSortField;
-use crate::search::sorted_set_sort_field::SortedSetSortField;
+use crate::search::sort_field_enum::SortFieldEnum;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::numeric_utils::NumericUtils;
@@ -716,57 +715,4 @@ pub trait SortFiledBase {
     ) -> Result<(), LuceneError>;
     fn get_index_sorter(&self) -> Option<IndexSortEnum>;
     fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError>;
-}
-
-#[derive(Clone, PartialEq, Eq)]
-pub enum SortFieldEnum {
-    SortedNumeric(SortedNumericSortField),
-    SortedSet(SortedSetSortField),
-    Sorter(SortField),
-}
-impl SortFiledBase for SortFieldEnum {
-    fn set_missing_value(
-        &mut self,
-        missing_value: Option<MissingValueEnum>,
-    ) -> Result<(), LuceneError> {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.set_missing_value(missing_value),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.set_missing_value(missing_value),
-            SortFieldEnum::Sorter(sort_field) => sort_field.set_missing_value(missing_value),
-        }
-    }
-
-    fn get_index_sorter(&self) -> Option<IndexSortEnum> {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.get_index_sorter(),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.get_index_sorter(),
-            SortFieldEnum::Sorter(sort_field) => sort_field.get_index_sorter(),
-        }
-    }
-
-    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError> {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.serialize(out),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.serialize(out),
-            SortFieldEnum::Sorter(sort_field) => sort_field.serialize(out),
-        }
-    }
-}
-impl Display for SortFieldEnum {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => write!(f, "{}", sort_field),
-            SortFieldEnum::SortedSet(sort_field) => write!(f, "{}", sort_field),
-            SortFieldEnum::Sorter(sort_field) => write!(f, "{}", sort_field),
-        }
-    }
-}
-impl Hash for SortFieldEnum {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.hash(state),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.hash(state),
-            SortFieldEnum::Sorter(sort_field) => sort_field.hash(state),
-        }
-    }
 }

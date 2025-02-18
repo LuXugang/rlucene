@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::index::index_sorter::IndexSorter;
-use crate::search::sort_field::{Provider, SortFieldEnum, SortFiledBase};
+use crate::search::sort_field::{Provider, SortFiledBase};
+use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_numeric_sort_field::NumericProvider;
 use crate::search::sorted_set_sort_field::SetProvider;
 use crate::store::{DataInput, DataOutput};
