@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::fst::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
+use crate::util::fst::reverse_bytes_reader::ReverseBytesReader;
+use crate::util::fst::reverse_random_access_reader::ReverseRandomAccessReader;
 
 /// Reads bytes stored in an FST.
 pub trait BytesReader: DataInput {
@@ -23,4 +29,50 @@ pub trait BytesReader: DataInput {
 
     /// Set current read position.
     fn set_position(&mut self, pos: i64);
+}
+
+pub(crate) enum BytesReaderEnum<'a, R>
+where
+    R: RandomAccessInput,
+{
+    ByteBlockPool(ByteBlockPoolReverseBytesReader),
+    Reverse(ReverseBytesReader<'a>),
+    ReverseRandomAccess(ReverseRandomAccessReader<R>),
+    Dummy(DummyBytesReader),
+}
+
+pub struct DummyBytesReader;
+
+impl DataInput for DummyBytesReader {
+    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+        Err(LuceneError::unsupported_operation(
+            "DummyBytesReader does not support reading bytes".to_string(),
+        ))
+    }
+
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<(), LuceneError> {
+        Err(LuceneError::unsupported_operation(
+            "DummyBytesReader does not support reading bytes".to_string(),
+        ))
+    }
+
+    fn skip_bytes(&mut self, _num_bytes: i64) -> Result<(), LuceneError> {
+        Err(LuceneError::unsupported_operation(
+            "DummyBytesReader does not support skipping bytes".to_string(),
+        ))
+    }
+}
+
+impl Display for DummyBytesReader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DummyBytesReader")
+    }
+}
+
+impl BytesReader for DummyBytesReader {
+    fn get_position(&self) -> i64 {
+        0
+    }
+
+    fn set_position(&mut self, _pos: i64) {}
 }

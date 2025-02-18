@@ -14,11 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod bit_table_util;
-mod byte_block_pool_reverse_bytes_reader;
-pub mod fst;
-mod fst_reader;
-mod reverse_bytes_reader;
-mod reverse_random_access_reader;
-mod fst_compiler;
-mod offheap_fst_store;
+use std::sync::{Arc, Mutex};
+use crate::store::{DataOutput, IndexInput};
+
+pub struct OffHeapFSTStore<I>
+where I: IndexInput
+{
+    input: Arc<Mutex<I>>,
+    offset: i64,
+    num_bytes: i64,
+}
+impl <I> OffHeapFSTStore<I>
+where I: IndexInput
+{
+    pub fn new(input: Arc<Mutex<I>>, offset: i64, num_bytes: i64) -> Self {
+        Self {
+            input,
+            offset,
+            num_bytes,
+        }
+    }
+}

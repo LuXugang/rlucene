@@ -14,11 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod bit_table_util;
-mod byte_block_pool_reverse_bytes_reader;
-pub mod fst;
-mod fst_reader;
-mod reverse_bytes_reader;
-mod reverse_random_access_reader;
-mod fst_compiler;
-mod offheap_fst_store;
+use crate::store::DataOutput;
+use crate::util::accountable::Accountable;
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::fst::fst::BytesReader;
+
+/// Abstraction for reading bytes necessary for FST.
+pub trait FstReader: Accountable {
+    type FstBytesReader: BytesReader;
+    /// Get the reverse `BytesReader` for this FST.
+    ///
+    /// # Returns
+    /// The reverse `BytesReader`.
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader, LuceneError>;
+
+    /// Write this FST to another `DataOutput`.
+    ///
+    /// # Parameters
+    /// - `out`: The `DataOutput` to write to.
+    ///
+    /// # Errors
+    /// Returns an error if an exception occurred during writing.
+    fn write_to<D: DataOutput>(&self, out: &mut D) -> Result<(), LuceneError>;
+}
