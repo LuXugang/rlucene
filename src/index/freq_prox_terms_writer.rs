@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::{Arc, Mutex};
 use crate::index::terms_hash::TermsHashBase;
 use crate::util::ByteBlockPool;
+use std::sync::{Arc, Mutex};
 
 pub(crate) struct FreqProxTermsWriter;
 
-impl TermsHashBase for FreqProxTermsWriter{
-    
+impl TermsHashBase for FreqProxTermsWriter {
     fn get_term_byte_pool(&self) -> Option<Arc<Mutex<ByteBlockPool>>> {
         None
     }

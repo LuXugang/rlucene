@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::{Arc, Mutex};
 use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
-use crate::util::{AllocatorByteEnum, ByteBlockPool, Counter, CounterEnum};
 use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
+use crate::util::{AllocatorByteEnum, ByteBlockPool, CounterEnum};
+use std::sync::{Arc, Mutex};
 
 pub(crate) struct TermsHash {
     next_terms_hash: Option<TermsHashEnum>,
@@ -35,11 +35,13 @@ impl TermsHash {
         bytes_used: Arc<Mutex<CounterEnum>>,
         next_terms_hash: Option<TermsHashEnum>,
     ) -> Self {
-        let mut term_byte_pool = None;
+        let term_byte_pool = None;
 
         let mut terms_hash = TermsHash {
             next_terms_hash,
-            int_pool: Arc::new(Mutex::new(IntBlockPool::with_allocator(int_block_allocator))),
+            int_pool: Arc::new(Mutex::new(IntBlockPool::with_allocator(
+                int_block_allocator,
+            ))),
             byte_pool: Arc::new(Mutex::new(ByteBlockPool::new(byte_block_allocator))),
             term_byte_pool,
             bytes_used,
@@ -64,9 +66,7 @@ pub(crate) enum TermsHashEnum {
     FreqProx(FreqProxTermsWriter),
     TermVectors(TermVectorsConsumer),
 }
-impl TermsHashEnum{
-   
-}
+impl TermsHashEnum {}
 impl TermsHashBase for TermsHashEnum {
     fn get_term_byte_pool(&self) -> Option<Arc<Mutex<ByteBlockPool>>> {
         match self {
@@ -82,4 +82,3 @@ impl TermsHashBase for TermsHashEnum {
         }
     }
 }
-

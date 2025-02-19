@@ -28,7 +28,7 @@ use std::sync::{Arc, Mutex};
 /// Each slice is filled with 0's initially, and we mark the end with a non-zero byte. This way
 /// the methods that are writing into the slice don't need to record its length and instead allocate
 /// a new slice once they hit a non-zero byte.
-struct ByteSlicePool {
+pub(crate) struct ByteSlicePool {
     /// The underlying structure consists of fixed-size blocks. We overlay variable-length slices on
     /// top. Each slice is contiguous in memory, i.e. it does not straddle multiple blocks.
     pool: Arc<Mutex<ByteBlockPool>>,
@@ -37,7 +37,7 @@ struct ByteSlicePool {
 impl ByteSlicePool {
     /// An array holding the level sizes for byte slices. The first slice is 5 bytes, the second is 14,
     /// and so on.
-    const LEVEL_SIZE_ARRAY: [i32; 10] = [5, 14, 20, 30, 40, 40, 80, 80, 120, 200];
+    pub(crate) const LEVEL_SIZE_ARRAY: [i32; 10] = [5, 14, 20, 30, 40, 40, 80, 80, 120, 200];
 
     /// An array holding indexes for the LEVEL_SIZE_ARRAY, to quickly navigate to the next
     /// slice level. These are encoded on 4 bits in the slice, so the values in this array should be
@@ -45,10 +45,10 @@ impl ByteSlicePool {
     ///
     /// `NEXT_LEVEL_ARRAY[x] == x + 1`, except for the last element, where `NEXT_LEVEL_ARRAY[x] == x`,
     /// pointing at the maximum slice size.
-    const NEXT_LEVEL_ARRAY: [i32; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 9];
+    pub(crate) const NEXT_LEVEL_ARRAY: [i32; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 9];
 
     /// The first level size for new slices.
-    const FIRST_LEVEL_SIZE: i32 = Self::LEVEL_SIZE_ARRAY[0];
+    pub(crate) const FIRST_LEVEL_SIZE: i32 = Self::LEVEL_SIZE_ARRAY[0];
     pub fn new(pool: Arc<Mutex<ByteBlockPool>>) -> Self {
         ByteSlicePool { pool }
     }
