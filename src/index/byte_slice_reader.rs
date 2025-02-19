@@ -215,7 +215,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
-    
+
     use crate::util::{AllocatorByteEnum, ByteBlockPool, DirectAllocatorByte};
     use rand::rngs::StdRng;
     use rand::Rng;
