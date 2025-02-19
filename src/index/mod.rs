@@ -69,5 +69,8 @@ mod term_vectors_consumer_per_field;
 mod terms_hash_per_field;
 pub mod vector_encoding;
 pub mod vector_similarity_function;
+mod terms_hash;
+mod freq_prox_terms_writer;
+mod term_vectors_consumer;
 
 pub use index_file_names::*;

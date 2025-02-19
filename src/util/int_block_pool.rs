@@ -29,7 +29,7 @@ pub struct IntBlockPool {
     int_upto: i32,
     /// Current head offset.
     int_offset: i32,
-    allocator: Arc<Mutex<AllocatorI32Enum>>,
+    allocator: Arc<Mutex<AllocatorIntEnum>>,
 }
 impl Default for IntBlockPool {
     fn default() -> Self {
@@ -45,13 +45,13 @@ impl IntBlockPool {
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
     pub fn new() -> Self {
-        let allocator = Arc::new(Mutex::new(AllocatorI32Enum::DA(DirectAllocatorI32::new())));
+        let allocator = Arc::new(Mutex::new(AllocatorIntEnum::DA(DirectAllocatorI32::new())));
         Self::with_allocator(allocator)
     }
     /// Creates a new `IntBlockPool` with the given `Allocator`.
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
-    pub fn with_allocator(allocator: Arc<Mutex<AllocatorI32Enum>>) -> Self {
+    pub fn with_allocator(allocator: Arc<Mutex<AllocatorIntEnum>>) -> Self {
         IntBlockPool {
             buffers: vec![],
             buffer_upto: -1,
@@ -178,10 +178,10 @@ impl AllocatorI32 for DirectAllocatorI32 {
         self.block_size
     }
 }
-pub enum AllocatorI32Enum {
+pub enum AllocatorIntEnum {
     DA(DirectAllocatorI32),
 }
-impl AllocatorI32 for AllocatorI32Enum {
+impl AllocatorI32 for AllocatorIntEnum {
     fn recycle_byte_blocks(
         &mut self,
         blocks: &[Vec<i32>],
@@ -189,19 +189,19 @@ impl AllocatorI32 for AllocatorI32Enum {
         end: i32,
     ) -> Result<(), LuceneError> {
         match self {
-            AllocatorI32Enum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
+            AllocatorIntEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
         }
     }
 
     fn get_byte_block(&mut self) -> Result<Vec<i32>, LuceneError> {
         match self {
-            AllocatorI32Enum::DA(da) => da.get_byte_block(),
+            AllocatorIntEnum::DA(da) => da.get_byte_block(),
         }
     }
 
     fn get_block_size(&self) -> i32 {
         match self {
-            AllocatorI32Enum::DA(da) => da.get_block_size(),
+            AllocatorIntEnum::DA(da) => da.get_block_size(),
         }
     }
 }
@@ -210,14 +210,14 @@ impl AllocatorI32 for AllocatorI32Enum {
 mod tests {
     use crate::test::util::lucene_test_case::random;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::int_block_pool::{AllocatorI32Enum, DirectAllocatorI32, IntBlockPool};
+    use crate::util::int_block_pool::{AllocatorIntEnum, DirectAllocatorI32, IntBlockPool};
     use rand::Rng;
     use std::sync::{Arc, Mutex};
 
     #[test]
     fn test_write_read_reset() -> Result<(), LuceneError> {
         let mut random = random();
-        let allocator = Arc::new(Mutex::new(AllocatorI32Enum::DA(DirectAllocatorI32::new())));
+        let allocator = Arc::new(Mutex::new(AllocatorIntEnum::DA(DirectAllocatorI32::new())));
         let mut pool = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
@@ -259,7 +259,7 @@ mod tests {
     }
     #[test]
     fn test_too_many_allocs() -> Result<(), LuceneError> {
-        let allocator = Arc::new(Mutex::new(AllocatorI32Enum::DA(DirectAllocatorI32::new())));
+        let allocator = Arc::new(Mutex::new(AllocatorIntEnum::DA(DirectAllocatorI32::new())));
         let mut pool = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 

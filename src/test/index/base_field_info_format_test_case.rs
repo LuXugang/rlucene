@@ -237,7 +237,7 @@ pub trait BaseFieldInfoFormatTestCase {
         Ok(())
     }
 
-    fn get_vectors_max_dimensions(field_name: &str) -> i32 {
+    fn get_vectors_max_dimensions(_field_name: &str) -> i32 {
         // TODO
         1024
     }
