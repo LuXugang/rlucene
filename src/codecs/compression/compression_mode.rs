@@ -589,7 +589,10 @@ mod tests {
                     (0, 0)
                 } else {
                     let offset_inner = random.random_range(0..valid_len);
-                    (offset_inner, random.random_range(0..valid_len - offset_inner))
+                    (
+                        offset_inner,
+                        random.random_range(0..valid_len - offset_inner),
+                    )
                 };
                 let restored = self.decompress_with_range(compressed, valid_len, offset, length)?;
                 assert_eq!(

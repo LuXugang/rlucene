@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::terms_hash_per_field::PostingsBytesStartArray;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
+use crate::util::dummy::dummy_bytes_start_array::DummyBytesStartArray;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorter,
@@ -481,6 +483,9 @@ impl BytesRefHash {
         }
         Ok(())
     }
+    pub fn set_bytes_start_array(&mut self, bytes_start_array: Arc<Mutex<BytesStartArrayEnum>>) {
+        self.bytes_start_array = bytes_start_array;
+    }
     /// Returns the `bytesStart` offset into the internally used `ByteBlockPool` for the given `bytes_id`.
     ///
     /// # Arguments
@@ -715,35 +720,47 @@ impl BytesStartArray for DirectBytesStartArray {
 
 pub enum BytesStartArrayEnum {
     Direct(DirectBytesStartArray),
+    Postings(PostingsBytesStartArray),
+    Dummy(DummyBytesStartArray),
 }
 impl BytesStartArray for BytesStartArrayEnum {
     fn init(&mut self) -> &Vec<i32> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.init(),
+            BytesStartArrayEnum::Postings(p) => p.init(),
+            BytesStartArrayEnum::Dummy(d) => d.init(),
         }
     }
 
     fn grow(&mut self) -> Result<(), LuceneError> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.grow(),
+            BytesStartArrayEnum::Postings(p) => p.grow(),
+            BytesStartArrayEnum::Dummy(d) => d.grow(),
         }
     }
 
     fn clear(&mut self) -> Result<(), LuceneError> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.clear(),
+            BytesStartArrayEnum::Postings(p) => p.clear(),
+            BytesStartArrayEnum::Dummy(d) => d.clear(),
         }
     }
 
     fn bytes_used(&mut self) -> Arc<Mutex<CounterEnum>> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.bytes_used(),
+            BytesStartArrayEnum::Postings(p) => p.bytes_used(),
+            BytesStartArrayEnum::Dummy(d) => d.bytes_used(),
         }
     }
 
     fn byte_start(&mut self) -> &mut Option<Vec<i32>> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.byte_start(),
+            BytesStartArrayEnum::Postings(p) => p.byte_start(),
+            BytesStartArrayEnum::Dummy(d) => d.byte_start(),
         }
     }
 }

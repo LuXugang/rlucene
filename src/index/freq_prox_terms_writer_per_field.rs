@@ -14,11 +14,91 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::document::fields::Fields;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
+use crate::index::terms_hash_per_field::TermsHashPerFieldBase;
+use crate::index::BytesRef;
 use crate::util::bit_util::BitUtil;
+use crate::util::bytes_ref_hash::BytesRefHash;
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::VecCopyOps;
+
+pub(crate) struct FreqProxTermsWriterPerField;
+impl FreqProxTermsWriterPerField {}
+impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
+    fn reset(&mut self, bytes_hash: &mut BytesRefHash) -> Result<(), LuceneError> {
+        todo!()
+    }
+
+    fn reinit_hash(&mut self, bytes_hash: &mut BytesRefHash) -> Result<(), LuceneError> {
+        todo!()
+    }
+
+    fn add_with_text_start(
+        &mut self,
+        bytes_hash: &mut BytesRefHash,
+        text_start: i32,
+        doc_id: i32,
+        postings_array: &mut PostingsArrayEnum,
+    ) -> Result<(), LuceneError> {
+        todo!()
+    }
+
+    fn add_with_bytes_ref(
+        &mut self,
+        bytes_hash: &mut BytesRefHash,
+        term_bytes: &BytesRef,
+        doc_id: i32,
+        postings_array: &mut PostingsArrayEnum,
+    ) -> Result<(), LuceneError> {
+        todo!()
+    }
+
+    fn init_stream_slices(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        postings_array: &mut PostingsArrayEnum,
+    ) -> Result<(), LuceneError> {
+        self.new_term(term_id, doc_id)
+    }
+
+    fn position_stream_slice(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        postings_array_enum: &mut PostingsArrayEnum,
+    ) -> Result<i32, LuceneError> {
+        self.add_term(term_id, doc_id)?;
+        Ok(term_id)
+    }
+
+    fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
+        todo!()
+    }
+
+    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+        todo!()
+    }
+
+    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+        todo!()
+    }
+
+    fn new_postings_array(&mut self) -> Result<(), LuceneError> {
+        todo!()
+    }
+
+    fn create_postings_array(&self, size: usize) -> Result<PostingsArrayEnum, LuceneError> {
+        todo!()
+    }
+
+    fn finish(&mut self) -> Result<(), LuceneError> {
+        todo!()
+    }
+}
 
 pub(crate) struct FreqProxPostingsArray {
     size: i32,
@@ -27,7 +107,7 @@ pub(crate) struct FreqProxPostingsArray {
     last_doc_codes: Vec<i32>,     // Code for prior doc
     last_positions: Option<Vec<i32>>, // Last position where this term occurred
     last_offsets: Option<Vec<i32>>, // Last endOffset where this term occurred
-    parent_postings_array: ParallelPostingsArray,
+    pub(crate) parent_postings_array: ParallelPostingsArray,
 }
 
 impl FreqProxPostingsArray {

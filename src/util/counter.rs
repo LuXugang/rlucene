@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::dummy::dummy_counter::DummyCounter;
 use std::sync::atomic::AtomicI64;
 
 pub trait Counter {
@@ -83,8 +84,9 @@ impl Counter for SerialCounter {
 }
 
 pub enum CounterEnum {
-    A(AtomicCounter),
-    S(SerialCounter),
+    Atomic(AtomicCounter),
+    Serial(SerialCounter),
+    Dummy(DummyCounter),
 }
 impl CounterEnum {
     /// Returns a new counter.
@@ -96,23 +98,25 @@ impl CounterEnum {
     /// A new counter.
     pub fn new_counter(thread_safe: bool) -> CounterEnum {
         if thread_safe {
-            CounterEnum::A(AtomicCounter::new())
+            CounterEnum::Atomic(AtomicCounter::new())
         } else {
-            CounterEnum::S(SerialCounter::new())
+            CounterEnum::Serial(SerialCounter::new())
         }
     }
 }
 impl Counter for CounterEnum {
     fn add_and_get(&mut self, delta: i64) -> i64 {
         match self {
-            CounterEnum::A(c) => c.add_and_get(delta),
-            CounterEnum::S(c) => c.add_and_get(delta),
+            CounterEnum::Atomic(c) => c.add_and_get(delta),
+            CounterEnum::Serial(c) => c.add_and_get(delta),
+            CounterEnum::Dummy(c) => c.add_and_get(delta),
         }
     }
     fn get(&self) -> i64 {
         match self {
-            CounterEnum::A(c) => c.get(),
-            CounterEnum::S(c) => c.get(),
+            CounterEnum::Atomic(c) => c.get(),
+            CounterEnum::Serial(c) => c.get(),
+            CounterEnum::Dummy(c) => c.get(),
         }
     }
 }

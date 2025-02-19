@@ -1018,7 +1018,8 @@ mod tests {
 
             // Now restore with an offset
             let restore_offset: i32 = random.random_range(1..10);
-            restored = vec![0; restore_offset as usize + length as usize + random.random_range(0..10)];
+            restored =
+                vec![0; restore_offset as usize + length as usize + random.random_range(0..10)];
             let mut input = ByteArrayDataInput::with_bytes(compressed_clone);
             LZ4::decompress(&mut input, length, &mut restored, restore_offset)?;
 

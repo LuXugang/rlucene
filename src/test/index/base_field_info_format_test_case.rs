@@ -269,9 +269,11 @@ pub trait BaseFieldInfoFormatTestCase {
 
         if random.random_bool(0.5) {
             let current =
-                DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8).unwrap();
+                DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8)
+                    .unwrap();
             field_type.set_doc_values_type(
-                DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8).unwrap(),
+                DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8)
+                    .unwrap(),
             )?;
             if current == DocValuesType::Numeric
                 || current == DocValuesType::SortedNumeric

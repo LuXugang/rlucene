@@ -14,6 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_bytes_start_array;
-pub mod dummy_counter;
-pub mod dummy_read;
+use crate::util::Counter;
+
+pub struct DummyCounter;
+impl Counter for DummyCounter {
+    fn add_and_get(&mut self, _delta: i64) -> i64 {
+        debug_assert!(false, "should never be called");
+        0
+    }
+
+    fn get(&self) -> i64 {
+        debug_assert!(false, "should never be called");
+        0
+    }
+}

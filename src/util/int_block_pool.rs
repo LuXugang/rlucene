@@ -24,11 +24,11 @@ pub struct IntBlockPool {
     /// outside of this class
     buffers: Vec<Vec<i32>>,
     /// index into the buffers array pointing to the current buffer used as the head.
-    buffer_upto: i32,
+    pub(crate) buffer_upto: i32,
     /// Pointer to the current position in head buffer.
-    int_upto: i32,
+    pub(crate) int_upto: i32,
     /// Current head offset.
-    int_offset: i32,
+    pub(crate) int_offset: i32,
     allocator: Arc<Mutex<AllocatorIntEnum>>,
 }
 impl Default for IntBlockPool {
@@ -38,9 +38,9 @@ impl Default for IntBlockPool {
 }
 
 impl IntBlockPool {
-    const INT_BLOCK_SHIFT: i32 = 13;
-    const INT_BLOCK_SIZE: i32 = 1 << Self::INT_BLOCK_SHIFT;
-    const INT_BLOCK_MASK: i32 = Self::INT_BLOCK_SIZE - 1;
+    pub(crate) const INT_BLOCK_SHIFT: i32 = 13;
+    pub(crate) const INT_BLOCK_SIZE: i32 = 1 << Self::INT_BLOCK_SHIFT;
+    pub(crate) const INT_BLOCK_MASK: i32 = Self::INT_BLOCK_SIZE - 1;
     /// Creates a new `IntBlockPool` with a default `Allocator`.
     ///
     /// See `IntBlockPool::next_buffer()` for more details.

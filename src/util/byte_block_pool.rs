@@ -495,9 +495,9 @@ mod tests {
     use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocatorByte, VecCopyOps};
+    use rand::distr::Alphanumeric;
     use rand::{Rng, RngCore};
     use std::sync::{Arc, Mutex};
-    use rand::distr::Alphanumeric;
 
     #[allow(dead_code)] // for quick search
     struct TestByteBlockPool {}

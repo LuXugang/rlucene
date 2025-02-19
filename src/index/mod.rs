@@ -70,7 +70,7 @@ pub mod term;
 mod term_vectors_consumer;
 mod term_vectors_consumer_per_field;
 mod terms_hash;
-mod terms_hash_per_field;
+pub mod terms_hash_per_field;
 pub mod vector_encoding;
 pub mod vector_similarity_function;
 

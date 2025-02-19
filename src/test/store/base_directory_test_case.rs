@@ -2029,7 +2029,8 @@ pub trait BaseDirectoryTestCase {
             let offset = random.random_range(0..(IndexInput::length(&input) as usize - 1)) as i64;
 
             if random.random_bool(0.5) {
-                let prefetch_length = random.random_range(1..=(IndexInput::length(&input) - offset));
+                let prefetch_length =
+                    random.random_range(1..=(IndexInput::length(&input) - offset));
                 input.prefetch(offset, prefetch_length)?;
             }
 
@@ -2103,7 +2104,8 @@ pub trait BaseDirectoryTestCase {
             let offset = random.random_range(0..(IndexInput::length(&input) as usize - 1)) as i64;
 
             if random.random_bool(0.5) {
-                let prefetch_length = random.random_range(1..=(IndexInput::length(&input) - offset));
+                let prefetch_length =
+                    random.random_range(1..=(IndexInput::length(&input) - offset));
                 input.prefetch(offset, prefetch_length)?;
             }
 

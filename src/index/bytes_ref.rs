@@ -205,9 +205,9 @@ mod tests {
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
+    use rand::distr::Alphanumeric;
     use rand::Rng;
     use std::ptr;
-    use rand::distr::Alphanumeric;
 
     #[allow(dead_code)] // for quick search
     struct TestBytesRef {}
