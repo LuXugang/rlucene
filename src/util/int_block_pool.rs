@@ -46,12 +46,12 @@ impl IntBlockPool {
     /// See `IntBlockPool::next_buffer()` for more details.
     pub fn new() -> Self {
         let allocator = Arc::new(Mutex::new(AllocatorI32Enum::DA(DirectAllocatorI32::new())));
-        Self::new_with_allocator(allocator)
+        Self::with_allocator(allocator)
     }
     /// Creates a new `IntBlockPool` with the given `Allocator`.
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
-    pub fn new_with_allocator(allocator: Arc<Mutex<AllocatorI32Enum>>) -> Self {
+    pub fn with_allocator(allocator: Arc<Mutex<AllocatorI32Enum>>) -> Self {
         IntBlockPool {
             buffers: vec![],
             buffer_upto: -1,
@@ -102,7 +102,7 @@ impl IntBlockPool {
     /// Advances the pool to its next buffer. This method should be called once after the constructor
     /// to initialize the pool. In contrast to the constructor, a `IntBlockPool::reset(boolean, boolean)`
     /// call will advance the pool to its first buffer immediately.
-    pub fn next_buffer(&mut self) -> Result<Option<()>, LuceneError> {
+    pub fn next_buffer(&mut self) -> Result<(), LuceneError> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
             self.buffers.push(
                 self.allocator
@@ -115,14 +115,17 @@ impl IntBlockPool {
         self.buffer_upto += 1;
         self.int_upto = 0;
         match self.int_offset.checked_add(Self::INT_BLOCK_SIZE) {
-            Some(val) => self.int_offset = val,
-            None => {
-                return Err(LuceneError::integer_overflow(
-                    "Overflow when calculating byte offset.".to_string(),
-                ))
+            Some(val) => {
+                self.int_offset = val;
+                Ok(())
             }
+            None => Err(LuceneError::integer_overflow(
+                "Overflow when calculating byte offset.".to_string(),
+            )),
         }
-        Ok(None)
+    }
+    pub fn get_buffer(&mut self, buffer_index: i32) -> &mut Vec<i32> {
+        &mut self.buffers[buffer_index as usize]
     }
 }
 
@@ -200,5 +203,76 @@ impl AllocatorI32 for AllocatorI32Enum {
         match self {
             AllocatorI32Enum::DA(da) => da.get_block_size(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test::util::lucene_test_case::random;
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::int_block_pool::{AllocatorI32Enum, DirectAllocatorI32, IntBlockPool};
+    use rand::Rng;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn test_write_read_reset() -> Result<(), LuceneError> {
+        let mut random = random();
+        let allocator = Arc::new(Mutex::new(AllocatorI32Enum::DA(DirectAllocatorI32::new())));
+        let mut pool = IntBlockPool::with_allocator(allocator);
+        pool.next_buffer()?;
+
+        // Write <count> consecutive ints to the buffer, possibly allocating a new buffer
+        let count = random.gen_range(0..2 * IntBlockPool::INT_BLOCK_SIZE);
+        for i in 0..count {
+            if pool.int_upto == IntBlockPool::INT_BLOCK_SIZE {
+                pool.next_buffer()?;
+            }
+            let buffer_index = pool.buffer_upto;
+            let int_upto = pool.int_upto as usize;
+            pool.get_buffer(buffer_index)[int_upto] = i;
+            pool.int_upto += 1;
+        }
+
+        // Check that all the ints are present in the buffer pool
+        for i in 0..count {
+            assert_eq!(
+                i,
+                pool.buffers[(i / IntBlockPool::INT_BLOCK_SIZE) as usize]
+                    [(i % IntBlockPool::INT_BLOCK_SIZE) as usize]
+            );
+        }
+
+        // Reset without filling with zeros and check that the first buffer still has the ints
+        let count = count.min(IntBlockPool::INT_BLOCK_SIZE);
+        pool.reset(false, true)?;
+        for i in 0..count {
+            assert_eq!(i, pool.buffers[0][i as usize]);
+        }
+
+        // Reset and fill with zeros, then check there is no data left
+        pool.int_upto = count;
+        pool.reset(true, true)?;
+        for i in 0..count {
+            assert_eq!(0, pool.buffers[0][i as usize]);
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_too_many_allocs() -> Result<(), LuceneError> {
+        let allocator = Arc::new(Mutex::new(AllocatorI32Enum::DA(DirectAllocatorI32::new())));
+        let mut pool = IntBlockPool::with_allocator(allocator);
+        pool.next_buffer()?;
+
+        let result = (|| {
+            for _ in 0..(i32::MAX / IntBlockPool::INT_BLOCK_SIZE + 1) {
+                pool.next_buffer()?;
+            }
+            Ok(())
+        })();
+
+        assert!(matches!(result, Err(LuceneError::IntegerOverflow(_))));
+        assert!(pool.int_offset + IntBlockPool::INT_BLOCK_SIZE < pool.int_offset);
+
+        Ok(())
     }
 }
