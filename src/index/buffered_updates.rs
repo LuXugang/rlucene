@@ -22,10 +22,10 @@ use crate::search::dummy::dummy_query::DummyQuery;
 use crate::search::query::Query;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
+use crate::util::byte_block_pool::AllocatorByteEnum;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::int_block_pool::AllocatorEnum;
-use crate::util::{ByteBlockPool, Counter, CounterEnum, DirectTrackingAllocator};
+use crate::util::{ByteBlockPool, Counter, CounterEnum, DirectTrackingAllocatorByte};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -296,8 +296,8 @@ impl DeletedTerms {
     /// Creates a new instance of `DeletedTerms`.
     pub(crate) fn new() -> Self {
         let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
-            DirectTrackingAllocator::new(bytes_used.clone()),
+        let allocator = Arc::new(Mutex::new(AllocatorByteEnum::DTA(
+            DirectTrackingAllocatorByte::new(bytes_used.clone()),
         )));
         let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         Self {

@@ -18,9 +18,9 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
+use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
 use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorter,
     MSBRadixSorterBase, Natural, Sorter, StringHelper, StringSorter, StringSorterBase,
@@ -43,7 +43,9 @@ impl BytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;
 
     pub fn new() -> Result<Self, LuceneError> {
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let allocator = Arc::new(Mutex::new(
+            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
+        ));
         let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         BytesRefHash::from_pool(pool)
     }
@@ -835,9 +837,9 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
 
     use crate::test::util::test_util::TestUtil;
+    use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
     use crate::util::ByteBlockPool;
     use rand::rngs::StdRng;
     use rand::Rng;
@@ -850,7 +852,9 @@ mod tests {
     pub struct TestBytesRefHash;
 
     fn new_pool() -> Arc<Mutex<ByteBlockPool>> {
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let allocator = Arc::new(Mutex::new(
+            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
+        ));
         Arc::new(Mutex::new(ByteBlockPool::new(allocator)))
     }
     fn new_hash(

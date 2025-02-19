@@ -17,9 +17,9 @@
 use crate::index::BytesRef;
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
+use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
 use crate::util::{ByteBlockPool, VecCopyOps};
 use std::sync::{Arc, Mutex};
 
@@ -36,7 +36,9 @@ impl BytesRefBlockPool {
     // TODO: memory calculation not implemented
     const BASE_RAM_BYTES: i32 = 0;
     pub fn new() -> BytesRefBlockPool {
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let allocator = Arc::new(Mutex::new(
+            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
+        ));
         BytesRefBlockPool {
             byte_block_pool: Arc::new(Mutex::new(ByteBlockPool::new(allocator))),
         }

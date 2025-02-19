@@ -22,6 +22,7 @@ use crate::util::VecCopyOps;
 
 pub(crate) struct TermVectorsPostingsArray {
     size: i32,
+    //TODO: 不需要使用vec
     freqs: Vec<i32>,          // How many times this term occurred in the current doc
     last_offsets: Vec<i32>,   // Last offset we saw
     last_positions: Vec<i32>, // Last position where this term occurred

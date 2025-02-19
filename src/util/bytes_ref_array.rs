@@ -19,8 +19,8 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
+use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorterBase,
@@ -45,7 +45,9 @@ pub struct BytesRefArray {
 }
 impl BytesRefArray {
     pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Result<BytesRefArray, LuceneError> {
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let allocator = Arc::new(Mutex::new(
+            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
+        ));
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
         let offsets = Vec::new();
@@ -96,7 +98,7 @@ impl BytesRefArray {
             spare.bytes_ref().bytes.as_mut_slice(),
             0,
             length,
-        );
+        )?;
         // TODO: should we avoid Clone here?
         Ok(std::mem::take(spare.bytes_ref()))
     }
@@ -125,7 +127,7 @@ impl BytesRefArray {
         };
 
         self.pool
-            .set_bytes_ref(spare, result, offset as i64, length);
+            .set_bytes_ref(spare, result, offset as i64, length)?;
         Ok(())
     }
 

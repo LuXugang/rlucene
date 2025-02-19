@@ -17,7 +17,6 @@
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::int_block_pool::{Allocator, AllocatorEnum};
 use crate::util::{Counter, CounterEnum, VecCopyOps};
 use std::cmp::min;
 use std::sync::{Arc, Mutex};
@@ -26,7 +25,7 @@ pub struct ByteBlockPool {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
     pub buffer_upto: i32,
-    allocator: Arc<Mutex<AllocatorEnum>>,
+    allocator: Arc<Mutex<AllocatorByteEnum>>,
     /// Offset from the start of the first buffer to the start of the current buffer, which is
     /// `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool maintains this offset because it is the first to
     /// overflow if there are too many allocated blocks.
@@ -57,14 +56,14 @@ impl ByteBlockPool {
     /// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
     pub(crate) const BYTE_BLOCK_MASK: i32 = Self::BYTE_BLOCK_SIZE - 1;
     /// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
-    /// Allocation is done through the use of an [`Allocator`] which can be customized,
+    /// Allocation is done through the use of an [`AllocatorByte`] which can be customized,
     /// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
     /// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.
     ///
     /// # Note
     /// This is an internal API.
     ///
-    pub fn new(allocator: Arc<Mutex<AllocatorEnum>>) -> Self {
+    pub fn new(allocator: Arc<Mutex<AllocatorByteEnum>>) -> Self {
         ByteBlockPool {
             buffers: vec![],
             buffer_upto: -1,
@@ -74,7 +73,7 @@ impl ByteBlockPool {
         }
     }
     /// Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
-    /// Buffers that are not reused are reclaimed by [`Allocator::recycle_byte_blocks`].
+    /// Buffers that are not reused are reclaimed by [`AllocatorByte::recycle_byte_blocks`].
     /// Buffers can be filled with zeros before recycling them. This is useful if a slice pool works on top
     /// of this byte pool and relies on the buffers being filled with zeros to find the non-zero end of slices.
     ///
@@ -116,7 +115,7 @@ impl ByteBlockPool {
     /// constructor to initialize the pool. In contrast to the constructor, a
     /// [`ByteBlockPool::reset`](#method.reset) call will advance the pool to its first buffer
     /// immediately.
-    pub fn next_buffer(&mut self) -> Result<Option<()>, LuceneError> {
+    pub fn next_buffer(&mut self) -> Result<(), LuceneError> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
             self.buffers.push(
                 self.allocator
@@ -131,12 +130,12 @@ impl ByteBlockPool {
         match self.byte_offset.checked_add(Self::BYTE_BLOCK_SIZE) {
             Some(val) => self.byte_offset = val,
             None => {
-                return Err(LuceneError::illegal_state(
+                return Err(LuceneError::integer_overflow(
                     "Overflow when calculating byte offset.".to_string(),
                 ))
             }
         }
-        Ok(None)
+        Ok(())
     }
 
     /// Fills the provided [`BytesRef`] with the bytes at the specified offset and length.
@@ -154,7 +153,7 @@ impl ByteBlockPool {
         result: &mut BytesRef,
         offset: i64,
         length: i32,
-    ) {
+    ) -> Result<(), LuceneError> {
         if result.length < length {
             result.bytes = vec![0; length as usize];
         }
@@ -171,9 +170,10 @@ impl ByteBlockPool {
         } else {
             // builder.grow_no_copy(length);
             result.offset = 0;
-            self.read_bytes(offset, &mut result.bytes, 0, length);
+            self.read_bytes(offset, &mut result.bytes, 0, length)?;
             // builder.get().bytes.clone_from(&result.bytes);
         }
+        Ok(())
     }
     /// Appends the bytes in the provided BytesRef at the current position.
     pub fn append_bytes_ref(&mut self, bytes: &BytesRef) -> Result<(), LuceneError> {
@@ -290,23 +290,32 @@ impl ByteBlockPool {
         bytes: &mut [u8],
         mut bytes_offset: i32,
         bytes_length: i32,
-    ) -> Option<()> {
+    ) -> Result<(), LuceneError> {
         let mut bytes_left = bytes_length;
-        let mut buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT).checked_shr(0)? as usize;
-        let mut pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
-        while bytes_left > 0 {
-            let chunk = min(Self::BYTE_BLOCK_SIZE - pos, bytes_left);
-            self.buffers[buffer_index].copy_to(
-                &mut bytes[bytes_offset as usize..(bytes_offset + chunk) as usize],
-                pos as usize,
-            );
+        let shift = offset >> Self::BYTE_BLOCK_SHIFT;
+        match i32::try_from(shift) {
+            Ok(buffer_index) => {
+                let mut buffer_index = buffer_index as usize;
+                let mut pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
+                while bytes_left > 0 {
+                    let chunk = min(Self::BYTE_BLOCK_SIZE - pos, bytes_left);
+                    self.buffers[buffer_index].copy_to(
+                        &mut bytes[bytes_offset as usize..(bytes_offset + chunk) as usize],
+                        pos as usize,
+                    );
 
-            bytes_offset += chunk;
-            bytes_left -= chunk;
-            buffer_index += 1;
-            pos = 0;
+                    bytes_offset += chunk;
+                    bytes_left -= chunk;
+                    buffer_index += 1;
+                    pos = 0;
+                }
+                Ok(())
+            }
+            Err(_) => Err(LuceneError::integer_overflow(format!(
+                "offset >> BYTE_BLOCK_SHIFT:  {} overflow",
+                offset >> Self::BYTE_BLOCK_SHIFT
+            ))),
         }
-        None
     }
     /// Reads a single byte at the given offset.
     ///
@@ -348,19 +357,19 @@ impl Accountable for ByteBlockPool {
 }
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is in use. */
-pub struct DirectTrackingAllocator {
+pub struct DirectTrackingAllocatorByte {
     block_size: i32,
     pub(crate) byte_used: Arc<Mutex<CounterEnum>>,
 }
-impl DirectTrackingAllocator {
+impl DirectTrackingAllocatorByte {
     pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Self {
-        DirectTrackingAllocator {
+        DirectTrackingAllocatorByte {
             block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
             byte_used,
         }
     }
 }
-impl Allocator for DirectTrackingAllocator {
+impl AllocatorByte for DirectTrackingAllocatorByte {
     fn recycle_byte_blocks(
         &mut self,
         _blocks: &[Vec<u8>],
@@ -387,15 +396,105 @@ impl Allocator for DirectTrackingAllocator {
     }
 }
 
+/// Abstract trait for allocating and freeing byte blocks.
+pub trait AllocatorByte {
+    fn recycle_byte_blocks(
+        &mut self,
+        blocks: &[Vec<u8>],
+        start: i32,
+        end: i32,
+    ) -> Result<(), LuceneError>;
+    fn get_byte_block(&mut self) -> Result<Vec<u8>, LuceneError>;
+    fn get_block_size(&self) -> i32;
+}
+
+/// A simple [`AllocatorByte`] that never recycles. */
+pub struct DirectAllocatorByte {
+    block_size: i32,
+}
+
+impl Default for DirectAllocatorByte {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DirectAllocatorByte {
+    pub fn new() -> Self {
+        DirectAllocatorByte {
+            block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
+        }
+    }
+}
+
+impl AllocatorByte for DirectAllocatorByte {
+    fn recycle_byte_blocks(
+        &mut self,
+        _blocks: &[Vec<u8>],
+        _start: i32,
+        _end: i32,
+    ) -> Result<(), LuceneError> {
+        Ok(())
+    }
+
+    fn get_byte_block(&mut self) -> Result<Vec<u8>, LuceneError> {
+        Ok(vec![0; self.block_size as usize])
+    }
+
+    fn get_block_size(&self) -> i32 {
+        self.block_size
+    }
+}
+
+pub enum AllocatorByteEnum {
+    DA(DirectAllocatorByte),
+    DTA(DirectTrackingAllocatorByte),
+}
+
+impl AllocatorByteEnum {
+    pub fn get_used(&self) -> Result<i64, LuceneError> {
+        match self {
+            AllocatorByteEnum::DA(_da) => Ok(0),
+            AllocatorByteEnum::DTA(dta) => Ok(dta
+                .byte_used
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+                .get()),
+        }
+    }
+    pub fn recycle_byte_blocks(
+        &mut self,
+        blocks: &[Vec<u8>],
+        start: i32,
+        end: i32,
+    ) -> Result<(), LuceneError> {
+        match self {
+            AllocatorByteEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
+            AllocatorByteEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
+        }
+    }
+    pub fn get_block_size(&self) -> i32 {
+        match self {
+            AllocatorByteEnum::DA(da) => da.get_block_size(),
+            AllocatorByteEnum::DTA(dta) => dta.get_block_size(),
+        }
+    }
+    pub fn get_byte_block(&mut self) -> Result<Vec<u8>, LuceneError> {
+        match self {
+            AllocatorByteEnum::DA(da) => da.get_byte_block(),
+            AllocatorByteEnum::DTA(dta) => dta.get_byte_block(),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
 
     use crate::test::util::test_util::TestUtil;
+    use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
-    use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocator, VecCopyOps};
+    use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocatorByte, VecCopyOps};
     use rand::distributions::Alphanumeric;
     use rand::{Rng, RngCore};
     use std::sync::{Arc, Mutex};
@@ -405,7 +504,9 @@ mod tests {
     #[test]
     fn test_append_from_other_pool() -> Result<(), LuceneError> {
         let mut random = random();
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let allocator = Arc::new(Mutex::new(
+            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
+        ));
         let mut pool = ByteBlockPool::new(allocator);
         let num_bytes = at_least(&mut random, 2 << 16) as usize;
         let bytes = (&mut random)
@@ -418,7 +519,9 @@ mod tests {
         pool.append(&bytes)?;
         let bytes_length = bytes.len();
 
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let allocator = Arc::new(Mutex::new(
+            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
+        ));
         let mut another_pool = ByteBlockPool::new(allocator);
         let existing_bytes = vec![0; at_least(&mut random, 500) as usize];
         another_pool.append(&existing_bytes)?;
@@ -442,7 +545,7 @@ mod tests {
             &mut result,
             0,
             result_length as i32,
-        );
+        )?;
         for i in 0..length {
             assert_eq!(bytes[offset + i], result[i], "byte @ index= {}", i);
         }
@@ -452,8 +555,8 @@ mod tests {
     fn test_read_and_write() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
-            DirectTrackingAllocator::new(byte_used.clone()),
+        let allocator = Arc::new(Mutex::new(AllocatorByteEnum::DTA(
+            DirectTrackingAllocatorByte::new(byte_used.clone()),
         )));
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
@@ -487,7 +590,7 @@ mod tests {
                             &mut bytes_ref_builder.get().bytes,
                             0,
                             bytes_ref_builder_length,
-                        );
+                        )?;
                     }
                     1 => {
                         let mut scratch = BytesRef::new();
@@ -497,7 +600,7 @@ mod tests {
                             &mut scratch,
                             position,
                             bytes_ref_builder.length(),
-                        );
+                        )?;
                         bytes_ref_builder.get().bytes.copy_from(
                             &scratch.bytes[scratch.offset as usize
                                 ..(scratch.offset + bytes_ref_builder_length) as usize],
@@ -528,8 +631,8 @@ mod tests {
     fn test_large_random_block() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
-            DirectTrackingAllocator::new(byte_used.clone()),
+        let allocator = Arc::new(Mutex::new(AllocatorByteEnum::DTA(
+            DirectTrackingAllocatorByte::new(byte_used.clone()),
         )));
         let mut pool = ByteBlockPool::new(allocator);
         let _ = pool.next_buffer();
@@ -560,7 +663,7 @@ mod tests {
         for expected in iterms {
             let mut actual: Vec<u8> = vec![0; expected.len()];
             let actual_len = actual.len();
-            pool.read_bytes(position, &mut actual, 0, actual_len as i32);
+            pool.read_bytes(position, &mut actual, 0, actual_len as i32)?;
             assert_eq!(expected, actual);
             position += expected.len() as i64;
         }

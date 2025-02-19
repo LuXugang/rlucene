@@ -165,9 +165,9 @@ mod tests {
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_util::BitUtil;
+    use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::int_block_pool::{AllocatorEnum, DirectAllocator};
-    use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocator, VecCopyOps};
+    use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocatorByte, VecCopyOps};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::sync::{Arc, Mutex};
@@ -176,8 +176,8 @@ mod tests {
     fn test_alloc_known_size_slice() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
-            DirectTrackingAllocator::new(byte_used),
+        let allocator = Arc::new(Mutex::new(AllocatorByteEnum::DTA(
+            DirectTrackingAllocatorByte::new(byte_used),
         )));
         let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         pool.lock().unwrap().next_buffer()?;
@@ -229,7 +229,9 @@ mod tests {
     }
     #[test]
     fn test_alloc_large_slice() -> Result<(), LuceneError> {
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DA(DirectAllocator::new())));
+        let allocator = Arc::new(Mutex::new(
+            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
+        ));
         let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         let mut slice_pool = ByteSlicePool::new(pool.clone());
         assert_eq!(0, slice_pool.new_slice(ByteBlockPool::BYTE_BLOCK_SIZE)?);
@@ -462,8 +464,8 @@ mod tests {
     fn test_random_interleaved_slices() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let allocator = Arc::new(Mutex::new(AllocatorEnum::DTA(
-            DirectTrackingAllocator::new(byte_used),
+        let allocator = Arc::new(Mutex::new(AllocatorByteEnum::DTA(
+            DirectTrackingAllocatorByte::new(byte_used),
         )));
         let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         let slice_pool = Arc::new(Mutex::new(ByteSlicePool::new(pool.clone())));
