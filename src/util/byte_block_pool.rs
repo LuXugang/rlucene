@@ -671,5 +671,24 @@ mod tests {
     }
 
     #[test]
-    fn test_too_many_allocs() {}
+    fn test_too_many_allocs() -> Result<(), LuceneError> {
+        // Use a mock allocator that doesn't waste memory
+        let allocator = Arc::new(Mutex::new(
+            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
+        ));
+        let mut pool = ByteBlockPool::new(allocator);
+        pool.next_buffer()?;
+
+        let result = (|| {
+            for _ in 0..(i32::MAX / ByteBlockPool::BYTE_BLOCK_SIZE + 1) {
+                pool.next_buffer()?;
+            }
+            Ok(())
+        })();
+
+        assert!(matches!(result, Err(LuceneError::IntegerOverflow(_))));
+        assert!(pool.byte_offset + ByteBlockPool::BYTE_BLOCK_SIZE < pool.byte_offset);
+
+        Ok(())
+    }
 }
