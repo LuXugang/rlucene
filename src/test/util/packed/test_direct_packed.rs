@@ -141,7 +141,7 @@ where
         {
             let mut output = directory.create_output(&name, &IOContext::default_io_context()?)?;
             for _ in 0..offset {
-                output.write_byte(random.gen())?;
+                output.write_byte(random.random())?;
             }
             let mut writer =
                 DirectWriter::get_instance(&mut output, original.len() as i64, bits_required)?;
@@ -171,7 +171,7 @@ where
 }
 
 fn random_longs(random: &mut StdRng, bpv: i32) -> Vec<i64> {
-    let amount = random.gen_range(0..5000);
+    let amount = random.random_range(0..5000);
     let max = PackedInts::max_value(bpv);
-    (0..amount).map(|_| random.gen_range(0..=max)).collect()
+    (0..amount).map(|_| random.random_range(0..=max)).collect()
 }

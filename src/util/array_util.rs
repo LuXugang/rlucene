@@ -686,15 +686,15 @@ mod tests {
         let mut random = random();
         let num = at_least(&mut random, 10000);
         for _ in 0..num {
-            let min_target_size = random.gen_range(0..ArrayUtil::MAX_ARRAY_LENGTH);
-            let elem_size = random.gen_range(0..11);
+            let min_target_size = random.random_range(0..ArrayUtil::MAX_ARRAY_LENGTH);
+            let elem_size = random.random_range(0..11);
             let v = ArrayUtil::oversize(min_target_size, elem_size);
             assert!(v >= min_target_size);
         }
     }
     fn parse_int(random: &mut StdRng, s: &str) -> Result<i32, LuceneError> {
-        let start = random.gen_range(0..5);
-        let extra_length = random.gen_range(0..4);
+        let start = random.random_range(0..5);
+        let extra_length = random.random_range(0..4);
         let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
         let s_chars: Vec<char> = s.chars().collect();
         chars[start..start + s.len()].copy_from_slice(&s_chars);
@@ -742,11 +742,11 @@ mod tests {
         assert_eq!(value, 1923, "{} does not equal: 1923", value);
     }
     fn create_random_array(random: &mut StdRng, max_size: i32) -> Vec<i32> {
-        let size = random.gen_range(1..=max_size);
+        let size = random.random_range(1..=max_size);
         let mut array = Vec::with_capacity(size as usize);
 
         for _ in 0..size {
-            array.push(random.gen_range(0..size));
+            array.push(random.random_range(0..size));
         }
         array
     }
@@ -775,11 +775,11 @@ mod tests {
         Ok(())
     }
     fn create_sparse_random_array(random: &mut StdRng, max_size: i32) -> Vec<i32> {
-        let size = random.gen_range(0..=max_size);
+        let size = random.random_range(0..=max_size);
         let mut array = Vec::with_capacity(size as usize);
 
         for _ in 0..size {
-            array.push(random.gen_range(0..2));
+            array.push(random.random_range(0..2));
         }
         array
     }
@@ -871,11 +871,11 @@ mod tests {
             // so they should always be in order after sorting.
             // The other half has defined order, but no (-1) value (they should appear after
             // all above, when sorted).
-            let equal = random.gen_bool(0.5);
+            let equal = random.random_bool(0.5);
             if equal {
                 items.push(Item::new(i + 1, 0));
             } else {
-                items.push(Item::new(-1, random.gen_range(1..=1000)));
+                items.push(Item::new(-1, random.random_range(1..=1000)));
             }
         }
         if cfg!(feature = "test_log_verbose") {
@@ -902,7 +902,7 @@ mod tests {
     }
     #[test]
     fn test_tim_sort_stability() -> Result<(), LuceneError> {
-        let mut random = rand::thread_rng();
+        let mut random = rand::rng();
         let mut items = Vec::with_capacity(100);
 
         for i in 0..100 {
@@ -910,11 +910,11 @@ mod tests {
             // so they should always be in order after sorting.
             // The other half has defined order, but no (-1) value (they should appear after
             // all above, when sorted).
-            let equal = random.gen_bool(0.5);
+            let equal = random.random_bool(0.5);
             if equal {
                 items.push(Item::new(i + 1, 0)); // "equal" items
             } else {
-                items.push(Item::new(-1, random.gen_range(1..=1000))); // Items with defined order
+                items.push(Item::new(-1, random.random_range(1..=1000))); // Items with defined order
             }
         }
 
@@ -960,15 +960,15 @@ mod tests {
     }
 
     fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
-        let from = random.gen_range(0..5) as usize;
+        let from = random.random_range(0..5) as usize;
         let to = from + TestUtil::next_int(random, 1, 10_000) as usize;
-        let max = if random.gen_bool(0.5) {
-            random.gen_range(0..100)
+        let max = if random.random_bool(0.5) {
+            random.random_range(0..100)
         } else {
-            random.gen_range(0..100_000)
+            random.random_range(0..100_000)
         };
 
-        let arr: Vec<i32> = (0..from + to + random.gen_range(0..5))
+        let arr: Vec<i32> = (0..from + to + random.random_range(0..5))
             .map(|_| TestUtil::next_int(random, 0, max))
             .collect();
 
@@ -1010,7 +1010,7 @@ mod tests {
         ArrayUtil::grow_exact(&mut arr, 5)?;
         assert_eq!(arr, vec![1, 2, 3, 0, 0]);
         let mut arr: Vec<i16> = vec![1, 2, 3];
-        let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
+        let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
         assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<i32> = vec![1, 2, 3];
@@ -1020,7 +1020,7 @@ mod tests {
         ArrayUtil::grow_exact(&mut arr, 5)?;
         assert_eq!(arr, vec![1, 2, 3, 0, 0]);
         let mut arr: Vec<i32> = vec![1, 2, 3];
-        let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
+        let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
         assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<i64> = vec![1, 2, 3];
@@ -1030,7 +1030,7 @@ mod tests {
         ArrayUtil::grow_exact(&mut arr, 5)?;
         assert_eq!(arr, vec![1, 2, 3, 0, 0]);
         let mut arr: Vec<i64> = vec![1, 2, 3];
-        let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
+        let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
         assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<f32> = vec![0.1, 0.2, 0.3];
@@ -1041,7 +1041,7 @@ mod tests {
         assert!((arr[3] - 0.0).abs() < 0.001);
         assert!((arr[4] - 0.0).abs() < 0.001);
         let mut arr: Vec<f32> = vec![1.0, 2.0, 3.0];
-        let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
+        let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
         assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
@@ -1052,7 +1052,7 @@ mod tests {
         assert!((arr[3] - 0.0).abs() < 0.001);
         assert!((arr[4] - 0.0).abs() < 0.001);
         let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
-        let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
+        let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
         assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<i8> = vec![1, 2, 3];
@@ -1062,7 +1062,7 @@ mod tests {
         ArrayUtil::grow_exact(&mut arr, 5)?;
         assert_eq!(arr, vec![1, 2, 3, 0, 0]);
         let mut arr: Vec<i8> = vec![1, 2, 3];
-        let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
+        let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
         assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<char> = vec!['a', 'b', 'c'];
@@ -1072,7 +1072,7 @@ mod tests {
         ArrayUtil::grow_exact(&mut arr, 5)?;
         assert_eq!(arr, vec!['a', 'b', 'c', '\0', '\0']);
         let mut arr: Vec<char> = vec!['a', 'b', 'c'];
-        let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
+        let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
         assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         let mut arr: Vec<Option<String>> = vec![
@@ -1111,7 +1111,7 @@ mod tests {
             Some("b".to_string()),
             Some("c".to_string()),
         ];
-        let result = ArrayUtil::grow_exact(&mut arr, random.gen_range(0..3));
+        let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
         assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
         Ok(())
@@ -1262,9 +1262,9 @@ mod tests {
         let b_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
         let mut b = vec![0u8; BitUtil::INT_BYTES + b_offset];
         for i in 0..BitUtil::INT_BYTES {
-            a[a_offset + i] = random.gen::<u8>();
+            a[a_offset + i] = random.random::<u8>();
             loop {
-                b[b_offset + i] = random.gen::<u8>();
+                b[b_offset + i] = random.random::<u8>();
                 if b[b_offset + i] != a[a_offset + i] {
                     break;
                 }
@@ -1299,9 +1299,9 @@ mod tests {
         let b_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
         let mut b = vec![0u8; BitUtil::LONG_BYTES + b_offset];
         for i in 0..BitUtil::LONG_BYTES {
-            a[a_offset + i] = random.gen::<u8>();
+            a[a_offset + i] = random.random::<u8>();
             loop {
-                b[b_offset + i] = random.gen::<u8>();
+                b[b_offset + i] = random.random::<u8>();
                 if b[b_offset + i] != a[a_offset + i] {
                     break;
                 }

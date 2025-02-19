@@ -1250,27 +1250,27 @@ mod tests {
             sub_update,
         )?;
 
-        let num_updates = 10 + random.gen_range(0..100);
+        let num_updates = 10 + random.random_range(0..100);
         let mut values: [Option<i32>; 5] = [None; 5];
 
         for (i, value) in values.iter_mut().enumerate() {
-            if random.gen_bool(0.5) {
+            if random.random_bool(0.5) {
                 *value = None;
                 updates.reset(i as i32)?;
             } else {
-                let val = random.gen_range(0..100);
+                let val = random.random_range(0..100);
                 *value = Some(val);
                 updates.add_value(i as i32, val as i64)?;
             }
         }
 
         for _ in 0..num_updates {
-            let doc_id = random.gen_range(0..5);
-            if random.gen_bool(0.5) {
+            let doc_id = random.random_range(0..5);
+            if random.random_bool(0.5) {
                 values[doc_id] = None;
                 updates.reset(doc_id as i32)?;
             } else {
-                let value = random.gen_range(0..100);
+                let value = random.random_range(0..100);
                 values[doc_id] = Some(value);
                 updates.add_value(doc_id as i32, value as i64)?;
             }
@@ -1298,9 +1298,9 @@ mod tests {
     fn test_shared_value_updates() -> Result<(), LuceneError> {
         let mut random = random();
 
-        let del_gen = random.gen::<i64>();
-        let max_doc: i32 = 1 + random.gen_range(0..1000);
-        let value = random.gen::<i64>();
+        let del_gen = random.random::<i64>();
+        let max_doc: i32 = 1 + random.random_range(0..1000);
+        let value = random.random::<i64>();
 
         let sub_update1 = SingleValueNumericDocValuesFieldUpdates::new(value);
         let sub_type = sub_update1.sub_type();
@@ -1313,14 +1313,14 @@ mod tests {
 
         let mut values: Vec<Option<bool>> = vec![None; max_doc as usize];
         let mut any = false;
-        let no_reset = random.gen_bool(0.5);
+        let no_reset = random.random_bool(0.5);
 
         for (i, tmp_value) in values.iter_mut().enumerate() {
-            if random.gen_bool(0.5) {
+            if random.random_bool(0.5) {
                 *tmp_value = Some(true);
                 any = true;
                 update.add_value(i as i32, value)?;
-            } else if random.gen_bool(0.5) && !no_reset {
+            } else if random.random_bool(0.5) && !no_reset {
                 *tmp_value = None;
                 any = true;
                 update.reset(i as i32)?;

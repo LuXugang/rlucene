@@ -222,7 +222,7 @@ mod tests {
         pool.next_buffer()?;
 
         // Write <count> consecutive ints to the buffer, possibly allocating a new buffer
-        let count = random.gen_range(0..2 * IntBlockPool::INT_BLOCK_SIZE);
+        let count = random.random_range(0..2 * IntBlockPool::INT_BLOCK_SIZE);
         for i in 0..count {
             if pool.int_upto == IntBlockPool::INT_BLOCK_SIZE {
                 pool.next_buffer()?;

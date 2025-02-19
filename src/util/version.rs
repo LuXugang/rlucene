@@ -578,9 +578,9 @@ mod tests {
 
         let version = format!(
             "{}.{}.{}",
-            4 + random.gen_range(0..1),
-            random.gen_range(0..10),
-            random.gen_range(0..10)
+            4 + random.random_range(0..1),
+            random.random_range(0..10),
+            random.random_range(0..10)
         );
 
         let v1 = Version::parse_leniently(&version)?;
@@ -592,13 +592,13 @@ mod tests {
         let v1_hash_value = hasher1.finish();
         assert_eq!(v1_hash_value, hasher2.finish());
         assert_eq!(v1, v2);
-        let iterations = 10 + random.gen_range(0..20);
+        let iterations = 10 + random.random_range(0..20);
         for _ in 0..iterations {
             let v = format!(
                 "{}.{}.{}",
-                4 + random.gen_range(0..1),
-                random.gen_range(0..10),
-                random.gen_range(0..10)
+                4 + random.random_range(0..1),
+                random.random_range(0..10),
+                random.random_range(0..10)
             );
 
             if v == version {

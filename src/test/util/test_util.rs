@@ -79,14 +79,14 @@ impl TestUtil {
     }
     /// start and end are BOTH inclusive
     pub fn next_int(r: &mut StdRng, start: i32, end: i32) -> i32 {
-        r.gen_range(start..=end)
+        r.random_range(start..=end)
     }
     /// start and end are BOTH inclusive
     pub fn next_long(r: &mut StdRng, start: i64, end: i64) -> i64 {
         assert!(end >= start, "start={}, end={}", start, end);
         let range = BigInt::from(end) + BigInt::from(1) - BigInt::from(start);
         if range <= BigInt::from(i32::MAX) {
-            start + r.gen_range(0..range.to_i32().unwrap()) as i64
+            start + r.random_range(0..range.to_i32().unwrap()) as i64
         } else {
             let augend = BigInt::from_f64(range.to_f64().unwrap() * r.gen::<f64>()).unwrap();
             let result = BigInt::from(start) + augend;
@@ -108,12 +108,12 @@ impl TestUtil {
         min_length: usize,
         max_length: usize,
     ) -> String {
-        let end = random.gen_range(min_length..=max_length);
+        let end = random.random_range(min_length..=max_length);
         if end == 0 {
             return String::new();
         }
         (0..end)
-            .map(|_| random.gen_range(b'a'..=b'z') as char)
+            .map(|_| random.random_range(b'a'..=b'z') as char)
             .collect()
     }
 
@@ -137,17 +137,17 @@ impl TestUtil {
         min_length: i32,
         max_length: i32,
     ) -> String {
-        let end = rng.gen_range(min_length as usize..=max_length as usize);
+        let end = rng.random_range(min_length as usize..=max_length as usize);
 
         // Choose a random Unicode block
-        let block = rng.gen_range(0..BLOCK_STARTS.len());
+        let block = rng.random_range(0..BLOCK_STARTS.len());
         let block_start = BLOCK_STARTS[block];
         let block_end = BLOCK_ENDS[block];
 
         // Generate random codepoints within the selected block
         let mut result = String::new();
         for _ in 0..end {
-            let codepoint = rng.gen_range(block_start..=block_end);
+            let codepoint = rng.random_range(block_start..=block_end);
             if let Some(c) = char::from_u32(codepoint) {
                 result.push(c);
             }
@@ -160,7 +160,7 @@ impl TestUtil {
     }
     /// Returns a random string up to a certain length.
     pub fn random_unicode_string_with_length(random: &mut StdRng, max_length: usize) -> String {
-        let end = random.gen_range(0..=max_length);
+        let end = random.random_range(0..=max_length);
         if end == 0 {
             return "".to_string();
         }
@@ -175,24 +175,24 @@ impl TestUtil {
         length: usize,
     ) {
         for _ in 0..length {
-            let t = random.gen_range(0..5);
+            let t = random.random_range(0..5);
             match t {
                 0 => {
                     // Generate a surrogate pair (high and low surrogate)
-                    buffer.push(random.gen_range(0xD800..=0xDBFF) as u16);
-                    buffer.push(random.gen_range(0xDC00..=0xDFFF) as u16);
+                    buffer.push(random.random_range(0xD800..=0xDBFF) as u16);
+                    buffer.push(random.random_range(0xDC00..=0xDFFF) as u16);
                 }
                 1 => {
-                    buffer.push(random.gen_range(0x00..=0x7F) as u16);
+                    buffer.push(random.random_range(0x00..=0x7F) as u16);
                 }
                 2 => {
-                    buffer.push(random.gen_range(0x80..=0x7FF) as u16);
+                    buffer.push(random.random_range(0x80..=0x7FF) as u16);
                 }
                 3 => {
-                    buffer.push(random.gen_range(0x800..=0xD7FF) as u16);
+                    buffer.push(random.random_range(0x800..=0xD7FF) as u16);
                 }
                 4 => {
-                    buffer.push(random.gen_range(0xE000..=0xFFFF) as u16);
+                    buffer.push(random.random_range(0xE000..=0xFFFF) as u16);
                 }
                 _ => unreachable!(),
             }

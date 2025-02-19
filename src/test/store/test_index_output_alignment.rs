@@ -82,7 +82,7 @@ pub fn run_test_output_alignment(alignment: i32) -> Result<(), LuceneError> {
     let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;
 
     for _ in 0..(10 * random_multiplier()) {
-        let length = random.gen_range(0..32);
+        let length = random.random_range(0..32);
         let data = vec![0; length];
         out.write_bytes_with_len(&data, length as i32)?;
 

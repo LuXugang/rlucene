@@ -861,8 +861,8 @@ mod tests {
         random: &mut StdRng,
         block_pool: Arc<Mutex<ByteBlockPool>>,
     ) -> Result<BytesRefHash, LuceneError> {
-        let init_size = 2 << (1 + random.gen_range(0..5));
-        if random.gen_bool(0.5) {
+        let init_size = 2 << (1 + random.random_range(0..5));
+        if random.random_bool(0.5) {
             BytesRefHash::from_pool(block_pool)
         } else {
             BytesRefHash::from_bytes_start_array(
@@ -882,7 +882,7 @@ mod tests {
 
         let num = at_least(&mut random, 2);
         for _ in 0..num {
-            let mod_val = random.gen_range(1..40);
+            let mod_val = random.random_range(1..40);
             for i in 0..797 {
                 let mut str_value;
                 loop {
@@ -1263,9 +1263,9 @@ mod tests {
         let mut hash = new_hash(&mut random, new_pool())?;
 
         let sizes = [
-            random.gen_range(0..5),
-            ByteBlockPool::BYTE_BLOCK_SIZE - 33 + random.gen_range(0..31),
-            ByteBlockPool::BYTE_BLOCK_SIZE - 1 + random.gen_range(0..37),
+            random.random_range(0..5),
+            ByteBlockPool::BYTE_BLOCK_SIZE - 33 + random.random_range(0..31),
+            ByteBlockPool::BYTE_BLOCK_SIZE - 1 + random.random_range(0..37),
         ];
 
         for (i, &size) in sizes.iter().enumerate() {

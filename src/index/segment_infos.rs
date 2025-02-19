@@ -1867,7 +1867,7 @@ mod tests {
                         output.copy_bytes(&mut input, corrupt_index)?;
 
                         let byte = DataInput::read_byte(&mut input)?;
-                        let value = random.gen_range(0x01..=0xff);
+                        let value = random.random_range(0x01..=0xff);
                         let corrupt_byte = byte.wrapping_add(value);
                         output.write_byte(corrupt_byte)?;
                         input_length = IndexInput::length(&input);

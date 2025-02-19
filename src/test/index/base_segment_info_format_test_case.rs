@@ -74,7 +74,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         assert!(self.supports_has_blocks());
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
-        let has_blocks = random.gen_bool(0.5);
+        let has_blocks = random.random_bool(0.5);
         let io_context = IOContext::default_io_context()?;
         let mut info = SegmentInfo::new(
             dir.clone(),
@@ -321,8 +321,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     fn random_index_sort_field(random: &mut StdRng) -> Result<Option<SortFieldEnum>, LuceneError> {
-        let reversed = random.gen_bool(0.5);
-        let case = random.gen_range(0..10);
+        let reversed = random.random_bool(0.5);
+        let case = random.random_range(0..10);
         match case {
             0 => {
                 let mut sort_field = SortField::with_reverse(
@@ -330,8 +330,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::Int,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.gen())))?;
+                if random.random_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.random())))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             }
@@ -341,8 +341,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::Int,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.gen())))?;
+                if random.random_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.random())))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             }
@@ -352,8 +352,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::Long,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.gen())))?;
+                if random.random_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.random())))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             }
@@ -363,8 +363,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::Long,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.gen())))?;
+                if random.random_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.random())))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             }
@@ -374,8 +374,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::Float,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.gen())))?;
+                if random.random_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.random())))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             }
@@ -385,8 +385,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::Float,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.gen())))?;
+                if random.random_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.random())))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             }
@@ -396,8 +396,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::Double,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Double(random.gen())))?;
+                if random.random_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Double(random.random())))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             }
@@ -407,8 +407,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::Double,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Double(random.gen())))?;
+                if random.random_bool(0.5) {
+                    sort_field.set_missing_value(Some(MissingValueEnum::Double(random.random())))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             }
@@ -418,7 +418,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     SortFieldType::String,
                     reversed,
                 )?;
-                if random.gen_bool(0.5) {
+                if random.random_bool(0.5) {
                     sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
@@ -426,7 +426,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             9 => {
                 let mut sort_field =
                     SortedSetSortField::new(TestUtil::random_simple_string(random), reversed)?;
-                if random.gen_bool(0.5) {
+                if random.random_bool(0.5) {
                     sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
                 }
                 Ok(Some(SortFieldEnum::SortedSet(sort_field)))
@@ -444,7 +444,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
         let iters = at_least(random, 5);
         for _ in 0..iters {
-            let sort = if random.gen_bool(0.2) {
+            let sort = if random.random_bool(0.2) {
                 None
             } else {
                 let num_sort_fields = TestUtil::next_int(random, 1, 3);
@@ -515,18 +515,18 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
         for _ in 0..10 {
             let dir = Arc::new(Mutex::new(new_directory(random)?));
-            let version = versions[random.gen_range(0..versions.len())].clone();
-            let random_segment_index = random.gen::<i64>().abs();
+            let version = versions[random.random_range(0..versions.len())].clone();
+            let random_segment_index = random.random::<i64>().abs();
             let big_int = if random_segment_index != i64::MIN {
                 BigInt::from(random_segment_index)
             } else {
-                BigInt::from(random.gen_range(0..i32::MAX) as i64)
+                BigInt::from(random.random_range(0..i32::MAX) as i64)
             };
             let name = format!("_{}", big_int.to_str_radix(36));
             let doc_count = TestUtil::next_int(random, 1, IndexWriter::MAX_DOCS);
-            let is_compound_file = random.gen_bool(0.5);
+            let is_compound_file = random.random_bool(0.5);
             let mut files = HashSet::new();
-            let num_files = random.gen_range(0..10);
+            let num_files = random.random_range(0..10);
             for j in 0..num_files {
                 let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
                 files.insert(file.clone());
@@ -534,7 +534,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 directory.create_output(&file, &io_context)?;
             }
             let mut diagnostics = HashMap::new();
-            let num_diags = random.gen_range(0..10);
+            let num_diags = random.random_range(0..10);
             for _ in 0..num_diags {
                 diagnostics.insert(
                     TestUtil::random_unicode_string(random),
@@ -544,7 +544,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             let mut id = vec![0; StringHelper::ID_LENGTH as usize];
             random.fill(&mut id[..]);
             let mut attributes = HashMap::new();
-            let num_attributes = random.gen_range(0..10);
+            let num_attributes = random.random_range(0..10);
             for _ in 0..num_attributes {
                 attributes.insert(
                     TestUtil::random_unicode_string(random),

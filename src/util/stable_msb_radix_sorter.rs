@@ -292,7 +292,7 @@ mod tests {
             max_length = max_length.max(ref_item.length);
         }
 
-        match random.gen_range(0..3) {
+        match random.random_range(0..3) {
             0 => max_length += TestUtil::next_int(random, 1, 5),
             1 => max_length = i32::MAX,
             _ => {}
@@ -311,7 +311,7 @@ mod tests {
     #[test]
     fn test_empty() -> Result<(), LuceneError> {
         let mut random = random();
-        let refs: Vec<BytesRef> = vec![BytesRef::default(); random.gen_range(0..5)];
+        let refs: Vec<BytesRef> = vec![BytesRef::default(); random.random_range(0..5)];
         test(&refs, 0, &mut random)
     }
     #[test]
@@ -338,10 +338,10 @@ mod tests {
     ) -> Result<(), LuceneError> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
-        let len = random.gen_range(0..100_000);
-        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.gen_range(0..50));
+        let len = random.random_range(0..100_000);
+        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
-            let mut b = vec![0u8; common_prefix_len + random.gen_range(0..max_len)];
+            let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
             random.fill_bytes(&mut b[common_prefix_len..]);
             b[..common_prefix_len].copy_from_slice(&common_prefix);
             bytes.push(BytesRef::from_bytes(b));
@@ -405,7 +405,7 @@ mod tests {
             let length = TestUtil::next_int(&mut random, 2, 10) as usize;
             let mut bytes = vec![0u8; length];
             for byte in &mut bytes {
-                *byte = random.gen_range(0..letter_count) as u8;
+                *byte = random.random_range(0..letter_count) as u8;
             }
             substrings_set.insert(BytesRef::from_bytes(bytes));
         }
@@ -416,7 +416,7 @@ mod tests {
 
         // Generate random chances
         for _ in &substrings {
-            let value = random.gen::<f64>();
+            let value = random.random::<f64>();
             chance.push(value);
             sum += value;
         }
@@ -436,7 +436,7 @@ mod tests {
             let mut builder = BytesRefBuilder::new();
 
             for _ in 0..count {
-                let v = random.gen::<f64>();
+                let v = random.random::<f64>();
                 let mut accum = 0.0;
                 for (j, substring) in substrings.iter().enumerate() {
                     accum += chance[j];

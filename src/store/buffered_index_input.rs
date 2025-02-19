@@ -849,7 +849,7 @@ mod tests {
 
         // Wildly fluctuating size
         for _ in 0..100 {
-            let size = random.gen_range(1..=10000);
+            let size = random.random_range(1..=10000);
             let mut buffer: Vec<u8> = vec![0; 10];
             check_read_bytes(&mut input, size, pos, &mut buffer)?;
             pos += size as i32;
@@ -989,7 +989,7 @@ mod tests {
         let mut i: i64 = 2048;
         while i > 0 {
             assert_eq!(byten(i), RandomAccessInput::read_byte(&mut input, i)?);
-            i -= random.gen_range(1..16);
+            i -= random.random_range(1..16);
         }
 
         assert_eq!(3, input.get_sub_index_input().read_count);
@@ -1021,7 +1021,7 @@ mod tests {
                 expected_value,
                 RandomAccessInput::read_int(&mut input, i as i64)?
             );
-            i -= random.gen_range(3..19);
+            i -= random.random_range(3..19);
         }
 
         let actual_read_count = input.get_sub_index_input().read_count;
@@ -1063,7 +1063,7 @@ mod tests {
                 RandomAccessInput::read_long(&mut input, i as i64)?
             );
 
-            i -= random.gen_range(7..23);
+            i -= random.random_range(7..23);
         }
 
         let actual_read_count = input.get_sub_index_input().read_count;
@@ -1079,7 +1079,7 @@ mod tests {
     fn test_read_floats() -> Result<(), LuceneError> {
         let mut random = random();
         let length: usize = 1024 * 8;
-        let buffer_length: usize = random.gen_range(128..length / 8);
+        let buffer_length: usize = random.random_range(128..length / 8);
         let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
@@ -1098,7 +1098,7 @@ mod tests {
             let bulk_reads = length / (buffer_length * BitUtil::FLOAT_BYTES) - 1;
             for i in 0..bulk_reads {
                 let pos = alignment + i * buffer_length * BitUtil::FLOAT_BYTES;
-                let float_offset: usize = random.gen_range(0..3);
+                let float_offset: usize = random.random_range(0..3);
                 DataInput::skip_bytes(&mut input, (float_offset * BitUtil::FLOAT_BYTES) as i64)?;
 
                 DataInput::read_floats(
@@ -1141,7 +1141,7 @@ mod tests {
     fn test_read_ints() -> Result<(), LuceneError> {
         let mut random = random();
         let length: usize = 1024 * 8;
-        let buffer_length: usize = random.gen_range(128..length / 8);
+        let buffer_length: usize = random.random_range(128..length / 8);
         let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
@@ -1160,7 +1160,7 @@ mod tests {
             let bulk_reads = length / (buffer_length * BitUtil::INT_BYTES) - 1;
             for i in 0..bulk_reads {
                 let pos = alignment + i * buffer_length * BitUtil::INT_BYTES;
-                let int_offset: usize = random.gen_range(0..3);
+                let int_offset: usize = random.random_range(0..3);
                 DataInput::skip_bytes(&mut input, (int_offset * BitUtil::INT_BYTES) as i64)?;
 
                 DataInput::read_ints(
@@ -1201,7 +1201,7 @@ mod tests {
     fn test_read_longs() -> Result<(), LuceneError> {
         let mut random = random();
         let length: usize = 1024 * 8;
-        let buffer_length: usize = random.gen_range(128..length / 8);
+        let buffer_length: usize = random.random_range(128..length / 8);
         let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
@@ -1221,7 +1221,7 @@ mod tests {
             let bulk_reads = length / (buffer_length * BitUtil::LONG_BYTES) - 1;
             for i in 0..bulk_reads {
                 let pos = alignment + i * buffer_length * BitUtil::LONG_BYTES;
-                let long_offset: usize = random.gen_range(0..3);
+                let long_offset: usize = random.random_range(0..3);
                 DataInput::skip_bytes(&mut input, (long_offset * BitUtil::LONG_BYTES) as i64)?;
 
                 DataInput::read_longs(

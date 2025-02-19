@@ -189,7 +189,7 @@ mod tests {
     fn test_sparse() -> Result<(), LuceneError> {
         let mut random = random();
         let mut set = DocsWithFieldSet::new();
-        let doc = random.gen_range(0..10000);
+        let doc = random.random_range(0..10000);
         let _ = set.add(doc);
         let mut it = set.iterator().unwrap();
         assert_eq!(doc, it.next_doc()?);
@@ -206,8 +206,8 @@ mod tests {
     #[test]
     fn test_dense_then_sparse() -> Result<(), LuceneError> {
         let mut random = random();
-        let dense_count = random.gen_range(1..10000);
-        let next_doc = dense_count + random.gen_range(1..10000);
+        let dense_count = random.random_range(1..10000);
+        let next_doc = dense_count + random.random_range(1..10000);
         let mut set = DocsWithFieldSet::new();
         for i in 0..dense_count {
             let _ = set.add(i);

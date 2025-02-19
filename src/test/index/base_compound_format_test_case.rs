@@ -698,7 +698,7 @@ pub(crate) fn new_segment_info<D: Directory>(
     dir: Arc<Mutex<D>>,
     name: &str,
 ) -> Result<SegmentInfo<D>, LuceneError> {
-    let min_version = if random.gen_bool(0.5) {
+    let min_version = if random.random_bool(0.5) {
         None
     } else {
         Some((*LATEST).clone())
@@ -734,7 +734,7 @@ pub(crate) fn create_random_file<D: Directory>(
     CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, "suffix")?;
 
     for _ in 0..size {
-        let b = random.gen_range(0..256) as u8;
+        let b = random.random_range(0..256) as u8;
         os.write_byte(b)?;
     }
     CodecUtil::write_footer(&mut os)?;

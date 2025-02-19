@@ -92,7 +92,7 @@ pub trait BaseDirectoryTestCase {
     fn test_rename(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testRename").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
-        let num_bytes = random.gen_range(0..20000);
+        let num_bytes = random.random_range(0..20000);
         let mut bytes = vec![0u8; num_bytes];
         let io_context = new_io_context(random)?;
         random.fill(&mut bytes[..]);
@@ -275,10 +275,10 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
 
-        let offset = random.gen_range(0..8);
+        let offset = random.random_range(0..8);
         let length = TestUtil::next_int(random, 1, 16) as usize;
         let padding = offset + length * std::mem::size_of::<i64>()
-            - random.gen_range(1..=std::mem::size_of::<i64>());
+            - random.random_range(1..=std::mem::size_of::<i64>());
 
         {
             let mut out = dir.create_output("littleEndianLongs", &io_context)?;
@@ -323,7 +323,7 @@ pub trait BaseDirectoryTestCase {
     fn test_unaligned_ints(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let temp_dir = Builder::new().prefix("testUnalignedInts").tempdir()?;
         let mut dir = self.get_directory(temp_dir.into_path())?;
-        let padding = random.gen_range(1..=3);
+        let padding = random.random_range(1..=3);
         let io_context = new_io_context(random)?;
 
         {
@@ -355,11 +355,11 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
 
-        let offset = random.gen_range(0..4);
+        let offset = random.random_range(0..4);
         let length = TestUtil::next_int(random, 1, 16) as usize;
 
         let total_size = offset + length * std::mem::size_of::<i32>();
-        let truncation = random.gen_range(1..=std::mem::size_of::<i32>());
+        let truncation = random.random_range(1..=std::mem::size_of::<i32>());
         let data_size = total_size - truncation;
         let mut bytes = vec![0u8; data_size];
         random.fill(&mut bytes[..]);
@@ -402,7 +402,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     fn test_unaligned_floats(&self, random: &mut StdRng) -> Result<(), LuceneError> {
-        let padding = random.gen_range(1..=3);
+        let padding = random.random_range(1..=3);
         let io_context = new_io_context(random)?;
 
         let temp_dir = Builder::new().prefix("testUnalignedFloats").tempdir()?;
@@ -436,11 +436,11 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.into_path())?;
         let io_context = new_io_context(random)?;
 
-        let offset = random.gen_range(0..4);
+        let offset = random.random_range(0..4);
         let length = TestUtil::next_int(random, 1, 16) as usize;
         {
             let size = offset + length * std::mem::size_of::<f32>()
-                - random.gen_range(1..=std::mem::size_of::<f32>());
+                - random.random_range(1..=std::mem::size_of::<f32>());
             let mut b = vec![0u8; size];
             random.fill(&mut b[..]);
 
@@ -511,21 +511,21 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_zint(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut ints = Vec::new();
-        let num_ints = random.gen_range(0..10);
+        let num_ints = random.random_range(0..10);
 
         for _ in 0..num_ints {
-            let value = match random.gen_range(0..3) {
-                0 => random.gen::<i32>(),
+            let value = match random.random_range(0..3) {
+                0 => random.random::<i32>(),
                 1 => {
-                    if random.gen_bool(0.5) {
+                    if random.random_bool(0.5) {
                         i32::MIN
                     } else {
                         i32::MAX
                     }
                 }
                 2 => {
-                    let sign = if random.gen_bool(0.5) { -1 } else { 1 };
-                    sign * random.gen_range(0..1024)
+                    let sign = if random.random_bool(0.5) { -1 } else { 1 };
+                    sign * random.random_range(0..1024)
                 }
                 _ => unreachable!(),
             };
@@ -556,22 +556,22 @@ pub trait BaseDirectoryTestCase {
 
     fn test_zlong(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut longs = Vec::new();
-        let num_longs = random.gen_range(0..10);
+        let num_longs = random.random_range(0..10);
         let io_context = new_io_context(random)?;
 
         for _ in 0..num_longs {
-            let value = match random.gen_range(0..3) {
-                0 => random.gen::<i64>(), // Random 64-bit integer
+            let value = match random.random_range(0..3) {
+                0 => random.random::<i64>(), // Random 64-bit integer
                 1 => {
-                    if random.gen_bool(0.5) {
+                    if random.random_bool(0.5) {
                         i64::MIN // Minimum value for i64
                     } else {
                         i64::MAX // Maximum value for i64
                     }
                 }
                 2 => {
-                    let sign = if random.gen_bool(0.5) { -1 } else { 1 };
-                    sign * random.gen_range(0..1024) as i64 // Small range value with random sign
+                    let sign = if random.random_bool(0.5) { -1 } else { 1 };
+                    sign * random.random_range(0..1024) as i64 // Small range value with random sign
                 }
                 _ => unreachable!(),
             };
@@ -699,7 +699,7 @@ pub trait BaseDirectoryTestCase {
     fn test_checksum(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         use crc32fast::Hasher;
 
-        let num_bytes = random.gen_range(0..20000);
+        let num_bytes = random.random_range(0..20000);
         let mut bytes = vec![0u8; num_bytes];
         random.fill(&mut bytes[..]);
 
@@ -745,10 +745,10 @@ pub trait BaseDirectoryTestCase {
         // Writer thread
         let dir_writer = Arc::clone(&dir);
         let stop_writer = Arc::clone(&stop);
-        let seed: u64 = random.gen();
+        let seed: u64 = random.random();
         let writer = thread::spawn(move || -> Result<(), LuceneError> {
             let mut rng = random_from_seed(seed);
-            let file_count = rng.gen_range(500..=1000);
+            let file_count = rng.random_range(500..=1000);
             let io_context = IOContext::default_io_context()?;
             for i in 0..file_count {
                 let file_name = format!("file-{}", i);
@@ -785,7 +785,7 @@ pub trait BaseDirectoryTestCase {
 
                 if !files.is_empty() {
                     loop {
-                        let file = files[rng.gen_range(0..files.len())].as_str();
+                        let file = files[rng.random_range(0..files.len())].as_str();
                         match dir_reader
                             .lock()
                             .unwrap()
@@ -806,7 +806,7 @@ pub trait BaseDirectoryTestCase {
                                 });
                             }
                         }
-                        if rng.gen_range(0..3) == 0 {
+                        if rng.random_range(0..3) == 0 {
                             break;
                         }
                     }
@@ -931,7 +931,7 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let len = random.gen_range(0..2048);
+        let len = random.random_range(0..2048);
         let buffer = vec![0u8; len];
         {
             let mut output = dir.create_output("out", &io_context)?;
@@ -942,7 +942,7 @@ pub trait BaseDirectoryTestCase {
 
         // Seeking past EOF should always return an error
         assert!(matches!(
-            input.seek(len as i64 + random.gen_range(1..2048) as i64),
+            input.seek(len as i64 + random.random_range(1..2048) as i64),
             Err(LuceneError::Eof(_))
         ));
 
@@ -966,7 +966,7 @@ pub trait BaseDirectoryTestCase {
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let len = random.gen_range(8..2048);
+        let len = random.random_range(8..2048);
         let buffer = vec![0u8; len];
         {
             let mut output = dir.create_output("out", &io_context)?;
@@ -1031,7 +1031,7 @@ pub trait BaseDirectoryTestCase {
 
             upto = 0;
             while upto < size {
-                if random.gen_bool(0.5) {
+                if random.random_bool(0.5) {
                     output.write_byte(DataInput::read_byte(&mut input)?)?;
                     upto += 1;
                 } else {
@@ -1050,7 +1050,7 @@ pub trait BaseDirectoryTestCase {
             let mut input2 = dir.open_input("test2", &io_context)?;
             upto = 0;
             while upto < size {
-                if random.gen_bool(0.5) {
+                if random.random_bool(0.5) {
                     let v = DataInput::read_byte(&mut input2)?;
                     assert_eq!(Self::value(upto), v);
                     upto += 1;
@@ -1088,7 +1088,7 @@ pub trait BaseDirectoryTestCase {
         ));
         let io_context = IOContext::default_io_context()?;
         let header_len = 3;
-        let data_len = random.gen_range(header_len + 1..10000);
+        let data_len = random.random_range(header_len + 1..10000);
         let mut data = vec![0u8; data_len];
         random.fill_bytes(&mut data);
         let data_clone = data.clone();
@@ -1237,7 +1237,7 @@ pub trait BaseDirectoryTestCase {
                 let name = format!("longs-{}", i);
                 {
                     let mut o = dir.create_output(&name, &io_context)?;
-                    let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+                    let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
                     o.write_bytes_with_len(&junk, junk.len() as i32)?;
                     input.seek(0)?;
                     let length = IndexInput::length(&input);
@@ -1272,7 +1272,7 @@ pub trait BaseDirectoryTestCase {
         {
             let mut output = dir.create_output("ints", &io_context)?;
             for value in &mut ints {
-                *value = random.gen_range(i32::MIN..=i32::MAX);
+                *value = random.random_range(i32::MIN..=i32::MAX);
                 output.write_int(*value)?;
             }
         }
@@ -1310,7 +1310,7 @@ pub trait BaseDirectoryTestCase {
                 let name = format!("ints-{}", i);
                 {
                     let mut o = dir.create_output(&name, &io_context)?;
-                    let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+                    let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
                     o.write_bytes_with_len(&junk, junk.len() as i32)?;
                     input.seek(0)?;
                     let length = IndexInput::length(&input);
@@ -1346,7 +1346,7 @@ pub trait BaseDirectoryTestCase {
         {
             let mut output = dir.create_output("shorts", &io_context)?;
             for value in &mut shorts {
-                *value = random.gen_range(i16::MIN..=i16::MAX);
+                *value = random.random_range(i16::MIN..=i16::MAX);
                 output.write_short(*value)?;
             }
         }
@@ -1384,7 +1384,7 @@ pub trait BaseDirectoryTestCase {
                 let name = format!("shorts-{}", i);
                 {
                     let mut o = dir.create_output(&name, &io_context)?;
-                    let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+                    let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
                     o.write_bytes_with_len(&junk, junk.len() as i32)?;
                     input.seek(0)?;
                     let length = IndexInput::length(&input);
@@ -1453,7 +1453,7 @@ pub trait BaseDirectoryTestCase {
                 let name = format!("bytes-{}", i);
                 {
                     let mut output = dir.create_output(&name, &io_context)?;
-                    let junk: Vec<u8> = (0..i).map(|_| random.gen()).collect();
+                    let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
                     output.write_bytes_with_len(&junk, junk.len() as i32)?;
                     let length = IndexInput::length(&input);
                     input.seek(0)?;
@@ -1481,7 +1481,7 @@ pub trait BaseDirectoryTestCase {
         for i in 0..to_read {
             assert_eq!(bytes[bytes_offset + i], slice.read_byte(i as i64)?);
 
-            let offset = random.gen_range(0..1000);
+            let offset = random.random_range(0..1000);
 
             let mut sub1 = vec![0u8; offset + i];
             slice.read_bytes(0, &mut sub1, offset as i32, i as i32)?;
@@ -1546,7 +1546,7 @@ pub trait BaseDirectoryTestCase {
                 let mut data = vec![0u8; num];
                 data[..i + j as usize].copy_from_slice(&bytes[..i + j as usize]);
 
-                if random.gen_bool(0.5) {
+                if random.random_bool(0.5) {
                     // Read the bytes for this slice-of-slice
                     DataInput::read_bytes(
                         &mut slice2,
@@ -1810,7 +1810,7 @@ pub trait BaseDirectoryTestCase {
                 "test",
             );
             let io_context = IOContext::default_io_context()?;
-            if random.gen_range(0..5) == 1 {
+            if random.random_range(0..5) == 1 {
                 // Create a temporary output
                 {
                     let output = dir.create_temp_output(&name, "foo", &io_context)?;
@@ -1879,7 +1879,7 @@ pub trait BaseDirectoryTestCase {
         values[0] = 1i64 << 31; // values[0] = 2147483648 as long, but as int it is -2147483648
 
         for i in 0..size {
-            if random.gen_bool(0.5) {
+            if random.random_bool(0.5) {
                 values[i] = values[0];
             }
         }
@@ -1887,7 +1887,7 @@ pub trait BaseDirectoryTestCase {
         // a smaller limit value covers the default implementation of read_group_vints,
         // and a bigger limit value covers the faster implementation.
         let values_len = values.len();
-        let limit = random.gen_range(1..size);
+        let limit = random.random_range(1..size);
         let io_context = IOContext::default_io_context()?;
         {
             let mut out = dir.create_output("test", &io_context)?;
@@ -1968,7 +1968,7 @@ pub trait BaseDirectoryTestCase {
                     *value = if upper == 0 {
                         0
                     } else {
-                        random.gen_range(0..=upper) as i64
+                        random.random_range(0..=upper) as i64
                     };
                     vint_out.write_vint(*value as i32)?;
                 }
@@ -2010,7 +2010,7 @@ pub trait BaseDirectoryTestCase {
         let temp_dir = tempfile::Builder::new().prefix("test_prefetch").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
-        let total_length = start_offset + random.gen_range(16384..=65536);
+        let total_length = start_offset + random.random_range(16384..=65536);
         // let mut arr = vec![0u8; total_length];
         let mut arr = vec![0u8; total_length];
         random.fill_bytes(&mut arr[..]);
@@ -2026,17 +2026,17 @@ pub trait BaseDirectoryTestCase {
         let mut input = orig.clone();
 
         for _ in 0..10_000 {
-            let offset = random.gen_range(0..(IndexInput::length(&input) as usize - 1)) as i64;
+            let offset = random.random_range(0..(IndexInput::length(&input) as usize - 1)) as i64;
 
-            if random.gen_bool(0.5) {
-                let prefetch_length = random.gen_range(1..=(IndexInput::length(&input) - offset));
+            if random.random_bool(0.5) {
+                let prefetch_length = random.random_range(1..=(IndexInput::length(&input) - offset));
                 input.prefetch(offset, prefetch_length)?;
             }
 
             input.seek(offset)?;
             assert_eq!(offset, input.get_file_pointer());
 
-            match random.gen_range(3..100) {
+            match random.random_range(3..100) {
                 0 => {
                     let read_byte = DataInput::read_byte(&mut input)?;
                     assert_eq!(arr[start_offset + offset as usize], read_byte);
@@ -2053,7 +2053,7 @@ pub trait BaseDirectoryTestCase {
                     }
                 }
                 _ => {
-                    let read_length = random.gen_range(
+                    let read_length = random.random_range(
                         1..=temp
                             .len()
                             .min((IndexInput::length(&input) - offset) as usize),
@@ -2076,11 +2076,11 @@ pub trait BaseDirectoryTestCase {
     }
 
     fn test_prefetch_on_slice(&self, random: &mut StdRng) -> Result<(), LuceneError> {
-        let start_offset = random.gen_range(1..1024);
+        let start_offset = random.random_range(1..1024);
         let temp_dir = tempfile::Builder::new().prefix("test_prefetch").tempdir()?;
         let mut dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
-        let total_length = start_offset + random.gen_range(16384..=65536);
+        let total_length = start_offset + random.random_range(16384..=65536);
         // let mut arr = vec![0u8; total_length];
         let mut arr = vec![0u8; total_length];
         random.fill_bytes(&mut arr[..]);
@@ -2100,17 +2100,17 @@ pub trait BaseDirectoryTestCase {
         )?;
 
         for _ in 0..10_000 {
-            let offset = random.gen_range(0..(IndexInput::length(&input) as usize - 1)) as i64;
+            let offset = random.random_range(0..(IndexInput::length(&input) as usize - 1)) as i64;
 
-            if random.gen_bool(0.5) {
-                let prefetch_length = random.gen_range(1..=(IndexInput::length(&input) - offset));
+            if random.random_bool(0.5) {
+                let prefetch_length = random.random_range(1..=(IndexInput::length(&input) - offset));
                 input.prefetch(offset, prefetch_length)?;
             }
 
             input.seek(offset)?;
             assert_eq!(offset, input.get_file_pointer());
 
-            match random.gen_range(3..100) {
+            match random.random_range(3..100) {
                 0 => {
                     let read_byte = DataInput::read_byte(&mut input)?;
                     assert_eq!(arr[start_offset + offset as usize], read_byte);
@@ -2127,7 +2127,7 @@ pub trait BaseDirectoryTestCase {
                     }
                 }
                 _ => {
-                    let read_length = random.gen_range(
+                    let read_length = random.random_range(
                         1..=temp
                             .len()
                             .min((IndexInput::length(&input) - offset) as usize),

@@ -802,9 +802,9 @@ mod tests {
         // The approximate cardinality works in such a way that it should be pretty accurate on a bitset
         // whose bits are uniformly distributed.
         let mut random = random();
-        let mut set = FixedBitSet::new(random.gen_range(100000..=200000));
-        let first = random.gen_range(0..=10);
-        let interval = random.gen_range(10..=20);
+        let mut set = FixedBitSet::new(random.random_range(100000..=200000));
+        let first = random.random_range(0..=10);
+        let interval = random.random_range(10..=20);
         let mut i = first;
         while i < set.length() {
             set.set(i);
@@ -906,7 +906,7 @@ mod tests {
         let mut iterator = BitSetIterator::new(b, 0).unwrap();
         let iter = a.iter();
         for index in iter {
-            let bb = if random.gen_bool(0.5) {
+            let bb = if random.random_bool(0.5) {
                 iterator.next_doc()?
             } else {
                 iterator.advance(index as i32)?
@@ -926,7 +926,7 @@ mod tests {
         let mut iterator = BitSetIterator::new(b, 0).unwrap();
         let iter = a.iter();
         for index in iter {
-            let bb = if random.gen_bool(0.5) {
+            let bb = if random.random_bool(0.5) {
                 iterator.next_doc()?
             } else {
                 iterator.advance(index as i32)?
@@ -938,30 +938,30 @@ mod tests {
     }
 
     fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) -> Result<(), LuceneError> {
-        // let max_size = random.gen_range(1200..=i32::MAX);
-        let max_size = random.gen_range(1200..=100000);
+        // let max_size = random.random_range(1200..=i32::MAX);
+        let max_size = random.random_range(1200..=100000);
         let mut a0: bit_set::BitSet = Default::default();
         let mut b0: FixedBitSet = Default::default();
         let mut flag = 0;
         for _i in 0..iter {
-            let sz = random.gen_range(2..max_size);
+            let sz = random.random_range(2..max_size);
             let mut a = bit_set::BitSet::with_capacity(sz as usize);
             let mut b = FixedBitSet::new(sz);
-            let n_oper = random.gen_range(0..sz);
+            let n_oper = random.random_range(0..sz);
             for _j in 0..n_oper {
-                let mut idx = random.gen_range(0..sz);
+                let mut idx = random.random_range(0..sz);
                 a.insert(idx as usize);
                 b.set(idx);
 
-                idx = random.gen_range(0..sz);
+                idx = random.random_range(0..sz);
                 a.remove(idx as usize);
                 b.clear_with_index(idx);
 
-                idx = random.gen_range(0..sz);
+                idx = random.random_range(0..sz);
                 flip_bit_range(&mut a, idx as usize, (idx + 1) as usize);
                 b.flip_range(idx, idx + 1);
 
-                idx = random.gen_range(0..sz);
+                idx = random.random_range(0..sz);
                 flip_bit(&mut a, idx as usize);
                 b.flip(idx);
 
@@ -982,8 +982,8 @@ mod tests {
             // test ranges, including possible extension
             let mut from_index: i32;
             let mut to_index: i32;
-            from_index = random.gen_range(0..(sz / 2));
-            to_index = from_index + random.gen_range(0..(sz - from_index));
+            from_index = random.random_range(0..(sz / 2));
+            to_index = from_index + random.random_range(0..(sz - from_index));
             let mut aa = a.clone();
             flip_bit_range(&mut aa, from_index as usize, to_index as usize);
             let mut bb = b.clone();
@@ -991,8 +991,8 @@ mod tests {
 
             do_iterate(random, &aa, &bb, mode)?; //  a problem here is from flip or doIterate
 
-            from_index = random.gen_range(0..(sz / 2));
-            to_index = from_index + random.gen_range(0..(sz - from_index));
+            from_index = random.random_range(0..(sz / 2));
+            to_index = from_index + random.random_range(0..(sz - from_index));
             aa.clone_from(&a);
             clear_range(&mut aa, from_index as usize, to_index as usize);
             bb = b.clone();
@@ -1002,8 +1002,8 @@ mod tests {
 
             do_prev_set_bit(&aa, &bb);
 
-            from_index = random.gen_range(0..(sz / 2));
-            to_index = from_index + random.gen_range(0..(sz - from_index));
+            from_index = random.random_range(0..(sz / 2));
+            to_index = from_index + random.random_range(0..(sz - from_index));
             aa.clone_from(&a);
             set_range(&mut aa, from_index as usize, to_index as usize);
             bb = b.clone();
@@ -1063,7 +1063,7 @@ mod tests {
     fn test_small() -> Result<(), LuceneError> {
         let mut random = random();
         let iters = if is_night_mode() {
-            random.gen_range(1000..100000)
+            random.random_range(1000..100000)
         } else {
             100
         };
@@ -1076,13 +1076,13 @@ mod tests {
     fn test_equals() {
         // This test can't handle numBits==0:
         let mut random = random();
-        let num_bits = random.gen_range(0..2000) + 1;
+        let num_bits = random.random_range(0..2000) + 1;
         let mut b1 = FixedBitSet::new(num_bits);
         let mut b2 = FixedBitSet::new(num_bits);
         assert!(b1.eq(&b2));
         assert!(b2.eq(&b1));
-        for _i in 0..random.gen_range(1000..5000) {
-            let idx = random.gen_range(0..num_bits);
+        for _i in 0..random.random_range(1000..5000) {
+            let idx = random.random_range(0..num_bits);
             if !b1.get(idx) {
                 b1.set(idx);
                 assert!(!b1.eq(&b2));
@@ -1098,11 +1098,11 @@ mod tests {
     fn test_hash_code_equals() {
         let mut random = random();
 
-        let num_bits = random.gen_range(0..2000) + 1;
+        let num_bits = random.random_range(0..2000) + 1;
         let mut b1 = FixedBitSet::new(num_bits);
         let mut b2 = FixedBitSet::new(num_bits);
-        for _i in 0..random.gen_range(1000..5000) {
-            let idx = random.gen_range(0..num_bits);
+        for _i in 0..random.random_range(1000..5000) {
+            let idx = random.random_range(0..num_bits);
             if !b1.get(idx) {
                 b1.set(idx);
                 assert!(!b1.eq(&b2));
@@ -1144,7 +1144,7 @@ mod tests {
         num_bits: i32,
     ) -> Result<FixedBitSet, LuceneError> {
         let mut bs: FixedBitSet;
-        if random.gen_bool(0.5) {
+        if random.random_bool(0.5) {
             let bits_2_words = FixedBitSet::bits2words(num_bits);
             let mut words: Vec<i64> = Vec::with_capacity(bits_2_words as usize);
             words.resize(num_bits as usize, 0);
@@ -1181,12 +1181,12 @@ mod tests {
     #[test]
     fn test_next_bitset() {
         let mut random = random();
-        let capacity = random.gen_range(0..1000);
+        let capacity = random.random_range(0..1000);
         let mut set_bits: Vec<i32> = Vec::with_capacity(capacity as usize);
         for _i in 0..capacity {
-            set_bits.push(random.gen_range(0..capacity));
+            set_bits.push(random.random_range(0..capacity));
         }
-        let num_bits = set_bits.len() + random.gen_range(0..10);
+        let num_bits = set_bits.len() + random.random_range(0..10);
         check_next_set_bit_array(&mut random, set_bits, num_bits as i32);
         check_next_set_bit_array(&mut random, vec![], num_bits as i32);
     }
@@ -1245,7 +1245,7 @@ mod tests {
     fn make_int_array(random: &mut StdRng, count: i32, min: i32, max: i32) -> Vec<i32> {
         let mut rv = vec![0; count as usize];
         for _i in 0..count {
-            rv.push(random.gen_range(min..=max));
+            rv.push(random.random_range(min..=max));
         }
         rv
     }
@@ -1254,11 +1254,11 @@ mod tests {
     fn test_intersection_count() {
         let mut random = random();
 
-        let num_bits1 = random.gen_range(1000..=2000);
-        let num_bits2 = random.gen_range(1000..=2000);
+        let num_bits1 = random.random_range(1000..=2000);
+        let num_bits2 = random.random_range(1000..=2000);
 
-        let count1 = random.gen_range(0..=num_bits1 - 1);
-        let count2 = random.gen_range(0..=num_bits2 - 1);
+        let count1 = random.random_range(0..=num_bits1 - 1);
+        let count2 = random.random_range(0..=num_bits2 - 1);
 
         let bits1 = make_int_array(&mut random, count1, 0, num_bits1 - 1);
         let bits2 = make_int_array(&mut random, count2, 0, num_bits2 - 1);
@@ -1287,13 +1287,13 @@ mod tests {
     fn test_and_not() -> Result<(), LuceneError> {
         let mut random = random();
 
-        let num_bits2 = random.gen_range(1000..=2000);
-        let num_bits1 = random.gen_range(1000..=num_bits2);
+        let num_bits2 = random.random_range(1000..=2000);
+        let num_bits1 = random.random_range(1000..=num_bits2);
 
-        let count1 = random.gen_range(0..=num_bits1 - 1);
-        let count2 = random.gen_range(0..=num_bits2 - 1);
+        let count1 = random.random_range(0..=num_bits1 - 1);
+        let count2 = random.random_range(0..=num_bits2 - 1);
 
-        let min = random.gen_range(0..=(num_bits1 - 1));
+        let min = random.random_range(0..=(num_bits1 - 1));
         let off_set_word1 = min >> 6;
         let offset1 = off_set_word1 >> 6;
         let bits1 = make_int_array(&mut random, count1, min, num_bits1 - 1);
@@ -1337,11 +1337,11 @@ mod tests {
     #[test]
     fn test_union_count() {
         let mut random = random();
-        let num_bits1 = random.gen_range(1000..=2000);
-        let num_bits2 = random.gen_range(1000..=2000);
+        let num_bits1 = random.random_range(1000..=2000);
+        let num_bits2 = random.random_range(1000..=2000);
 
-        let count1 = random.gen_range(0..=num_bits1 - 1);
-        let count2 = random.gen_range(0..=num_bits2 - 1);
+        let count1 = random.random_range(0..=num_bits1 - 1);
+        let count2 = random.random_range(0..=num_bits2 - 1);
 
         let bits1 = make_int_array(&mut random, count1, 0, num_bits1 - 1);
         let bits2 = make_int_array(&mut random, count2, 0, num_bits2 - 1);
@@ -1362,11 +1362,11 @@ mod tests {
     fn test_and_not_count() {
         let mut random = random();
 
-        let num_bits1 = random.gen_range(1000..=2000);
-        let num_bits2 = random.gen_range(1000..=2000);
+        let num_bits1 = random.random_range(1000..=2000);
+        let num_bits2 = random.random_range(1000..=2000);
 
-        let count1 = random.gen_range(0..=num_bits1 - 1);
-        let count2 = random.gen_range(0..=num_bits2 - 1);
+        let count1 = random.random_range(0..=num_bits1 - 1);
+        let count2 = random.random_range(0..=num_bits2 - 1);
 
         let bits1 = make_int_array(&mut random, count1, 0, num_bits1 - 1);
         let bits2 = make_int_array(&mut random, count2, 0, num_bits2 - 1);

@@ -397,7 +397,7 @@ mod tests {
         let mut string_list = Vec::new();
 
         for j in 0..2 {
-            if j > 0 && random.gen_bool(0.5) {
+            if j > 0 && random.random_bool(0.5) {
                 list.clear()?;
                 string_list.clear();
             }
@@ -425,7 +425,7 @@ mod tests {
 
             // Check random access
             for _i in 0..entries {
-                let e = random.gen_range(0..entries);
+                let e = random.random_range(0..entries);
                 assert_eq!(
                     string_list[e as usize],
                     list.get(&mut spare, e).unwrap().utf8_to_string()?,
@@ -454,7 +454,7 @@ mod tests {
         let mut string_list = Vec::new();
 
         for j in 0..5 {
-            if j > 0 && random.gen_bool(0.5) {
+            if j > 0 && random.random_bool(0.5) {
                 list.clear()?;
                 string_list.clear();
             }
@@ -479,7 +479,7 @@ mod tests {
                 while let Some(next) = iter1.next()? {
                     assert_eq!(
                         string_list[i],
-                        next.utf8_to_string()?, // 转换为 UTF-8 字符串
+                        next.utf8_to_string()?,
                         "entry {} doesn't match",
                         i
                     );
@@ -524,7 +524,7 @@ mod tests {
         let mut string_list = Vec::new();
 
         for j in 0..5 {
-            if j > 0 && random.gen_bool(0.5) {
+            if j > 0 && random.random_bool(0.5) {
                 list.clear()?;
                 string_list.clear();
             }
@@ -540,7 +540,7 @@ mod tests {
             let init_size = list.size();
             for i in 0..entries {
                 let random_realistic_unicode_string =
-                    values[random.gen_range(0..values.len())].clone();
+                    values[random.random_range(0..values.len())].clone();
                 spare.copy_chars_with_string(&random_realistic_unicode_string)?;
                 assert_eq!(init_size + i, list.append(spare.get())?);
                 string_list.push(random_realistic_unicode_string);
@@ -548,7 +548,7 @@ mod tests {
 
             string_list.sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
 
-            let sort_state = if random.gen_bool(0.5) {
+            let sort_state = if random.random_bool(0.5) {
                 list.sort(NaturalOrder::default(), true)?
             } else {
                 list.sort(Natural::default(), true)?

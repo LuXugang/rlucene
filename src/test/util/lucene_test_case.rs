@@ -84,7 +84,7 @@ pub(crate) fn rarely(random: &mut StdRng) -> bool {
     let mut p = if is_night_mode() { 5 } else { 1 };
     p += (p as f64 * (random_multiplier() as f64).ln()).round() as i32;
     let min = 100 - p.min(20); // Never more than 20% chance
-    random.gen_range(0..100) >= min
+    random.random_range(0..100) >= min
 }
 
 // TODO: When we have implemented multiple directories, we need to select one randomly. Currently, we choose NIOFSDirectory.
@@ -110,8 +110,8 @@ pub(crate) fn new_io_context_with_default(
     }
 
     // Generate random parameters
-    let random_num_docs: i32 = random.gen_range(0..4192);
-    let size = random.gen_range(0..512) * random_num_docs as i64;
+    let random_num_docs: i32 = random.random_range(0..4192);
+    let size = random.random_range(0..512) * random_num_docs as i64;
 
     if let Some(flush_info) = &old_context.flush_info {
         // Always return at least the estimatedSegmentSize of the incoming IOContext
@@ -124,12 +124,12 @@ pub(crate) fn new_io_context_with_default(
         return IOContext::with_merge(MergeInfo::new(
             random_num_docs,
             size.max(merge_info.get_estimated_merge_bytes()),
-            random.gen_bool(0.5), // Randomly decide if it's an external merge
-            random.gen_range(1..=100),
+            random.random_bool(0.5), // Randomly decide if it's an external merge
+            random.random_range(1..=100),
         ));
     } else {
         // Make a totally random IOContext, except READONCE which has semantic implications
-        let context_type = random.gen_range(0..3);
+        let context_type = random.random_range(0..3);
         match context_type {
             0 => Ok(IOContext::default_io_context()?),
             1 => Ok(IOContext::with_merge(MergeInfo::new(
@@ -220,15 +220,15 @@ pub(crate) fn new_bytes_ref(
         bytes_in.len()
     );
     // Randomly set a non-zero offset
-    let start_offset = if random.gen_bool(0.5) {
-        random.gen_range(1..=20)
+    let start_offset = if random.random_bool(0.5) {
+        random.random_range(1..=20)
     } else {
         0
     };
 
     // Randomly set an end padding (between 1 and 20)
-    let end_padding = if random.gen_bool(0.5) {
-        random.gen_range(1..=20)
+    let end_padding = if random.random_bool(0.5) {
+        random.random_range(1..=20)
     } else {
         0
     };
@@ -245,7 +245,7 @@ pub(crate) fn new_bytes_ref(
     };
     assert!(it.is_valid()?);
 
-    if random.gen_range(1..=17) == 7 {
+    if random.random_range(1..=17) == 7 {
         return new_bytes_ref(random, &it.bytes, it.offset, it.length);
     };
     Ok(it)
@@ -267,7 +267,7 @@ pub(crate) fn get_seed_from_env() -> u64 {
         }
     }
 
-    let seed = rand::thread_rng().gen_range(0..u64::MAX);
+    let seed = rand::rng().random_range(0..u64::MAX);
     println!("Generated random seed : {}", seed);
     seed
 }

@@ -454,10 +454,10 @@ mod tests {
             true,
         )?;
         // add some random data first
-        let gen_seed: u64 = random.gen();
+        let gen_seed: u64 = random.random();
         let mut random1 = random_from_seed(gen_seed);
         let mut random2 = random_from_seed(gen_seed);
-        let add_count = random.gen_range(1000..=5000);
+        let add_count = random.random_range(1000..=5000);
         add_random_data::<ByteArrayDataInput>(&mut o, &mut random1, add_count);
         let dta = o.get_array_copy();
 
@@ -479,7 +479,7 @@ mod tests {
         );
 
         let mb = 1024 * 1024;
-        let expected_size: i64 = random.gen_range(mb..mb * 1024);
+        let expected_size: i64 = random.random_range(mb..mb * 1024);
         let mut o = ByteBuffersDataOutput::with_expected_size(expected_size as i64)?;
         let _ = o.write_byte(0);
         let (_length, mut result) = o.to_buffer_list();
@@ -553,15 +553,15 @@ mod tests {
         let mut o = ByteBuffersDataOutput::with_resettable_instance();
         let mb = 1024 * 1024;
         let mut bytes = if is_night_mode() {
-            let size = random.gen_range(5 * mb..=15 * mb);
+            let size = random.random_range(5 * mb..=15 * mb);
             vec![0u8; size]
         } else {
-            let size = random.gen_range(mb / 2..=mb);
+            let size = random.random_range(mb / 2..=mb);
             vec![0u8; size]
         };
 
-        bytes.iter_mut().for_each(|byte| *byte = random.gen());
-        let offset = random.gen_range(0..=100);
+        bytes.iter_mut().for_each(|byte| *byte = random.random());
+        let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
         o.write_bytes_range(&bytes, offset as i32, len as i32)?;
         assert_eq!(len as i64, o.size());
@@ -574,7 +574,7 @@ mod tests {
         let mut random = random();
         let mut bytes = vec![0u8; 1024 * 8 + 10];
         random.fill(&mut bytes[..]);
-        let offset = random.gen_range(0..=100);
+        let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
         let bytes_clone = bytes.clone();
         let mut input = ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
@@ -594,7 +594,7 @@ mod tests {
         let mut random = random();
         let mut bytes = vec![0u8; 1024 * 8 + 10];
         random.fill(&mut bytes[..]);
-        let offset = random.gen_range(0..=100);
+        let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
         let bytes_clone = bytes.clone();
         let mut input = ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);

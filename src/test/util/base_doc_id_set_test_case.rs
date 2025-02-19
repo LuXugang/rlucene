@@ -37,7 +37,7 @@ pub trait BaseDocIdSetTestCase {
     /// Test length=1.
     fn test_bit_1(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut bs = bit_set::BitSet::with_capacity(1);
-        if random.gen_bool(0.5) {
+        if random.random_bool(0.5) {
             bs.insert(0);
         }
         let copy = self.copy_of(&bs, 1);
@@ -46,10 +46,10 @@ pub trait BaseDocIdSetTestCase {
     /// Test length=2.
     fn test_bit_2(&self, random: &mut StdRng) -> Result<(), LuceneError> {
         let mut bs = bit_set::BitSet::with_capacity(2);
-        if random.gen_bool(0.5) {
+        if random.random_bool(0.5) {
             bs.insert(0);
         }
-        if random.gen_bool(0.5) {
+        if random.random_bool(0.5) {
             bs.insert(1);
         }
         let copy = self.copy_of(&bs, 2);
@@ -57,8 +57,8 @@ pub trait BaseDocIdSetTestCase {
     }
     /// Compare the content of the set against a {@link BitSet}.
     fn test_against_bit_set(&self, random: &mut StdRng) -> Result<(), LuceneError> {
-        let num_bits = random.gen_range(100..1 << 20);
-        let random_float: f32 = random.gen();
+        let num_bits = random.random_range(100..1 << 20);
+        let random_float: f32 = random.random();
         for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
             let set = random_set(random, num_bits, percent_set);
             let copy = self.copy_of(&set, num_bits);
@@ -70,7 +70,7 @@ pub trait BaseDocIdSetTestCase {
         let mut copy = self.copy_of(&set, num_bits);
         self.assert_equals(random, num_bits, &set, copy)?;
         set.remove(0);
-        set.insert(random.gen_range(0..num_bits as usize));
+        set.insert(random.random_range(0..num_bits as usize));
         copy = self.copy_of(&set, num_bits);
         self.assert_equals(random, num_bits, &set, copy)?;
         // rest regular increments
@@ -84,7 +84,7 @@ pub trait BaseDocIdSetTestCase {
             iterations += 1;
 
             set = bit_set::BitSet::with_capacity(num_bits as usize);
-            let mut d = random.gen_range(0..=10);
+            let mut d = random.random_range(0..=10);
             while d < num_bits {
                 set.insert(d as usize);
                 d += inc;
@@ -147,17 +147,17 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let mut index = 0;
             let mut _doc = 0;
             while index < docs.len() {
-                if random.gen_bool(0.5) {
+                if random.random_bool(0.5) {
                     assert_eq!(docs[index], disi.next_doc()? as usize);
                     assert_eq!(docs[index], disi.doc_id() as usize);
                     index += 1;
                 } else {
-                    let skip_length = if random.gen_bool(0.5) {
+                    let skip_length = if random.random_bool(0.5) {
                         64
                     } else {
                         max(num_bits / 8, 1)
                     };
-                    let target = docs[index] + 1 + random.gen_range(0..=skip_length) as usize;
+                    let target = docs[index] + 1 + random.random_range(0..=skip_length) as usize;
                     if let Some(i) = docs.iter().position(|&doc| doc == target) {
                         index = i + 1;
                         _doc = target

@@ -225,7 +225,7 @@ mod tests {
         random: &mut StdRng,
     ) -> Result<(Vec<u8>, Arc<Mutex<ByteBlockPool>>, i32), LuceneError> {
         let len = 100; // You can adjust this value if needed
-        let random_data: Vec<u8> = (0..len).map(|_| random.gen()).collect(); // Fill RANDOM_DATA with random bytes
+        let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
         let allocator = Arc::new(Mutex::new(
             AllocatorByteEnum::DA(DirectAllocatorByte::new()),

@@ -659,11 +659,11 @@ mod tests {
     }
 
     fn random_value_bool(random: &mut StdRng) -> bool {
-        random.gen_bool(0.5)
+        random.random_bool(0.5)
     }
 
     fn random_value_int(random: &mut StdRng) -> i32 {
-        random.gen_range(1..=100)
+        random.random_range(1..=100)
     }
 
     // Generates a random FieldType.
@@ -672,9 +672,9 @@ mod tests {
         let max_idx_dims = PointValues::MAX_INDEX_DIMENSIONS;
         let max_dims = PointValues::MAX_DIMENSIONS;
         let max_bytes = PointValues::MAX_NUM_BYTES;
-        let dim = random.gen_range(1..=max_dims);
-        let idx_dim = random.gen_range(1..=max_idx_dims.min(dim));
-        let num_bytes = random.gen_range(1..=max_bytes);
+        let dim = random.random_range(1..=max_dims);
+        let idx_dim = random.random_range(1..=max_idx_dims.min(dim));
+        let num_bytes = random.random_range(1..=max_bytes);
         ft.set_dimensions_all(dim, idx_dim, num_bytes)?;
         ft.set_stored(random_value_bool(random))?;
         ft.set_tokenized(random_value_bool(random))?;
@@ -697,7 +697,7 @@ mod tests {
         ft.set_doc_values_type(dv)?;
 
         if random_value_bool(random) {
-            let vec_dim = random.gen_range(1..=4);
+            let vec_dim = random.random_range(1..=4);
             ft.set_vector_attributes(
                 vec_dim,
                 VectorEncoding::FLOAT32(4),

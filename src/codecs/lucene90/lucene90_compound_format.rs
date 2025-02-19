@@ -371,12 +371,12 @@ mod tests {
 
         let seg_id = si.get_id();
         let mut ordered_files = Vec::new();
-        let mut random_file_size = random.gen_range(0..chunk);
+        let mut random_file_size = random.random_range(0..chunk);
 
         for i in 0..10 {
             let filename = format!("{}.{}", segment, i);
             create_random_file(&mut random, &dir, &filename, random_file_size, &seg_id)?;
-            random_file_size += random.gen_range(1..100);
+            random_file_size += random.random_range(1..100);
             ordered_files.push(filename);
         }
 

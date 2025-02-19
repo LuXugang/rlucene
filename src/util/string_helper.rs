@@ -230,8 +230,8 @@ impl StringHelper {
 
     pub const ID_LENGTH: i32 = 16;
     pub fn random_id() -> [u8; 16] {
-        let mut rng = rand::thread_rng();
-        rng.gen::<[u8; 16]>()
+        let mut rng = rand::rng();
+        rng.random::<[u8; 16]>()
     }
     /// Helper method to render an ID as a string for debugging.
     ///

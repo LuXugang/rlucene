@@ -404,7 +404,7 @@ mod tests {
     fn test_random_reads() -> Result<(), LuceneError> {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
-        let seed: u64 = random.gen();
+        let seed: u64 = random.random();
         let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
         let max = if is_night_mode() { 1000000 } else { 100000 };
         let reply = add_random_data::<ByteBuffersDataInput>(&mut dst, &mut random1, max);
@@ -420,17 +420,17 @@ mod tests {
     #[test]
     fn test_random_reads_on_slices() -> Result<(), LuceneError> {
         let mut random = random();
-        let reps = random.gen_range(1..=20);
+        let reps = random.random_range(1..=20);
         for _i in 0..=reps {
             let mut dst = ByteBuffersDataOutput::with_resettable_instance();
-            let prefix: Vec<u8> = vec![0; random.gen_range(0..=1024 * 8)];
+            let prefix: Vec<u8> = vec![0; random.random_range(0..=1024 * 8)];
             let prefix_len = prefix.len() as i64;
             dst.write_bytes(prefix)?;
-            let seed: u64 = random.gen();
+            let seed: u64 = random.random();
             let max = 10000;
             let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
             let reply = add_random_data::<ByteBuffersDataInput>(&mut dst, &mut random1, max);
-            let suffix: Vec<u8> = vec![0; random.gen_range(0..=1024 * 8)];
+            let suffix: Vec<u8> = vec![0; random.random_range(0..=1024 * 8)];
             let suffix_len = suffix.len() as i64;
             dst.write_bytes(suffix)?;
             let size = dst.size();
@@ -465,18 +465,18 @@ mod tests {
     #[test]
     fn test_seek_and_skip() -> Result<(), LuceneError> {
         let mut random = random();
-        let reps = random.gen_range(1..=20);
+        let reps = random.random_range(1..=20);
         for _i in 0..reps {
             let mut dst = ByteBuffersDataOutput::with_resettable_instance();
             let prefix: Vec<u8>;
             let mut prefix_len: i64 = 0;
-            if random.gen_bool(0.5) {
-                let len = random.gen_range(1..=1024 * 8);
+            if random.random_bool(0.5) {
+                let len = random.random_range(1..=1024 * 8);
                 prefix = vec![0; len];
                 prefix_len = prefix.len() as i64;
                 dst.write_bytes(prefix)?;
             }
-            let seed: u64 = random.gen();
+            let seed: u64 = random.random();
             let max = 1000;
             let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
             let mut reply = add_random_data::<ByteBuffersDataInput>(&mut dst, &mut random1, max);
@@ -493,7 +493,7 @@ mod tests {
                 f(&mut data_input);
             }
             for _i in 0..1000 {
-                let offs = random.gen_range(0..=array.len() - 1);
+                let offs = random.random_range(0..=array.len() - 1);
                 data_input.seek(offs as i64)?;
                 assert_eq!(offs as i64, data_input.position());
                 assert_eq!(array[offs], DataInput::read_byte(&mut data_input)?);
@@ -504,7 +504,7 @@ mod tests {
             // skip chunks of bytes until exhausted
             let mut curr = 0;
             while curr < max_skip_to {
-                let skip_to = random.gen_range(curr..=max_skip_to);
+                let skip_to = random.random_range(curr..=max_skip_to);
                 let step = skip_to - curr;
                 data_input.skip_bytes(step as i64)?;
                 assert_eq!(array[skip_to], DataInput::read_byte(&mut data_input)?);
@@ -523,7 +523,7 @@ mod tests {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         assert_eq!(0, dst.get_data_input().slice(0, 0)?.length());
-        let random_bytes: Vec<u8> = vec![0; random.gen_range(0..=1024 * 8)];
+        let random_bytes: Vec<u8> = vec![0; random.random_range(0..=1024 * 8)];
         dst.write_bytes(random_bytes)?;
         let max = dst.size();
         let data_input = dst.get_data_input();
@@ -559,7 +559,7 @@ mod tests {
         let mut random = random();
         let mb = 1024 * 1024;
         let page_bytes: Vec<u8> = vec![0; 4 * mb];
-        let simulated_length: i64 = random.gen_range(0..2018) as i64 + 4 * i32::MAX as i64;
+        let simulated_length: i64 = random.random_range(0..2018) as i64 + 4 * i32::MAX as i64;
         let mut remaining = simulated_length;
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         while remaining > 0 {
@@ -588,7 +588,7 @@ mod tests {
                 let expected = page_bytes[index as usize];
                 assert_eq!(expected, RandomAccessInput::read_byte(&mut slice, i)?);
             }
-            offset += random.gen_range(mb..4 * mb) as i64;
+            offset += random.random_range(mb..4 * mb) as i64;
         }
         Ok(())
     }

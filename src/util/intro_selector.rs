@@ -251,12 +251,12 @@ where
     /// Shuffles the entries between from (inclusive) and to (exclusive) with Durstenfeld's algorithm.
     pub fn shuffle(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
         if self.random.is_none() {
-            self.random = Some(rand::thread_rng());
+            self.random = Some(rand::rng());
         }
 
         let random = self.random.as_mut().unwrap();
         for i in (from..to).rev() {
-            let j = random.gen_range(from..=i);
+            let j = random.random_range(from..=i);
             self.sub_selector.swap(i, j)?;
         }
         Ok(())
@@ -315,18 +315,18 @@ mod tests {
     }
 
     pub fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
-        let from: i32 = random.gen_range(0..5);
+        let from: i32 = random.random_range(0..5);
         let to: i32 = from + TestUtil::next_int(random, 1, 10000);
-        let max: i32 = if random.gen_bool(0.5) {
-            random.gen_range(0..100)
+        let max: i32 = if random.random_bool(0.5) {
+            random.random_range(0..100)
         } else {
-            random.gen_range(0..100000)
+            random.random_range(0..100000)
         };
 
         let arr: Vec<i32> = if max == 0 {
-            vec![0; to as usize + random.gen_range(0..5)]
+            vec![0; to as usize + random.random_range(0..5)]
         } else {
-            (0..(to + random.gen_range(0..5)))
+            (0..(to + random.random_range(0..5)))
                 .map(|_| TestUtil::next_int(random, 0, max))
                 .collect()
         };
@@ -337,10 +337,10 @@ mod tests {
         expected[from as usize..to as usize].sort();
         let sub_selector = IntroSelectorImpl::new(&mut actual);
         let mut selector = IntroSelector::new(sub_selector);
-        if random.gen_bool(0.5) {
+        if random.random_bool(0.5) {
             Selector::select(&mut selector, from, to, k)?;
         } else {
-            IntroSelector::select(&mut selector, from, to, k, random.gen_range(0..3))?;
+            IntroSelector::select(&mut selector, from, to, k, random.random_range(0..3))?;
         }
         assert_eq!(expected[k as usize], actual[k as usize]);
         for i in 0..actual.len() {

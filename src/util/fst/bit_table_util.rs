@@ -323,15 +323,15 @@ mod tests {
     }
 
     fn build_random_bits(random: &mut StdRng) -> Vec<u8> {
-        let len = random.gen_range(2..26);
+        let len = random.random_range(2..26);
         let mut bits = vec![0; len];
 
         for byte in &mut bits {
             // Bias towards zeros which require special logic.
-            *byte = if random.gen_range(0..4) == 0 {
+            *byte = if random.random_range(0..4) == 0 {
                 0
             } else {
-                random.gen()
+                random.random()
             };
         }
 

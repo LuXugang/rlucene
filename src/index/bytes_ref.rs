@@ -205,9 +205,9 @@ mod tests {
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
-    use rand::distributions::Alphanumeric;
     use rand::Rng;
     use std::ptr;
+    use rand::distr::Alphanumeric;
 
     #[allow(dead_code)] // for quick search
     struct TestBytesRef {}
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn test_from_chars() {
         let mut random = random();
-        let length = random.gen_range(1000..100000);
+        let length = random.random_range(1000..100000);
         for _i in 0..100 {
             let s = (&mut random)
                 .sample_iter(&Alphanumeric)

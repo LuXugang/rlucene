@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn test_empty() -> Result<(), LuceneError> {
         let mut random = random();
-        let max_doc = random.gen_range(1..1000);
+        let max_doc = random.random_range(1..1000);
         let doc_id_set: Option<IntArrayDocIdSet> = None;
         assert_equals(
             doc_id_set,
@@ -308,18 +308,18 @@ mod tests {
     #[test]
     fn test_sparse() -> Result<(), LuceneError> {
         let mut random = random();
-        let max_doc = 1000000 + random.gen_range(0..1000000);
+        let max_doc = 1000000 + random.random_range(0..1000000);
         let mut builder = DocIdSetBuilder::new(max_doc);
-        let num_iterators = 1 + random.gen_range(0..10);
+        let num_iterators = 1 + random.random_range(0..10);
         let mut fixed_set_bit = FixedBitSet::new(max_doc);
         for _i in 0..num_iterators {
-            let base_inc = 200000 + random.gen_range(0..10000);
+            let base_inc = 200000 + random.random_range(0..10000);
             let mut b = RoaringDocIdSetBuilder::new(max_doc);
-            let mut doc = random.gen_range(0..100);
+            let mut doc = random.random_range(0..100);
             while doc < max_doc {
                 let _ = b.add(doc);
                 fixed_set_bit.set(doc);
-                doc += base_inc + random.gen_range(0..10000);
+                doc += base_inc + random.random_range(0..10000);
             }
             let roaring_doc_id_set = b.build();
             let iter = roaring_doc_id_set.iterator().unwrap();
@@ -340,17 +340,17 @@ mod tests {
     #[test]
     fn test_dense() -> Result<(), LuceneError> {
         let mut random = random();
-        let max_doc = 1000000 + random.gen_range(0..1000000);
+        let max_doc = 1000000 + random.random_range(0..1000000);
         let mut builder = DocIdSetBuilder::new(max_doc);
-        let num_iterators = 1 + random.gen_range(0..10);
+        let num_iterators = 1 + random.random_range(0..10);
         let mut fixed_set_bit = FixedBitSet::new(max_doc);
         for _i in 0..num_iterators {
             let mut b = RoaringDocIdSetBuilder::new(max_doc);
-            let mut doc = random.gen_range(0..1000);
+            let mut doc = random.random_range(0..1000);
             while doc < max_doc {
                 let _ = b.add(doc);
                 fixed_set_bit.set(doc);
-                doc += 1 + random.gen_range(0..100);
+                doc += 1 + random.random_range(0..100);
             }
             let roaring_doc_id_set = b.build();
             let iter = roaring_doc_id_set.iterator().unwrap();
@@ -383,13 +383,13 @@ mod tests {
             let mut docs = FixedBitSet::new(max_doc);
             let mut c = 0;
             while c < num_docs {
-                let d = random.gen_range(0..max_doc);
+                let d = random.random_range(0..max_doc);
                 if !docs.get(d) {
                     docs.set(d);
                     c += 1
                 }
             }
-            let mut array = vec![0; num_docs as usize + random.gen_range(0..100)];
+            let mut array = vec![0; num_docs as usize + random.random_range(0..100)];
             let mut it = BitSetIterator::new(&docs, 0).unwrap();
             let mut j = 0;
             let mut doc = it.next_doc()?;
@@ -401,13 +401,13 @@ mod tests {
             assert_eq!(num_docs, j as i32);
             // add some duplicates
             while j < array.len() {
-                array[j] = array[random.gen_range(0..num_docs as usize)];
+                array[j] = array[random.random_range(0..num_docs as usize)];
                 j += 1;
             }
 
             // shuffle
             for j in (1..array.len()).rev() {
-                let k = random.gen_range(0..j);
+                let k = random.random_range(0..j);
                 array.swap(j, k);
             }
 
@@ -443,9 +443,9 @@ mod tests {
         let mut expected = FixedBitSet::new(max_doc);
         for _i in 0..100 {
             let mut docs = FixedBitSet::new(max_doc);
-            let num_docs = random.gen_range(1..=max_doc / 1000);
+            let num_docs = random.random_range(1..=max_doc / 1000);
             for _ in 0..num_docs {
-                let doc = random.gen_range(0..max_doc);
+                let doc = random.random_range(0..max_doc);
                 docs.set(doc);
             }
             expected.or(&docs);

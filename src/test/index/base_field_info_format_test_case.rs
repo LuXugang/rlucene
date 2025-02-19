@@ -128,13 +128,13 @@ pub trait BaseFieldInfoFormatTestCase {
         for _ in 0..num_fields {
             field_names.insert(TestUtil::random_unicode_string(random));
         }
-        let soft_deletes_field = if random.gen_bool(0.5) {
+        let soft_deletes_field = if random.random_bool(0.5) {
             Some(TestUtil::random_unicode_string(random))
         } else {
             None
         };
 
-        let mut parent_field = if random.gen_bool(0.5) {
+        let mut parent_field = if random.random_bool(0.5) {
             Some(TestUtil::random_unicode_string(random))
         } else {
             None
@@ -163,7 +163,7 @@ pub trait BaseFieldInfoFormatTestCase {
                 store_term_vectors = field_type.store_term_vectors();
                 omit_norms = field_type.omit_norms();
                 if field_type.index_options() >= &IndexOptions::DocsAndFreqsAndPositions {
-                    store_payloads = random.gen_bool(0.5);
+                    store_payloads = random.random_bool(0.5);
                 }
             }
 
@@ -249,29 +249,29 @@ pub trait BaseFieldInfoFormatTestCase {
     ) -> Result<FieldType, LuceneError> {
         let mut field_type = FieldType::new();
 
-        if random.gen_bool(0.5) {
+        if random.random_bool(0.5) {
             field_type.set_index_options(
-                IndexOptions::from_repr(random.gen_range(0..IndexOptions::COUNT) as u8).unwrap(),
+                IndexOptions::from_repr(random.random_range(0..IndexOptions::COUNT) as u8).unwrap(),
             )?;
-            field_type.set_omit_norms(random.gen_bool(0.5))?;
+            field_type.set_omit_norms(random.random_bool(0.5))?;
 
-            if random.gen_bool(0.5) {
+            if random.random_bool(0.5) {
                 field_type.set_store_term_vectors(true)?;
                 if field_type.index_options() >= &IndexOptions::DocsAndFreqsAndPositions {
-                    field_type.set_store_term_vector_positions(random.gen_bool(0.5))?;
-                    field_type.set_store_term_vector_offsets(random.gen_bool(0.5))?;
+                    field_type.set_store_term_vector_positions(random.random_bool(0.5))?;
+                    field_type.set_store_term_vector_offsets(random.random_bool(0.5))?;
                     if field_type.store_term_vector_positions() {
-                        field_type.set_store_term_vector_payloads(random.gen_bool(0.5))?;
+                        field_type.set_store_term_vector_payloads(random.random_bool(0.5))?;
                     }
                 }
             }
         }
 
-        if random.gen_bool(0.5) {
+        if random.random_bool(0.5) {
             let current =
-                DocValuesType::from_repr(random.gen_range(0..DocValuesType::COUNT) as u8).unwrap();
+                DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8).unwrap();
             field_type.set_doc_values_type(
-                DocValuesType::from_repr(random.gen_range(0..DocValuesType::COUNT) as u8).unwrap(),
+                DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8).unwrap(),
             )?;
             if current == DocValuesType::Numeric
                 || current == DocValuesType::SortedNumeric
@@ -288,23 +288,23 @@ pub trait BaseFieldInfoFormatTestCase {
             }
         }
 
-        if random.gen_bool(0.5) {
-            let dimension = 1 + random.gen_range(0..PointValues::MAX_DIMENSIONS);
+        if random.random_bool(0.5) {
+            let dimension = 1 + random.random_range(0..PointValues::MAX_DIMENSIONS);
             let index_dimension = 1 + random
-                .gen_range(0..std::cmp::min(dimension, PointValues::MAX_INDEX_DIMENSIONS));
-            let dimension_num_bytes = 1 + random.gen_range(0..PointValues::MAX_NUM_BYTES);
+                .random_range(0..std::cmp::min(dimension, PointValues::MAX_INDEX_DIMENSIONS));
+            let dimension_num_bytes = 1 + random.random_range(0..PointValues::MAX_NUM_BYTES);
             field_type.set_dimensions_all(dimension, index_dimension, dimension_num_bytes)?;
         }
 
-        if random.gen_bool(0.5) && Self::get_vectors_max_dimensions(field_name) > 0 {
+        if random.random_bool(0.5) && Self::get_vectors_max_dimensions(field_name) > 0 {
             let max_dims = Self::get_vectors_max_dimensions(field_name);
-            let dimension = 1 + random.gen_range(0..max_dims);
+            let dimension = 1 + random.random_range(0..max_dims);
             let similarity_function = VectorSimilarityFunction::from_repr(
-                random.gen_range(0..VectorSimilarityFunction::COUNT) as u8,
+                random.random_range(0..VectorSimilarityFunction::COUNT) as u8,
             )
             .unwrap();
             let encoding =
-                VectorEncoding::from_repr(random.gen_range(0..VectorEncoding::COUNT) as u8)
+                VectorEncoding::from_repr(random.random_range(0..VectorEncoding::COUNT) as u8)
                     .unwrap();
             field_type.set_vector_attributes(dimension, encoding, similarity_function)?;
         }
@@ -357,7 +357,7 @@ pub trait BaseFieldInfoFormatTestCase {
         dir: Arc<Mutex<D>>,
         name: &str,
     ) -> Result<SegmentInfo<D>, LuceneError> {
-        let min_version = if random.gen_bool(0.5) {
+        let min_version = if random.random_bool(0.5) {
             None
         } else {
             Some((*LATEST).clone())

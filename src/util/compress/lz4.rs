@@ -911,13 +911,13 @@ mod tests {
             hash_table: &mut AssertingHashTable,
         ) -> Result<(), LuceneError> {
             // this triggers special reset logic for high compression
-            let offset = if data.len() >= (1 << 16) || random.gen_bool(0.5) {
-                random.gen_range(0..10)
+            let offset = if data.len() >= (1 << 16) || random.random_bool(0.5) {
+                random.random_range(0..10)
             } else {
                 (1 << 16) - data.len() as i32 / 2
             };
 
-            let mut copy = vec![0; data.len() + offset as usize + random.gen_range(0..10)];
+            let mut copy = vec![0; data.len() + offset as usize + random.random_range(0..10)];
             copy[offset as usize..offset as usize + data.len()].copy_from_slice(&data);
             Self::do_test_with_offset(
                 random,
@@ -1007,7 +1007,7 @@ mod tests {
 
             let compressed_clone = compressed.clone();
             // Now restore and compare bytes
-            let mut restored = vec![0; length as usize + random.gen_range(0..10)];
+            let mut restored = vec![0; length as usize + random.random_range(0..10)];
             let mut input = ByteArrayDataInput::with_bytes(compressed);
             LZ4::decompress(&mut input, length, &mut restored, 0)?;
 
@@ -1017,8 +1017,8 @@ mod tests {
             assert_eq!(left, right);
 
             // Now restore with an offset
-            let restore_offset: i32 = random.gen_range(1..10);
-            restored = vec![0; restore_offset as usize + length as usize + random.gen_range(0..10)];
+            let restore_offset: i32 = random.random_range(1..10);
+            restored = vec![0; restore_offset as usize + length as usize + random.random_range(0..10)];
             let mut input = ByteArrayDataInput::with_bytes(compressed_clone);
             LZ4::decompress(&mut input, length, &mut restored, restore_offset)?;
 
@@ -1036,7 +1036,7 @@ mod tests {
             hash_table: &mut AssertingHashTable,
         ) -> Result<(), LuceneError> {
             let mut copy = ByteBuffersDataOutput::with_resettable_instance();
-            let dict_off = random.gen_range(0..10);
+            let dict_off = random.random_range(0..10);
             copy.write_bytes(vec![0u8; dict_off as usize])?;
 
             // Create a dictionary from substrings of the input to compress
@@ -1058,7 +1058,7 @@ mod tests {
             let data_length = data.len();
             assert!(data_length <= i32::MAX as usize);
             copy.write_bytes(data)?;
-            copy.write_bytes(vec![0u8; random.gen_range(0..10)])?;
+            copy.write_bytes(vec![0u8; random.random_range(0..10)])?;
 
             let copy_bytes = Arc::new(copy.get_array_copy());
             Self::do_test_with_dictionary_inner(
@@ -1105,7 +1105,7 @@ mod tests {
             // Now restore and compare bytes
             let restore_offset = TestUtil::next_int(random, 1, 10);
             let mut restored =
-                vec![0; (restore_offset + dict_len + length + random.gen_range(0..10)) as usize];
+                vec![0; (restore_offset + dict_len + length + random.random_range(0..10)) as usize];
             restored[restore_offset as usize..(restore_offset + dict_len) as usize]
                 .copy_from_slice(&data[dict_off as usize..(dict_off + dict_len) as usize]);
 
@@ -1142,7 +1142,7 @@ mod tests {
 
         fn test_long_matches(&self, random: &mut StdRng) -> Result<(), LuceneError> {
             // match length >= 20
-            let len = random.gen_range(300..1024);
+            let len = random.random_range(300..1024);
             let mut data = vec![0u8; len];
             for (index, element) in data.iter_mut().enumerate() {
                 *element = index as u8;
@@ -1152,12 +1152,12 @@ mod tests {
         }
         fn test_long_literals(&self, random: &mut StdRng) -> Result<(), LuceneError> {
             // long literals (length >= 16) which are not the last literals
-            let len = random.gen_range(400..1024);
+            let len = random.random_range(400..1024);
             let mut data = vec![0u8; len];
             random.fill_bytes(&mut data);
-            let match_ref = random.gen_range(0..30);
-            let match_off = random.gen_range(len - 40..len - 20);
-            let match_length = random.gen_range(4..10);
+            let match_ref = random.random_range(0..30);
+            let match_off = random.random_range(len - 40..len - 20);
+            let match_length = random.random_range(4..10);
             data.copy_within(match_ref..match_ref + match_length, match_off);
             Self::do_test(random, data, &mut self.new_hash_table())?;
             Ok(())
@@ -1173,7 +1173,7 @@ mod tests {
         }
 
         fn test_incompressible_random(&self, random: &mut StdRng) -> Result<(), LuceneError> {
-            let len = random.gen_range(1..1 << 18);
+            let len = random.random_range(1..1 << 18);
             let mut b = vec![0u8; len];
             random.fill_bytes(&mut b);
             let b_clone = b.clone();
@@ -1183,12 +1183,12 @@ mod tests {
         }
 
         fn test_compressible_random(&self, random: &mut StdRng) -> Result<(), LuceneError> {
-            let len = random.gen_range(1..1 << 18);
+            let len = random.random_range(1..1 << 18);
             let mut b = vec![0u8; len];
-            let base = random.gen_range(0..256);
-            let max_delta = 1 + random.gen_range(0..8);
+            let base = random.random_range(0..256);
+            let max_delta = 1 + random.random_range(0..8);
             for elem in b.iter_mut() {
-                *elem = (base + random.gen_range(0..max_delta)) as u8;
+                *elem = (base + random.random_range(0..max_delta)) as u8;
             }
             let b_clone = b.clone();
             Self::do_test(random, b, &mut self.new_hash_table())?;

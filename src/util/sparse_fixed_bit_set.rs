@@ -731,8 +731,8 @@ mod tests {
     fn test_approximate_cardinality() {
         let mut random = random();
         let mut set = SparseFixedBitSet::new(100).unwrap();
-        let first = random.gen_range(1000..10000);
-        let interval = 200 + random.gen_range(100..1000);
+        let first = random.random_range(1000..10000);
+        let interval = 200 + random.random_range(100..1000);
         let mut i = first;
         while i < set.length() {
             set.set(i);
@@ -744,7 +744,7 @@ mod tests {
     #[test]
     fn test_approximate_cardinality_on_dense_set() {
         let mut random = random();
-        let num_docs = random.gen_range(1..=10000);
+        let num_docs = random.random_range(1..=10000);
         let mut set = SparseFixedBitSet::new(num_docs).unwrap();
         for i in 0..set.length() {
             set.set(i);

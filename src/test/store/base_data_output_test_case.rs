@@ -34,7 +34,7 @@ pub trait BaseDataOutputTestCase {
         &mut self,
         random: &mut StdRng,
     ) -> Result<(), LuceneError> {
-        let seed: u64 = random.gen();
+        let seed: u64 = random.random();
         let mut instance = self.new_instance()?;
         let mut buffer = Vec::new();
         let mut os = OutputStreamDataOutput::new(&mut buffer);
@@ -59,7 +59,7 @@ pub fn add_random_data<DI: DataInput>(
     let cg = create_generators();
     let mut vec: Vec<DataInputProcessor<DI>> = Vec::new();
     for _i in 0..max_add_calls {
-        let random_generator = rnd.gen_range(0..cg.len());
+        let random_generator = rnd.random_range(0..cg.len());
         vec.push(cg[random_generator](dst, rnd));
     }
     vec
@@ -78,7 +78,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //1 writeBytes / readBytes (array and buffer version).
         |dst, rnd| {
-            let len = rnd.gen_range(0..100);
+            let len = rnd.random_range(0..100);
             let bytes: Vec<u8> = (0..len).map(|_| rnd.gen()).collect();
             let bytes_len = bytes.len();
             let _ = dst.write_bytes_with_len(&bytes, bytes_len as i32);
@@ -90,18 +90,18 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //2 writeBytes / readBytes (array + offset).
         |dst, rnd| {
-            let len = rnd.gen_range(0..10000);
+            let len = rnd.random_range(0..10000);
             let bytes: Vec<u8> = (0..len).map(|_| rnd.gen()).collect();
             let bytes_len = bytes.len();
             let off = if len == 0 {
                 0
             } else {
-                rnd.gen_range(0..bytes_len)
+                rnd.random_range(0..bytes_len)
             };
             let length = if len == 0 {
                 0
             } else {
-                rnd.gen_range(0..(bytes_len - off))
+                rnd.random_range(0..(bytes_len - off))
             };
             let _ = dst.write_bytes_range(&bytes, off as i32, length as i32);
             Box::new(move |src: &mut DI| {
@@ -173,13 +173,13 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //10  writeString / readString
         |dst, rnd| {
-            let value = if rnd.gen_range(0..50) == 0 {
+            let value = if rnd.random_range(0..50) == 0 {
                 // Occasionally a large blob
-                (0..rnd.gen_range(2048..4096))
+                (0..rnd.random_range(2048..4096))
                     .map(|_| rnd.gen::<char>())
                     .collect::<String>()
             } else {
-                (0..rnd.gen_range(0..10))
+                (0..rnd.random_range(0..10))
                     .map(|_| rnd.gen::<char>())
                     .collect::<String>()
             };

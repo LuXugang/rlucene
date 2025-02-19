@@ -506,7 +506,7 @@ mod tests {
             max_length = max_length.max(ref_item.length);
         }
 
-        match random.gen_range(0..3) {
+        match random.random_range(0..3) {
             0 => max_length += TestUtil::next_int(random, 1, 5),
             1 => max_length = i32::MAX,
             _ => {}
@@ -523,7 +523,7 @@ mod tests {
     #[test]
     fn test_empty() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut refs: Vec<BytesRef> = vec![BytesRef::default(); random.gen_range(0..5)];
+        let mut refs: Vec<BytesRef> = vec![BytesRef::default(); random.random_range(0..5)];
         assert!(test(&mut refs, 0, &mut random).is_ok());
         test(&mut refs, 0, &mut random)
     }
@@ -553,10 +553,10 @@ mod tests {
     ) -> Result<(), LuceneError> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
-        let len = random.gen_range(0..10000);
-        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.gen_range(0..50));
+        let len = random.random_range(0..10000);
+        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
-            let mut b = vec![0u8; common_prefix_len + random.gen_range(0..max_len) as usize];
+            let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len) as usize];
             random.fill_bytes(&mut b[common_prefix_len..]);
 
             b[..common_prefix_len].copy_from_slice(&common_prefix);
@@ -621,7 +621,7 @@ mod tests {
         while substrings_set.len() < substring_count {
             let length = TestUtil::next_int(&mut random, 2, 10);
             let bytes: Vec<u8> = (0..length)
-                .map(|_| random.gen_range(0..letter_count) as u8)
+                .map(|_| random.random_range(0..letter_count) as u8)
                 .collect();
             let br = BytesRef::from_bytes(bytes);
             substrings_set.insert(br);
@@ -632,7 +632,7 @@ mod tests {
         let mut sum = 0.0;
 
         for chance_value in &mut chance {
-            *chance_value = random.gen::<f64>();
+            *chance_value = random.random::<f64>();
             sum += *chance_value;
         }
 
@@ -647,10 +647,10 @@ mod tests {
         let mut strings_set = BTreeSet::new();
         let mut iters = 0;
         while strings_set.len() < string_count && iters < string_count * 5 {
-            let count = random.gen_range(1..=5);
+            let count = random.random_range(1..=5);
             let mut builder = BytesRefBuilder::new();
             for _ in 0..count {
-                let v = random.gen::<f64>();
+                let v = random.random::<f64>();
                 let mut accum = 0.0;
                 for (j, substring) in substrings.iter().enumerate() {
                     accum += chance[j];

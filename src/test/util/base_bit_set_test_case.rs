@@ -39,7 +39,7 @@ pub fn random_set_impl(random: &mut StdRng, num_bits: i32, num_bits_set: i32) ->
     } else {
         for _i in 0..num_bits_set {
             loop {
-                let o = random.gen_range(0..num_bits);
+                let o = random.random_range(0..num_bits);
                 if !set.contains(o as usize) {
                     set.insert(o as usize);
                     break;
@@ -60,7 +60,7 @@ pub trait BaseBitSetTestCase {
         sfbs: &Option<SparseFixedBitSet>,
     );
     fn test_cardinality(&mut self, random: &mut StdRng) {
-        let num_bits = 1 + random.gen_range(0..100000);
+        let num_bits = 1 + random.random_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let (set2, _sfbs) = self.copy_of(&set1, num_bits);
@@ -69,7 +69,7 @@ pub trait BaseBitSetTestCase {
     }
     fn test_prev_set_bit(&mut self, random: &mut StdRng) {
         // TODO: 1000 should be 100000
-        let num_bits = 1 + random.gen_range(0..1000);
+        let num_bits = 1 + random.random_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let (set2, _sfbs) = self.copy_of(&set1, num_bits);
@@ -80,7 +80,7 @@ pub trait BaseBitSetTestCase {
     }
     fn test_next_set_bit(&mut self, random: &mut StdRng) {
         // TODO: 1000 should be 100000
-        let num_bits = 1 + random.gen_range(0..1000);
+        let num_bits = 1 + random.random_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let (set2, _sfbs) = self.copy_of(&set1, num_bits);
@@ -91,7 +91,7 @@ pub trait BaseBitSetTestCase {
     }
     fn test_next_set_bit_in_range(&mut self, random: &mut StdRng) {
         // TODO: 1000 should be 100000
-        let num_bits = 1 + random.gen_range(0..1000);
+        let num_bits = 1 + random.random_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let (set2, _sfbs) = self.copy_of(&set1, num_bits);
@@ -99,7 +99,7 @@ pub trait BaseBitSetTestCase {
                 let end = if start + 1 == num_bits {
                     num_bits
                 } else {
-                    random.gen_range(start + 1..num_bits)
+                    random.random_range(start + 1..num_bits)
                 };
                 assert_eq!(
                     set1.next_set_bit_range(start, end),
@@ -113,26 +113,26 @@ pub trait BaseBitSetTestCase {
         }
     }
     fn test_set(&self, random: &mut StdRng) {
-        let num_bits = 1 + random.gen_range(0..100000);
+        let num_bits = 1 + random.random_range(0..100000);
         let set3 = RustUtilBitSet::new(random_set_impl(random, num_bits, 0), num_bits);
         let mut set1 = set3.clone();
         let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
-        let iters = 10000 + random.gen_range(0..10000);
+        let iters = 10000 + random.random_range(0..10000);
         for _i in 0..iters {
-            let index = random.gen_range(0..num_bits);
+            let index = random.random_range(0..num_bits);
             set1.set(index);
             set2.set(index);
         }
         self.assert_equals(&set1, &set2, num_bits, &sfbs);
     }
     fn test_get_and_set(&self, random: &mut StdRng) {
-        let num_bits = 1 + random.gen_range(0..100000);
+        let num_bits = 1 + random.random_range(0..100000);
         let set3 = RustUtilBitSet::new(random_set_impl(random, num_bits, 0), num_bits);
         let mut set1 = set3.clone();
         let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
-        let iters = 10000 + random.gen_range(0..10000);
+        let iters = 10000 + random.random_range(0..10000);
         for _i in 0..iters {
-            let index = random.gen_range(0..num_bits);
+            let index = random.random_range(0..num_bits);
             let v1 = set1.get_and_set(index);
             let v2 = set2.get_and_set(index);
             assert_eq!(v1, v2);
@@ -140,14 +140,14 @@ pub trait BaseBitSetTestCase {
         self.assert_equals(&set1, &set2, num_bits, &sfbs);
     }
     fn test_clear(&mut self, random: &mut StdRng) {
-        let num_bits = 1 + random.gen_range(0..100000);
+        let num_bits = 1 + random.random_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let mut set1 = set3.clone();
             let (mut set2, _sfbs) = self.copy_of(&set3, num_bits);
-            let iters = 1 + random.gen_range(0..(num_bits * 2));
+            let iters = 1 + random.random_range(0..(num_bits * 2));
             for _i in 0..iters {
-                let index = random.gen_range(0..num_bits);
+                let index = random.random_range(0..num_bits);
                 set1.clear_with_index(index);
                 set2.clear_with_index(index);
             }
@@ -155,15 +155,15 @@ pub trait BaseBitSetTestCase {
     }
 
     fn test_clear_range(&self, random: &mut StdRng) {
-        let num_bits = 1 + random.gen_range(0..100000);
+        let num_bits = 1 + random.random_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let mut set1 = set3.clone();
             let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
             let iters = at_least(random, 10);
             for _i in 0..iters {
-                let from = random.gen_range(0..num_bits);
-                let to = random.gen_range(0..(num_bits + 1));
+                let from = random.random_range(0..num_bits);
+                let to = random.random_range(0..(num_bits + 1));
                 set1.clear_range(from, to);
                 set2.clear_range(from, to);
                 self.assert_equals(&set1, &set2, num_bits, &sfbs);
@@ -171,7 +171,7 @@ pub trait BaseBitSetTestCase {
         }
     }
     fn test_clear_all(&self, random: &mut StdRng) {
-        let num_bits = 1 + random.gen_range(0..100000);
+        let num_bits = 1 + random.random_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
             let mut set1 = set3.clone();
@@ -192,15 +192,15 @@ pub trait BaseBitSetTestCase {
         self.test_or_impl(random, 0.5)
     }
     fn test_or_random(&mut self, random: &mut StdRng) {
-        let random_float: f32 = random.gen();
+        let random_float: f32 = random.random();
         self.test_or_impl(random, random_float)
     }
     fn test_or_impl(&self, _random: &mut StdRng, _load: f32) {
-        // let num_bits = 1 + random.gen_range(0..100000);
+        // let num_bits = 1 + random.random_range(0..100000);
         // let set1 = RustUtilBitSet::new(random_set(random, num_bits, 0f32), num_bits);
         // let (mut set2, sfbs) = self.copy_of(&set1, num_bits);
         //
-        // let iteration = random.gen_range(10..1000);
+        // let iteration = random.random_range(10..1000);
         // for iter in 0..iteration {
         //     let bitset = RustUtilBitSet::new(random_set(random, num_bits, 0f32), num_bits);
         //     // let other_set = random_copy(random,bitset,num_bits);
@@ -351,7 +351,7 @@ fn bit_set_util_equal_and_clone() {
     let num_bits = 10;
     let mut bit1 = bit_set::BitSet::new();
     let mut bit2 = bit_set::BitSet::new();
-    let iter = random.gen_range(0..100000);
+    let iter = random.random_range(0..100000);
     for i in 0..iter {
         bit1.insert(i);
         bit2.insert(i);

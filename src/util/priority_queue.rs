@@ -446,7 +446,7 @@ mod tests {
             let mut sum: i32 = 0;
             let mut sum2: i32 = 0;
             for _i in 0..count {
-                let next: i32 = random.gen();
+                let next: i32 = random.random();
                 sum = sum.wrapping_add(next);
                 heap.add(next);
             }
@@ -518,7 +518,7 @@ mod tests {
         let mut list2: Vec<i32> = Vec::new();
         let mut value: i32;
         for _i in 0..size {
-            value = random.gen();
+            value = random.random();
             list.push(value);
             list2.push(value);
         }
@@ -537,10 +537,10 @@ mod tests {
         let mut random = random();
 
         for _i in 0..10 {
-            let value: i32 = random.gen();
+            let value: i32 = random.random();
             bulk_added.push(value);
             bulk_added2.push(value);
-            let x: i32 = random.gen();
+            let x: i32 = random.random();
             pq.add(x);
             one_by_one.push(x);
         }
@@ -558,8 +558,8 @@ mod tests {
         let mut list: Vec<i32> = Vec::new();
         let mut random = random();
         for _i in 0..11 {
-            list.push(random.gen());
-            pq.add(random.gen());
+            list.push(random.random());
+            pq.add(random.random());
         }
         let result = pq.add_all(list).unwrap_err().to_string();
         assert_eq!(
@@ -578,7 +578,7 @@ mod tests {
         // Basic insertion of new content
         let mut sds: Vec<i32> = Vec::with_capacity(num_docs_in_pq as usize);
         for _i in 0..num_docs_in_pq * 10 {
-            let new_entry = random.gen::<i32>().abs();
+            let new_entry = random.random::<i32>().abs();
             sds.push(new_entry);
             let evicted = pq.insert_with_overflow(new_entry);
             check_validity(&pq);
@@ -603,12 +603,12 @@ mod tests {
         // Try many random additions to existing entries - we should always see
         // increasing scores in the lowest entry in the PQ
         for _i in 0..500000 {
-            let element = (random.gen::<f32>() * ((sds.len() - 1) as f32)) as i32;
+            let element = (random.random::<f32>() * ((sds.len() - 1) as f32)) as i32;
             let object_to_remove = sds[element as usize];
             assert_eq!(sds.remove(element as usize), object_to_remove);
             assert!(pq.remove(&object_to_remove));
             check_validity(&pq);
-            let new_entry = random.gen::<i32>().abs();
+            let new_entry = random.random::<i32>().abs();
             sds.push(new_entry);
             assert_eq!(pq.insert_with_overflow(new_entry), None);
             check_validity(&pq);
@@ -661,8 +661,8 @@ mod tests {
         let mut expected: Vec<i32> = Vec::new();
         for _i in 0..iters {
             if queue.size() == 0 || (queue.size() < max_size) {
-                // if queue.size() == 0 || (queue.size() < max_size && random.gen::<bool>()) {
-                let value: i32 = random.gen_range(0..=10);
+                // if queue.size() == 0 || (queue.size() < max_size && random.random::<bool>()) {
+                let value: i32 = random.random_range(0..=10);
                 queue.add(value);
                 expected.push(value);
             } else {

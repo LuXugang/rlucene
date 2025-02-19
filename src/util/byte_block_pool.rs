@@ -495,9 +495,9 @@ mod tests {
     use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocatorByte, VecCopyOps};
-    use rand::distributions::Alphanumeric;
     use rand::{Rng, RngCore};
     use std::sync::{Arc, Mutex};
+    use rand::distr::Alphanumeric;
 
     #[allow(dead_code)] // for quick search
     struct TestByteBlockPool {}
@@ -529,7 +529,7 @@ mod tests {
         // now slice and append to another pool
         let offset = TestUtil::next_int(&mut random, 1, 2 << 15) as usize;
         let mut length = bytes_length - offset;
-        if random.gen_bool(0.5) {
+        if random.random_bool(0.5) {
             length = TestUtil::next_int(&mut random, 1, length as i32) as usize;
         }
         another_pool.append_from_byte_block_pool(&pool, offset as i64, length as i32)?;
@@ -560,7 +560,7 @@ mod tests {
         )));
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
-        let reuse_first = random.gen_bool(0.5);
+        let reuse_first = random.random_bool(0.5);
         for _j in 0..2 {
             let mut list: Vec<BytesRef> = Vec::new();
             let max_length = at_least(&mut random, 500) as usize;
@@ -582,7 +582,7 @@ mod tests {
             for expected in list.iter() {
                 bytes_ref_builder.set_length(expected.length);
                 let bytes_ref_builder_length = bytes_ref_builder.length();
-                let value = random.gen_range(0..2);
+                let value = random.random_range(0..2);
                 match value {
                     0 => {
                         pool.read_bytes(
@@ -614,7 +614,7 @@ mod tests {
                 assert!(bytes_ref_builder.get().bytes_equals(expected));
                 position += bytes_ref_builder.length() as i64;
             }
-            pool.reset(random.gen_bool(0.5), reuse_first)?;
+            pool.reset(random.random_bool(0.5), reuse_first)?;
             if reuse_first {
                 assert_eq!(
                     ByteBlockPool::BYTE_BLOCK_SIZE as i64,
@@ -643,7 +643,7 @@ mod tests {
 
         let mut size: i32;
         for _i in 0..iter {
-            if random.gen_bool(0.5) {
+            if random.random_bool(0.5) {
                 size = TestUtil::next_int(&mut random, 100, 1000);
             } else {
                 size = TestUtil::next_int(&mut random, 50000, 100000);

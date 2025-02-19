@@ -185,9 +185,9 @@ mod tests {
 
         for _ in 0..100 {
             let size: i32 = if rand::random::<bool>() {
-                rand::thread_rng().gen_range(100..1000)
+                rand::rng().random_range(100..1000)
             } else {
-                rand::thread_rng().gen_range(50000..100000)
+                rand::rng().random_range(50000..100000)
             };
 
             let mut random_data = vec![0u8; size as usize];
@@ -269,12 +269,12 @@ mod tests {
     impl SliceWriter {
         /// Creates a new `SliceWriter` instance.
         pub fn new(random: &mut StdRng, slice_pool: Arc<Mutex<ByteSlicePool>>) -> Self {
-            let size: i32 = if random.gen_bool(0.5) {
+            let size: i32 = if random.random_bool(0.5) {
                 // size < ByteBlockPool.BYTE_BLOCK_SIZE
-                random.gen_range(100..1000)
+                random.random_range(100..1000)
             } else {
                 // size > ByteBlockPool.BYTE_BLOCK_SIZE
-                random.gen_range(50000..100000)
+                random.random_range(50000..100000)
             };
 
             let mut random_data = vec![0u8; size as usize];
@@ -470,7 +470,7 @@ mod tests {
         let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         let slice_pool = Arc::new(Mutex::new(ByteSlicePool::new(pool.clone())));
 
-        let n_iterations = random.gen_range(1..=3); // 1-3 iterations with buffer resets
+        let n_iterations = random.random_range(1..=3); // 1-3 iterations with buffer resets
         for _ in 0..n_iterations {
             let n = TestUtil::next_int(&mut random, 2, 3) as usize;
             let mut slice_writers: Vec<SliceWriter> = Vec::with_capacity(n);
@@ -482,7 +482,7 @@ mod tests {
             }
             // Write slices
             loop {
-                let i = random.gen_range(0..n);
+                let i = random.random_range(0..n);
                 let succeeded = slice_writers[i].write_slice()?;
                 if !succeeded {
                     slice_writers
@@ -505,7 +505,7 @@ mod tests {
 
             // Read slices
             loop {
-                let i = rand::thread_rng().gen_range(0..n);
+                let i = rand::rng().random_range(0..n);
                 let succeeded = slice_readers[i].read_slice();
                 if !succeeded {
                     for j in slice_readers.iter_mut().take(n) {
@@ -525,7 +525,7 @@ mod tests {
             // buffer.
             pool.lock()
                 .unwrap()
-                .reset(true, rand::thread_rng().gen_bool(0.5))?;
+                .reset(true, rand::rng().random_bool(0.5))?;
         }
 
         Ok(())

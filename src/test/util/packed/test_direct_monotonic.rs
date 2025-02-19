@@ -130,9 +130,9 @@ pub fn test_constant_slope() -> Result<(), LuceneError> {
         DirectMonotonicWriter::MAX_BLOCK_SHIFT,
     );
     let num_values = TestUtil::next_int(&mut random, 1, 1 << 20);
-    let min: i64 = random.gen();
-    let upper = random.gen_range(0..20);
-    let inc = random.gen_range(0..1 << upper);
+    let min: i64 = random.random();
+    let upper = random.random_range(0..20);
+    let inc = random.random_range(0..1 << upper);
 
     let actual_values: Vec<i64> = (0..num_values).map(|i| min + inc * i as i64).collect();
 
@@ -233,7 +233,7 @@ fn do_test_random(random: &mut StdRng, merging: bool) -> Result<(), LuceneError>
             DirectMonotonicWriter::MAX_BLOCK_SHIFT,
         );
         let max_num_values = 1 << 20;
-        let num_values = if random.gen_bool(0.5) {
+        let num_values = if random.random_bool(0.5) {
             TestUtil::next_int(random, 1, max_num_values)
         } else {
             let num_blocks = TestUtil::next_int(random, 0, max_num_values >> block_shift);
@@ -241,13 +241,13 @@ fn do_test_random(random: &mut StdRng, merging: bool) -> Result<(), LuceneError>
         };
 
         let mut actual_values = Vec::with_capacity(num_values as usize);
-        let mut previous: i64 = random.gen();
+        let mut previous: i64 = random.random();
         if num_values > 0 {
             actual_values.push(previous);
         }
         for _ in 1..num_values {
-            let upper = 1 << random.gen_range(1..20);
-            let value = random.gen_range(0..upper) as i64;
+            let upper = 1 << random.random_range(1..20);
+            let value = random.random_range(0..upper) as i64;
             previous += value;
             actual_values.push(previous);
         }
@@ -303,10 +303,10 @@ pub fn test_monotonic_binary_search_random() -> Result<(), LuceneError> {
     let mut dir = new_directory(&mut random)?;
     let iters = at_least(&mut random, 100);
     for _ in 0..iters {
-        let upper = 1 << random.gen_range(0..14);
-        let array_length = random.gen_range(0..upper);
+        let upper = 1 << random.random_range(0..14);
+        let array_length = random.random_range(0..upper);
         let mut array = vec![0; array_length];
-        let base: i64 = random.gen();
+        let base: i64 = random.random();
         let bpv = TestUtil::next_int(&mut random, 4, 61);
         for value in array.iter_mut() {
             *value = base + TestUtil::next_long(&mut random, 0, (1 << bpv) - 1);
@@ -382,7 +382,7 @@ where
             } else {
                 for i in 0..array.len() - 2 {
                     if array[i] + 1 < array[i + 1] {
-                        let intermediate = if random.gen_bool(0.5) {
+                        let intermediate = if random.random_bool(0.5) {
                             array[i] + 1
                         } else {
                             array[i + 1] - 1

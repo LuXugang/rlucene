@@ -736,8 +736,8 @@ mod tests {
         let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
 
         for _ in 0..iters {
-            let v1 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
-            let v2 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+            let v1 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+            let v2 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
 
             let mut v1_bytes = vec![0u8; num_bytes];
             let v1_raw_bytes = v1.to_signed_bytes_be();
@@ -797,8 +797,8 @@ mod tests {
         let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
 
         for _ in 0..iters {
-            let mut v1 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
-            let mut v2 = BigInt::from(random.gen::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+            let mut v1 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+            let mut v2 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
 
             if v1 < v2 {
                 std::mem::swap(&mut v1, &mut v2);
@@ -858,7 +858,7 @@ mod tests {
         let mut random = random();
         let mut encoded = vec![0u8; BitUtil::INT_BYTES];
         for _ in 0..10_000 {
-            let value = random.gen::<i32>();
+            let value = random.random::<i32>();
             NumericUtils::int_to_sortable_bytes(value, &mut encoded, 0);
             let decoded = NumericUtils::sortable_bytes_to_int(&encoded, 0);
             assert_eq!(
@@ -893,7 +893,7 @@ mod tests {
         let mut random = random();
         let mut encoded = vec![0u8; BitUtil::INT_BYTES];
         for _ in 0..10_000 {
-            let value = f32::from_bits(random.gen::<i32>() as u32);
+            let value = f32::from_bits(random.random::<i32>() as u32);
             let sortable_int = NumericUtils::float_to_sortable_int(value);
             NumericUtils::int_to_sortable_bytes(sortable_int, &mut encoded, 0);
             let decoded_sortable_int = NumericUtils::sortable_bytes_to_int(&encoded, 0);
@@ -977,8 +977,8 @@ mod tests {
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
 
         for _ in 0..10_000 {
-            let left_value = random.gen::<i32>();
-            let right_value = random.gen::<i32>();
+            let left_value = random.random::<i32>();
+            let right_value = random.random::<i32>();
             NumericUtils::int_to_sortable_bytes(
                 left_value,
                 left.bytes.as_mut_slice(),
@@ -1042,8 +1042,8 @@ mod tests {
         let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
         for _ in 0..10_000 {
-            let left_value = to_positive_nan::<f32>(f32::from_bits(random.gen::<u32>()));
-            let right_value = to_positive_nan::<f32>(f32::from_bits(random.gen::<u32>()));
+            let left_value = to_positive_nan::<f32>(f32::from_bits(random.random::<u32>()));
+            let right_value = to_positive_nan::<f32>(f32::from_bits(random.random::<u32>()));
             NumericUtils::int_to_sortable_bytes(
                 NumericUtils::float_to_sortable_int(left_value),
                 left.bytes.as_mut_slice(),

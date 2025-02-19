@@ -1056,10 +1056,10 @@ mod tests {
         let mut random = random();
         let queue: DocumentsWriterDeleteQueue<DummyQuery> =
             DocumentsWriterDeleteQueue::new(get_default_info_stream());
-        let size = 200 + random.gen_range(0..500) * random_multiplier();
+        let size = 200 + random.random_range(0..500) * random_multiplier();
         let mut ids: Vec<i32> = Vec::with_capacity(size as usize);
         for _ in 0..size {
-            ids.push(random.gen());
+            ids.push(random.random());
         }
         let mut slice1 = queue.new_slice()?;
         let mut slice2 = queue.new_slice()?;
@@ -1072,7 +1072,7 @@ mod tests {
             let term = Term::from_text("id".to_string(), &id.to_string());
             unique_values.insert(term.clone());
             queue.add_delete_term(Vec::from([term.clone()]))?;
-            if random.gen_range(0..20) == 0 || j == (size - 1) as usize {
+            if random.random_range(0..20) == 0 || j == (size - 1) as usize {
                 queue.update_slice(&mut slice1)?;
                 assert!(
                     slice1.is_tail_item(&NodeEnum::TermNodeArray(TermNodeArray::new(Vec::from([
@@ -1083,7 +1083,7 @@ mod tests {
                 test_assert_all_between(last1 as i32, j as i32, &mut bd1, &ids)?;
                 last1 = j + 1;
             }
-            if random.gen_range(0..10) == 5 || j == size as usize - 1 {
+            if random.random_range(0..10) == 5 || j == size as usize - 1 {
                 queue.update_slice(&mut slice2)?;
                 assert!(
                     slice2.is_tail_item(&NodeEnum::TermNodeArray(TermNodeArray::new(Vec::from([
@@ -1142,17 +1142,17 @@ mod tests {
         assert!(!queue.any_changes()?);
         queue.clear()?;
         assert!(!queue.any_changes()?);
-        let size = 200 + random.gen_range(0..500) * random_multiplier();
+        let size = 200 + random.random_range(0..500) * random_multiplier();
         for i in 0..size {
             let term = Term::from_text("id".to_string(), &i.to_string());
-            if random.gen_range(0..10) == 0 {
+            if random.random_range(0..10) == 0 {
                 queue.add_delete_query(Vec::from([Arc::new(TermQuery::new(term.clone()))]))?;
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
             }
             assert!(queue.any_changes()?);
 
-            if random.gen_range(0..10) == 0 {
+            if random.random_range(0..10) == 0 {
                 queue.clear()?;
                 queue.try_apply_global_slice()?;
                 assert!(!queue.any_changes()?);
@@ -1165,13 +1165,13 @@ mod tests {
     fn test_any_changes() -> Result<(), LuceneError> {
         let mut random = random();
         let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
-        let size = 200 + random.gen_range(0..500) * random_multiplier();
+        let size = 200 + random.random_range(0..500) * random_multiplier();
         let mut terms_since_freeze = 0;
         let mut queries_since_freeze = 0;
 
         for i in 0..size {
             let term = Term::from_text("id".to_string(), &i.to_string());
-            if random.gen_range(0..10) == 0 {
+            if random.random_range(0..10) == 0 {
                 queue.add_delete_query(vec![Arc::new(TermQuery::new(term.clone()))])?;
                 queries_since_freeze += 1;
             } else {
@@ -1181,7 +1181,7 @@ mod tests {
 
             assert!(queue.any_changes()?);
 
-            if random.gen_range(0..5) == 0 {
+            if random.random_range(0..5) == 0 {
                 if let Some(frozen) = queue.freeze_global_buffer::<DummyDirectory>(None)? {
                     assert_eq!(terms_since_freeze, frozen.delete_terms.size());
                     assert_eq!(queries_since_freeze, frozen.delete_queries.len());
@@ -1227,15 +1227,15 @@ mod tests {
             get_default_info_stream(),
         ));
         let mut unique_values = HashSet::new();
-        let size = 10000 + random.gen_range(0..500) * random_multiplier();
-        let ids: Vec<i32> = (0..size).map(|_| random.gen()).collect();
+        let size = 10000 + random.random_range(0..500) * random_multiplier();
+        let ids: Vec<i32> = (0..size).map(|_| random.random()).collect();
         for id in &ids {
             unique_values.insert(Term::from_text("id".to_string(), &id.to_string()));
         }
 
         let barrier = Arc::new(Barrier::new(1));
         let index = Arc::new(AtomicI32::new(0));
-        let num_threads = 2 + random.gen_range(0..5);
+        let num_threads = 2 + random.random_range(0..5);
 
         let mut threads = Vec::new();
         for _ in 0..num_threads {
@@ -1293,7 +1293,7 @@ mod tests {
             let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
             assert!(queue.is_open()?);
             queue.close()?;
-            if random.gen_bool(0.5) {
+            if random.random_bool(0.5) {
                 queue.close()?; // double close
             }
             let result = queue.add_delete_term(vec![Term::from_text("foo".to_string(), "bar")]);

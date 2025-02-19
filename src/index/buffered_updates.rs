@@ -544,24 +544,24 @@ mod tests {
 
         let queries = at_least(&mut random, 1);
         for _ in 0..queries {
-            let doc_id_upto = if random.gen_bool(0.5) {
+            let doc_id_upto = if random.random_bool(0.5) {
                 i32::MAX
             } else {
-                random.gen_range(0..100000)
+                random.random_range(0..100000)
             };
-            let value = format!("{}", random.gen_range(0..100));
+            let value = format!("{}", random.random_range(0..100));
             let term = Term::new("id".to_string(), BytesRef::from_string(&value));
             bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto)?;
         }
 
         let terms = at_least(&mut random, 1);
         for _ in 0..terms {
-            let doc_id_upto = if random.gen_bool(0.5) {
+            let doc_id_upto = if random.random_bool(0.5) {
                 i32::MAX
             } else {
-                random.gen_range(0..100000)
+                random.random_range(0..100000)
             };
-            let value = format!("{}", random.gen_range(0..100));
+            let value = format!("{}", random.random_range(0..100));
             let term = Term::new("id".to_string(), BytesRef::from_string(&value));
             bu.add_term(&term, doc_id_upto)?;
         }
@@ -605,16 +605,16 @@ mod tests {
             assert!(actual.is_empty());
 
             let term_count = at_least(&mut random, 5000);
-            let max_bytes_num = random.gen_range(1..=3);
+            let max_bytes_num = random.random_range(1..=3);
 
             for _ in 0..term_count {
-                let byte_num = random.gen_range(1..=max_bytes_num);
+                let byte_num = random.random_range(1..=max_bytes_num);
                 let mut bytes = vec![0u8; byte_num];
                 random.fill_bytes(&mut bytes);
 
-                let field = &fields[random.gen_range(0..fields.len())];
+                let field = &fields[random.random_range(0..fields.len())];
                 let term = Term::new(field.clone(), BytesRef::from_bytes(bytes));
-                let value = random.gen_range(0..10_000_000);
+                let value = random.random_range(0..10_000_000);
 
                 expected.insert(term.clone(), value);
                 actual.put(&term, value)?;

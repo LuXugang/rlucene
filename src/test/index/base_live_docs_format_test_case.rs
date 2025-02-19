@@ -76,7 +76,7 @@ pub trait BaseLiveDocsFormatTestCase {
             for _ in 0..(max_doc - num_live_docs) {
                 let mut clear_bit;
                 loop {
-                    clear_bit = random.gen_range(0..max_doc);
+                    clear_bit = random.random_range(0..max_doc);
                     if live_docs.get(clear_bit) {
                         break;
                     }
@@ -87,7 +87,7 @@ pub trait BaseLiveDocsFormatTestCase {
             for _ in 0..num_live_docs {
                 let mut set_bit;
                 loop {
-                    set_bit = random.gen_range(0..max_doc);
+                    set_bit = random.random_range(0..max_doc);
                     if !live_docs.get(set_bit) {
                         break;
                     }

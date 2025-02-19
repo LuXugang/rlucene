@@ -700,8 +700,8 @@ mod tests {
     fn test_update_share_values() -> Result<(), LuceneError> {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let int_value = random.gen::<i32>();
-        let value_for_three = random.gen_bool(0.5);
+        let int_value = random.random::<i32>();
+        let value_for_three = random.random_bool(0.5);
         let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(
             int_value as i64,
         )));
@@ -765,7 +765,7 @@ mod tests {
     pub fn test_update_share_values_binary() -> Result<(), LuceneError> {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let value_for_three = random.gen_bool(0.5);
+        let value_for_three = random.random_bool(0.5);
         let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
             BytesRef::from_string(""),
         )));
@@ -829,13 +829,13 @@ mod tests {
     where
         T: Clone,
     {
-        let mut rng = rand::thread_rng();
-        let index = rng.gen_range(0..items.len());
+        let mut rng = rand::rng();
+        let index = rng.random_range(0..items.len());
         items[index].clone()
     }
     pub fn get_random_binary_update(random: &mut StdRng, doc_id_up_to: i32) -> DocValuesUpdate {
         let term_field = random_from(vec!["id", "_id", "some_other_field"]);
-        let doc_id = random.gen_range(0..10).to_string();
+        let doc_id = random.random_range(0..10).to_string();
 
         let value = if rarely(random) {
             None
@@ -862,12 +862,12 @@ mod tests {
     }
     pub fn get_random_numeric_update(random: &mut StdRng, doc_id_up_to: i32) -> DocValuesUpdate {
         let term_field = random_from(vec!["id", "_id", "some_other_field"]);
-        let doc_id = random.gen_range(0..10).to_string();
+        let doc_id = random.random_range(0..10).to_string();
 
         let value = if rarely(random) {
             None
         } else {
-            Some(random.gen_range(0..100) as i64)
+            Some(random.random_range(0..100) as i64)
         };
 
         let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(value));
@@ -891,7 +891,7 @@ mod tests {
     pub fn test_binary_random() -> Result<(), LuceneError> {
         let mut random = random();
         let mut updates = Vec::new();
-        let num_updates = 1 + random.gen_range(0..1000);
+        let num_updates = 1 + random.random_range(0..1000);
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
         let mut random_update = get_random_binary_update(&mut random, 0);
@@ -948,7 +948,7 @@ mod tests {
     pub fn test_numeric_random() -> Result<(), LuceneError> {
         let mut random = random();
         let mut updates = Vec::new();
-        let num_updates = 1 + random.gen_range(0..1000);
+        let num_updates = 1 + random.random_range(0..1000);
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
         let mut random_update = get_random_numeric_update(&mut random, 0);
@@ -1017,17 +1017,17 @@ mod tests {
     pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), LuceneError> {
         let mut random = random();
         let mut updates = Vec::new();
-        let num_updates = 1 + random.gen_range(0..1000);
+        let num_updates = 1 + random.random_range(0..1000);
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
         let term_field = random_from(vec!["id", "_id", "some_other_field"]);
-        let doc_value = 1 + random.gen_range(0..1000);
+        let doc_value = 1 + random.random_range(0..1000);
 
         let mut random_update = DocValuesUpdate::new(
             DocValuesType::Numeric,
             Term::from_text(
                 term_field.to_string(),
-                &random.gen_range(0..1000).to_string(),
+                &random.random_range(0..1000).to_string(),
             ),
             "numeric".to_string(),
             BufferedUpdates::MAX_INT,
@@ -1046,7 +1046,7 @@ mod tests {
                 DocValuesType::Numeric,
                 Term::from_text(
                     term_field.to_string(),
-                    &random.gen_range(0..1000).to_string(),
+                    &random.random_range(0..1000).to_string(),
                 ),
                 "numeric".to_string(),
                 BufferedUpdates::MAX_INT,

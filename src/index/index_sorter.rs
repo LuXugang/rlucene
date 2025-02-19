@@ -174,7 +174,7 @@ mod tests {
     #[test]
     fn test_empty() -> Result<(), LuceneError> {
         let mut random = random();
-        let len = random.gen_range(0..5);
+        let len = random.random_range(0..5);
         let refs: Vec<BytesRef> = (0..len).map(|_| BytesRef::default()).collect();
         test(refs, 0)
     }
@@ -201,11 +201,11 @@ mod tests {
     ) -> Result<(), LuceneError> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
-        let len = random.gen_range(0..100000);
+        let len = random.random_range(0..100000);
 
-        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.gen_range(0..50));
+        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
-            let mut b = vec![0u8; common_prefix_len + random.gen_range(0..max_len)];
+            let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
             random.fill_bytes(&mut b[common_prefix_len..]);
             b[..common_prefix_len].copy_from_slice(&common_prefix);
             bytes.push(BytesRef::from_bytes(b));

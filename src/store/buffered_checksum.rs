@@ -116,20 +116,20 @@ mod tests {
         let mut raw_crc = Hasher::new();
         let mut buffered = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let iterations = 10000;
 
         for _ in 0..iterations {
-            match rng.gen_range(0..4) {
+            match rng.random_range(0..4) {
                 0 => {
-                    let length = rng.gen_range(0..1024);
+                    let length = rng.random_range(0..1024);
                     let mut bytes = vec![0; length];
                     rng.fill(bytes.as_mut_slice());
                     raw_crc.update(&bytes);
                     buffered.update_bytes(&bytes, 0, length as i32);
                 }
                 1 => {
-                    let b = rng.gen_range(0..=255) as u8;
+                    let b = rng.random_range(0..=255) as u8;
                     raw_crc.update(&[b]);
                     buffered.update(b);
                 }

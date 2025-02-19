@@ -1116,7 +1116,7 @@ mod tests {
         const ITERATIONS: usize = 3;
 
         for _ in 0..ITERATIONS {
-            let value_count = random.gen_range(1..i32::MAX);
+            let value_count = random.random_range(1..i32::MAX);
 
             for format in &[
                 Packed(PackedImpl::new(0)),
@@ -1181,7 +1181,7 @@ mod tests {
             for nbits in 1..=64 {
                 let max_value = PackedInts::max_value(nbits);
                 let value_count = TestUtil::next_int(&mut random, 1, 600) as usize;
-                let buffer_size = if random.gen_bool(0.5) {
+                let buffer_size = if random.random_bool(0.5) {
                     TestUtil::next_int(&mut random, 0, 48)
                 } else {
                     TestUtil::next_int(&mut random, 0, 4096)
@@ -1191,7 +1191,7 @@ mod tests {
                 let fp: i64;
                 {
                     let mut out = directory.create_output("out.bin", &io_context)?;
-                    let mem = random.gen_range(0..2 * PackedInts::DEFAULT_BUFFER_SIZE);
+                    let mem = random.random_range(0..2 * PackedInts::DEFAULT_BUFFER_SIZE);
                     let start_fp = out.get_file_pointer();
                     let mut writer = PackedInts::get_writer_no_header(
                         &mut out,
@@ -1201,7 +1201,7 @@ mod tests {
                         mem,
                     );
 
-                    let actual_value_count = if random.gen_bool(0.5) {
+                    let actual_value_count = if random.random_bool(0.5) {
                         value_count
                     } else {
                         TestUtil::next_int(&mut random, 0, value_count as i32) as usize
@@ -1213,7 +1213,7 @@ mod tests {
                         .enumerate()
                         .try_for_each(|(_, value)| {
                             let val = if nbits == 64 {
-                                random.gen()
+                                random.random()
                             } else {
                                 TestUtil::next_long(&mut random, 0, max_value)
                             };
@@ -1297,7 +1297,7 @@ mod tests {
         let mut random = random();
 
         let mut directory = new_directory(&mut random)?;
-        let value_count = random.gen_range(1..=1000);
+        let value_count = random.random_range(1..=1000);
         let io_context = new_io_context(&mut random)?;
 
         {
@@ -1335,7 +1335,7 @@ mod tests {
                             version,
                             value_count as i32,
                             bpv,
-                            random.gen_range(1..=65536), // 缓冲区大小随机
+                            random.random_range(1..=65536), // 缓冲区大小随机
                         )?;
 
                         for _ in 0..value_count {
@@ -1407,15 +1407,15 @@ mod tests {
 
             // Copy random slices over 20 times:
             for _ in 0..20 {
-                let start = random.gen_range(0..value_count - 1);
+                let start = random.random_range(0..value_count - 1);
                 let len = TestUtil::next_int(&mut random, 1, value_count - start);
                 let offset = if len == value_count {
                     0
                 } else {
-                    random.gen_range(0..(value_count - len))
+                    random.random_range(0..(value_count - len))
                 };
 
-                if random.gen_bool(0.5) {
+                if random.random_bool(0.5) {
                     let got = packed1.get_bulk(start, &mut buffer, offset, len)?;
                     assert!(got as i32 <= len);
                     let sot = packed2.set_bulk(start, &buffer, offset, got as i32)?;
@@ -1427,7 +1427,7 @@ mod tests {
                         &mut packed2,
                         offset,
                         len,
-                        random.gen_range(1..=(10 * len)) as i32,
+                        random.random_range(1..=(10 * len)) as i32,
                     )?;
                 }
             }
@@ -1455,7 +1455,7 @@ mod tests {
         for _ in 0..num_iters {
             let value_count = TestUtil::next_int(&mut random, 1, 300);
             for bits_per_value in 1..=64 {
-                assert_random_equality(value_count, bits_per_value, random.gen::<u64>())?;
+                assert_random_equality(value_count, bits_per_value, random.random::<u64>())?;
             }
         }
         Ok(())
@@ -1507,7 +1507,7 @@ mod tests {
         let mut random = StdRng::seed_from_u64(seed);
         for i in 0..packed_int.size() {
             let value: i64 = if bits_per_value == 64 {
-                random.gen()
+                random.random()
             } else {
                 TestUtil::next_long(&mut random, 0, max_value)
             };
@@ -1589,8 +1589,8 @@ mod tests {
     fn test_fill() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = 1111;
-        let from = random.gen_range(0..value_count + 1);
-        let to = from + random.gen_range(0..value_count + 1 - from);
+        let from = random.random_range(0..value_count + 1);
+        let to = from + random.random_range(0..value_count + 1 - from);
 
         for bpv in 1..=64 {
             let val = TestUtil::next_long(&mut random, 0, PackedInts::max_value(bpv));
@@ -1659,9 +1659,9 @@ mod tests {
     fn test_bulk_get() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = 1111;
-        let index = random.gen_range(0..value_count) as usize;
+        let index = random.random_range(0..value_count) as usize;
         let len = TestUtil::next_int(&mut random, 1, value_count * 2) as usize;
-        let off = random.gen_range(0..77);
+        let off = random.random_range(0..77);
 
         for bpv in 1..=64 {
             let mask = PackedInts::max_value(bpv);
@@ -1710,9 +1710,9 @@ mod tests {
     fn test_bulk_set() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = 1111;
-        let index = random.gen_range(0..value_count);
-        let len = random.gen_range(1..=(value_count * 2));
-        let off = random.gen_range(0..77);
+        let index = random.random_range(0..value_count);
+        let len = random.random_range(1..=(value_count * 2));
+        let off = random.random_range(0..77);
 
         for bpv in 1..=64 {
             let mask = PackedInts::max_value(bpv);
@@ -1761,10 +1761,10 @@ mod tests {
     fn test_copy() -> Result<(), LuceneError> {
         let mut random = random();
         let value_count = TestUtil::next_int(&mut random, 5, 600);
-        let off1 = random.gen_range(0..value_count);
-        let off2 = random.gen_range(0..value_count);
-        let len = random.gen_range(0..(value_count - off1).min(value_count - off2));
-        let mem = random.gen_range(0..1024);
+        let off1 = random.random_range(0..value_count);
+        let off2 = random.random_range(0..value_count);
+        let len = random.random_range(0..(value_count - off1).min(value_count - off2));
+        let mem = random.random_range(0..1024);
         for bpv in 1..=64 {
             let mask = PackedInts::max_value(bpv);
             for mut r1 in create_packed_ints(value_count as i32, bpv)? {
@@ -1806,7 +1806,7 @@ mod tests {
     #[test]
     fn test_growable_writer() -> Result<(), LuceneError> {
         let mut random = random();
-        let value_count = 113 + random.gen_range(0..1112);
+        let value_count = 113 + random.random_range(0..1112);
 
         let mut wrt = GrowableWriter::new(1, value_count as i32, PackedInts::DEFAULT)?;
 
@@ -1844,7 +1844,7 @@ mod tests {
         let mut random = random();
 
         let page_size = 1 << TestUtil::next_int(&mut random, 6, 30);
-        let acceptable_overhead_ratio = random.gen::<f32>();
+        let acceptable_overhead_ratio = random.random::<f32>();
         let initial_bit_width = TestUtil::next_int(&mut random, 1, 64);
 
         let sub_reader =
@@ -1854,11 +1854,11 @@ mod tests {
         assert_eq!(writer.size(), 0);
 
         let mut buf =
-            PackedLongValues::delta_packed_long_values_builder_default(random.gen::<f32>())?;
+            PackedLongValues::delta_packed_long_values_builder_default(random.random::<f32>())?;
         let size = if is_night_mode() {
-            random.gen_range(0..1_000_000)
+            random.random_range(0..1_000_000)
         } else {
-            random.gen_range(0..100_000)
+            random.random_range(0..100_000)
         };
 
         let mut max = 5;
@@ -1872,12 +1872,12 @@ mod tests {
                 });
             }
         }
-        let bits_per_value = random.gen_range(1..=64);
+        let bits_per_value = random.random_range(1..=64);
         writer = AbstractPagedMutable::new(
             bits_per_value,
             size,
             page_size,
-            PagedGrowableWriter::with_fill_page(bits_per_value, random.gen::<f32>()),
+            PagedGrowableWriter::with_fill_page(bits_per_value, random.random::<f32>()),
         )?;
         assert_eq!(writer.size(), size);
 
@@ -1927,7 +1927,7 @@ mod tests {
         let bits_per_value = TestUtil::next_int(&mut random, 1, 64);
         let max = PackedInts::max_value(bits_per_value);
         let page_size = 1 << TestUtil::next_int(&mut random, 6, 30);
-        let acceptable_overhead_ratio = random.gen::<f32>() / 2.0;
+        let acceptable_overhead_ratio = random.random::<f32>() / 2.0;
 
         let mut sub_mutable =
             PagedMutable::with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
@@ -1935,23 +1935,23 @@ mod tests {
         assert_eq!(writer.size(), 0);
 
         let mut buf =
-            PackedLongValues::delta_packed_long_values_builder_default(random.gen::<f32>())?;
+            PackedLongValues::delta_packed_long_values_builder_default(random.random::<f32>())?;
         let size = if is_night_mode() {
-            random.gen_range(0..1_000_000)
+            random.random_range(0..1_000_000)
         } else {
-            random.gen_range(0..100_000)
+            random.random_range(0..100_000)
         };
 
         for _ in 0..size {
             let value = if bits_per_value == 64 {
-                random.gen_range(i64::MIN..=i64::MAX)
+                random.random_range(i64::MIN..=i64::MAX)
             } else {
                 TestUtil::next_long(&mut random, 0, max)
             };
             buf.add(value)?;
         }
 
-        let acceptable_overhead_ratio = random.gen::<f32>();
+        let acceptable_overhead_ratio = random.random::<f32>();
         sub_mutable =
             PagedMutable::with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
         writer = AbstractPagedMutable::new(bits_per_value, size, page_size, sub_mutable)?;
@@ -2028,7 +2028,7 @@ mod tests {
                 assert_eq!(byte_block_count, Encoder::byte_block_count(decoder));
                 assert_eq!(byte_value_count, Encoder::byte_value_count(decoder));
 
-                // let long_iterations = random.gen_range(0..100);
+                // let long_iterations = random.random_range(0..100);
                 let long_iterations = 3;
                 let byte_iterations = long_iterations * long_value_count / byte_value_count;
                 assert_eq!(
@@ -2036,15 +2036,15 @@ mod tests {
                     byte_iterations * byte_value_count
                 );
 
-                let blocks_offset = random.gen_range(0..100) as usize;
-                let values_offset = random.gen_range(0..100) as usize;
-                let blocks_offset2 = random.gen_range(0..100) as usize;
+                let blocks_offset = random.random_range(0..100) as usize;
+                let values_offset = random.random_range(0..100) as usize;
+                let blocks_offset2 = random.random_range(0..100) as usize;
                 let blocks_len = (long_iterations * long_block_count) as usize;
 
                 // 1. generate random inputs
                 let mut blocks: Vec<u64> = vec![0; blocks_offset + blocks_len];
                 for block in blocks.iter_mut() {
-                    *block = random.gen::<u64>();
+                    *block = random.random::<u64>();
 
                     if matches!(format, PackedSingleBlock(_)) && 64 % bpv != 0 {
                         let to_clear = 64 % bpv;
@@ -2205,15 +2205,15 @@ mod tests {
         let mut random = random();
 
         let arr_size = if is_night_mode() {
-            random.gen_range(1..=1_000_000)
+            random.random_range(1..=1_000_000)
         } else {
-            random.gen_range(1..=10_000)
+            random.random_range(1..=10_000)
         };
         let mut arr = vec![0i64; arr_size];
 
         let ratio_options = [PackedInts::DEFAULT, PackedInts::COMPACT, PackedInts::FAST];
 
-        for bpv in [0, 1, 63, 64, random.gen_range(2..=62)].iter() {
+        for bpv in [0, 1, 63, 64, random.random_range(2..=62)].iter() {
             for data_type in [DataType::DeltaPacked, DataType::Monotonic, DataType::Packed].iter() {
                 // for data_type in [DataType::Packed].iter() {
                 let page_size = 1 << TestUtil::next_int(&mut random, 6, 20);
@@ -2248,13 +2248,13 @@ mod tests {
                 }
 
                 if *bpv == 0 {
-                    arr[0] = random.gen::<i64>();
+                    arr[0] = random.random::<i64>();
                     for i in 1..arr.len() {
                         arr[i] = arr[i - 1] + inc;
                     }
                 } else if *bpv == 64 {
                     arr.iter_mut().for_each(|item| {
-                        *item = random.gen::<i64>();
+                        *item = random.random::<i64>();
                     });
                 } else {
                     let min_value = TestUtil::next_long(
@@ -2265,7 +2265,7 @@ mod tests {
                     arr.iter_mut().enumerate().for_each(|(i, item)| {
                         *item = min_value
                             + inc * i as i64
-                            + (random.gen::<i64>() & PackedInts::max_value(*bpv));
+                            + (random.random::<i64>() & PackedInts::max_value(*bpv));
                     });
                 }
 
@@ -2290,7 +2290,7 @@ mod tests {
 
                 let mut it = values.iterator()?;
                 for &value in arr.iter() {
-                    if random.gen_bool(0.5) {
+                    if random.random_bool(0.5) {
                         assert!(it.has_next());
                     }
                     assert_eq!(value, it.next_value()?);
@@ -2317,9 +2317,9 @@ mod tests {
         for _ in 0..iters {
             let block_size = 1 << TestUtil::next_int(&mut random, 6, 18);
             let value_count: i32 = if is_night_mode() {
-                random.gen_range(0..(1 << 18))
+                random.random_range(0..(1 << 18))
             } else {
-                random.gen_range(0..(1 << 15))
+                random.random_range(0..(1 << 15))
             };
 
             let mut values = vec![0i64; value_count as usize];
@@ -2329,18 +2329,18 @@ mod tests {
             for i in 0..value_count {
                 if i % block_size == 0 {
                     min_value = if rarely(&mut random) {
-                        random.gen_range(0..256) as i64
+                        random.random_range(0..256) as i64
                     } else if rarely(&mut random) {
                         -5
                     } else {
-                        random.gen()
+                        random.random()
                     };
-                    bpv = random.gen_range(0..=64);
+                    bpv = random.random_range(0..=64);
                 }
                 values[i as usize] = if bpv == 0 {
                     min_value
                 } else if bpv == 64 {
-                    random.gen()
+                    random.random()
                 } else {
                     min_value + TestUtil::next_int(&mut random, 0, (1 << bpv) - 1) as i64
                 };
@@ -2377,7 +2377,7 @@ mod tests {
 
                 let mut i: i32 = 0;
                 while i < value_count {
-                    if random.gen_bool(0.5) {
+                    if random.random_bool(0.5) {
                         assert_eq!(values[i as usize], it.next_value()?);
                         i += 1;
                     } else {
@@ -2432,11 +2432,11 @@ mod tests {
 
                 let mut i = 0;
                 while i < value_count {
-                    if random.gen_bool(0.5) {
+                    if random.random_bool(0.5) {
                         assert_eq!(values[i as usize], it.next_value()?);
                         i += 1;
                     } else {
-                        let next_values = it.next_batch(random.gen_range(1..=1024))?;
+                        let next_values = it.next_batch(random.random_range(1..=1024))?;
                         for j in 0..next_values.length {
                             assert_eq!(
                                 values[i as usize + j as usize],
@@ -2460,7 +2460,7 @@ mod tests {
                 )?;
                 i = 0;
                 loop {
-                    let skip = random.gen_range(0..=value_count - i);
+                    let skip = random.random_range(0..=value_count - i);
                     it2.skip(skip as i64)?;
                     i += skip;
                     assert_eq!(i as i64, it2.ord());
@@ -2483,20 +2483,20 @@ mod tests {
         let iters = at_least(&mut random, 2);
         for _ in 0..iters {
             let block_size = 1 << TestUtil::next_int(&mut random, 6, 18);
-            let value_count = random.gen_range(0..(1 << 18));
+            let value_count = random.random_range(0..(1 << 18));
             let mut values = vec![0i64; value_count];
 
             if value_count > 0 {
-                values[0] = if random.gen_bool(0.5) {
-                    random.gen_range(0..10) as i64
+                values[0] = if random.random_bool(0.5) {
+                    random.random_range(0..10) as i64
                 } else {
-                    random.gen_range(0..i32::MAX) as i64
+                    random.random_range(0..i32::MAX) as i64
                 };
 
-                let mut max_delta = random.gen_range(0..64);
+                let mut max_delta = random.random_range(0..64);
                 for i in 1..value_count {
-                    if random.gen_bool(0.1) {
-                        max_delta = random.gen_range(0..64);
+                    if random.random_bool(0.1) {
+                        max_delta = random.random_range(0..64);
                     }
                     values[i] = std::cmp::max(
                         0,
@@ -2551,7 +2551,7 @@ mod tests {
         let block_size = 1 << TestUtil::next_long(&mut random, 20, 22);
         let mut dir = new_directory(&mut random)?;
         let value_offset = TestUtil::next_long(&mut random, 0, value_count - 1);
-        let value = random.gen::<i64>() & 0xFFFFFFFF;
+        let value = random.random::<i64>() & 0xFFFFFFFF;
 
         {
             let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;

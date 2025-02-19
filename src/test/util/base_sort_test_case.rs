@@ -41,8 +41,8 @@ pub trait BaseSortTestCase {
         }
     }
     fn test_impl(&self, random: &mut StdRng, mut arr: Vec<Entry>) {
-        let o = random.gen_range(0..1000);
-        let value = random.gen_range(0..3);
+        let o = random.random_range(0..1000);
+        let value = random.random_range(0..3);
         let mut to_sort = vec![Entry::default(); o + arr.len() + value];
         to_sort[o..o + arr.len()].clone_from_slice(&arr[0..arr.len()]);
         let arr_len = arr.len();
@@ -62,7 +62,7 @@ pub trait BaseSortTestCase {
         self.test_impl(random, arr);
     }
     fn test_with_strategy(&self, random: &mut StdRng, strategy: Strategy) {
-        let length = random.gen_range(0..20000);
+        let length = random.random_range(0..20000);
         self.test(random, strategy, length);
     }
     fn test_empty(&self, random: &mut StdRng) {
@@ -112,32 +112,32 @@ impl Strategy {
     fn set(&self, arr: &mut [Entry], i: i32, random: &mut StdRng) {
         match self {
             Random() => {
-                arr[i as usize] = Entry::new(random.gen(), i);
+                arr[i as usize] = Entry::new(random.random(), i);
             }
             RandomLowCardinality() => {
-                arr[i as usize] = Entry::new(random.gen_range(0..6), i);
+                arr[i as usize] = Entry::new(random.random_range(0..6), i);
             }
             RandomMediumCardinality() => {
                 let length = arr.len() >> 1;
-                arr[i as usize] = Entry::new(random.gen_range(0..length) as i32, i);
+                arr[i as usize] = Entry::new(random.random_range(0..length) as i32, i);
             }
             Strategy::Ascending() => {
                 arr[i as usize] = if i == 0 {
-                    Entry::new(random.gen_range(0..6), 0)
+                    Entry::new(random.random_range(0..6), 0)
                 } else {
-                    Entry::new(arr[(i - 1) as usize].value + random.gen_range(0..6), i)
+                    Entry::new(arr[(i - 1) as usize].value + random.random_range(0..6), i)
                 }
             }
             Strategy::Descending() => {
                 arr[i as usize] = if i == 0 {
-                    Entry::new(random.gen_range(0..6), 0)
+                    Entry::new(random.random_range(0..6), 0)
                 } else {
-                    Entry::new(arr[(i - 1) as usize].value - random.gen_range(0..6), i)
+                    Entry::new(arr[(i - 1) as usize].value - random.random_range(0..6), i)
                 }
             }
             Strategy::StrictlyDescending() => {
                 arr[i as usize] = if i == 0 {
-                    Entry::new(random.gen_range(0..6), 0)
+                    Entry::new(random.random_range(0..6), 0)
                 } else {
                     Entry::new(
                         arr[(i - 1) as usize].value - TestUtil::next_int(random, 1, 5),
@@ -147,19 +147,19 @@ impl Strategy {
             }
             Strategy::AscendingSequences() => {
                 arr[i as usize] = if i == 0 {
-                    Entry::new(random.gen_range(0..6), 0)
+                    Entry::new(random.random_range(0..6), 0)
                 } else {
                     let value = if rarely(random) {
-                        random.gen_range(0..1000)
+                        random.random_range(0..1000)
                     } else {
-                        arr[(i - 1) as usize].value + random.gen_range(0..6)
+                        arr[(i - 1) as usize].value + random.random_range(0..6)
                     };
                     Entry::new(value, i)
                 }
             }
             Strategy::MostlyAscending() => {
                 arr[i as usize] = if i == 0 {
-                    Entry::new(random.gen_range(0..6), 0)
+                    Entry::new(random.random_range(0..6), 0)
                 } else {
                     Entry::new(
                         arr[(i - 1) as usize].value + TestUtil::next_int(random, -8, 10),

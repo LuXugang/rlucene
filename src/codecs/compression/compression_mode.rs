@@ -438,15 +438,15 @@ mod tests {
             } else {
                 33 * 1024
             };
-            let max = if random.gen_bool(0.5) {
-                random.gen_range(0..4)
+            let max = if random.random_bool(0.5) {
+                random.random_range(0..4)
             } else {
-                random.gen_range(0..255)
+                random.random_range(0..255)
             };
-            let length = if random.gen_bool(0.5) {
-                random.gen_range(0..20)
+            let length = if random.random_bool(0.5) {
+                random.random_range(0..20)
             } else {
-                random.gen_range(0..bigsize)
+                random.random_range(0..bigsize)
             };
             (Self::random_array_impl(random, length, max), length)
         }
@@ -463,8 +463,8 @@ mod tests {
                 let mut arr = vec![0u8; new_length as usize];
                 for i in 0..length {
                     // TODO: 为什么这里使用0..max就报错呢？
-                    // arr[i as usize] = random.gen_range(0..=max) as u8;
-                    arr[i as usize] = random.gen();
+                    // arr[i as usize] = random.random_range(0..=max) as u8;
+                    arr[i as usize] = random.random();
                 }
                 arr
             }
@@ -553,12 +553,12 @@ mod tests {
                 let decompressed_len = decompressed.len();
                 assert!(decompressed_len <= i32::MAX as usize);
                 assert!(limit as usize <= decompressed_len);
-                let off = if random.gen_bool(0.5) {
+                let off = if random.random_bool(0.5) {
                     0
                 } else {
                     TestUtil::next_int(random, 0, limit)
                 };
-                let len = if random.gen_bool(0.5) {
+                let len = if random.random_bool(0.5) {
                     limit - off
                 } else {
                     TestUtil::next_int(random, 0, limit - off)
@@ -588,8 +588,8 @@ mod tests {
                 let (offset, length) = if valid_len == 0 {
                     (0, 0)
                 } else {
-                    let offset_inner = random.gen_range(0..valid_len);
-                    (offset_inner, random.gen_range(0..valid_len - offset_inner))
+                    let offset_inner = random.random_range(0..valid_len);
+                    (offset_inner, random.random_range(0..valid_len - offset_inner))
                 };
                 let restored = self.decompress_with_range(compressed, valid_len, offset, length)?;
                 assert_eq!(
@@ -630,20 +630,20 @@ mod tests {
         }
 
         fn test_short_sequence(&self, random: &mut StdRng) -> Result<(), LuceneError> {
-            let limit = random.gen_range(0..256);
+            let limit = random.random_range(0..256);
             let mut bytes = vec![0u8; 1024];
             for byte in bytes.iter_mut().take(limit) {
-                *byte = random.gen();
+                *byte = random.random();
             }
             self.test(&bytes, limit as i32)?;
             Ok(())
         }
 
         fn test_incompressible(&self, random: &mut StdRng) -> Result<(), LuceneError> {
-            let limit = random.gen_range(20..=256);
+            let limit = random.random_range(20..=256);
             let mut decompressed = vec![0; 1024];
             for byte in decompressed.iter_mut().take(limit) {
-                *byte = random.gen();
+                *byte = random.random();
             }
             self.test(&decompressed, limit as i32)?;
             Ok(())
@@ -653,7 +653,7 @@ mod tests {
             let limit = TestUtil::next_int(random, 1, 10000);
             let mut decompressed = vec![0; 10240];
             for byte in decompressed.iter_mut().take(limit as usize) {
-                *byte = random.gen();
+                *byte = random.random();
             }
             self.test(&decompressed, limit)?;
             Ok(())
