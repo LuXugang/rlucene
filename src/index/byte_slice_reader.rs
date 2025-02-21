@@ -25,7 +25,6 @@ use std::sync::{Arc, Mutex};
 pub(crate) struct ByteSliceReader {
     pool: Option<Arc<Mutex<ByteBlockPool>>>,
     buffer_upto: i32,
-    buffer_index: i32,
     upto: i32,
     limit: i32,
     level: i32,
@@ -36,8 +35,7 @@ impl ByteSliceReader {
     pub(crate) fn new() -> Self {
         ByteSliceReader {
             pool: None,
-            buffer_upto: 64,
-            buffer_index: 0,
+            buffer_upto: 0,
             upto: 0,
             limit: 0,
             level: 0,
@@ -54,10 +52,6 @@ impl ByteSliceReader {
         debug_assert!(end_index - start_index >= 0);
         debug_assert!(start_index >= 0);
         debug_assert!(end_index >= 0);
-        self.buffer_index = pool
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .buffer_upto;
         self.pool = Some(pool);
         self.end_index = end_index;
 
@@ -101,14 +95,13 @@ impl ByteSliceReader {
                 let mut pool = pool_guard.lock().map_err(|_| {
                     LuceneError::illegal_state("Failed to acquire lock.".to_string())
                 })?;
-                let buffer = pool.get_buffer(self.buffer_index);
+                let buffer = pool.get_buffer(self.buffer_upto);
                 next_index = BitUtil::get_i32_le(buffer, self.limit as usize);
                 self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level as usize];
                 new_size = ByteSlicePool::LEVEL_SIZE_ARRAY[self.level as usize];
 
                 self.buffer_upto = next_index / ByteBlockPool::BYTE_BLOCK_SIZE;
                 self.buffer_offset = self.buffer_upto * ByteBlockPool::BYTE_BLOCK_SIZE;
-                self.buffer_index = pool.buffer_upto;
             }
         }
 
@@ -146,8 +139,7 @@ impl DataInput for ByteSliceReader {
             .unwrap()
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let buffer_upto = self.buffer_upto;
-        let byte = pool.get_buffer(buffer_upto)[self.upto as usize];
+        let byte = pool.get_buffer(self.buffer_upto)[self.upto as usize];
         self.upto += 1;
         Ok(byte)
     }
@@ -163,7 +155,7 @@ impl DataInput for ByteSliceReader {
                     let mut pool = self.pool.as_ref().unwrap().lock().map_err(|_| {
                         LuceneError::illegal_state("Failed to acquire lock.".to_string())
                     })?;
-                    let buffer = pool.get_buffer(self.buffer_index);
+                    let buffer = pool.get_buffer(self.buffer_upto);
                     b[offset..offset + num_left as usize].copy_from_slice(
                         &buffer[self.upto as usize..self.upto as usize + num_left as usize],
                     );
@@ -176,7 +168,7 @@ impl DataInput for ByteSliceReader {
                     LuceneError::illegal_state("Failed to acquire lock.".to_string())
                 })?;
                 // This slice is the last one
-                let buffer = pool.get_buffer(self.buffer_index);
+                let buffer = pool.get_buffer(self.buffer_upto);
                 b[offset..offset + len as usize]
                     .copy_from_slice(&buffer[self.upto as usize..(self.upto + len) as usize]);
                 self.upto += len;
@@ -220,6 +212,8 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::sync::{Arc, Mutex};
+    #[allow(dead_code)] // for quick search
+    struct TestByteSliceReader;
 
     pub fn before_class(
         random: &mut StdRng,

@@ -18,58 +18,30 @@ use crate::document::fields::Fields;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
-use crate::index::terms_hash_per_field::TermsHashPerFieldBase;
-use crate::index::BytesRef;
+use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::util::bit_util::BitUtil;
-use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::VecCopyOps;
 
-pub(crate) struct TermVectorsConsumerPerField;
+pub(crate) struct TermVectorsConsumerPerField {
+    pub(crate) parent_per_field: TermsHashPerField,
+    pub(crate) postings_array: Option<PostingsArrayEnum>,
+}
+impl TermVectorsConsumerPerField {
+    pub(crate) fn new(size: i32) -> Self {
+        todo!()
+    }
+}
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
-    fn reset(&mut self, bytes_hash: &mut BytesRefHash) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn reinit_hash(&mut self, bytes_hash: &mut BytesRefHash) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn add_with_text_start(
-        &mut self,
-        bytes_hash: &mut BytesRefHash,
-        text_start: i32,
-        doc_id: i32,
-        postings_array: &mut PostingsArrayEnum,
-    ) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn add_with_bytes_ref(
-        &mut self,
-        bytes_hash: &mut BytesRefHash,
-        term_bytes: &BytesRef,
-        doc_id: i32,
-        postings_array: &mut PostingsArrayEnum,
-    ) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn init_stream_slices(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        postings_array: &mut PostingsArrayEnum,
-    ) -> Result<(), LuceneError> {
+    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+        self.parent_per_field.init_stream_slices(term_id, doc_id)?;
         self.new_term(term_id, doc_id)
     }
 
-    fn position_stream_slice(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        postings_array_enum: &mut PostingsArrayEnum,
-    ) -> Result<i32, LuceneError> {
+    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
+        let term_id = self
+            .parent_per_field
+            .position_stream_slice(term_id, doc_id)?;
         self.add_term(term_id, doc_id)?;
         Ok(term_id)
     }
@@ -90,7 +62,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         todo!()
     }
 
-    fn create_postings_array(&self, size: usize) -> Result<PostingsArrayEnum, LuceneError> {
+    fn create_postings_array(&self, size: i32) -> Result<PostingsArrayEnum, LuceneError> {
         todo!()
     }
 
@@ -99,7 +71,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
     }
 }
 pub(crate) struct TermVectorsPostingsArray {
-    size: i32,
+    pub(crate) size: i32,
     freqs: Vec<i32>,          // How many times this term occurred in the current doc
     last_offsets: Vec<i32>,   // Last offset we saw
     last_positions: Vec<i32>, // Last position where this term occurred

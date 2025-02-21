@@ -21,7 +21,6 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
-use crate::util::dummy::dummy_bytes_start_array::DummyBytesStartArray;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorter,
@@ -102,20 +101,19 @@ impl BytesRefHash {
     /// # Returns
     /// The given [`BytesRef`] instance populated with the bytes for the given `bytesID`.
     pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) -> Result<(), LuceneError> {
-        let mut bytes_start_array = self
+        let bytes_start_array = self
             .bytes_start_array
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         debug_assert!(
-            bytes_start_array.byte_start().is_some(),
+            bytes_start_array.len()? > 0,
             "bytes_start is null - not initialized"
         );
-        let bytes_start = bytes_start_array.byte_start().as_mut().unwrap();
         debug_assert!(
-            (bytes_id as usize) < bytes_start.len(),
+            (bytes_id as usize) < bytes_start_array.len()?,
             "bytesID exceeds bytes_start len"
         );
-        let value = bytes_start[bytes_id as usize];
+        let value = bytes_start_array.get_value(bytes_id as usize)?;
         self.pool.fill_bytes_ref(ref_, value)
     }
 
@@ -123,13 +121,13 @@ impl BytesRefHash {
     ///
     /// # Note
     /// This is a destructive operation. `Clear()` must be called to reuse this `BytesRefHash` instance.
-    pub fn compact(&mut self) -> &Vec<i32> {
+    pub fn compact(&mut self) -> Result<&Vec<i32>, LuceneError> {
         debug_assert!(
             self.bytes_start_array
                 .lock()
-                .unwrap()
-                .byte_start()
-                .is_some(),
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+                .len()?
+                > 0,
             "bytes_start is null - not initialized"
         );
 
@@ -146,11 +144,11 @@ impl BytesRefHash {
         debug_assert!(upto == self.count);
         self.last_count = self.count;
 
-        &self.ids
+        Ok(&self.ids)
     }
     /// Returns the values array sorted by the referenced byte values.
     pub fn sort(&mut self) -> Result<(), LuceneError> {
-        let compact = self.compact();
+        let compact = self.compact()?;
         let mut length = compact.len();
         let tmp_offset = self.count;
         let sub_sorter = StringSorterImpl::new(
@@ -249,8 +247,8 @@ impl BytesRefHash {
             self.bytes_start_array
                 .lock()
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .byte_start()
-                .is_some(),
+                .len()?
+                > 0,
             "Bytesstart is null - not initialized"
         );
 
@@ -262,25 +260,20 @@ impl BytesRefHash {
                 let mut bytes_start_array = self.bytes_start_array.lock().map_err(|_| {
                     LuceneError::illegal_state("Failed to acquire lock.".to_string())
                 })?;
-                let length;
-                {
-                    let bytes_start = bytes_start_array.byte_start().as_mut().unwrap();
-                    length = bytes_start.len();
-                }
+                let length = bytes_start_array.len()?;
                 // new entry
                 if self.count as usize >= length {
                     bytes_start_array.grow()?;
                     debug_assert!(
-                        (self.count as usize)
-                            < bytes_start_array.byte_start().as_ref().unwrap().len() + 1,
+                        (self.count as usize) < bytes_start_array.len()? + 1,
                         "count: {} len: {}",
                         self.count,
-                        bytes_start_array.byte_start().as_ref().unwrap().len()
+                        bytes_start_array.len()?
                     );
                 }
 
                 let byte_ref = self.pool.add_bytes_ref(bytes)?;
-                bytes_start_array.byte_start().as_mut().unwrap()[self.count as usize] = byte_ref;
+                bytes_start_array.set_value(self.count as usize, byte_ref)?;
                 e = self.count;
                 self.count += 1;
                 assert_eq!(self.ids[hash_pos as usize], -1);
@@ -307,12 +300,12 @@ impl BytesRefHash {
         Ok(self.ids[hash_pos as usize])
     }
     fn find_hash(&self, bytes: &BytesRef) -> Result<i32, LuceneError> {
-        let mut bytes_start_array = self
+        let bytes_start_array = self
             .bytes_start_array
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         debug_assert!(
-            bytes_start_array.byte_start().is_some(),
+            bytes_start_array.len()? > 0,
             "bytesStart is null - not initialized"
         );
 
@@ -321,16 +314,23 @@ impl BytesRefHash {
         // final position
         let mut hash_pos = code & self.hash_mask;
         let mut e = self.ids[hash_pos as usize];
-        let bytes_start_ref = bytes_start_array.byte_start().as_ref().unwrap();
 
-        if e != -1 && !self.pool.equals(bytes_start_ref[e as usize], bytes)? {
+        if e != -1
+            && !self
+                .pool
+                .equals(bytes_start_array.get_value(e as usize)?, bytes)?
+        {
             // Conflict; use linear probe to find an open slot
             // (see LUCENE-5604):
             loop {
                 code += 1;
                 hash_pos = code & self.hash_mask;
                 e = self.ids[hash_pos as usize];
-                if e == -1 || self.pool.equals(bytes_start_ref[e as usize], bytes)? {
+                if e == -1
+                    || self
+                        .pool
+                        .equals(bytes_start_array.get_value(e as usize)?, bytes)?
+                {
                     break;
                 }
             }
@@ -348,8 +348,8 @@ impl BytesRefHash {
             self.bytes_start_array
                 .lock()
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .byte_start()
-                .is_some(),
+                .len()?
+                > 0,
             "Bytesstart is null - not initialized"
         );
 
@@ -359,14 +359,13 @@ impl BytesRefHash {
         let mut e = self.ids[hash_pos as usize];
         let length;
         {
-            let mut bytes_start_array = self
+            let bytes_start_array = self
                 .bytes_start_array
                 .lock()
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            let bytes_start = bytes_start_array.byte_start().as_mut().unwrap();
-            length = bytes_start.len();
+            length = bytes_start_array.len()?;
             // Resolve hash conflicts
-            while e != -1 && bytes_start[e as usize] != offset {
+            while e != -1 && bytes_start_array.get_value(e as usize)? != offset {
                 code += 1;
                 hash_pos = code & self.hash_mask;
                 e = self.ids[hash_pos as usize];
@@ -379,20 +378,19 @@ impl BytesRefHash {
                 let mut bytes_start_array = self.bytes_start_array.lock().map_err(|_| {
                     LuceneError::illegal_state("Failed to acquire lock.".to_string())
                 })?;
-                if self.count >= length as i32 {
+                if self.count as usize >= length {
                     bytes_start_array.grow()?;
                     debug_assert!(
-                        self.count
-                            < bytes_start_array.byte_start().as_ref().unwrap().len() as i32 + 1,
+                        self.count < bytes_start_array.len()? as i32 + 1,
                         "count: {}, len: {}",
                         self.count,
-                        bytes_start_array.byte_start().as_ref().unwrap().len()
+                        bytes_start_array.len()?
                     );
                 }
 
                 e = self.count;
                 self.count += 1;
-                bytes_start_array.byte_start().as_mut().unwrap()[e as usize] = offset;
+                bytes_start_array.set_value(e as usize, offset)?;
 
                 assert_eq!(self.ids[hash_pos as usize], -1);
                 self.ids[hash_pos as usize] = e;
@@ -416,18 +414,17 @@ impl BytesRefHash {
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
             .add_and_get(0);
         let mut new_hash = vec![-1; new_size as usize];
-        let mut bytes_start_array = self
+        let bytes_start_array = self
             .bytes_start_array
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let bytes_start = bytes_start_array.byte_start().as_ref().unwrap();
         for i in 0..self.hash_size {
             let e0 = self.ids[i as usize];
             if e0 != -1 {
                 let code = if hash_on_data {
-                    self.pool.hash(bytes_start[e0 as usize])?
+                    self.pool.hash(bytes_start_array.get_value(e0 as usize)?)?
                 } else {
-                    bytes_start[e0 as usize]
+                    bytes_start_array.get_value(e0 as usize)?
                 };
 
                 let mut hash_pos = code & new_mask;
@@ -469,8 +466,8 @@ impl BytesRefHash {
             .bytes_start_array
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        if bytes_start_array.byte_start().is_none() {
-            bytes_start_array.init();
+        if bytes_start_array.len()? == 0 {
+            bytes_start_array.init()?;
         }
 
         if self.ids.is_empty() {
@@ -495,16 +492,16 @@ impl BytesRefHash {
     /// The `bytesStart` offset into the internally used `ByteBlockPool` for the given ID.
     #[cfg(feature = "test_only")]
     pub fn byte_start(&self, bytes_id: i32) -> Result<i32, LuceneError> {
-        let mut bytes_start_array = self
+        let bytes_start_array = self
             .bytes_start_array
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         debug_assert!(
-            bytes_start_array.byte_start().is_some(),
+            bytes_start_array.len()? > 0,
             "bytes_start is null - not initialized"
         );
         debug_assert!(bytes_id >= 0 || bytes_id < self.count);
-        Ok(bytes_start_array.byte_start().as_ref().unwrap()[bytes_id as usize])
+        bytes_start_array.get_value(bytes_id as usize)
     }
 }
 impl Accountable for BytesRefHash {
@@ -617,12 +614,11 @@ impl StringSorterBase for StringSorterImpl<'_> {
         result: &mut BytesRef,
         i: i32,
     ) -> Result<(), LuceneError> {
-        let mut bytes_start_array = self
+        let bytes_start_array = self
             .bytes_start_array
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let start =
-            bytes_start_array.byte_start().as_ref().unwrap()[self.compact[i as usize] as usize];
+        let start = bytes_start_array.get_value(self.compact[i as usize] as usize)?;
         self.pool.fill_bytes_ref(result, start)?;
         Ok(())
     }
@@ -639,12 +635,13 @@ impl StringSorterBase for StringSorterImpl<'_> {
 }
 
 /// Manages allocation of the per-term addresses.
+#[allow(clippy::len_without_is_empty)]
 pub trait BytesStartArray {
     /// Initializes the BytesStartArray. This call will allocate memory.
     ///
     /// # Returns
     /// The initialized bytes start array.
-    fn init(&mut self) -> &Vec<i32>;
+    fn init(&mut self) -> Result<(), LuceneError>;
 
     /// Grows the [`BytesStartArray`].
     ///
@@ -664,12 +661,14 @@ pub trait BytesStartArray {
     /// # Returns
     /// A reference holding the number of bytes used by this `BytesStartArray`.
     fn bytes_used(&mut self) -> Arc<Mutex<CounterEnum>>;
-    fn byte_start(&mut self) -> &mut Option<Vec<i32>>;
+    fn get_value(&self, index: usize) -> Result<i32, LuceneError>;
+    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError>;
+    fn len(&self) -> Result<usize, LuceneError>;
 }
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private `Counter` instance.
 pub struct DirectBytesStartArray {
     init_size: i32,
-    bytes_start: Option<Vec<i32>>,
+    bytes_start: Vec<i32>,
     bytes_used: Arc<Mutex<CounterEnum>>,
 }
 
@@ -677,7 +676,7 @@ impl DirectBytesStartArray {
     pub fn with_counter(init_size: i32, counter: Arc<Mutex<CounterEnum>>) -> Self {
         DirectBytesStartArray {
             init_size,
-            bytes_start: None,
+            bytes_start: vec![],
             bytes_used: counter,
         }
     }
@@ -689,23 +688,20 @@ impl DirectBytesStartArray {
     }
 }
 impl BytesStartArray for DirectBytesStartArray {
-    fn init(&mut self) -> &Vec<i32> {
-        self.bytes_start = Some(vec![
-            0;
-            ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES as i32)
-                as usize
-        ]);
-        self.bytes_start.as_ref().unwrap()
+    fn init(&mut self) -> Result<(), LuceneError> {
+        self.bytes_start =
+            vec![0; ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES as i32) as usize];
+        Ok(())
     }
 
     fn grow(&mut self) -> Result<(), LuceneError> {
-        debug_assert!(self.bytes_start.is_some());
-        let length = self.bytes_start.as_ref().unwrap().len() as i32;
-        ArrayUtil::grow_i32(self.bytes_start.as_mut().unwrap(), length + 1)
+        debug_assert!(!self.bytes_start.is_empty());
+        let length = self.bytes_start.len() as i32;
+        ArrayUtil::grow_i32(&mut self.bytes_start, length + 1)
     }
 
     fn clear(&mut self) -> Result<(), LuceneError> {
-        self.bytes_start = None;
+        self.bytes_start.clear();
         Ok(())
     }
 
@@ -713,22 +709,29 @@ impl BytesStartArray for DirectBytesStartArray {
         self.bytes_used.clone()
     }
 
-    fn byte_start(&mut self) -> &mut Option<Vec<i32>> {
-        &mut self.bytes_start
+    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
+        Ok(self.bytes_start[index])
+    }
+
+    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
+        self.bytes_start[index] = value;
+        Ok(())
+    }
+
+    fn len(&self) -> Result<usize, LuceneError> {
+        Ok(self.bytes_start.len())
     }
 }
 
 pub enum BytesStartArrayEnum {
     Direct(DirectBytesStartArray),
     Postings(PostingsBytesStartArray),
-    Dummy(DummyBytesStartArray),
 }
 impl BytesStartArray for BytesStartArrayEnum {
-    fn init(&mut self) -> &Vec<i32> {
+    fn init(&mut self) -> Result<(), LuceneError> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.init(),
             BytesStartArrayEnum::Postings(p) => p.init(),
-            BytesStartArrayEnum::Dummy(d) => d.init(),
         }
     }
 
@@ -736,7 +739,6 @@ impl BytesStartArray for BytesStartArrayEnum {
         match self {
             BytesStartArrayEnum::Direct(d) => d.grow(),
             BytesStartArrayEnum::Postings(p) => p.grow(),
-            BytesStartArrayEnum::Dummy(d) => d.grow(),
         }
     }
 
@@ -744,7 +746,6 @@ impl BytesStartArray for BytesStartArrayEnum {
         match self {
             BytesStartArrayEnum::Direct(d) => d.clear(),
             BytesStartArrayEnum::Postings(p) => p.clear(),
-            BytesStartArrayEnum::Dummy(d) => d.clear(),
         }
     }
 
@@ -752,18 +753,31 @@ impl BytesStartArray for BytesStartArrayEnum {
         match self {
             BytesStartArrayEnum::Direct(d) => d.bytes_used(),
             BytesStartArrayEnum::Postings(p) => p.bytes_used(),
-            BytesStartArrayEnum::Dummy(d) => d.bytes_used(),
         }
     }
 
-    fn byte_start(&mut self) -> &mut Option<Vec<i32>> {
+    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
         match self {
-            BytesStartArrayEnum::Direct(d) => d.byte_start(),
-            BytesStartArrayEnum::Postings(p) => p.byte_start(),
-            BytesStartArrayEnum::Dummy(d) => d.byte_start(),
+            BytesStartArrayEnum::Direct(d) => d.get_value(index),
+            BytesStartArrayEnum::Postings(p) => p.get_value(index),
+        }
+    }
+
+    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
+        match self {
+            BytesStartArrayEnum::Direct(d) => d.set_value(index, value),
+            BytesStartArrayEnum::Postings(p) => p.set_value(index, value),
+        }
+    }
+
+    fn len(&self) -> Result<usize, LuceneError> {
+        match self {
+            BytesStartArrayEnum::Direct(d) => d.len(),
+            BytesStartArrayEnum::Postings(p) => p.len(),
         }
     }
 }
+
 /// # Note
 /// In Java Lucene, BytesRefHash uses MSBStringRadixSorter. Due to language limitations,
 /// a new MSBStringHashRadixSorter is currently being used.
@@ -1014,7 +1028,7 @@ mod tests {
             assert_eq!(num_entries as usize, bits.len());
             assert_eq!(num_entries, hash.size());
 
-            let compact = hash.compact();
+            let compact = hash.compact()?;
             assert!(num_entries < compact.len() as i32);
 
             for &id in compact {

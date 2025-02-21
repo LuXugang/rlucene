@@ -15,62 +15,30 @@
  * limitations under the License.
  */
 use crate::document::fields::Fields;
+use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
-use crate::index::terms_hash_per_field::TermsHashPerFieldBase;
-use crate::index::BytesRef;
+use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::util::bit_util::BitUtil;
-use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::VecCopyOps;
 
-pub(crate) struct FreqProxTermsWriterPerField;
+pub(crate) struct FreqProxTermsWriterPerField {
+    pub(crate) parent_per_field: TermsHashPerField,
+    pub(crate) postings_array: Option<PostingsArrayEnum>,
+}
 impl FreqProxTermsWriterPerField {}
 impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
-    fn reset(&mut self, bytes_hash: &mut BytesRefHash) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn reinit_hash(&mut self, bytes_hash: &mut BytesRefHash) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn add_with_text_start(
-        &mut self,
-        bytes_hash: &mut BytesRefHash,
-        text_start: i32,
-        doc_id: i32,
-        postings_array: &mut PostingsArrayEnum,
-    ) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn add_with_bytes_ref(
-        &mut self,
-        bytes_hash: &mut BytesRefHash,
-        term_bytes: &BytesRef,
-        doc_id: i32,
-        postings_array: &mut PostingsArrayEnum,
-    ) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn init_stream_slices(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        postings_array: &mut PostingsArrayEnum,
-    ) -> Result<(), LuceneError> {
+    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+        self.parent_per_field.init_stream_slices(term_id, doc_id)?;
         self.new_term(term_id, doc_id)
     }
 
-    fn position_stream_slice(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        postings_array_enum: &mut PostingsArrayEnum,
-    ) -> Result<i32, LuceneError> {
+    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
+        let term_id = self
+            .parent_per_field
+            .position_stream_slice(term_id, doc_id)?;
         self.add_term(term_id, doc_id)?;
         Ok(term_id)
     }
@@ -91,7 +59,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         todo!()
     }
 
-    fn create_postings_array(&self, size: usize) -> Result<PostingsArrayEnum, LuceneError> {
+    fn create_postings_array(&self, size: i32) -> Result<PostingsArrayEnum, LuceneError> {
         todo!()
     }
 
@@ -101,18 +69,17 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
 }
 
 pub(crate) struct FreqProxPostingsArray {
-    size: i32,
-    term_freqs: Option<Vec<i32>>, // # times this term occurs in the current doc
-    last_doc_ids: Vec<i32>,       // Last docID where this term occurred
-    last_doc_codes: Vec<i32>,     // Code for prior doc
-    last_positions: Option<Vec<i32>>, // Last position where this term occurred
-    last_offsets: Option<Vec<i32>>, // Last endOffset where this term occurred
+    pub(crate) size: i32,
+    pub(crate) term_freqs: Option<Vec<i32>>, // # times this term occurs in the current doc
+    pub(crate) last_doc_ids: Vec<i32>,       // Last docID where this term occurred
+    pub(crate) last_doc_codes: Vec<i32>,     // Code for prior doc
+    last_positions: Option<Vec<i32>>,        // Last position where this term occurred
+    last_offsets: Option<Vec<i32>>,          // Last endOffset where this term occurred
     pub(crate) parent_postings_array: ParallelPostingsArray,
 }
-
 impl FreqProxPostingsArray {
     // Constructor for FreqProxPostingsArray
-    pub fn new(size: i32, write_freqs: bool, write_prox: bool, write_offsets: bool) -> Self {
+    pub(crate) fn new(size: i32, write_freqs: bool, write_prox: bool, write_offsets: bool) -> Self {
         let vec_size = size as usize;
         let mut term_freqs = None;
         if write_freqs {
@@ -172,13 +139,13 @@ impl PostingsArrayBase for FreqProxPostingsArray {
         if let PostingsArrayEnum::FreqProx(to) = to_array {
             let num_to_copy = num_to_copy as usize;
             to.last_doc_ids
-                .copy_from(&self.last_doc_ids[..num_to_copy], num_to_copy);
+                .copy_from(&self.last_doc_ids[..num_to_copy], 0);
             to.last_doc_codes
-                .copy_from(&self.last_doc_codes[..num_to_copy], num_to_copy);
+                .copy_from(&self.last_doc_codes[..num_to_copy], 0);
 
             if let Some(ref last_positions) = self.last_positions {
                 if let Some(ref mut to_positions) = to.last_positions {
-                    to_positions.copy_from(&last_positions[..num_to_copy], num_to_copy);
+                    to_positions.copy_from(&last_positions[..num_to_copy], 0);
                 } else {
                     debug_assert!(false, "should never happen");
                 }
@@ -186,7 +153,7 @@ impl PostingsArrayBase for FreqProxPostingsArray {
 
             if let Some(ref last_offsets) = self.last_offsets {
                 if let Some(ref mut to_offsets) = to.last_offsets {
-                    to_offsets.copy_from(&last_offsets[..num_to_copy], num_to_copy);
+                    to_offsets.copy_from(&last_offsets[..num_to_copy], 0);
                 } else {
                     debug_assert!(false, "should never happen");
                 }
@@ -194,7 +161,7 @@ impl PostingsArrayBase for FreqProxPostingsArray {
 
             if let Some(ref term_freqs) = self.term_freqs {
                 if let Some(ref mut to_term_freqs) = to.term_freqs {
-                    to_term_freqs.copy_from(&term_freqs[..num_to_copy], num_to_copy);
+                    to_term_freqs.copy_from(&term_freqs[..num_to_copy], 0);
                 } else {
                     debug_assert!(false, "should never happen");
                 }
@@ -202,5 +169,14 @@ impl PostingsArrayBase for FreqProxPostingsArray {
         } else {
             debug_assert!(false, "should never happen");
         }
+    }
+}
+
+pub(crate) struct FreqProx {
+    pub(crate) index_options: IndexOptions,
+}
+impl FreqProx {
+    pub fn new(index_options: IndexOptions) -> Self {
+        FreqProx { index_options }
     }
 }

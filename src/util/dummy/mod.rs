@@ -14,6 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_bytes_start_array;
 pub mod dummy_counter;
 pub mod dummy_read;
