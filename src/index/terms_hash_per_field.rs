@@ -452,16 +452,20 @@ pub(crate) trait TermsHashPerFieldBase {
     /// In rust Lucene, we do not need to init new postings array
     /// But we still keep this method for consistent with the original Java code
     #[allow(dead_code)]
-    fn new_postings_array(&mut self) -> Result<(), LuceneError>{
-        Err(LuceneError::not_implemented("should nerve called".to_string()))
+    fn new_postings_array(&mut self) -> Result<(), LuceneError> {
+        Err(LuceneError::not_implemented(
+            "should nerve called".to_string(),
+        ))
     }
     /// Creates a new postings array of the specified size.
     /// # Note
     /// In rust Lucene, we do not need to init new postings array
     /// But we still keep this method for consistent with the original Java code
     #[allow(dead_code)]
-    fn create_postings_array(&self, _size: i32) -> Result<PostingsArrayEnum, LuceneError>{
-        Err(LuceneError::not_implemented("should nerve called".to_string()))
+    fn create_postings_array(&self, _size: i32) -> Result<PostingsArrayEnum, LuceneError> {
+        Err(LuceneError::not_implemented(
+            "should nerve called".to_string(),
+        ))
     }
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self) -> Result<(), LuceneError>;
@@ -782,7 +786,6 @@ mod tests {
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
     use crate::index::byte_slice_reader::ByteSliceReader;
-    
 
     use crate::index::parallel_postings_array::PostingsArrayEnum;
     use crate::index::terms_hash_per_field::{
