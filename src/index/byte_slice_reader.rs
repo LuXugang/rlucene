@@ -19,11 +19,12 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::ByteBlockPool;
+use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 
 pub(crate) struct ByteSliceReader {
-    pool: Option<Arc<Mutex<ByteBlockPool>>>,
+    pool: Option<Rc<RefCell<ByteBlockPool>>>,
     buffer_upto: i32,
     upto: i32,
     limit: i32,
@@ -31,6 +32,7 @@ pub(crate) struct ByteSliceReader {
     buffer_offset: i32,
     end_index: i32,
 }
+#[allow(unused)]
 impl ByteSliceReader {
     pub(crate) fn new() -> Self {
         ByteSliceReader {
@@ -45,10 +47,10 @@ impl ByteSliceReader {
     }
     pub(crate) fn init(
         &mut self,
-        pool: Arc<Mutex<ByteBlockPool>>,
+        pool: Rc<RefCell<ByteBlockPool>>,
         start_index: i32,
         end_index: i32,
-    ) -> Result<(), LuceneError> {
+    ) {
         debug_assert!(end_index - start_index >= 0);
         debug_assert!(start_index >= 0);
         debug_assert!(end_index >= 0);
@@ -68,7 +70,6 @@ impl ByteSliceReader {
         } else {
             self.limit = self.upto + first_size - 4;
         }
-        Ok(())
     }
 
     pub(crate) fn eof(&self) -> bool {
@@ -77,33 +78,22 @@ impl ByteSliceReader {
     }
     /// # Note
     /// not used in Java Lucene, so it is not implemented here
-    pub(crate) fn write<D: DataOutput>(&self, _out: &mut D) -> Result<i64, LuceneError> {
-        Ok(0)
+    pub(crate) fn write<D: DataOutput>(&self, _out: &mut D) -> i64 {
+        0
     }
 
-    pub(crate) fn next_slice(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn next_slice(&mut self) {
         // Skip to our next slice
-        let next_index;
-        let new_size;
-        match &self.pool {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "pool should not be None".to_string(),
-                ));
-            }
-            Some(pool_guard) => {
-                let mut pool = pool_guard.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
-                let buffer = pool.get_buffer(self.buffer_upto);
-                next_index = BitUtil::get_i32_le(buffer, self.limit as usize);
-                self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level as usize];
-                new_size = ByteSlicePool::LEVEL_SIZE_ARRAY[self.level as usize];
 
-                self.buffer_upto = next_index / ByteBlockPool::BYTE_BLOCK_SIZE;
-                self.buffer_offset = self.buffer_upto * ByteBlockPool::BYTE_BLOCK_SIZE;
-            }
-        }
+        debug_assert!(self.pool.is_some());
+        let mut pool = self.pool.as_ref().unwrap().borrow_mut();
+        let buffer = pool.get_buffer(self.buffer_upto);
+        let next_index = BitUtil::get_i32_le(buffer, self.limit as usize);
+        self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level as usize];
+        let new_size = ByteSlicePool::LEVEL_SIZE_ARRAY[self.level as usize];
+
+        self.buffer_upto = next_index / ByteBlockPool::BYTE_BLOCK_SIZE;
+        self.buffer_offset = self.buffer_upto * ByteBlockPool::BYTE_BLOCK_SIZE;
 
         self.upto = next_index & ByteBlockPool::BYTE_BLOCK_MASK;
 
@@ -115,7 +105,6 @@ impl ByteSliceReader {
             // This is not the final slice (subtract 4 for the forwarding address at the end of this new slice)
             self.limit = self.upto + new_size - 4;
         }
-        Ok(())
     }
 }
 
@@ -130,15 +119,10 @@ impl DataInput for ByteSliceReader {
         debug_assert!(!self.eof());
         debug_assert!(self.upto <= self.limit);
         if self.upto == self.limit {
-            self.next_slice()?;
+            self.next_slice();
         }
         debug_assert!(self.pool.is_some());
-        let mut pool = self
-            .pool
-            .as_ref()
-            .unwrap()
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut pool = self.pool.as_ref().unwrap().borrow_mut();
         let byte = pool.get_buffer(self.buffer_upto)[self.upto as usize];
         self.upto += 1;
         Ok(byte)
@@ -152,9 +136,7 @@ impl DataInput for ByteSliceReader {
             if num_left < len {
                 // Read entire slice
                 {
-                    let mut pool = self.pool.as_ref().unwrap().lock().map_err(|_| {
-                        LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                    })?;
+                    let mut pool = self.pool.as_ref().unwrap().borrow_mut();
                     let buffer = pool.get_buffer(self.buffer_upto);
                     b[offset..offset + num_left as usize].copy_from_slice(
                         &buffer[self.upto as usize..self.upto as usize + num_left as usize],
@@ -162,11 +144,9 @@ impl DataInput for ByteSliceReader {
                 }
                 offset += num_left as usize;
                 len -= num_left;
-                self.next_slice()?;
+                self.next_slice();
             } else {
-                let mut pool = self.pool.as_ref().unwrap().lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
+                let mut pool = self.pool.as_ref().unwrap().borrow_mut();
                 // This slice is the last one
                 let buffer = pool.get_buffer(self.buffer_upto);
                 b[offset..offset + len as usize]
@@ -188,7 +168,7 @@ impl DataInput for ByteSliceReader {
             let num_left = (self.limit - self.upto) as i64;
             if num_left < num_bytes {
                 num_bytes -= num_left;
-                self.next_slice()?;
+                self.next_slice();
             } else {
                 debug_assert!(num_bytes <= i32::MAX as i64);
                 self.upto += num_bytes as i32;
@@ -207,38 +187,41 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     use crate::util::{AllocatorByteEnum, ByteBlockPool, DirectAllocatorByte};
     use rand::rngs::StdRng;
     use rand::Rng;
-    use std::sync::{Arc, Mutex};
+
     #[allow(dead_code)] // for quick search
     struct TestByteSliceReader;
 
+    #[allow(clippy::type_complexity)]
     pub fn before_class(
         random: &mut StdRng,
-    ) -> Result<(Vec<u8>, Arc<Mutex<ByteBlockPool>>, i32), LuceneError> {
+    ) -> Result<(Vec<u8>, Rc<RefCell<ByteBlockPool>>, i32), LuceneError> {
         let len = 100; // You can adjust this value if needed
         let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
-        let allocator = Arc::new(Mutex::new(
-            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
-        ));
-        let block_pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
-        block_pool.lock().unwrap().next_buffer()?;
+        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
+            DirectAllocatorByte::new(),
+        )));
+        let block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
+        block_pool.borrow_mut().next_buffer()?;
 
         let mut slice_pool = ByteSlicePool::new(block_pool.clone());
-        let mut buffer_upto = block_pool.lock().unwrap().buffer_upto;
+        let mut buffer_upto = block_pool.borrow().buffer_upto;
         let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE)?;
         for &random_byte in random_data.iter() {
-            let mut pool_guard = block_pool.lock().unwrap();
+            let mut pool_guard = block_pool.borrow_mut();
             let mut buffer = pool_guard.get_buffer(buffer_upto);
             let value = buffer[upto as usize];
             drop(pool_guard);
             if (value & 16) != 0 {
                 upto = slice_pool.alloc_slice(buffer_upto, upto)?;
             }
-            pool_guard = block_pool.lock().unwrap();
+            pool_guard = block_pool.borrow_mut();
             buffer_upto = pool_guard.buffer_upto;
             buffer = pool_guard.get_buffer(buffer_upto);
             buffer[upto as usize] = random_byte;
@@ -252,7 +235,7 @@ mod tests {
         let mut random = random();
         let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
         let mut reader = ByteSliceReader::new();
-        reader.init(block_pool.clone(), 0, block_pool_end)?;
+        reader.init(block_pool.clone(), 0, block_pool_end);
         for &expected in random_data.iter() {
             let byte = reader.read_byte()?;
             assert_eq!(byte, expected);
@@ -267,7 +250,7 @@ mod tests {
         let max_skip_to = random_data.len() as i32 - 1;
         let iterations = at_least(&mut random, 10);
         for _ in 0..iterations {
-            slice_reader.init(block_pool.clone(), 0, block_pool_end)?;
+            slice_reader.init(block_pool.clone(), 0, block_pool_end);
             // Skip random chunks of bytes until exhausted
             let mut curr = 0;
             while curr < max_skip_to {

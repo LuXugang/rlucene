@@ -18,6 +18,8 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::error::lucene_error::LuceneError;
@@ -26,7 +28,6 @@ use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorterBase,
     Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase,
 };
-use std::sync::{Arc, Mutex};
 
 /// A simple append-only random-access array that stores full copies of the appended
 /// bytes in a [`ByteBlockPool`].
@@ -41,19 +42,18 @@ pub struct BytesRefArray {
     offsets: Vec<i32>,
     last_element: i32,
     current_offset: i32,
-    byte_used: Arc<Mutex<CounterEnum>>,
+    byte_used: Rc<RefCell<CounterEnum>>,
 }
 impl BytesRefArray {
-    pub fn new(byte_used: Arc<Mutex<CounterEnum>>) -> Result<BytesRefArray, LuceneError> {
-        let allocator = Arc::new(Mutex::new(
-            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
-        ));
+    pub fn new(byte_used: Rc<RefCell<CounterEnum>>) -> Result<BytesRefArray, LuceneError> {
+        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
+            DirectAllocatorByte::new(),
+        )));
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
         let offsets = Vec::new();
         byte_used
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+            .borrow_mut()
             .add_and_get(BitUtil::INT_BYTES as i64);
         Ok(BytesRefArray {
             pool,
@@ -169,7 +169,7 @@ impl BytesRefArray {
         Ok(SortState::new(Some(ordered_entries)))
     }
     pub fn iterator(&self) -> IndexedBytesRefIteratorImpl {
-        self.iterator_with_state(Arc::from(SortState::new(None)))
+        self.iterator_with_state(Rc::from(SortState::new(None)))
     }
     /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
     /// The iterator provides access to all [`BytesRef`] instances appended so far.
@@ -184,7 +184,7 @@ impl BytesRefArray {
     /// [`IndexedBytesRefIterator`]
     ///
     /// [`BytesRef`]
-    pub fn iterator_with_state(&self, sort_state: Arc<SortState>) -> IndexedBytesRefIteratorImpl {
+    pub fn iterator_with_state(&self, sort_state: Rc<SortState>) -> IndexedBytesRefIteratorImpl {
         IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
@@ -206,18 +206,16 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         self.last_element += 1;
         self.current_offset += bytes.length;
         self.byte_used
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+            .borrow_mut()
             .add_and_get(BitUtil::INT_BYTES as i64);
         Ok(self.last_element - 1)
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) {
         self.last_element = 0;
         self.current_offset = 0;
         self.offsets.clear();
-        self.pool.reset(false, true)?; // no need to 0 fill the buffers we control the allocator
-        Ok(())
+        self.pool.reset(false, true); // no need to 0 fill the buffers we control the allocator
     }
 
     fn size(&self) -> i32 {
@@ -239,7 +237,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         comp: impl BytesRefComparator + Comparator<BytesRef>,
     ) -> Result<Self::Iter, LuceneError> {
         let ords = self.sort(comp, false)?;
-        Ok(self.iterator_with_state(Arc::from(ords)))
+        Ok(self.iterator_with_state(Rc::from(ords)))
     }
 }
 
@@ -261,14 +259,14 @@ impl Accountable for SortState {
 pub struct IndexedBytesRefIteratorImpl<'a> {
     pos: i32,
     ord: i32,
-    sort_state: Arc<SortState>,
+    sort_state: Rc<SortState>,
     spare: BytesRefBuilder,
     size: i32,
     bytes_ref_array: &'a BytesRefArray,
 }
 impl<'a> IndexedBytesRefIteratorImpl<'a> {
     fn new(
-        sort_state: Arc<SortState>,
+        sort_state: Rc<SortState>,
         bytes_ref_array: &'a BytesRefArray,
     ) -> IndexedBytesRefIteratorImpl<'a> {
         Self {
@@ -379,26 +377,27 @@ impl StringSorterBase for StringSorterImpl<'_> {
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::{BytesRefArray, CounterEnum, Natural, NaturalOrder, SortableBytesRefArray};
     use rand::Rng;
-    use std::sync::{Arc, Mutex};
 
     #[allow(dead_code)] // for quick search
     struct TestBytesRefArray;
     #[test]
     fn test_append() -> Result<(), LuceneError> {
         let mut random = random();
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let mut list = BytesRefArray::new(counter)?;
         let mut string_list = Vec::new();
 
         for j in 0..2 {
             if j > 0 && random.random_bool(0.5) {
-                list.clear()?;
+                list.clear();
                 string_list.clear();
             }
 
@@ -449,13 +448,13 @@ mod tests {
     #[test]
     fn test_sort() -> Result<(), LuceneError> {
         let mut random = random();
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let mut list = BytesRefArray::new(counter)?;
         let mut string_list = Vec::new();
 
         for j in 0..5 {
             if j > 0 && random.random_bool(0.5) {
-                list.clear()?;
+                list.clear();
                 string_list.clear();
             }
 
@@ -518,14 +517,14 @@ mod tests {
     fn test_stable_sort() -> Result<(), LuceneError> {
         let mut random = random();
 
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let mut list = BytesRefArray::new(counter)?;
 
         let mut string_list = Vec::new();
 
         for j in 0..5 {
             if j > 0 && random.random_bool(0.5) {
-                list.clear()?;
+                list.clear();
                 string_list.clear();
             }
 
@@ -553,7 +552,7 @@ mod tests {
             } else {
                 list.sort(Natural::default(), true)?
             };
-            let mut iter = list.iterator_with_state(Arc::new(sort_state));
+            let mut iter = list.iterator_with_state(Rc::new(sort_state));
             let mut i = 0;
             let mut last_ord = -1;
             let mut last: Option<BytesRef> = None;

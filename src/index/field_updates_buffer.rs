@@ -29,8 +29,9 @@ use crate::util::{
     BytesRefArray, Counter, CounterEnum, IndexedBytesRefIteratorImpl, NaturalOrder, SortState,
     SortableBytesRefArray,
 };
+use std::cell::RefCell;
 use std::cmp::{max, min, Ordering};
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 
 /// This struct efficiently buffers numeric and binary field updates and stores terms, values, and
 /// metadata in a memory-efficient way without creating large amounts of objects.
@@ -44,7 +45,7 @@ use std::sync::{Arc, Mutex};
 /// Along the same lines, this implementation optimizes the case when all updates have a value.
 /// Lastly, if all updates share the same value for a numeric field, we only store the value once.
 pub(crate) struct FieldUpdatesBuffer {
-    bytes_used: Arc<Mutex<CounterEnum>>,
+    bytes_used: Rc<RefCell<CounterEnum>>,
     num_updates: i32,
     // we use a very simple approach and store the update term values without de-duplication
     // which is also not a common case to keep updating the same value more than once...
@@ -52,7 +53,7 @@ pub(crate) struct FieldUpdatesBuffer {
     // on CPU for those. We also use a stable sort to sort to apply the terms in order
     // since by definition we store them in order.
     term_values: BytesRefArray,
-    term_sort_state: Arc<SortState>,
+    term_sort_state: Rc<SortState>,
     byte_values: Option<BytesRefArray>, // this will be null if we are buffering numerics
     docs_up_to: Vec<i32>,
     numeric_values: Option<Vec<i64>>, // this will be null if we are buffering binaries
@@ -70,7 +71,7 @@ impl FieldUpdatesBuffer {
     #[allow(unused)]
     const STRING_SHALLOW_SIZE: i64 = 0;
     fn new(
-        bytes_used: Arc<Mutex<CounterEnum>>,
+        bytes_used: Rc<RefCell<CounterEnum>>,
         initial_value: &DocValuesUpdate,
         doc_upto: i32,
         is_numeric: bool,
@@ -81,9 +82,7 @@ impl FieldUpdatesBuffer {
             None
         };
         {
-            let mut bytes_used_guard = bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let mut bytes_used_guard = bytes_used.borrow_mut();
             bytes_used_guard.add_and_get(Self::size_of_string(&initial_value.term.field));
             if !initial_value.has_value {
                 bytes_used_guard.add_and_get(has_values.as_ref().unwrap().ram_bytes_used());
@@ -93,7 +92,7 @@ impl FieldUpdatesBuffer {
             bytes_used: bytes_used.clone(),
             num_updates: 1,
             term_values: BytesRefArray::new(bytes_used.clone())?,
-            term_sort_state: Arc::new(SortState::new(None)),
+            term_sort_state: Rc::new(SortState::new(None)),
             byte_values: if is_numeric {
                 None
             } else {
@@ -113,7 +112,7 @@ impl FieldUpdatesBuffer {
         Ok(buffer)
     }
     pub(crate) fn from_numeric_update(
-        bytes_used: Arc<Mutex<CounterEnum>>,
+        bytes_used: Rc<RefCell<CounterEnum>>,
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
     ) -> Result<Self, LuceneError> {
@@ -135,15 +134,14 @@ impl FieldUpdatesBuffer {
         {
             let mut bytes_used_guard = buffer
                 .bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            bytes_used_guard.add_and_get(BitUtil::LONG_BYTES as i64);
+                .borrow_mut()
+                .add_and_get(BitUtil::LONG_BYTES as i64);
         }
         Ok(buffer)
     }
 
     pub(crate) fn from_binary_update(
-        bytes_used: Arc<Mutex<CounterEnum>>,
+        bytes_used: Rc<RefCell<CounterEnum>>,
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
     ) -> Result<Self, LuceneError> {
@@ -203,16 +201,10 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                self.bytes_used
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                    .add_and_get(0);
+                self.bytes_used.borrow_mut().add_and_get(0);
             }
             if self.fields[0] != field {
-                self.bytes_used
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                    .add_and_get(field.len() as i64);
+                self.bytes_used.borrow_mut().add_and_get(field.len() as i64);
             }
             self.fields[ord as usize] = field;
         }
@@ -227,10 +219,7 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                self.bytes_used
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                    .add_and_get(0);
+                self.bytes_used.borrow_mut().add_and_get(0);
             }
             self.docs_up_to[ord as usize] = doc_upto;
         }
@@ -240,18 +229,14 @@ impl FieldUpdatesBuffer {
                 let mut new_bitset = FixedBitSet::new(ord + 1);
                 new_bitset.set_with_range(0, ord);
                 self.bytes_used
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+                    .borrow_mut()
                     .add_and_get(new_bitset.ram_bytes_used());
                 self.has_values = Some(new_bitset);
             } else if self.has_values.as_ref().unwrap().length() <= ord {
                 let bitset = self.has_values.as_mut().unwrap();
                 FixedBitSet::ensure_capacity(bitset, ord + 1)?;
                 // TODO: memory calculation not implemented
-                self.bytes_used
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                    .add_and_get(0);
+                self.bytes_used.borrow_mut().add_and_get(0);
             }
             if has_value {
                 self.has_values.as_mut().unwrap().set(ord);
@@ -282,10 +267,7 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                self.bytes_used
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                    .add_and_get(0);
+                self.bytes_used.borrow_mut().add_and_get(0);
             }
             numeric_values[ord as usize] = value;
         }
@@ -326,13 +308,10 @@ impl FieldUpdatesBuffer {
         let sorted_terms =
             self.has_single_value() && self.has_values.is_none() && self.fields.len() == 1;
         if sorted_terms {
-            self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder::default(), true)?);
+            self.term_sort_state = Rc::new(self.term_values.sort(NaturalOrder::default(), true)?);
             debug_assert!(self.assert_term_and_doc_in_order());
             // TODO: memory calculation not implemented
-            self.bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .add_and_get(0);
+            self.bytes_used.borrow_mut().add_and_get(0);
         }
 
         Ok(())
@@ -617,6 +596,7 @@ mod tests {
     use crate::index::term::Term;
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::{random, rarely};
+    use std::cell::RefCell;
 
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
@@ -624,14 +604,14 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::collections::BTreeMap;
-    use std::sync::{Arc, Mutex};
+    use std::rc::Rc;
 
     #[allow(dead_code)] // for quick search
     pub struct TestFieldUpdatesBuffer;
 
     #[test]
     pub fn test_basics() -> Result<(), LuceneError> {
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let update = DocValuesUpdate::new(
             DocValuesType::Numeric,
             Term::from_text("id".to_string(), "1"),
@@ -699,7 +679,7 @@ mod tests {
     #[test]
     fn test_update_share_values() -> Result<(), LuceneError> {
         let mut random = random();
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let int_value = random.random::<i32>();
         let value_for_three = random.random_bool(0.5);
         let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(
@@ -764,7 +744,7 @@ mod tests {
     #[test]
     pub fn test_update_share_values_binary() -> Result<(), LuceneError> {
         let mut random = random();
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let value_for_three = random.random_bool(0.5);
         let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
             BytesRef::from_string(""),
@@ -892,7 +872,7 @@ mod tests {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
         let mut random_update = get_random_binary_update(&mut random, 0);
         updates.push(random_update.clone());
@@ -949,7 +929,7 @@ mod tests {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
         let mut random_update = get_random_numeric_update(&mut random, 0);
         updates.push(random_update.clone());
@@ -1003,7 +983,7 @@ mod tests {
             DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(None)),
         );
 
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let doc_id_up_to = update.doc_id_up_to;
         let buffer =
             FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, doc_id_up_to)?;
@@ -1018,7 +998,7 @@ mod tests {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
         let term_field = random_from(vec!["id", "_id", "some_other_field"]);
         let doc_value = 1 + random.random_range(0..1000);

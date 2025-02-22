@@ -20,6 +20,7 @@ use crate::util::fst::fst::BytesReader;
 /// Static helper methods for `FST::Arc::BitTable`.
 ///
 /// # Experimental
+#[allow(unused)]
 struct BitTableUtil;
 impl BitTableUtil {
     /// Returns whether the bit at the given zero-based index is set.

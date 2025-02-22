@@ -16,16 +16,17 @@
  */
 use crate::index::terms_hash::TermsHashBase;
 use crate::util::ByteBlockPool;
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub(crate) struct TermVectorsConsumer;
 
 impl TermsHashBase for TermVectorsConsumer {
-    fn get_term_byte_pool(&self) -> Option<Arc<Mutex<ByteBlockPool>>> {
+    fn get_term_byte_pool(&self) -> Option<Rc<RefCell<ByteBlockPool>>> {
         todo!()
     }
 
-    fn set_term_byte_pool(&mut self, term_byte_pool: Option<Arc<Mutex<ByteBlockPool>>>) {
+    fn set_term_byte_pool(&mut self, _term_byte_pool: Option<Rc<RefCell<ByteBlockPool>>>) {
         todo!()
     }
 }

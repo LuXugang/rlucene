@@ -24,7 +24,8 @@ use crate::index::terms_hash_per_field::TermsHashPerFieldMock;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::ByteBlockPool;
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub(crate) enum TermsHashPerFieldEnum {
     TermVectorsConsumer(TermVectorsConsumerPerField),
@@ -33,8 +34,9 @@ pub(crate) enum TermsHashPerFieldEnum {
     Mock(TermsHashPerFieldMock),
 }
 
+#[allow(unused)]
 impl TermsHashPerFieldEnum {
-    pub(crate) fn reset(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn reset(&mut self) {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => inner.parent_per_field.reset(),
             TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => inner.parent_per_field.reset(),
@@ -42,12 +44,7 @@ impl TermsHashPerFieldEnum {
             TermsHashPerFieldEnum::Mock(inner) => inner.parent_per_field.reset(),
         }
     }
-    pub fn init_reader(
-        &self,
-        reader: &mut ByteSliceReader,
-        term_id: i32,
-        stream: i32,
-    ) -> Result<(), LuceneError> {
+    pub fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.init_reader(reader, term_id, stream)
@@ -61,7 +58,7 @@ impl TermsHashPerFieldEnum {
             }
         }
     }
-    fn reinit_hash(&mut self) -> Result<(), LuceneError> {
+    fn reinit_hash(&mut self) {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.reinit_hash()
@@ -120,7 +117,7 @@ impl TermsHashPerFieldEnum {
             TermsHashPerFieldEnum::Mock(inner) => inner.parent_per_field.write_vint(stream, i),
         }
     }
-    pub(crate) fn get_byte_block_pool(&self) -> Arc<Mutex<ByteBlockPool>> {
+    pub(crate) fn get_byte_block_pool(&self) -> Rc<RefCell<ByteBlockPool>> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.parent_per_field.byte_pool.clone(),
             TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.parent_per_field.byte_pool.clone(),
@@ -178,13 +175,8 @@ impl TermsHashPerFieldEnum {
         if parent.do_next_call {
             debug_assert!(parent.next_per_field.is_some());
             if let Some(ref next_per_field) = parent.next_per_field {
-                let mut next_per_field = next_per_field.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
-                let postings_array_wrapper =
-                    parent.postings_array_wrapper.lock().map_err(|_| {
-                        LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                    })?;
+                let mut next_per_field = next_per_field.borrow_mut();
+                let postings_array_wrapper = parent.postings_array_wrapper.borrow_mut();
                 debug_assert!(postings_array_wrapper.postings_array.is_some());
                 let text_start = postings_array_wrapper
                     .postings_array
@@ -248,7 +240,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
         }
     }
 
-    fn finish(&mut self) -> Result<(), LuceneError> {
+    fn finish(&mut self) {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.finish(),
             TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.finish(),

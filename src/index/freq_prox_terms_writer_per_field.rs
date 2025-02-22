@@ -36,9 +36,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     }
 
     fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
-        let term_id = self
-            .parent_per_field
-            .position_stream_slice(term_id, doc_id)?;
+        let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
         self.add_term(term_id, doc_id)?;
         Ok(term_id)
     }
@@ -55,7 +53,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         todo!()
     }
 
-    fn finish(&mut self) -> Result<(), LuceneError> {
+    fn finish(&mut self) {
         todo!()
     }
 }

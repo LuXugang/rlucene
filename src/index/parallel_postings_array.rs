@@ -71,6 +71,7 @@ pub(crate) enum PostingsArrayEnum {
     FreqProx(FreqProxPostingsArray),
     TermVectors(TermVectorsPostingsArray),
 }
+#[allow(unused)]
 impl PostingsArrayEnum {
     pub(crate) fn bytes_per_posting(&self) -> i32 {
         match self {

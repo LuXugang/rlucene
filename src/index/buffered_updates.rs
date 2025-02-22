@@ -26,11 +26,13 @@ use crate::util::byte_block_pool::AllocatorByteEnum;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{ByteBlockPool, Counter, CounterEnum, DirectTrackingAllocatorByte};
+use std::cell::RefCell;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::rc::Rc;
 use std::sync::atomic::AtomicI32;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 //TODO
 #[allow(unused)]
@@ -55,8 +57,8 @@ where
     pub delete_terms: DeletedTerms,
     pub(crate) delete_queries: HashMap<Arc<Q>, i32>,
     pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
-    bytes_used: Arc<Mutex<CounterEnum>>,
-    field_updates_bytes_used: Arc<Mutex<CounterEnum>>,
+    bytes_used: Rc<RefCell<CounterEnum>>,
+    field_updates_bytes_used: Rc<RefCell<CounterEnum>>,
     verbose_deletes: bool,
     gen: i64,
     #[allow(unused)]
@@ -83,28 +85,26 @@ where
             delete_terms: DeletedTerms::new(),
             delete_queries: HashMap::new(),
             field_updates: HashMap::new(),
-            bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
-            field_updates_bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
+            bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
+            field_updates_bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
             verbose_deletes: false,
             gen: 0,
             segment_name,
         }
     }
-    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) -> Result<(), LuceneError> {
+    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) {
         if self
             .delete_queries
             .insert(query.clone(), doc_id_upto)
             .is_none()
         {
             self.bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
+                .borrow_mut()
                 .add_and_get(BYTES_PER_DEL_QUERY);
         }
-        Ok(())
     }
     pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<(), LuceneError> {
-        let current = self.delete_terms.get(term)?;
+        let current = self.delete_terms.get(term);
         if current != -1 && doc_id_upto < current {
             // Only record the new number if it's greater than the
             // current one.
@@ -186,33 +186,25 @@ where
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
-    pub(crate) fn clear_delete_terms(&mut self) -> Result<(), LuceneError> {
-        self.delete_terms.clear()?;
-        Ok(())
+    pub(crate) fn clear_delete_terms(&mut self) {
+        self.delete_terms.clear();
     }
-    pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
-        self.delete_terms.clear()?;
+    pub(crate) fn clear(&mut self) {
+        self.delete_terms.clear();
         self.delete_queries.clear();
         self.num_field_updates
             .store(0, std::sync::atomic::Ordering::SeqCst);
         self.field_updates.clear();
 
         {
-            let mut bytes_used = self
-                .bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let mut bytes_used = self.bytes_used.borrow_mut();
             let used = -bytes_used.get();
             bytes_used.add_and_get(used);
         }
 
-        let mut field_updates_bytes_used = self
-            .field_updates_bytes_used
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut field_updates_bytes_used = self.field_updates_bytes_used.borrow_mut();
         let used = -field_updates_bytes_used.get();
         field_updates_bytes_used.add_and_get(used);
-        Ok(())
     }
     pub(crate) fn any(&self) -> bool {
         self.delete_terms.size() > 0
@@ -246,7 +238,7 @@ where
                 self.delete_terms,
                 self.delete_queries.len(),
                 self.field_updates.len(),
-                self.bytes_used.lock().map_err(|_| fmt::Error)?.get()
+                self.bytes_used.borrow().get()
             )
         } else {
             let mut s = format!("gen={}", self.gen);
@@ -270,7 +262,7 @@ where
                         .load(std::sync::atomic::Ordering::SeqCst)
                 ));
             }
-            let bytes_used = self.bytes_used.lock().map_err(|_| fmt::Error)?.get();
+            let bytes_used = self.bytes_used.borrow().get();
             if bytes_used != 0 {
                 s.push_str(&format!(" bytesUsed={}", bytes_used));
             }
@@ -279,8 +271,8 @@ where
     }
 }
 pub(crate) struct DeletedTerms {
-    bytes_used: Arc<Mutex<CounterEnum>>,
-    pool: Arc<Mutex<ByteBlockPool>>,
+    bytes_used: Rc<RefCell<CounterEnum>>,
+    pool: Rc<RefCell<ByteBlockPool>>,
     delete_terms: HashMap<String, BytesRefIntMap>,
     terms_size: i32,
 }
@@ -295,11 +287,11 @@ impl Default for DeletedTerms {
 impl DeletedTerms {
     /// Creates a new instance of `DeletedTerms`.
     pub(crate) fn new() -> Self {
-        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let allocator = Arc::new(Mutex::new(AllocatorByteEnum::DTA(
+        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DTA(
             DirectTrackingAllocatorByte::new(bytes_used.clone()),
         )));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
+        let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         Self {
             bytes_used,
             pool,
@@ -310,11 +302,11 @@ impl DeletedTerms {
     /// Gets the newest document ID of the deleted term.
     ///
     /// Returns the newest document ID if the term exists, otherwise returns `-1`.
-    pub(crate) fn get(&self, term: &Term) -> Result<i32, LuceneError> {
+    pub(crate) fn get(&self, term: &Term) -> i32 {
         if let Some(hash) = self.delete_terms.get(&term.field) {
-            Ok(hash.get(&term.bytes)?)
+            hash.get(&term.bytes)
         } else {
-            Ok(-1)
+            -1
         }
     }
     /// Puts the newest document ID of the deleted term.
@@ -326,12 +318,8 @@ impl DeletedTerms {
             .entry(term.field.clone())
             .or_insert_with(|| {
                 // TOOD: memory calculation not implemented
-                self.bytes_used
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))
-                    .unwrap()
-                    .add_and_get(0);
-                BytesRefIntMap::new(self.pool.clone(), self.bytes_used.clone()).unwrap()
+                self.bytes_used.borrow_mut().add_and_get(0);
+                BytesRefIntMap::new(self.pool.clone(), self.bytes_used.clone())
             });
 
         if hash.put(&term.bytes, value)? {
@@ -340,24 +328,17 @@ impl DeletedTerms {
 
         Ok(())
     }
-    pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
-        self.pool
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .reset(false, false)?;
+    pub(crate) fn clear(&mut self) {
+        self.pool.borrow_mut().reset(false, false);
 
         {
-            let mut bytes_used = self
-                .bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let mut bytes_used = self.bytes_used.borrow_mut();
             let used = -bytes_used.get();
             bytes_used.add_and_get(used);
         }
 
         self.delete_terms.clear();
         self.terms_size = 0;
-        Ok(())
     }
 
     pub(crate) fn size(&self) -> i32 {
@@ -368,15 +349,14 @@ impl DeletedTerms {
         self.terms_size == 0
     }
     /// Just for test, not efficient.
-    #[cfg(feature = "test_only")]
-    pub(crate) fn key_set(&self) -> Result<HashSet<Term>, LuceneError> {
+    pub(crate) fn key_set(&self) -> HashSet<Term> {
         let mut set = HashSet::new();
         for (field, hash) in &self.delete_terms {
-            for bytes in hash.key_set()? {
+            for bytes in hash.key_set() {
                 set.insert(Term::new(field.clone(), bytes));
             }
         }
-        Ok(set)
+        set
     }
 
     /// Consume all terms in a sorted order.
@@ -397,14 +377,14 @@ impl DeletedTerms {
             let indices = &terms.bytes_ref_hash.ids;
             for i in 0..terms.bytes_ref_hash.count {
                 let index = indices[i as usize];
-                terms.bytes_ref_hash.get(index, &mut scratch.bytes)?;
-                consumer(&scratch, terms.values[index as usize])?;
+                terms.bytes_ref_hash.get(index, &mut scratch.bytes);
+                consumer(&scratch, terms.values[index as usize]);
             }
         }
         Ok(())
     }
     #[cfg(feature = "test_only")]
-    pub(crate) fn get_pool(&self) -> Arc<Mutex<ByteBlockPool>> {
+    pub(crate) fn get_pool(&self) -> Rc<RefCell<ByteBlockPool>> {
         self.pool.clone()
     }
 }
@@ -421,26 +401,18 @@ impl Accountable for DeletedTerms {
 impl fmt::Display for DeletedTerms {
     /// Used for `BufferedUpdates::VERBOSE_DELETES`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.key_set() {
-            Ok(key_set) => {
-                let entries: Vec<String> = key_set
-                    .iter()
-                    .filter_map(|term| {
-                        self.get(term)
-                            .ok()
-                            .map(|value| format!("{}={}", term, value))
-                    })
-                    .collect();
-                write!(f, "{{{}}}", entries.join(", "))
-            }
-            Err(_) => write!(f, "{{Failed to retrieving keys}}"),
-        }
+        let key_set = self.key_set();
+        let entries: Vec<String> = key_set
+            .iter()
+            .map(|term| format!("{}={}", term, self.get(term)))
+            .collect();
+        write!(f, "{{{}}}", entries.join(", "))
     }
 }
 
 #[allow(unused)]
 struct BytesRefIntMap {
-    counter: Arc<Mutex<CounterEnum>>,
+    counter: Rc<RefCell<CounterEnum>>,
     pub(crate) bytes_ref_hash: BytesRefHash,
     values: Vec<i32>,
 }
@@ -449,42 +421,36 @@ impl BytesRefIntMap {
     // TODO: memory calculation not implemented
     const INIT_RAM_BYTES: i64 = 0;
 
-    fn new(
-        pool: Arc<Mutex<ByteBlockPool>>,
-        counter: Arc<Mutex<CounterEnum>>,
-    ) -> Result<Self, LuceneError> {
+    fn new(pool: Rc<RefCell<ByteBlockPool>>, counter: Rc<RefCell<CounterEnum>>) -> Self {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
-            Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
+            Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
                 DirectBytesStartArray::with_counter(
                     BytesRefHash::DEFAULT_CAPACITY,
                     counter.clone(),
                 ),
             ))),
-        )?;
+        );
         let values = vec![0; BytesRefHash::DEFAULT_CAPACITY as usize];
 
-        counter
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .add_and_get(Self::INIT_RAM_BYTES);
+        counter.borrow_mut().add_and_get(Self::INIT_RAM_BYTES);
 
-        Ok(Self {
+        Self {
             counter,
             bytes_ref_hash,
             values,
-        })
+        }
     }
-    fn key_set(&self) -> Result<HashSet<BytesRef>, LuceneError> {
+    fn key_set(&self) -> HashSet<BytesRef> {
         let mut scratch = BytesRef::new();
         let mut set = HashSet::new();
 
         for i in 0..self.bytes_ref_hash.size() {
-            self.bytes_ref_hash.get(i, &mut scratch)?;
+            self.bytes_ref_hash.get(i, &mut scratch);
             set.insert(BytesRef::deep_copy_of(&scratch));
         }
-        Ok(set)
+        set
     }
     fn put(&mut self, key: &BytesRef, value: i32) -> Result<bool, LuceneError> {
         debug_assert!(value >= 0, "Value must be non-negative.");
@@ -497,21 +463,18 @@ impl BytesRefIntMap {
                 let origin_length = self.values.len();
                 ArrayUtil::grow_with_len(&mut self.values, e + 1)?;
                 // TODO: memory calculation not implemented
-                self.counter
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                    .add_and_get(origin_length as i64);
+                self.counter.borrow_mut().add_and_get(origin_length as i64);
             }
             self.values[e as usize] = value;
             Ok(true)
         }
     }
-    fn get(&self, key: &BytesRef) -> Result<i32, LuceneError> {
-        let e = self.bytes_ref_hash.find(key)?;
+    fn get(&self, key: &BytesRef) -> i32 {
+        let e = self.bytes_ref_hash.find(key);
         if e == -1 {
-            Ok(-1)
+            -1
         } else {
-            Ok(self.values[e as usize])
+            self.values[e as usize]
         }
     }
 }
@@ -551,7 +514,7 @@ mod tests {
             };
             let value = format!("{}", random.random_range(0..100));
             let term = Term::new("id".to_string(), BytesRef::from_string(&value));
-            bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto)?;
+            bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto);
         }
 
         let terms = at_least(&mut random, 1);
@@ -575,7 +538,7 @@ mod tests {
         // let total_used = bu.ram_bytes_used();
         // assert!(total_used > 0);
 
-        bu.clear_delete_terms()?;
+        bu.clear_delete_terms();
         assert!(
             bu.any(),
             "Only terms and docIds are cleaned, the queries should still be in memory."
@@ -586,7 +549,7 @@ mod tests {
         //     "Terms are cleaned, so memory usage should decrease."
         // );
 
-        bu.clear()?;
+        bu.clear();
         assert!(!bu.any());
         // TODO
         // assert_eq!(bu.ram_bytes_used()?, 0);
@@ -623,7 +586,7 @@ mod tests {
             assert_eq!(expected.len(), actual.size() as usize);
 
             for (term, expected_value) in &expected {
-                assert_eq!(*expected_value, actual.get(term)?);
+                assert_eq!(*expected_value, actual.get(term));
             }
 
             let mut expected_sorted: Vec<(Term, i32)> = expected
@@ -641,11 +604,11 @@ mod tests {
 
             assert_eq!(expected_sorted, actual_sorted);
 
-            actual.clear()?;
+            actual.clear();
             assert_eq!(actual.size(), 0);
             assert_eq!(actual.ram_bytes_used(), 0);
             let pool_guard = actual.get_pool();
-            let pool = pool_guard.lock().unwrap();
+            let pool = pool_guard.borrow();
             assert_eq!(pool.buffer_upto, -1);
         }
 

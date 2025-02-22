@@ -27,7 +27,8 @@ use crate::util::{
     MSBRadixSorterBase, Natural, Sorter, StringHelper, StringSorter, StringSorterBase,
     GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE, LEVEL_THRESHOLD,
 };
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct BytesRefHash {
     pool: BytesRefBlockPool,
@@ -37,40 +38,44 @@ pub struct BytesRefHash {
     pub(crate) count: i32,
     last_count: i32,
     pub ids: Vec<i32>,
-    bytes_start_array: Arc<Mutex<BytesStartArrayEnum>>,
-    bytes_used: Arc<Mutex<CounterEnum>>,
+    bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
+    bytes_used: Rc<RefCell<CounterEnum>>,
 }
+impl Default for BytesRefHash {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;
 
-    pub fn new() -> Result<Self, LuceneError> {
-        let allocator = Arc::new(Mutex::new(
-            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
-        ));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
+    pub fn new() -> Self {
+        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
+            DirectAllocatorByte::new(),
+        )));
+        let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         BytesRefHash::from_pool(pool)
     }
-    pub fn from_pool(pool: Arc<Mutex<ByteBlockPool>>) -> Result<Self, LuceneError> {
-        let bytes_start_array = Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
+    pub fn from_pool(pool: Rc<RefCell<ByteBlockPool>>) -> Self {
+        let bytes_start_array = Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
             DirectBytesStartArray::new(BytesRefHash::DEFAULT_CAPACITY),
         )));
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
     pub fn from_bytes_start_array(
-        pool: Arc<Mutex<ByteBlockPool>>,
+        pool: Rc<RefCell<ByteBlockPool>>,
         capacity: i32,
-        bytes_start_array: Arc<Mutex<BytesStartArrayEnum>>,
-    ) -> Result<Self, LuceneError> {
+        bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
+    ) -> Self {
         let bytes_used;
         {
-            let mut guard = bytes_start_array
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            let _ = guard.init();
+            let mut guard = bytes_start_array.borrow_mut();
+            guard.init();
             bytes_used = guard.bytes_used();
         }
         let ref_pool = BytesRefBlockPool::from_byte_block_pool(pool);
-        Ok(BytesRefHash {
+        BytesRefHash {
             pool: ref_pool,
             hash_size: capacity,
             hash_half_size: capacity >> 1,
@@ -80,7 +85,7 @@ impl BytesRefHash {
             ids: vec![-1; capacity as usize],
             bytes_start_array,
             bytes_used,
-        })
+        }
     }
     /// Returns the number of [`BytesRef`] values in this [`BytesRefHash`].
     ///
@@ -100,20 +105,17 @@ impl BytesRefHash {
     ///
     /// # Returns
     /// The given [`BytesRef`] instance populated with the bytes for the given `bytesID`.
-    pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) -> Result<(), LuceneError> {
-        let bytes_start_array = self
-            .bytes_start_array
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) {
+        let bytes_start_array = self.bytes_start_array.borrow_mut();
         debug_assert!(
-            bytes_start_array.len()? > 0,
+            bytes_start_array.len() > 0,
             "bytes_start is null - not initialized"
         );
         debug_assert!(
-            (bytes_id as usize) < bytes_start_array.len()?,
+            (bytes_id as usize) < bytes_start_array.len(),
             "bytesID exceeds bytes_start len"
         );
-        let value = bytes_start_array.get_value(bytes_id as usize)?;
+        let value = bytes_start_array.get_value(bytes_id as usize);
         self.pool.fill_bytes_ref(ref_, value)
     }
 
@@ -121,13 +123,9 @@ impl BytesRefHash {
     ///
     /// # Note
     /// This is a destructive operation. `Clear()` must be called to reuse this `BytesRefHash` instance.
-    pub fn compact(&mut self) -> Result<&Vec<i32>, LuceneError> {
+    pub fn compact(&mut self) -> &Vec<i32> {
         debug_assert!(
-            self.bytes_start_array
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .len()?
-                > 0,
+            self.bytes_start_array.borrow().len() > 0,
             "bytes_start is null - not initialized"
         );
 
@@ -144,11 +142,11 @@ impl BytesRefHash {
         debug_assert!(upto == self.count);
         self.last_count = self.count;
 
-        Ok(&self.ids)
+        &self.ids
     }
     /// Returns the values array sorted by the referenced byte values.
     pub fn sort(&mut self) -> Result<(), LuceneError> {
-        let compact = self.compact()?;
+        let compact = self.compact();
         let mut length = compact.len();
         let tmp_offset = self.count;
         let sub_sorter = StringSorterImpl::new(
@@ -169,7 +167,7 @@ impl BytesRefHash {
         }
         Ok(())
     }
-    fn shrink(&mut self, target_size: i32) -> Result<bool, LuceneError> {
+    fn shrink(&mut self, target_size: i32) -> bool {
         // Cannot use ArrayUtil.shrink because we require power of 2:
         let mut new_size = self.hash_size;
 
@@ -179,56 +177,45 @@ impl BytesRefHash {
 
         if new_size != self.hash_size {
             // TODO: memory calculation not implemented
-            self.bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .add_and_get(0);
+            self.bytes_used.borrow_mut().add_and_get(0);
             self.hash_size = new_size;
             self.ids = vec![-1; self.hash_size as usize];
             self.hash_half_size = new_size / 2;
             self.hash_mask = new_size - 1;
-            Ok(true)
+            true
         } else {
-            Ok(false)
+            false
         }
     }
     /// Clears the [`BytesRef`] which maps to the given [`BytesRef`].
-    pub fn clear_with_reset_pool(&mut self, reset_pool: bool) -> Result<(), LuceneError> {
+    pub fn clear_with_reset_pool(&mut self, reset_pool: bool) {
         self.last_count = self.count;
         self.count = 0;
 
         if reset_pool {
-            self.pool.reset()?;
+            self.pool.reset();
         }
 
         {
-            self.bytes_start_array
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .clear()?;
+            self.bytes_start_array.borrow_mut().clear();
         }
 
-        if self.last_count != -1 && self.shrink(self.last_count)? {
+        if self.last_count != -1 && self.shrink(self.last_count) {
             // shrink clears the hash entries
-            return Ok(());
+            return;
         }
         self.ids.fill(-1);
-        Ok(())
     }
-    pub fn clear(&mut self) -> Result<(), LuceneError> {
+    pub fn clear(&mut self) {
         self.clear_with_reset_pool(true)
     }
 
     /// Closes the `BytesRefHash` and releases all internally used memory.
-    pub fn close(&mut self) -> Result<(), LuceneError> {
-        self.clear_with_reset_pool(true)?;
+    pub fn close(&mut self) {
+        self.clear_with_reset_pool(true);
         self.ids.clear();
         // TODO: memory calculation not implemented
-        self.bytes_used
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .add_and_get(0);
-        Ok(())
+        self.bytes_used.borrow_mut().add_and_get(0);
     }
     /// Adds a new [`BytesRef`].
     ///
@@ -244,36 +231,30 @@ impl BytesRefHash {
     /// Returns `MaxBytesLengthExceededException` if the given bytes are greater than 2 + [`ByteBlockPool::BYTE_BLOCK_SIZE`](ByteBlockPool::BYTE_BLOCK_SIZE).
     pub fn add(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         debug_assert!(
-            self.bytes_start_array
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .len()?
-                > 0,
+            self.bytes_start_array.borrow().len() > 0,
             "Bytesstart is null - not initialized"
         );
 
         // final position
-        let hash_pos = self.find_hash(bytes)?;
+        let hash_pos = self.find_hash(bytes);
         let mut e = self.ids[hash_pos as usize];
         if e == -1 {
             {
-                let mut bytes_start_array = self.bytes_start_array.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
-                let length = bytes_start_array.len()?;
+                let mut bytes_start_array = self.bytes_start_array.borrow_mut();
+                let length = bytes_start_array.len();
                 // new entry
                 if self.count as usize >= length {
                     bytes_start_array.grow()?;
                     debug_assert!(
-                        (self.count as usize) < bytes_start_array.len()? + 1,
+                        (self.count as usize) < bytes_start_array.len() + 1,
                         "count: {} len: {}",
                         self.count,
-                        bytes_start_array.len()?
+                        bytes_start_array.len()
                     );
                 }
 
                 let byte_ref = self.pool.add_bytes_ref(bytes)?;
-                bytes_start_array.set_value(self.count as usize, byte_ref)?;
+                bytes_start_array.set_value(self.count as usize, byte_ref);
                 e = self.count;
                 self.count += 1;
                 assert_eq!(self.ids[hash_pos as usize], -1);
@@ -281,7 +262,7 @@ impl BytesRefHash {
             }
 
             if self.count == self.hash_half_size {
-                self.rehash(2 * self.hash_size, true)?;
+                self.rehash(2 * self.hash_size, true);
             }
 
             return Ok(e);
@@ -295,17 +276,14 @@ impl BytesRefHash {
     ///
     /// # Returns
     /// The id of the given bytes, or `-1` if there is no mapping for the given bytes.
-    pub fn find(&self, bytes: &BytesRef) -> Result<i32, LuceneError> {
-        let hash_pos = self.find_hash(bytes)?;
-        Ok(self.ids[hash_pos as usize])
+    pub fn find(&self, bytes: &BytesRef) -> i32 {
+        let hash_pos = self.find_hash(bytes);
+        self.ids[hash_pos as usize]
     }
-    fn find_hash(&self, bytes: &BytesRef) -> Result<i32, LuceneError> {
-        let bytes_start_array = self
-            .bytes_start_array
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    fn find_hash(&self, bytes: &BytesRef) -> i32 {
+        let bytes_start_array = self.bytes_start_array.borrow();
         debug_assert!(
-            bytes_start_array.len()? > 0,
+            bytes_start_array.len() > 0,
             "bytesStart is null - not initialized"
         );
 
@@ -318,7 +296,7 @@ impl BytesRefHash {
         if e != -1
             && !self
                 .pool
-                .equals(bytes_start_array.get_value(e as usize)?, bytes)?
+                .equals(bytes_start_array.get_value(e as usize), bytes)
         {
             // Conflict; use linear probe to find an open slot
             // (see LUCENE-5604):
@@ -329,14 +307,14 @@ impl BytesRefHash {
                 if e == -1
                     || self
                         .pool
-                        .equals(bytes_start_array.get_value(e as usize)?, bytes)?
+                        .equals(bytes_start_array.get_value(e as usize), bytes)
                 {
                     break;
                 }
             }
         }
 
-        Ok(hash_pos)
+        hash_pos
     }
     /// Adds an "arbitrary" integer offset instead of a `BytesRef` term.
     ///
@@ -345,11 +323,7 @@ impl BytesRefHash {
     /// stored by the postings `BytesRefHash`.
     pub fn add_by_pool_offset(&mut self, offset: i32) -> Result<i32, LuceneError> {
         debug_assert!(
-            self.bytes_start_array
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .len()?
-                > 0,
+            self.bytes_start_array.borrow().len() > 0,
             "Bytesstart is null - not initialized"
         );
 
@@ -359,13 +333,10 @@ impl BytesRefHash {
         let mut e = self.ids[hash_pos as usize];
         let length;
         {
-            let bytes_start_array = self
-                .bytes_start_array
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            length = bytes_start_array.len()?;
+            let bytes_start_array = self.bytes_start_array.borrow();
+            length = bytes_start_array.len();
             // Resolve hash conflicts
-            while e != -1 && bytes_start_array.get_value(e as usize)? != offset {
+            while e != -1 && bytes_start_array.get_value(e as usize) != offset {
                 code += 1;
                 hash_pos = code & self.hash_mask;
                 e = self.ids[hash_pos as usize];
@@ -375,29 +346,27 @@ impl BytesRefHash {
         if e == -1 {
             // New entry
             {
-                let mut bytes_start_array = self.bytes_start_array.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
+                let mut bytes_start_array = self.bytes_start_array.borrow_mut();
                 if self.count as usize >= length {
                     bytes_start_array.grow()?;
                     debug_assert!(
-                        self.count < bytes_start_array.len()? as i32 + 1,
+                        self.count < bytes_start_array.len() as i32 + 1,
                         "count: {}, len: {}",
                         self.count,
-                        bytes_start_array.len()?
+                        bytes_start_array.len()
                     );
                 }
 
                 e = self.count;
                 self.count += 1;
-                bytes_start_array.set_value(e as usize, offset)?;
+                bytes_start_array.set_value(e as usize, offset);
 
                 assert_eq!(self.ids[hash_pos as usize], -1);
                 self.ids[hash_pos as usize] = e;
             }
 
             if self.count == self.hash_half_size {
-                self.rehash(2 * self.hash_size, false)?;
+                self.rehash(2 * self.hash_size, false);
             }
 
             return Ok(e);
@@ -406,25 +375,19 @@ impl BytesRefHash {
         Ok(-(e + 1))
     }
     /// Called when hash is too small (> 50% occupied) or too large (< 20% occupied).
-    fn rehash(&mut self, new_size: i32, hash_on_data: bool) -> Result<(), LuceneError> {
+    fn rehash(&mut self, new_size: i32, hash_on_data: bool) {
         let new_mask = new_size - 1;
         // TODO: memory calculation not implemented
-        self.bytes_used
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .add_and_get(0);
+        self.bytes_used.borrow_mut().add_and_get(0);
         let mut new_hash = vec![-1; new_size as usize];
-        let bytes_start_array = self
-            .bytes_start_array
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let bytes_start_array = self.bytes_start_array.borrow();
         for i in 0..self.hash_size {
             let e0 = self.ids[i as usize];
             if e0 != -1 {
                 let code = if hash_on_data {
-                    self.pool.hash(bytes_start_array.get_value(e0 as usize)?)?
+                    self.pool.hash(bytes_start_array.get_value(e0 as usize))
                 } else {
-                    bytes_start_array.get_value(e0 as usize)?
+                    bytes_start_array.get_value(e0 as usize)
                 };
 
                 let mut hash_pos = code & new_mask;
@@ -447,40 +410,29 @@ impl BytesRefHash {
 
         self.hash_mask = new_mask;
         // TODO: memory calculation not implemented
-        self.bytes_used
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .add_and_get(0);
+        self.bytes_used.borrow_mut().add_and_get(0);
         self.ids = new_hash;
         self.hash_size = new_size;
         self.hash_half_size = new_size / 2;
-        Ok(())
     }
     pub fn do_hash(bytes: &[u8], offset: usize, length: usize) -> i32 {
         StringHelper::murmurhash3_x86_32_with_byte(bytes, offset, length, *GOOD_FAST_HASH_SEED)
     }
     /// Reinitializes the [`BytesRefHash`] after a previous `clear()` call.
     /// If `clear()` has not been called previously, this method has no effect.
-    pub fn reinit(&mut self) -> Result<(), LuceneError> {
-        let mut bytes_start_array = self
-            .bytes_start_array
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        if bytes_start_array.len()? == 0 {
-            bytes_start_array.init()?;
+    pub fn reinit(&mut self) {
+        let mut bytes_start_array = self.bytes_start_array.borrow_mut();
+        if bytes_start_array.len() == 0 {
+            bytes_start_array.init();
         }
 
         if self.ids.is_empty() {
             self.ids = vec![-1; self.hash_size as usize];
             // TODO: memory calculation not implemented
-            self.bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .add_and_get(0);
+            self.bytes_used.borrow_mut().add_and_get(0);
         }
-        Ok(())
     }
-    pub fn set_bytes_start_array(&mut self, bytes_start_array: Arc<Mutex<BytesStartArrayEnum>>) {
+    pub fn set_bytes_start_array(&mut self, bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>) {
         self.bytes_start_array = bytes_start_array;
     }
     /// Returns the `bytesStart` offset into the internally used `ByteBlockPool` for the given `bytes_id`.
@@ -491,13 +443,10 @@ impl BytesRefHash {
     /// # Returns
     /// The `bytesStart` offset into the internally used `ByteBlockPool` for the given ID.
     #[cfg(feature = "test_only")]
-    pub fn byte_start(&self, bytes_id: i32) -> Result<i32, LuceneError> {
-        let bytes_start_array = self
-            .bytes_start_array
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    pub fn byte_start(&self, bytes_id: i32) -> i32 {
+        let bytes_start_array = self.bytes_start_array.borrow();
         debug_assert!(
-            bytes_start_array.len()? > 0,
+            bytes_start_array.len() > 0,
             "bytes_start is null - not initialized"
         );
         debug_assert!(bytes_id >= 0 || bytes_id < self.count);
@@ -515,7 +464,7 @@ pub struct StringSorterImpl<'a> {
     tmp_offset: i32,
     compact: &'a mut Vec<i32>,
     pool: &'a mut BytesRefBlockPool,
-    bytes_start_array: Arc<Mutex<BytesStartArrayEnum>>,
+    bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
     k: i32,
     cmp: Natural,
 }
@@ -524,7 +473,7 @@ impl<'a> StringSorterImpl<'a> {
         tmp_offset: i32,
         compact: &'a mut Vec<i32>,
         pool: &'a mut BytesRefBlockPool,
-        bytes_start_array: Arc<Mutex<BytesStartArrayEnum>>,
+        bytes_start_array: Rc<RefCell<BytesStartArrayEnum>>,
     ) -> Self {
         StringSorterImpl {
             tmp_offset,
@@ -614,12 +563,9 @@ impl StringSorterBase for StringSorterImpl<'_> {
         result: &mut BytesRef,
         i: i32,
     ) -> Result<(), LuceneError> {
-        let bytes_start_array = self
-            .bytes_start_array
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let start = bytes_start_array.get_value(self.compact[i as usize] as usize)?;
-        self.pool.fill_bytes_ref(result, start)?;
+        let bytes_start_array = self.bytes_start_array.borrow();
+        let start = bytes_start_array.get_value(self.compact[i as usize] as usize);
+        self.pool.fill_bytes_ref(result, start);
         Ok(())
     }
 
@@ -641,7 +587,7 @@ pub trait BytesStartArray {
     ///
     /// # Returns
     /// The initialized bytes start array.
-    fn init(&mut self) -> Result<(), LuceneError>;
+    fn init(&mut self);
 
     /// Grows the [`BytesStartArray`].
     ///
@@ -653,27 +599,27 @@ pub trait BytesStartArray {
     ///
     /// # Returns
     /// The cleared instance, this might be `None`.
-    fn clear(&mut self) -> Result<(), LuceneError>;
+    fn clear(&mut self);
 
     /// A reference holding the number of bytes used by this `BytesStartArray`.
     /// The [`BytesRefHash`] uses this reference to track its memory usage.
     ///
     /// # Returns
     /// A reference holding the number of bytes used by this `BytesStartArray`.
-    fn bytes_used(&mut self) -> Arc<Mutex<CounterEnum>>;
-    fn get_value(&self, index: usize) -> Result<i32, LuceneError>;
-    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError>;
-    fn len(&self) -> Result<usize, LuceneError>;
+    fn bytes_used(&mut self) -> Rc<RefCell<CounterEnum>>;
+    fn get_value(&self, index: usize) -> i32;
+    fn set_value(&mut self, index: usize, value: i32);
+    fn len(&self) -> usize;
 }
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private `Counter` instance.
 pub struct DirectBytesStartArray {
     init_size: i32,
     bytes_start: Vec<i32>,
-    bytes_used: Arc<Mutex<CounterEnum>>,
+    bytes_used: Rc<RefCell<CounterEnum>>,
 }
 
 impl DirectBytesStartArray {
-    pub fn with_counter(init_size: i32, counter: Arc<Mutex<CounterEnum>>) -> Self {
+    pub fn with_counter(init_size: i32, counter: Rc<RefCell<CounterEnum>>) -> Self {
         DirectBytesStartArray {
             init_size,
             bytes_start: vec![],
@@ -683,15 +629,14 @@ impl DirectBytesStartArray {
     pub fn new(init_size: i32) -> Self {
         DirectBytesStartArray::with_counter(
             init_size,
-            Arc::new(Mutex::new(CounterEnum::new_counter(false))),
+            Rc::new(RefCell::new(CounterEnum::new_counter(false))),
         )
     }
 }
 impl BytesStartArray for DirectBytesStartArray {
-    fn init(&mut self) -> Result<(), LuceneError> {
+    fn init(&mut self) {
         self.bytes_start =
             vec![0; ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES as i32) as usize];
-        Ok(())
     }
 
     fn grow(&mut self) -> Result<(), LuceneError> {
@@ -700,26 +645,24 @@ impl BytesStartArray for DirectBytesStartArray {
         ArrayUtil::grow_i32(&mut self.bytes_start, length + 1)
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) {
         self.bytes_start.clear();
-        Ok(())
     }
 
-    fn bytes_used(&mut self) -> Arc<Mutex<CounterEnum>> {
+    fn bytes_used(&mut self) -> Rc<RefCell<CounterEnum>> {
         self.bytes_used.clone()
     }
 
-    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
-        Ok(self.bytes_start[index])
+    fn get_value(&self, index: usize) -> i32 {
+        self.bytes_start[index]
     }
 
-    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
+    fn set_value(&mut self, index: usize, value: i32) {
         self.bytes_start[index] = value;
-        Ok(())
     }
 
-    fn len(&self) -> Result<usize, LuceneError> {
-        Ok(self.bytes_start.len())
+    fn len(&self) -> usize {
+        self.bytes_start.len()
     }
 }
 
@@ -728,7 +671,7 @@ pub enum BytesStartArrayEnum {
     Postings(PostingsBytesStartArray),
 }
 impl BytesStartArray for BytesStartArrayEnum {
-    fn init(&mut self) -> Result<(), LuceneError> {
+    fn init(&mut self) {
         match self {
             BytesStartArrayEnum::Direct(d) => d.init(),
             BytesStartArrayEnum::Postings(p) => p.init(),
@@ -742,35 +685,35 @@ impl BytesStartArray for BytesStartArrayEnum {
         }
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) {
         match self {
             BytesStartArrayEnum::Direct(d) => d.clear(),
             BytesStartArrayEnum::Postings(p) => p.clear(),
         }
     }
 
-    fn bytes_used(&mut self) -> Arc<Mutex<CounterEnum>> {
+    fn bytes_used(&mut self) -> Rc<RefCell<CounterEnum>> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.bytes_used(),
             BytesStartArrayEnum::Postings(p) => p.bytes_used(),
         }
     }
 
-    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
+    fn get_value(&self, index: usize) -> i32 {
         match self {
             BytesStartArrayEnum::Direct(d) => d.get_value(index),
             BytesStartArrayEnum::Postings(p) => p.get_value(index),
         }
     }
 
-    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
+    fn set_value(&mut self, index: usize, value: i32) {
         match self {
             BytesStartArrayEnum::Direct(d) => d.set_value(index, value),
             BytesStartArrayEnum::Postings(p) => p.set_value(index, value),
         }
     }
 
-    fn len(&self) -> Result<usize, LuceneError> {
+    fn len(&self) -> usize {
         match self {
             BytesStartArrayEnum::Direct(d) => d.len(),
             BytesStartArrayEnum::Postings(p) => p.len(),
@@ -866,6 +809,7 @@ where
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
+    use std::cell::RefCell;
 
     use crate::test::util::test_util::TestUtil;
     use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
@@ -875,23 +819,18 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::collections::{HashMap, HashSet};
-    use std::sync::atomic::{AtomicI32, Ordering};
-    use std::sync::{Arc, Barrier, Mutex};
-    use std::thread;
+    use std::rc::Rc;
 
     #[allow(dead_code)] // for quick search
     pub struct TestBytesRefHash;
 
-    fn new_pool() -> Arc<Mutex<ByteBlockPool>> {
-        let allocator = Arc::new(Mutex::new(
-            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
-        ));
-        Arc::new(Mutex::new(ByteBlockPool::new(allocator)))
+    fn new_pool() -> Rc<RefCell<ByteBlockPool>> {
+        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
+            DirectAllocatorByte::new(),
+        )));
+        Rc::new(RefCell::new(ByteBlockPool::new(allocator)))
     }
-    fn new_hash(
-        random: &mut StdRng,
-        block_pool: Arc<Mutex<ByteBlockPool>>,
-    ) -> Result<BytesRefHash, LuceneError> {
+    fn new_hash(random: &mut StdRng, block_pool: Rc<RefCell<ByteBlockPool>>) -> BytesRefHash {
         let init_size = 2 << (1 + random.random_range(0..5));
         if random.random_bool(0.5) {
             BytesRefHash::from_pool(block_pool)
@@ -899,7 +838,7 @@ mod tests {
             BytesRefHash::from_bytes_start_array(
                 block_pool,
                 init_size,
-                Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
+                Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
                     DirectBytesStartArray::new(init_size),
                 ))),
             )
@@ -908,7 +847,7 @@ mod tests {
     #[test]
     fn test_size() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut hash = new_hash(&mut random, new_pool())?;
+        let mut hash = new_hash(&mut random, new_pool());
         let mut ref_builder = BytesRefBuilder::new();
 
         let num = at_least(&mut random, 2);
@@ -934,9 +873,9 @@ mod tests {
                 }
 
                 if i % mod_val == 0 {
-                    hash.clear()?;
+                    hash.clear();
                     assert_eq!(hash.size(), 0);
-                    hash.reinit()?;
+                    hash.reinit();
                 }
             }
         }
@@ -945,7 +884,7 @@ mod tests {
     #[test]
     fn test_get() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut hash = new_hash(&mut random, new_pool())?;
+        let mut hash = new_hash(&mut random, new_pool());
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();
 
@@ -981,20 +920,20 @@ mod tests {
 
             for (key, value) in &strings {
                 ref_builder.copy_chars_with_string(key)?;
-                hash.get(*value, &mut scratch)?;
+                hash.get(*value, &mut scratch);
                 assert_eq!(*ref_builder.get(), scratch);
             }
 
-            hash.clear()?;
+            hash.clear();
             assert_eq!(hash.size(), 0);
-            hash.reinit()?;
+            hash.reinit();
         }
         Ok(())
     }
     #[test]
     fn test_compact() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut hash = new_hash(&mut random, new_pool())?;
+        let mut hash = new_hash(&mut random, new_pool());
         let mut ref_builder = BytesRefBuilder::new();
 
         let num = at_least(&mut random, 2);
@@ -1028,7 +967,7 @@ mod tests {
             assert_eq!(num_entries as usize, bits.len());
             assert_eq!(num_entries, hash.size());
 
-            let compact = hash.compact()?;
+            let compact = hash.compact();
             assert!(num_entries < compact.len() as i32);
 
             for &id in compact {
@@ -1037,16 +976,16 @@ mod tests {
 
             assert_eq!(bits.len(), 0);
 
-            hash.clear()?;
+            hash.clear();
             assert_eq!(hash.size(), 0);
-            hash.reinit()?;
+            hash.reinit();
         }
         Ok(())
     }
     #[test]
     fn test_sort() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut hash = new_hash(&mut random, new_pool())?;
+        let mut hash = new_hash(&mut random, new_pool());
         let mut ref_builder = BytesRefBuilder::new();
 
         let num = at_least(&mut random, 2);
@@ -1076,7 +1015,7 @@ mod tests {
                 for (i, string) in strings.iter().enumerate() {
                     ref_builder.copy_chars_with_string(string)?;
                     let bytes_id = hash.ids[i];
-                    hash.get(bytes_id, &mut scratch)?;
+                    hash.get(bytes_id, &mut scratch);
                     let sorted_ref = scratch.clone();
                     assert_eq!(
                         *ref_builder.get(),
@@ -1087,9 +1026,9 @@ mod tests {
                 }
             }
 
-            hash.clear()?;
+            hash.clear();
             assert_eq!(hash.size(), 0, "Hash should be empty after clear.");
-            hash.reinit()?;
+            hash.reinit();
         }
         Ok(())
     }
@@ -1097,7 +1036,7 @@ mod tests {
     #[test]
     fn test_add() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut hash = new_hash(&mut random, new_pool())?;
+        let mut hash = new_hash(&mut random, new_pool());
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();
 
@@ -1128,23 +1067,23 @@ mod tests {
                 } else {
                     assert!(!strings.insert(str_value.clone()));
                     assert!((-key - 1) < count);
-                    hash.get(-key - 1, &mut scratch)?;
+                    hash.get(-key - 1, &mut scratch);
                     assert_eq!(str_value, scratch.utf8_to_string()?);
                     assert_eq!(count, hash.size());
                 }
             }
 
             assert_all_in(&strings, &mut hash)?;
-            hash.clear()?;
+            hash.clear();
             assert_eq!(hash.size(), 0);
-            hash.reinit()?;
+            hash.reinit();
         }
         Ok(())
     }
     #[test]
     fn test_find() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut hash = new_hash(&mut random, new_pool())?;
+        let mut hash = new_hash(&mut random, new_pool());
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();
 
@@ -1165,12 +1104,12 @@ mod tests {
 
                 ref_builder.copy_chars_with_string(&str_value)?;
                 let count = hash.size();
-                let key = hash.find(ref_builder.get())?;
+                let key = hash.find(ref_builder.get());
 
                 if key >= 0 {
                     assert!(!strings.insert(str_value.clone()));
                     assert!(key < count);
-                    hash.get(key, &mut scratch)?;
+                    hash.get(key, &mut scratch);
                     assert_eq!(str_value, scratch.utf8_to_string()?);
                     assert_eq!(count, hash.size());
                 } else {
@@ -1183,115 +1122,115 @@ mod tests {
             }
 
             assert_all_in(&strings, &mut hash)?;
-            hash.clear()?;
+            hash.clear();
             assert_eq!(hash.size(), 0);
-            hash.reinit()?;
+            hash.reinit();
         }
         Ok(())
     }
-    #[test]
-    fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), LuceneError> {
-        let mut random = random();
-        let num = at_least(&mut random, 2);
-
-        for _ in 0..num {
-            let num_strings = 797;
-            let strings = Arc::new(Mutex::new(Vec::with_capacity(num_strings)));
-            let hash = Arc::new(Mutex::new(new_hash(&mut random, new_pool())?));
-
-            {
-                let mut hash_guard = hash.lock().unwrap();
-                for _ in 0..num_strings {
-                    let str_value =
-                        TestUtil::random_realistic_unicode_string_impl(&mut random, 1, 1000);
-                    hash_guard.add(&BytesRef::from_string(&str_value))?;
-                    strings.lock().unwrap().push(str_value);
-                }
-            }
-
-            let hash_size = hash.lock().unwrap().size();
-
-            let not_found = Arc::new(AtomicI32::new(0));
-            let not_equals = Arc::new(AtomicI32::new(0));
-            let wrong_size = Arc::new(AtomicI32::new(0));
-
-            let num_threads = at_least(&mut random, 3);
-            let barrier = Arc::new(Barrier::new(num_threads as usize));
-            let mut handles = vec![];
-
-            for _ in 0..num_threads {
-                let hash_clone = Arc::clone(&hash);
-                let strings_clone = Arc::clone(&strings);
-                let not_found_clone = Arc::clone(&not_found);
-                let not_equals_clone = Arc::clone(&not_equals);
-                let wrong_size_clone = Arc::clone(&wrong_size);
-                let barrier_clone = Arc::clone(&barrier);
-                let loops = at_least(&mut random, 100);
-
-                let handle = thread::spawn(move || {
-                    let mut scratch = BytesRef::new();
-                    barrier_clone.wait();
-
-                    for k in 0..loops {
-                        let strings_guard = strings_clone.lock().unwrap();
-                        let find =
-                            BytesRef::from_string(&strings_guard[k as usize % strings_guard.len()]);
-                        drop(strings_guard);
-
-                        let hash_guard = hash_clone.lock().unwrap();
-                        let id = hash_guard.find(&find).unwrap();
-
-                        if id < 0 {
-                            not_found_clone.fetch_add(1, Ordering::SeqCst);
-                        } else {
-                            hash_guard.get(id, &mut scratch).unwrap();
-                            if scratch != find {
-                                not_equals_clone.fetch_add(1, Ordering::SeqCst);
-                            }
-                        }
-                        if hash_guard.size() != hash_size {
-                            wrong_size_clone.fetch_add(1, Ordering::SeqCst);
-                        }
-                    }
-                });
-                handles.push(handle);
-            }
-
-            for handle in handles {
-                handle.join().expect("Thread panicked");
-            }
-
-            assert_eq!(
-                not_found.load(Ordering::SeqCst),
-                0,
-                "No entries should be missing."
-            );
-            assert_eq!(
-                not_equals.load(Ordering::SeqCst),
-                0,
-                "All entries should match."
-            );
-            assert_eq!(
-                wrong_size.load(Ordering::SeqCst),
-                0,
-                "Hash size should remain consistent."
-            );
-
-            hash.lock().unwrap().clear()?;
-            assert_eq!(
-                hash.lock().unwrap().size(),
-                0,
-                "Hash should be empty after clear."
-            );
-            hash.lock().unwrap().reinit()?;
-        }
-
-        Ok(())
-    }
+    // #[test]
+    // fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), LuceneError> {
+    //     let mut random = random();
+    //     let num = at_least(&mut random, 2);
+    //
+    //     for _ in 0..num {
+    //         let num_strings = 797;
+    //         let strings = Rc::new(RefCell::new(Vec::with_capacity(num_strings)));
+    //         let hash = Rc::new(RefCell::new(new_hash(&mut random, new_pool())));
+    //
+    //         {
+    //             let mut hash_guard = hash.lock().unwrap();
+    //             for _ in 0..num_strings {
+    //                 let str_value =
+    //                     TestUtil::random_realistic_unicode_string_impl(&mut random, 1, 1000);
+    //                 hash_guard.add(&BytesRef::from_string(&str_value));
+    //                 strings.lock().unwrap().push(str_value);
+    //             }
+    //         }
+    //
+    //         let hash_size = hash.lock().unwrap().size();
+    //
+    //         let not_found = Arc::new(AtomicI32::new(0));
+    //         let not_equals = Arc::new(AtomicI32::new(0));
+    //         let wrong_size = Arc::new(AtomicI32::new(0));
+    //
+    //         let num_threads = at_least(&mut random, 3);
+    //         let barrier = Arc::new(Barrier::new(num_threads as usize));
+    //         let mut handles = vec![];
+    //
+    //         for _ in 0..num_threads {
+    //             let hash_clone = Arc::clone(&hash);
+    //             let strings_clone = Arc::clone(&strings);
+    //             let not_found_clone = Arc::clone(&not_found);
+    //             let not_equals_clone = Arc::clone(&not_equals);
+    //             let wrong_size_clone = Arc::clone(&wrong_size);
+    //             let barrier_clone = Arc::clone(&barrier);
+    //             let loops = at_least(&mut random, 100);
+    //
+    //             let handle = thread::spawn(move || {
+    //                 let mut scratch = BytesRef::new();
+    //                 barrier_clone.wait();
+    //
+    //                 for k in 0..loops {
+    //                     let strings_guard = strings_clone.lock().unwrap();
+    //                     let find =
+    //                         BytesRef::from_string(&strings_guard[k as usize % strings_guard.len()]);
+    //                     drop(strings_guard);
+    //
+    //                     let hash_guard = hash_clone.lock().unwrap();
+    //                     let id = hash_guard.find(&find).unwrap();
+    //
+    //                     if id < 0 {
+    //                         not_found_clone.fetch_add(1, Ordering::SeqCst);
+    //                     } else {
+    //                         hash_guard.get(id, &mut scratch).unwrap();
+    //                         if scratch != find {
+    //                             not_equals_clone.fetch_add(1, Ordering::SeqCst);
+    //                         }
+    //                     }
+    //                     if hash_guard.size() != hash_size {
+    //                         wrong_size_clone.fetch_add(1, Ordering::SeqCst);
+    //                     }
+    //                 }
+    //             });
+    //             handles.push(handle);
+    //         }
+    //
+    //         for handle in handles {
+    //             handle.join().expect("Thread panicked");
+    //         }
+    //
+    //         assert_eq!(
+    //             not_found.load(Ordering::SeqCst),
+    //             0,
+    //             "No entries should be missing."
+    //         );
+    //         assert_eq!(
+    //             not_equals.load(Ordering::SeqCst),
+    //             0,
+    //             "All entries should match."
+    //         );
+    //         assert_eq!(
+    //             wrong_size.load(Ordering::SeqCst),
+    //             0,
+    //             "Hash size should remain consistent."
+    //         );
+    //
+    //         hash.lock().unwrap().clear();
+    //         assert_eq!(
+    //             hash.lock().unwrap().size(),
+    //             0,
+    //             "Hash should be empty after clear."
+    //         );
+    //         hash.lock().unwrap().reinit();
+    //     }
+    //
+    //     Ok(())
+    // }
     #[test]
     fn test_large_value() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut hash = new_hash(&mut random, new_pool())?;
+        let mut hash = new_hash(&mut random, new_pool());
 
         let sizes = [
             random.random_range(0..5),
@@ -1324,8 +1263,8 @@ mod tests {
     fn test_add_by_pool_offset() -> Result<(), LuceneError> {
         let mut random = random();
         let pool = new_pool();
-        let mut hash = new_hash(&mut random, pool.clone())?;
-        let mut offset_hash = new_hash(&mut random, pool)?;
+        let mut hash = new_hash(&mut random, pool.clone());
+        let mut offset_hash = new_hash(&mut random, pool);
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();
 
@@ -1353,7 +1292,7 @@ mod tests {
                     assert_eq!(unique_count, key);
                     assert_eq!(hash.size(), count + 1);
 
-                    let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(key)?)?;
+                    let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(key))?;
                     assert_eq!(unique_count, offset_key);
                     assert_eq!(offset_hash.size(), count + 1);
 
@@ -1361,12 +1300,12 @@ mod tests {
                 } else {
                     assert!(!strings.insert(str_value.clone()));
                     assert!((-key - 1) < count);
-                    hash.get(-key - 1, &mut scratch)?;
+                    hash.get(-key - 1, &mut scratch);
                     assert_eq!(str_value, scratch.utf8_to_string()?);
                     assert_eq!(count, hash.size());
-                    let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1)?)?;
+                    let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1))?;
                     assert!((-offset_key - 1) < count);
-                    hash.get(-offset_key - 1, &mut scratch)?;
+                    hash.get(-offset_key - 1, &mut scratch);
                     assert_eq!(str_value, scratch.utf8_to_string()?);
                     assert_eq!(count, hash.size());
                 }
@@ -1377,22 +1316,22 @@ mod tests {
             for string in &strings {
                 ref_builder.copy_chars_with_string(string)?;
                 let key = hash.add(ref_builder.get())?;
-                offset_hash.get(-key - 1, &mut scratch)?;
+                offset_hash.get(-key - 1, &mut scratch);
                 let bytes_ref = scratch.clone();
                 assert_eq!(*ref_builder.get(), bytes_ref, "Values should match.");
             }
 
-            hash.clear()?;
+            hash.clear();
             assert_eq!(hash.size(), 0, "Hash should be empty after clear.");
-            offset_hash.clear()?;
+            offset_hash.clear();
             assert_eq!(
                 offset_hash.size(),
                 0,
                 "Offset hash should be empty after clear."
             );
 
-            hash.reinit()?;
-            offset_hash.reinit()?;
+            hash.reinit();
+            offset_hash.reinit();
         }
         Ok(())
     }
@@ -1408,7 +1347,7 @@ mod tests {
         for string in strings {
             ref_builder.copy_chars_with_string(string)?;
             let key = hash.add(ref_builder.get())?; // add again to check duplicates
-            hash.get((-key) - 1, &mut scratch)?;
+            hash.get((-key) - 1, &mut scratch);
             assert_eq!(*string, scratch.utf8_to_string()?);
             assert_eq!(
                 count,

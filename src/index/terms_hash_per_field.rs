@@ -28,9 +28,10 @@ use crate::util::int_block_pool::IntBlockPool;
 #[cfg(test)]
 use crate::util::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::{ByteBlockPool, Counter, CounterEnum};
+use std::cell::RefCell;
+use std::rc::Rc;
 #[cfg(test)]
 use std::sync::atomic::AtomicI64;
-use std::sync::{Arc, Mutex};
 
 /// This class stores streams of information per term without knowing the size of the stream ahead of
 /// time. Each stream typically encodes one level of information, like term frequency per document or
@@ -40,9 +41,9 @@ use std::sync::{Arc, Mutex};
 /// for each term. Terms are first deduplicated in a [`BytesRefHash`]. Once this is done, internal
 /// data structures point to the current offset of each stream that can be written to.
 pub struct TermsHashPerField {
-    pub(crate) next_per_field: Option<Arc<Mutex<TermsHashPerFieldEnum>>>,
-    int_pool: Arc<Mutex<IntBlockPool>>,
-    pub(crate) byte_pool: Arc<Mutex<ByteBlockPool>>,
+    pub(crate) next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
+    int_pool: Rc<RefCell<IntBlockPool>>,
+    pub(crate) byte_pool: Rc<RefCell<ByteBlockPool>>,
     slice_pool: ByteSlicePool,
     // for each term we store an integer per stream that points into the bytePool above
     // the address is updated once data is written to the stream to point to the next free offset
@@ -62,7 +63,7 @@ pub struct TermsHashPerField {
     last_doc_id: i32, // only used with debug/asserts
     sorted_term_ids: bool,
     pub(crate) do_next_call: bool,
-    pub(crate) postings_array_wrapper: Arc<Mutex<PostingsArrayWrapper>>,
+    pub(crate) postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
 }
 pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
@@ -76,6 +77,7 @@ impl PostingsArrayWrapper {
         }
     }
 }
+#[allow(unused)]
 impl TermsHashPerField {
     const HASH_INIT_SIZE: i32 = 4;
     ///  streamCount: how many streams this field stores per term. E.g. doc(+freq) is 1 stream,
@@ -83,19 +85,19 @@ impl TermsHashPerField {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         stream_count: i32,
-        int_pool: Arc<Mutex<IntBlockPool>>,
-        byte_pool: Arc<Mutex<ByteBlockPool>>,
-        term_byte_pool: Arc<Mutex<ByteBlockPool>>,
-        bytes_used: Arc<Mutex<CounterEnum>>,
-        next_per_field: Option<Arc<Mutex<TermsHashPerFieldEnum>>>,
+        int_pool: Rc<RefCell<IntBlockPool>>,
+        byte_pool: Rc<RefCell<ByteBlockPool>>,
+        term_byte_pool: Rc<RefCell<ByteBlockPool>>,
+        bytes_used: Rc<RefCell<CounterEnum>>,
+        next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
         field_name: String,
         index_options: IndexOptions,
-        postings_array_wrapper: Arc<Mutex<PostingsArrayWrapper>>,
-    ) -> Result<Self, LuceneError> {
+        postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
+    ) -> Self {
         // In the original Java code, we assert that indexOptions != IndexOptions.NONE.
         debug_assert!(index_options != IndexOptions::None);
         let slice_pool = ByteSlicePool::new(byte_pool.clone());
-        let byte_starts = Arc::new(Mutex::new(BytesStartArrayEnum::Postings(
+        let byte_starts = Rc::new(RefCell::new(BytesStartArrayEnum::Postings(
             PostingsBytesStartArray {
                 per_field: postings_array_wrapper.clone(),
                 bytes_used,
@@ -106,8 +108,9 @@ impl TermsHashPerField {
             term_byte_pool,
             TermsHashPerField::HASH_INIT_SIZE,
             byte_starts,
-        )?;
-        let result = TermsHashPerField {
+        );
+
+        TermsHashPerField {
             next_per_field,
             int_pool,
             byte_pool,
@@ -122,22 +125,12 @@ impl TermsHashPerField {
             sorted_term_ids: false,
             do_next_call: false,
             postings_array_wrapper,
-        };
-
-        Ok(result)
+        }
     }
-    pub fn init_reader(
-        &self,
-        reader: &mut ByteSliceReader,
-        term_id: i32,
-        stream: i32,
-    ) -> Result<(), LuceneError> {
+    pub fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
         debug_assert!(stream < self.stream_count);
         let term_id = term_id as usize;
-        let postings_array_wrapper = self
-            .postings_array_wrapper
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
         let stream_start_offset = postings_array_wrapper
             .postings_array
             .as_ref()
@@ -147,10 +140,7 @@ impl TermsHashPerField {
         let offset_in_address_buffer = stream_start_offset & IntBlockPool::INT_BLOCK_MASK;
         let addr;
         {
-            let mut int_pool = self
-                .int_pool
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let mut int_pool = self.int_pool.borrow_mut();
             let stream_address_buffer = int_pool.get_buffer(buffer_index);
             addr = stream_address_buffer[(offset_in_address_buffer + stream) as usize];
         }
@@ -187,16 +177,10 @@ impl TermsHashPerField {
     }
     pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<(), LuceneError> {
         let stream_address = (self.stream_address_offset + stream) as usize;
-        let mut int_pool = self
-            .int_pool
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut int_pool = self.int_pool.borrow_mut();
         let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
-        let mut byte_pool = self
-            .byte_pool
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut byte_pool = self.byte_pool.borrow_mut();
         let block_index = upto >> ByteBlockPool::BYTE_BLOCK_SHIFT;
         debug_assert!(block_index <= byte_pool.buffer_upto);
         let bytes = byte_pool.get_buffer(block_index);
@@ -207,17 +191,11 @@ impl TermsHashPerField {
         let new_offset = if value != 0 {
             // End of slice; allocate a new one
             let allocated_offset = self.slice_pool.alloc_slice(block_index, offset)?;
-            byte_pool = self
-                .byte_pool
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            byte_pool = self.byte_pool.borrow_mut();
             term_stream_address_buffer[stream_address] = allocated_offset + byte_pool.byte_offset;
             allocated_offset
         } else {
-            byte_pool = self
-                .byte_pool
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            byte_pool = self.byte_pool.borrow_mut();
             offset
         };
         let bytes = byte_pool.get_buffer(block_index);
@@ -236,17 +214,11 @@ impl TermsHashPerField {
         let end = offset + len as usize;
         let stream_address = (self.stream_address_offset + stream) as usize;
 
-        let mut int_pool = self
-            .int_pool
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut int_pool = self.int_pool.borrow_mut();
         let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         {
-            let mut byte_pool = self
-                .byte_pool
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let mut byte_pool = self.byte_pool.borrow_mut();
             let mut block_index = upto >> ByteBlockPool::BYTE_BLOCK_SHIFT;
             debug_assert!(block_index <= byte_pool.buffer_upto);
             let slice = byte_pool.get_buffer(block_index);
@@ -267,9 +239,7 @@ impl TermsHashPerField {
                     .alloc_known_size_slice(block_index, slice_offset as i32)?;
                 slice_offset = (offset_and_length >> 8) as usize;
                 let slice_length = offset_and_length & 0xff;
-                let mut byte_pool = self.byte_pool.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
+                let mut byte_pool = self.byte_pool.borrow_mut();
                 let buffer_upto = byte_pool.buffer_upto;
                 block_index = buffer_upto;
                 let slice = byte_pool.get_buffer(buffer_upto);
@@ -291,11 +261,10 @@ impl TermsHashPerField {
             self.write_byte(stream, ((i & 0x7F) | 0x80) as u8)?;
             i = ((i as u32) >> 7) as i32 + i;
         }
-        self.write_byte(stream, i as u8)?;
-        Ok(())
+        self.write_byte(stream, i as u8)
     }
 
-    pub(crate) fn get_next_per_field(&self) -> Arc<Mutex<TermsHashPerFieldEnum>> {
+    pub(crate) fn get_next_per_field(&self) -> Rc<RefCell<TermsHashPerFieldEnum>> {
         debug_assert!(self.next_per_field.is_some());
         self.next_per_field.as_ref().unwrap().clone()
     }
@@ -303,32 +272,24 @@ impl TermsHashPerField {
     pub(crate) fn get_field_name(&self) -> &str {
         &self.field_name
     }
-    fn finish(&mut self) -> Result<(), LuceneError> {
-        match self.next_per_field {
-            Some(ref next_per_field) => next_per_field
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .finish(),
-            None => Ok(()),
+    fn finish(&mut self) {
+        if let Some(ref next_per_field) = self.next_per_field {
+            next_per_field.borrow_mut().finish()
         }
     }
     pub(crate) fn get_num_terms(&self, bytes_ref_hash: &BytesRefHash) -> i32 {
         bytes_ref_hash.size()
     }
-    pub(crate) fn reset(&mut self) -> Result<(), LuceneError> {
-        self.bytes_hash.clear()?;
+    pub(crate) fn reset(&mut self) {
+        self.bytes_hash.clear();
         self.sorted_term_ids = false;
         if self.next_per_field.is_some() {
-            let mut next_per_field =
-                self.next_per_field.as_ref().unwrap().lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
-            next_per_field.reset()?;
+            let mut next_per_field = self.next_per_field.as_ref().unwrap().borrow_mut();
+            next_per_field.reset();
         }
-        Ok(())
     }
 
-    pub(crate) fn reinit_hash(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn reinit_hash(&mut self) {
         self.sorted_term_ids = false;
         self.bytes_hash.reinit()
     }
@@ -342,7 +303,7 @@ impl TermsHashPerField {
     ) -> Result<(), LuceneError> {
         let byte_offset;
         {
-            let mut byte_pool = self.byte_pool.lock().unwrap();
+            let mut byte_pool = self.byte_pool.borrow_mut();
             if ByteBlockPool::BYTE_BLOCK_SIZE - byte_pool.byte_upto
                 < 2 * self.stream_count * ByteSlicePool::FIRST_LEVEL_SIZE
             {
@@ -352,20 +313,14 @@ impl TermsHashPerField {
             byte_offset = byte_pool.byte_offset;
         }
         {
-            let mut int_pool = self
-                .int_pool
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let mut int_pool = self.int_pool.borrow_mut();
             if self.stream_count + int_pool.int_upto > IntBlockPool::INT_BLOCK_SIZE {
                 int_pool.next_buffer()?;
             }
             self.term_stream_address_buffer_index = int_pool.buffer_upto;
             self.stream_address_offset = int_pool.int_upto;
             int_pool.int_upto += self.stream_count;
-            let mut postings_array_wrapper = self
-                .postings_array_wrapper
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             postings_array_wrapper
                 .postings_array
@@ -395,45 +350,30 @@ impl TermsHashPerField {
         Ok(())
     }
 
-    pub(crate) fn position_stream_slice(
-        &mut self,
-        term_id: i32,
-        _doc_id: i32,
-    ) -> Result<i32, LuceneError> {
+    pub(crate) fn position_stream_slice(&mut self, term_id: i32, _doc_id: i32) -> i32 {
         let term_id = (-term_id) - 1;
-        let postings_array_wrapper = self
-            .postings_array_wrapper
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
         debug_assert!(postings_array_wrapper.postings_array.is_some());
         let int_start = postings_array_wrapper
             .postings_array
             .as_ref()
             .unwrap()
             .get_address_offset()[term_id as usize];
-        {
-            let int_pool = self
-                .int_pool
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            let buffer_index = int_start >> IntBlockPool::INT_BLOCK_SHIFT;
-            self.term_stream_address_buffer_index = int_pool.buffer_upto;
-        }
+        self.term_stream_address_buffer_index = int_start >> IntBlockPool::INT_BLOCK_SHIFT;
         self.stream_address_offset = int_start & IntBlockPool::INT_BLOCK_MASK;
-        Ok(term_id)
+        term_id
     }
     fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
         match self.next_per_field {
             Some(ref next_per_field) => {
-                let mut next_per_field = next_per_field.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
+                let mut next_per_field = next_per_field.borrow_mut();
                 next_per_field.start(field, first)
             }
             None => Ok(true),
         }
     }
 }
+#[allow(unused)]
 pub(crate) trait TermsHashPerFieldBase {
     /// Called when we first encounter a new term. We must allocate slies to store the postings (vInt
     /// compressed doc/freq/prox), and also the int pointers to where (in our {@link ByteBlockPool}
@@ -468,16 +408,16 @@ pub(crate) trait TermsHashPerFieldBase {
         ))
     }
     /// Finish adding all instances of this field to the current document.
-    fn finish(&mut self) -> Result<(), LuceneError>;
+    fn finish(&mut self);
 }
 pub struct PostingsBytesStartArray {
-    per_field: Arc<Mutex<PostingsArrayWrapper>>,
-    bytes_used: Arc<Mutex<CounterEnum>>,
+    per_field: Rc<RefCell<PostingsArrayWrapper>>,
+    bytes_used: Rc<RefCell<CounterEnum>>,
 }
 impl PostingsBytesStartArray {
     pub fn new(
-        per_field: Arc<Mutex<PostingsArrayWrapper>>,
-        bytes_used: Arc<Mutex<CounterEnum>>,
+        per_field: Rc<RefCell<PostingsArrayWrapper>>,
+        bytes_used: Rc<RefCell<CounterEnum>>,
     ) -> Self {
         Self {
             per_field,
@@ -486,11 +426,8 @@ impl PostingsBytesStartArray {
     }
 }
 impl BytesStartArray for PostingsBytesStartArray {
-    fn init(&mut self) -> Result<(), LuceneError> {
-        let mut postings_array_wrapper = self
-            .per_field
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    fn init(&mut self) {
+        let mut postings_array_wrapper = self.per_field.borrow_mut();
         if postings_array_wrapper.postings_array.is_none() {
             postings_array_wrapper.postings_array = Option::from(
                 postings_array_wrapper
@@ -499,95 +436,66 @@ impl BytesStartArray for PostingsBytesStartArray {
             );
             if let Some(ref mut postings_array) = postings_array_wrapper.postings_array {
                 let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                self.bytes_used
-                    .lock()
-                    .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                    .add_and_get(byte_used as i64);
+                self.bytes_used.borrow_mut().add_and_get(byte_used as i64);
             }
         }
-
-        Ok(())
     }
 
     fn grow(&mut self) -> Result<(), LuceneError> {
-        let mut postings_array_wrapper = self
-            .per_field
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut postings_array_wrapper = self.per_field.borrow_mut();
         debug_assert!(postings_array_wrapper.postings_array.is_some());
         let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
         let old_size = postings_array.get_size();
         postings_array.grow()?;
-        self.bytes_used
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .add_and_get(
-                (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
-                    as i64,
-            );
+        self.bytes_used.borrow_mut().add_and_get(
+            (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size)) as i64,
+        );
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
-        let mut postings_array_wrapper = self
-            .per_field
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    fn clear(&mut self) {
+        let mut postings_array_wrapper = self.per_field.borrow_mut();
         if postings_array_wrapper.postings_array.is_some() {
             let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
             let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-            self.bytes_used
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-                .add_and_get(-byte_used as i64);
+            self.bytes_used.borrow_mut().add_and_get(-byte_used as i64);
             postings_array_wrapper.postings_array = None;
         }
-        Ok(())
     }
 
-    fn bytes_used(&mut self) -> Arc<Mutex<CounterEnum>> {
+    fn bytes_used(&mut self) -> Rc<RefCell<CounterEnum>> {
         self.bytes_used.clone()
     }
 
-    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
-        let postings_array_wrapper = self
-            .per_field
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    fn get_value(&self, index: usize) -> i32 {
+        let postings_array_wrapper = self.per_field.borrow_mut();
         debug_assert!(postings_array_wrapper.postings_array.is_some());
-        Ok(postings_array_wrapper
+        postings_array_wrapper
             .postings_array
             .as_ref()
             .unwrap()
-            .get_text_starts()[index])
+            .get_text_starts()[index]
     }
 
-    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
-        let mut postings_array_wrapper = self
-            .per_field
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    fn set_value(&mut self, index: usize, value: i32) {
+        let mut postings_array_wrapper = self.per_field.borrow_mut();
         debug_assert!(postings_array_wrapper.postings_array.is_some());
         postings_array_wrapper
             .postings_array
             .as_mut()
             .unwrap()
             .set_text_starts(index, value);
-        Ok(())
     }
 
-    fn len(&self) -> Result<usize, LuceneError> {
-        let postings_array_wrapper = self
-            .per_field
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    fn len(&self) -> usize {
+        let postings_array_wrapper = self.per_field.borrow_mut();
         debug_assert!(postings_array_wrapper.postings_array.is_some());
-        Ok(postings_array_wrapper
+        postings_array_wrapper
             .postings_array
             .as_ref()
             .unwrap()
             .get_text_starts()
-            .len())
+            .len()
     }
 }
 
@@ -625,7 +533,7 @@ impl TermsHashPerFieldType {
 
 #[cfg(test)]
 pub(crate) struct TermsHashPerFieldMock {
-    pub(crate) postings_array_wrapper: Arc<Mutex<PostingsArrayWrapper>>,
+    pub(crate) postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
     pub(crate) parent_per_field: TermsHashPerField,
     new_called: AtomicI64,
     add_called: AtomicI64,
@@ -637,20 +545,20 @@ impl TermsHashPerFieldMock {
         new_called: AtomicI64,
         add_called: AtomicI64,
     ) -> Result<TermsHashPerFieldEnum, LuceneError> {
-        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let int_block_pool = Arc::new(Mutex::new(IntBlockPool::new()));
+        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
 
-        let allocator = Arc::new(Mutex::new(
-            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
-        ));
-        let byte_block_pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
-        let allocator1 = Arc::new(Mutex::new(
-            AllocatorByteEnum::DA(DirectAllocatorByte::new()),
-        ));
-        let term_block_pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator1)));
-        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
+            DirectAllocatorByte::new(),
+        )));
+        let byte_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
+        let allocator1 = Rc::new(RefCell::new(AllocatorByteEnum::DA(
+            DirectAllocatorByte::new(),
+        )));
+        let term_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
+        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
-        let postings_array_wrapper = Arc::new(Mutex::new(PostingsArrayWrapper::new(
+        let postings_array_wrapper = Rc::new(RefCell::new(PostingsArrayWrapper::new(
             TermsHashPerFieldType::Mock,
         )));
 
@@ -664,7 +572,7 @@ impl TermsHashPerFieldMock {
             "field_name".to_string(),
             IndexOptions::DocsAndFreqs,
             postings_array_wrapper.clone(),
-        )?;
+        );
         Ok(TermsHashPerFieldEnum::Mock(TermsHashPerFieldMock {
             postings_array_wrapper,
             parent_per_field: parent_per_filed,
@@ -681,9 +589,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldMock {
     }
 
     fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
-        let term_id = self
-            .parent_per_field
-            .position_stream_slice(term_id, doc_id)?;
+        let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
         self.add_term(term_id, doc_id)?;
         Ok(term_id)
     }
@@ -696,10 +602,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldMock {
         self.new_called
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let term_id = term_id as usize;
-        let mut postings_array_wrapper = self
-            .postings_array_wrapper
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
         debug_assert!(postings_array_wrapper.postings_array.is_some());
         match &mut postings_array_wrapper.postings_array {
             Some(postings_array) => match postings_array {
@@ -726,10 +629,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldMock {
         self.add_called
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let term_id = term_id as usize;
-        let mut postings_array_wrapper = self
-            .postings_array_wrapper
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
         debug_assert!(postings_array_wrapper.postings_array.is_some());
         match &mut postings_array_wrapper.postings_array {
             Some(postings_array) => match postings_array {
@@ -777,7 +677,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldMock {
         }
     }
 
-    fn finish(&mut self) -> Result<(), LuceneError> {
+    fn finish(&mut self) {
         self.parent_per_field.finish()
     }
 }
@@ -786,6 +686,7 @@ mod tests {
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
     use crate::index::byte_slice_reader::ByteSliceReader;
+    use std::cell::RefCell;
 
     use crate::index::parallel_postings_array::PostingsArrayEnum;
     use crate::index::terms_hash_per_field::{
@@ -801,8 +702,8 @@ mod tests {
     use rand::prelude::SliceRandom;
     use rand::Rng;
     use std::collections::{BTreeMap, HashMap};
+    use std::rc::Rc;
     use std::sync::atomic::{AtomicI64, Ordering};
-    use std::sync::{Arc, Mutex};
 
     #[allow(dead_code)] // for quick search
     struct TestTermsHashPerField;
@@ -817,7 +718,7 @@ mod tests {
 
     fn assert_doc_and_freq(
         reader: &mut ByteSliceReader,
-        parent: Arc<Mutex<PostingsArrayWrapper>>,
+        parent: Rc<RefCell<PostingsArrayWrapper>>,
         prev_doc: i32,
         term_id: i32,
         doc: i32,
@@ -825,9 +726,7 @@ mod tests {
     ) -> Result<bool, LuceneError> {
         assert!(term_id >= 0);
         let term_id = term_id as usize;
-        let mut postings_array_enum = parent
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut postings_array_enum = parent.borrow_mut();
         let postings_array_enum = postings_array_enum.postings_array.as_mut().unwrap();
         let postings_array = match postings_array_enum {
             PostingsArrayEnum::FreqProx(freq_prox) => freq_prox,
@@ -880,7 +779,7 @@ mod tests {
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "start")?, 0)?;
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foo")?, 0)?;
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 0)?;
-        hash.finish()?;
+        hash.finish();
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foobar")?, 1)?;
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
@@ -890,19 +789,19 @@ mod tests {
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             1,
         )?;
-        hash.finish()?;
+        hash.finish();
         hash.add_with_bytes_ref(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             2,
         )?;
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "boom")?, 2)?;
-        hash.finish()?;
+        hash.finish();
         hash.add_with_bytes_ref(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             3,
         )?;
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "end")?, 3)?;
-        hash.finish()?;
+        hash.finish();
 
         match &hash {
             TermsHashPerFieldEnum::Mock(hash) => {
@@ -921,7 +820,7 @@ mod tests {
                 unreachable!();
             }
         };
-        hash.init_reader(&mut reader, 0, 0)?;
+        hash.init_reader(&mut reader, 0, 0);
 
         assert!(assert_doc_and_freq(
             &mut reader,
@@ -931,7 +830,7 @@ mod tests {
             0,
             1
         )?);
-        hash.init_reader(&mut reader, 1, 0)?;
+        hash.init_reader(&mut reader, 1, 0);
         assert!(assert_doc_and_freq(
             &mut reader,
             parent.clone(),
@@ -940,7 +839,7 @@ mod tests {
             0,
             1
         )?);
-        hash.init_reader(&mut reader, 2, 0)?;
+        hash.init_reader(&mut reader, 2, 0);
         assert!(!assert_doc_and_freq(
             &mut reader,
             parent.clone(),
@@ -957,7 +856,7 @@ mod tests {
             1,
             3
         )?);
-        hash.init_reader(&mut reader, 3, 0)?;
+        hash.init_reader(&mut reader, 3, 0);
         assert!(assert_doc_and_freq(
             &mut reader,
             parent.clone(),
@@ -966,7 +865,7 @@ mod tests {
             1,
             2
         )?);
-        hash.init_reader(&mut reader, 4, 0)?;
+        hash.init_reader(&mut reader, 4, 0);
         assert!(!assert_doc_and_freq(
             &mut reader,
             parent.clone(),
@@ -991,7 +890,7 @@ mod tests {
             3,
             1
         )?);
-        hash.init_reader(&mut reader, 5, 0)?;
+        hash.init_reader(&mut reader, 5, 0);
         assert!(assert_doc_and_freq(
             &mut reader,
             parent.clone(),
@@ -1000,7 +899,7 @@ mod tests {
             2,
             1
         )?);
-        hash.init_reader(&mut reader, 6, 0)?;
+        hash.init_reader(&mut reader, 6, 0);
         assert!(assert_doc_and_freq(
             &mut reader,
             parent.clone(),
@@ -1077,7 +976,7 @@ mod tests {
                     .or_insert(1);
                 hash.add_with_bytes_ref(ref_, doc)?;
             }
-            hash.finish()?;
+            hash.finish();
         }
 
         let mut values: Vec<_> = posting_map
@@ -1094,7 +993,7 @@ mod tests {
             }
         };
         for posting in values {
-            hash.init_reader(&mut reader, posting.term_id, 0)?;
+            hash.init_reader(&mut reader, posting.term_id, 0);
 
             let mut eof = false;
             let mut pref_doc = 0;
@@ -1157,13 +1056,11 @@ mod tests {
                 let byte_offset;
                 let byte_upto;
                 {
-                    let byte_pool = byte_block_pool.lock().map_err(|_| {
-                        LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                    })?;
+                    let byte_pool = byte_block_pool.borrow_mut();
                     byte_offset = byte_pool.byte_offset;
                     byte_upto = byte_pool.byte_upto;
                 }
-                reader.init(byte_block_pool, 0, byte_offset + byte_upto)?;
+                reader.init(byte_block_pool, 0, byte_offset + byte_upto);
             }
 
             for &expected in &random_data {

@@ -384,6 +384,7 @@ pub(crate) struct Property {
     pub lowest_unassigned_field_number: i32,
 }
 
+#[allow(unused)]
 impl FieldNumbers {
     pub(crate) fn new(
         soft_deletes_field_name: Option<String>,
