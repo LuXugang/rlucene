@@ -25,12 +25,12 @@ use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, BytesStartArrayEnum};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::int_block_pool::IntBlockPool;
+#[cfg(test)]
+use crate::util::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::{ByteBlockPool, Counter, CounterEnum};
 #[cfg(test)]
-use crate::util::{AllocatorByteEnum,DirectAllocatorByte};
-use std::sync::{Arc, Mutex};
-#[cfg(test)]
 use std::sync::atomic::AtomicI64;
+use std::sync::{Arc, Mutex};
 
 /// This class stores streams of information per term without knowing the size of the stream ahead of
 /// time. Each stream typically encodes one level of information, like term frequency per document or
@@ -204,21 +204,22 @@ impl TermsHashPerField {
         let value = bytes[offset as usize];
         drop(byte_pool);
         let mut byte_pool;
-        let new_offset =
-            if value != 0 {
-                // End of slice; allocate a new one
-                let allocated_offset = self.slice_pool.alloc_slice(block_index, offset)?;
-                byte_pool = self.byte_pool.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
-                term_stream_address_buffer[stream_address] = allocated_offset + byte_pool.byte_offset;
-                allocated_offset
-            } else {
-                byte_pool = self.byte_pool.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })?;
-                offset
-            };
+        let new_offset = if value != 0 {
+            // End of slice; allocate a new one
+            let allocated_offset = self.slice_pool.alloc_slice(block_index, offset)?;
+            byte_pool = self
+                .byte_pool
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            term_stream_address_buffer[stream_address] = allocated_offset + byte_pool.byte_offset;
+            allocated_offset
+        } else {
+            byte_pool = self
+                .byte_pool
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            offset
+        };
         let bytes = byte_pool.get_buffer(block_index);
         bytes[new_offset as usize] = b;
         term_stream_address_buffer[stream_address] += 1;
@@ -447,9 +448,21 @@ pub(crate) trait TermsHashPerFieldBase {
     /// Called when a previously seen term is seen again.
     fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError>;
     /// Called when the postings array is initialized or resized.
-    fn new_postings_array(&mut self) -> Result<(), LuceneError>;
+    /// # Note
+    /// In rust Lucene, we do not need to init new postings array
+    /// But we still keep this method for consistent with the original Java code
+    #[allow(dead_code)]
+    fn new_postings_array(&mut self) -> Result<(), LuceneError>{
+        Err(LuceneError::not_implemented("should nerve called".to_string()))
+    }
     /// Creates a new postings array of the specified size.
-    fn create_postings_array(&self, size: i32) -> Result<PostingsArrayEnum, LuceneError>;
+    /// # Note
+    /// In rust Lucene, we do not need to init new postings array
+    /// But we still keep this method for consistent with the original Java code
+    #[allow(dead_code)]
+    fn create_postings_array(&self, _size: i32) -> Result<PostingsArrayEnum, LuceneError>{
+        Err(LuceneError::not_implemented("should nerve called".to_string()))
+    }
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self) -> Result<(), LuceneError>;
 }
@@ -498,17 +511,16 @@ impl BytesStartArray for PostingsBytesStartArray {
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         debug_assert!(postings_array_wrapper.postings_array.is_some());
-        let old_postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
-        let old_size = old_postings_array.get_size();
-        let new_postings_array = old_postings_array.grow();
+        let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
+        let old_size = postings_array.get_size();
+        postings_array.grow()?;
         self.bytes_used
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
             .add_and_get(
-                (new_postings_array.bytes_per_posting() + new_postings_array.get_size() - old_size)
+                (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
                     as i64,
             );
-        postings_array_wrapper.postings_array = Option::from(new_postings_array);
         Ok(())
     }
 
@@ -761,27 +773,17 @@ impl TermsHashPerFieldBase for TermsHashPerFieldMock {
         }
     }
 
-    fn new_postings_array(&mut self) -> Result<(), LuceneError> {
-        Ok(())
-    }
-
-    fn create_postings_array(&self, size: i32) -> Result<PostingsArrayEnum, LuceneError> {
-        Ok(PostingsArrayEnum::FreqProx(FreqProxPostingsArray::new(
-            size, true, false, false,
-        )))
-    }
-
     fn finish(&mut self) -> Result<(), LuceneError> {
         self.parent_per_field.finish()
     }
 }
 #[cfg(test)]
 mod tests {
-    use std::cmp::min;
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
     use crate::index::byte_slice_reader::ByteSliceReader;
     
+
     use crate::index::parallel_postings_array::PostingsArrayEnum;
     use crate::index::terms_hash_per_field::{
         PostingsArrayWrapper, TermsHashPerFieldBase, TermsHashPerFieldMock,
@@ -793,11 +795,11 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
     use rand::distr::Alphanumeric;
+    use rand::prelude::SliceRandom;
     use rand::Rng;
     use std::collections::{BTreeMap, HashMap};
     use std::sync::atomic::{AtomicI64, Ordering};
     use std::sync::{Arc, Mutex};
-    use rand::prelude::SliceRandom;
 
     #[allow(dead_code)] // for quick search
     struct TestTermsHashPerField;
@@ -1065,9 +1067,10 @@ mod tests {
                     term_ord += 1;
                 }
 
-                posting.doc_and_freq
+                posting
+                    .doc_and_freq
                     .entry(doc)
-                    .and_modify(|v| *v += 1) 
+                    .and_modify(|v| *v += 1)
                     .or_insert(1);
                 hash.add_with_bytes_ref(ref_, doc)?;
             }
@@ -1098,7 +1101,7 @@ mod tests {
 
                 eof = assert_doc_and_freq(
                     &mut reader,
-                   parent.clone(),
+                    parent.clone(),
                     pref_doc,
                     posting.term_id,
                     doc,
@@ -1114,17 +1117,10 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test111() -> Result<(),LuceneError>{
-        for _ in 0..100{
-            test_write_bytes ()?;
-        }
-        Ok(())
-    }
-    #[test]
     fn test_write_bytes() -> Result<(), LuceneError> {
         let mut random = random();
 
-            for _ in 0..100 {
+        for _ in 0..100 {
             let new_called = AtomicI64::new(0);
             let add_called = AtomicI64::new(0);
             let mut hash = create_new_hash(new_called, add_called)?;

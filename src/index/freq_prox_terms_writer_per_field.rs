@@ -20,9 +20,9 @@ use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
+use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::VecCopyOps;
 
 pub(crate) struct FreqProxTermsWriterPerField {
     pub(crate) parent_per_field: TermsHashPerField,
@@ -52,14 +52,6 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     }
 
     fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn new_postings_array(&mut self) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn create_postings_array(&self, size: i32) -> Result<PostingsArrayEnum, LuceneError> {
         todo!()
     }
 
@@ -125,50 +117,21 @@ impl PostingsArrayBase for FreqProxPostingsArray {
         bytes
     }
 
-    fn new_instance(&self, size: i32) -> Self {
-        FreqProxPostingsArray::new(
-            size,
-            self.term_freqs.is_some(),
-            self.last_positions.is_some(),
-            self.last_offsets.is_some(),
-        )
-    }
-
-    fn copy_to(&self, to_array: &mut PostingsArrayEnum, num_to_copy: i32) {
-        self.parent_postings_array.copy_to(to_array, num_to_copy);
-        if let PostingsArrayEnum::FreqProx(to) = to_array {
-            let num_to_copy = num_to_copy as usize;
-            to.last_doc_ids
-                .copy_from(&self.last_doc_ids[..num_to_copy], 0);
-            to.last_doc_codes
-                .copy_from(&self.last_doc_codes[..num_to_copy], 0);
-
-            if let Some(ref last_positions) = self.last_positions {
-                if let Some(ref mut to_positions) = to.last_positions {
-                    to_positions.copy_from(&last_positions[..num_to_copy], 0);
-                } else {
-                    debug_assert!(false, "should never happen");
-                }
-            }
-
-            if let Some(ref last_offsets) = self.last_offsets {
-                if let Some(ref mut to_offsets) = to.last_offsets {
-                    to_offsets.copy_from(&last_offsets[..num_to_copy], 0);
-                } else {
-                    debug_assert!(false, "should never happen");
-                }
-            }
-
-            if let Some(ref term_freqs) = self.term_freqs {
-                if let Some(ref mut to_term_freqs) = to.term_freqs {
-                    to_term_freqs.copy_from(&term_freqs[..num_to_copy], 0);
-                } else {
-                    debug_assert!(false, "should never happen");
-                }
-            }
-        } else {
-            debug_assert!(false, "should never happen");
+    fn copy_to(&mut self, new_size: i32) -> Result<(), LuceneError> {
+        self.parent_postings_array.copy_to(new_size)?;
+        self.size = new_size;
+        ArrayUtil::grow_exact(&mut self.last_doc_ids, new_size)?;
+        ArrayUtil::grow_exact(&mut self.last_doc_codes, new_size)?;
+        if self.last_positions.is_some() {
+            ArrayUtil::grow_exact(self.last_positions.as_mut().unwrap(), new_size)?;
         }
+        if self.last_offsets.is_some() {
+            ArrayUtil::grow_exact(self.last_offsets.as_mut().unwrap(), new_size)?;
+        }
+        if self.term_freqs.is_some() {
+            ArrayUtil::grow_exact(self.term_freqs.as_mut().unwrap(), new_size)?;
+        }
+        Ok(())
     }
 }
 

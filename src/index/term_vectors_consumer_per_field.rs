@@ -19,6 +19,7 @@ use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
+use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::VecCopyOps;
@@ -58,14 +59,6 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         todo!()
     }
 
-    fn new_postings_array(&mut self) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn create_postings_array(&self, size: i32) -> Result<PostingsArrayEnum, LuceneError> {
-        todo!()
-    }
-
     fn finish(&mut self) -> Result<(), LuceneError> {
         todo!()
     }
@@ -97,21 +90,12 @@ impl PostingsArrayBase for TermVectorsPostingsArray {
     fn bytes_per_posting(&self) -> i32 {
         self.parent_postings_array.bytes_per_posting() + 3 * BitUtil::INT_BYTES as i32
     }
-
-    fn new_instance(&self, size: i32) -> Self {
-        TermVectorsPostingsArray::new(size)
-    }
-
-    fn copy_to(&self, to_array: &mut PostingsArrayEnum, num_to_copy: i32) {
-        self.parent_postings_array.copy_to(to_array, num_to_copy);
-        if let PostingsArrayEnum::TermVectors(to) = to_array {
-            let size = self.size as usize;
-            to.freqs.copy_from(&self.freqs[..size], size);
-            to.last_offsets.copy_from(&self.last_offsets[..size], size);
-            to.last_positions
-                .copy_from(&self.last_positions[..size], size);
-        } else {
-            debug_assert!(false, "should never happen");
-        }
+    fn copy_to(&mut self, new_size: i32) -> Result<(), LuceneError> {
+        self.parent_postings_array.copy_to(new_size)?;
+        self.size = new_size;
+        ArrayUtil::grow_exact(&mut self.freqs, new_size)?;
+        ArrayUtil::grow_exact(&mut self.last_offsets, new_size)?;
+        ArrayUtil::grow_exact(&mut self.last_positions, new_size)?;
+        Ok(())
     }
 }

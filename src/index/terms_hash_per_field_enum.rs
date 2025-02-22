@@ -17,7 +17,6 @@
 use crate::document::fields::Fields;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
-use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash_per_field::TermsHashPerFieldBase;
 #[cfg(test)]
@@ -249,23 +248,6 @@ impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
         }
     }
 
-    fn new_postings_array(&mut self) -> Result<(), LuceneError> {
-        match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.new_postings_array(),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.new_postings_array(),
-            #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(t) => t.new_postings_array(),
-        }
-    }
-
-    fn create_postings_array(&self, size: i32) -> Result<PostingsArrayEnum, LuceneError> {
-        match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.create_postings_array(size),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.create_postings_array(size),
-            #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(t) => t.create_postings_array(size),
-        }
-    }
     fn finish(&mut self) -> Result<(), LuceneError> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.finish(),
