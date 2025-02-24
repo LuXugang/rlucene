@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::AllocatorByte;
 use std::cell::RefCell;
 use std::rc::Rc;
 /// # Internal

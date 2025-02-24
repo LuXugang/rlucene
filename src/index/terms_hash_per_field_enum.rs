@@ -26,7 +26,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::ByteBlockPool;
 use std::cell::RefCell;
 use std::rc::Rc;
-
+#[allow(unused)]
 pub(crate) enum TermsHashPerFieldEnum {
     TermVectorsConsumer(TermVectorsConsumerPerField),
     FreqProxTermsWriter(FreqProxTermsWriterPerField),

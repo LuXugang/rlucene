@@ -167,8 +167,7 @@ impl SparseFixedBitSet {
             index = self.indices[i4096 as usize];
             if index != 0 {
                 let i64 = index.trailing_zeros() as i32;
-                return (i4096 << 12)
-                    | i64 << 6
+                return (i4096 << 12) | (i64 << 6)
                     | self.bits[i4096 as usize].as_ref().unwrap()[0].trailing_zeros() as i32;
             }
             i4096 += 1;
@@ -229,7 +228,7 @@ impl SparseFixedBitSet {
         i64 += 1 + index_bits.trailing_zeros() as i32;
         debug_assert!(bit_array.is_some());
         let bits = bit_array.unwrap()[o];
-        i64 << 6 | bits.trailing_zeros() as i32
+        (i64 << 6) | bits.trailing_zeros() as i32
     }
 
     fn _or_other(&mut self, other: SparseFixedBitSet) {

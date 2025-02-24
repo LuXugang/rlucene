@@ -23,6 +23,7 @@ use crate::util::fst::reverse_random_access_reader::ReverseRandomAccessReader;
 use std::fmt::{Display, Formatter};
 
 /// Reads bytes stored in an FST.
+#[allow(unused)]
 pub trait BytesReader: DataInput {
     /// Get current read position.
     fn get_position(&self) -> i64;
@@ -30,7 +31,7 @@ pub trait BytesReader: DataInput {
     /// Set current read position.
     fn set_position(&mut self, pos: i64);
 }
-
+#[allow(unused)]
 pub(crate) enum BytesReaderEnum<'a, R>
 where
     R: RandomAccessInput,

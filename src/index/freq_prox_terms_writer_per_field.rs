@@ -23,12 +23,13 @@ use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBas
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-
+#[allow(unused)]
 pub(crate) struct FreqProxTermsWriterPerField {
     pub(crate) parent_per_field: TermsHashPerField,
     pub(crate) postings_array: Option<PostingsArrayEnum>,
 }
 impl FreqProxTermsWriterPerField {}
+#[allow(unused)]
 impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
         self.parent_per_field.init_stream_slices(term_id, doc_id)?;
@@ -41,15 +42,15 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         Ok(term_id)
     }
 
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
+    fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool, LuceneError> {
         todo!()
     }
 
-    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn new_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<(), LuceneError> {
         todo!()
     }
 
-    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn add_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<(), LuceneError> {
         todo!()
     }
 
@@ -136,6 +137,7 @@ impl PostingsArrayBase for FreqProxPostingsArray {
 pub(crate) struct FreqProx {
     pub(crate) index_options: IndexOptions,
 }
+#[allow(unused)]
 impl FreqProx {
     pub fn new(index_options: IndexOptions) -> Self {
         FreqProx { index_options }

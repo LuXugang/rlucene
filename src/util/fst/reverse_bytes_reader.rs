@@ -24,7 +24,7 @@ pub struct ReverseBytesReader<'a> {
     bytes: &'a mut [u8],
     pos: i32,
 }
-
+#[allow(unused)]
 impl<'a> ReverseBytesReader<'a> {
     pub fn new(bytes: &'a mut [u8]) -> Self {
         Self { bytes, pos: 0 }

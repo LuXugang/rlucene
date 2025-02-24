@@ -19,15 +19,15 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fst::fst::DummyBytesReader;
 use crate::util::fst::fst_reader::FstReader;
-
+#[allow(unused)]
 struct NullFSTReader;
-
+#[allow(unused)]
 impl Accountable for NullFSTReader {
     fn ram_bytes_used(&self) -> i64 {
         todo!()
     }
 }
-
+#[allow(unused)]
 impl FstReader for NullFSTReader {
     type FstBytesReader = DummyBytesReader;
 

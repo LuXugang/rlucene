@@ -65,7 +65,7 @@ pub(crate) trait PostingsArrayBase {
     /// But we still keep this method with same function name for consistent.
     fn copy_to(&mut self, new_size: i32) -> Result<(), LuceneError>;
 }
-
+#[allow(unused)]
 pub(crate) enum PostingsArrayEnum {
     Parallel(ParallelPostingsArray),
     FreqProx(FreqProxPostingsArray),

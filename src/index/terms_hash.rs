@@ -20,7 +20,7 @@ use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
 use crate::util::{AllocatorByteEnum, ByteBlockPool, CounterEnum};
 use std::cell::RefCell;
 use std::rc::Rc;
-
+#[allow(unused)]
 pub(crate) struct TermsHash {
     next_terms_hash: Option<TermsHashEnum>,
     int_pool: Rc<RefCell<IntBlockPool>>,
@@ -28,7 +28,7 @@ pub(crate) struct TermsHash {
     term_byte_pool: Option<Rc<RefCell<ByteBlockPool>>>,
     bytes_used: Rc<RefCell<CounterEnum>>,
 }
-
+#[allow(unused)]
 impl TermsHash {
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
@@ -57,12 +57,12 @@ impl TermsHash {
         terms_hash
     }
 }
-
+#[allow(unused)]
 pub(crate) trait TermsHashBase {
     fn get_term_byte_pool(&self) -> Option<Rc<RefCell<ByteBlockPool>>>;
     fn set_term_byte_pool(&mut self, term_byte_pool: Option<Rc<RefCell<ByteBlockPool>>>);
 }
-
+#[allow(unused)]
 pub(crate) enum TermsHashEnum {
     FreqProx(FreqProxTermsWriter),
     TermVectors(TermVectorsConsumer),

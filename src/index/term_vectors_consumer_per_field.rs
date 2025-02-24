@@ -22,14 +22,14 @@ use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBas
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::VecCopyOps;
-
+#[allow(unused)]
 pub(crate) struct TermVectorsConsumerPerField {
     pub(crate) parent_per_field: TermsHashPerField,
     pub(crate) postings_array: Option<PostingsArrayEnum>,
 }
+#[allow(unused)]
 impl TermVectorsConsumerPerField {
-    pub(crate) fn new(size: i32) -> Self {
+    pub(crate) fn new(_size: i32) -> Self {
         todo!()
     }
 }
@@ -45,15 +45,15 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         Ok(term_id)
     }
 
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
+    fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool, LuceneError> {
         todo!()
     }
 
-    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn new_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<(), LuceneError> {
         todo!()
     }
 
-    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn add_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<(), LuceneError> {
         todo!()
     }
 

@@ -28,7 +28,7 @@ where
     input: R,
     pos: i64,
 }
-
+#[allow(unused)]
 impl<R> ReverseRandomAccessReader<R>
 where
     R: RandomAccessInput,

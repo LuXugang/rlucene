@@ -16,7 +16,7 @@
  */
 use crate::store::IndexInput;
 use std::sync::{Arc, Mutex};
-
+#[allow(unused)]
 pub struct OffHeapFSTStore<I>
 where
     I: IndexInput,
@@ -25,6 +25,7 @@ where
     offset: i64,
     num_bytes: i64,
 }
+#[allow(unused)]
 impl<I> OffHeapFSTStore<I>
 where
     I: IndexInput,

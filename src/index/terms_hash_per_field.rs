@@ -19,7 +19,7 @@ use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
 use crate::index::index_options::IndexOptions;
-use crate::index::parallel_postings_array::{PostingsArrayBase, PostingsArrayEnum};
+use crate::index::parallel_postings_array::{PostingsArrayEnum};
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, BytesStartArrayEnum};
@@ -69,6 +69,7 @@ pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
     pub(crate) terms_hash_per_field_type: TermsHashPerFieldType,
 }
+#[allow(unused)]
 impl PostingsArrayWrapper {
     pub fn new(terms_hash_per_field_type: TermsHashPerFieldType) -> Self {
         Self {
@@ -414,8 +415,9 @@ pub struct PostingsBytesStartArray {
     per_field: Rc<RefCell<PostingsArrayWrapper>>,
     bytes_used: Rc<RefCell<CounterEnum>>,
 }
+#[allow(unused)]
 impl PostingsBytesStartArray {
-    pub fn new(
+    pub(crate) fn new(
         per_field: Rc<RefCell<PostingsArrayWrapper>>,
         bytes_used: Rc<RefCell<CounterEnum>>,
     ) -> Self {
@@ -498,7 +500,7 @@ impl BytesStartArray for PostingsBytesStartArray {
             .len()
     }
 }
-
+#[allow(unused)]
 pub(crate) enum TermsHashPerFieldType {
     TermVectors,
     FreqProx(FreqProx),

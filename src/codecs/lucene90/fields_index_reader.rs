@@ -25,7 +25,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, Meta};
 use std::sync::{Arc, Mutex};
-
+#[allow(unused)]
 pub(crate) struct FieldsIndexReader<I, R>
 where
     I: IndexInput,
@@ -45,7 +45,7 @@ where
     start_pointers: DirectMonotonicReader<R>,
     max_pointer: i64,
 }
-
+#[allow(unused)]
 impl<I, R> FieldsIndexReader<I, R>
 where
     I: IndexInput<Slice = R>,

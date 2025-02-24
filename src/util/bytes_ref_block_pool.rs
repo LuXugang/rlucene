@@ -35,6 +35,7 @@ impl Default for BytesRefBlockPool {
 
 impl BytesRefBlockPool {
     // TODO: memory calculation not implemented
+    #[allow(unused)]
     const BASE_RAM_BYTES: i32 = 0;
     pub fn new() -> BytesRefBlockPool {
         let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(

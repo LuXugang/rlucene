@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
+#[allow(unused)]
 pub(crate) trait FieldsIndex {
     /// Get the ID of the block that contains the given docID.
     fn get_block_id(&mut self, doc_id: i32) -> Result<i64, LuceneError>;

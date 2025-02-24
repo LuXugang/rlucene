@@ -140,7 +140,7 @@ impl LongValues for MonotonicLongValues {
         let mut end_bits = (major_bit_pos & MOD_MASK as i64) + self.bpv_minus_block_size as i64;
         if end_bits <= 0 {
             // Single block
-            return Ok((self.blocks[block_offset] as u64 >> -end_bits & self.mask_right) as i64);
+            return Ok(((self.blocks[block_offset] as u64 >> -end_bits) & self.mask_right) as i64);
         }
         // Multiple blocks
         let mut value = ((self.blocks[block_offset] as u64) << end_bits) & self.mask_right;

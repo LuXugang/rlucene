@@ -22,6 +22,7 @@ use crate::util::fst::fst::BytesReader;
 /// # Experimental
 #[allow(unused)]
 struct BitTableUtil;
+#[allow(unused)]
 impl BitTableUtil {
     /// Returns whether the bit at the given zero-based index is set.
     ///
@@ -361,7 +362,7 @@ mod tests {
             Ok(v)
         }
 
-        fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
+        fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<(), LuceneError> {
             Err(LuceneError::unsupported_operation(
                 "Not implemented".to_string(),
             ))

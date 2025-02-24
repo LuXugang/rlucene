@@ -338,21 +338,21 @@ impl<'a> IntoIterator for &'a FieldInfos {
 // }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct FieldDimensions {
+pub(crate) struct FieldDimensions {
     pub dimension_count: i32,
     pub index_dimension_count: i32,
     pub dimension_num_bytes: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct FieldVectorProperties {
+pub(crate) struct FieldVectorProperties {
     pub num_dimensions: i32,
     pub vector_encoding: VectorEncoding,
     pub similarity_function: VectorSimilarityFunction,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct IndexOptionsProperties {
+pub(crate) struct IndexOptionsProperties {
     pub store_term_vectors: bool,
     pub omit_norms: bool,
 }
@@ -802,9 +802,9 @@ pub struct Builder {
     global_field_numbers: Arc<FieldNumbers>,
     finished: bool,
 }
-
+#[allow(unused)]
 impl Builder {
-    pub fn new(global_field_numbers: Arc<FieldNumbers>) -> Self {
+    pub(crate) fn new(global_field_numbers: Arc<FieldNumbers>) -> Self {
         Self {
             by_name: HashMap::new(),
             global_field_numbers,

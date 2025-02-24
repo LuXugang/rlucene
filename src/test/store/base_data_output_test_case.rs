@@ -70,7 +70,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
     vec![
         //0 writeByte / readByte
         |dst, rnd| {
-            let value: u8 = rnd.gen();
+            let value: u8 = rnd.random();
             let _ = dst.write_byte(value);
             Box::new(move |src: &mut DI| {
                 assert_eq!(src.read_byte().unwrap(), value, "Condition failed for DI")
@@ -79,7 +79,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         //1 writeBytes / readBytes (array and buffer version).
         |dst, rnd| {
             let len = rnd.random_range(0..100);
-            let bytes: Vec<u8> = (0..len).map(|_| rnd.gen()).collect();
+            let bytes: Vec<u8> = (0..len).map(|_| rnd.random()).collect();
             let bytes_len = bytes.len();
             let _ = dst.write_bytes_with_len(&bytes, bytes_len as i32);
             Box::new(move |src: &mut DI| {
@@ -91,7 +91,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         //2 writeBytes / readBytes (array + offset).
         |dst, rnd| {
             let len = rnd.random_range(0..10000);
-            let bytes: Vec<u8> = (0..len).map(|_| rnd.gen()).collect();
+            let bytes: Vec<u8> = (0..len).map(|_| rnd.random()).collect();
             let bytes_len = bytes.len();
             let off = if len == 0 {
                 0
@@ -116,7 +116,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //3 writeInt / readInt
         |dst, rnd| {
-            let value: i32 = rnd.gen();
+            let value: i32 = rnd.random();
             let _ = dst.write_int(value);
             Box::new(move |src: &mut DI| {
                 assert_eq!(src.read_int().unwrap(), value, "readInt()");
@@ -124,7 +124,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //4 writeLong / readInt
         |dst, rnd| {
-            let value: i64 = rnd.gen();
+            let value: i64 = rnd.random();
             let _ = dst.write_long(value);
             Box::new(move |src: &mut DI| {
                 assert_eq!(src.read_long().unwrap(), value, "readLong()");
@@ -132,7 +132,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //5 writeShort / readShort
         |dst, rnd| {
-            let value: i16 = rnd.gen();
+            let value: i16 = rnd.random();
             let _ = dst.write_short(value);
             Box::new(move |src: &mut DI| {
                 assert_eq!(src.read_short().unwrap(), value, "readShort()");
@@ -140,7 +140,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //6 writeVInt / readVInt
         |dst, rnd| {
-            let value: i32 = rnd.gen();
+            let value: i32 = rnd.random();
             let _ = dst.write_vint(value);
             Box::new(move |src: &mut DI| {
                 assert_eq!(src.read_vint().unwrap(), value, "readVInt()");
@@ -148,7 +148,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //7 writeZInt / readZInt
         |dst, rnd| {
-            let value: i32 = rnd.gen();
+            let value: i32 = rnd.random();
             let _ = dst.write_zint(value);
             Box::new(move |src: &mut DI| {
                 assert_eq!(src.read_zint().unwrap(), value, "readZInt()");
@@ -156,7 +156,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //8 writeZLong / readZLong
         |dst, rnd| {
-            let value: i64 = rnd.gen();
+            let value: i64 = rnd.random();
             let _ = dst.write_zlong(value);
             Box::new(move |src: &mut DI| {
                 assert_eq!(src.read_zlong().unwrap(), value, "readZLong()");
@@ -164,7 +164,7 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
         },
         //9 writeVLong / readVLong
         |dst, rnd| {
-            let mut value: i64 = rnd.gen();
+            let mut value: i64 = rnd.random();
             value &= (-1i64 as u64 >> 1) as i64;
             let _ = dst.write_vlong(value);
             Box::new(move |src: &mut DI| {
