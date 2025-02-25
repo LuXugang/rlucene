@@ -19,6 +19,7 @@ use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::term::Term;
+use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
@@ -564,8 +565,13 @@ where
     global_slice: DeleteSlice<Q>,
     #[allow(unused)]
     generation: i64,
-    global_buffered_updates:
-        BufferedUpdates<Q, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum>,
+    global_buffered_updates: BufferedUpdates<
+        Q,
+        MTCounterEnum,
+        MTByteBlockPool,
+        MTBytesStartArrayEnum,
+        MTPostingsArrayWrapper,
+    >,
     max_seq_no: i64,
     advanced: bool,
     closed: bool,
@@ -623,7 +629,13 @@ where
 
     pub(crate) fn apply(
         &mut self,
-        del: &mut BufferedUpdates<Q, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum>,
+        del: &mut BufferedUpdates<
+            Q,
+            MTCounterEnum,
+            MTByteBlockPool,
+            MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
+        >,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         if Arc::ptr_eq(&self.slice_head, &self.slice_tail) {
@@ -717,6 +729,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -755,6 +768,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         _doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -786,6 +800,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -823,6 +838,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -864,6 +880,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -903,6 +920,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -939,6 +957,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -1009,6 +1028,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -1056,6 +1076,7 @@ where
             MTCounterEnum,
             MTByteBlockPool,
             MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
         >,
         _doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
@@ -1089,6 +1110,7 @@ mod tests {
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::test::util::lucene_test_case::{random, random_multiplier};
 
+    use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
     use crate::util::bytes_ref_hash::MTBytesStartArrayEnum;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::LuceneError;
@@ -1098,7 +1120,7 @@ mod tests {
     use std::collections::HashSet;
     use std::sync::atomic::{AtomicI32, Ordering};
     use std::sync::{Arc, Barrier, Mutex};
-    use std::vec;
+    use std::{thread, vec};
 
     #[allow(dead_code)]
     pub struct TestDocumentsWriterDeleteQueue;
@@ -1175,7 +1197,13 @@ mod tests {
     fn test_assert_all_between<Q>(
         start: i32,
         end: i32,
-        deletes: &mut BufferedUpdates<Q, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum>,
+        deletes: &mut BufferedUpdates<
+            Q,
+            MTCounterEnum,
+            MTByteBlockPool,
+            MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
+        >,
         ids: &[i32],
     ) -> Result<(), LuceneError>
     where
@@ -1247,94 +1275,94 @@ mod tests {
     }
     #[test]
     fn test_partially_applied_global_slice() -> Result<(), LuceneError> {
-        // let queue_: DocumentsWriterDeleteQueue<DummyQuery> =
-        //     DocumentsWriterDeleteQueue::new(get_default_info_stream());
-        // let queue = Arc::new(Mutex::new(queue_));
-        // // let lock = queue.lock().unwrap();
-        // let handle = thread::spawn({
-        //     let queue = queue.clone();
-        //     move || {
-        //         let term = Term::from_text("foo".to_string(), "bar");
-        //         queue.lock().unwrap().add_delete_term(vec![term]).unwrap();
-        //     }
-        // });
-        // // drop(lock);
-        // handle.join().unwrap();
-        // let queue = queue.lock().unwrap();
-        // assert!(queue.any_changes()?);
-        // queue.try_apply_global_slice()?;
-        // assert!(queue.any_changes()?);
-        // let frozen_global_buffer_wrap = queue.freeze_global_buffer::<DummyDirectory>(None)?;
-        // assert!(frozen_global_buffer_wrap.is_some());
-        // let frozen_global_buffer = frozen_global_buffer_wrap.unwrap();
-        // assert!(frozen_global_buffer.any());
-        // assert_eq!(1, frozen_global_buffer.delete_terms.size());
-        // assert!(!queue.any_changes()?);
+        let queue_: DocumentsWriterDeleteQueue<DummyQuery> =
+            DocumentsWriterDeleteQueue::new(get_default_info_stream());
+        let queue = Arc::new(Mutex::new(queue_));
+        let lock = queue.lock().unwrap();
+        let handle = thread::spawn({
+            let queue = queue.clone();
+            move || {
+                let term = Term::from_text("foo".to_string(), "bar");
+                queue.lock().unwrap().add_delete_term(vec![term]).unwrap();
+            }
+        });
+        drop(lock);
+        handle.join().unwrap();
+        let queue = queue.lock().unwrap();
+        assert!(queue.any_changes()?);
+        queue.try_apply_global_slice()?;
+        assert!(queue.any_changes()?);
+        let frozen_global_buffer_wrap = queue.freeze_global_buffer::<DummyDirectory>(None)?;
+        assert!(frozen_global_buffer_wrap.is_some());
+        let frozen_global_buffer = frozen_global_buffer_wrap.unwrap();
+        assert!(frozen_global_buffer.any());
+        assert_eq!(1, frozen_global_buffer.delete_terms.size());
+        assert!(!queue.any_changes()?);
         Ok(())
     }
     #[test]
     fn test_stress_delete_queue() -> Result<(), LuceneError> {
-        // let mut random = random();
-        // let queue = Arc::new(DocumentsWriterDeleteQueue::<DummyQuery>::new(
-        //     get_default_info_stream(),
-        // ));
-        // let mut unique_values = HashSet::new();
-        // let size = 10000 + random.random_range(0..500) * random_multiplier();
-        // let ids: Vec<i32> = (0..size).map(|_| random.random()).collect();
-        // for id in &ids {
-        //     unique_values.insert(Term::from_text("id".to_string(), &id.to_string()));
-        // }
-        //
-        // let barrier = Arc::new(Barrier::new(1));
-        // let index = Arc::new(AtomicI32::new(0));
-        // let num_threads = 2 + random.random_range(0..5);
-        //
-        // let mut threads = Vec::new();
-        // for _ in 0..num_threads {
-        //     let thread = UpdateThread::new(
-        //         Arc::clone(&queue),
-        //         Arc::clone(&index),
-        //         ids.clone(),
-        //         Arc::clone(&barrier),
-        //     )?;
-        //     threads.push(Arc::new(Mutex::new(thread)));
-        // }
-        //
-        // let mut handles = Vec::new();
-        // for thread in &threads {
-        //     let thread = Arc::clone(thread);
-        //     handles.push(thread::spawn(move || {
-        //         let mut thread = thread.lock().unwrap();
-        //         thread.run().expect("Thread execution failed");
-        //     }));
-        // }
-        // for handle in handles {
-        //     handle.join().expect("Thread join failed");
-        // }
-        // for thread in threads {
-        //     let mut guard = thread.lock().unwrap();
-        //     queue.update_slice(&mut guard.slice)?;
-        //     let deletes = guard.deletes.clone();
-        //     let mut deletes_guard = deletes.lock().unwrap();
-        //     guard
-        //         .slice
-        //         .apply(&mut deletes_guard, BufferedUpdates::MAX_INT)?;
-        //     assert_eq!(unique_values, deletes_guard.delete_terms.key_set());
-        // }
-        //
-        // queue.try_apply_global_slice()?;
-        // let mut frozen_set = HashSet::new();
-        // let frozen = queue.freeze_global_buffer::<DummyDirectory>(None)?.unwrap();
-        // let mut iter = frozen.delete_terms.iterator();
-        // let mut builder = BytesRefBuilder::new();
-        // while let Some(byte_ref) = iter.next()? {
-        //     builder.copy_bytes_with_ref(&byte_ref)?;
-        //     let term = Term::new(iter.field().to_string(), builder.get_bytes_ref());
-        //     frozen_set.insert(term);
-        // }
-        // assert_eq!(unique_values.len(), frozen_set.len());
-        // assert_eq!(unique_values, frozen_set);
-        // assert_eq!(0, queue.num_global_term_deletes()?);
+        let mut random = random();
+        let queue = Arc::new(DocumentsWriterDeleteQueue::<DummyQuery>::new(
+            get_default_info_stream(),
+        ));
+        let mut unique_values = HashSet::new();
+        let size = 10000 + random.random_range(0..500) * random_multiplier();
+        let ids: Vec<i32> = (0..size).map(|_| random.random()).collect();
+        for id in &ids {
+            unique_values.insert(Term::from_text("id".to_string(), &id.to_string()));
+        }
+
+        let barrier = Arc::new(Barrier::new(1));
+        let index = Arc::new(AtomicI32::new(0));
+        let num_threads = 2 + random.random_range(0..5);
+
+        let mut threads = Vec::new();
+        for _ in 0..num_threads {
+            let thread = UpdateThread::new(
+                Arc::clone(&queue),
+                Arc::clone(&index),
+                ids.clone(),
+                Arc::clone(&barrier),
+            )?;
+            threads.push(Arc::new(Mutex::new(thread)));
+        }
+
+        let mut handles = Vec::new();
+        for thread in &threads {
+            let thread = Arc::clone(thread);
+            handles.push(thread::spawn(move || {
+                let mut thread = thread.lock().unwrap();
+                thread.run().expect("Thread execution failed");
+            }));
+        }
+        for handle in handles {
+            handle.join().expect("Thread join failed");
+        }
+        for thread in threads {
+            let mut guard = thread.lock().unwrap();
+            queue.update_slice(&mut guard.slice)?;
+            let deletes = guard.deletes.clone();
+            let mut deletes_guard = deletes.lock().unwrap();
+            guard
+                .slice
+                .apply(&mut deletes_guard, BufferedUpdates::MAX_INT)?;
+            assert_eq!(unique_values, deletes_guard.delete_terms.key_set()?);
+        }
+
+        queue.try_apply_global_slice()?;
+        let mut frozen_set = HashSet::new();
+        let frozen = queue.freeze_global_buffer::<DummyDirectory>(None)?.unwrap();
+        let mut iter = frozen.delete_terms.iterator();
+        let mut builder = BytesRefBuilder::new();
+        while let Some(byte_ref) = iter.next()? {
+            builder.copy_bytes_with_ref(&byte_ref)?;
+            let term = Term::new(iter.field().to_string(), builder.get_bytes_ref());
+            frozen_set.insert(term);
+        }
+        assert_eq!(unique_values.len(), frozen_set.len());
+        assert_eq!(unique_values, frozen_set);
+        assert_eq!(0, queue.num_global_term_deletes()?);
         Ok(())
     }
 
@@ -1398,8 +1426,17 @@ mod tests {
         index: Arc<AtomicI32>,
         ids: Vec<i32>,
         slice: DeleteSlice<Q>,
-        deletes:
-            Arc<Mutex<BufferedUpdates<Q, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum>>>,
+        deletes: Arc<
+            Mutex<
+                BufferedUpdates<
+                    Q,
+                    MTCounterEnum,
+                    MTByteBlockPool,
+                    MTBytesStartArrayEnum,
+                    MTPostingsArrayWrapper,
+                >,
+            >,
+        >,
         barrier: Arc<Barrier>,
     }
 

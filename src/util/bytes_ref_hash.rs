@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::terms_hash_per_field::PostingsBytesStartArray;
+use crate::index::terms_hash_per_field::{
+    MTPostingsArrayWrapper, PostingsArrayWrapper, PostingsBytesStartArray, STPostingsArrayWrapper,
+};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
@@ -34,11 +36,12 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-pub struct BytesRefHash<C, B, A>
+pub struct BytesRefHash<C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C>>,
+    A: Access<BytesStartArrayEnum<C, P>>,
+    P: Access<PostingsArrayWrapper>,
 {
     pool: BytesRefBlockPool<C, B>,
     hash_size: i32,
@@ -49,9 +52,10 @@ where
     pub ids: Vec<i32>,
     bytes_start_array: A,
     bytes_used: C,
-    _phantom: PhantomData<B>,
+    _phantom1: PhantomData<B>,
+    _phantom2: PhantomData<P>,
 }
-impl BytesRefHash<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum> {
+impl BytesRefHash<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper> {
     pub const DEFAULT_CAPACITY: i32 = 16;
     pub fn new_sync() -> Result<Self, LuceneError> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -65,7 +69,7 @@ impl BytesRefHash<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum> {
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
 }
-impl BytesRefHash<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum> {
+impl BytesRefHash<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper> {
     pub fn new() -> Result<Self, LuceneError> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
@@ -82,11 +86,12 @@ impl BytesRefHash<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum> {
     }
 }
 
-impl<C, B, A> BytesRefHash<C, B, A>
+impl<C, B, A, P> BytesRefHash<C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C>>,
+    A: Access<BytesStartArrayEnum<C, P>>,
+    P: Access<PostingsArrayWrapper>,
 {
     pub fn from_bytes_start_array(
         pool: B,
@@ -108,7 +113,8 @@ where
             ids: vec![-1; capacity as usize],
             bytes_start_array,
             bytes_used,
-            _phantom: Default::default(),
+            _phantom1: Default::default(),
+            _phantom2: Default::default(),
         })
     }
     /// Returns the number of [`BytesRef`] values in this [`BytesRefHash`].
@@ -132,14 +138,14 @@ where
     pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) -> Result<(), LuceneError> {
         self.bytes_start_array.with_ref_mut(|bytes_start_array| {
             debug_assert!(
-                bytes_start_array.len() > 0,
+                bytes_start_array.len()? > 0,
                 "bytes_start is null - not initialized"
             );
             debug_assert!(
-                (bytes_id as usize) < bytes_start_array.len(),
+                (bytes_id as usize) < bytes_start_array.len()?,
                 "bytesID exceeds bytes_start len"
             );
-            let value = bytes_start_array.get_value(bytes_id as usize);
+            let value = bytes_start_array.get_value(bytes_id as usize)?;
             self.pool.fill_bytes_ref(ref_, value)
         })
     }
@@ -151,7 +157,7 @@ where
     pub fn compact(&mut self) -> &Vec<i32> {
         debug_assert!(
             self.bytes_start_array
-                .with_ref(|bytes_start_array| Ok(bytes_start_array.len() > 0))
+                .with_ref(|bytes_start_array| Ok(bytes_start_array.len().unwrap() > 0))
                 .unwrap(),
             "bytes_start is null - not initialized"
         );
@@ -266,7 +272,7 @@ where
     pub fn add(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         debug_assert!(
             self.bytes_start_array
-                .with_ref(|bytes_start_array| Ok(bytes_start_array.len() > 0))?,
+                .with_ref(|bytes_start_array| Ok(bytes_start_array.len()? > 0))?,
             "Bytesstart is null - not initialized"
         );
 
@@ -276,15 +282,15 @@ where
         if e == -1 {
             {
                 self.bytes_start_array.with_ref_mut(|bytes_start_array| {
-                    let length = bytes_start_array.len();
+                    let length = bytes_start_array.len()?;
                     // new entry
                     if self.count as usize >= length {
                         bytes_start_array.grow()?;
                         debug_assert!(
-                            (self.count as usize) < bytes_start_array.len() + 1,
+                            (self.count as usize) < bytes_start_array.len()? + 1,
                             "count: {} len: {}",
                             self.count,
-                            bytes_start_array.len()
+                            bytes_start_array.len()?
                         );
                     }
 
@@ -320,7 +326,7 @@ where
     fn find_hash(&self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         self.bytes_start_array.with_ref_mut(|bytes_start_array| {
             debug_assert!(
-                bytes_start_array.len() > 0,
+                bytes_start_array.len()? > 0,
                 "bytesStart is null - not initialized"
             );
 
@@ -334,7 +340,7 @@ where
             if e != -1
                 && !self
                     .pool
-                    .equals(bytes_start_array.get_value(e as usize), bytes)?
+                    .equals(bytes_start_array.get_value(e as usize)?, bytes)?
             {
                 // Conflict; use linear probe to find an open slot
                 // (see LUCENE-5604):
@@ -345,7 +351,7 @@ where
                     if e == -1
                         || self
                             .pool
-                            .equals(bytes_start_array.get_value(e as usize), bytes)?
+                            .equals(bytes_start_array.get_value(e as usize)?, bytes)?
                     {
                         break;
                     }
@@ -362,7 +368,7 @@ where
     pub fn add_by_pool_offset(&mut self, offset: i32) -> Result<i32, LuceneError> {
         debug_assert!(
             self.bytes_start_array
-                .with_ref(|bytes_start_array| Ok(bytes_start_array.len() > 0))?,
+                .with_ref(|bytes_start_array| Ok(bytes_start_array.len()? > 0))?,
             "Bytesstart is null - not initialized"
         );
 
@@ -371,9 +377,9 @@ where
         let mut hash_pos = offset & self.hash_mask;
         let mut e = self.ids[hash_pos as usize];
         let length = self.bytes_start_array.with_ref_mut(|bytes_start_array| {
-            let length = bytes_start_array.len();
+            let length = bytes_start_array.len()?;
             // Resolve hash conflicts
-            while e != -1 && bytes_start_array.get_value(e as usize) != offset {
+            while e != -1 && bytes_start_array.get_value(e as usize)? != offset {
                 code += 1;
                 hash_pos = code & self.hash_mask;
                 e = self.ids[hash_pos as usize];
@@ -387,10 +393,10 @@ where
                 if self.count as usize >= length {
                     bytes_start_array.grow()?;
                     debug_assert!(
-                        self.count < bytes_start_array.len() as i32 + 1,
+                        self.count < bytes_start_array.len()? as i32 + 1,
                         "count: {}, len: {}",
                         self.count,
-                        bytes_start_array.len()
+                        bytes_start_array.len()?
                     );
                 }
 
@@ -426,9 +432,9 @@ where
                 let e0 = self.ids[i as usize];
                 if e0 != -1 {
                     let code = if hash_on_data {
-                        self.pool.hash(bytes_start_array.get_value(e0 as usize))?
+                        self.pool.hash(bytes_start_array.get_value(e0 as usize)?)?
                     } else {
-                        bytes_start_array.get_value(e0 as usize)
+                        bytes_start_array.get_value(e0 as usize)?
                     };
 
                     let mut hash_pos = code & new_mask;
@@ -466,7 +472,7 @@ where
     /// If `clear()` has not been called previously, this method has no effect.
     pub fn reinit(&mut self) -> Result<(), LuceneError> {
         self.bytes_start_array.with_ref_mut(|bytes_start_array| {
-            if bytes_start_array.len() == 0 {
+            if bytes_start_array.len()? == 0 {
                 let _ = bytes_start_array.init();
             }
             Ok(())
@@ -496,19 +502,20 @@ where
     pub fn byte_start(&self, bytes_id: i32) -> Result<i32, LuceneError> {
         self.bytes_start_array.with_ref(|bytes_start_array| {
             debug_assert!(
-                bytes_start_array.len() > 0,
+                bytes_start_array.len()? > 0,
                 "bytes_start is null - not initialized"
             );
             debug_assert!(bytes_id >= 0 || bytes_id < self.count);
             Ok(bytes_start_array.get_value(bytes_id as usize))
-        })
+        })?
     }
 }
-impl<C, B, A> Accountable for BytesRefHash<C, B, A>
+impl<C, B, A, P> Accountable for BytesRefHash<C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C>>,
+    A: Access<BytesStartArrayEnum<C, P>>,
+    P: Access<PostingsArrayWrapper>,
 {
     fn ram_bytes_used(&self) -> i64 {
         // TODO: memory calculation not implemented
@@ -516,15 +523,18 @@ where
     }
 }
 /// for single-threaded scenarios
-pub type STBytesRefHash = BytesRefHash<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum>;
+pub type STBytesRefHash =
+    BytesRefHash<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper>;
 /// for multi-threaded scenarios
-pub type MTBytesRefHash = BytesRefHash<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum>;
+pub type MTBytesRefHash =
+    BytesRefHash<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper>;
 
-pub struct StringSorterImpl<'a, C, B, A>
+pub struct StringSorterImpl<'a, C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C>>,
+    A: Access<BytesStartArrayEnum<C, P>>,
+    P: Access<PostingsArrayWrapper>,
 {
     tmp_offset: i32,
     compact: &'a mut Vec<i32>,
@@ -532,12 +542,14 @@ where
     bytes_start_array: A,
     k: i32,
     cmp: Natural,
+    _phantom1: PhantomData<P>,
 }
-impl<'a, C, B, A> StringSorterImpl<'a, C, B, A>
+impl<'a, C, B, A, P> StringSorterImpl<'a, C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C>>,
+    A: Access<BytesStartArrayEnum<C, P>>,
+    P: Access<PostingsArrayWrapper>,
 {
     pub fn new(
         tmp_offset: i32,
@@ -552,6 +564,7 @@ where
             bytes_start_array,
             k: 0,
             cmp: Natural::default(),
+            _phantom1: Default::default(),
         }
     }
     fn swap_bucket_cache(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
@@ -563,11 +576,12 @@ where
         Ok(())
     }
 }
-impl<C, B, A> MSBRadixSorterBase for StringSorterImpl<'_, C, B, A>
+impl<C, B, A, P> MSBRadixSorterBase for StringSorterImpl<'_, C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C>>,
+    A: Access<BytesStartArrayEnum<C, P>>,
+    P: Access<PostingsArrayWrapper>,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
         let mut scratch = BytesRefBuilder::new();
@@ -625,22 +639,24 @@ where
         to - from <= ((LEVEL_THRESHOLD as i32) / 2) || l >= LEVEL_THRESHOLD as i32
     }
 }
-impl<C, B, A> Sorter for StringSorterImpl<'_, C, B, A>
+impl<C, B, A, P> Sorter for StringSorterImpl<'_, C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C>>,
+    A: Access<BytesStartArrayEnum<C, P>>,
+    P: Access<PostingsArrayWrapper>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
         self.compact.swap(i as usize, j as usize);
         Ok(())
     }
 }
-impl<C, B, A> StringSorterBase for StringSorterImpl<'_, C, B, A>
+impl<C, B, A, P> StringSorterBase for StringSorterImpl<'_, C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C>>,
+    A: Access<BytesStartArrayEnum<C, P>>,
+    P: Access<PostingsArrayWrapper>,
 {
     fn get(
         &mut self,
@@ -649,7 +665,7 @@ where
         i: i32,
     ) -> Result<(), LuceneError> {
         self.bytes_start_array.with_ref(|bytes_start_array| {
-            let start = bytes_start_array.get_value(self.compact[i as usize] as usize);
+            let start = bytes_start_array.get_value(self.compact[i as usize] as usize)?;
             self.pool.fill_bytes_ref(result, start)?;
             Ok(())
         })?;
@@ -695,9 +711,9 @@ pub trait BytesStartArray {
     /// A reference holding the number of bytes used by this `BytesStartArray`.
     type Counter: Access<CounterEnum>;
     fn bytes_used(&mut self) -> Self::Counter;
-    fn get_value(&self, index: usize) -> i32;
-    fn set_value(&mut self, index: usize, value: i32);
-    fn len(&self) -> usize;
+    fn get_value(&self, index: usize) -> Result<i32, LuceneError>;
+    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError>;
+    fn len(&self) -> Result<usize, LuceneError>;
 }
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private `Counter` instance.
 pub struct DirectBytesStartArray<C>
@@ -767,29 +783,32 @@ where
         self.bytes_used.clone()
     }
 
-    fn get_value(&self, index: usize) -> i32 {
-        self.bytes_start[index]
+    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
+        Ok(self.bytes_start[index])
     }
 
-    fn set_value(&mut self, index: usize, value: i32) {
+    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
         self.bytes_start[index] = value;
+        Ok(())
     }
 
-    fn len(&self) -> usize {
-        self.bytes_start.len()
+    fn len(&self) -> Result<usize, LuceneError> {
+        Ok(self.bytes_start.len())
     }
 }
 
-pub enum BytesStartArrayEnum<C>
+pub enum BytesStartArrayEnum<C, P>
 where
     C: Access<CounterEnum>,
+    P: Access<PostingsArrayWrapper>,
 {
     Direct(DirectBytesStartArray<C>),
-    Postings(PostingsBytesStartArray<C>),
+    Postings(PostingsBytesStartArray<C, P>),
 }
-impl<C> BytesStartArray for BytesStartArrayEnum<C>
+impl<C, P> BytesStartArray for BytesStartArrayEnum<C, P>
 where
     C: Access<CounterEnum>,
+    P: Access<PostingsArrayWrapper>,
 {
     fn init(&mut self) -> Result<(), LuceneError> {
         match self {
@@ -821,29 +840,31 @@ where
         }
     }
 
-    fn get_value(&self, index: usize) -> i32 {
+    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.get_value(index),
             BytesStartArrayEnum::Postings(p) => p.get_value(index),
         }
     }
 
-    fn set_value(&mut self, index: usize, value: i32) {
+    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.set_value(index, value),
             BytesStartArrayEnum::Postings(p) => p.set_value(index, value),
         }
     }
 
-    fn len(&self) -> usize {
+    fn len(&self) -> Result<usize, LuceneError> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.len(),
             BytesStartArrayEnum::Postings(p) => p.len(),
         }
     }
 }
-pub type STBytesStartArrayEnum = Rc<RefCell<BytesStartArrayEnum<STCounterEnum>>>;
-pub type MTBytesStartArrayEnum = Arc<Mutex<BytesStartArrayEnum<MTCounterEnum>>>;
+pub type STBytesStartArrayEnum =
+    Rc<RefCell<BytesStartArrayEnum<STCounterEnum, STPostingsArrayWrapper>>>;
+pub type MTBytesStartArrayEnum =
+    Arc<Mutex<BytesStartArrayEnum<MTCounterEnum, MTPostingsArrayWrapper>>>;
 
 /// # Note
 /// In Java Lucene, BytesRefHash uses MSBStringRadixSorter. Due to language limitations,

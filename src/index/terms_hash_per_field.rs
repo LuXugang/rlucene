@@ -37,6 +37,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 #[cfg(test)]
 use std::sync::atomic::AtomicI64;
+use std::sync::{Arc, Mutex};
 
 /// This class stores streams of information per term without knowing the size of the stream ahead of
 /// time. Each stream typically encodes one level of information, like term frequency per document or
@@ -74,6 +75,10 @@ pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
     pub(crate) terms_hash_per_field_type: TermsHashPerFieldType,
 }
+/// for multi-threaded scenarios
+pub type MTPostingsArrayWrapper = Arc<Mutex<PostingsArrayWrapper>>;
+/// for single-threaded scenarios
+pub type STPostingsArrayWrapper = Rc<RefCell<PostingsArrayWrapper>>;
 #[allow(unused)]
 impl PostingsArrayWrapper {
     pub fn new(terms_hash_per_field_type: TermsHashPerFieldType) -> Self {
@@ -419,71 +424,77 @@ pub(crate) trait TermsHashPerFieldBase {
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self);
 }
-pub struct PostingsBytesStartArray<C>
+pub struct PostingsBytesStartArray<C, P>
 where
     C: Access<CounterEnum>,
+    P: Access<PostingsArrayWrapper>,
 {
-    per_field: Rc<RefCell<PostingsArrayWrapper>>,
+    per_field: P,
     bytes_used: C,
 }
 #[allow(unused)]
-impl<C> PostingsBytesStartArray<C>
+impl<C, P> PostingsBytesStartArray<C, P>
 where
     C: Access<CounterEnum>,
+    P: Access<PostingsArrayWrapper>,
 {
-    pub(crate) fn new(per_field: Rc<RefCell<PostingsArrayWrapper>>, bytes_used: C) -> Self {
+    pub(crate) fn new(per_field: P, bytes_used: C) -> Self {
         Self {
             per_field,
             bytes_used,
         }
     }
 }
-impl<C> BytesStartArray for PostingsBytesStartArray<C>
+impl<C, P> BytesStartArray for PostingsBytesStartArray<C, P>
 where
     C: Access<CounterEnum>,
+    P: Access<PostingsArrayWrapper>,
 {
     fn init(&mut self) -> Result<(), LuceneError> {
-        let mut postings_array_wrapper = self.per_field.borrow_mut();
-        if postings_array_wrapper.postings_array.is_none() {
-            postings_array_wrapper.postings_array = Option::from(
-                postings_array_wrapper
-                    .terms_hash_per_field_type
-                    .new_per_field(2),
-            );
-            if let Some(ref mut postings_array) = postings_array_wrapper.postings_array {
-                let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                self.bytes_used
-                    .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(byte_used as i64)))?;
+        self.per_field.with_ref_mut(|postings_array_wrapper| {
+            if postings_array_wrapper.postings_array.is_none() {
+                postings_array_wrapper.postings_array = Option::from(
+                    postings_array_wrapper
+                        .terms_hash_per_field_type
+                        .new_per_field(2),
+                );
+                if let Some(ref mut postings_array) = postings_array_wrapper.postings_array {
+                    let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
+                    self.bytes_used
+                        .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(byte_used as i64)))?;
+                }
             }
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
     fn grow(&mut self) -> Result<(), LuceneError> {
-        let mut postings_array_wrapper = self.per_field.borrow_mut();
-        debug_assert!(postings_array_wrapper.postings_array.is_some());
-        let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
-        let old_size = postings_array.get_size();
-        postings_array.grow()?;
-        self.bytes_used.with_ref_mut(|bytes_used| {
-            Ok(bytes_used.add_and_get(
-                (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
-                    as i64,
-            ))
-        })?;
-        Ok(())
+        self.per_field.with_ref_mut(|postings_array_wrapper| {
+            debug_assert!(postings_array_wrapper.postings_array.is_some());
+            let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
+            let old_size = postings_array.get_size();
+            postings_array.grow()?;
+            self.bytes_used.with_ref_mut(|bytes_used| {
+                Ok(bytes_used.add_and_get(
+                    (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
+                        as i64,
+                ))
+            })?;
+            Ok(())
+        })
     }
 
     fn clear(&mut self) -> Result<(), LuceneError> {
-        let mut postings_array_wrapper = self.per_field.borrow_mut();
-        if postings_array_wrapper.postings_array.is_some() {
-            let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
-            let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-            self.bytes_used
-                .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(-byte_used as i64)))?;
-            postings_array_wrapper.postings_array = None;
-        }
-        Ok(())
+        self.per_field.with_ref_mut(|postings_array_wrapper| {
+            if postings_array_wrapper.postings_array.is_some() {
+                let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
+                let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
+                self.bytes_used
+                    .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(-byte_used as i64)))?;
+                postings_array_wrapper.postings_array = None;
+            }
+            Ok(())
+        })
     }
 
     type Counter = C;
@@ -492,35 +503,39 @@ where
         self.bytes_used.clone()
     }
 
-    fn get_value(&self, index: usize) -> i32 {
-        let postings_array_wrapper = self.per_field.borrow_mut();
-        debug_assert!(postings_array_wrapper.postings_array.is_some());
-        postings_array_wrapper
-            .postings_array
-            .as_ref()
-            .unwrap()
-            .get_text_starts()[index]
+    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
+        self.per_field.with_ref_mut(|postings_array_wrapper| {
+            debug_assert!(postings_array_wrapper.postings_array.is_some());
+            Ok(postings_array_wrapper
+                .postings_array
+                .as_ref()
+                .unwrap()
+                .get_text_starts()[index])
+        })
     }
 
-    fn set_value(&mut self, index: usize, value: i32) {
-        let mut postings_array_wrapper = self.per_field.borrow_mut();
-        debug_assert!(postings_array_wrapper.postings_array.is_some());
-        postings_array_wrapper
-            .postings_array
-            .as_mut()
-            .unwrap()
-            .set_text_starts(index, value);
+    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
+        self.per_field.with_ref_mut(|postings_array_wrapper| {
+            debug_assert!(postings_array_wrapper.postings_array.is_some());
+            postings_array_wrapper
+                .postings_array
+                .as_mut()
+                .unwrap()
+                .set_text_starts(index, value);
+            Ok(())
+        })
     }
 
-    fn len(&self) -> usize {
-        let postings_array_wrapper = self.per_field.borrow_mut();
-        debug_assert!(postings_array_wrapper.postings_array.is_some());
-        postings_array_wrapper
-            .postings_array
-            .as_ref()
-            .unwrap()
-            .get_text_starts()
-            .len()
+    fn len(&self) -> Result<usize, LuceneError> {
+        self.per_field.with_ref_mut(|postings_array_wrapper| {
+            debug_assert!(postings_array_wrapper.postings_array.is_some());
+            Ok(postings_array_wrapper
+                .postings_array
+                .as_ref()
+                .unwrap()
+                .get_text_starts()
+                .len())
+        })
     }
 }
 #[allow(unused)]

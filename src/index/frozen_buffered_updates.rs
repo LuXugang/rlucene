@@ -19,6 +19,7 @@ use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
@@ -69,7 +70,13 @@ where
 
     pub fn new_sync(
         info_stream: I,
-        updates: &mut BufferedUpdates<Q, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum>,
+        updates: &mut BufferedUpdates<
+            Q,
+            MTCounterEnum,
+            MTByteBlockPool,
+            MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
+        >,
         private_segment: Option<Arc<SegmentCommitInfo<D>>>,
     ) -> Result<Self, LuceneError> {
         assert!(
