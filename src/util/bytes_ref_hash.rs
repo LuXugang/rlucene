@@ -35,7 +35,16 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-
+/// `BytesRefHash` is a special purpose hash-map like data structure optimized for `BytesRef` instances.
+/// `BytesRefHash` maintains mappings of byte arrays to IDs (`Map<BytesRef, int>`), storing the hashed bytes efficiently in continuous storage.
+/// The mapping to the ID is encapsulated inside `BytesRefHash` and is guaranteed to be increased for each added `BytesRef`.
+///
+/// # Note
+/// - The maximum capacity `BytesRef` instance passed to [`add`](BytesRefHash::add) must not be longer than [`ByteBlockPool::BYTE_BLOCK_SIZE`](ByteBlockPool) - 2.
+/// - The internal storage is limited to 2GB total byte storage.
+///
+/// [`add`]: Self::add
+/// [`ByteBlockPool::BYTE_BLOCK_SIZE`]: ByteBlockPool::BYTE_BLOCK_SIZE
 pub struct BytesRefHash<C, B, A, P>
 where
     C: Access<CounterEnum>,
@@ -954,41 +963,42 @@ where
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
-    use std::cell::RefCell;
 
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::bytes_ref_hash::{
-        BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, STBytesRefHash,
+        BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesRefHash,
     };
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{ByteBlockPool, STByteBlockPool};
+    use crate::util::{ByteBlockPool, MTByteBlockPool};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::collections::{HashMap, HashSet};
 
-    use std::rc::Rc;
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::{Arc, Barrier, Mutex};
+    use std::thread;
 
     #[allow(dead_code)] // for quick search
     pub struct TestBytesRefHash;
 
-    fn new_pool() -> STByteBlockPool {
+    fn new_pool() -> MTByteBlockPool {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        Rc::new(RefCell::new(ByteBlockPool::new(allocator)))
+        Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)))
     }
     fn new_hash(
         random: &mut StdRng,
-        block_pool: STByteBlockPool,
-    ) -> Result<STBytesRefHash, LuceneError> {
+        block_pool: MTByteBlockPool,
+    ) -> Result<MTBytesRefHash, LuceneError> {
         let init_size = 2 << (1 + random.random_range(0..5));
         if random.random_bool(0.5) {
-            BytesRefHash::from_pool(block_pool)
+            BytesRefHash::from_pool_sync(block_pool)
         } else {
             BytesRefHash::from_bytes_start_array(
                 block_pool,
                 init_size,
-                Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
-                    DirectBytesStartArray::new(init_size),
+                Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
+                    DirectBytesStartArray::new_sync(init_size),
                 ))),
             )
         }
@@ -1277,105 +1287,105 @@ mod tests {
         }
         Ok(())
     }
-    // #[test]
-    // fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), LuceneError> {
-    //     let mut random = random();
-    //     let num = at_least(&mut random, 2);
-    //
-    //     for _ in 0..num {
-    //         let num_strings = 797;
-    //         let strings = Rc::new(RefCell::new(Vec::with_capacity(num_strings)));
-    //         let hash = Rc::new(RefCell::new(new_hash(&mut random, new_pool())));
-    //
-    //         {
-    //             let mut hash_guard = hash.lock().unwrap();
-    //             for _ in 0..num_strings {
-    //                 let str_value =
-    //                     TestUtil::random_realistic_unicode_string_impl(&mut random, 1, 1000);
-    //                 hash_guard.add(&BytesRef::from_string(&str_value));
-    //                 strings.lock().unwrap().push(str_value);
-    //             }
-    //         }
-    //
-    //         let hash_size = hash.lock().unwrap().size();
-    //
-    //         let not_found = Arc::new(AtomicI32::new(0));
-    //         let not_equals = Arc::new(AtomicI32::new(0));
-    //         let wrong_size = Arc::new(AtomicI32::new(0));
-    //
-    //         let num_threads = at_least(&mut random, 3);
-    //         let barrier = Arc::new(Barrier::new(num_threads as usize));
-    //         let mut handles = vec![];
-    //
-    //         for _ in 0..num_threads {
-    //             let hash_clone = Arc::clone(&hash);
-    //             let strings_clone = Arc::clone(&strings);
-    //             let not_found_clone = Arc::clone(&not_found);
-    //             let not_equals_clone = Arc::clone(&not_equals);
-    //             let wrong_size_clone = Arc::clone(&wrong_size);
-    //             let barrier_clone = Arc::clone(&barrier);
-    //             let loops = at_least(&mut random, 100);
-    //
-    //             let handle = thread::spawn(move || {
-    //                 let mut scratch = BytesRef::new();
-    //                 barrier_clone.wait();
-    //
-    //                 for k in 0..loops {
-    //                     let strings_guard = strings_clone.lock().unwrap();
-    //                     let find =
-    //                         BytesRef::from_string(&strings_guard[k as usize % strings_guard.len()]);
-    //                     drop(strings_guard);
-    //
-    //                     let hash_guard = hash_clone.lock().unwrap();
-    //                     let id = hash_guard.find(&find).unwrap();
-    //
-    //                     if id < 0 {
-    //                         not_found_clone.fetch_add(1, Ordering::SeqCst);
-    //                     } else {
-    //                         hash_guard.get(id, &mut scratch).unwrap();
-    //                         if scratch != find {
-    //                             not_equals_clone.fetch_add(1, Ordering::SeqCst);
-    //                         }
-    //                     }
-    //                     if hash_guard.size() != hash_size {
-    //                         wrong_size_clone.fetch_add(1, Ordering::SeqCst);
-    //                     }
-    //                 }
-    //             });
-    //             handles.push(handle);
-    //         }
-    //
-    //         for handle in handles {
-    //             handle.join().expect("Thread panicked");
-    //         }
-    //
-    //         assert_eq!(
-    //             not_found.load(Ordering::SeqCst),
-    //             0,
-    //             "No entries should be missing."
-    //         );
-    //         assert_eq!(
-    //             not_equals.load(Ordering::SeqCst),
-    //             0,
-    //             "All entries should match."
-    //         );
-    //         assert_eq!(
-    //             wrong_size.load(Ordering::SeqCst),
-    //             0,
-    //             "Hash size should remain consistent."
-    //         );
-    //
-    //         hash.lock().unwrap().clear();
-    //         assert_eq!(
-    //             hash.lock().unwrap().size(),
-    //             0,
-    //             "Hash should be empty after clear."
-    //         );
-    //         hash.lock().unwrap().reinit();
-    //     }
-    //
-    //     Ok(())
-    // }
+    #[test]
+    fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num = at_least(&mut random, 2);
+
+        for _ in 0..num {
+            let num_strings = 797;
+            let strings = Arc::new(Mutex::new(Vec::with_capacity(num_strings)));
+            let hash = Arc::new(Mutex::new(new_hash(&mut random, new_pool())?));
+
+            {
+                let mut hash_guard = hash.lock().unwrap();
+                for _ in 0..num_strings {
+                    let str_value =
+                        TestUtil::random_realistic_unicode_string_impl(&mut random, 1, 1000);
+                    hash_guard.add(&BytesRef::from_string(&str_value))?;
+                    strings.lock().unwrap().push(str_value);
+                }
+            }
+
+            let hash_size = hash.lock().unwrap().size();
+
+            let not_found = Arc::new(AtomicI32::new(0));
+            let not_equals = Arc::new(AtomicI32::new(0));
+            let wrong_size = Arc::new(AtomicI32::new(0));
+
+            let num_threads = at_least(&mut random, 3);
+            let barrier = Arc::new(Barrier::new(num_threads as usize));
+            let mut handles = vec![];
+
+            for _ in 0..num_threads {
+                let hash_clone = Arc::clone(&hash);
+                let strings_clone = Arc::clone(&strings);
+                let not_found_clone = Arc::clone(&not_found);
+                let not_equals_clone = Arc::clone(&not_equals);
+                let wrong_size_clone = Arc::clone(&wrong_size);
+                let barrier_clone = Arc::clone(&barrier);
+                let loops = at_least(&mut random, 100);
+
+                let handle = thread::spawn(move || {
+                    let mut scratch = BytesRef::new();
+                    barrier_clone.wait();
+
+                    for k in 0..loops {
+                        let strings_guard = strings_clone.lock().unwrap();
+                        let find =
+                            BytesRef::from_string(&strings_guard[k as usize % strings_guard.len()]);
+                        drop(strings_guard);
+
+                        let hash_guard = hash_clone.lock().unwrap();
+                        let id = hash_guard.find(&find).unwrap();
+
+                        if id < 0 {
+                            not_found_clone.fetch_add(1, Ordering::SeqCst);
+                        } else {
+                            hash_guard.get(id, &mut scratch).unwrap();
+                            if scratch != find {
+                                not_equals_clone.fetch_add(1, Ordering::SeqCst);
+                            }
+                        }
+                        if hash_guard.size() != hash_size {
+                            wrong_size_clone.fetch_add(1, Ordering::SeqCst);
+                        }
+                    }
+                });
+                handles.push(handle);
+            }
+
+            for handle in handles {
+                handle.join().expect("Thread panicked");
+            }
+
+            assert_eq!(
+                not_found.load(Ordering::SeqCst),
+                0,
+                "No entries should be missing."
+            );
+            assert_eq!(
+                not_equals.load(Ordering::SeqCst),
+                0,
+                "All entries should match."
+            );
+            assert_eq!(
+                wrong_size.load(Ordering::SeqCst),
+                0,
+                "Hash size should remain consistent."
+            );
+
+            hash.lock().unwrap().clear()?;
+            assert_eq!(
+                hash.lock().unwrap().size(),
+                0,
+                "Hash should be empty after clear."
+            );
+            hash.lock().unwrap().reinit()?;
+        }
+
+        Ok(())
+    }
     #[test]
     fn test_large_value() -> Result<(), LuceneError> {
         let mut random = random();
@@ -1487,7 +1497,7 @@ mod tests {
 
     fn assert_all_in(
         strings: &HashSet<String>,
-        hash: &mut STBytesRefHash,
+        hash: &mut MTBytesRefHash,
     ) -> Result<(), LuceneError> {
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();

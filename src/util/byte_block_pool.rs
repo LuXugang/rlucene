@@ -59,7 +59,7 @@ impl ByteBlockPool<Rc<RefCell<CounterEnum>>> {
     ///
     /// # Parameters
     /// - `global_offset`: The offset to the target byte.
-    pub(crate) const BYTE_BLOCK_SHIFT: i32 = 15;
+    pub const BYTE_BLOCK_SHIFT: i32 = 15;
     /// The size of each buffer in the pool.
     pub const BYTE_BLOCK_SIZE: i32 = 1 << ByteBlockPool::BYTE_BLOCK_SHIFT;
     /// Use this to find the position of a global offset in a particular buffer.
