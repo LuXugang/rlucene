@@ -93,7 +93,7 @@ where
     /// Populates the given `BytesRef` with the term starting at `start`.
     pub fn fill_bytes_ref(&self, term: &mut BytesRef, start: i32) -> Result<(), LuceneError> {
         self.byte_block_pool.with_ref_mut(|pool| {
-            Ok({
+            {
                 let block = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
                 let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
 
@@ -114,7 +114,8 @@ where
                 term.offset = 0;
                 term.length = length;
                 debug_assert!(term.length >= 0);
-            })
+            };
+            Ok(())
         })
     }
     /// Add a term, returning the start position on the underlying `ByteBlockPool`.

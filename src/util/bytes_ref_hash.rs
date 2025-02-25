@@ -295,7 +295,7 @@ where
                     }
 
                     let byte_ref = self.pool.add_bytes_ref(bytes)?;
-                    bytes_start_array.set_value(self.count as usize, byte_ref);
+                    bytes_start_array.set_value(self.count as usize, byte_ref)?;
                     Ok(())
                 })?;
                 e = self.count;
@@ -402,7 +402,7 @@ where
 
                 e = self.count;
                 self.count += 1;
-                bytes_start_array.set_value(e as usize, offset);
+                bytes_start_array.set_value(e as usize, offset)?;
 
                 assert_eq!(self.ids[hash_pos as usize], -1);
                 self.ids[hash_pos as usize] = e;

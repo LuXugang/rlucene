@@ -355,9 +355,29 @@ where
     }
 }
 /// for multi-threaded scenarios
-pub type MTBufferedUpdates<Q:Query> = Arc<Mutex<BufferedUpdates<Q, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper>>>;
+pub type MTBufferedUpdates<Q> = Arc<
+    Mutex<
+        BufferedUpdates<
+            Q,
+            MTCounterEnum,
+            MTByteBlockPool,
+            MTBytesStartArrayEnum,
+            MTPostingsArrayWrapper,
+        >,
+    >,
+>;
 /// for single-threaded scenarios
-pub type STBufferedUpdates<Q:Query> = Rc<RefCell<BufferedUpdates<Q, STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper>>>;
+pub type STBufferedUpdates<Q> = Rc<
+    RefCell<
+        BufferedUpdates<
+            Q,
+            STCounterEnum,
+            STByteBlockPool,
+            STBytesStartArrayEnum,
+            STPostingsArrayWrapper,
+        >,
+    >,
+>;
 pub(crate) struct DeletedTerms<C, B, A, P>
 where
     C: Access<CounterEnum>,
