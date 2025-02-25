@@ -23,9 +23,7 @@ use crate::index::terms_hash_per_field::TermsHashPerFieldBase;
 use crate::index::terms_hash_per_field::TermsHashPerFieldMock;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::ByteBlockPool;
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::util::STByteBlockPool;
 #[allow(unused)]
 pub(crate) enum TermsHashPerFieldEnum {
     TermVectorsConsumer(TermVectorsConsumerPerField),
@@ -58,7 +56,7 @@ impl TermsHashPerFieldEnum {
             }
         }
     }
-    fn reinit_hash(&mut self) {
+    fn reinit_hash(&mut self) -> Result<(), LuceneError> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.reinit_hash()
@@ -117,7 +115,7 @@ impl TermsHashPerFieldEnum {
             TermsHashPerFieldEnum::Mock(inner) => inner.parent_per_field.write_vint(stream, i),
         }
     }
-    pub(crate) fn get_byte_block_pool(&self) -> Rc<RefCell<ByteBlockPool>> {
+    pub(crate) fn get_byte_block_pool(&self) -> STByteBlockPool {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.parent_per_field.byte_pool.clone(),
             TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.parent_per_field.byte_pool.clone(),

@@ -254,9 +254,9 @@ pub trait StringSorterBase {
     {
         IntroSorterImpl::new(cmp, self, k)
     }
-    fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
+    fn radix_sorter<'a, C1>(&'a mut self, cmp: &'a mut C1) -> impl Sorter + 'a
     where
-        C: BytesRefComparator + Comparator<BytesRef>,
+        C1: BytesRefComparator + Comparator<BytesRef>,
         Self: Sorter + Sized,
     {
         let length = cmp.compared_bytes_count();

@@ -23,7 +23,7 @@ pub trait SortableBytesRefArray<'a> {
     /// Append a new value
     fn append(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError>;
     /// Clear all previously stored values
-    fn clear(&mut self);
+    fn clear(&mut self) -> Result<(), LuceneError>;
     /// Returns the number of values appended so far
     fn size(&self) -> i32;
     /// Sort all values by the provided comparator and return an iterator over the sorted values */

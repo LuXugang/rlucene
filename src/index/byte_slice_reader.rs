@@ -18,13 +18,11 @@ use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::ByteBlockPool;
-use std::cell::RefCell;
+use crate::util::{ByteBlockPool, STByteBlockPool};
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 pub(crate) struct ByteSliceReader {
-    pool: Option<Rc<RefCell<ByteBlockPool>>>,
+    pool: Option<STByteBlockPool>,
     buffer_upto: i32,
     upto: i32,
     limit: i32,
@@ -45,12 +43,7 @@ impl ByteSliceReader {
             end_index: 0,
         }
     }
-    pub(crate) fn init(
-        &mut self,
-        pool: Rc<RefCell<ByteBlockPool>>,
-        start_index: i32,
-        end_index: i32,
-    ) {
+    pub(crate) fn init(&mut self, pool: STByteBlockPool, start_index: i32, end_index: i32) {
         debug_assert!(end_index - start_index >= 0);
         debug_assert!(start_index >= 0);
         debug_assert!(end_index >= 0);
@@ -190,7 +183,8 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use crate::util::{AllocatorByteEnum, ByteBlockPool, DirectAllocatorByte};
+    use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+    use crate::util::{ByteBlockPool, STByteBlockPool};
     use rand::rngs::StdRng;
     use rand::Rng;
 
@@ -200,13 +194,11 @@ mod tests {
     #[allow(clippy::type_complexity)]
     pub fn before_class(
         random: &mut StdRng,
-    ) -> Result<(Vec<u8>, Rc<RefCell<ByteBlockPool>>, i32), LuceneError> {
+    ) -> Result<(Vec<u8>, STByteBlockPool, i32), LuceneError> {
         let len = 100; // You can adjust this value if needed
         let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
-            DirectAllocatorByte::new(),
-        )));
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         block_pool.borrow_mut().next_buffer()?;
 

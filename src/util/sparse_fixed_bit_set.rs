@@ -167,7 +167,8 @@ impl SparseFixedBitSet {
             index = self.indices[i4096 as usize];
             if index != 0 {
                 let i64 = index.trailing_zeros() as i32;
-                return (i4096 << 12) | (i64 << 6)
+                return (i4096 << 12)
+                    | (i64 << 6)
                     | self.bits[i4096 as usize].as_ref().unwrap()[0].trailing_zeros() as i32;
             }
             i4096 += 1;

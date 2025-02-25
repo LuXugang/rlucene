@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 use crate::store::DataInput;
+use crate::util::access::Access;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fst::fst::BytesReader;
-use crate::util::ByteBlockPool;
+use crate::util::STByteBlockPool;
 use std::fmt::{Display, Formatter};
-use std::sync::{Arc, Mutex};
+
 /// Reads in reverse from a ByteBlockPool.
 pub struct ByteBlockPoolReverseBytesReader {
-    buf: Arc<Mutex<ByteBlockPool>>,
+    buf: STByteBlockPool,
     // the difference between the FST node address and the hash table copied node address
     pos_delta: i64,
     pos: i64,
 }
 #[allow(unused)]
 impl ByteBlockPoolReverseBytesReader {
-    pub fn new(buf: Arc<Mutex<ByteBlockPool>>) -> Self {
+    pub fn new(buf: STByteBlockPool) -> Self {
         Self {
             buf,
             pos_delta: 0,
@@ -43,11 +44,7 @@ impl ByteBlockPoolReverseBytesReader {
 
 impl DataInput for ByteBlockPoolReverseBytesReader {
     fn read_byte(&mut self) -> Result<u8, LuceneError> {
-        let buf_guard = self
-            .buf
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
-        let b = buf_guard.read_byte(self.pos);
+        let b = self.buf.with_ref_mut(|buf| Ok(buf.read_byte(self.pos)))?;
         self.pos -= 1;
         Ok(b)
     }
@@ -55,14 +52,13 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
     fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
         let offset = offset as usize;
         let len = len as usize;
-        let buf_guard = self
-            .buf
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
-        for i in 0..len {
-            b[offset + i] = buf_guard.read_byte(self.pos);
-            self.pos -= 1;
-        }
+        self.buf.with_ref_mut(|buf| {
+            for i in 0..len {
+                b[offset + i] = buf.read_byte(self.pos);
+                self.pos -= 1;
+            }
+            Ok(())
+        })?;
         Ok(())
     }
 

@@ -19,15 +19,20 @@ use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
 use crate::index::index_options::IndexOptions;
-use crate::index::parallel_postings_array::{PostingsArrayEnum};
+use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
-use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, BytesStartArrayEnum};
+use crate::util::access::Access;
+#[cfg(test)]
+use crate::util::allocator_byte::AllocatorByteEnum;
+#[cfg(test)]
+use crate::util::allocator_byte::DirectAllocatorByte;
+use crate::util::bytes_ref_hash::{
+    BytesRefHash, BytesStartArray, BytesStartArrayEnum, STBytesRefHash,
+};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::int_block_pool::IntBlockPool;
-#[cfg(test)]
-use crate::util::{AllocatorByteEnum, DirectAllocatorByte};
-use crate::util::{ByteBlockPool, Counter, CounterEnum};
+use crate::util::{ByteBlockPool, Counter, CounterEnum, STByteBlockPool};
 use std::cell::RefCell;
 use std::rc::Rc;
 #[cfg(test)]
@@ -43,7 +48,7 @@ use std::sync::atomic::AtomicI64;
 pub struct TermsHashPerField {
     pub(crate) next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
     int_pool: Rc<RefCell<IntBlockPool>>,
-    pub(crate) byte_pool: Rc<RefCell<ByteBlockPool>>,
+    pub(crate) byte_pool: STByteBlockPool,
     slice_pool: ByteSlicePool,
     // for each term we store an integer per stream that points into the bytePool above
     // the address is updated once data is written to the stream to point to the next free offset
@@ -59,7 +64,7 @@ pub struct TermsHashPerField {
     index_options: IndexOptions,
     // This stores the actual term bytes for postings and offsets into the parent hash
     // in the case that this TermsHashPerField is hashing term vectors.
-    pub(crate) bytes_hash: BytesRefHash,
+    pub(crate) bytes_hash: STBytesRefHash,
     last_doc_id: i32, // only used with debug/asserts
     sorted_term_ids: bool,
     pub(crate) do_next_call: bool,
@@ -87,14 +92,14 @@ impl TermsHashPerField {
     pub(crate) fn new(
         stream_count: i32,
         int_pool: Rc<RefCell<IntBlockPool>>,
-        byte_pool: Rc<RefCell<ByteBlockPool>>,
-        term_byte_pool: Rc<RefCell<ByteBlockPool>>,
+        byte_pool: STByteBlockPool,
+        term_byte_pool: STByteBlockPool,
         bytes_used: Rc<RefCell<CounterEnum>>,
         next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
         field_name: String,
         index_options: IndexOptions,
         postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
-    ) -> Self {
+    ) -> Result<Self, LuceneError> {
         // In the original Java code, we assert that indexOptions != IndexOptions.NONE.
         debug_assert!(index_options != IndexOptions::None);
         let slice_pool = ByteSlicePool::new(byte_pool.clone());
@@ -109,9 +114,9 @@ impl TermsHashPerField {
             term_byte_pool,
             TermsHashPerField::HASH_INIT_SIZE,
             byte_starts,
-        );
+        )?;
 
-        TermsHashPerField {
+        Ok(TermsHashPerField {
             next_per_field,
             int_pool,
             byte_pool,
@@ -126,7 +131,7 @@ impl TermsHashPerField {
             sorted_term_ids: false,
             do_next_call: false,
             postings_array_wrapper,
-        }
+        })
     }
     pub fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
         debug_assert!(stream < self.stream_count);
@@ -155,14 +160,17 @@ impl TermsHashPerField {
     }
     /// Collapse the hash table and sort in-place; also sets this.sortedTermIDs to the results.
     /// This method must not be called twice unless [`reset()`](TermsHashPerFieldBase::reset) or [`reinit_hash()`](TermsHashPerFieldBase::reinit_hash) was called.
-    pub(crate) fn sort_terms(&mut self, bytes_hash: &mut BytesRefHash) -> Result<(), LuceneError> {
+    pub(crate) fn sort_terms(
+        &mut self,
+        bytes_hash: &mut STBytesRefHash,
+    ) -> Result<(), LuceneError> {
         debug_assert!(!self.sorted_term_ids);
         bytes_hash.sort()?;
         self.sorted_term_ids = true;
         Ok(())
     }
     /// Returns the sorted term IDs. [`sort_terms()`](TermsHashPerField::sort_terms) must be called before.
-    pub(crate) fn get_sorted_term_ids<'a>(&self, bytes_hash: &'a BytesRefHash) -> &'a [i32] {
+    pub(crate) fn get_sorted_term_ids<'a>(&self, bytes_hash: &'a STBytesRefHash) -> &'a [i32] {
         debug_assert!(!self.sorted_term_ids);
         bytes_hash.ids.as_slice()
     }
@@ -278,7 +286,7 @@ impl TermsHashPerField {
             next_per_field.borrow_mut().finish()
         }
     }
-    pub(crate) fn get_num_terms(&self, bytes_ref_hash: &BytesRefHash) -> i32 {
+    pub(crate) fn get_num_terms(&self, bytes_ref_hash: &STBytesRefHash) -> i32 {
         bytes_ref_hash.size()
     }
     pub(crate) fn reset(&mut self) {
@@ -290,7 +298,7 @@ impl TermsHashPerField {
         }
     }
 
-    pub(crate) fn reinit_hash(&mut self) {
+    pub(crate) fn reinit_hash(&mut self) -> Result<(), LuceneError> {
         self.sorted_term_ids = false;
         self.bytes_hash.reinit()
     }
@@ -411,24 +419,30 @@ pub(crate) trait TermsHashPerFieldBase {
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self);
 }
-pub struct PostingsBytesStartArray {
+pub struct PostingsBytesStartArray<C>
+where
+    C: Access<CounterEnum>,
+{
     per_field: Rc<RefCell<PostingsArrayWrapper>>,
-    bytes_used: Rc<RefCell<CounterEnum>>,
+    bytes_used: C,
 }
 #[allow(unused)]
-impl PostingsBytesStartArray {
-    pub(crate) fn new(
-        per_field: Rc<RefCell<PostingsArrayWrapper>>,
-        bytes_used: Rc<RefCell<CounterEnum>>,
-    ) -> Self {
+impl<C> PostingsBytesStartArray<C>
+where
+    C: Access<CounterEnum>,
+{
+    pub(crate) fn new(per_field: Rc<RefCell<PostingsArrayWrapper>>, bytes_used: C) -> Self {
         Self {
             per_field,
             bytes_used,
         }
     }
 }
-impl BytesStartArray for PostingsBytesStartArray {
-    fn init(&mut self) {
+impl<C> BytesStartArray for PostingsBytesStartArray<C>
+where
+    C: Access<CounterEnum>,
+{
+    fn init(&mut self) -> Result<(), LuceneError> {
         let mut postings_array_wrapper = self.per_field.borrow_mut();
         if postings_array_wrapper.postings_array.is_none() {
             postings_array_wrapper.postings_array = Option::from(
@@ -438,9 +452,11 @@ impl BytesStartArray for PostingsBytesStartArray {
             );
             if let Some(ref mut postings_array) = postings_array_wrapper.postings_array {
                 let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                self.bytes_used.borrow_mut().add_and_get(byte_used as i64);
+                self.bytes_used
+                    .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(byte_used as i64)))?;
             }
         }
+        Ok(())
     }
 
     fn grow(&mut self) -> Result<(), LuceneError> {
@@ -449,23 +465,30 @@ impl BytesStartArray for PostingsBytesStartArray {
         let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
         let old_size = postings_array.get_size();
         postings_array.grow()?;
-        self.bytes_used.borrow_mut().add_and_get(
-            (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size)) as i64,
-        );
+        self.bytes_used.with_ref_mut(|bytes_used| {
+            Ok(bytes_used.add_and_get(
+                (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
+                    as i64,
+            ))
+        })?;
         Ok(())
     }
 
-    fn clear(&mut self) {
+    fn clear(&mut self) -> Result<(), LuceneError> {
         let mut postings_array_wrapper = self.per_field.borrow_mut();
         if postings_array_wrapper.postings_array.is_some() {
             let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
             let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-            self.bytes_used.borrow_mut().add_and_get(-byte_used as i64);
+            self.bytes_used
+                .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(-byte_used as i64)))?;
             postings_array_wrapper.postings_array = None;
         }
+        Ok(())
     }
 
-    fn bytes_used(&mut self) -> Rc<RefCell<CounterEnum>> {
+    type Counter = C;
+
+    fn bytes_used(&mut self) -> Self::Counter {
         self.bytes_used.clone()
     }
 
@@ -550,13 +573,9 @@ impl TermsHashPerFieldMock {
         let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
 
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
-            DirectAllocatorByte::new(),
-        )));
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let byte_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-        let allocator1 = Rc::new(RefCell::new(AllocatorByteEnum::DA(
-            DirectAllocatorByte::new(),
-        )));
+        let allocator1 = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let term_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
         let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
@@ -574,7 +593,7 @@ impl TermsHashPerFieldMock {
             "field_name".to_string(),
             IndexOptions::DocsAndFreqs,
             postings_array_wrapper.clone(),
-        );
+        )?;
         Ok(TermsHashPerFieldEnum::Mock(TermsHashPerFieldMock {
             postings_array_wrapper,
             parent_per_field: parent_per_filed,

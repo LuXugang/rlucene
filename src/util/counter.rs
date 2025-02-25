@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 use crate::util::dummy::dummy_counter::DummyCounter;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::atomic::AtomicI64;
+use std::sync::{Arc, Mutex};
 
 pub trait Counter {
     /// Adds the given delta to the counter's current value.
@@ -120,3 +123,8 @@ impl Counter for CounterEnum {
         }
     }
 }
+
+/// for single-threaded scenarios
+pub type STCounterEnum = Rc<RefCell<CounterEnum>>;
+/// for multi-threaded scenarios
+pub type MTCounterEnum = Arc<Mutex<CounterEnum>>;

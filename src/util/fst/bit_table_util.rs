@@ -362,7 +362,12 @@ mod tests {
             Ok(v)
         }
 
-        fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<(), LuceneError> {
+        fn read_bytes(
+            &mut self,
+            _b: &mut [u8],
+            _offset: i32,
+            _len: i32,
+        ) -> Result<(), LuceneError> {
             Err(LuceneError::unsupported_operation(
                 "Not implemented".to_string(),
             ))

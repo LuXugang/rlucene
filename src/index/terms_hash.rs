@@ -16,23 +16,24 @@
  */
 use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
+use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
-use crate::util::{AllocatorByteEnum, ByteBlockPool, CounterEnum};
+use crate::util::{ByteBlockPool, CounterEnum, STByteBlockPool};
 use std::cell::RefCell;
 use std::rc::Rc;
 #[allow(unused)]
 pub(crate) struct TermsHash {
     next_terms_hash: Option<TermsHashEnum>,
     int_pool: Rc<RefCell<IntBlockPool>>,
-    byte_pool: Rc<RefCell<ByteBlockPool>>,
-    term_byte_pool: Option<Rc<RefCell<ByteBlockPool>>>,
+    byte_pool: STByteBlockPool,
+    term_byte_pool: Option<STByteBlockPool>,
     bytes_used: Rc<RefCell<CounterEnum>>,
 }
 #[allow(unused)]
 impl TermsHash {
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
-        byte_block_allocator: Rc<RefCell<AllocatorByteEnum>>,
+        byte_block_allocator: AllocatorByteEnum<Rc<RefCell<CounterEnum>>>,
         bytes_used: Rc<RefCell<CounterEnum>>,
         next_terms_hash: Option<TermsHashEnum>,
     ) -> Self {
@@ -59,8 +60,8 @@ impl TermsHash {
 }
 #[allow(unused)]
 pub(crate) trait TermsHashBase {
-    fn get_term_byte_pool(&self) -> Option<Rc<RefCell<ByteBlockPool>>>;
-    fn set_term_byte_pool(&mut self, term_byte_pool: Option<Rc<RefCell<ByteBlockPool>>>);
+    fn get_term_byte_pool(&self) -> Option<STByteBlockPool>;
+    fn set_term_byte_pool(&mut self, term_byte_pool: Option<STByteBlockPool>);
 }
 #[allow(unused)]
 pub(crate) enum TermsHashEnum {
@@ -69,14 +70,14 @@ pub(crate) enum TermsHashEnum {
 }
 impl TermsHashEnum {}
 impl TermsHashBase for TermsHashEnum {
-    fn get_term_byte_pool(&self) -> Option<Rc<RefCell<ByteBlockPool>>> {
+    fn get_term_byte_pool(&self) -> Option<STByteBlockPool> {
         match self {
             TermsHashEnum::FreqProx(writer) => writer.get_term_byte_pool().clone(),
             TermsHashEnum::TermVectors(consumer) => consumer.get_term_byte_pool().clone(),
         }
     }
 
-    fn set_term_byte_pool(&mut self, term_byte_pool: Option<Rc<RefCell<ByteBlockPool>>>) {
+    fn set_term_byte_pool(&mut self, term_byte_pool: Option<STByteBlockPool>) {
         match self {
             TermsHashEnum::FreqProx(writer) => writer.set_term_byte_pool(term_byte_pool),
             TermsHashEnum::TermVectors(consumer) => consumer.set_term_byte_pool(term_byte_pool),

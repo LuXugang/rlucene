@@ -15,25 +15,40 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
+use crate::util::access::Access;
 use crate::util::accountable::Accountable;
+use crate::util::allocator_byte::{
+    Allocator, AllocatorByte, AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum,
+};
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{Counter, CounterEnum, VecCopyOps};
+use crate::util::{CounterEnum, MTCounterEnum, STCounterEnum, VecCopyOps};
 use std::cell::RefCell;
 use std::cmp::min;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
-pub struct ByteBlockPool {
+/// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
+/// Allocation is done through the use of an [`AllocatorByte`] which can be customized,
+/// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
+/// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.
+///
+/// # Note
+/// This is an internal API.
+pub struct ByteBlockPool<A>
+where
+    A: Access<CounterEnum>,
+{
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
     pub buffer_upto: i32,
-    allocator: Rc<RefCell<AllocatorByteEnum>>,
+    allocator: AllocatorByteEnum<A>,
     /// Offset from the start of the first buffer to the start of the current buffer, which is
     /// `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool maintains this offset because it is the first to
     /// overflow if there are too many allocated blocks.
     pub(crate) byte_offset: i32,
     pub(crate) byte_upto: i32,
 }
-impl ByteBlockPool {
+impl ByteBlockPool<Rc<RefCell<CounterEnum>>> {
     //TODO
     #[allow(unused)]
     const BASE_RAM_BYTES: i64 = 0;
@@ -41,38 +56,49 @@ impl ByteBlockPool {
     ///
     /// The calculation for `buffer_upto` is as follows:
     ///
-    /// - `buffer_upto = global_offset >> Self::BYTE_BLOCK_SHIFT`
+    /// - `buffer_upto = global_offset >> ByteBlockPool::BYTE_BLOCK_SHIFT`
     /// - `buffer_upto = global_offset / BYTE_BLOCK_SIZE`
     ///
     /// # Parameters
     /// - `global_offset`: The offset to the target byte.
     pub(crate) const BYTE_BLOCK_SHIFT: i32 = 15;
     /// The size of each buffer in the pool.
-    pub const BYTE_BLOCK_SIZE: i32 = 1 << Self::BYTE_BLOCK_SHIFT;
+    pub const BYTE_BLOCK_SIZE: i32 = 1 << ByteBlockPool::BYTE_BLOCK_SHIFT;
     /// Use this to find the position of a global offset in a particular buffer.
     ///
     /// # Formula
     /// `position_in_current_buffer = global_offset & BYTE_BLOCK_MASK`
     ///
     /// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
-    pub(crate) const BYTE_BLOCK_MASK: i32 = Self::BYTE_BLOCK_SIZE - 1;
-    /// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
-    /// Allocation is done through the use of an [`AllocatorByte`] which can be customized,
-    /// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
-    /// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.
-    ///
-    /// # Note
-    /// This is an internal API.
-    ///
-    pub fn new(allocator: Rc<RefCell<AllocatorByteEnum>>) -> Self {
+    pub(crate) const BYTE_BLOCK_MASK: i32 = ByteBlockPool::BYTE_BLOCK_SIZE - 1;
+}
+impl ByteBlockPool<MTCounterEnum> {
+    pub fn new_sync(allocator: MTAllocatorByteEnum) -> Self {
         ByteBlockPool {
             buffers: vec![],
             buffer_upto: -1,
             allocator,
-            byte_offset: -Self::BYTE_BLOCK_SIZE,
-            byte_upto: Self::BYTE_BLOCK_SIZE,
+            byte_offset: -ByteBlockPool::BYTE_BLOCK_SIZE,
+            byte_upto: ByteBlockPool::BYTE_BLOCK_SIZE,
         }
     }
+}
+impl ByteBlockPool<STCounterEnum> {
+    pub fn new(allocator: STAllocatorByteEnum) -> Self {
+        ByteBlockPool {
+            buffers: vec![],
+            buffer_upto: -1,
+            allocator,
+            byte_offset: -ByteBlockPool::BYTE_BLOCK_SIZE,
+            byte_upto: ByteBlockPool::BYTE_BLOCK_SIZE,
+        }
+    }
+}
+
+impl<A> ByteBlockPool<A>
+where
+    A: Access<CounterEnum>,
+{
     /// Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
     /// Buffers that are not reused are reclaimed by [`AllocatorByte::recycle_byte_blocks`].
     /// Buffers can be filled with zeros before recycling them. This is useful if a slice pool works on top
@@ -82,7 +108,7 @@ impl ByteBlockPool {
     /// * `zero_fill_buffers` - If `true`, the buffers are filled with `0`. This should be set to `true` if this pool is used with slices.
     /// * `reuse_first` - If `true`, the first buffer will be reused, and calling [`ByteBlockPool::next_buffer`](#method.next_buffer) is not needed after reset,
     ///   if the block pool was used before (i.e., [`ByteBlockPool::next_buffer`](#method.next_buffer) was called before).
-    pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) {
+    pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) -> Result<(), LuceneError> {
         if self.buffer_upto != -1 {
             if zero_fill_buffers {
                 for i in 0..(self.buffer_upto + 1) as usize {
@@ -91,11 +117,8 @@ impl ByteBlockPool {
             }
             if self.buffer_upto > 0 || !reuse_first {
                 let offset = if reuse_first { 1 } else { 0 };
-                self.allocator.borrow_mut().recycle_byte_blocks(
-                    &self.buffers,
-                    offset,
-                    self.buffer_upto + 1,
-                );
+                self.allocator
+                    .recycle_byte_blocks(&self.buffers, offset, self.buffer_upto + 1)?;
                 for _i in offset as usize..(self.buffer_upto + 1) as usize {
                     self.buffers.pop();
                 }
@@ -107,10 +130,11 @@ impl ByteBlockPool {
                 self.byte_offset = 0;
             } else {
                 self.buffer_upto = -1;
-                self.byte_upto = Self::BYTE_BLOCK_SIZE;
-                self.byte_offset = -Self::BYTE_BLOCK_SIZE;
+                self.byte_upto = ByteBlockPool::BYTE_BLOCK_SIZE;
+                self.byte_offset = -ByteBlockPool::BYTE_BLOCK_SIZE;
             }
         }
+        Ok(())
     }
     /// Allocates a new buffer and advances the pool to it. This method should be called once after the
     /// constructor to initialize the pool. In contrast to the constructor, a
@@ -118,13 +142,12 @@ impl ByteBlockPool {
     /// immediately.
     pub fn next_buffer(&mut self) -> Result<(), LuceneError> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
-            self.buffers
-                .push(self.allocator.borrow_mut().get_byte_block());
+            self.buffers.push(self.allocator.get_byte_block()?);
         }
         // Allocate new buffer and advance the pool to it
         self.buffer_upto += 1;
         self.byte_upto = 0;
-        match self.byte_offset.checked_add(Self::BYTE_BLOCK_SIZE) {
+        match self.byte_offset.checked_add(ByteBlockPool::BYTE_BLOCK_SIZE) {
             Some(val) => self.byte_offset = val,
             None => {
                 return Err(LuceneError::integer_overflow(
@@ -155,9 +178,9 @@ impl ByteBlockPool {
             result.bytes = vec![0; length as usize];
         }
         result.length = length;
-        let buffer_index = offset >> Self::BYTE_BLOCK_SHIFT;
-        let pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
-        if pos + length <= Self::BYTE_BLOCK_SIZE {
+        let buffer_index = offset >> ByteBlockPool::BYTE_BLOCK_SHIFT;
+        let pos = (offset & ByteBlockPool::BYTE_BLOCK_MASK as i64) as i32;
+        if pos + length <= ByteBlockPool::BYTE_BLOCK_SIZE {
             // Common case: The slice lives in a single block.
             result.bytes.copy_from(
                 &self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize],
@@ -184,13 +207,13 @@ impl ByteBlockPool {
     /// * `length` - The number of bytes to copy.
     pub fn append_from_byte_block_pool(
         &mut self,
-        src_pool: &ByteBlockPool,
+        src_pool: &ByteBlockPool<A>,
         mut src_offset: i64,
         length: i32,
     ) -> Result<(), LuceneError> {
         let mut bytes_left = length;
         while bytes_left > 0 {
-            let buffer_left = Self::BYTE_BLOCK_SIZE - self.byte_upto;
+            let buffer_left = ByteBlockPool::BYTE_BLOCK_SIZE - self.byte_upto;
             if bytes_left < buffer_left {
                 // fits within current buffer
                 self.append_bytes_single_buffer(src_pool, src_offset, bytes_left);
@@ -209,16 +232,16 @@ impl ByteBlockPool {
     }
     fn append_bytes_single_buffer(
         &mut self,
-        src_pool: &ByteBlockPool,
+        src_pool: &ByteBlockPool<A>,
         mut src_offset: i64,
         mut length: i32,
     ) {
-        debug_assert!(length <= Self::BYTE_BLOCK_SIZE - self.byte_upto);
+        debug_assert!(length <= ByteBlockPool::BYTE_BLOCK_SIZE - self.byte_upto);
         while length > 0 {
-            let src_pos = src_offset & Self::BYTE_BLOCK_MASK as i64;
-            let bytes_to_copy = min(Self::BYTE_BLOCK_SIZE - src_pos as i32, length);
+            let src_pos = src_offset & ByteBlockPool::BYTE_BLOCK_MASK as i64;
+            let bytes_to_copy = min(ByteBlockPool::BYTE_BLOCK_SIZE - src_pos as i32, length);
             self.buffers[self.buffer_upto as usize].copy_from(
-                &src_pool.buffers[(src_offset >> Self::BYTE_BLOCK_SHIFT) as usize]
+                &src_pool.buffers[(src_offset >> ByteBlockPool::BYTE_BLOCK_SHIFT) as usize]
                     [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
                 self.byte_upto as usize,
             );
@@ -251,7 +274,7 @@ impl ByteBlockPool {
     ) -> Result<(), LuceneError> {
         let mut bytes_left = length;
         while bytes_left > 0 {
-            let buffer_left = Self::BYTE_BLOCK_SIZE - self.byte_upto;
+            let buffer_left = ByteBlockPool::BYTE_BLOCK_SIZE - self.byte_upto;
             if bytes_left < buffer_left {
                 // fits within current buffer
                 self.buffers[self.buffer_upto as usize].copy_from(
@@ -289,13 +312,13 @@ impl ByteBlockPool {
         bytes_length: i32,
     ) -> Result<(), LuceneError> {
         let mut bytes_left = bytes_length;
-        let shift = offset >> Self::BYTE_BLOCK_SHIFT;
+        let shift = offset >> ByteBlockPool::BYTE_BLOCK_SHIFT;
         match i32::try_from(shift) {
             Ok(buffer_index) => {
                 let mut buffer_index = buffer_index as usize;
-                let mut pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
+                let mut pos = (offset & ByteBlockPool::BYTE_BLOCK_MASK as i64) as i32;
                 while bytes_left > 0 {
-                    let chunk = min(Self::BYTE_BLOCK_SIZE - pos, bytes_left);
+                    let chunk = min(ByteBlockPool::BYTE_BLOCK_SIZE - pos, bytes_left);
                     self.buffers[buffer_index].copy_to(
                         &mut bytes[bytes_offset as usize..(bytes_offset + chunk) as usize],
                         pos as usize,
@@ -310,7 +333,7 @@ impl ByteBlockPool {
             }
             Err(_) => Err(LuceneError::integer_overflow(format!(
                 "offset >> BYTE_BLOCK_SHIFT:  {} overflow",
-                offset >> Self::BYTE_BLOCK_SHIFT
+                offset >> ByteBlockPool::BYTE_BLOCK_SHIFT
             ))),
         }
     }
@@ -323,150 +346,56 @@ impl ByteBlockPool {
     /// The byte at the specified offset.
     pub fn read_byte(&self, offset: i64) -> u8 {
         debug_assert!(offset >= 0);
-        let buffer_index = (offset >> Self::BYTE_BLOCK_SHIFT) as usize;
-        let pos = (offset & Self::BYTE_BLOCK_MASK as i64) as i32;
+        let buffer_index = (offset >> ByteBlockPool::BYTE_BLOCK_SHIFT) as usize;
+        let pos = (offset & ByteBlockPool::BYTE_BLOCK_MASK as i64) as i32;
         self.buffers[buffer_index][pos as usize]
     }
     /// the current position (in absolute value) of this byte pool .
-    pub fn get_position(&self) -> i64 {
-        (self.buffer_upto * self.allocator.borrow_mut().get_block_size() + self.byte_upto) as i64
+    pub fn get_position(&mut self) -> i64 {
+        (self.buffer_upto * self.allocator.get_block_size() + self.byte_upto) as i64
     }
     pub fn get_buffer(&mut self, buffer_index: i32) -> &mut Vec<u8> {
         &mut self.buffers[buffer_index as usize]
     }
-    pub fn get_bytes_used(&self) -> i64 {
-        self.allocator.borrow().get_used()
+    pub fn get_bytes_used(&self) -> Result<i64, LuceneError> {
+        self.allocator.get_used()
     }
 }
-impl Accountable for ByteBlockPool {
+impl<A> Accountable for ByteBlockPool<A>
+where
+    A: Access<CounterEnum>,
+{
     fn ram_bytes_used(&self) -> i64 {
         todo!()
     }
 }
+// for single thread
+pub type STByteBlockPool = Rc<RefCell<ByteBlockPool<STCounterEnum>>>;
+// for multi thread
+pub type MTByteBlockPool = Arc<Mutex<ByteBlockPool<MTCounterEnum>>>;
 
-/// A simple `Allocator` that never recycles, but tracks how much total RAM is in use. */
-pub struct DirectTrackingAllocatorByte {
-    block_size: i32,
-    pub(crate) byte_used: Rc<RefCell<CounterEnum>>,
-}
-impl DirectTrackingAllocatorByte {
-    pub fn new(byte_used: Rc<RefCell<CounterEnum>>) -> Self {
-        DirectTrackingAllocatorByte {
-            block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
-            byte_used,
-        }
-    }
-}
-impl AllocatorByte for DirectTrackingAllocatorByte {
-    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: i32, end: i32) {
-        self.byte_used
-            .borrow_mut()
-            .add_and_get(-(end - start) as i64 * self.block_size as i64);
-    }
-
-    fn get_byte_block(&mut self) -> Vec<u8> {
-        self.byte_used
-            .borrow_mut()
-            .add_and_get(self.block_size as i64);
-        vec![0; self.block_size as usize]
-    }
-
-    fn get_block_size(&self) -> i32 {
-        self.block_size
-    }
-}
-
-/// Abstract trait for allocating and freeing byte blocks.
-pub trait AllocatorByte {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32);
-    fn get_byte_block(&mut self) -> Vec<u8>;
-    fn get_block_size(&self) -> i32;
-}
-
-/// A simple [`AllocatorByte`] that never recycles. */
-pub struct DirectAllocatorByte {
-    block_size: i32,
-}
-
-impl Default for DirectAllocatorByte {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl DirectAllocatorByte {
-    pub fn new() -> Self {
-        DirectAllocatorByte {
-            block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
-        }
-    }
-}
-
-impl AllocatorByte for DirectAllocatorByte {
-    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: i32, _end: i32) {}
-
-    fn get_byte_block(&mut self) -> Vec<u8> {
-        vec![0; self.block_size as usize]
-    }
-
-    fn get_block_size(&self) -> i32 {
-        self.block_size
-    }
-}
-
-pub enum AllocatorByteEnum {
-    DA(DirectAllocatorByte),
-    DTA(DirectTrackingAllocatorByte),
-}
-
-impl AllocatorByteEnum {
-    pub fn get_used(&self) -> i64 {
-        match self {
-            AllocatorByteEnum::DA(_da) => 0,
-            AllocatorByteEnum::DTA(dta) => dta.byte_used.borrow().get(),
-        }
-    }
-    pub fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
-        match self {
-            AllocatorByteEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
-            AllocatorByteEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
-        }
-    }
-    pub fn get_block_size(&self) -> i32 {
-        match self {
-            AllocatorByteEnum::DA(da) => da.get_block_size(),
-            AllocatorByteEnum::DTA(dta) => dta.get_block_size(),
-        }
-    }
-    pub fn get_byte_block(&mut self) -> Vec<u8> {
-        match self {
-            AllocatorByteEnum::DA(da) => da.get_byte_block(),
-            AllocatorByteEnum::DTA(dta) => dta.get_byte_block(),
-        }
-    }
-}
 #[cfg(test)]
 mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
     use crate::test::util::test_util::TestUtil;
-    use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
+    use crate::util::allocator_byte::{
+        AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
+    };
+
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocatorByte, VecCopyOps};
+    use crate::util::{ByteBlockPool, CounterEnum, VecCopyOps};
     use rand::distr::Alphanumeric;
     use rand::{Rng, RngCore};
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     #[allow(dead_code)] // for quick search
     struct TestByteBlockPool {}
     #[test]
     fn test_append_from_other_pool() -> Result<(), LuceneError> {
         let mut random = random();
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
-            DirectAllocatorByte::new(),
-        )));
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let mut pool = ByteBlockPool::new(allocator);
         let num_bytes = at_least(&mut random, 2 << 16) as usize;
         let bytes = (&mut random)
@@ -479,9 +408,7 @@ mod tests {
         pool.append(&bytes)?;
         let bytes_length = bytes.len();
 
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
-            DirectAllocatorByte::new(),
-        )));
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let mut another_pool = ByteBlockPool::new(allocator);
         let existing_bytes = vec![0; at_least(&mut random, 500) as usize];
         another_pool.append(&existing_bytes)?;
@@ -515,9 +442,7 @@ mod tests {
     fn test_read_and_write() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DTA(
-            DirectTrackingAllocatorByte::new(byte_used.clone()),
-        )));
+        let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used.clone()));
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
         let reuse_first = random.random_bool(0.5);
@@ -574,11 +499,14 @@ mod tests {
                 assert!(bytes_ref_builder.get().bytes_equals(expected));
                 position += bytes_ref_builder.length() as i64;
             }
-            pool.reset(random.random_bool(0.5), reuse_first);
+            pool.reset(random.random_bool(0.5), reuse_first)?;
             if reuse_first {
-                assert_eq!(ByteBlockPool::BYTE_BLOCK_SIZE as i64, pool.get_bytes_used())
+                assert_eq!(
+                    ByteBlockPool::BYTE_BLOCK_SIZE as i64,
+                    pool.get_bytes_used()?
+                )
             } else {
-                assert_eq!(0, pool.get_bytes_used());
+                assert_eq!(0, pool.get_bytes_used()?);
                 pool.next_buffer()?;
             }
         }
@@ -588,9 +516,7 @@ mod tests {
     fn test_large_random_block() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DTA(
-            DirectTrackingAllocatorByte::new(byte_used.clone()),
-        )));
+        let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used.clone()));
         let mut pool = ByteBlockPool::new(allocator);
         let _ = pool.next_buffer();
 
@@ -630,9 +556,8 @@ mod tests {
     #[test]
     fn test_too_many_allocs() -> Result<(), LuceneError> {
         // Use a mock allocator that doesn't waste memory
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
-            DirectAllocatorByte::new(),
-        )));
+        let allocator =
+            AllocatorByteEnum::<Rc<RefCell<CounterEnum>>>::DA(DirectAllocatorByte::new());
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
 

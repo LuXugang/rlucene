@@ -20,19 +20,26 @@ use crate::index::term::Term;
 use crate::index::BytesRef;
 use crate::search::dummy::dummy_query::DummyQuery;
 use crate::search::query::Query;
+use crate::util::access::Access;
 use crate::util::accountable::Accountable;
+use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::util::array_util::ArrayUtil;
-use crate::util::byte_block_pool::AllocatorByteEnum;
-use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
+use crate::util::bytes_ref_hash::{
+    BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesStartArrayEnum,
+    STBytesStartArrayEnum,
+};
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{ByteBlockPool, Counter, CounterEnum, DirectTrackingAllocatorByte};
+use crate::util::{
+    ByteBlockPool, Counter, CounterEnum, MTByteBlockPool, MTCounterEnum, STByteBlockPool,
+    STCounterEnum,
+};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::rc::Rc;
 use std::sync::atomic::AtomicI32;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 //TODO
 #[allow(unused)]
@@ -49,75 +56,81 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 /// - Instances of this structure are accessed either via a private instance on `DocumentWriterPerThread`,
 ///   or through synchronized code in the `DocumentsWriterDeleteQueue`.
 #[allow(dead_code)]
-pub(crate) struct BufferedUpdates<Q>
+pub(crate) struct BufferedUpdates<Q, C, B, A>
 where
     Q: Query,
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
 {
     pub(crate) num_field_updates: AtomicI32,
-    pub delete_terms: DeletedTerms,
+    pub delete_terms: DeletedTerms<C, B, A>,
     pub(crate) delete_queries: HashMap<Arc<Q>, i32>,
     pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
-    bytes_used: Rc<RefCell<CounterEnum>>,
-    field_updates_bytes_used: Rc<RefCell<CounterEnum>>,
+    bytes_used: C,
+    field_updates_bytes_used: C,
     verbose_deletes: bool,
     gen: i64,
     #[allow(unused)]
     segment_name: String,
 }
-#[allow(unused)]
-impl BufferedUpdates<DummyQuery> {
+impl BufferedUpdates<DummyQuery, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum> {
     /// Rough logic: HashMap has an array with varying load factor.
     /// Entry consists of Query key, Integer value, int hash, and Entry next.
     // TODO: memory calculation not implemented
     pub const BYTES_PER_DEL_QUERY: i32 = 0;
     pub const MAX_INT: i32 = i32::MAX;
 }
-
 #[allow(unused)]
-impl<Q> BufferedUpdates<Q>
+impl<Q> BufferedUpdates<Q, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum>
 where
     Q: Query,
 {
     /// Creates a new `BufferedUpdates` instance.
-    pub(crate) fn new(segment_name: String) -> Self {
+    pub(crate) fn new_sync(segment_name: String) -> Self {
         Self {
             num_field_updates: AtomicI32::new(0),
-            delete_terms: DeletedTerms::new(),
+            delete_terms: DeletedTerms::new_sync(),
             delete_queries: HashMap::new(),
             field_updates: HashMap::new(),
-            bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
-            field_updates_bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
+            bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
+            field_updates_bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
             verbose_deletes: false,
             gen: 0,
             segment_name,
         }
     }
-    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) {
-        if self
-            .delete_queries
-            .insert(query.clone(), doc_id_upto)
-            .is_none()
-        {
-            self.bytes_used
-                .borrow_mut()
-                .add_and_get(BYTES_PER_DEL_QUERY);
+    pub(crate) fn add_binary_update(
+        &mut self,
+        update: &DocValuesUpdate,
+        doc_id_upto: i32,
+    ) -> Result<(), LuceneError> {
+        let buffer = match self.field_updates.entry(update.field.clone()) {
+            Occupied(entry) => entry.into_mut(),
+            Vacant(entry) => {
+                let new_buffer = FieldUpdatesBuffer::from_binary_update(
+                    self.field_updates_bytes_used.clone(),
+                    update,
+                    doc_id_upto,
+                )?;
+                entry.insert(new_buffer)
+            }
+        };
+
+        if update.has_value {
+            let binary_update = update.sub_update.get_binary();
+            debug_assert!(binary_update.is_some());
+            buffer.add_update_with_bytes_ref(
+                &update.term,
+                &binary_update.unwrap().get_value(),
+                doc_id_upto,
+            )?;
+        } else {
+            buffer.add_no_value(&update.term, doc_id_upto)?;
         }
-    }
-    pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<(), LuceneError> {
-        let current = self.delete_terms.get(term);
-        if current != -1 && doc_id_upto < current {
-            // Only record the new number if it's greater than the
-            // current one.
-            // This is important because if multiple
-            // threads are replacing the same doc at nearly the
-            // same time, it's possible that one thread that got a
-            // higher docID is scheduled before the other
-            // threads.
-            // If we blindly replace than we can
-            // incorrectly get both docs indexed.
-            return Ok(());
-        }
-        self.delete_terms.put(term, doc_id_upto)?;
+
+        self.num_field_updates
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
     pub(crate) fn add_numeric_update(
@@ -153,58 +166,85 @@ where
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
-    pub(crate) fn add_binary_update(
-        &mut self,
-        update: &DocValuesUpdate,
-        doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
-        let buffer = match self.field_updates.entry(update.field.clone()) {
-            Occupied(entry) => entry.into_mut(),
-            Vacant(entry) => {
-                let new_buffer = FieldUpdatesBuffer::from_binary_update(
-                    self.field_updates_bytes_used.clone(),
-                    update,
-                    doc_id_upto,
-                )?;
-                entry.insert(new_buffer)
-            }
-        };
-
-        if update.has_value {
-            let binary_update = update.sub_update.get_binary();
-            debug_assert!(binary_update.is_some());
-            buffer.add_update_with_bytes_ref(
-                &update.term,
-                &binary_update.unwrap().get_value(),
-                doc_id_upto,
-            )?;
-        } else {
-            buffer.add_no_value(&update.term, doc_id_upto)?;
+    pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<(), LuceneError> {
+        let current = self.delete_terms.get(term)?;
+        if current != -1 && doc_id_upto < current {
+            // Only record the new number if it's greater than the
+            // current one.
+            // This is important because if multiple
+            // threads are replacing the same doc at nearly the
+            // same time, it's possible that one thread that got a
+            // higher docID is scheduled before the other
+            // threads.
+            // If we blindly replace than we can
+            // incorrectly get both docs indexed.
+            return Ok(());
         }
-
-        self.num_field_updates
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.delete_terms.put_sync(term, doc_id_upto)?;
         Ok(())
     }
-    pub(crate) fn clear_delete_terms(&mut self) {
-        self.delete_terms.clear();
+}
+impl<Q> BufferedUpdates<Q, STCounterEnum, STByteBlockPool, STBytesStartArrayEnum>
+where
+    Q: Query,
+{
+    /// Creates a new `BufferedUpdates` instance.
+    pub(crate) fn new(segment_name: String) -> Self {
+        Self {
+            num_field_updates: AtomicI32::new(0),
+            delete_terms: DeletedTerms::new(),
+            delete_queries: HashMap::new(),
+            field_updates: HashMap::new(),
+            bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
+            field_updates_bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
+            verbose_deletes: false,
+            gen: 0,
+            segment_name,
+        }
     }
-    pub(crate) fn clear(&mut self) {
-        self.delete_terms.clear();
+}
+
+#[allow(unused)]
+impl<Q, C, B, A> BufferedUpdates<Q, C, B, A>
+where
+    Q: Query,
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
+{
+    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) -> Result<(), LuceneError> {
+        if self
+            .delete_queries
+            .insert(query.clone(), doc_id_upto)
+            .is_none()
+        {
+            let mut bytes_used_guard = self
+                .bytes_used
+                .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(BYTES_PER_DEL_QUERY)))?;
+        }
+        Ok(())
+    }
+    pub(crate) fn clear_delete_terms(&mut self) -> Result<(), LuceneError> {
+        self.delete_terms.clear()
+    }
+    pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
+        self.delete_terms.clear()?;
         self.delete_queries.clear();
         self.num_field_updates
             .store(0, std::sync::atomic::Ordering::SeqCst);
         self.field_updates.clear();
 
-        {
-            let mut bytes_used = self.bytes_used.borrow_mut();
+        self.bytes_used.with_ref_mut(|bytes_used| {
             let used = -bytes_used.get();
-            bytes_used.add_and_get(used);
-        }
+            Ok(bytes_used.add_and_get(used))
+        })?;
 
-        let mut field_updates_bytes_used = self.field_updates_bytes_used.borrow_mut();
-        let used = -field_updates_bytes_used.get();
-        field_updates_bytes_used.add_and_get(used);
+        self.field_updates_bytes_used
+            .with_ref_mut(|field_updates_bytes_used| {
+                let used = -field_updates_bytes_used.get();
+                field_updates_bytes_used.add_and_get(used);
+                Ok(())
+            })
     }
     pub(crate) fn any(&self) -> bool {
         self.delete_terms.size() > 0
@@ -216,20 +256,33 @@ where
     }
 }
 
-impl<Q> Accountable for BufferedUpdates<Q>
+impl<Q, C, B, A> Accountable for BufferedUpdates<Q, C, B, A>
 where
     Q: Query,
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
 {
     fn ram_bytes_used(&self) -> i64 {
         // TODO: memory calculation not implemented
         0
     }
 }
-impl<Q> fmt::Display for BufferedUpdates<Q>
+impl<Q, C, B, A> fmt::Display for BufferedUpdates<Q, C, B, A>
 where
     Q: Query + fmt::Display,
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let bytes_used = self.bytes_used.with_ref(|bytes_used| Ok(bytes_used.get()));
+        if bytes_used.is_err() {
+            return write!(
+                f,
+                "Failed to acquire lock for bytes_used, can not call to_string()."
+            );
+        }
         if self.verbose_deletes {
             write!(
                 f,
@@ -238,7 +291,7 @@ where
                 self.delete_terms,
                 self.delete_queries.len(),
                 self.field_updates.len(),
-                self.bytes_used.borrow().get()
+                bytes_used.unwrap()
             )
         } else {
             let mut s = format!("gen={}", self.gen);
@@ -262,7 +315,7 @@ where
                         .load(std::sync::atomic::Ordering::SeqCst)
                 ));
             }
-            let bytes_used = self.bytes_used.borrow().get();
+            let bytes_used = bytes_used.unwrap();
             if bytes_used != 0 {
                 s.push_str(&format!(" bytesUsed={}", bytes_used));
             }
@@ -270,28 +323,93 @@ where
         }
     }
 }
-pub(crate) struct DeletedTerms {
-    bytes_used: Rc<RefCell<CounterEnum>>,
-    pool: Rc<RefCell<ByteBlockPool>>,
-    delete_terms: HashMap<String, BytesRefIntMap>,
+pub(crate) struct DeletedTerms<C, B, A>
+where
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
+{
+    bytes_used: C,
+    pool: B,
+    delete_terms: HashMap<String, BytesRefIntMap<C, B, A>>,
     terms_size: i32,
 }
 
-impl Default for DeletedTerms {
-    fn default() -> Self {
-        Self::new()
+impl DeletedTerms<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum> {
+    pub(crate) fn new_sync() -> Self {
+        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let allocator =
+            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)));
+        Self::new_impl(pool, bytes_used)
+    }
+    /// Puts the newest document ID of the deleted term.
+    ///
+    /// Inserts the term and its corresponding document ID. If the term is new, increments the `terms_size`.
+    pub(crate) fn put_sync(&mut self, term: &Term, value: i32) -> Result<(), LuceneError> {
+        let hash = self
+            .bytes_used
+            .with_ref_mut(|bytes_used| -> Result<_, LuceneError> {
+                match self.delete_terms.entry(term.field.clone()) {
+                    Vacant(vacant) => {
+                        // TODO: memory calculation not implemented
+                        bytes_used.add_and_get(0);
+                        let new_map =
+                            BytesRefIntMap::new_sync(self.pool.clone(), self.bytes_used.clone())?;
+                        Ok(vacant.insert(new_map))
+                    }
+                    Occupied(occupied) => Ok(occupied.into_mut()),
+                }
+            })?;
+        if hash.put(&term.bytes, value)? {
+            self.terms_size += 1;
+        }
+        Ok(())
+    }
+}
+impl DeletedTerms<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum> {
+    pub(crate) fn new() -> Self {
+        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let allocator =
+            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
+        let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
+        Self::new_impl(pool, bytes_used)
+    }
+    /// Puts the newest document ID of the deleted term.
+    ///
+    /// Inserts the term and its corresponding document ID. If the term is new, increments the `terms_size`.
+    #[allow(unused)]
+    pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<(), LuceneError> {
+        let hash = self
+            .bytes_used
+            .with_ref_mut(|bytes_used| -> Result<_, LuceneError> {
+                match self.delete_terms.entry(term.field.clone()) {
+                    Vacant(vacant) => {
+                        // TODO: memory calculation not implemented
+                        bytes_used.add_and_get(0);
+                        let new_map =
+                            BytesRefIntMap::new(self.pool.clone(), self.bytes_used.clone())?;
+                        Ok(vacant.insert(new_map))
+                    }
+                    Occupied(occupied) => Ok(occupied.into_mut()),
+                }
+            })?;
+        if hash.put(&term.bytes, value)? {
+            self.terms_size += 1;
+        }
+        Ok(())
     }
 }
 
 #[allow(unused)]
-impl DeletedTerms {
+impl<C, B, A> DeletedTerms<C, B, A>
+where
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
+{
     /// Creates a new instance of `DeletedTerms`.
-    pub(crate) fn new() -> Self {
-        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DTA(
-            DirectTrackingAllocatorByte::new(bytes_used.clone()),
-        )));
-        let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
+    fn new_impl(pool: B, bytes_used: C) -> Self {
         Self {
             bytes_used,
             pool,
@@ -302,43 +420,24 @@ impl DeletedTerms {
     /// Gets the newest document ID of the deleted term.
     ///
     /// Returns the newest document ID if the term exists, otherwise returns `-1`.
-    pub(crate) fn get(&self, term: &Term) -> i32 {
+    pub(crate) fn get(&self, term: &Term) -> Result<i32, LuceneError> {
         if let Some(hash) = self.delete_terms.get(&term.field) {
             hash.get(&term.bytes)
         } else {
-            -1
+            Ok(-1)
         }
     }
-    /// Puts the newest document ID of the deleted term.
-    ///
-    /// Inserts the term and its corresponding document ID. If the term is new, increments the `terms_size`.
-    pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<(), LuceneError> {
-        let hash = self
-            .delete_terms
-            .entry(term.field.clone())
-            .or_insert_with(|| {
-                // TOOD: memory calculation not implemented
-                self.bytes_used.borrow_mut().add_and_get(0);
-                BytesRefIntMap::new(self.pool.clone(), self.bytes_used.clone())
-            });
+    pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
+        let mut pool = self.pool.with_ref_mut(|p| Ok(p.reset(false, false)))?;
 
-        if hash.put(&term.bytes, value)? {
-            self.terms_size += 1;
-        }
-
-        Ok(())
-    }
-    pub(crate) fn clear(&mut self) {
-        self.pool.borrow_mut().reset(false, false);
-
-        {
-            let mut bytes_used = self.bytes_used.borrow_mut();
+        self.bytes_used.with_ref_mut(|bytes_used| {
             let used = -bytes_used.get();
-            bytes_used.add_and_get(used);
-        }
-
+            let _ = bytes_used.add_and_get(used);
+            Ok(())
+        })?;
         self.delete_terms.clear();
         self.terms_size = 0;
+        Ok(())
     }
 
     pub(crate) fn size(&self) -> i32 {
@@ -349,14 +448,14 @@ impl DeletedTerms {
         self.terms_size == 0
     }
     /// Just for test, not efficient.
-    pub(crate) fn key_set(&self) -> HashSet<Term> {
+    pub(crate) fn key_set(&self) -> Result<HashSet<Term>, LuceneError> {
         let mut set = HashSet::new();
         for (field, hash) in &self.delete_terms {
-            for bytes in hash.key_set() {
+            for bytes in hash.key_set()? {
                 set.insert(Term::new(field.clone(), bytes));
             }
         }
-        set
+        Ok(set)
     }
 
     /// Consume all terms in a sorted order.
@@ -366,7 +465,7 @@ impl DeletedTerms {
     where
         F: FnMut(&Term, i32) -> Result<(), LuceneError>,
     {
-        let mut delete_fields: Vec<(&String, &mut BytesRefIntMap)> =
+        let mut delete_fields: Vec<(&String, &mut BytesRefIntMap<C, B, A>)> =
             self.delete_terms.iter_mut().collect();
         delete_fields.sort_by(|a, b| a.0.cmp(b.0));
 
@@ -377,14 +476,14 @@ impl DeletedTerms {
             let indices = &terms.bytes_ref_hash.ids;
             for i in 0..terms.bytes_ref_hash.count {
                 let index = indices[i as usize];
-                terms.bytes_ref_hash.get(index, &mut scratch.bytes);
+                terms.bytes_ref_hash.get(index, &mut scratch.bytes)?;
                 consumer(&scratch, terms.values[index as usize]);
             }
         }
         Ok(())
     }
     #[cfg(feature = "test_only")]
-    pub(crate) fn get_pool(&self) -> Rc<RefCell<ByteBlockPool>> {
+    pub(crate) fn get_pool(&self) -> B {
         self.pool.clone()
     }
 }
@@ -392,36 +491,75 @@ impl DeletedTerms {
 pub trait DeletedTermConsumer {
     fn accept(&mut self, term: &Term, doc_id: i32) -> Result<(), LuceneError>;
 }
-impl Accountable for DeletedTerms {
+impl<C, B, A> Accountable for DeletedTerms<C, B, A>
+where
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
+{
     fn ram_bytes_used(&self) -> i64 {
         // TODO: memory calculation not implemented
         0
     }
 }
-impl fmt::Display for DeletedTerms {
+impl<C, B, A> fmt::Display for DeletedTerms<C, B, A>
+where
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
+{
     /// Used for `BufferedUpdates::VERBOSE_DELETES`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let key_set = self.key_set();
-        let entries: Vec<String> = key_set
-            .iter()
-            .map(|term| format!("{}={}", term, self.get(term)))
-            .collect();
+        let key_set = match self.key_set() {
+            Ok(ks) => ks,
+            Err(e) => return write!(f, "Error retrieving key_set: {}", e),
+        };
+        let mut entries = Vec::new();
+        for term in key_set.iter() {
+            let value = match self.get(term) {
+                Ok(v) => v,
+                Err(e) => return write!(f, "Error retrieving value for {}: {}", term, e),
+            };
+            entries.push(format!("{}={}", term, value));
+        }
+
         write!(f, "{{{}}}", entries.join(", "))
     }
 }
 
 #[allow(unused)]
-struct BytesRefIntMap {
-    counter: Rc<RefCell<CounterEnum>>,
-    pub(crate) bytes_ref_hash: BytesRefHash,
+struct BytesRefIntMap<C, B, A>
+where
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
+{
+    counter: C,
+    pub(crate) bytes_ref_hash: BytesRefHash<C, B, A>,
     values: Vec<i32>,
 }
-#[allow(unused)]
-impl BytesRefIntMap {
+impl BytesRefIntMap<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum> {
     // TODO: memory calculation not implemented
     const INIT_RAM_BYTES: i64 = 0;
+}
 
-    fn new(pool: Rc<RefCell<ByteBlockPool>>, counter: Rc<RefCell<CounterEnum>>) -> Self {
+impl BytesRefIntMap<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum> {
+    fn new_sync(pool: MTByteBlockPool, counter: MTCounterEnum) -> Result<Self, LuceneError> {
+        let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
+            pool,
+            BytesRefHash::DEFAULT_CAPACITY,
+            Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
+                DirectBytesStartArray::with_counter_sync(
+                    BytesRefHash::DEFAULT_CAPACITY,
+                    counter.clone(),
+                ),
+            ))),
+        )?;
+        Self::new_impl(counter, bytes_ref_hash)
+    }
+}
+impl BytesRefIntMap<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum> {
+    fn new(pool: STByteBlockPool, counter: STCounterEnum) -> Result<Self, LuceneError> {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
@@ -431,26 +569,38 @@ impl BytesRefIntMap {
                     counter.clone(),
                 ),
             ))),
-        );
+        )?;
+        Self::new_impl(counter, bytes_ref_hash)
+    }
+}
+
+#[allow(unused)]
+impl<C, B, A> BytesRefIntMap<C, B, A>
+where
+    C: Access<CounterEnum>,
+    B: Access<ByteBlockPool<C>>,
+    A: Access<BytesStartArrayEnum<C>>,
+{
+    fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, A>) -> Result<Self, LuceneError> {
         let values = vec![0; BytesRefHash::DEFAULT_CAPACITY as usize];
 
-        counter.borrow_mut().add_and_get(Self::INIT_RAM_BYTES);
+        counter.with_ref_mut(|c| Ok(c.add_and_get(BytesRefIntMap::INIT_RAM_BYTES)))?;
 
-        Self {
+        Ok(Self {
             counter,
             bytes_ref_hash,
             values,
-        }
+        })
     }
-    fn key_set(&self) -> HashSet<BytesRef> {
+    fn key_set(&self) -> Result<HashSet<BytesRef>, LuceneError> {
         let mut scratch = BytesRef::new();
         let mut set = HashSet::new();
 
         for i in 0..self.bytes_ref_hash.size() {
-            self.bytes_ref_hash.get(i, &mut scratch);
+            self.bytes_ref_hash.get(i, &mut scratch)?;
             set.insert(BytesRef::deep_copy_of(&scratch));
         }
-        set
+        Ok(set)
     }
     fn put(&mut self, key: &BytesRef, value: i32) -> Result<bool, LuceneError> {
         debug_assert!(value >= 0, "Value must be non-negative.");
@@ -463,21 +613,26 @@ impl BytesRefIntMap {
                 let origin_length = self.values.len();
                 ArrayUtil::grow_with_len(&mut self.values, e + 1)?;
                 // TODO: memory calculation not implemented
-                self.counter.borrow_mut().add_and_get(origin_length as i64);
+                self.counter
+                    .with_ref_mut(|c| Ok(c.add_and_get(origin_length as i64)))?;
             }
             self.values[e as usize] = value;
             Ok(true)
         }
     }
-    fn get(&self, key: &BytesRef) -> i32 {
-        let e = self.bytes_ref_hash.find(key);
+    fn get(&self, key: &BytesRef) -> Result<i32, LuceneError> {
+        let e = self.bytes_ref_hash.find(key)?;
         if e == -1 {
-            -1
+            Ok(-1)
         } else {
-            self.values[e as usize]
+            Ok(self.values[e as usize])
         }
     }
 }
+/// for single-threaded scenarios
+pub type STBytesRefIntMap = BytesRefIntMap<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum>;
+/// for multi-threaded scenarios
+pub type MTBytesRefIntMap = BytesRefIntMap<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum>;
 
 #[cfg(test)]
 mod tests {
@@ -499,7 +654,7 @@ mod tests {
     #[test]
     fn test_ram_bytes_used() -> Result<(), LuceneError> {
         let mut random = random();
-        let mut bu = BufferedUpdates::new("seg1".to_string());
+        let mut bu = BufferedUpdates::new_sync("seg1".to_string());
 
         // TODO
         // assert_eq!(bu.ram_bytes_used(), 0);
@@ -514,7 +669,7 @@ mod tests {
             };
             let value = format!("{}", random.random_range(0..100));
             let term = Term::new("id".to_string(), BytesRef::from_string(&value));
-            bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto);
+            bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto)?;
         }
 
         let terms = at_least(&mut random, 1);
@@ -538,7 +693,7 @@ mod tests {
         // let total_used = bu.ram_bytes_used();
         // assert!(total_used > 0);
 
-        bu.clear_delete_terms();
+        bu.clear_delete_terms()?;
         assert!(
             bu.any(),
             "Only terms and docIds are cleaned, the queries should still be in memory."
@@ -549,7 +704,7 @@ mod tests {
         //     "Terms are cleaned, so memory usage should decrease."
         // );
 
-        bu.clear();
+        bu.clear()?;
         assert!(!bu.any());
         // TODO
         // assert_eq!(bu.ram_bytes_used()?, 0);
@@ -586,7 +741,7 @@ mod tests {
             assert_eq!(expected.len(), actual.size() as usize);
 
             for (term, expected_value) in &expected {
-                assert_eq!(*expected_value, actual.get(term));
+                assert_eq!(*expected_value, actual.get(term)?);
             }
 
             let mut expected_sorted: Vec<(Term, i32)> = expected
@@ -604,7 +759,7 @@ mod tests {
 
             assert_eq!(expected_sorted, actual_sorted);
 
-            actual.clear();
+            actual.clear()?;
             assert_eq!(actual.size(), 0);
             assert_eq!(actual.ram_bytes_used(), 0);
             let pool_guard = actual.get_pool();

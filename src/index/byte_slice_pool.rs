@@ -16,9 +16,7 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::ByteBlockPool;
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::util::{ByteBlockPool, STByteBlockPool};
 
 /// Class that Posting and PostingVector use to write interleaved byte streams into shared fixed-size
 /// byte[] arrays. The idea is to allocate slices of increasing lengths. For example, the first slice
@@ -32,7 +30,7 @@ use std::rc::Rc;
 pub(crate) struct ByteSlicePool {
     /// The underlying structure consists of fixed-size blocks. We overlay variable-length slices on
     /// top. Each slice is contiguous in memory, i.e. it does not straddle multiple blocks.
-    pool: Rc<RefCell<ByteBlockPool>>,
+    pool: STByteBlockPool,
 }
 #[allow(unused)]
 impl ByteSlicePool {
@@ -50,7 +48,7 @@ impl ByteSlicePool {
 
     /// The first level size for new slices.
     pub(crate) const FIRST_LEVEL_SIZE: i32 = Self::LEVEL_SIZE_ARRAY[0];
-    pub fn new(pool: Rc<RefCell<ByteBlockPool>>) -> Self {
+    pub fn new(pool: STByteBlockPool) -> Self {
         ByteSlicePool { pool }
     }
 
@@ -159,10 +157,12 @@ mod tests {
     use crate::index::byte_slice_pool::ByteSlicePool;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
+    use crate::util::allocator_byte::{
+        AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
+    };
     use crate::util::bit_util::BitUtil;
-    use crate::util::byte_block_pool::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{ByteBlockPool, CounterEnum, DirectTrackingAllocatorByte, VecCopyOps};
+    use crate::util::{ByteBlockPool, CounterEnum, STByteBlockPool, VecCopyOps};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cell::RefCell;
@@ -172,9 +172,7 @@ mod tests {
     fn test_alloc_known_size_slice() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DTA(
-            DirectTrackingAllocatorByte::new(byte_used),
-        )));
+        let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         pool.borrow_mut().next_buffer()?;
         let mut slice_pool = ByteSlicePool::new(pool.clone());
@@ -225,9 +223,7 @@ mod tests {
     }
     #[test]
     fn test_alloc_large_slice() -> Result<(), LuceneError> {
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DA(
-            DirectAllocatorByte::new(),
-        )));
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         let mut slice_pool = ByteSlicePool::new(pool.clone());
         assert_eq!(0, slice_pool.new_slice(ByteBlockPool::BYTE_BLOCK_SIZE)?);
@@ -247,7 +243,7 @@ mod tests {
     struct SliceWriter {
         has_started: bool,
 
-        block_pool: Rc<RefCell<ByteBlockPool>>,
+        block_pool: STByteBlockPool,
         slice_pool: Rc<RefCell<ByteSlicePool>>,
 
         size: i32,
@@ -348,7 +344,7 @@ mod tests {
     /// Reads a sequence of slices into a byte array.
     struct SliceReader {
         has_started: bool,
-        block_pool: Rc<RefCell<ByteBlockPool>>,
+        block_pool: STByteBlockPool,
         slice_pool: Rc<RefCell<ByteSlicePool>>,
 
         size: i32,
@@ -460,9 +456,7 @@ mod tests {
     fn test_random_interleaved_slices() -> Result<(), LuceneError> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        let allocator = Rc::new(RefCell::new(AllocatorByteEnum::DTA(
-            DirectTrackingAllocatorByte::new(byte_used),
-        )));
+        let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         let slice_pool = Rc::new(RefCell::new(ByteSlicePool::new(pool.clone())));
 
@@ -519,7 +513,8 @@ mod tests {
             // We don't rely on the buffers being filled with zeros because the SliceWriter keeps the
             // slice length as state, but ByteSlicePool.allocKnownSizeSlice asserts on zeros in the
             // buffer.
-            pool.borrow_mut().reset(true, rand::rng().random_bool(0.5));
+            pool.borrow_mut()
+                .reset(true, rand::rng().random_bool(0.5))?;
         }
 
         Ok(())

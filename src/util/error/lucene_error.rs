@@ -47,7 +47,10 @@ pub enum LuceneError {
 
     #[error("IO error on {path}: {source}")]
     IoWithPath { source: Error, path: String },
-
+    #[error("{0}")]
+    BorrowError(String),
+    #[error("{0}")]
+    LockError(String),
     #[error("UTF-8 conversion error: {0}")]
     FromUtf8Error(#[from] FromUtf8Error),
 

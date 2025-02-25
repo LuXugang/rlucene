@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 use crate::index::terms_hash::TermsHashBase;
-use crate::util::ByteBlockPool;
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::util::STByteBlockPool;
 #[allow(unused)]
 pub(crate) struct TermVectorsConsumer;
 #[allow(unused)]
 impl TermsHashBase for TermVectorsConsumer {
-    fn get_term_byte_pool(&self) -> Option<Rc<RefCell<ByteBlockPool>>> {
+    fn get_term_byte_pool(&self) -> Option<STByteBlockPool> {
         todo!()
     }
 
-    fn set_term_byte_pool(&mut self, _term_byte_pool: Option<Rc<RefCell<ByteBlockPool>>>) {
+    fn set_term_byte_pool(&mut self, _term_byte_pool: Option<STByteBlockPool>) {
         todo!()
     }
 }
