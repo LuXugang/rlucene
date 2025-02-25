@@ -797,7 +797,7 @@ where
     }
 }
 
-pub enum BytesStartArrayEnum<C, P>
+pub(crate) enum BytesStartArrayEnum<C, P>
 where
     C: Access<CounterEnum>,
     P: Access<PostingsArrayWrapper>,

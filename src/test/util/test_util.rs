@@ -88,7 +88,7 @@ impl TestUtil {
         if range <= BigInt::from(i32::MAX) {
             start + r.random_range(0..range.to_i32().unwrap()) as i64
         } else {
-            let augend = BigInt::from_f64(range.to_f64().unwrap() * r.gen::<f64>()).unwrap();
+            let augend = BigInt::from_f64(range.to_f64().unwrap() * r.random()::<f64>()).unwrap();
             let result = BigInt::from(start) + augend;
             let result = result.to_i64().unwrap();
             assert!(result >= start);

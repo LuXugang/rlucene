@@ -18,7 +18,7 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{
-    Allocator, AllocatorByte, AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum,
+    AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum,
 };
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{CounterEnum, MTCounterEnum, STCounterEnum, VecCopyOps};

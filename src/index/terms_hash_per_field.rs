@@ -46,6 +46,7 @@ use std::sync::{Arc, Mutex};
 /// Internally, this class allocates a linked list of slices that can be read by a [`ByteSliceReader`]
 /// for each term. Terms are first deduplicated in a [`BytesRefHash`]. Once this is done, internal
 /// data structures point to the current offset of each stream that can be written to.
+#[allow(unused)]
 pub struct TermsHashPerField {
     pub(crate) next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
     int_pool: Rc<RefCell<IntBlockPool>>,
@@ -424,7 +425,7 @@ pub(crate) trait TermsHashPerFieldBase {
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self);
 }
-pub struct PostingsBytesStartArray<C, P>
+pub(crate) struct PostingsBytesStartArray<C, P>
 where
     C: Access<CounterEnum>,
     P: Access<PostingsArrayWrapper>,
@@ -585,7 +586,6 @@ impl TermsHashPerFieldMock {
         new_called: AtomicI64,
         add_called: AtomicI64,
     ) -> Result<TermsHashPerFieldEnum, LuceneError> {
-        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
 
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());

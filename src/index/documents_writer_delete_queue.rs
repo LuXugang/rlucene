@@ -1092,7 +1092,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::index::buffered_updates::BufferedUpdates;
+    use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{
         BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum,
@@ -1426,17 +1426,7 @@ mod tests {
         index: Arc<AtomicI32>,
         ids: Vec<i32>,
         slice: DeleteSlice<Q>,
-        deletes: Arc<
-            Mutex<
-                BufferedUpdates<
-                    Q,
-                    MTCounterEnum,
-                    MTByteBlockPool,
-                    MTBytesStartArrayEnum,
-                    MTPostingsArrayWrapper,
-                >,
-            >,
-        >,
+        deletes: MTBufferedUpdates<Q>,
         barrier: Arc<Barrier>,
     }
 

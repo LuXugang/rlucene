@@ -176,11 +176,11 @@ fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generat
             let value = if rnd.random_range(0..50) == 0 {
                 // Occasionally a large blob
                 (0..rnd.random_range(2048..4096))
-                    .map(|_| rnd.gen::<char>())
+                    .map(|_| rnd.random::<char>())
                     .collect::<String>()
             } else {
                 (0..rnd.random_range(0..10))
-                    .map(|_| rnd.gen::<char>())
+                    .map(|_| rnd.random::<char>())
                     .collect::<String>()
             };
             let _ = dst.write_string(&value);

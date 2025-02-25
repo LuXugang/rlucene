@@ -78,6 +78,7 @@ where
     #[allow(unused)]
     segment_name: String,
 }
+#[allow(unused)]
 impl
     BufferedUpdates<
         DummyQuery,
@@ -203,6 +204,7 @@ where
         Ok(())
     }
 }
+#[allow(unused)]
 impl<Q>
     BufferedUpdates<
         Q,
@@ -352,6 +354,10 @@ where
         }
     }
 }
+/// for multi-threaded scenarios
+pub type MTBufferedUpdates<Q:Query> = Arc<Mutex<BufferedUpdates<Q, MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper>>>;
+/// for single-threaded scenarios
+pub type STBufferedUpdates<Q:Query> = Rc<RefCell<BufferedUpdates<Q, STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper>>>;
 pub(crate) struct DeletedTerms<C, B, A, P>
 where
     C: Access<CounterEnum>,
@@ -661,13 +667,6 @@ where
         }
     }
 }
-/// for single-threaded scenarios
-pub type STBytesRefIntMap =
-    BytesRefIntMap<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper>;
-/// for multi-threaded scenarios
-pub type MTBytesRefIntMap =
-    BytesRefIntMap<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper>;
-
 #[cfg(test)]
 mod tests {
     use crate::index::buffered_updates::{BufferedUpdates, DeletedTerms};

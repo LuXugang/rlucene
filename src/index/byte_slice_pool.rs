@@ -326,6 +326,7 @@ mod tests {
             let mut pool = self.block_pool.borrow_mut();
 
             // No, write more
+            #[allow(unused_assignments)]
             let mut current_pool_buffer = pool.get_buffer(self.slice);
             self.slice = pool.buffer_upto;
             self.slice_length = offset_and_length & 0xff;
