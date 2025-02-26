@@ -908,6 +908,8 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
+    #[allow(dead_code)] // for quick search
+    struct TestFieldInfos;
     #[test]
     fn test_field_infos() -> Result<(), LuceneError> {
         // TODO
