@@ -33,8 +33,6 @@ pub struct BKDConfig {
     pub max_points_in_leaf_node: i32,
 }
 
-
-
 impl BKDConfig {
     /// Default maximum number of points in each leaf block.
     pub const DEFAULT_MAX_POINTS_IN_LEAF_NODE: i32 = 512;
@@ -64,13 +62,15 @@ impl BKDConfig {
         if !(1..=Self::MAX_DIMS).contains(&num_dims) {
             return Err(LuceneError::illegal_argument(format!(
                 "num_dims must be 1 .. {} (got: {})",
-                Self::MAX_DIMS, num_dims
+                Self::MAX_DIMS,
+                num_dims
             )));
         }
         if !(1..=Self::MAX_INDEX_DIMS).contains(&num_index_dims) {
             return Err(LuceneError::illegal_argument(format!(
                 "num_index_dims must be 1 .. {} (got: {})",
-                Self::MAX_INDEX_DIMS, num_index_dims
+                Self::MAX_INDEX_DIMS,
+                num_index_dims
             )));
         }
         if num_index_dims > num_dims {

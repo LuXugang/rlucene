@@ -14,9 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod bkd_config;
-pub(crate) mod heap_point_value;
-pub(crate) mod offline_point_reader;
-pub(crate) mod point_reader;
-pub(crate) mod point_value;
-pub(crate) mod point_writer;
+use crate::util::bkd::point_value::PointValueEnum;
+use crate::util::error::lucene_error::LuceneError;
+use std::io;
+
+/// One-pass iterator through all points previously written with a PointWriter,
+/// abstracting away whether points are read from offline disk or from arrays in heap.
+pub trait PointReader {
+    /// Advances the iterator.
+    ///
+    /// Returns `Ok(true)` if there is another point available,
+    /// or `Ok(false)` if iteration is complete.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `io::Error` if an I/O error occurs during iteration.
+    fn next(&mut self) -> Result<bool, LuceneError>;
+
+    /// Returns the current point value.
+    fn point_value(&self) -> PointValueEnum;
+}
