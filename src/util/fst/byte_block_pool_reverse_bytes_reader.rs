@@ -18,19 +18,19 @@ use crate::store::DataInput;
 use crate::util::access::Access;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fst::fst::BytesReader;
-use crate::util::STByteBlockPoolBorrow;
+use crate::util::ByteBlockPoolBorrow;
 use std::fmt::{Display, Formatter};
 
 /// Reads in reverse from a ByteBlockPool.
 pub struct ByteBlockPoolReverseBytesReader {
-    buf: STByteBlockPoolBorrow,
+    buf: ByteBlockPoolBorrow,
     // the difference between the FST node address and the hash table copied node address
     pos_delta: i64,
     pos: i64,
 }
 #[allow(unused)]
 impl ByteBlockPoolReverseBytesReader {
-    pub fn new(buf: STByteBlockPoolBorrow) -> Self {
+    pub fn new(buf: ByteBlockPoolBorrow) -> Self {
         Self {
             buf,
             pos_delta: 0,

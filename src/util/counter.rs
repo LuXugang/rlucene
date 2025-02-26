@@ -125,6 +125,6 @@ impl Counter for CounterEnum {
 }
 
 /// for single-threaded scenarios
-pub type STCounterEnumBorrow = Rc<RefCell<CounterEnum>>;
+pub type CounterEnumBorrow = Rc<RefCell<CounterEnum>>;
 /// for multi-threaded scenarios
-pub type MTCounterEnumLock = Arc<Mutex<CounterEnum>>;
+pub type CounterEnumLock = Arc<Mutex<CounterEnum>>;

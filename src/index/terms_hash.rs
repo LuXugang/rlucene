@@ -18,15 +18,15 @@ use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
-use crate::util::{ByteBlockPool, CounterEnum, STByteBlockPoolBorrow};
+use crate::util::{ByteBlockPool, CounterEnum, ByteBlockPoolBorrow};
 use std::cell::RefCell;
 use std::rc::Rc;
 #[allow(unused)]
 pub(crate) struct TermsHash {
     next_terms_hash: Option<TermsHashEnum>,
     int_pool: Rc<RefCell<IntBlockPool>>,
-    byte_pool: STByteBlockPoolBorrow,
-    term_byte_pool: Option<STByteBlockPoolBorrow>,
+    byte_pool: ByteBlockPoolBorrow,
+    term_byte_pool: Option<ByteBlockPoolBorrow>,
     bytes_used: Rc<RefCell<CounterEnum>>,
 }
 #[allow(unused)]
@@ -60,8 +60,8 @@ impl TermsHash {
 }
 #[allow(unused)]
 pub(crate) trait TermsHashBase {
-    fn get_term_byte_pool(&self) -> Option<STByteBlockPoolBorrow>;
-    fn set_term_byte_pool(&mut self, term_byte_pool: Option<STByteBlockPoolBorrow>);
+    fn get_term_byte_pool(&self) -> Option<ByteBlockPoolBorrow>;
+    fn set_term_byte_pool(&mut self, term_byte_pool: Option<ByteBlockPoolBorrow>);
 }
 #[allow(unused)]
 pub(crate) enum TermsHashEnum {
@@ -70,14 +70,14 @@ pub(crate) enum TermsHashEnum {
 }
 impl TermsHashEnum {}
 impl TermsHashBase for TermsHashEnum {
-    fn get_term_byte_pool(&self) -> Option<STByteBlockPoolBorrow> {
+    fn get_term_byte_pool(&self) -> Option<ByteBlockPoolBorrow> {
         match self {
             TermsHashEnum::FreqProx(writer) => writer.get_term_byte_pool().clone(),
             TermsHashEnum::TermVectors(consumer) => consumer.get_term_byte_pool().clone(),
         }
     }
 
-    fn set_term_byte_pool(&mut self, term_byte_pool: Option<STByteBlockPoolBorrow>) {
+    fn set_term_byte_pool(&mut self, term_byte_pool: Option<ByteBlockPoolBorrow>) {
         match self {
             TermsHashEnum::FreqProx(writer) => writer.set_term_byte_pool(term_byte_pool),
             TermsHashEnum::TermVectors(consumer) => consumer.set_term_byte_pool(term_byte_pool),

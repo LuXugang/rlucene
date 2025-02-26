@@ -28,13 +28,13 @@ use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bytes_ref_hash::{
-    BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesStartArrayEnumLock,
-    STBytesStartArrayEnumBorrow,
+    BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, BytesStartArrayEnumLock,
+    BytesStartArrayEnumBorrow,
 };
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
-    ByteBlockPool, Counter, CounterEnum, MTByteBlockPoolLock, MTCounterEnumLock,
-    STByteBlockPoolBorrow, STCounterEnumBorrow,
+    ByteBlockPool, Counter, CounterEnum, ByteBlockPoolLock, CounterEnumLock,
+    ByteBlockPoolBorrow, CounterEnumBorrow,
 };
 use std::cell::RefCell;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -82,9 +82,9 @@ where
 impl
     BufferedUpdates<
         DummyQuery,
-        MTCounterEnumLock,
-        MTByteBlockPoolLock,
-        MTBytesStartArrayEnumLock,
+        CounterEnumLock,
+        ByteBlockPoolLock,
+        BytesStartArrayEnumLock,
         MTPostingsArrayWrapper,
     >
 {
@@ -345,21 +345,21 @@ where
 /// for multi-threaded scenarios
 pub type MTBufferedUpdates<Q> = BufferedUpdates<
     Q,
-    MTCounterEnumLock,
-    MTByteBlockPoolLock,
-    MTBytesStartArrayEnumLock,
+    CounterEnumLock,
+    ByteBlockPoolLock,
+    BytesStartArrayEnumLock,
     MTPostingsArrayWrapper,
 >;
-pub type MTBufferedUpdatesLock<Q> = Arc<Mutex<MTBufferedUpdates<Q>>>;
+pub type BufferedUpdatesLock<Q> = Arc<Mutex<MTBufferedUpdates<Q>>>;
 /// for single-threaded scenarios
 pub type STBufferedUpdates<Q> = BufferedUpdates<
     Q,
-    STCounterEnumBorrow,
-    STByteBlockPoolBorrow,
-    STBytesStartArrayEnumBorrow,
+    CounterEnumBorrow,
+    ByteBlockPoolBorrow,
+    BytesStartArrayEnumBorrow,
     STPostingsArrayWrapper,
 >;
-pub type STBufferedUpdatesBorrow<Q> = Rc<RefCell<STBufferedUpdates<Q>>>;
+pub type BufferedUpdatesBorrow<Q> = Rc<RefCell<STBufferedUpdates<Q>>>;
 pub(crate) struct DeletedTerms<C, B, A, P>
 where
     C: Access<CounterEnum>,
@@ -436,15 +436,15 @@ impl STDeletedTerms {
     }
 }
 pub type MTDeletedTerms = DeletedTerms<
-    MTCounterEnumLock,
-    MTByteBlockPoolLock,
-    MTBytesStartArrayEnumLock,
+    CounterEnumLock,
+    ByteBlockPoolLock,
+    BytesStartArrayEnumLock,
     MTPostingsArrayWrapper,
 >;
 pub type STDeletedTerms = DeletedTerms<
-    STCounterEnumBorrow,
-    STByteBlockPoolBorrow,
-    STBytesStartArrayEnumBorrow,
+    CounterEnumBorrow,
+    ByteBlockPoolBorrow,
+    BytesStartArrayEnumBorrow,
     STPostingsArrayWrapper,
 >;
 
@@ -591,9 +591,9 @@ where
 }
 impl
     BytesRefIntMap<
-        MTCounterEnumLock,
-        MTByteBlockPoolLock,
-        MTBytesStartArrayEnumLock,
+        CounterEnumLock,
+        ByteBlockPoolLock,
+        BytesStartArrayEnumLock,
         MTPostingsArrayWrapper,
     >
 {
@@ -603,15 +603,15 @@ impl
 
 impl
     BytesRefIntMap<
-        MTCounterEnumLock,
-        MTByteBlockPoolLock,
-        MTBytesStartArrayEnumLock,
+        CounterEnumLock,
+        ByteBlockPoolLock,
+        BytesStartArrayEnumLock,
         MTPostingsArrayWrapper,
     >
 {
     fn new_sync(
-        pool: MTByteBlockPoolLock,
-        counter: MTCounterEnumLock,
+        pool: ByteBlockPoolLock,
+        counter: CounterEnumLock,
     ) -> Result<Self, LuceneError> {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
@@ -628,13 +628,13 @@ impl
 }
 impl
     BytesRefIntMap<
-        STCounterEnumBorrow,
-        STByteBlockPoolBorrow,
-        STBytesStartArrayEnumBorrow,
+        CounterEnumBorrow,
+        ByteBlockPoolBorrow,
+        BytesStartArrayEnumBorrow,
         STPostingsArrayWrapper,
     >
 {
-    fn new(pool: STByteBlockPoolBorrow, counter: STCounterEnumBorrow) -> Result<Self, LuceneError> {
+    fn new(pool: ByteBlockPoolBorrow, counter: CounterEnumBorrow) -> Result<Self, LuceneError> {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,

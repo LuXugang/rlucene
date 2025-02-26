@@ -24,7 +24,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorterBase,
-    MTCounterEnumLock, STCounterEnumBorrow, Sorter, StableStringSorter, StableStringSorterBase,
+    CounterEnumLock, CounterEnumBorrow, Sorter, StableStringSorter, StableStringSorterBase,
     StringSorter, StringSorterBase,
 };
 use std::sync::Arc;
@@ -49,25 +49,25 @@ where
 }
 
 /// for single-threaded scenarios
-pub type STBytesRefArray = BytesRefArray<STCounterEnumBorrow>;
+pub type STBytesRefArray = BytesRefArray<CounterEnumBorrow>;
 /// for multi-threaded scenarios
-pub type MTBytesRefArray = BytesRefArray<MTCounterEnumLock>;
+pub type MTBytesRefArray = BytesRefArray<CounterEnumLock>;
 
-impl BytesRefArray<STCounterEnumBorrow> {
+impl BytesRefArray<CounterEnumBorrow> {
     /// for single-threaded scenarios
     pub fn new(
-        byte_used: STCounterEnumBorrow,
-    ) -> Result<BytesRefArray<STCounterEnumBorrow>, LuceneError> {
+        byte_used: CounterEnumBorrow,
+    ) -> Result<BytesRefArray<CounterEnumBorrow>, LuceneError> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = ByteBlockPool::new(allocator);
         BytesRefArray::new_impl(pool, byte_used)
     }
 }
-impl BytesRefArray<MTCounterEnumLock> {
+impl BytesRefArray<CounterEnumLock> {
     /// for multi-threaded scenarios
     pub fn new_sync(
-        byte_used: MTCounterEnumLock,
-    ) -> Result<BytesRefArray<MTCounterEnumLock>, LuceneError> {
+        byte_used: CounterEnumLock,
+    ) -> Result<BytesRefArray<CounterEnumLock>, LuceneError> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = ByteBlockPool::new_sync(allocator);
         BytesRefArray::new_impl(pool, byte_used)

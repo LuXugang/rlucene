@@ -16,7 +16,7 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{ByteBlockPool, STByteBlockPoolBorrow};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
 
 /// Class that Posting and PostingVector use to write interleaved byte streams into shared fixed-size
 /// byte[] arrays. The idea is to allocate slices of increasing lengths. For example, the first slice
@@ -30,7 +30,7 @@ use crate::util::{ByteBlockPool, STByteBlockPoolBorrow};
 pub(crate) struct ByteSlicePool {
     /// The underlying structure consists of fixed-size blocks. We overlay variable-length slices on
     /// top. Each slice is contiguous in memory, i.e. it does not straddle multiple blocks.
-    pool: STByteBlockPoolBorrow,
+    pool: ByteBlockPoolBorrow,
 }
 #[allow(unused)]
 impl ByteSlicePool {
@@ -48,7 +48,7 @@ impl ByteSlicePool {
 
     /// The first level size for new slices.
     pub(crate) const FIRST_LEVEL_SIZE: i32 = Self::LEVEL_SIZE_ARRAY[0];
-    pub fn new(pool: STByteBlockPoolBorrow) -> Self {
+    pub fn new(pool: ByteBlockPoolBorrow) -> Self {
         ByteSlicePool { pool }
     }
 
@@ -162,7 +162,7 @@ mod tests {
     };
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{ByteBlockPool, CounterEnum, STByteBlockPoolBorrow, VecCopyOps};
+    use crate::util::{ByteBlockPool, CounterEnum, ByteBlockPoolBorrow, VecCopyOps};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cell::RefCell;
@@ -243,7 +243,7 @@ mod tests {
     struct SliceWriter {
         has_started: bool,
 
-        block_pool: STByteBlockPoolBorrow,
+        block_pool: ByteBlockPoolBorrow,
         slice_pool: Rc<RefCell<ByteSlicePool>>,
 
         size: i32,
@@ -345,7 +345,7 @@ mod tests {
     /// Reads a sequence of slices into a byte array.
     struct SliceReader {
         has_started: bool,
-        block_pool: STByteBlockPoolBorrow,
+        block_pool: ByteBlockPoolBorrow,
         slice_pool: Rc<RefCell<ByteSlicePool>>,
 
         size: i32,

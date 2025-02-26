@@ -18,11 +18,11 @@ use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{ByteBlockPool, STByteBlockPoolBorrow};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
 use std::fmt::{Display, Formatter};
 
 pub(crate) struct ByteSliceReader {
-    pool: Option<STByteBlockPoolBorrow>,
+    pool: Option<ByteBlockPoolBorrow>,
     buffer_upto: i32,
     upto: i32,
     limit: i32,
@@ -43,7 +43,7 @@ impl ByteSliceReader {
             end_index: 0,
         }
     }
-    pub(crate) fn init(&mut self, pool: STByteBlockPoolBorrow, start_index: i32, end_index: i32) {
+    pub(crate) fn init(&mut self, pool: ByteBlockPoolBorrow, start_index: i32, end_index: i32) {
         debug_assert!(end_index - start_index >= 0);
         debug_assert!(start_index >= 0);
         debug_assert!(end_index >= 0);
@@ -184,7 +184,7 @@ mod tests {
     use std::rc::Rc;
 
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
-    use crate::util::{ByteBlockPool, STByteBlockPoolBorrow};
+    use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
     use rand::rngs::StdRng;
     use rand::Rng;
 
@@ -194,7 +194,7 @@ mod tests {
     #[allow(clippy::type_complexity)]
     pub fn before_class(
         random: &mut StdRng,
-    ) -> Result<(Vec<u8>, STByteBlockPoolBorrow, i32), LuceneError> {
+    ) -> Result<(Vec<u8>, ByteBlockPoolBorrow, i32), LuceneError> {
         let len = 100; // You can adjust this value if needed
         let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 

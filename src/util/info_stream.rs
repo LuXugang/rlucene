@@ -94,9 +94,9 @@ impl InfoStream for InfoStreamEnum {
     }
 }
 /// for multi-threaded scenarios
-pub type MTInfoStreamLock = Arc<Mutex<InfoStreamEnum>>;
+pub type InfoStreamLock = Arc<Mutex<InfoStreamEnum>>;
 /// for single-threaded scenarios
-pub type STInfoStreamBorrow = Arc<Mutex<InfoStreamEnum>>;
+pub type InfoStreamBorrow = Arc<Mutex<InfoStreamEnum>>;
 #[cfg(test)]
 mod tests {
     use crate::util::error::lucene_error::LuceneError;

@@ -23,10 +23,10 @@ use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
-use crate::util::bytes_ref_hash::MTBytesStartArrayEnumLock;
+use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::info_stream::{InfoStreamEnum, MTInfoStreamLock};
-use crate::util::{MTByteBlockPoolLock, MTCounterEnumLock};
+use crate::util::info_stream::{InfoStreamEnum, InfoStreamLock};
+use crate::util::{ByteBlockPoolLock, CounterEnumLock};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
@@ -242,7 +242,7 @@ where
     pub(crate) fn freeze_global_buffer<D>(
         &self,
         caller_slice: Option<&mut DeleteSlice<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStreamLock>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>, LuceneError>
     where
         D: Directory,
     {
@@ -269,7 +269,7 @@ where
     /// If the queue has been closed, this method will return `None`.
     pub(crate) fn maybe_freeze_global_buffer<D>(
         &self,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStreamLock>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>, LuceneError>
     where
         D: Directory,
     {
@@ -297,7 +297,7 @@ where
         &self,
         global_state: &mut RwLockWriteGuard<GlobalState<Q>>,
         current_tail: Arc<Node<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStreamLock>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>, LuceneError>
     where
         D: Directory,
     {
@@ -567,9 +567,9 @@ where
     generation: i64,
     global_buffered_updates: BufferedUpdates<
         Q,
-        MTCounterEnumLock,
-        MTByteBlockPoolLock,
-        MTBytesStartArrayEnumLock,
+        CounterEnumLock,
+        ByteBlockPoolLock,
+        BytesStartArrayEnumLock,
         MTPostingsArrayWrapper,
     >,
     max_seq_no: i64,
@@ -631,9 +631,9 @@ where
         &mut self,
         del: &mut BufferedUpdates<
             Q,
-            MTCounterEnumLock,
-            MTByteBlockPoolLock,
-            MTBytesStartArrayEnumLock,
+            CounterEnumLock,
+            ByteBlockPoolLock,
+            BytesStartArrayEnumLock,
             MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
@@ -1038,7 +1038,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdatesLock};
+    use crate::index::buffered_updates::{BufferedUpdates, BufferedUpdatesLock};
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{
         BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum,
@@ -1057,11 +1057,11 @@ mod tests {
     use crate::test::util::lucene_test_case::{random, random_multiplier};
 
     use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
-    use crate::util::bytes_ref_hash::MTBytesStartArrayEnumLock;
+    use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::info_stream::{get_default_info_stream, MTInfoStreamLock};
-    use crate::util::{MTByteBlockPoolLock, MTCounterEnumLock};
+    use crate::util::info_stream::{get_default_info_stream, InfoStreamLock};
+    use crate::util::{ByteBlockPoolLock, CounterEnumLock};
     use rand::Rng;
     use std::collections::HashSet;
     use std::sync::atomic::{AtomicI32, Ordering};
@@ -1123,7 +1123,7 @@ mod tests {
         assert_eq!(unique_values, bd1_terms_set);
         assert_eq!(unique_values, bd2_terms_set);
 
-        let frozen: FrozenBufferedUpdates<DummyDirectory, DummyQuery, MTInfoStreamLock> =
+        let frozen: FrozenBufferedUpdates<DummyDirectory, DummyQuery, InfoStreamLock> =
             queue.freeze_global_buffer(None)?.unwrap();
         let mut iter = frozen.delete_terms.iterator();
         let mut frozen_set: HashSet<Term> = HashSet::new();
@@ -1145,9 +1145,9 @@ mod tests {
         end: i32,
         deletes: &mut BufferedUpdates<
             Q,
-            MTCounterEnumLock,
-            MTByteBlockPoolLock,
-            MTBytesStartArrayEnumLock,
+            CounterEnumLock,
+            ByteBlockPoolLock,
+            BytesStartArrayEnumLock,
             MTPostingsArrayWrapper,
         >,
         ids: &[i32],
@@ -1372,7 +1372,7 @@ mod tests {
         index: Arc<AtomicI32>,
         ids: Vec<i32>,
         slice: DeleteSlice<Q>,
-        deletes: MTBufferedUpdatesLock<Q>,
+        deletes: BufferedUpdatesLock<Q>,
         barrier: Arc<Barrier>,
     }
 

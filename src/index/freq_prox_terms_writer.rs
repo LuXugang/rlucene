@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 use crate::index::terms_hash::TermsHashBase;
-use crate::util::STByteBlockPoolBorrow;
+use crate::util::ByteBlockPoolBorrow;
 
 pub(crate) struct FreqProxTermsWriter;
 
 impl TermsHashBase for FreqProxTermsWriter {
-    fn get_term_byte_pool(&self) -> Option<STByteBlockPoolBorrow> {
+    fn get_term_byte_pool(&self) -> Option<ByteBlockPoolBorrow> {
         todo!()
     }
 
-    fn set_term_byte_pool(&mut self, _term_byte_pool: Option<STByteBlockPoolBorrow>) {
+    fn set_term_byte_pool(&mut self, _term_byte_pool: Option<ByteBlockPoolBorrow>) {
         todo!()
     }
 }
