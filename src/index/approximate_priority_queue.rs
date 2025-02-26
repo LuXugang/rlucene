@@ -16,7 +16,8 @@
  */
 use num_traits::PrimInt;
 use std::vec::Vec;
-
+/// An approximate priority queue, which attempts to poll items by decreasing log of the weight,
+/// though exact ordering is not guaranteed. This class doesn't support null elements.
 pub(crate) struct ApproximatePriorityQueue<T> {
     /// Indexes between 0 and 63 are sparsely populated, and indexes that are
     /// greater than or equal to 64 are densely populated
