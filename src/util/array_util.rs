@@ -484,6 +484,17 @@ impl ArrayUtil {
         debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0 && to as usize <= array.len());
         array[from as usize..to as usize].to_vec()
     }
+    /// Returns a comparator for exactly the specified number of bytes.
+    pub fn get_unsigned_comparator(num_bytes: usize) -> ByteArrayComparatorEnum {
+        if num_bytes == BitUtil::LONG_BYTES {
+            // Used by LongPoint, DoublePoint
+            return ByteArrayComparatorEnum::U64(U64byteArrayComparator);
+        } else if num_bytes == BitUtil::INT_BYTES {
+            // Used by IntPoint, FloatPoint, LatLonPoint, LatLonShape
+            return ByteArrayComparatorEnum::U32(U32byteArrayComparator);
+        }
+        ByteArrayComparatorEnum::Byte(ByteByteArrayComparator { num_bytes })
+    }
 }
 
 struct IntroSelectorImpl<'a, T, C>
@@ -554,17 +565,7 @@ pub trait ByteArrayComparator {
     /// The return value has the same contract as [`std::cmp::Ord::cmp`].
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32;
 }
-/// Returns a comparator for exactly the specified number of bytes.
-pub fn get_unsigned_comparator(num_bytes: usize) -> ByteArrayComparatorEnum {
-    if num_bytes == BitUtil::LONG_BYTES {
-        // Used by LongPoint, DoublePoint
-        return ByteArrayComparatorEnum::U64(U64byteArrayComparator);
-    } else if num_bytes == BitUtil::INT_BYTES {
-        // Used by IntPoint, FloatPoint, LatLonPoint, LatLonShape
-        return ByteArrayComparatorEnum::U32(U32byteArrayComparator);
-    }
-    ByteArrayComparatorEnum::Byte(ByteByteArrayComparator { num_bytes })
-}
+
 pub enum ByteArrayComparatorEnum {
     U64(U64byteArrayComparator),
     U32(U32byteArrayComparator),

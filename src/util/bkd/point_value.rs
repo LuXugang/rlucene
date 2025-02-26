@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::BytesRef;
-use crate::util::bkd::heap_point_value::HeapPointValue;
+use crate::util::bkd::heap_point_write::HeapPointValue;
 use crate::util::bkd::offline_point_reader::OfflinePointValue;
 
 /// Represents a dimensional point value written in the BKD tree.

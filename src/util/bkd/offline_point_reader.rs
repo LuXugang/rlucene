@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::BytesRef;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::point_value::PointValue;
 
+pub(crate) struct OfflinePointReader;
 /// Reusable implementation for a point value offline.
 pub(crate) struct OfflinePointValue {
     pub(crate) offset: i32,

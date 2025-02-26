@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 pub(crate) mod bkd_config;
-pub(crate) mod heap_point_value;
+mod heap_point_reader;
+mod heap_point_write;
 pub(crate) mod offline_point_reader;
 pub(crate) mod point_reader;
 pub(crate) mod point_value;
