@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::buffered_updates::BufferedUpdates;
+use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
@@ -23,10 +23,10 @@ use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
-use crate::util::bytes_ref_hash::MTBytesStartArrayEnum;
+use crate::util::bytes_ref_hash::MTBytesStartArrayEnumLock;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::info_stream::{InfoStreamEnum, MTInfoStream};
-use crate::util::{MTByteBlockPool, MTCounterEnum};
+use crate::util::info_stream::{InfoStreamEnum, MTInfoStreamLock};
+use crate::util::{MTByteBlockPoolLock, MTCounterEnumLock};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
@@ -242,7 +242,7 @@ where
     pub(crate) fn freeze_global_buffer<D>(
         &self,
         caller_slice: Option<&mut DeleteSlice<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStream>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStreamLock>>, LuceneError>
     where
         D: Directory,
     {
@@ -269,7 +269,7 @@ where
     /// If the queue has been closed, this method will return `None`.
     pub(crate) fn maybe_freeze_global_buffer<D>(
         &self,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStream>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStreamLock>>, LuceneError>
     where
         D: Directory,
     {
@@ -297,7 +297,7 @@ where
         &self,
         global_state: &mut RwLockWriteGuard<GlobalState<Q>>,
         current_tail: Arc<Node<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStream>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, MTInfoStreamLock>>, LuceneError>
     where
         D: Directory,
     {
@@ -567,9 +567,9 @@ where
     generation: i64,
     global_buffered_updates: BufferedUpdates<
         Q,
-        MTCounterEnum,
-        MTByteBlockPool,
-        MTBytesStartArrayEnum,
+        MTCounterEnumLock,
+        MTByteBlockPoolLock,
+        MTBytesStartArrayEnumLock,
         MTPostingsArrayWrapper,
     >,
     max_seq_no: i64,
@@ -631,9 +631,9 @@ where
         &mut self,
         del: &mut BufferedUpdates<
             Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
+            MTCounterEnumLock,
+            MTByteBlockPoolLock,
+            MTBytesStartArrayEnumLock,
             MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
@@ -724,13 +724,7 @@ where
 {
     fn apply(
         &self,
-        buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        buffered_deletes: &mut MTBufferedUpdates<Q>,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         self.item.apply(buffered_deletes, doc_id_upto)
@@ -763,13 +757,7 @@ where
 {
     fn apply(
         &self,
-        _buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        _buffered_deletes: &mut MTBufferedUpdates<Q>,
         _doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         Ok(())
@@ -795,13 +783,7 @@ where
 {
     fn apply(
         &self,
-        buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        buffered_deletes: &mut MTBufferedUpdates<Q>,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         buffered_deletes.add_term(&self.item, doc_id_upto)
@@ -833,13 +815,7 @@ where
 {
     fn apply(
         &self,
-        buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        buffered_deletes: &mut MTBufferedUpdates<Q>,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         buffered_deletes.add_query(self.item.clone(), doc_id_upto)?;
@@ -875,13 +851,7 @@ where
 {
     fn apply(
         &self,
-        buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        buffered_deletes: &mut MTBufferedUpdates<Q>,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         for query in &self.item {
@@ -915,13 +885,7 @@ where
 {
     fn apply(
         &self,
-        buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        buffered_deletes: &mut MTBufferedUpdates<Q>,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         for term in &self.item {
@@ -952,13 +916,7 @@ where
 {
     fn apply(
         &self,
-        buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        buffered_deletes: &mut MTBufferedUpdates<Q>,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         for doc_values_update in &self.item {
@@ -1023,13 +981,7 @@ where
 {
     pub(crate) fn apply(
         &self,
-        buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        buffered_deletes: &mut MTBufferedUpdates<Q>,
         doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         match self {
@@ -1071,13 +1023,7 @@ where
 {
     fn apply(
         &self,
-        _buffered_deletes: &mut BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
+        _buffered_deletes: &mut MTBufferedUpdates<Q>,
         _doc_id_upto: i32,
     ) -> Result<(), LuceneError> {
         Err(LuceneError::illegal_argument(
@@ -1092,7 +1038,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
+    use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdatesLock};
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{
         BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum,
@@ -1111,11 +1057,11 @@ mod tests {
     use crate::test::util::lucene_test_case::{random, random_multiplier};
 
     use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
-    use crate::util::bytes_ref_hash::MTBytesStartArrayEnum;
+    use crate::util::bytes_ref_hash::MTBytesStartArrayEnumLock;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::info_stream::{get_default_info_stream, MTInfoStream};
-    use crate::util::{MTByteBlockPool, MTCounterEnum};
+    use crate::util::info_stream::{get_default_info_stream, MTInfoStreamLock};
+    use crate::util::{MTByteBlockPoolLock, MTCounterEnumLock};
     use rand::Rng;
     use std::collections::HashSet;
     use std::sync::atomic::{AtomicI32, Ordering};
@@ -1177,7 +1123,7 @@ mod tests {
         assert_eq!(unique_values, bd1_terms_set);
         assert_eq!(unique_values, bd2_terms_set);
 
-        let frozen: FrozenBufferedUpdates<DummyDirectory, DummyQuery, MTInfoStream> =
+        let frozen: FrozenBufferedUpdates<DummyDirectory, DummyQuery, MTInfoStreamLock> =
             queue.freeze_global_buffer(None)?.unwrap();
         let mut iter = frozen.delete_terms.iterator();
         let mut frozen_set: HashSet<Term> = HashSet::new();
@@ -1199,9 +1145,9 @@ mod tests {
         end: i32,
         deletes: &mut BufferedUpdates<
             Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
+            MTCounterEnumLock,
+            MTByteBlockPoolLock,
+            MTBytesStartArrayEnumLock,
             MTPostingsArrayWrapper,
         >,
         ids: &[i32],
@@ -1426,7 +1372,7 @@ mod tests {
         index: Arc<AtomicI32>,
         ids: Vec<i32>,
         slice: DeleteSlice<Q>,
-        deletes: MTBufferedUpdates<Q>,
+        deletes: MTBufferedUpdatesLock<Q>,
         barrier: Arc<Barrier>,
     }
 

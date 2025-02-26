@@ -19,7 +19,7 @@ use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum};
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{CounterEnum, MTCounterEnum, STCounterEnum, VecCopyOps};
+use crate::util::{CounterEnum, MTCounterEnumLock, STCounterEnumBorrow, VecCopyOps};
 use std::cell::RefCell;
 use std::cmp::min;
 use std::rc::Rc;
@@ -70,7 +70,7 @@ impl ByteBlockPool<Rc<RefCell<CounterEnum>>> {
     /// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
     pub(crate) const BYTE_BLOCK_MASK: i32 = ByteBlockPool::BYTE_BLOCK_SIZE - 1;
 }
-impl ByteBlockPool<MTCounterEnum> {
+impl ByteBlockPool<MTCounterEnumLock> {
     pub fn new_sync(allocator: MTAllocatorByteEnum) -> Self {
         ByteBlockPool {
             buffers: vec![],
@@ -81,7 +81,7 @@ impl ByteBlockPool<MTCounterEnum> {
         }
     }
 }
-impl ByteBlockPool<STCounterEnum> {
+impl ByteBlockPool<STCounterEnumBorrow> {
     pub fn new(allocator: STAllocatorByteEnum) -> Self {
         ByteBlockPool {
             buffers: vec![],
@@ -368,9 +368,9 @@ where
     }
 }
 // for single thread
-pub type STByteBlockPool = Rc<RefCell<ByteBlockPool<STCounterEnum>>>;
+pub type STByteBlockPoolBorrow = Rc<RefCell<ByteBlockPool<STCounterEnumBorrow>>>;
 // for multi thread
-pub type MTByteBlockPool = Arc<Mutex<ByteBlockPool<MTCounterEnum>>>;
+pub type MTByteBlockPoolLock = Arc<Mutex<ByteBlockPool<MTCounterEnumLock>>>;
 
 #[cfg(test)]
 mod tests {

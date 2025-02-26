@@ -24,10 +24,10 @@ use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
-use crate::util::bytes_ref_hash::MTBytesStartArrayEnum;
+use crate::util::bytes_ref_hash::MTBytesStartArrayEnumLock;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::info_stream::{InfoStream, InfoStreamEnum};
-use crate::util::{MTByteBlockPool, MTCounterEnum};
+use crate::util::{MTByteBlockPoolLock, MTCounterEnumLock};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -72,9 +72,9 @@ where
         info_stream: I,
         updates: &mut BufferedUpdates<
             Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
+            MTCounterEnumLock,
+            MTByteBlockPoolLock,
+            MTBytesStartArrayEnumLock,
             MTPostingsArrayWrapper,
         >,
         private_segment: Option<Arc<SegmentCommitInfo<D>>>,

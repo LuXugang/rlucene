@@ -32,7 +32,7 @@ use crate::util::bytes_ref_hash::{
 };
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::int_block_pool::IntBlockPool;
-use crate::util::{ByteBlockPool, Counter, CounterEnum, STByteBlockPool};
+use crate::util::{ByteBlockPool, Counter, CounterEnum, STByteBlockPoolBorrow};
 use std::cell::RefCell;
 use std::rc::Rc;
 #[cfg(test)]
@@ -50,7 +50,7 @@ use std::sync::{Arc, Mutex};
 pub struct TermsHashPerField {
     pub(crate) next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
     int_pool: Rc<RefCell<IntBlockPool>>,
-    pub(crate) byte_pool: STByteBlockPool,
+    pub(crate) byte_pool: STByteBlockPoolBorrow,
     slice_pool: ByteSlicePool,
     // for each term we store an integer per stream that points into the bytePool above
     // the address is updated once data is written to the stream to point to the next free offset
@@ -98,8 +98,8 @@ impl TermsHashPerField {
     pub(crate) fn new(
         stream_count: i32,
         int_pool: Rc<RefCell<IntBlockPool>>,
-        byte_pool: STByteBlockPool,
-        term_byte_pool: STByteBlockPool,
+        byte_pool: STByteBlockPoolBorrow,
+        term_byte_pool: STByteBlockPoolBorrow,
         bytes_used: Rc<RefCell<CounterEnum>>,
         next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
         field_name: String,

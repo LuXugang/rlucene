@@ -28,13 +28,13 @@ use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bytes_ref_hash::{
-    BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesStartArrayEnum,
-    STBytesStartArrayEnum,
+    BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesStartArrayEnumLock,
+    STBytesStartArrayEnumBorrow,
 };
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
-    ByteBlockPool, Counter, CounterEnum, MTByteBlockPool, MTCounterEnum, STByteBlockPool,
-    STCounterEnum,
+    ByteBlockPool, Counter, CounterEnum, MTByteBlockPoolLock, MTCounterEnumLock,
+    STByteBlockPoolBorrow, STCounterEnumBorrow,
 };
 use std::cell::RefCell;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -82,9 +82,9 @@ where
 impl
     BufferedUpdates<
         DummyQuery,
-        MTCounterEnum,
-        MTByteBlockPool,
-        MTBytesStartArrayEnum,
+        MTCounterEnumLock,
+        MTByteBlockPoolLock,
+        MTBytesStartArrayEnumLock,
         MTPostingsArrayWrapper,
     >
 {
@@ -95,14 +95,7 @@ impl
     pub const MAX_INT: i32 = i32::MAX;
 }
 #[allow(unused)]
-impl<Q>
-    BufferedUpdates<
-        Q,
-        MTCounterEnum,
-        MTByteBlockPool,
-        MTBytesStartArrayEnum,
-        MTPostingsArrayWrapper,
-    >
+impl<Q> MTBufferedUpdates<Q>
 where
     Q: Query,
 {
@@ -205,14 +198,7 @@ where
     }
 }
 #[allow(unused)]
-impl<Q>
-    BufferedUpdates<
-        Q,
-        STCounterEnum,
-        STByteBlockPool,
-        STBytesStartArrayEnum,
-        STPostingsArrayWrapper,
-    >
+impl<Q> STBufferedUpdates<Q>
 where
     Q: Query,
 {
@@ -357,29 +343,23 @@ where
     }
 }
 /// for multi-threaded scenarios
-pub type MTBufferedUpdates<Q> = Arc<
-    Mutex<
-        BufferedUpdates<
-            Q,
-            MTCounterEnum,
-            MTByteBlockPool,
-            MTBytesStartArrayEnum,
-            MTPostingsArrayWrapper,
-        >,
-    >,
+pub type MTBufferedUpdates<Q> = BufferedUpdates<
+    Q,
+    MTCounterEnumLock,
+    MTByteBlockPoolLock,
+    MTBytesStartArrayEnumLock,
+    MTPostingsArrayWrapper,
 >;
+pub type MTBufferedUpdatesLock<Q> = Arc<Mutex<MTBufferedUpdates<Q>>>;
 /// for single-threaded scenarios
-pub type STBufferedUpdates<Q> = Rc<
-    RefCell<
-        BufferedUpdates<
-            Q,
-            STCounterEnum,
-            STByteBlockPool,
-            STBytesStartArrayEnum,
-            STPostingsArrayWrapper,
-        >,
-    >,
+pub type STBufferedUpdates<Q> = BufferedUpdates<
+    Q,
+    STCounterEnumBorrow,
+    STByteBlockPoolBorrow,
+    STBytesStartArrayEnumBorrow,
+    STPostingsArrayWrapper,
 >;
+pub type STBufferedUpdatesBorrow<Q> = Rc<RefCell<STBufferedUpdates<Q>>>;
 pub(crate) struct DeletedTerms<C, B, A, P>
 where
     C: Access<CounterEnum>,
@@ -393,7 +373,7 @@ where
     terms_size: i32,
 }
 
-impl DeletedTerms<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper> {
+impl MTDeletedTerms {
     pub(crate) fn new_sync() -> Self {
         let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let allocator =
@@ -423,7 +403,7 @@ impl DeletedTerms<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPosti
         Ok(())
     }
 }
-impl DeletedTerms<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper> {
+impl STDeletedTerms {
     pub(crate) fn new() -> Self {
         let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let allocator =
@@ -455,6 +435,18 @@ impl DeletedTerms<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPosti
         Ok(())
     }
 }
+pub type MTDeletedTerms = DeletedTerms<
+    MTCounterEnumLock,
+    MTByteBlockPoolLock,
+    MTBytesStartArrayEnumLock,
+    MTPostingsArrayWrapper,
+>;
+pub type STDeletedTerms = DeletedTerms<
+    STCounterEnumBorrow,
+    STByteBlockPoolBorrow,
+    STBytesStartArrayEnumBorrow,
+    STPostingsArrayWrapper,
+>;
 
 #[allow(unused)]
 impl<C, B, A, P> DeletedTerms<C, B, A, P>
@@ -597,13 +589,30 @@ where
     pub(crate) bytes_ref_hash: BytesRefHash<C, B, A, P>,
     values: Vec<i32>,
 }
-impl BytesRefIntMap<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper> {
+impl
+    BytesRefIntMap<
+        MTCounterEnumLock,
+        MTByteBlockPoolLock,
+        MTBytesStartArrayEnumLock,
+        MTPostingsArrayWrapper,
+    >
+{
     // TODO: memory calculation not implemented
     const INIT_RAM_BYTES: i64 = 0;
 }
 
-impl BytesRefIntMap<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper> {
-    fn new_sync(pool: MTByteBlockPool, counter: MTCounterEnum) -> Result<Self, LuceneError> {
+impl
+    BytesRefIntMap<
+        MTCounterEnumLock,
+        MTByteBlockPoolLock,
+        MTBytesStartArrayEnumLock,
+        MTPostingsArrayWrapper,
+    >
+{
+    fn new_sync(
+        pool: MTByteBlockPoolLock,
+        counter: MTCounterEnumLock,
+    ) -> Result<Self, LuceneError> {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
@@ -617,8 +626,15 @@ impl BytesRefIntMap<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPos
         Self::new_impl(counter, bytes_ref_hash)
     }
 }
-impl BytesRefIntMap<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper> {
-    fn new(pool: STByteBlockPool, counter: STCounterEnum) -> Result<Self, LuceneError> {
+impl
+    BytesRefIntMap<
+        STCounterEnumBorrow,
+        STByteBlockPoolBorrow,
+        STBytesStartArrayEnumBorrow,
+        STPostingsArrayWrapper,
+    >
+{
+    fn new(pool: STByteBlockPoolBorrow, counter: STCounterEnumBorrow) -> Result<Self, LuceneError> {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,

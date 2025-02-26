@@ -27,9 +27,9 @@ use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorter,
-    MSBRadixSorterBase, MTByteBlockPool, MTCounterEnum, Natural, STByteBlockPool, STCounterEnum,
-    Sorter, StringHelper, StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
-    LEVEL_THRESHOLD,
+    MSBRadixSorterBase, MTByteBlockPoolLock, MTCounterEnumLock, Natural, STByteBlockPoolBorrow,
+    STCounterEnumBorrow, Sorter, StringHelper, StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED,
+    HISTOGRAM_SIZE, LEVEL_THRESHOLD,
 };
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -63,27 +63,27 @@ where
     _phantom1: PhantomData<B>,
     _phantom2: PhantomData<P>,
 }
-impl BytesRefHash<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper> {
+impl MTBytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;
     pub fn new_sync() -> Result<Self, LuceneError> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)));
         BytesRefHash::from_pool_sync(pool)
     }
-    pub fn from_pool_sync(pool: MTByteBlockPool) -> Result<Self, LuceneError> {
+    pub fn from_pool_sync(pool: MTByteBlockPoolLock) -> Result<Self, LuceneError> {
         let bytes_start_array = Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
             DirectBytesStartArray::new_sync(BytesRefHash::DEFAULT_CAPACITY),
         )));
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
 }
-impl BytesRefHash<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper> {
+impl STBytesRefHash {
     pub fn new() -> Result<Self, LuceneError> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         BytesRefHash::from_pool(pool)
     }
-    pub fn from_pool(pool: STByteBlockPool) -> Result<Self, LuceneError> {
+    pub fn from_pool(pool: STByteBlockPoolBorrow) -> Result<Self, LuceneError> {
         let bytes_start_array = Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
             DirectBytesStartArray::new(BytesRefHash::DEFAULT_CAPACITY),
         )));
@@ -276,7 +276,7 @@ where
     /// if the given bytes haven't been hashed before.
     ///
     /// # Errors
-    /// Returns `MaxBytesLengthExceededException` if the given bytes are greater than 2 + [`SingleThreadedByteBlockPool::BYTE_BLOCK_SIZE`](STByteBlockPool::BYTE_BLOCK_SIZE).
+    /// Returns `MaxBytesLengthExceededException` if the given bytes are greater than 2 + [`SingleThreadedByteBlockPool::BYTE_BLOCK_SIZE`](STByteBlockPoolBorrow::BYTE_BLOCK_SIZE).
     pub fn add(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         debug_assert!(
             self.bytes_start_array
@@ -531,11 +531,19 @@ where
     }
 }
 /// for single-threaded scenarios
-pub type STBytesRefHash =
-    BytesRefHash<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPostingsArrayWrapper>;
+pub type STBytesRefHash = BytesRefHash<
+    STCounterEnumBorrow,
+    STByteBlockPoolBorrow,
+    STBytesStartArrayEnumBorrow,
+    STPostingsArrayWrapper,
+>;
 /// for multi-threaded scenarios
-pub type MTBytesRefHash =
-    BytesRefHash<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPostingsArrayWrapper>;
+pub type MTBytesRefHash = BytesRefHash<
+    MTCounterEnumLock,
+    MTByteBlockPoolLock,
+    MTBytesStartArrayEnumLock,
+    MTPostingsArrayWrapper,
+>;
 
 pub struct StringSorterImpl<'a, C, B, A, P>
 where
@@ -732,14 +740,14 @@ where
     bytes_start: Vec<i32>,
     bytes_used: C,
 }
-impl DirectBytesStartArray<STCounterEnum> {
+impl DirectBytesStartArray<STCounterEnumBorrow> {
     pub fn new(init_size: i32) -> Self {
         DirectBytesStartArray::with_counter(
             init_size,
             Rc::new(RefCell::new(CounterEnum::new_counter(false))),
         )
     }
-    pub fn with_counter(init_size: i32, counter: STCounterEnum) -> Self {
+    pub fn with_counter(init_size: i32, counter: STCounterEnumBorrow) -> Self {
         DirectBytesStartArray {
             init_size,
             bytes_start: vec![],
@@ -747,14 +755,14 @@ impl DirectBytesStartArray<STCounterEnum> {
         }
     }
 }
-impl DirectBytesStartArray<MTCounterEnum> {
+impl DirectBytesStartArray<MTCounterEnumLock> {
     pub fn new_sync(init_size: i32) -> Self {
         DirectBytesStartArray::with_counter_sync(
             init_size,
             Arc::new(Mutex::new(CounterEnum::new_counter(false))),
         )
     }
-    pub fn with_counter_sync(init_size: i32, counter: MTCounterEnum) -> Self {
+    pub fn with_counter_sync(init_size: i32, counter: MTCounterEnumLock) -> Self {
         DirectBytesStartArray {
             init_size,
             bytes_start: vec![],
@@ -869,10 +877,10 @@ where
         }
     }
 }
-pub type STBytesStartArrayEnum =
-    Rc<RefCell<BytesStartArrayEnum<STCounterEnum, STPostingsArrayWrapper>>>;
-pub type MTBytesStartArrayEnum =
-    Arc<Mutex<BytesStartArrayEnum<MTCounterEnum, MTPostingsArrayWrapper>>>;
+pub type STBytesStartArrayEnumBorrow =
+    Rc<RefCell<BytesStartArrayEnum<STCounterEnumBorrow, STPostingsArrayWrapper>>>;
+pub type MTBytesStartArrayEnumLock =
+    Arc<Mutex<BytesStartArrayEnum<MTCounterEnumLock, MTPostingsArrayWrapper>>>;
 
 /// # Note
 /// In Java Lucene, BytesRefHash uses MSBStringRadixSorter. Due to language limitations,
@@ -969,7 +977,7 @@ mod tests {
         BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesRefHash,
     };
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{ByteBlockPool, MTByteBlockPool};
+    use crate::util::{ByteBlockPool, MTByteBlockPoolLock};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::collections::{HashMap, HashSet};
@@ -981,13 +989,13 @@ mod tests {
     #[allow(dead_code)] // for quick search
     pub struct TestBytesRefHash;
 
-    fn new_pool() -> MTByteBlockPool {
+    fn new_pool() -> MTByteBlockPoolLock {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)))
     }
     fn new_hash(
         random: &mut StdRng,
-        block_pool: MTByteBlockPool,
+        block_pool: MTByteBlockPoolLock,
     ) -> Result<MTBytesRefHash, LuceneError> {
         let init_size = 2 << (1 + random.random_range(0..5));
         if random.random_bool(0.5) {

@@ -27,7 +27,7 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{
-    BytesRefArray, Counter, IndexedBytesRefIteratorImpl, MTBytesRefArray, MTCounterEnum,
+    BytesRefArray, Counter, IndexedBytesRefIteratorImpl, MTBytesRefArray, MTCounterEnumLock,
     NaturalOrder, SortState, SortableBytesRefArray,
 };
 use std::cmp::{max, min, Ordering};
@@ -45,7 +45,7 @@ use std::sync::Arc;
 /// Along the same lines, this implementation optimizes the case when all updates have a value.
 /// Lastly, if all updates share the same value for a numeric field, we only store the value once.
 pub(crate) struct FieldUpdatesBuffer {
-    bytes_used: MTCounterEnum,
+    bytes_used: MTCounterEnumLock,
     num_updates: i32,
     // we use a very simple approach and store the update term values without de-duplication
     // which is also not a common case to keep updating the same value more than once...
@@ -71,7 +71,7 @@ impl FieldUpdatesBuffer {
     #[allow(unused)]
     const STRING_SHALLOW_SIZE: i64 = 0;
     fn new(
-        bytes_used: MTCounterEnum,
+        bytes_used: MTCounterEnumLock,
         initial_value: &DocValuesUpdate,
         doc_upto: i32,
         is_numeric: bool,
@@ -112,7 +112,7 @@ impl FieldUpdatesBuffer {
         Ok(buffer)
     }
     pub(crate) fn from_numeric_update(
-        bytes_used: MTCounterEnum,
+        bytes_used: MTCounterEnumLock,
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
     ) -> Result<Self, LuceneError> {
@@ -144,7 +144,7 @@ impl FieldUpdatesBuffer {
     }
 
     pub(crate) fn from_binary_update(
-        bytes_used: MTCounterEnum,
+        bytes_used: MTCounterEnumLock,
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
     ) -> Result<Self, LuceneError> {
@@ -420,9 +420,9 @@ impl FieldUpdatesBuffer {
 /// An iterator that iterates over all updates in insertion order.
 #[allow(unused)]
 pub struct BufferedUpdateIterator<'a> {
-    term_values_iterator: IndexedBytesRefIteratorImpl<'a, MTCounterEnum>,
-    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, MTCounterEnum>>,
-    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, MTCounterEnum>>,
+    term_values_iterator: IndexedBytesRefIteratorImpl<'a, MTCounterEnumLock>,
+    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, MTCounterEnumLock>>,
+    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, MTCounterEnumLock>>,
     buffered_update: BufferedUpdate,
     updates_with_value: Option<BitsEnum<'a>>,
     fields_length: i32,

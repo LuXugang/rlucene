@@ -22,8 +22,8 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
-    ByteBlockPool, CounterEnum, MTByteBlockPool, MTCounterEnum, STByteBlockPool, STCounterEnum,
-    VecCopyOps,
+    ByteBlockPool, CounterEnum, MTByteBlockPoolLock, MTCounterEnumLock, STByteBlockPoolBorrow,
+    STCounterEnumBorrow, VecCopyOps,
 };
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -39,8 +39,8 @@ where
     _phantom: PhantomData<C>,
 }
 
-impl BytesRefBlockPool<MTCounterEnum, MTByteBlockPool> {
-    pub fn new_sync() -> BytesRefBlockPool<MTCounterEnum, MTByteBlockPool> {
+impl BytesRefBlockPool<MTCounterEnumLock, MTByteBlockPoolLock> {
+    pub fn new_sync() -> BytesRefBlockPool<MTCounterEnumLock, MTByteBlockPoolLock> {
         let allocator = MTAllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)));
         BytesRefBlockPool {
@@ -49,14 +49,14 @@ impl BytesRefBlockPool<MTCounterEnum, MTByteBlockPool> {
         }
     }
 }
-impl Default for BytesRefBlockPool<STCounterEnum, STByteBlockPool> {
+impl Default for BytesRefBlockPool<STCounterEnumBorrow, STByteBlockPoolBorrow> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl BytesRefBlockPool<STCounterEnum, STByteBlockPool> {
-    pub fn new() -> BytesRefBlockPool<STCounterEnum, STByteBlockPool> {
+impl BytesRefBlockPool<STCounterEnumBorrow, STByteBlockPoolBorrow> {
+    pub fn new() -> BytesRefBlockPool<STCounterEnumBorrow, STByteBlockPoolBorrow> {
         let allocator = STAllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         BytesRefBlockPool {
@@ -224,6 +224,8 @@ where
     }
 }
 // for single thread
-pub type STBytesRefBlockPool = Rc<RefCell<BytesRefBlockPool<STCounterEnum, STByteBlockPool>>>;
+pub type STBytesRefBlockPoolBorrow =
+    Rc<RefCell<BytesRefBlockPool<STCounterEnumBorrow, STByteBlockPoolBorrow>>>;
 // for multi thread
-pub type MTBytesRefBlockPool = Arc<Mutex<BytesRefBlockPool<MTCounterEnum, MTByteBlockPool>>>;
+pub type MTBytesRefBlockPoolLock =
+    Arc<Mutex<BytesRefBlockPool<MTCounterEnumLock, MTByteBlockPoolLock>>>;
