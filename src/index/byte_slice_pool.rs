@@ -162,7 +162,7 @@ mod tests {
     };
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{ByteBlockPool, CounterEnum, ByteBlockPoolBorrow, VecCopyOps};
+    use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnum, VecCopyOps};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cell::RefCell;

@@ -28,13 +28,13 @@ use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bytes_ref_hash::{
-    BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, BytesStartArrayEnumLock,
-    BytesStartArrayEnumBorrow,
+    BytesRefHash, BytesStartArrayEnum, BytesStartArrayEnumBorrow, BytesStartArrayEnumLock,
+    DirectBytesStartArray,
 };
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
-    ByteBlockPool, Counter, CounterEnum, ByteBlockPoolLock, CounterEnumLock,
-    ByteBlockPoolBorrow, CounterEnumBorrow,
+    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumBorrow,
+    CounterEnumLock,
 };
 use std::cell::RefCell;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -609,10 +609,7 @@ impl
         MTPostingsArrayWrapper,
     >
 {
-    fn new_sync(
-        pool: ByteBlockPoolLock,
-        counter: CounterEnumLock,
-    ) -> Result<Self, LuceneError> {
+    fn new_sync(pool: ByteBlockPoolLock, counter: CounterEnumLock) -> Result<Self, LuceneError> {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,

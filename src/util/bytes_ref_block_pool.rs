@@ -22,8 +22,8 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
-    ByteBlockPool, CounterEnum, ByteBlockPoolLock, CounterEnumLock, ByteBlockPoolBorrow,
-    CounterEnumBorrow, VecCopyOps,
+    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum, CounterEnumBorrow,
+    CounterEnumLock, VecCopyOps,
 };
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -227,5 +227,4 @@ where
 pub type BytesRefBlockPoolBorrow =
     Rc<RefCell<BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>>>;
 // for multi thread
-pub type BytesRefBlockPoolLock =
-    Arc<Mutex<BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>>>;
+pub type BytesRefBlockPoolLock = Arc<Mutex<BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>>>;

@@ -20,6 +20,7 @@ pub mod bytes_ref;
 pub use bytes_ref::*;
 pub mod bytes_ref_builder;
 pub use bytes_ref_builder::*;
+mod approximate_priority_queue;
 pub mod binary_doc_values;
 pub(crate) mod binary_doc_values_field_updates;
 mod buffered_updates_stream;

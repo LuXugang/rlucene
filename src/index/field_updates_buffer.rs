@@ -27,7 +27,7 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{
-    BytesRefArray, Counter, IndexedBytesRefIteratorImpl, MTBytesRefArray, CounterEnumLock,
+    BytesRefArray, Counter, CounterEnumLock, IndexedBytesRefIteratorImpl, MTBytesRefArray,
     NaturalOrder, SortState, SortableBytesRefArray,
 };
 use std::cmp::{max, min, Ordering};

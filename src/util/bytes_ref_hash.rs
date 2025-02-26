@@ -26,10 +26,10 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
-    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorter,
-    MSBRadixSorterBase, ByteBlockPoolLock, CounterEnumLock, Natural, ByteBlockPoolBorrow,
-    CounterEnumBorrow, Sorter, StringHelper, StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED,
-    HISTOGRAM_SIZE, LEVEL_THRESHOLD,
+    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, BytesRefComparator, Comparator, Counter,
+    CounterEnum, CounterEnumBorrow, CounterEnumLock, MSBRadixSorter, MSBRadixSorterBase, Natural,
+    Sorter, StringHelper, StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
+    LEVEL_THRESHOLD,
 };
 use std::cell::RefCell;
 use std::marker::PhantomData;

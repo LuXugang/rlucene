@@ -23,8 +23,8 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
-    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, MSBRadixSorterBase,
-    CounterEnumLock, CounterEnumBorrow, Sorter, StableStringSorter, StableStringSorterBase,
+    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, CounterEnumBorrow,
+    CounterEnumLock, MSBRadixSorterBase, Sorter, StableStringSorter, StableStringSorterBase,
     StringSorter, StringSorterBase,
 };
 use std::sync::Arc;

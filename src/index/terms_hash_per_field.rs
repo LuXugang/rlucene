@@ -32,7 +32,7 @@ use crate::util::bytes_ref_hash::{
 };
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::int_block_pool::IntBlockPool;
-use crate::util::{ByteBlockPool, Counter, CounterEnum, ByteBlockPoolBorrow};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum};
 use std::cell::RefCell;
 use std::rc::Rc;
 #[cfg(test)]

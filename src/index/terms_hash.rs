@@ -18,7 +18,7 @@ use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
-use crate::util::{ByteBlockPool, CounterEnum, ByteBlockPoolBorrow};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnum};
 use std::cell::RefCell;
 use std::rc::Rc;
 #[allow(unused)]

@@ -19,7 +19,7 @@ use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum};
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{CounterEnum, CounterEnumLock, CounterEnumBorrow, VecCopyOps};
+use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, VecCopyOps};
 use std::cell::RefCell;
 use std::cmp::min;
 use std::rc::Rc;
