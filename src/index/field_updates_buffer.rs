@@ -81,7 +81,7 @@ impl FieldUpdatesBuffer {
         } else {
             None
         };
-        bytes_used.with_ref_mut(|bytes_used_guard| {
+        bytes_used.with_exclusive(|bytes_used_guard| {
             bytes_used_guard.add_and_get(Self::size_of_string(&initial_value.term.field));
             if !initial_value.has_value {
                 bytes_used_guard.add_and_get(has_values.as_ref().unwrap().ram_bytes_used());

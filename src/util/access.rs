@@ -20,17 +20,17 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 pub trait Access<T>: Clone {
-    fn with_ref<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_shared<F, R>(&self, f: F) -> Result<R, LuceneError>
     where
         F: FnOnce(&T) -> Result<R, LuceneError>;
 
-    fn with_ref_mut<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_exclusive<F, R>(&self, f: F) -> Result<R, LuceneError>
     where
         F: FnOnce(&mut T) -> Result<R, LuceneError>;
 }
 
 impl<T> Access<T> for Rc<RefCell<T>> {
-    fn with_ref<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_shared<F, R>(&self, f: F) -> Result<R, LuceneError>
     where
         F: FnOnce(&T) -> Result<R, LuceneError>,
     {
@@ -40,7 +40,7 @@ impl<T> Access<T> for Rc<RefCell<T>> {
         f(&*borrow)
     }
 
-    fn with_ref_mut<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_exclusive<F, R>(&self, f: F) -> Result<R, LuceneError>
     where
         F: FnOnce(&mut T) -> Result<R, LuceneError>,
     {
@@ -52,7 +52,7 @@ impl<T> Access<T> for Rc<RefCell<T>> {
 }
 
 impl<T> Access<T> for Arc<Mutex<T>> {
-    fn with_ref<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_shared<F, R>(&self, f: F) -> Result<R, LuceneError>
     where
         F: FnOnce(&T) -> Result<R, LuceneError>,
     {
@@ -62,7 +62,7 @@ impl<T> Access<T> for Arc<Mutex<T>> {
         f(&*guard)
     }
 
-    fn with_ref_mut<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_exclusive<F, R>(&self, f: F) -> Result<R, LuceneError>
     where
         F: FnOnce(&mut T) -> Result<R, LuceneError>,
     {

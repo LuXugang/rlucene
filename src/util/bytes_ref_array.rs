@@ -77,7 +77,7 @@ where
     fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A>, LuceneError> {
         pool.next_buffer()?;
         let offsets = Vec::new();
-        byte_used.with_ref_mut(|b| Ok(b.add_and_get(BitUtil::INT_BYTES as i64)))?;
+        byte_used.with_exclusive(|b| Ok(b.add_and_get(BitUtil::INT_BYTES as i64)))?;
         Ok(BytesRefArray {
             pool,
             offsets,
@@ -235,7 +235,7 @@ where
         self.last_element += 1;
         self.current_offset += bytes.length;
         self.byte_used
-            .with_ref_mut(|b| Ok(b.add_and_get(BitUtil::INT_BYTES as i64)))?;
+            .with_exclusive(|b| Ok(b.add_and_get(BitUtil::INT_BYTES as i64)))?;
         Ok(self.last_element - 1)
     }
 

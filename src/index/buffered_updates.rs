@@ -249,7 +249,7 @@ where
         {
             let mut bytes_used_guard = self
                 .bytes_used
-                .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(BYTES_PER_DEL_QUERY)))?;
+                .with_exclusive(|bytes_used| Ok(bytes_used.add_and_get(BYTES_PER_DEL_QUERY)))?;
         }
         Ok(())
     }
@@ -263,13 +263,13 @@ where
             .store(0, std::sync::atomic::Ordering::SeqCst);
         self.field_updates.clear();
 
-        self.bytes_used.with_ref_mut(|bytes_used| {
+        self.bytes_used.with_exclusive(|bytes_used| {
             let used = -bytes_used.get();
             Ok(bytes_used.add_and_get(used))
         })?;
 
         self.field_updates_bytes_used
-            .with_ref_mut(|field_updates_bytes_used| {
+            .with_exclusive(|field_updates_bytes_used| {
                 let used = -field_updates_bytes_used.get();
                 field_updates_bytes_used.add_and_get(used);
                 Ok(())
@@ -307,7 +307,9 @@ where
     P: Access<PostingsArrayWrapper>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let bytes_used = self.bytes_used.with_ref(|bytes_used| Ok(bytes_used.get()));
+        let bytes_used = self
+            .bytes_used
+            .with_shared(|bytes_used| Ok(bytes_used.get()));
         if bytes_used.is_err() {
             return write!(
                 f,
@@ -406,7 +408,7 @@ impl DeletedTerms<MTCounterEnum, MTByteBlockPool, MTBytesStartArrayEnum, MTPosti
         let hash = match self.delete_terms.entry(term.field.clone()) {
             Vacant(vacant) => {
                 // TODO: memory calculation not implemented
-                self.bytes_used.with_ref_mut(|bytes_used| {
+                self.bytes_used.with_exclusive(|bytes_used| {
                     let _ = bytes_used.add_and_get(0);
                     Ok(())
                 })?;
@@ -437,7 +439,7 @@ impl DeletedTerms<STCounterEnum, STByteBlockPool, STBytesStartArrayEnum, STPosti
         let hash = match self.delete_terms.entry(term.field.clone()) {
             Vacant(vacant) => {
                 // TODO: memory calculation not implemented
-                self.bytes_used.with_ref_mut(|bytes_used| {
+                self.bytes_used.with_exclusive(|bytes_used| {
                     let _ = bytes_used.add_and_get(0);
                     Ok(())
                 })?;
@@ -482,9 +484,9 @@ where
         }
     }
     pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
-        let mut pool = self.pool.with_ref_mut(|p| Ok(p.reset(false, false)))?;
+        let mut pool = self.pool.with_exclusive(|p| Ok(p.reset(false, false)))?;
 
-        self.bytes_used.with_ref_mut(|bytes_used| {
+        self.bytes_used.with_exclusive(|bytes_used| {
             let used = -bytes_used.get();
             let _ = bytes_used.add_and_get(used);
             Ok(())
@@ -642,7 +644,7 @@ where
     fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, A, P>) -> Result<Self, LuceneError> {
         let values = vec![0; BytesRefHash::DEFAULT_CAPACITY as usize];
 
-        counter.with_ref_mut(|c| Ok(c.add_and_get(BytesRefIntMap::INIT_RAM_BYTES)))?;
+        counter.with_exclusive(|c| Ok(c.add_and_get(BytesRefIntMap::INIT_RAM_BYTES)))?;
 
         Ok(Self {
             counter,
@@ -672,7 +674,7 @@ where
                 ArrayUtil::grow_with_len(&mut self.values, e + 1)?;
                 // TODO: memory calculation not implemented
                 self.counter
-                    .with_ref_mut(|c| Ok(c.add_and_get(origin_length as i64)))?;
+                    .with_exclusive(|c| Ok(c.add_and_get(origin_length as i64)))?;
             }
             self.values[e as usize] = value;
             Ok(true)

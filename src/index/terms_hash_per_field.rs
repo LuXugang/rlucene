@@ -452,7 +452,7 @@ where
     P: Access<PostingsArrayWrapper>,
 {
     fn init(&mut self) -> Result<(), LuceneError> {
-        self.per_field.with_ref_mut(|postings_array_wrapper| {
+        self.per_field.with_exclusive(|postings_array_wrapper| {
             if postings_array_wrapper.postings_array.is_none() {
                 postings_array_wrapper.postings_array = Option::from(
                     postings_array_wrapper
@@ -461,8 +461,9 @@ where
                 );
                 if let Some(ref mut postings_array) = postings_array_wrapper.postings_array {
                     let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                    self.bytes_used
-                        .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(byte_used as i64)))?;
+                    self.bytes_used.with_exclusive(|bytes_used| {
+                        Ok(bytes_used.add_and_get(byte_used as i64))
+                    })?;
                 }
             }
             Ok(())
@@ -470,12 +471,12 @@ where
     }
 
     fn grow(&mut self) -> Result<(), LuceneError> {
-        self.per_field.with_ref_mut(|postings_array_wrapper| {
+        self.per_field.with_exclusive(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
             let old_size = postings_array.get_size();
             postings_array.grow()?;
-            self.bytes_used.with_ref_mut(|bytes_used| {
+            self.bytes_used.with_exclusive(|bytes_used| {
                 Ok(bytes_used.add_and_get(
                     (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
                         as i64,
@@ -486,12 +487,12 @@ where
     }
 
     fn clear(&mut self) -> Result<(), LuceneError> {
-        self.per_field.with_ref_mut(|postings_array_wrapper| {
+        self.per_field.with_exclusive(|postings_array_wrapper| {
             if postings_array_wrapper.postings_array.is_some() {
                 let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
                 let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
                 self.bytes_used
-                    .with_ref_mut(|bytes_used| Ok(bytes_used.add_and_get(-byte_used as i64)))?;
+                    .with_exclusive(|bytes_used| Ok(bytes_used.add_and_get(-byte_used as i64)))?;
                 postings_array_wrapper.postings_array = None;
             }
             Ok(())
@@ -505,7 +506,7 @@ where
     }
 
     fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
-        self.per_field.with_ref_mut(|postings_array_wrapper| {
+        self.per_field.with_exclusive(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             Ok(postings_array_wrapper
                 .postings_array
@@ -516,7 +517,7 @@ where
     }
 
     fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
-        self.per_field.with_ref_mut(|postings_array_wrapper| {
+        self.per_field.with_exclusive(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             postings_array_wrapper
                 .postings_array
@@ -528,7 +529,7 @@ where
     }
 
     fn len(&self) -> Result<usize, LuceneError> {
-        self.per_field.with_ref_mut(|postings_array_wrapper| {
+        self.per_field.with_exclusive(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             Ok(postings_array_wrapper
                 .postings_array

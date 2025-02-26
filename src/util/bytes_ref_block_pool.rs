@@ -86,13 +86,13 @@ where
     /// Resets this buffer to the empty state.
     pub fn reset(&mut self) -> Result<(), LuceneError> {
         self.byte_block_pool
-            .with_ref_mut(|byte_block_pool| byte_block_pool.reset(false, false))?;
+            .with_exclusive(|byte_block_pool| byte_block_pool.reset(false, false))?;
         Ok(())
     }
 
     /// Populates the given `BytesRef` with the term starting at `start`.
     pub fn fill_bytes_ref(&self, term: &mut BytesRef, start: i32) -> Result<(), LuceneError> {
-        self.byte_block_pool.with_ref_mut(|pool| {
+        self.byte_block_pool.with_exclusive(|pool| {
             {
                 let block = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
                 let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
@@ -126,7 +126,7 @@ where
     pub fn add_bytes_ref(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
         let length = bytes.length;
         let len2 = 2 + bytes.length;
-        self.byte_block_pool.with_ref_mut(|pool| {
+        self.byte_block_pool.with_exclusive(|pool| {
             if len2 + pool.byte_upto > ByteBlockPool::BYTE_BLOCK_SIZE {
                 if len2 > ByteBlockPool::BYTE_BLOCK_SIZE {
                     return Err(LuceneError::max_bytes_length_exceeded(format!(
@@ -170,7 +170,7 @@ where
     /// Computes the hash of the BytesRef at the given start.
     pub fn hash(&mut self, start: i32) -> Result<i32, LuceneError> {
         let offset = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
-        self.byte_block_pool.with_ref_mut(|pool| {
+        self.byte_block_pool.with_exclusive(|pool| {
             let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
 
             let (len, pos) = if (bytes[offset] & 0x80) == 0 {
@@ -188,7 +188,7 @@ where
     /// Computes the equality between the BytesRef at the given start position and the provided BytesRef.
     pub fn equals(&self, start: i32, b: &BytesRef) -> Result<bool, LuceneError> {
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
-        self.byte_block_pool.with_ref_mut(|pool| {
+        self.byte_block_pool.with_exclusive(|pool| {
             let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
 
             let (length, offset) = if (bytes[pos] & 0x80) == 0 {
@@ -214,7 +214,7 @@ where
     fn ram_bytes_used(&self) -> i64 {
         let result = self
             .byte_block_pool
-            .with_ref(|pool| Ok(pool.ram_bytes_used()));
+            .with_shared(|pool| Ok(pool.ram_bytes_used()));
         if result.is_err() {
             // TODO:
             0
