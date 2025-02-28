@@ -18,12 +18,10 @@ use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
-use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::IOUtils;
-use byteorder::WriteBytesExt;
 use std::sync::{Arc, Mutex};
 
 #[allow(unused)]

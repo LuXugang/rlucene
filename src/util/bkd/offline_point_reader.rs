@@ -16,7 +16,6 @@
  */
 use crate::codecs::CodecUtil;
 use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
-use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IOContext, IndexInput};
 use crate::util::bit_util::BitUtil;

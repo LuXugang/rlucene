@@ -19,7 +19,6 @@ use crate::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
 use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput, ReadAdvice};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::LongValues;

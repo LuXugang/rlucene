@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use num_traits::PrimInt;
 use std::vec::Vec;
 /// An approximate priority queue, which attempts to poll items by decreasing log of the weight,
 /// though exact ordering is not guaranteed. This class doesn't support null elements.
