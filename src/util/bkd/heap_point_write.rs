@@ -28,9 +28,10 @@ use std::cell::RefCell;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use crate::store::directory::Directory;
 
 /// Utility class to write new points into in-heap arrays.
-pub struct HeapPointWriter {
+pub struct HeapPointWriter<D> {
     pub block: Rc<RefCell<Vec<u8>>>,
     pub size: i32,
     pub config: Rc<BKDConfig>,
@@ -41,8 +42,10 @@ pub struct HeapPointWriter {
     pub next_write: i32,
     pub closed: bool,
     pub point_value: Option<Rc<RefCell<PointValueEnum>>>,
+    _phantom: std::marker::PhantomData<D>,
+
 }
-impl HeapPointWriter {
+impl<D> HeapPointWriter<D> where D:Directory{
     pub fn new(config: Rc<BKDConfig>, size: i32) -> Self {
         let data_dims_and_doc_length = config.bytes_per_doc() + config.packed_index_bytes_length();
         let bytes_per_doc = config.bytes_per_doc() as usize;
@@ -65,6 +68,7 @@ impl HeapPointWriter {
             next_write: 0,
             closed: false,
             point_value,
+            _phantom: Default::default(),
         }
     }
     pub fn get_packed_value_slice(&mut self, index: i32) -> Rc<RefCell<PointValueEnum>> {
@@ -220,7 +224,7 @@ impl HeapPointWriter {
         leaf_cardinality
     }
 }
-impl PointWriter for HeapPointWriter {
+impl<D> PointWriter for HeapPointWriter<D> where D:Directory{
     fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError> {
         debug_assert!(!self.closed, "point writer is already closed");
         assert_eq!(
@@ -275,7 +279,7 @@ impl PointWriter for HeapPointWriter {
         Ok(())
     }
 
-    type Dir = DummyDirectory;
+    type Dir = D;
 
     fn get_reader(
         &self,
@@ -323,7 +327,7 @@ impl PointWriter for HeapPointWriter {
         Ok(())
     }
 }
-impl Display for HeapPointWriter {
+impl<D> Display for HeapPointWriter<D> where D:Directory{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,

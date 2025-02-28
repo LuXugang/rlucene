@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
+use crate::util::bkd::heap_point_write::HeapPointWriter;
+use crate::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::PointValueEnum;
 use crate::util::error::lucene_error::LuceneError;
@@ -41,4 +43,53 @@ pub trait PointWriter {
 
     /// Removes any temp files behind this writer
     fn destroy(&mut self) -> Result<(), LuceneError>;
+}
+
+pub enum PointWriterEnum<D>
+where
+    D: Directory,
+{
+    Offline(OfflinePointWriter<D>),
+    Heap(HeapPointWriter<D>),
+}
+impl<D> PointWriter for PointWriterEnum<D> where D:Directory{
+    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError> {
+        match self {
+            PointWriterEnum::Offline(offline) => offline.append_bytes(packed_value, doc_id),
+            PointWriterEnum::Heap(heap) => heap.append_bytes(packed_value, doc_id),
+        }
+    }
+
+    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<(), LuceneError> {
+        match self {
+            PointWriterEnum::Offline(offline) => offline.append_point_value(point_value),
+            PointWriterEnum::Heap(heap) => heap.append_point_value(point_value),
+        }
+    }
+
+    type Dir = D;
+    fn get_reader(
+        &self,
+        start_point: i64,
+        length: i64,
+    ) -> Result<PointReaderEnum<Self::Dir>, LuceneError> {
+        match self {
+            PointWriterEnum::Offline(offline) => offline.get_reader(start_point, length),
+            PointWriterEnum::Heap(heap) => heap.get_reader(start_point, length),
+        }
+    }
+
+    fn count(&self) -> i64 {
+        match self {
+            PointWriterEnum::Offline(offline) => offline.count(),
+            PointWriterEnum::Heap(heap) => heap.count(),
+        }
+    }
+
+    fn destroy(&mut self) -> Result<(), LuceneError> {
+        match self {
+            PointWriterEnum::Offline(offline) => offline.destroy(),
+            PointWriterEnum::Heap(heap) => heap.destroy(),
+        }
+    }
 }
