@@ -130,14 +130,15 @@ impl Lucene90CompoundFormat {
 }
 
 impl CompoundFormat for Lucene90CompoundFormat {
-    fn get_compound_reader<
-        D: Directory<IndexInputType = I>,
-        I: IndexInput<Slice = I> + RandomAccessInput,
-    >(
+    fn get_compound_reader<D>(
         &self,
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
-    ) -> Result<CompoundDirectory<D, I>, LuceneError> {
+    ) -> Result<CompoundDirectory<D>, LuceneError>
+    where
+        D: Directory,
+        D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
+    {
         Ok(CompoundDirectory::new(CompoundDirectoryEnum::Lucene90(
             Lucene90CompoundReader::new(dir, si)?,
         )))

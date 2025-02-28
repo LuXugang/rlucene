@@ -24,18 +24,18 @@ use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
-pub enum CompoundDirectoryEnum<D, I>
+pub enum CompoundDirectoryEnum<D>
 where
     D: Directory,
-    I: IndexInput<Slice = I> + RandomAccessInput,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
-    Lucene90(Lucene90CompoundReader<D, I>),
+    Lucene90(Lucene90CompoundReader<D>),
 }
 
-impl<D, I> Display for CompoundDirectoryEnum<D, I>
+impl<D> Display for CompoundDirectoryEnum<D>
 where
     D: Directory,
-    I: IndexInput<Slice = I> + RandomAccessInput,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -44,10 +44,11 @@ where
     }
 }
 
-impl<D, I> Directory for CompoundDirectoryEnum<D, I>
+impl<D> Directory for CompoundDirectoryEnum<D>
 where
-    D: Directory<IndexInputType = I>,
-    I: IndexInput<Slice = I> + RandomAccessInput,
+    D: Directory,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
+    CompoundDirectoryEnum<D>: Display,
 {
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
         match self {
@@ -134,10 +135,10 @@ where
         }
     }
 }
-impl<D, I> CompoundDirectoryBase for CompoundDirectoryEnum<D, I>
+impl<D> CompoundDirectoryBase for CompoundDirectoryEnum<D>
 where
     D: Directory,
-    I: IndexInput<Slice = I> + RandomAccessInput,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     fn check_integrity(&mut self) -> Result<(), LuceneError> {
         match self {

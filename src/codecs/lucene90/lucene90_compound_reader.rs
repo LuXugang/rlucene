@@ -39,22 +39,20 @@ pub struct FileEntry {
 ///
 /// # Note
 /// This API is experimental and may change in future versions.
-pub struct Lucene90CompoundReader<D, I>
+pub struct Lucene90CompoundReader<D>
 where
     D: Directory,
-    I: IndexInput,
 {
     directory: Arc<Mutex<D>>,
     segment_name: String,
     entries: HashMap<String, FileEntry>,
-    handle: I,
+    handle: D::IndexInputType,
     #[allow(unused)]
     version: i32,
 }
-impl<D, I> Lucene90CompoundReader<D, I>
+impl<D> Lucene90CompoundReader<D>
 where
-    D: Directory<IndexInputType = I>,
-    I: IndexInput + RandomAccessInput,
+    D: Directory,
 {
     pub fn new(directory: Arc<Mutex<D>>, si: &SegmentInfo<D>) -> Result<Self, LuceneError> {
         let segment_name = si.name.clone();
@@ -174,10 +172,10 @@ where
     }
 }
 
-impl<D, I> Directory for Lucene90CompoundReader<D, I>
+impl<D> Directory for Lucene90CompoundReader<D>
 where
     D: Directory,
-    I: IndexInput<Slice = I> + RandomAccessInput,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     /// Returns an array of strings, one for each file in the directory.
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
@@ -249,7 +247,7 @@ where
         ))
     }
 
-    type IndexInputType = I;
+    type IndexInputType = D::IndexInputType;
 
     fn open_input(
         &self,
@@ -291,10 +289,9 @@ where
         Ok(HashSet::new())
     }
 }
-impl<D, I> Display for Lucene90CompoundReader<D, I>
+impl<D> Display for Lucene90CompoundReader<D>
 where
     D: Directory,
-    I: IndexInput + RandomAccessInput,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let dir_result = self.directory.lock();
@@ -315,10 +312,9 @@ where
     }
 }
 
-impl<D, I> CompoundDirectoryBase for Lucene90CompoundReader<D, I>
+impl<D> CompoundDirectoryBase for Lucene90CompoundReader<D>
 where
     D: Directory,
-    I: IndexInput + RandomAccessInput,
 {
     fn check_integrity(&mut self) -> Result<(), LuceneError> {
         let _ = CodecUtil::checksum_entire_file(&mut self.handle)?;

@@ -31,34 +31,39 @@ use std::fmt::{Display, Formatter};
 ///
 /// # Note
 /// This API is experimental and may change in future versions.
-pub struct CompoundDirectory<D: Directory, I: IndexInput<Slice = I> + RandomAccessInput> {
-    sub_compound_dir: CompoundDirectoryEnum<D, I>,
-}
-
-impl<D, I> CompoundDirectory<D, I>
+pub struct CompoundDirectory<D>
 where
     D: Directory,
-    I: IndexInput<Slice = I> + RandomAccessInput,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
-    pub fn new(sub_compound_dir: CompoundDirectoryEnum<D, I>) -> Self {
+    sub_compound_dir: CompoundDirectoryEnum<D>,
+}
+
+impl<D> CompoundDirectory<D>
+where
+    D: Directory,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
+{
+    pub fn new(sub_compound_dir: CompoundDirectoryEnum<D>) -> Self {
         CompoundDirectory { sub_compound_dir }
     }
 }
 
-impl<D, I> Display for CompoundDirectory<D, I>
+impl<D> Display for CompoundDirectory<D>
 where
     D: Directory,
-    I: IndexInput<Slice = I> + RandomAccessInput,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.sub_compound_dir.fmt(f)
     }
 }
 
-impl<D, I> Directory for CompoundDirectory<D, I>
+impl<D> Directory for CompoundDirectory<D>
 where
-    D: Directory<IndexInputType = I>,
-    I: IndexInput<Slice = I> + RandomAccessInput,
+    D: Directory,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
+    CompoundDirectory<D>: Display,
 {
     fn list_all(&self) -> Result<Vec<String>, LuceneError> {
         self.sub_compound_dir.list_all()

@@ -849,13 +849,14 @@ fn assert_equal_arrays(msg: &str, expected: &[u8], test: &[u8], start: usize, le
     }
 }
 /// Creates a large compound file with 20 sequential files, each of which is 1000 bytes.
-fn create_large_cfs<
-    D: Directory<IndexInputType = I>,
-    I: IndexInput<Slice = I> + RandomAccessInput,
->(
+fn create_large_cfs<D>(
     random: &mut StdRng,
     dir: Arc<Mutex<D>>,
-) -> Result<CompoundDirectory<D, I>, LuceneError> {
+) -> Result<CompoundDirectory<D>, LuceneError>
+where
+    D: Directory,
+    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
+{
     let mut files = HashSet::new();
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
 
