@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::directory::Directory;
 use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::PointValueEnum;
 use crate::util::error::lucene_error::LuceneError;
@@ -28,8 +29,12 @@ pub trait PointWriter {
     fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<(), LuceneError>;
 
     /// Returns a PointReader iterator to step through all previously added points
-    fn get_reader(&mut self, start_point: i64, length: i64)
-        -> Result<PointReaderEnum, LuceneError>;
+    type Dir: Directory;
+    fn get_reader(
+        &self,
+        start_point: i64,
+        length: i64,
+    ) -> Result<PointReaderEnum<Self::Dir>, LuceneError>;
 
     /// Return the number of points in this writer
     fn count(&self) -> i64;

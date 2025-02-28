@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::directory::Directory;
+use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
@@ -30,7 +32,7 @@ use std::rc::Rc;
 
 /// Utility class to write new points into in-heap arrays.
 pub struct HeapPointWriter {
-    pub block: Vec<u8>,
+    pub block: Rc<RefCell<Vec<u8>>>,
     pub size: i32,
     pub config: Rc<BKDConfig>,
     pub scratch: Vec<u8>,
@@ -45,16 +47,17 @@ impl HeapPointWriter {
     pub fn new(config: Rc<BKDConfig>, size: i32) -> Self {
         let data_dims_and_doc_length = config.bytes_per_doc() + config.packed_index_bytes_length();
         let bytes_per_doc = config.bytes_per_doc() as usize;
+        let block = Rc::new(RefCell::new(vec![0u8; bytes_per_doc * (size as usize)]));
         let point_value = if size > 0 {
             Some(Rc::new(RefCell::new(PointValueEnum::Heap(
-                HeapPointValue::new(&config),
+                HeapPointValue::new(&config, block.clone()),
             ))))
         } else {
             None
         };
         let bytes_per_dim = config.bytes_per_dim as usize;
         Self {
-            block: vec![0u8; bytes_per_doc * (size as usize)],
+            block,
             size,
             config,
             scratch: vec![0u8; bytes_per_doc],
@@ -84,16 +87,16 @@ impl HeapPointWriter {
         let bytes_per_doc = self.config.bytes_per_doc() as usize;
         let index_i = bytes_per_doc * i as usize;
         let index_j = bytes_per_doc * j as usize;
+        let mut block = self.block.borrow_mut();
         self.scratch
-            .copy_from(&mut self.block[index_i..index_i + bytes_per_doc], 0);
-        self.block
-            .copy_within(index_j..index_j + bytes_per_doc, index_i);
-        self.block.copy_from(&self.scratch, index_j);
+            .copy_from(&mut block[index_i..index_i + bytes_per_doc], 0);
+        block.copy_within(index_j..index_j + bytes_per_doc, index_i);
+        block.copy_from(&self.scratch, index_j);
     }
 
     /// Return the byte at position `k` of the point at position `i`
     pub fn byte_at(&self, i: i32, k: i32) -> i32 {
-        self.block[(i * self.config.bytes_per_doc() + k) as usize] as i32
+        self.block.borrow()[(i * self.config.bytes_per_doc() + k) as usize] as i32
     }
 
     /// Copy the dimension `dim` of the point at position `i` in the provided `bytes`
@@ -101,7 +104,7 @@ impl HeapPointWriter {
     pub fn copy_dim(&self, i: i32, dim: i32, bytes: &mut [u8], offset: usize) {
         let start = (i * self.config.bytes_per_doc() + dim) as usize;
         let len = self.config.get_bytes_per_dim() as usize;
-        bytes[offset..offset + len].copy_from_slice(&self.block[start..start + len]);
+        bytes[offset..offset + len].copy_from_slice(&self.block.borrow()[start..start + len]);
     }
 
     /// Copy the data dimensions and doc value of the point at position `i` in the provided
@@ -110,7 +113,7 @@ impl HeapPointWriter {
         let start =
             (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
         let len = self.data_dims_and_doc_length as usize;
-        bytes[offset..offset + len].copy_from_slice(&self.block[start..start + len]);
+        bytes[offset..offset + len].copy_from_slice(&self.block.borrow()[start..start + len]);
     }
 
     /// Compares the dimension `dim` value of the point at position `i` with the point at
@@ -118,14 +121,19 @@ impl HeapPointWriter {
     pub fn compare_dim(&self, i: i32, j: i32, dim: i32) -> i32 {
         let i_offset = (i * self.config.bytes_per_doc() + dim) as usize;
         let j_offset = (j * self.config.bytes_per_doc() + dim) as usize;
-        self.compare_dim_slice(&self.block, i_offset, &self.block, j_offset)
+        self.compare_dim_slice(
+            &self.block.borrow(),
+            i_offset,
+            &self.block.borrow(),
+            j_offset,
+        )
     }
 
     /// Compares the dimension `dim` value of the point at position `j` with the provided
     /// value
     pub fn compare_dim_with(&self, j: i32, dim_value: &[u8], offset: usize, dim: i32) -> i32 {
         let j_offset = (j * self.config.bytes_per_doc() + dim) as usize;
-        self.compare_dim_slice(dim_value, offset, &self.block, j_offset)
+        self.compare_dim_slice(dim_value, offset, &self.block.borrow(), j_offset)
     }
 
     fn compare_dim_slice(
@@ -146,7 +154,12 @@ impl HeapPointWriter {
             (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
         let j_offset =
             (j * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
-        self.compare_data_dims_and_doc_slice(&self.block, i_offset, &self.block, j_offset)
+        self.compare_data_dims_and_doc_slice(
+            &self.block.borrow(),
+            i_offset,
+            &self.block.borrow(),
+            j_offset,
+        )
     }
 
     /// Compares the data dimensions and doc values of the point at position `j` with the
@@ -159,7 +172,12 @@ impl HeapPointWriter {
     ) -> i32 {
         let j_offset =
             (j * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
-        self.compare_data_dims_and_doc_slice(data_dims_and_docs, offset, &self.block, j_offset)
+        self.compare_data_dims_and_doc_slice(
+            data_dims_and_docs,
+            offset,
+            &self.block.borrow(),
+            j_offset,
+        )
     }
 
     fn compare_data_dims_and_doc_slice(
@@ -191,8 +209,8 @@ impl HeapPointWriter {
                 let end = (dim * self.config.get_bytes_per_dim() + self.config.get_bytes_per_dim())
                     as usize;
                 if CommonUtil::miss_match(
-                    &self.block[next_point_offset + start..next_point_offset + end],
-                    &self.block[point_offset + start..point_offset + end],
+                    &self.block.borrow()[next_point_offset + start..next_point_offset + end],
+                    &self.block.borrow()[point_offset + start..point_offset + end],
                 ) != -1
                 {
                     leaf_cardinality += 1;
@@ -220,12 +238,12 @@ impl PointWriter for HeapPointWriter {
             self.size
         );
         let position = self.next_write * self.config.bytes_per_doc();
-        self.block.copy_from(
+        self.block.borrow_mut().copy_from(
             &packed_value[0..self.config.packed_bytes_length() as usize],
             position as usize,
         );
         BitUtil::set_i32_be(
-            &mut self.block,
+            &mut self.block.borrow_mut(),
             (position + self.config.packed_bytes_length()) as usize,
             doc_id,
         );
@@ -250,7 +268,7 @@ impl PointWriter for HeapPointWriter {
             length
         );
         let position = self.next_write * self.config.bytes_per_doc();
-        self.block.copy_within(
+        self.block.borrow_mut().copy_within(
             offset as usize..(offset + self.config.bytes_per_doc()) as usize,
             position as usize,
         );
@@ -258,7 +276,13 @@ impl PointWriter for HeapPointWriter {
         Ok(())
     }
 
-    fn get_reader(&mut self, start: i64, length: i64) -> Result<PointReaderEnum, LuceneError> {
+    type Dir = DummyDirectory;
+
+    fn get_reader(
+        &self,
+        start: i64,
+        length: i64,
+    ) -> Result<PointReaderEnum<Self::Dir>, LuceneError> {
         debug_assert!(
             self.closed,
             "point writer is still open and trying to get a reader"
@@ -314,13 +338,15 @@ impl Display for HeapPointWriter {
 #[derive(Debug, Clone)]
 pub(crate) struct HeapPointValue {
     pub(crate) offset: i32,
+    pub(crate) value: Rc<RefCell<Vec<u8>>>,
     pub(crate) packed_value_length: i32,
     pub(crate) packed_value_doc_id_length: i32,
 }
 impl HeapPointValue {
-    pub fn new(config: &BKDConfig) -> Self {
+    pub fn new(config: &BKDConfig, value: Rc<RefCell<Vec<u8>>>) -> Self {
         Self {
             offset: 0,
+            value,
             packed_value_length: config.packed_bytes_length(),
             packed_value_doc_id_length: config.bytes_per_doc(),
         }

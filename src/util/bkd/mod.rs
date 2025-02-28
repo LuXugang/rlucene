@@ -18,6 +18,7 @@ pub(crate) mod bkd_config;
 mod heap_point_reader;
 mod heap_point_write;
 pub(crate) mod offline_point_reader;
+mod offline_point_write;
 pub(crate) mod point_reader;
 pub(crate) mod point_value;
 pub(crate) mod point_writer;

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::directory::Directory;
 use crate::util::bkd::heap_point_reader::HeapPointReader;
 use crate::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::util::bkd::point_value::PointValueEnum;
@@ -38,7 +39,10 @@ pub trait PointReader {
     fn point_value(&self) -> Rc<RefCell<PointValueEnum>>;
 }
 
-pub enum PointReaderEnum {
-    Offline(OfflinePointReader),
+pub enum PointReaderEnum<D>
+where
+    D: Directory,
+{
+    Offline(OfflinePointReader<D>),
     Heap(HeapPointReader),
 }

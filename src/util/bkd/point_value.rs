@@ -16,6 +16,8 @@
  */
 use crate::util::bkd::heap_point_write::HeapPointValue;
 use crate::util::bkd::offline_point_reader::OfflinePointValue;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// Represents a dimensional point value written in the BKD tree.
 pub(crate) trait PointValue {
@@ -35,6 +37,14 @@ pub(crate) trait PointValue {
 pub(crate) enum PointValueEnum {
     Heap(HeapPointValue),
     Offline(OfflinePointValue),
+}
+impl PointValueEnum {
+    pub(crate) fn get_value(&self) -> Rc<RefCell<Vec<u8>>> {
+        match self {
+            PointValueEnum::Heap(heap) => heap.value.clone(),
+            PointValueEnum::Offline(offline) => offline.value.clone(),
+        }
+    }
 }
 impl PointValue for PointValueEnum {
     fn set_offset(&mut self, offset: i32) {
