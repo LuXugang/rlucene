@@ -335,7 +335,7 @@ mod tests {
         let mut expected = arr.clone();
         let mut actual = arr.clone();
         expected[from as usize..to as usize].sort();
-        let sub_selector = IntroSelectorImpl::new(&mut actual);
+        let sub_selector = IntroSelectorMock::new(&mut actual);
         let mut selector = IntroSelector::new(sub_selector);
         if random.random_bool(0.5) {
             Selector::select(&mut selector, from, to, k)?;
@@ -355,23 +355,23 @@ mod tests {
         Ok(())
     }
 
-    pub struct IntroSelectorImpl<'a> {
+    pub struct IntroSelectorMock<'a> {
         pivot: i32,
         actual: &'a mut Vec<i32>,
     }
-    impl<'a> IntroSelectorImpl<'a> {
-        fn new(actual: &'a mut Vec<i32>) -> IntroSelectorImpl<'a> {
-            IntroSelectorImpl { pivot: 0, actual }
+    impl<'a> IntroSelectorMock<'a> {
+        fn new(actual: &'a mut Vec<i32>) -> IntroSelectorMock<'a> {
+            IntroSelectorMock { pivot: 0, actual }
         }
     }
-    impl Selector for IntroSelectorImpl<'_> {
+    impl Selector for IntroSelectorMock<'_> {
         fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
             self.actual.swap(i as usize, j as usize);
             Ok(())
         }
     }
 
-    impl IntroSelectorBaseDefault for IntroSelectorImpl<'_> {
+    impl IntroSelectorBaseDefault for IntroSelectorMock<'_> {
         fn set_pivot(&mut self, i: i32) {
             self.pivot = self.actual[i as usize];
         }
@@ -386,5 +386,5 @@ mod tests {
         }
     }
 
-    impl IntroSelectorBase for IntroSelectorImpl<'_> {}
+    impl IntroSelectorBase for IntroSelectorMock<'_> {}
 }

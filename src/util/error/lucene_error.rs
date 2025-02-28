@@ -27,6 +27,7 @@ use crate::util::error::index_not_found::IndexNotFound;
 use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::lock_already_held::LockAlreadyHeldError;
 use crate::util::error::lock_held_by_other::LockHeldByOtherError;
+use crate::util::error::lucene_error::LuceneError::Unreachable;
 use crate::util::error::max_bytes_length_exceeded::MaxBytesLengthExceededError;
 use crate::util::error::merge::MergeError;
 use crate::util::error::merge_aborted::MergeAbortedError;
@@ -34,6 +35,7 @@ use crate::util::error::need_implemented::NeedImplementedError;
 use crate::util::error::not_found::NotFoundError;
 use crate::util::error::number_format::NumberFormatError;
 use crate::util::error::unimplemented::NotImplementedError;
+use crate::util::error::unreachable::UnreachableError;
 use crate::util::error::unsupported_operation::UnsupportedOperationError;
 use crate::util::VersionError;
 use std::io::Error;
@@ -121,6 +123,8 @@ pub enum LuceneError {
     NotImplemented(#[from] NotImplementedError),
     #[error("{0}")]
     VersionError(#[from] VersionError),
+    #[error("{0}")]
+    Unreachable(#[from] UnreachableError),
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -207,5 +211,8 @@ impl LuceneError {
     }
     pub fn not_implemented(msg: impl Into<String>) -> Self {
         LuceneError::NotImplemented(NotImplementedError::new(msg))
+    }
+    pub fn unreachable(msg: impl Into<String>) -> Self {
+        LuceneError::Unreachable(UnreachableError::new(msg))
     }
 }

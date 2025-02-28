@@ -17,13 +17,13 @@
 use crate::store::directory::Directory;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
-use std::cell::RefCell;
-use std::rc::Rc;
 use crate::util::bkd::heap_point_write::HeapPointWriter;
 use crate::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::util::bkd::point_value::PointValueEnum;
 use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
 use crate::util::error::lucene_error::LuceneError;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// Offline Radix selector for BKD tree.
 pub struct BKDRadixSelector<D> {
@@ -116,7 +116,7 @@ where
     //         "[partition slices] must be > 1, got {}",
     //         partition_slices.len()
     //     );
-    //     match points.writer { 
+    //     match points.writer {
     //         PointWriterEnum::Heap(_) => {
     //             let partition = heap_radix_select(
     //                 points.writer.as_heap().unwrap(),
@@ -151,7 +151,7 @@ where
     //         dim,
     //     )
     // }
-    // 
+    //
     // fn check_args(from: i64, to: i64, partition_point: i64) -> Result<(), LuceneError> {
     //     if partition_point < from {
     //         return Err(LuceneError::IllegalArgument(
@@ -165,7 +165,7 @@ where
     //     }
     //     Ok(())
     // }
-    // 
+    //
     // fn find_common_prefix_and_histogram(
     //     &mut self,
     //     points: &mut OfflinePointWriter,
@@ -250,12 +250,17 @@ where
         right: Rc<RefCell<PointWriterEnum<D>>>,
         delta: i64,
         iteration: i32,
-    ) -> Result<PointWriterEnum<D>,LuceneError> {
-        if delta >= i32::MAX as i64{
-            return Err(LuceneError::integer_overflow("Delta is too large".to_string()));
+    ) -> Result<PointWriterEnum<D>, LuceneError> {
+        if delta >= i32::MAX as i64 {
+            return Err(LuceneError::integer_overflow(
+                "Delta is too large".to_string(),
+            ));
         }
         if delta <= self.get_max_points_sort_in_heap(left, right) as i64 {
-            Ok(PointWriterEnum::Heap(HeapPointWriter::new(self.config.clone(), delta as i32)))
+            Ok(PointWriterEnum::Heap(HeapPointWriter::new(
+                self.config.clone(),
+                delta as i32,
+            )))
         } else {
             Ok(PointWriterEnum::Offline(OfflinePointWriter::new(
                 self.config.clone(),
@@ -290,7 +295,10 @@ where
         if count <= self.max_points_sort_in_heap as i64 / 2 {
             let size = i32::try_from(count)
                 .map_err(|_| LuceneError::integer_overflow("Count is too large".to_string()))?;
-            Ok(PointWriterEnum::Heap(HeapPointWriter::new(self.config.clone(), size)))
+            Ok(PointWriterEnum::Heap(HeapPointWriter::new(
+                self.config.clone(),
+                size,
+            )))
         } else {
             Ok(PointWriterEnum::Offline(OfflinePointWriter::new(
                 self.config.clone(),
@@ -303,14 +311,19 @@ where
     }
 }
 
-
-pub struct PathSlice<D> where D:Directory{
+pub struct PathSlice<D>
+where
+    D: Directory,
+{
     pub writer: Rc<RefCell<PointWriterEnum<D>>>,
-    pub start:i64,
-    pub count:i64,
+    pub start: i64,
+    pub count: i64,
 }
-impl <D> PathSlice<D> where D:Directory{
-    pub fn new(writer: Rc<RefCell<PointWriterEnum<D>>>, start:i64, count:i64)->Self{
+impl<D> PathSlice<D>
+where
+    D: Directory,
+{
+    pub fn new(writer: Rc<RefCell<PointWriterEnum<D>>>, start: i64, count: i64) -> Self {
         PathSlice {
             writer,
             start,

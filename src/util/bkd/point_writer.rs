@@ -52,7 +52,10 @@ where
     Offline(OfflinePointWriter<D>),
     Heap(HeapPointWriter<D>),
 }
-impl<D> PointWriter for PointWriterEnum<D> where D:Directory{
+impl<D> PointWriter for PointWriterEnum<D>
+where
+    D: Directory,
+{
     fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError> {
         match self {
             PointWriterEnum::Offline(offline) => offline.append_bytes(packed_value, doc_id),
