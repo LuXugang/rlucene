@@ -19,17 +19,18 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
-use crate::store::{DataInput, IOContext, IndexOutput};
+use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::IOUtils;
 use std::sync::{Arc, Mutex};
+use byteorder::WriteBytesExt;
 
 #[allow(unused)]
-pub(crate) struct FieldsIndexWriter<D, I>
+pub(crate) struct FieldsIndexWriter<D>
 where
     D: Directory,
-    I: IndexOutput,
+    
 {
     dir: Arc<Mutex<D>>,
     name: String,
@@ -41,24 +42,24 @@ where
     io_context: IOContext,
     // Using Option to wrap the IndexOutput makes it easier to release the resource,
     // which avoids the need to implement the IndexOutput's Default trait.
-    docs_out: Option<I>,
-    file_pointers_out: Option<I>,
+    docs_out: Option<D::IndexOutputType>,
+    file_pointers_out: Option<D::IndexOutputType>,
     total_docs: i32,
     total_chunks: i32,
     previous_fp: i64,
 }
 
 #[allow(unused)]
-impl FieldsIndexWriter<DummyDirectory, DummyIndexOutput> {
+impl FieldsIndexWriter<DummyDirectory> {
     pub(crate) const VERSION_START: i32 = 0;
     pub(crate) const VERSION_CURRENT: i32 = 0;
 }
 
 #[allow(unused)]
-impl<D, I> FieldsIndexWriter<D, I>
+impl<D> FieldsIndexWriter<D>
 where
-    D: Directory<IndexOutputType = I>,
-    I: IndexOutput,
+    D: Directory,
+    
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -129,7 +130,7 @@ where
         &mut self,
         num_docs: i32,
         max_pointer: i64,
-        meta_out: &mut I,
+        meta_out: &mut D::IndexOutputType,
     ) -> Result<(), LuceneError> {
         if num_docs != self.total_docs {
             return Err(LuceneError::illegal_state(format!(
@@ -274,10 +275,10 @@ where
         Ok(())
     }
 }
-impl<D, I> Drop for FieldsIndexWriter<D, I>
+impl<D> Drop for FieldsIndexWriter<D>
 where
     D: Directory,
-    I: IndexOutput,
+    
 {
     fn drop(&mut self) {
         let mut files = Vec::new();
