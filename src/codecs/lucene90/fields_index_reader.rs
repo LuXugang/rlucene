@@ -26,10 +26,9 @@ use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, Meta};
 use std::sync::{Arc, Mutex};
 #[allow(unused)]
-pub(crate) struct FieldsIndexReader<I, R>
+pub(crate) struct FieldsIndexReader<I>
 where
     I: IndexInput,
-    R: RandomAccessInput,
 {
     max_doc: i32,
     block_shift: i32,
@@ -41,15 +40,14 @@ where
     docs_end_pointer: i64,
     start_pointers_start_pointer: i64,
     start_pointers_end_pointer: i64,
-    docs: DirectMonotonicReader<R>,
-    start_pointers: DirectMonotonicReader<R>,
+    docs: DirectMonotonicReader<I::Slice>,
+    start_pointers: DirectMonotonicReader<I::Slice>,
     max_pointer: i64,
 }
 #[allow(unused)]
-impl<I, R> FieldsIndexReader<I, R>
+impl<I> FieldsIndexReader<I>
 where
-    I: IndexInput<Slice = R>,
-    R: RandomAccessInput,
+    I: IndexInput,
 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new<D>(
@@ -129,10 +127,9 @@ where
     }
 }
 
-impl<I, R> FieldsIndex for FieldsIndexReader<I, R>
+impl<I> FieldsIndex for FieldsIndexReader<I>
 where
-    I: IndexInput<Slice = R>,
-    R: RandomAccessInput,
+    I: IndexInput,
 {
     fn get_block_id(&mut self, doc_id: i32) -> Result<i64, LuceneError> {
         assert!(doc_id >= 0 && doc_id < self.max_doc);

@@ -23,14 +23,13 @@ use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::IOUtils;
-use std::sync::{Arc, Mutex};
 use byteorder::WriteBytesExt;
+use std::sync::{Arc, Mutex};
 
 #[allow(unused)]
 pub(crate) struct FieldsIndexWriter<D>
 where
     D: Directory,
-    
 {
     dir: Arc<Mutex<D>>,
     name: String,
@@ -59,7 +58,6 @@ impl FieldsIndexWriter<DummyDirectory> {
 impl<D> FieldsIndexWriter<D>
 where
     D: Directory,
-    
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -278,7 +276,6 @@ where
 impl<D> Drop for FieldsIndexWriter<D>
 where
     D: Directory,
-    
 {
     fn drop(&mut self) {
         let mut files = Vec::new();
