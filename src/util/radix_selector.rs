@@ -17,7 +17,7 @@
 use crate::index::BytesRefBuilder;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::selector::Selector;
-use crate::util::{IntroSelectorBase, IntroSelectorBaseDefault};
+use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault};
 use std::cmp::{max, min};
 
 pub struct RadixSelector<T>
@@ -27,7 +27,7 @@ where
     max_length: i32,
     common_prefix: Vec<i32>,
     histogram: Vec<i32>,
-    sub_selector: T,
+    pub(crate) sub_selector: T,
 }
 
 impl<T> RadixSelector<T>
@@ -300,7 +300,7 @@ pub trait RadixSelectorBase: Selector {
             pivot: BytesRefBuilder::new(),
             delegate_sorter: self,
         };
-        RadixSelector::new(max_length, delegate_sorter)
+        IntroSelector::new(delegate_sorter)
     }
 }
 
@@ -313,14 +313,14 @@ where
     pivot: BytesRefBuilder,
     delegate_sorter: &'a mut T,
 }
-impl<'a, T> IntroSelectorBaseDefault for IntroSelectorImpl<'a, T>
+impl<T> IntroSelectorBaseDefault for IntroSelectorImpl<'_, T>
 where
     T: RadixSelectorBase,
 {
     fn set_pivot(&mut self, i: i32) {
         self.pivot.set_length(0);
         for o in self.d..self.max_length {
-            let b = self.byte_at(i, o);
+            let b = self.delegate_sorter.byte_at(i, o);
             if b == -1 {
                 break;
             }
@@ -330,8 +330,8 @@ where
 
     fn compare_pivot(&self, j: i32) -> i32 {
         for o in 0..self.pivot.length() {
-            let b1 = self.pivot.byte_at(o) as i8 as i32;
-            let b2 = self.byte_at(j, self.d + o);
+            let b1 = self.pivot.byte_at(o) as i32;
+            let b2 = self.delegate_sorter.byte_at(j, self.d + o);
             if b1 != b2 {
                 return b1 - b2;
             }
@@ -339,19 +339,21 @@ where
         if self.d + self.pivot.length() == self.max_length {
             0
         } else {
-            -1 - self.byte_at(j, self.d + self.pivot.length())
+            -1 - self
+                .delegate_sorter
+                .byte_at(j, self.d + self.pivot.length())
         }
     }
 }
 
-impl<'a, T> IntroSelectorBase for IntroSelectorImpl<'a, T>
+impl<T> IntroSelectorBase for IntroSelectorImpl<'_, T>
 where
     T: RadixSelectorBase,
 {
     fn compare(&mut self, i: i32, j: i32) -> i32 {
         for o in self.d..self.max_length {
-            let b1 = self.byte_at(i, o);
-            let b2 = self.byte_at(j, o);
+            let b1 = self.delegate_sorter.byte_at(i, o);
+            let b2 = self.delegate_sorter.byte_at(j, o);
             if b1 != b2 {
                 return b1 - b2;
             } else if b1 == -1 {
@@ -361,7 +363,7 @@ where
         0
     }
 }
-impl<'a, T> Selector for IntroSelectorImpl<'a, T>
+impl<T> Selector for IntroSelectorImpl<'_, T>
 where
     T: RadixSelectorBase,
 {
@@ -369,11 +371,141 @@ where
         self.delegate_sorter.swap(i, j)
     }
 }
-impl<'a, T> RadixSelectorBase for IntroSelectorImpl<'_, T>
-where
-    T: RadixSelectorBase,
-{
-    fn byte_at(&self, i: i32, k: i32) -> i32 {
-        self.delegate_sorter.byte_at(i, k)
+
+#[cfg(test)]
+mod tests {
+    use crate::index::BytesRef;
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
+    use crate::util::selector::Selector;
+    use rand::rngs::StdRng;
+    use rand::{Rng, RngCore};
+    use std::cmp::{min, Ordering};
+
+    #[allow(dead_code)] // for quick search
+    struct TestRadixSelector;
+    #[test]
+    pub fn test_select() -> Result<(), LuceneError> {
+        let mut random = random();
+        for _ in 0..100 {
+            do_test_select(&mut random)?;
+        }
+        Ok(())
+    }
+
+    fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
+        let from = random.random_range(0..5);
+        let to = from + TestUtil::next_int(random, 1, 10000);
+        let max_len = TestUtil::next_int(random, 1, 12);
+        let arr_len = (from + to + random.random_range(0..5)) as usize;
+        let mut arr: Vec<BytesRef> = Vec::with_capacity(arr_len);
+        for _ in 0..arr_len {
+            let byte_len = TestUtil::next_int(random, 0, max_len);
+            let mut bytes = vec![0u8; byte_len as usize];
+            random.fill_bytes(&mut bytes);
+            arr.push(BytesRef::from_bytes(bytes));
+        }
+        do_test(random, &arr, from, to, max_len)
+    }
+
+    #[test]
+    pub fn test_shared_prefixes() -> Result<(), LuceneError> {
+        let mut random = random();
+        for _ in 0..100 {
+            do_test_shared_prefixes(&mut random)?;
+        }
+        Ok(())
+    }
+
+    pub fn do_test_shared_prefixes(random: &mut StdRng) -> Result<(), LuceneError> {
+        let from = random.random_range(0..5);
+        let to = from + TestUtil::next_int(random, 1, 10000);
+        let max_len = TestUtil::next_int(random, 1, 12);
+        let arr_len = (from + to + random.random_range(0..5)) as usize;
+        let mut arr: Vec<BytesRef> = Vec::with_capacity(arr_len);
+        for _ in 0..arr_len {
+            let byte_len = TestUtil::next_int(random, 0, max_len);
+            let mut bytes = vec![0u8; byte_len as usize];
+            random.fill_bytes(&mut bytes);
+            arr.push(BytesRef::from_bytes(bytes));
+        }
+        let shared_prefix_length = min(arr[0].length, TestUtil::next_int(random, 1, max_len));
+        for i in 1..arr.len() {
+            let copy_len = min(shared_prefix_length, arr[i].length) as usize;
+            let offset_1 = arr[i].offset as usize;
+            let offset_2 = arr[0].offset as usize;
+            arr[i]
+                .bytes
+                .copy_within(offset_2..offset_2 + copy_len, offset_1);
+        }
+        do_test(random, &arr, from, to, max_len)
+    }
+
+    pub fn do_test(
+        random: &mut StdRng,
+        arr: &[BytesRef],
+        from: i32,
+        to: i32,
+        max_len: i32,
+    ) -> Result<(), LuceneError> {
+        let k = TestUtil::next_int(random, from, to - 1) as usize;
+
+        let mut expected = arr.to_vec();
+        expected[from as usize..to as usize].sort();
+
+        let mut actual = arr.to_vec();
+        let enforced_max_len = if random.random_bool(0.5) {
+            max_len
+        } else {
+            i32::MAX
+        };
+
+        let selector_impl = RadixSelectorBaseImpl {
+            actual,
+            enforced_max_len,
+        };
+
+        let mut selector = RadixSelector::new(enforced_max_len, selector_impl);
+        Selector::select(&mut selector, from, to, k as i32)?;
+        actual = selector.sub_selector.actual.clone();
+
+        assert_eq!(expected[k], actual[k]);
+        for i in 0..actual.len() {
+            if i < from as usize || i >= to as usize {
+                assert_eq!(&arr[i], &actual[i]);
+            } else if i <= k {
+                assert_ne!(actual[i].cmp(&actual[k]), Ordering::Greater);
+            } else {
+                assert_ne!(actual[i].cmp(&actual[k]), Ordering::Less);
+            }
+        }
+        Ok(())
+    }
+
+    struct RadixSelectorBaseImpl {
+        enforced_max_len: i32,
+        actual: Vec<BytesRef>,
+    }
+
+    impl Selector for RadixSelectorBaseImpl {
+        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+            self.actual.swap(i as usize, j as usize);
+            Ok(())
+        }
+    }
+
+    impl RadixSelectorBase for RadixSelectorBaseImpl {
+        fn byte_at(&self, i: i32, k: i32) -> i32 {
+            assert!(k < self.enforced_max_len);
+            let b = self.actual[i as usize].clone();
+            if k < b.length {
+                
+                b.bytes[k as usize] as i32
+            } else {
+                -1
+            }
+        }
     }
 }

@@ -27,7 +27,6 @@ use crate::util::error::index_not_found::IndexNotFound;
 use crate::util::error::integer_overflow::IntegerOverflow;
 use crate::util::error::lock_already_held::LockAlreadyHeldError;
 use crate::util::error::lock_held_by_other::LockHeldByOtherError;
-use crate::util::error::lucene_error::LuceneError::Unreachable;
 use crate::util::error::max_bytes_length_exceeded::MaxBytesLengthExceededError;
 use crate::util::error::merge::MergeError;
 use crate::util::error::merge_aborted::MergeAbortedError;
