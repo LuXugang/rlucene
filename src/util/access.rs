@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -34,9 +34,7 @@ impl<T> Access<T> for Rc<RefCell<T>> {
     where
         F: FnOnce(&T) -> Result<R, LuceneError>,
     {
-        let borrow: Ref<T> = self
-            .try_borrow()
-            .map_err(|e| LuceneError::BorrowError(format!("{:?}", e)))?;
+        let borrow = self.borrow();
         f(&*borrow)
     }
 
@@ -44,9 +42,7 @@ impl<T> Access<T> for Rc<RefCell<T>> {
     where
         F: FnOnce(&mut T) -> Result<R, LuceneError>,
     {
-        let mut borrow: RefMut<T> = self
-            .try_borrow_mut()
-            .map_err(|e| LuceneError::BorrowError(format!("{:?}", e)))?;
+        let mut borrow = self.borrow_mut();
         f(&mut *borrow)
     }
 }
