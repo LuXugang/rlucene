@@ -46,3 +46,21 @@ where
     Offline(OfflinePointReader<D>),
     Heap(HeapPointReader),
 }
+impl<D> PointReader for PointReaderEnum<D>
+where
+    D: Directory,
+{
+    fn next(&mut self) -> Result<bool, LuceneError> {
+        match self {
+            PointReaderEnum::Offline(offline) => offline.next(),
+            PointReaderEnum::Heap(heap) => heap.next(),
+        }
+    }
+
+    fn point_value(&self) -> Rc<RefCell<PointValueEnum>> {
+        match self {
+            PointReaderEnum::Offline(offline) => offline.point_value(),
+            PointReaderEnum::Heap(heap) => heap.point_value(),
+        }
+    }
+}

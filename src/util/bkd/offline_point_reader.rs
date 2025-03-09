@@ -20,7 +20,8 @@ use crate::store::directory::Directory;
 use crate::store::{DataInput, IOContext, IndexInput};
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
-use crate::util::bkd::point_value::PointValue;
+use crate::util::bkd::point_reader::PointReader;
+use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::error::lucene_error::LuceneError;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -41,7 +42,7 @@ where
     max_point_on_heap: i32,
     // File name we are reading
     name: String,
-    point_value: OfflinePointValue,
+    point_value: Rc<RefCell<PointValueEnum>>,
 }
 
 impl<D> OfflinePointReader<D>
@@ -99,7 +100,9 @@ where
         };
 
         let count_left = length;
-        let point_value = OfflinePointValue::new(&config, reusable_buffer.clone());
+        let point_value = Rc::new(RefCell::new(PointValueEnum::Offline(
+            OfflinePointValue::new(&config, reusable_buffer.clone()),
+        )));
 
         Ok(OfflinePointReader {
             count_left,
@@ -115,8 +118,12 @@ where
             point_value,
         })
     }
-
-    pub fn next(&mut self) -> Result<bool, LuceneError> {
+}
+impl<D> PointReader for OfflinePointReader<D>
+where
+    D: Directory,
+{
+    fn next(&mut self) -> Result<bool, LuceneError> {
         let bytes_per_doc = self.config.bytes_per_doc();
         if self.points_in_buffer == 0 {
             if self.count_left == 0 {
@@ -166,9 +173,17 @@ where
         Ok(true)
     }
 
-    pub fn point_value(&mut self) -> &mut OfflinePointValue {
-        self.point_value.set_offset(self.offset);
-        &mut self.point_value
+    fn point_value(&self) -> Rc<RefCell<PointValueEnum>> {
+        let mut point_value = self.point_value.borrow_mut();
+        match &mut *point_value {
+            PointValueEnum::Offline(offline) => {
+                offline.set_offset(self.offset);
+            }
+            _ => {
+                debug_assert!(false, "PointValueEnum must be Offline");
+            }
+        }
+        self.point_value.clone()
     }
 }
 impl<D> Drop for OfflinePointReader<D>

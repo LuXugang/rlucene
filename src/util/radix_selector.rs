@@ -462,7 +462,7 @@ mod tests {
             i32::MAX
         };
 
-        let selector_impl = RadixSelectorBaseImpl {
+        let selector_impl = RadixSelectorMock {
             actual,
             enforced_max_len,
         };
@@ -484,24 +484,23 @@ mod tests {
         Ok(())
     }
 
-    struct RadixSelectorBaseImpl {
+    struct RadixSelectorMock {
         enforced_max_len: i32,
         actual: Vec<BytesRef>,
     }
 
-    impl Selector for RadixSelectorBaseImpl {
+    impl Selector for RadixSelectorMock {
         fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
             self.actual.swap(i as usize, j as usize);
             Ok(())
         }
     }
 
-    impl RadixSelectorBase for RadixSelectorBaseImpl {
+    impl RadixSelectorBase for RadixSelectorMock {
         fn byte_at(&self, i: i32, k: i32) -> i32 {
             assert!(k < self.enforced_max_len);
             let b = self.actual[i as usize].clone();
             if k < b.length {
-                
                 b.bytes[k as usize] as i32
             } else {
                 -1

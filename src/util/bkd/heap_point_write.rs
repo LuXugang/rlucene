@@ -135,7 +135,13 @@ where
 
     /// Compares the dimension `dim` value of the point at position `j` with the provided
     /// value
-    pub fn compare_dim_with(&self, j: i32, dim_value: &[u8], offset: usize, dim: i32) -> i32 {
+    pub fn compare_dim_with_scratch(
+        &self,
+        j: i32,
+        dim_value: &[u8],
+        offset: usize,
+        dim: i32,
+    ) -> i32 {
         let j_offset = (j * self.config.bytes_per_doc() + dim) as usize;
         self.compare_dim_slice(dim_value, offset, &self.block.borrow(), j_offset)
     }
