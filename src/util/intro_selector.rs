@@ -31,14 +31,14 @@ use rand::Rng;
 /// This method is intended for internal use in the library.
 pub struct IntroSelector<T>
 where
-    T: IntroSelectorBase + Selector,
+    T: IntroSelectorBase
 {
     random: Option<ThreadRng>,
     sub_selector: T,
 }
 impl<T> IntroSelector<T>
 where
-    T: IntroSelectorBase + Selector,
+    T: IntroSelectorBase
 {
     pub fn new(sub_selector: T) -> IntroSelector<T> {
         IntroSelector {
@@ -265,7 +265,7 @@ where
 
 impl<T> Selector for IntroSelector<T>
 where
-    T: IntroSelectorBase + Selector,
+    T: IntroSelectorBase
 {
     fn select(&mut self, from: i32, to: i32, k: i32) -> Result<(), LuceneError> {
         self.check_args(from, to, k)?;
@@ -275,7 +275,7 @@ where
     }
 }
 
-pub trait IntroSelectorBase: IntroSelectorBaseDefault {
+pub trait IntroSelectorBase: IntroSelectorBaseDefault + Selector{
     /// Compare entries found in slots `i` and `j`.
     fn compare(&mut self, i: i32, j: i32) -> i32 {
         IntroSelectorBaseDefault::compare(self, i, j)
