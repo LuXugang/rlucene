@@ -117,7 +117,7 @@ where
     pub fn select(
         &mut self,
         points: &mut PathSlice<D>,
-        partition_slices: &mut [PathSlice<D>],
+        partition_slices: &mut Vec<PathSlice<D>>,
         from: i64,
         to: i64,
         partition_point: i64,
@@ -126,10 +126,9 @@ where
     ) -> Result<Vec<u8>, LuceneError> {
         Self::check_args(from, to, partition_point)?;
         debug_assert!(
-            partition_slices.len() > 1,
-            "[partition slices] must be > 1, got {}",
-            partition_slices.len()
+            partition_slices.len() <=1,
         );
+        partition_slices.clear();
         let result;
         match &mut *points.writer.borrow_mut() {
             PointWriterEnum::Heap(_) => {
@@ -141,10 +140,10 @@ where
                     partition_point as i32,
                     dim_common_prefix,
                 )?;
-                partition_slices[0] =
-                    PathSlice::new(points.writer.clone(), from, partition_point - from);
-                partition_slices[1] =
-                    PathSlice::new(points.writer.clone(), partition_point, to - partition_point);
+                partition_slices.push(
+                    PathSlice::new(points.writer.clone(), from, partition_point - from));
+                partition_slices.push(
+                    PathSlice::new(points.writer.clone(), partition_point, to - partition_point));
                 result = partition;
             }
             PointWriterEnum::Offline(offline_point_writer) => {
@@ -163,10 +162,12 @@ where
                     dim_common_prefix,
                     dim,
                 )?;
-                partition_slices[0] =
-                    PathSlice::new(Rc::new(RefCell::new(left)), 0, partition_point - from);
-                partition_slices[1] =
-                    PathSlice::new(Rc::new(RefCell::new(right)), 0, to - partition_point);
+                left.close();
+                right.close();
+                partition_slices.push(
+                    PathSlice::new(Rc::new(RefCell::new(left)), 0, partition_point - from));
+                partition_slices.push(
+                    PathSlice::new(Rc::new(RefCell::new(right)), 0, to - partition_point));
                 result = partition;
             }
         };
@@ -201,23 +202,25 @@ where
             points.get_reader_with_buffer(from, to - from, self.offline_buffer.clone())?;
         debug_assert!(common_prefix_position > dim_common_prefix);
         reader.next()?;
-        let point_value_ref = reader.point_value();
-        let point_value = point_value_ref.borrow();
-        let value = point_value.get_value();
-        let (packed_value_offset, length) = point_value.packed_value_doc_id_bytes();
-        let mut start = (packed_value_offset + offset) as usize;
-        let mut end = start + self.config.get_bytes_per_dim() as usize;
-        self.scratch.copy_from(&value.borrow()[start..end], 0);
-        start = (packed_value_offset + self.config.packed_index_bytes_length()) as usize;
-        end = start
-            + (self.config.get_num_dims()
+        {
+            let point_value_ref = reader.point_value();
+            let point_value = point_value_ref.borrow();
+            let value = point_value.get_value();
+            let (packed_value_offset, length) = point_value.packed_value_doc_id_bytes();
+            let mut start = (packed_value_offset + offset) as usize;
+            let mut end = start + self.config.get_bytes_per_dim() as usize;
+            self.scratch.copy_from(&value.borrow()[start..end], 0);
+            start = (packed_value_offset + self.config.packed_index_bytes_length()) as usize;
+            end = start
+                + (self.config.get_num_dims()
                 - self.config.get_num_index_dims() * self.config.get_bytes_per_dim())
                 as usize
-            + BitUtil::INT_BYTES;
-        self.scratch.copy_from(
-            &value.borrow()[start..end],
-            self.config.bytes_per_dim as usize,
-        );
+                + BitUtil::INT_BYTES;
+            self.scratch.copy_from(
+                &value.borrow()[start..end],
+                self.config.bytes_per_dim as usize,
+            );
+        }
         let mut histogram_index;
         for i in (from + 1)..to {
             reader.next()?;
@@ -400,6 +403,7 @@ where
             common_prefix,
             0,
         )?;
+        delta_points.close();
         let new_partition_point = partition_point - from - left_count;
 
         // Depending on the concrete type of delta_points, call the appropriate partition method.
@@ -1026,5 +1030,460 @@ where
                 0
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::store::directory::Directory;
+    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::bit_util::BitUtil;
+    use crate::util::bkd::bkd_config::BKDConfig;
+    use crate::util::bkd::bkd_radix_selector::{BKDRadixSelector, PathSlice};
+    use crate::util::bkd::heap_point_write::HeapPointWriter;
+    use crate::util::bkd::offline_point_write::OfflinePointWriter;
+    use crate::util::bkd::point_reader::PointReader;
+    use crate::util::bkd::point_value::PointValue;
+    use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::numeric_utils::NumericUtils;
+    use crate::util::CommonUtil;
+    use rand::rngs::StdRng;
+    use rand::Rng;
+    use std::cell::RefCell;
+    use std::cmp::Ordering::{Greater, Less};
+    use std::rc::Rc;
+    
+
+    #[test]
+    fn test_basic() -> Result<(), LuceneError> {
+        let mut random = random();
+        let values = 4;
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let middle = 2;
+        let dimensions = 1;
+        let bytes_per_dimensions = BitUtil::INT_BYTES;
+        let config = Rc::new(BKDConfig::new(
+            dimensions,
+            dimensions,
+            bytes_per_dimensions as i32,
+            BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+        )?);
+        let mut points =
+            get_random_point_writer(&mut random, config.clone(), dir.clone(), values as i64)?;
+        let mut value = vec![0u8; config.packed_bytes_length() as usize];
+
+        NumericUtils::int_to_sortable_bytes(1, &mut value, 0);
+        points.append_bytes(&value, 0)?;
+
+        NumericUtils::int_to_sortable_bytes(2, &mut value, 0);
+        points.append_bytes(&value, 1)?;
+
+        NumericUtils::int_to_sortable_bytes(3, &mut value, 0);
+        points.append_bytes(&value, 2)?;
+
+        NumericUtils::int_to_sortable_bytes(4, &mut value, 0);
+        points.append_bytes(&value, 3)?;
+        points.close();
+        let mut copy = copy_points(&mut random, config.clone(), dir.clone(), &points)?;
+        verify(
+            &mut random,
+            config,
+            dir.clone(),
+            &mut copy,
+            0,
+            values as i64,
+            middle as i64,
+            0,
+        )?;
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn verify<D: Directory>(
+        random: &mut StdRng,
+        config: Rc<BKDConfig>,
+        dir: Rc<RefCell<D>>,
+        points: &mut PointWriterEnum<D>,
+        start: i64,
+        end: i64,
+        middle: i64,
+        sorted_on_heap: i32,
+    ) -> Result<(), LuceneError> {
+        let mut radix_selector = BKDRadixSelector::new(
+            config.clone(),
+            sorted_on_heap,
+            dir.clone(),
+            "test".to_string(),
+        );
+        let data_only_dims = config.num_dims - config.num_index_dims;
+
+        for split_dim in 0..config.num_index_dims {
+            let copy = copy_points(random, config.clone(), dir.clone(), points)?;
+            let mut input_slice = PathSlice::new(Rc::new(RefCell::new(copy)), 0, points.count());
+
+            let common_prefix_length_input =
+                get_random_common_prefix(config.clone(), &input_slice, split_dim, random)?;
+
+            let mut slices: Vec<PathSlice<D>> = Vec::with_capacity(2);
+            let partition_point = radix_selector.select(
+                &mut input_slice,
+                &mut slices,
+                start,
+                end,
+                middle,
+                split_dim,
+                common_prefix_length_input,
+            )?;
+
+            assert_eq!(
+                slices[0].count,
+                middle - start,
+                "Left slice count does not match"
+            );
+            assert_eq!(
+                slices[1].count,
+                end - middle,
+                "Right slice count does not match"
+            );
+
+            let max = get_max(config.clone(), &slices[0], split_dim)?;
+            let min = get_min(config.clone(), &slices[1], split_dim)?;
+            let cmp = compare_unsigned(
+                &max,
+                config.bytes_per_dim as usize,
+                &min,
+                config.bytes_per_dim as usize,
+            );
+            assert!(
+                cmp <= 0,
+                "Expected left slice max to be <= right slice min; got {}",
+                cmp
+            );
+
+            if cmp == 0 {
+                let max_data_dim =
+                    get_max_data_dimension(config.clone(), &slices[0], &max, split_dim)?;
+                let min_data_dim =
+                    get_min_data_dimension(config.clone(), &slices[1], &min, split_dim)?;
+                let cmp2 = compare_unsigned(
+                    &max_data_dim,
+                    (data_only_dims * config.bytes_per_dim) as usize,
+                    &min_data_dim,
+                    (data_only_dims * config.bytes_per_dim) as usize,
+                );
+                assert!(
+                    cmp2 <= 0,
+                    "Expected left slice data dims max <= right slice data dims min; got {}",
+                    cmp2
+                );
+                if cmp2 == 0 {
+                    let max_doc_id = get_max_doc_id(
+                        config.clone(),
+                        &slices[0],
+                        split_dim,
+                        &partition_point,
+                        &max_data_dim,
+                    )?;
+                    let min_doc_id = get_min_doc_id(
+                        config.clone(),
+                        &slices[1],
+                        split_dim,
+                        &partition_point,
+                        &min_data_dim,
+                    )?;
+                    assert!(
+                        min_doc_id >= max_doc_id,
+                        "Expected min docID {} to be >= max docID {}",
+                        min_doc_id,
+                        max_doc_id
+                    );
+                }
+            }
+            assert_eq!(
+                partition_point, min,
+                "Partition point does not equal the minimum of the right slice"
+            );
+            slices[0].writer.borrow_mut().destroy()?;
+            slices[1].writer.borrow_mut().destroy()?;
+        }
+        points.destroy()?;
+        Ok(())
+    }
+
+    fn compare_unsigned(a: &[u8], len_a: usize, b: &[u8], len_b: usize) -> i32 {
+        use std::cmp::Ordering;
+        match a[..len_a].cmp(&b[..len_b]) {
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
+            Ordering::Greater => 1,
+        }
+    }
+
+    fn copy_points<D: Directory>(
+        random: &mut StdRng,
+        config: Rc<BKDConfig>,
+        dir: Rc<RefCell<D>>,
+        points: &PointWriterEnum<D>,
+    ) -> Result<PointWriterEnum<D>, LuceneError> {
+        let mut copy = get_random_point_writer(random, config, dir, points.count())?;
+        let count = points.count();
+        let mut reader = points.get_reader(0, count)?;
+        while reader.next()? {
+            let point_value_ref = reader.point_value();
+            let point_value = point_value_ref.borrow();
+            copy.append_point_value(&point_value)?
+        }
+        copy.close();
+        Ok(copy)
+    }
+
+    /// returns a common prefix length equal or lower than the current one.
+    fn get_random_common_prefix<D: Directory>(
+        config: Rc<BKDConfig>,
+        input_slice: &PathSlice<D>,
+        split_dim: i32,
+        random: &mut StdRng,
+    ) -> Result<i32, LuceneError> {
+        let points_max = get_max(config.clone(), input_slice, split_dim)?;
+        let points_min = get_min(config.clone(), input_slice, split_dim)?;
+        let mut common_prefix_length = CommonUtil::miss_match(
+            &points_max[0..config.bytes_per_dim as usize],
+            &points_min[0..config.bytes_per_dim as usize],
+        );
+        if common_prefix_length == -1 {
+            common_prefix_length = config.bytes_per_dim;
+        }
+
+        if random.random_bool(0.5) {
+            Ok(common_prefix_length)
+        } else if common_prefix_length == 0 {
+            Ok(0)
+        } else {
+            Ok(random.random_range(0..common_prefix_length))
+        }
+    }
+
+    fn get_random_point_writer<D: Directory>(
+        random: &mut StdRng,
+        config: Rc<BKDConfig>,
+        dir: Rc<RefCell<D>>,
+        num_points: i64,
+    ) -> Result<PointWriterEnum<D>, LuceneError> {
+        assert!(num_points <= i32::MAX as i64);
+        if num_points < 4096 && random.random_bool(0.5) {
+            Ok(PointWriterEnum::Heap(HeapPointWriter::new(
+                config,
+                num_points as i32,
+            )))
+        } else {
+            Ok(PointWriterEnum::Offline(OfflinePointWriter::new(
+                config, dir, "test", "test", num_points,
+            )?))
+        }
+    }
+
+    fn get_min<D: Directory>(
+        config: Rc<BKDConfig>,
+        path_slice: &PathSlice<D>,
+        dimension: i32,
+    ) -> Result<Vec<u8>, LuceneError> {
+        let size = config.bytes_per_dim as usize;
+        let mut min = vec![0xffu8; size];
+        let mut reader = path_slice
+            .writer
+            .borrow_mut()
+            .get_reader(path_slice.start, path_slice.count)?;
+        let mut value = vec![0u8; size];
+        while reader.next()? {
+            let point_value_ref = reader.point_value();
+            let point_value = point_value_ref.borrow_mut();
+            let (packed_value_offset, _) = point_value.packed_value();
+            let value_ref = point_value.get_value();
+            let start_idx = (packed_value_offset + dimension * config.bytes_per_dim) as usize;
+            let end_idx = start_idx + size;
+            value.copy_from_slice(&value_ref.borrow()[start_idx..end_idx]);
+            if min.cmp(&value) == Greater {
+                min.copy_from_slice(&value);
+            }
+        }
+        Ok(min)
+    }
+
+    fn get_min_doc_id<D: Directory>(
+        config: Rc<BKDConfig>,
+        p: &PathSlice<D>,
+        dimension: i32,
+        partition_point: &[u8],
+        data_dim: &[u8],
+    ) -> Result<i32, LuceneError> {
+        let mut doc_id = i32::MAX;
+        let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
+        while reader.next()? {
+            let point_value_ref = reader.point_value();
+            let point_value = point_value_ref.borrow_mut();
+            let value = point_value.get_value();
+            let (packed_value_offset, _) = point_value.packed_value();
+            let offset = dimension * config.bytes_per_dim;
+            let data_offset = config.packed_index_bytes_length();
+            let data_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
+
+            let value_ref = value.borrow();
+            let dim_slice = &value_ref[(packed_value_offset + offset) as usize
+                ..(packed_value_offset + offset + config.bytes_per_dim) as usize];
+            let partition_slice = &partition_point[0..config.bytes_per_dim as usize];
+            let data_slice = &value_ref[(packed_value_offset + data_offset) as usize
+                ..(packed_value_offset + data_offset + data_length) as usize];
+            let data_dim_slice = &data_dim[0..data_length as usize];
+
+            if dim_slice == partition_slice && data_slice == data_dim_slice {
+                let new_doc_id = point_value.doc_id(&value_ref);
+                if new_doc_id < doc_id {
+                    doc_id = new_doc_id;
+                }
+            }
+        }
+        Ok(doc_id)
+    }
+
+    fn get_min_data_dimension<D: Directory>(
+        config: Rc<BKDConfig>,
+        p: &PathSlice<D>,
+        min_dim: &[u8],
+        split_dim: i32,
+    ) -> Result<Vec<u8>, LuceneError> {
+        let num_data_dims = config.num_dims - config.num_index_dims;
+        let size = (num_data_dims * config.bytes_per_dim) as usize;
+        let mut min = vec![0xffu8; size];
+        let offset = split_dim * config.bytes_per_dim;
+        let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
+        let mut value = vec![0u8; size];
+        while reader.next()? {
+            let point_value_ref = reader.point_value();
+            let point_value = point_value_ref.borrow_mut();
+            let (packed_value_offset, _) = point_value.packed_value();
+            let value_vec = point_value.get_value();
+            let start_idx = (packed_value_offset + offset) as usize;
+            let end_idx = (packed_value_offset + offset + config.bytes_per_dim) as usize;
+            let dim_slice = &value_vec.borrow()[start_idx..end_idx];
+            let min_dim_slice = &min_dim[0..config.bytes_per_dim as usize];
+            if min_dim_slice.cmp(dim_slice) == Less {
+                let copy_start =
+                    (packed_value_offset + config.num_index_dims * config.bytes_per_dim) as usize;
+                let copy_end = copy_start + size;
+                value.copy_from_slice(&value_vec.borrow()[copy_start..copy_end]);
+                if min_dim_slice.cmp(&value) == Greater {
+                    min.copy_from_slice(&value);
+                }
+            }
+        }
+        Ok(min)
+    }
+
+    fn get_max<D: Directory>(
+        config: Rc<BKDConfig>,
+        p: &PathSlice<D>,
+        dimension: i32,
+    ) -> Result<Vec<u8>, LuceneError> {
+        let size = config.bytes_per_dim as usize;
+        let mut max = vec![0u8; size];
+        let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
+        let mut value = vec![0u8; size];
+        while reader.next()? {
+            let point_value_ref = reader.point_value();
+            let point_value = point_value_ref.borrow_mut();
+            let (packed_value_offset, _) = point_value.packed_value();
+            let bytes_ref = point_value.get_value();
+            let start_idx = (packed_value_offset + dimension * config.bytes_per_dim) as usize;
+            let end_idx = start_idx + size;
+            value.copy_from_slice(&bytes_ref.borrow()[start_idx..end_idx]);
+            if max.cmp(&value) == std::cmp::Ordering::Less {
+                max.copy_from_slice(&value);
+            }
+        }
+        Ok(max)
+    }
+
+    fn get_max_data_dimension<D: Directory>(
+        config: Rc<BKDConfig>,
+        p: &PathSlice<D>,
+        max_dim: &[u8],
+        split_dim: i32,
+    ) -> Result<Vec<u8>, LuceneError> {
+        let num_data_dims = config.num_dims - config.num_index_dims;
+        let size = (num_data_dims * config.bytes_per_dim) as usize;
+        let mut max = vec![0u8; size];
+        let offset = split_dim * config.bytes_per_dim;
+        let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
+        let mut value = vec![0u8; size];
+        while reader.next()? {
+            let point_value_ref = reader.point_value();
+            let point_value = point_value_ref.borrow_mut();
+            let (packed_value_offset, _) = point_value.packed_value();
+            let value_vec = point_value.get_value();
+            let start_idx = (packed_value_offset + offset) as usize;
+            let end_idx = (packed_value_offset + offset + config.bytes_per_dim) as usize;
+            let dim_slice = &value_vec.borrow()[start_idx..end_idx];
+            let max_dim_slice = &max_dim[0..config.bytes_per_dim as usize];
+            if dim_slice.cmp(max_dim_slice) == std::cmp::Ordering::Less {
+                let copy_start =
+                    (packed_value_offset + config.packed_index_bytes_length()) as usize;
+                let copy_end = copy_start + size;
+                value.copy_from_slice(&value_vec.borrow()[copy_start..copy_end]);
+                if max.cmp(&value) == std::cmp::Ordering::Less {
+                    max.copy_from_slice(&value);
+                }
+            }
+        }
+        Ok(max)
+    }
+
+    fn get_max_doc_id<D: Directory>(
+        config: Rc<BKDConfig>,
+        p: &PathSlice<D>,
+        dimension: i32,
+        partition_point: &[u8],
+        data_dim: &[u8],
+    ) -> Result<i32, LuceneError> {
+        let mut doc_id = i32::MIN;
+        let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
+        while reader.next()? {
+            let point_value_ref = reader.point_value();
+            let point_value = point_value_ref.borrow_mut();
+            let value = point_value.get_value();
+            let (packed_value_offset, _) = point_value.packed_value();
+            let offset = dimension * config.bytes_per_dim;
+            let data_offset = config.packed_index_bytes_length();
+            let data_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
+
+            let dim_slice = &value.borrow()[(packed_value_offset + offset) as usize
+                ..(packed_value_offset + offset + config.bytes_per_dim) as usize];
+            let partition_slice = &partition_point[0..config.bytes_per_dim as usize];
+
+            let data_slice = &value.borrow()[(packed_value_offset + data_offset) as usize
+                ..(packed_value_offset + data_offset + data_length) as usize];
+            let data_dim_slice = &data_dim[0..data_length as usize];
+            if dim_slice == partition_slice && data_slice == data_dim_slice {
+                let new_doc_id = point_value.doc_id(&value.borrow());
+                if new_doc_id > doc_id {
+                    doc_id = new_doc_id;
+                }
+            }
+        }
+        Ok(doc_id)
+    }
+
+    fn get_random_config(random: &mut StdRng) -> Result<BKDConfig, LuceneError> {
+        let num_index_dims = TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
+        let num_dims = TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
+        let bytes_per_dim = TestUtil::next_int(random, 2, 30);
+        let max_points_in_leaf_node = TestUtil::next_int(random, 50, 2000);
+        BKDConfig::new(
+            num_dims,
+            num_index_dims,
+            bytes_per_dim,
+            max_points_in_leaf_node,
+        )
     }
 }

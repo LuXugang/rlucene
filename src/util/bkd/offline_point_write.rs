@@ -25,6 +25,7 @@ use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::LuceneError;
 use std::cell::RefCell;
 use std::rc::Rc;
+use byteorder::WriteBytesExt;
 
 /// Writes points to disk in a fixed-width format.
 ///
@@ -34,7 +35,7 @@ where
     D: Directory,
 {
     pub temp_dir: Rc<RefCell<D>>,
-    pub out: D::IndexOutputType,
+    pub out: Option<D::IndexOutputType>,
     pub name: String,
     pub config: Rc<BKDConfig>,
     pub count: i64,
@@ -62,7 +63,7 @@ where
         let name = out.get_name().to_string();
         Ok(OfflinePointWriter {
             temp_dir,
-            out,
+            out:Option::from(out),
             name,
             config,
             count: 0,
@@ -78,7 +79,7 @@ where
         reusable_buffer: Rc<RefCell<Vec<u8>>>,
     ) -> Result<PointReaderEnum<D>, LuceneError> {
         debug_assert!(
-            self.closed,
+            self.closed && self.out.is_none(),
             "point writer is still open and trying to get a reader"
         );
         debug_assert!(
@@ -110,13 +111,7 @@ where
     D: Directory,
 {
     fn drop(&mut self) {
-        debug_assert!(self.closed, "Point writer is not closed");
-        match CodecUtil::write_footer(&mut self.out) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Failed to write footer: {:?}", e);
-            }
-        };
+        self.close();
     }
 }
 
@@ -147,10 +142,9 @@ where
             packed_value.len()
         );
         debug_assert!(packed_value.len() <= i32::MAX as usize);
-        self.out
-            .write_bytes_range(packed_value, 0, packed_value.len() as i32)?;
-        // write bytes in big-endian order for comparing in lexicographically order
-        self.out.write_int(i32::to_be(doc_id))?;
+        let out = self.out.as_mut().unwrap();
+        out.write_bytes_range(packed_value, 0, packed_value.len() as i32)?;
+        out.write_int(i32::to_be(doc_id))?;
         self.count += 1;
         debug_assert!(
             self.expected_count == 0 || self.count <= self.expected_count,
@@ -171,7 +165,7 @@ where
             self.config.bytes_per_doc(),
             length
         );
-        self.out.write_bytes_range(
+        self.out.as_mut().unwrap().write_bytes_range(
             point_value.get_value().borrow_mut().as_slice(),
             offset,
             length,
@@ -205,5 +199,18 @@ where
 
     fn destroy(&mut self) -> Result<(), LuceneError> {
         self.temp_dir.borrow_mut().delete_file(&self.name)
+    }
+
+    fn close(&mut self) {
+        if !self.closed {
+            self.closed = true;
+            let mut out = self.out.take().unwrap();
+            match CodecUtil::write_footer(&mut out) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("Failed to write footer: {:?}", e);
+                }
+            };
+        }
     }
 }

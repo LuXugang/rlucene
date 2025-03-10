@@ -62,7 +62,7 @@ where
     {
         let bytes_per_doc = config.bytes_per_doc() as i64;
         let footer_length = CodecUtil::footer_length() as i64;
-        let file_length = temp_dir.borrow_mut().file_length(temp_file_name)?;
+        let file_length = temp_dir.borrow().file_length(temp_file_name)?;
         if ((start + length) * bytes_per_doc + footer_length) > file_length {
             return Err(LuceneError::illegal_argument(format!(
                 "requested slice is beyond the length of this file: start={} length={} bytesPerDoc={} fileLength={} tempFileName={}",

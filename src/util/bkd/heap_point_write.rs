@@ -30,7 +30,7 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 /// Utility class to write new points into in-heap arrays.
-pub struct HeapPointWriter<D> {
+pub struct HeapPointWriter<D> where D: Directory {
     pub block: Rc<RefCell<Vec<u8>>>,
     pub size: i32,
     pub config: Rc<BKDConfig>,
@@ -336,6 +336,10 @@ where
     fn destroy(&mut self) -> Result<(), LuceneError> {
         Ok(())
     }
+
+    fn close(&mut self) {
+        self.closed = true;
+    }
 }
 impl<D> Display for HeapPointWriter<D>
 where
@@ -347,6 +351,12 @@ where
             "HeapPointWriter(count={} size={})",
             self.next_write, self.size
         )
+    }
+}
+impl<D> Drop for HeapPointWriter<D> where D: Directory
+{
+    fn drop(&mut self) {
+        self.close();
     }
 }
 

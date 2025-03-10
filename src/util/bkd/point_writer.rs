@@ -43,6 +43,8 @@ pub trait PointWriter {
 
     /// Removes any temp files behind this writer
     fn destroy(&mut self) -> Result<(), LuceneError>;
+
+    fn close(&mut self);
 }
 
 pub enum PointWriterEnum<D>
@@ -93,6 +95,13 @@ where
         match self {
             PointWriterEnum::Offline(offline) => offline.destroy(),
             PointWriterEnum::Heap(heap) => heap.destroy(),
+        }
+    }
+
+    fn close(&mut self) {
+        match self {
+            PointWriterEnum::Offline(offline) => offline.close(),
+            PointWriterEnum::Heap(heap) => heap.close(),
         }
     }
 }
