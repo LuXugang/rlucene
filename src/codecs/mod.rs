@@ -28,6 +28,7 @@ pub mod lucene90;
 pub mod lucene90_live_docs_format;
 pub mod lucene94;
 pub mod lucene99_segment_info_format;
+pub mod mutable_point_tree;
 pub mod points_format;
 pub mod segment_info_format;
 pub mod simple_text_live_docs_format;

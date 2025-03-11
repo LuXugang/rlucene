@@ -285,7 +285,7 @@ pub trait IntroSelectorBaseDefault {
     /// Save the value at slot `i` so that it can later be used as a pivot.
     fn set_pivot(&mut self, i: i32);
     /// Compare the pivot with the slot at `j`, similarly to `compare(i, j)`.
-    fn compare_pivot(&self, j: i32) -> i32;
+    fn compare_pivot(&mut self, j: i32) -> i32;
     fn compare(&mut self, i: i32, j: i32) -> i32 {
         self.set_pivot(i);
         self.compare_pivot(j)
@@ -376,7 +376,7 @@ mod tests {
             self.pivot = self.actual[i as usize];
         }
 
-        fn compare_pivot(&self, j: i32) -> i32 {
+        fn compare_pivot(&mut self, j: i32) -> i32 {
             let result = self.pivot.cmp(&self.actual[j as usize]);
             match result {
                 std::cmp::Ordering::Less => -1,

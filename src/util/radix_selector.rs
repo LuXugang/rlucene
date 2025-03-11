@@ -331,7 +331,7 @@ where
         }
     }
 
-    fn compare_pivot(&self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> i32 {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
             let b2 = self.delegate_sorter.byte_at(j, self.d + o);

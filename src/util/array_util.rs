@@ -529,7 +529,7 @@ where
         self.pivot = i;
     }
 
-    fn compare_pivot(&self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> i32 {
         self.comparator
             .compare(&self.arr[self.pivot as usize], &self.arr[j as usize])
     }

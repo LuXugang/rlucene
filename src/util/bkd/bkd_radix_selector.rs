@@ -982,7 +982,7 @@ where
         }
     }
 
-    fn compare_pivot(&self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> i32 {
         let points = self.points.borrow();
         match &*points {
             PointWriterEnum::Heap(heap_writer) => {
