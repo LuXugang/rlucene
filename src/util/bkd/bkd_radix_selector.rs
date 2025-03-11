@@ -221,14 +221,15 @@ where
             let point_value = point_value_ref.borrow();
             let value = point_value.get_value();
             let (packed_value_offset, length) = point_value.packed_value_doc_id_bytes();
+
             let mut start = (packed_value_offset + offset) as usize;
             let mut end = start + self.config.get_bytes_per_dim() as usize;
             self.scratch.copy_from(&value.borrow()[start..end], 0);
+
             start = (packed_value_offset + self.config.packed_index_bytes_length()) as usize;
             end = start
-                + (self.config.get_num_dims()
-                    - self.config.get_num_index_dims() * self.config.get_bytes_per_dim())
-                    as usize
+                + ((self.config.get_num_dims() - self.config.get_num_index_dims())
+                    * self.config.get_bytes_per_dim()) as usize
                 + BitUtil::INT_BYTES;
             self.scratch.copy_from(
                 &value.borrow()[start..end],
@@ -1052,7 +1053,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::store::directory::Directory;
-    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::test::util::lucene_test_case::{at_least, new_directory, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_util::BitUtil;
     use crate::util::bkd::bkd_config::BKDConfig;
@@ -1115,6 +1116,234 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_random_binary_tiny() -> Result<(), LuceneError> {
+        let mut random = random();
+        do_test_random_binary(&mut random, 10)
+    }
+
+    #[test]
+    fn test_random_binary_medium() -> Result<(), LuceneError> {
+        let mut random = random();
+        do_test_random_binary(&mut random, 25000)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_random_binary_big() -> Result<(), LuceneError> {
+        let mut random = random();
+        do_test_random_binary(&mut random, 500000)
+    }
+    fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<(), LuceneError> {
+        let config = get_random_config(random)?;
+        let packed_bytes_length = config.packed_bytes_length();
+        let config = Rc::new(config);
+        let values = TestUtil::next_int(random, count, count * 2);
+        let dir = Rc::new(RefCell::new(new_directory(random)?));
+        let (start, end) = if random.random_bool(0.5) {
+            (0, values)
+        } else {
+            let start = TestUtil::next_int(random, 0, values - 3);
+            let end = TestUtil::next_int(random, start + 2, values);
+            (start, end)
+        };
+        let partition_point = TestUtil::next_int(random, start + 1, end - 1);
+        let sorted_on_heap = random.random_range(0..5000);
+        let mut points =
+            get_random_point_writer(random, config.clone(), dir.clone(), values as i64)?;
+        let mut value = vec![0u8; packed_bytes_length as usize];
+        for i in 0..values {
+            random.fill(&mut value[..]);
+            points.append_bytes(&value, i)?;
+        }
+        points.close();
+        verify(
+            random,
+            config,
+            dir.clone(),
+            &mut points,
+            start as i64,
+            end as i64,
+            partition_point as i64,
+            sorted_on_heap,
+        )?;
+        Ok(())
+    }
+    #[test]
+    fn test_random_all_dimensions_equals() -> Result<(), LuceneError> {
+        let mut random = random();
+        let dimensions = TestUtil::next_int(&mut random, 1, BKDConfig::MAX_INDEX_DIMS);
+        let bytes_per_dimensions = TestUtil::next_int(&mut random, 2, 30);
+        let config = Rc::new(BKDConfig::new(
+            dimensions,
+            dimensions,
+            bytes_per_dimensions,
+            BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+        )?);
+        let values = TestUtil::next_int(&mut random, 15000, 20000);
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let partition_point = random.random_range(0..values);
+        let sorted_on_heap = random.random_range(0..5000);
+        let mut points =
+            get_random_point_writer(&mut random, config.clone(), dir.clone(), values as i64)?;
+        let mut value = vec![0u8; config.packed_bytes_length() as usize];
+        random.fill(&mut value[..]);
+        for i in 0..values {
+            if random.random_bool(0.5) {
+                points.append_bytes(&value, i)?;
+            } else {
+                points.append_bytes(&value, random.random_range(0..values))?;
+            }
+        }
+        points.close();
+        verify(
+            &mut random,
+            config.clone(),
+            dir.clone(),
+            &mut points,
+            0,
+            values as i64,
+            partition_point as i64,
+            sorted_on_heap,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_last_byte_two_values() -> Result<(), LuceneError> {
+        let mut random = random();
+        let values = random.random_range(1..=15000);
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let partition_point = random.random_range(0..values);
+        let sorted_on_heap = random.random_range(0..5000);
+        let config = Rc::new(get_random_config(&mut random)?);
+        let mut points =
+            get_random_point_writer(&mut random, config.clone(), dir.clone(), values as i64)?;
+        let mut value = vec![0u8; config.packed_bytes_length() as usize];
+        random.fill(&mut value[..]);
+        for i in 0..values {
+            if random.random_bool(0.5) {
+                points.append_bytes(&value, 1)?;
+            } else {
+                points.append_bytes(&value, 2)?;
+            }
+        }
+        points.close();
+        verify(
+            &mut random,
+            config,
+            dir.clone(),
+            &mut points,
+            0,
+            values as i64,
+            partition_point as i64,
+            sorted_on_heap,
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_all_docs_equals() -> Result<(), LuceneError> {
+        let mut random = random();
+        let values = random.random_range(1..=15000);
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let partition_point = random.random_range(0..values);
+        let sorted_on_heap = random.random_range(0..5000);
+        let config = Rc::new(get_random_config(&mut random)?);
+        let mut points =
+            get_random_point_writer(&mut random, config.clone(), dir.clone(), values as i64)?;
+        let mut value = vec![0u8; config.packed_bytes_length() as usize];
+        random.fill(&mut value[..]);
+        for i in 0..values {
+            points.append_bytes(&value, 0)?;
+        }
+        points.close();
+        verify(
+            &mut random,
+            config,
+            dir.clone(),
+            &mut points,
+            0,
+            values as i64,
+            partition_point as i64,
+            sorted_on_heap,
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_few_different_values() -> Result<(), LuceneError> {
+        let mut random = random();
+        let config = Rc::new(get_random_config(&mut random)?);
+        let values = at_least(&mut random, 15000);
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let partition_point = random.random_range(0..values);
+        let sorted_on_heap = random.random_range(0..5000);
+        let mut points =
+            get_random_point_writer(&mut random, config.clone(), dir.clone(), values as i64)?;
+        let number_values = random.random_range(2..=9);
+        let mut different_values = Vec::with_capacity(number_values as usize);
+        for _ in 0..number_values {
+            let mut buf = vec![0u8; config.packed_bytes_length() as usize];
+            random.fill(&mut buf[..]);
+            different_values.push(buf);
+        }
+        for i in 0..values {
+            let idx = random.random_range(0..number_values) as usize;
+            points.append_bytes(&different_values[idx], i)?;
+        }
+        points.close();
+        verify(
+            &mut random,
+            config,
+            dir.clone(),
+            &mut points,
+            0,
+            values as i64,
+            partition_point as i64,
+            sorted_on_heap,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_data_dim_diff_values() -> Result<(), LuceneError> {
+        let mut random = random();
+        let config = Rc::new(get_random_config(&mut random)?);
+        let values = at_least(&mut random, 15000);
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let partition_point = random.random_range(0..values);
+        let sorted_on_heap = random.random_range(0..5000);
+        let mut points =
+            get_random_point_writer(&mut random, config.clone(), dir.clone(), values as i64)?;
+        let mut value = vec![0u8; config.packed_bytes_length() as usize];
+        let data_only_dims = config.num_dims - config.num_index_dims;
+        let data_value_len = (data_only_dims * config.bytes_per_dim) as usize;
+        let mut data_value = vec![0u8; data_value_len];
+        random.fill(&mut value[..]);
+        for i in 0..values {
+            random.fill(&mut data_value[..]);
+            let start = (config.num_index_dims * config.bytes_per_dim) as usize;
+            let end = start + data_value_len;
+            value[start..end].copy_from_slice(&data_value);
+            points.append_bytes(&value, i)?;
+        }
+        points.close();
+        verify(
+            &mut random,
+            config,
+            dir.clone(),
+            &mut points,
+            0,
+            values as i64,
+            partition_point as i64,
+            sorted_on_heap,
+        )?;
+
+        Ok(())
+    }
     #[allow(clippy::too_many_arguments)]
     fn verify<D: Directory>(
         random: &mut StdRng,
@@ -1182,18 +1411,18 @@ mod tests {
                     get_max_data_dimension(config.clone(), &slices[0], &max, split_dim)?;
                 let min_data_dim =
                     get_min_data_dimension(config.clone(), &slices[1], &min, split_dim)?;
-                let cmp2 = compare_unsigned(
+                let cmp = compare_unsigned(
                     &max_data_dim,
                     (data_only_dims * config.bytes_per_dim) as usize,
                     &min_data_dim,
                     (data_only_dims * config.bytes_per_dim) as usize,
                 );
                 assert!(
-                    cmp2 <= 0,
+                    cmp <= 0,
                     "Expected left slice data dims max <= right slice data dims min; got {}",
-                    cmp2
+                    cmp
                 );
-                if cmp2 == 0 {
+                if cmp == 0 {
                     let max_doc_id = get_max_doc_id(
                         config.clone(),
                         &slices[0],
@@ -1228,11 +1457,10 @@ mod tests {
     }
 
     fn compare_unsigned(a: &[u8], len_a: usize, b: &[u8], len_b: usize) -> i32 {
-        use std::cmp::Ordering;
         match a[..len_a].cmp(&b[..len_b]) {
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-            Ordering::Greater => 1,
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
         }
     }
 
@@ -1297,6 +1525,9 @@ mod tests {
                 config, dir, "test", "test", num_points,
             )?))
         }
+    }
+    fn get_directory(_num_points: i32) {
+        // TODO
     }
 
     fn get_min<D: Directory>(
@@ -1437,11 +1668,12 @@ mod tests {
             let point_value = point_value_ref.borrow_mut();
             let (packed_value_offset, _) = point_value.packed_value();
             let value_vec = point_value.get_value();
+
             let start_idx = (packed_value_offset + offset) as usize;
-            let end_idx = (packed_value_offset + offset + config.bytes_per_dim) as usize;
+            let end_idx = start_idx + config.bytes_per_dim as usize;
             let dim_slice = &value_vec.borrow()[start_idx..end_idx];
             let max_dim_slice = &max_dim[0..config.bytes_per_dim as usize];
-            if dim_slice.cmp(max_dim_slice) == std::cmp::Ordering::Less {
+            if max_dim_slice.cmp(dim_slice) == std::cmp::Ordering::Less {
                 let copy_start =
                     (packed_value_offset + config.packed_index_bytes_length()) as usize;
                 let copy_end = copy_start + size;

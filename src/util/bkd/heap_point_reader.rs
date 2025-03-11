@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct HeapPointReader {
-    points: Rc<RefCell<PointValueEnum>>,
+    points: Option<Rc<RefCell<PointValueEnum>>>,
     cur_read: i32,
     end: i32,
     bytes_per_doc: i32,
@@ -29,7 +29,7 @@ pub struct HeapPointReader {
 
 impl HeapPointReader {
     pub fn new(
-        get_slice: Rc<RefCell<PointValueEnum>>,
+        get_slice: Option<Rc<RefCell<PointValueEnum>>>,
         start: i32,
         end: i32,
         bytes_per_doc: i32,
@@ -49,9 +49,12 @@ impl PointReader for HeapPointReader {
     }
 
     fn point_value(&self) -> Rc<RefCell<PointValueEnum>> {
+        debug_assert!(self.points.is_some());
         self.points
+            .as_ref()
+            .unwrap()
             .borrow_mut()
             .set_offset(self.bytes_per_doc * self.cur_read);
-        self.points.clone()
+        self.points.as_ref().unwrap().clone()
     }
 }

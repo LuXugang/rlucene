@@ -284,8 +284,10 @@ where
             length
         );
         let position = self.next_write * self.config.bytes_per_doc();
-        self.block.borrow_mut().copy_within(
-            offset as usize..(offset + self.config.bytes_per_doc()) as usize,
+        let packed_value = point_value.get_value();
+        self.block.borrow_mut().copy_from(
+            &packed_value.borrow()
+                [offset as usize..(offset + self.config.bytes_per_doc()) as usize],
             position as usize,
         );
         self.next_write += 1;
@@ -324,8 +326,13 @@ where
                 i32::MAX
             )));
         }
+        let point_value = if self.point_value.is_some() {
+            Some(self.point_value.as_ref().unwrap().clone())
+        } else {
+            None
+        };
         Ok(PointReaderEnum::Heap(HeapPointReader::new(
-            self.point_value.as_ref().unwrap().clone(),
+            point_value,
             start as i32,
             value as i32,
             self.config.bytes_per_doc(),
