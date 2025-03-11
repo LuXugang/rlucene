@@ -96,7 +96,7 @@ where
         let index_j = bytes_per_doc * j as usize;
         let mut block = self.block.borrow_mut();
         self.scratch
-            .copy_from(&mut block[index_i..index_i + bytes_per_doc], 0);
+            .copy_from(&block[index_i..index_i + bytes_per_doc], 0);
         block.copy_within(index_j..index_j + bytes_per_doc, index_i);
         block.copy_from(&self.scratch, index_j);
     }
