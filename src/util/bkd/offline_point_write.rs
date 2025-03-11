@@ -27,8 +27,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Writes points to disk in a fixed-width format.
-///
-/// @lucene.internal
 pub struct OfflinePointWriter<D>
 where
     D: Directory,
