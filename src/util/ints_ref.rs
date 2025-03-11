@@ -160,7 +160,7 @@ impl Hash for IntsRef {
     }
 }
 impl Comparator<IntsRef> for IntsRef {
-    const TYPE: &'static str = "COMPARATOR_TYPE";
+    const TYPE: &'static str = "IntsRefComparator";
 
     fn compare(&self, a: &IntsRef, b: &IntsRef) -> i32 {
         let a_ints = a.ints.borrow();
