@@ -125,32 +125,39 @@ where
         dim_common_prefix: i32,
     ) -> Result<Vec<u8>, LuceneError> {
         Self::check_args(from, to, partition_point)?;
-        debug_assert!(
-            partition_slices.len() <=1,
-        );
+        debug_assert!(partition_slices.len() <= 1,);
         partition_slices.clear();
-        let result;
-        match &mut *points.writer.borrow_mut() {
-            PointWriterEnum::Heap(_) => {
-                let partition = self.heap_radix_select(
-                    points.writer.clone(),
-                    dim,
-                    from as i32,
-                    to as i32,
-                    partition_point as i32,
-                    dim_common_prefix,
-                )?;
-                partition_slices.push(
-                    PathSlice::new(points.writer.clone(), from, partition_point - from));
-                partition_slices.push(
-                    PathSlice::new(points.writer.clone(), partition_point, to - partition_point));
-                result = partition;
-            }
-            PointWriterEnum::Offline(offline_point_writer) => {
-                let mut left =
-                    self.get_point_writer(partition_point - from, &format!("left{}", dim))?;
-                let mut right =
-                    self.get_point_writer(to - partition_point, &format!("right{}", dim))?;
+        let is_heap = {
+            let writer = points.writer.borrow();
+            matches!(*writer, PointWriterEnum::Heap(_))
+        };
+        if is_heap {
+            let partition = self.heap_radix_select(
+                points.writer.clone(),
+                dim,
+                from as i32,
+                to as i32,
+                partition_point as i32,
+                dim_common_prefix,
+            )?;
+            partition_slices.push(PathSlice::new(
+                points.writer.clone(),
+                from,
+                partition_point - from,
+            ));
+            partition_slices.push(PathSlice::new(
+                points.writer.clone(),
+                partition_point,
+                to - partition_point,
+            ));
+            Ok(partition)
+        } else {
+            let mut left =
+                self.get_point_writer(partition_point - from, &format!("left{}", dim))?;
+            let mut right =
+                self.get_point_writer(to - partition_point, &format!("right{}", dim))?;
+            let mut writer = points.writer.borrow_mut();
+            if let PointWriterEnum::Offline(offline_point_writer) = &mut *writer {
                 let partition = self.build_histogram_and_partition(
                     offline_point_writer,
                     &mut left,
@@ -164,14 +171,21 @@ where
                 )?;
                 left.close();
                 right.close();
-                partition_slices.push(
-                    PathSlice::new(Rc::new(RefCell::new(left)), 0, partition_point - from));
-                partition_slices.push(
-                    PathSlice::new(Rc::new(RefCell::new(right)), 0, to - partition_point));
-                result = partition;
+                partition_slices.push(PathSlice::new(
+                    Rc::new(RefCell::new(left)),
+                    0,
+                    partition_point - from,
+                ));
+                partition_slices.push(PathSlice::new(
+                    Rc::new(RefCell::new(right)),
+                    0,
+                    to - partition_point,
+                ));
+                Ok(partition)
+            } else {
+                Err(LuceneError::unreachable("should not be here"))
             }
-        };
-        Ok(result)
+        }
     }
 
     fn check_args(from: i64, to: i64, partition_point: i64) -> Result<(), LuceneError> {
@@ -213,8 +227,8 @@ where
             start = (packed_value_offset + self.config.packed_index_bytes_length()) as usize;
             end = start
                 + (self.config.get_num_dims()
-                - self.config.get_num_index_dims() * self.config.get_bytes_per_dim())
-                as usize
+                    - self.config.get_num_index_dims() * self.config.get_bytes_per_dim())
+                    as usize
                 + BitUtil::INT_BYTES;
             self.scratch.copy_from(
                 &value.borrow()[start..end],
@@ -225,11 +239,13 @@ where
         for i in (from + 1)..to {
             reader.next()?;
             if common_prefix_position == dim_common_prefix {
-                let point_value_ref = reader.point_value();
-                let point_value = point_value_ref.borrow();
-                histogram_index =
-                    self.get_bucket(offset, common_prefix_position, &point_value) as usize;
-                self.histogram[histogram_index] += 1;
+                {
+                    let point_value_ref = reader.point_value();
+                    let point_value = point_value_ref.borrow();
+                    histogram_index =
+                        self.get_bucket(offset, common_prefix_position, &point_value) as usize;
+                    self.histogram[histogram_index] += 1;
+                }
                 for _ in (i + 1)..to {
                     reader.next()?;
                     let point_value_ref = reader.point_value();
@@ -1054,7 +1070,6 @@ mod tests {
     use std::cell::RefCell;
     use std::cmp::Ordering::{Greater, Less};
     use std::rc::Rc;
-    
 
     #[test]
     fn test_basic() -> Result<(), LuceneError> {

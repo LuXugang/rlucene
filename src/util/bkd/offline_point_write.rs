@@ -23,9 +23,9 @@ use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::LuceneError;
+use byteorder::WriteBytesExt;
 use std::cell::RefCell;
 use std::rc::Rc;
-use byteorder::WriteBytesExt;
 
 /// Writes points to disk in a fixed-width format.
 ///
@@ -63,7 +63,7 @@ where
         let name = out.get_name().to_string();
         Ok(OfflinePointWriter {
             temp_dir,
-            out:Option::from(out),
+            out: Option::from(out),
             name,
             config,
             count: 0,
