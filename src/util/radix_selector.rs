@@ -167,8 +167,11 @@ where
     ) -> i32 {
         let common_prefix = &mut self.common_prefix;
         let mut i = from + 1;
-        'outer: for current in (from + 1)..to {
+        'outer: for current in (from + 1)..=to {
             i = current;
+            if i == to {
+                break;
+            }
             for j in 0..common_prefix_length {
                 let b = self.sub_selector.byte_at(current, k + j);
                 if b != common_prefix[j as usize] {
