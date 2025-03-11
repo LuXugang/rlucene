@@ -1072,6 +1072,9 @@ mod tests {
     use std::cmp::Ordering::{Greater, Less};
     use std::rc::Rc;
 
+    #[allow(dead_code)] // for quick search
+    struct TestBKDRadixSelector;
+
     #[test]
     fn test_basic() -> Result<(), LuceneError> {
         let mut random = random();
@@ -1128,8 +1131,8 @@ mod tests {
         do_test_random_binary(&mut random, 25000)
     }
 
+    // TODO:: nightly?
     #[test]
-    #[ignore]
     fn test_random_binary_big() -> Result<(), LuceneError> {
         let mut random = random();
         do_test_random_binary(&mut random, 500000)
