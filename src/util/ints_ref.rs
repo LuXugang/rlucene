@@ -22,6 +22,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 /// Represents int[], as a slice (offset + length) into an existing int[].
+#[derive(Debug)]
 pub struct IntsRef {
     /// The contents of the IntsRef
     pub ints: Rc<RefCell<Vec<i32>>>,
@@ -186,5 +187,46 @@ impl Display for IntsRef {
             write!(f, "{:x}", value)?;
         }
         write!(f, "]")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::util::ints_ref::IntsRef;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestIntsRef;
+    #[test]
+    fn test_empty() {
+        let i = IntsRef::new();
+        assert!(i.ints.borrow().is_empty());
+        assert_eq!(0, i.offset);
+        assert_eq!(0, i.length);
+    }
+
+    #[test]
+    fn test_from_ints() {
+        let ints = vec![1, 2, 3, 4];
+        let rc_ints = Rc::new(RefCell::new(ints.clone()));
+        let i = IntsRef::from_ints(rc_ints.clone(), 0, 4);
+        assert_eq!(ints, *i.ints.borrow());
+        assert_eq!(0, i.offset);
+        assert_eq!(4, i.length);
+
+        let i2 = IntsRef::from_ints(rc_ints.clone(), 1, 3);
+        let expected = IntsRef::from_ints(Rc::new(RefCell::new(vec![2, 3, 4])), 0, 3);
+        assert_eq!(expected, i2);
+        assert_ne!(i, i2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_invalid_deep_copy() {
+        let rc_ints = Rc::new(RefCell::new(vec![1, 2]));
+        let mut from = IntsRef::from_ints(rc_ints, 0, 2);
+        from.offset += 1; // now invalid
+        let _ = IntsRef::deep_copy_of(&from);
     }
 }
