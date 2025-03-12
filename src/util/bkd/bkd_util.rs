@@ -138,3 +138,166 @@ impl ByteArrayPredicate for ByteArrayPredicateEnum {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::bit_util::BitUtil;
+    use crate::util::bkd::bkd_util::BKDUtil;
+    use rand::Rng;
+    #[allow(dead_code)] // for quick search
+    struct TestBKDUtil;
+
+    #[test]
+    fn test_equals4() {
+        let mut random = random();
+        let a_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
+        let b_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
+
+        let mut a = vec![0u8; BitUtil::INT_BYTES + a_offset];
+        let mut b = vec![0u8; BitUtil::INT_BYTES + b_offset];
+
+        for i in 0..BitUtil::INT_BYTES {
+            a[a_offset + i] = random.random();
+        }
+        b[b_offset..b_offset + 4].copy_from_slice(&a[a_offset..a_offset + 4]);
+
+        assert!(BKDUtil::equals4(&a, a_offset, &b, b_offset));
+
+        for i in 0..BitUtil::INT_BYTES {
+            loop {
+                let random_byte: u8 = random.random();
+                if random_byte != a[a_offset + i] {
+                    b[b_offset + i] = random_byte;
+                    break;
+                }
+            }
+            assert!(!BKDUtil::equals4(&a, a_offset, &b, b_offset));
+            b[b_offset + i] = a[a_offset + i];
+        }
+    }
+    #[test]
+    fn test_equals8() {
+        let mut random = random();
+        let a_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
+        let b_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
+        let mut a = vec![0u8; BitUtil::LONG_BYTES + a_offset];
+        let mut b = vec![0u8; BitUtil::LONG_BYTES + b_offset];
+
+        for i in 0..BitUtil::LONG_BYTES {
+            a[a_offset + i] = random.random();
+        }
+        b[b_offset..b_offset + 8].copy_from_slice(&a[a_offset..a_offset + 8]);
+
+        assert!(BKDUtil::equals8(&a, a_offset, &b, b_offset));
+
+        for i in 0..BitUtil::LONG_BYTES {
+            loop {
+                let random_byte: u8 = random.random();
+                if random_byte != a[a_offset + i] {
+                    b[b_offset + i] = random_byte;
+                    break;
+                }
+            }
+            assert!(!BKDUtil::equals8(&a, a_offset, &b, b_offset));
+            b[b_offset + i] = a[a_offset + i];
+        }
+    }
+
+    #[test]
+    fn test_common_prefix_length4() {
+        let mut random = random();
+        let a_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
+        let b_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
+        let mut a = vec![0u8; BitUtil::INT_BYTES + a_offset];
+        let mut b = vec![0u8; BitUtil::INT_BYTES + b_offset];
+
+        for i in 0..BitUtil::INT_BYTES {
+            a[a_offset + i] = random.random();
+            loop {
+                let random_byte: u8 = random.random();
+                if random_byte != a[a_offset + i] {
+                    b[b_offset + i] = random_byte;
+                    break;
+                }
+            }
+        }
+
+        for i in 0..BitUtil::INT_BYTES {
+            assert_eq!(
+                i as i32,
+                BKDUtil::common_prefix_length4(&a, a_offset, &b, b_offset)
+            );
+            b[b_offset + i] = a[a_offset + i];
+        }
+        assert_eq!(
+            4,
+            BKDUtil::common_prefix_length4(&a, a_offset, &b, b_offset)
+        );
+    }
+
+    #[test]
+    fn test_common_prefix_length8() {
+        let mut random = random();
+        let a_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
+        let b_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
+        let mut a = vec![0u8; BitUtil::LONG_BYTES + a_offset];
+        let mut b = vec![0u8; BitUtil::LONG_BYTES + b_offset];
+
+        for i in 0..BitUtil::LONG_BYTES {
+            a[a_offset + i] = random.random();
+            loop {
+                let random_byte: u8 = random.random();
+                if random_byte != a[a_offset + i] {
+                    b[b_offset + i] = random_byte;
+                    break;
+                }
+            }
+        }
+
+        for i in 0..BitUtil::LONG_BYTES {
+            assert_eq!(
+                i as i32,
+                BKDUtil::common_prefix_length8(&a, a_offset, &b, b_offset)
+            );
+            b[b_offset + i] = a[a_offset + i];
+        }
+        assert_eq!(
+            8,
+            BKDUtil::common_prefix_length8(&a, a_offset, &b, b_offset)
+        );
+    }
+
+    #[test]
+    fn test_common_prefix_length_n() {
+        let mut random = random();
+        let num_bytes = TestUtil::next_int(&mut random, 2, 16) as usize;
+        let a_offset = TestUtil::next_int(&mut random, 0, num_bytes as i32 - 1) as usize;
+        let b_offset = TestUtil::next_int(&mut random, 0, num_bytes as i32 - 1) as usize;
+        let mut a = vec![0u8; num_bytes + a_offset];
+        let mut b = vec![0u8; num_bytes + b_offset];
+
+        for i in 0..num_bytes {
+            a[a_offset + i] = random.random();
+            loop {
+                let random_byte: u8 = random.random();
+                if random_byte != a[a_offset + i] {
+                    b[b_offset + i] = random_byte;
+                    break;
+                }
+            }
+        }
+
+        for i in 0..num_bytes {
+            assert_eq!(
+                i as i32,
+                BKDUtil::common_prefix_length_n(&a, a_offset, &b, b_offset, num_bytes)
+            );
+            b[b_offset + i] = a[a_offset + i];
+        }
+        assert_eq!(
+            num_bytes as i32,
+            BKDUtil::common_prefix_length_n(&a, a_offset, &b, b_offset, num_bytes)
+        );
+    }
+}
