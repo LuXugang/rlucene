@@ -23,10 +23,6 @@ use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
 use crate::util::access::Access;
-#[cfg(test)]
-use crate::util::allocator_byte::AllocatorByteEnum;
-#[cfg(test)]
-use crate::util::allocator_byte::DirectAllocatorByte;
 use crate::util::bytes_ref_hash::{
     BytesRefHash, BytesStartArray, BytesStartArrayEnum, STBytesRefHash,
 };
@@ -35,8 +31,6 @@ use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum};
 use std::cell::RefCell;
 use std::rc::Rc;
-#[cfg(test)]
-use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, Mutex};
 
 /// This class stores streams of information per term without knowing the size of the stream ahead of
@@ -573,162 +567,16 @@ impl TermsHashPerFieldType {
     }
 }
 
+
 #[cfg(test)]
-pub(crate) struct TermsHashPerFieldMock {
-    pub(crate) postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
-    pub(crate) parent_per_field: TermsHashPerField,
-    new_called: AtomicI64,
-    add_called: AtomicI64,
-}
-#[cfg(test)]
-impl TermsHashPerFieldMock {
-    #[allow(clippy::new_ret_no_self)]
-    pub(crate) fn new(
-        new_called: AtomicI64,
-        add_called: AtomicI64,
-    ) -> Result<TermsHashPerFieldEnum, LuceneError> {
-        let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
-
-        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let byte_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-        let allocator1 = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let term_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
-        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-
-        let postings_array_wrapper = Rc::new(RefCell::new(PostingsArrayWrapper::new(
-            TermsHashPerFieldType::Mock,
-        )));
-
-        let parent_per_filed = TermsHashPerField::new(
-            1,
-            int_block_pool.clone(),
-            byte_block_pool.clone(),
-            term_block_pool,
-            bytes_used,
-            None,
-            "field_name".to_string(),
-            IndexOptions::DocsAndFreqs,
-            postings_array_wrapper.clone(),
-        )?;
-        Ok(TermsHashPerFieldEnum::Mock(TermsHashPerFieldMock {
-            postings_array_wrapper,
-            parent_per_field: parent_per_filed,
-            new_called,
-            add_called,
-        }))
-    }
-}
-#[cfg(test)]
-impl TermsHashPerFieldBase for TermsHashPerFieldMock {
-    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
-        self.parent_per_field.init_stream_slices(term_id, doc_id)?;
-        self.new_term(term_id, doc_id)
-    }
-
-    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
-        let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
-        self.add_term(term_id, doc_id)?;
-        Ok(term_id)
-    }
-
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
-        self.parent_per_field.start(field, first)
-    }
-
-    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
-        self.new_called
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        let term_id = term_id as usize;
-        let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
-        debug_assert!(postings_array_wrapper.postings_array.is_some());
-        match &mut postings_array_wrapper.postings_array {
-            Some(postings_array) => match postings_array {
-                PostingsArrayEnum::FreqProx(f) => {
-                    f.last_doc_ids[term_id] = doc_id;
-                    f.last_doc_codes[term_id] = doc_id << 1;
-                    match &mut f.term_freqs {
-                        Some(term_freqs) => {
-                            term_freqs[term_id] = 1;
-                        }
-                        None => unreachable!(),
-                    }
-                    Ok(())
-                }
-                _ => unreachable!(),
-            },
-            None => {
-                unreachable!()
-            }
-        }
-    }
-
-    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
-        self.add_called
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        let term_id = term_id as usize;
-        let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
-        debug_assert!(postings_array_wrapper.postings_array.is_some());
-        match &mut postings_array_wrapper.postings_array {
-            Some(postings_array) => match postings_array {
-                PostingsArrayEnum::FreqProx(postings) => {
-                    if doc_id != postings.last_doc_ids[term_id] {
-                        match &mut postings.term_freqs {
-                            Some(term_freqs) => {
-                                if 1 == term_freqs[term_id] {
-                                    self.parent_per_field
-                                        .write_vint(0, postings.last_doc_codes[term_id] | 1)?;
-                                } else {
-                                    self.parent_per_field
-                                        .write_vint(0, postings.last_doc_codes[term_id])?;
-                                    self.parent_per_field.write_vint(0, term_freqs[term_id])?;
-                                }
-                                term_freqs[term_id] = 1;
-                            }
-                            None => unreachable!(),
-                        }
-                        postings.last_doc_codes[term_id] =
-                            (doc_id - postings.last_doc_ids[term_id]) << 1;
-                        postings.last_doc_ids[term_id] = doc_id;
-                        Ok(())
-                    } else {
-                        match &mut postings.term_freqs {
-                            Some(term_freqs) => {
-                                let value = term_freqs[term_id] as i64 + 1;
-                                if value > i32::MAX as i64 {
-                                    return Err(LuceneError::integer_overflow(
-                                        "term_freqs".to_string(),
-                                    ));
-                                }
-                                term_freqs[term_id] += 1;
-                                Ok(())
-                            }
-                            None => unreachable!(),
-                        }
-                    }
-                }
-                _ => unreachable!(),
-            },
-            None => {
-                unreachable!()
-            }
-        }
-    }
-
-    fn finish(&mut self) {
-        self.parent_per_field.finish()
-    }
-}
-#[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
     use crate::index::byte_slice_reader::ByteSliceReader;
     use std::cell::RefCell;
 
     use crate::index::parallel_postings_array::PostingsArrayEnum;
-    use crate::index::terms_hash_per_field::{
-        PostingsArrayWrapper, TermsHashPerFieldBase, TermsHashPerFieldMock,
-    };
+    use crate::index::terms_hash_per_field::{PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType};
     use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
     use crate::index::BytesRef;
     use crate::store::DataInput;
@@ -741,6 +589,10 @@ mod tests {
     use std::collections::{BTreeMap, HashMap};
     use std::rc::Rc;
     use std::sync::atomic::{AtomicI64, Ordering};
+    use crate::index::index_options::IndexOptions;
+    use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+    use crate::util::{ByteBlockPool, CounterEnum};
+    use crate::util::int_block_pool::IntBlockPool;
 
     #[allow(dead_code)] // for quick search
     struct TestTermsHashPerField;
@@ -1105,5 +957,148 @@ mod tests {
             }
         }
         Ok(())
+    }
+
+    pub(crate) struct TermsHashPerFieldMock {
+        pub(crate) postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
+        pub(crate) parent_per_field: TermsHashPerField,
+        new_called: AtomicI64,
+        add_called: AtomicI64,
+    }
+    impl TermsHashPerFieldMock {
+        #[allow(clippy::new_ret_no_self)]
+        pub(crate) fn new(
+            new_called: AtomicI64,
+            add_called: AtomicI64,
+        ) -> Result<TermsHashPerFieldEnum, LuceneError> {
+            let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
+
+            let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+            let byte_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
+            let allocator1 = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+            let term_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
+            let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+
+            let postings_array_wrapper = Rc::new(RefCell::new(PostingsArrayWrapper::new(
+                TermsHashPerFieldType::Mock,
+            )));
+
+            let parent_per_filed = TermsHashPerField::new(
+                1,
+                int_block_pool.clone(),
+                byte_block_pool.clone(),
+                term_block_pool,
+                bytes_used,
+                None,
+                "field_name".to_string(),
+                IndexOptions::DocsAndFreqs,
+                postings_array_wrapper.clone(),
+            )?;
+            Ok(TermsHashPerFieldEnum::Mock(TermsHashPerFieldMock {
+                postings_array_wrapper,
+                parent_per_field: parent_per_filed,
+                new_called,
+                add_called,
+            }))
+        }
+    }
+    impl TermsHashPerFieldBase for TermsHashPerFieldMock {
+        fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+            self.parent_per_field.init_stream_slices(term_id, doc_id)?;
+            self.new_term(term_id, doc_id)
+        }
+
+        fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
+            let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
+            self.add_term(term_id, doc_id)?;
+            Ok(term_id)
+        }
+
+        fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
+            self.parent_per_field.start(field, first)
+        }
+
+        fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+            self.new_called
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let term_id = term_id as usize;
+            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+            debug_assert!(postings_array_wrapper.postings_array.is_some());
+            match &mut postings_array_wrapper.postings_array {
+                Some(postings_array) => match postings_array {
+                    PostingsArrayEnum::FreqProx(f) => {
+                        f.last_doc_ids[term_id] = doc_id;
+                        f.last_doc_codes[term_id] = doc_id << 1;
+                        match &mut f.term_freqs {
+                            Some(term_freqs) => {
+                                term_freqs[term_id] = 1;
+                            }
+                            None => unreachable!(),
+                        }
+                        Ok(())
+                    }
+                    _ => unreachable!(),
+                },
+                None => {
+                    unreachable!()
+                }
+            }
+        }
+
+        fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+            self.add_called
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let term_id = term_id as usize;
+            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+            debug_assert!(postings_array_wrapper.postings_array.is_some());
+            match &mut postings_array_wrapper.postings_array {
+                Some(postings_array) => match postings_array {
+                    PostingsArrayEnum::FreqProx(postings) => {
+                        if doc_id != postings.last_doc_ids[term_id] {
+                            match &mut postings.term_freqs {
+                                Some(term_freqs) => {
+                                    if 1 == term_freqs[term_id] {
+                                        self.parent_per_field
+                                            .write_vint(0, postings.last_doc_codes[term_id] | 1)?;
+                                    } else {
+                                        self.parent_per_field
+                                            .write_vint(0, postings.last_doc_codes[term_id])?;
+                                        self.parent_per_field.write_vint(0, term_freqs[term_id])?;
+                                    }
+                                    term_freqs[term_id] = 1;
+                                }
+                                None => unreachable!(),
+                            }
+                            postings.last_doc_codes[term_id] =
+                                (doc_id - postings.last_doc_ids[term_id]) << 1;
+                            postings.last_doc_ids[term_id] = doc_id;
+                            Ok(())
+                        } else {
+                            match &mut postings.term_freqs {
+                                Some(term_freqs) => {
+                                    let value = term_freqs[term_id] as i64 + 1;
+                                    if value > i32::MAX as i64 {
+                                        return Err(LuceneError::integer_overflow(
+                                            "term_freqs".to_string(),
+                                        ));
+                                    }
+                                    term_freqs[term_id] += 1;
+                                    Ok(())
+                                }
+                                None => unreachable!(),
+                            }
+                        }
+                    }
+                    _ => unreachable!(),
+                },
+                None => {
+                    unreachable!()
+                }
+            }
+        }
+
+        fn finish(&mut self) {
+            self.parent_per_field.finish()
+        }
     }
 }

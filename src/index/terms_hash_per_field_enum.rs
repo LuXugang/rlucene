@@ -19,9 +19,9 @@ use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash_per_field::TermsHashPerFieldBase;
-#[cfg(test)]
-use crate::index::terms_hash_per_field::TermsHashPerFieldMock;
 use crate::index::BytesRef;
+#[cfg(test)]
+use crate::index::terms_hash_per_field::tests::TermsHashPerFieldMock;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::ByteBlockPoolBorrow;
 #[allow(unused)]
