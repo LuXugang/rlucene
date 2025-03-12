@@ -101,7 +101,7 @@ impl DocIdsWriter {
                 return Ok(());
             }
         }
-
+        debug_assert!(count >= 0);
         let count_index = count as usize;
         if min2max <= 0xffff {
             out.write_byte(DocIdsWriter::DELTA_BPV_16 as u8)?;
@@ -124,30 +124,34 @@ impl DocIdsWriter {
             out.write_byte(DocIdsWriter::BPV_24 as u8)?;
             // write them the same way we are reading them.
             let mut i = 0;
-            while i < count_index - 7 {
-                let doc1 = doc_ids[start_index + i];
-                let doc2 = doc_ids[start_index + i + 1];
-                let doc3 = doc_ids[start_index + i + 2];
-                let doc4 = doc_ids[start_index + i + 3];
-                let doc5 = doc_ids[start_index + i + 4];
-                let doc6 = doc_ids[start_index + i + 5];
-                let doc7 = doc_ids[start_index + i + 6];
-                let doc8 = doc_ids[start_index + i + 7];
-                let l1 = ((doc1 as i64 & 0xffffff) << 40)
-                    | ((doc2 as i64 & 0xffffff) << 16)
-                    | (((doc3 as u32) >> 8) as i64 & 0xffff);
-                let l2 = ((doc3 as i64 & 0xff) << 56)
-                    | ((doc4 as i64 & 0xffffff) << 32)
-                    | ((doc5 as i64 & 0xffffff) << 8)
-                    | (((doc6 as u32) >> 16) as i64 & 0xff);
-                let l3 = ((doc6 as i64 & 0xffff) << 48)
-                    | ((doc7 as i64 & 0xffffff) << 24)
-                    | (doc8 as i64 & 0xffffff);
-                out.write_long(l1)?;
-                out.write_long(l2)?;
-                out.write_long(l3)?;
-                i += 8;
+            let doc_count = count - 7;
+            if doc_count >= 0 {
+                while i < doc_count as usize {
+                    let doc1 = doc_ids[start_index + i];
+                    let doc2 = doc_ids[start_index + i + 1];
+                    let doc3 = doc_ids[start_index + i + 2];
+                    let doc4 = doc_ids[start_index + i + 3];
+                    let doc5 = doc_ids[start_index + i + 4];
+                    let doc6 = doc_ids[start_index + i + 5];
+                    let doc7 = doc_ids[start_index + i + 6];
+                    let doc8 = doc_ids[start_index + i + 7];
+                    let l1 = ((doc1 as i64 & 0xffffff) << 40)
+                        | ((doc2 as i64 & 0xffffff) << 16)
+                        | (((doc3 as u32) >> 8) as i64 & 0xffff);
+                    let l2 = ((doc3 as i64 & 0xff) << 56)
+                        | ((doc4 as i64 & 0xffffff) << 32)
+                        | ((doc5 as i64 & 0xffffff) << 8)
+                        | (((doc6 as u32) >> 16) as i64 & 0xff);
+                    let l3 = ((doc6 as i64 & 0xffff) << 48)
+                        | ((doc7 as i64 & 0xffffff) << 24)
+                        | (doc8 as i64 & 0xffffff);
+                    out.write_long(l1)?;
+                    out.write_long(l2)?;
+                    out.write_long(l3)?;
+                    i += 8;
+                }
             }
+
             while i < count_index {
                 out.write_short(((doc_ids[start_index + i] as u32) >> 8) as i16)?;
                 out.write_byte(doc_ids[start_index + i] as u8)?;
@@ -251,11 +255,7 @@ impl DocIdsWriter {
             std::mem::take(&mut self.scratch_longs.longs),
             long_len << 6,
         )?;
-        DocBaseBitSetIterator::new(
-            bit_set,
-            count as i64,
-            offset_words << 6,
-        )
+        DocBaseBitSetIterator::new(bit_set, count as i64, offset_words << 6)
     }
 
     fn read_continuous_ids(
@@ -264,8 +264,8 @@ impl DocIdsWriter {
         doc_ids: &mut [i32],
     ) -> Result<(), LuceneError> {
         let start = input.read_vint()?;
-        for i in 0..(count as usize) {
-            doc_ids[i] = start + i as i32;
+        for (i, doc_id) in doc_ids.iter_mut().take(count as usize).enumerate() {
+            *doc_id = start + i as i32;
         }
         Ok(())
     }
@@ -276,12 +276,11 @@ impl DocIdsWriter {
         doc_ids: &mut [i32],
     ) -> Result<(), LuceneError> {
         let mut doc = 0;
-        for i in 0..(count as usize) {
+        for doc_id in doc_ids.iter_mut().take(count as usize) {
             doc += input.read_vint()?;
-            doc_ids[i] = doc;
+            *doc_id = doc;
         }
         Ok(())
-        // }
     }
 
     fn read_bit_set(
@@ -431,7 +430,7 @@ impl DocIdsWriter {
         Self::read_delta16(input, count, &mut self.scratch)?;
         self.scratch_ints_ref.ints = Rc::new(RefCell::new(std::mem::take(&mut self.scratch)));
         self.scratch_ints_ref.length = count;
-        visitor.visit_with_ints_ref(&mut self.scratch_ints_ref)?;
+        visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
         Ok(())
     }
     fn read_ints24_with_visitor(
@@ -474,5 +473,183 @@ impl DocIdsWriter {
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::index::point_values::{IntersectVisitor, Relation};
+    use crate::store::directory::Directory;
+    use crate::store::{DataOutput, IOContext, IndexInput, IndexOutput};
+    use crate::test::util::lucene_test_case::{at_least, new_directory, random};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::bkd::doc_ids_writer::DocIdsWriter;
+    use crate::util::error::lucene_error::LuceneError;
+    use rand::rngs::StdRng;
+    use rand::Rng;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_random() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num_iters = at_least(&mut random, 100);
+        let mut dir = new_directory(&mut random)?;
+        for _ in 0..num_iters {
+            let len = 1 + random.random_range(0..5000);
+            let mut doc_ids = vec![0; len];
+            let bpv = TestUtil::next_int(&mut random, 1, 32);
+            for doc_id in doc_ids.iter_mut().take(len) {
+                *doc_id = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
+            }
+            test(&mut random, &mut dir, &doc_ids)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_sorted() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num_iters = at_least(&mut random, 100);
+        let mut dir = new_directory(&mut random)?;
+        for _ in 0..num_iters {
+            let len = 1 + random.random_range(0..5000);
+            let mut doc_ids = vec![0; len];
+            let bpv = TestUtil::next_int(&mut random, 1, 32);
+            for doc_id in doc_ids.iter_mut().take(len) {
+                *doc_id = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
+            }
+            doc_ids.sort_unstable();
+            test(&mut random, &mut dir, &doc_ids)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_cluster() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num_iters = at_least(&mut random, 100);
+        let mut dir = new_directory(&mut random)?;
+        for _ in 0..num_iters {
+            let len = 1 + random.random_range(0..5000);
+            let mut doc_ids = vec![0; len];
+            let min = random.random_range(0..1000);
+            let bpv = TestUtil::next_int(&mut random, 1, 16);
+            for doc_id in doc_ids.iter_mut().take(len) {
+                *doc_id = min + TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
+            }
+            test(&mut random, &mut dir, &doc_ids)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_bit_set() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num_iters = at_least(&mut random, 100);
+        let mut dir = new_directory(&mut random)?;
+        for _ in 0..num_iters {
+            let size = 1 + random.random_range(0..5000);
+            let mut set = HashSet::with_capacity(size);
+            let small = random.random_range(0..1000);
+            while set.len() < size {
+                set.insert(small + random.random_range(0..(size * 16)) as i32);
+            }
+            let mut doc_ids: Vec<i32> = set.into_iter().collect();
+            doc_ids.sort_unstable();
+            test(&mut random, &mut dir, &doc_ids)?;
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_continuous_ids() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num_iters = at_least(&mut random, 100);
+        let mut dir = new_directory(&mut random)?;
+        for _ in 0..num_iters {
+            let size = 1 + random.random_range(0..5000);
+            let mut doc_ids = vec![0; size];
+            let start = random.random_range(0..1000000);
+            for (i, doc_id) in doc_ids.iter_mut().take(size).enumerate() {
+                *doc_id = start + i as i32;
+            }
+            test(&mut random, &mut dir, &doc_ids)?;
+        }
+        Ok(())
+    }
+
+    fn test<D: Directory>(
+        random: &mut StdRng,
+        dir: &mut D,
+        ints: &[i32],
+    ) -> Result<(), LuceneError> {
+        let len: i64;
+        let mut doc_ids_writer = DocIdsWriter::new(ints.len() as i32);
+        {
+            let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
+            doc_ids_writer.write_doc_ids::<D>(ints, 0, ints.len() as i32, &mut out)?;
+            len = out.get_file_pointer();
+            if random.random_bool(0.5) {
+                out.write_long(0)?;
+            }
+        }
+        {
+            let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
+            let mut read = vec![0; ints.len()];
+            doc_ids_writer.read_ints(&mut input, ints.len() as i32, &mut read)?;
+            assert_eq!(ints, &read[..]);
+            assert_eq!(len, input.get_file_pointer());
+        }
+        {
+            let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
+            let mut read = vec![0; ints.len()];
+            let mut visitor = IntersectVisitorMock {
+                i: 0,
+                read: &mut read,
+            };
+            doc_ids_writer.read_ints_with_visitor(&mut input, ints.len() as i32, &mut visitor)?;
+            assert_eq!(ints, &read[..]);
+            assert_eq!(len, input.get_file_pointer());
+        }
+        dir.delete_file("tmp")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_crash() -> Result<(), LuceneError> {
+        // TODO : IndexWriter not implemented
+        Ok(())
+    }
+
+    struct IntersectVisitorMock<'a> {
+        i: usize,
+        read: &'a mut Vec<i32>,
+    }
+    impl<'a> IntersectVisitorMock<'a> {
+        fn new(read: &'a mut Vec<i32>) -> Self {
+            Self { i: 0, read }
+        }
+    }
+    impl IntersectVisitor for IntersectVisitorMock<'_> {
+        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+            self.read[self.i] = doc_id;
+            self.i += 1;
+            Ok(())
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            _doc_id: i32,
+            _packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn compare(
+            &self,
+            _min_packed_value: &[u8],
+            _max_packed_value: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            Err(LuceneError::unsupported_operation(""))
+        }
     }
 }

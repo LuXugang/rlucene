@@ -165,7 +165,11 @@ pub trait IntersectVisitor {
 
     /// Called for non-leaf cells to test how the cell relates to the query,
     /// to determine how to further recurse down the tree.
-    fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Relation;
+    fn compare(
+        &self,
+        min_packed_value: &[u8],
+        max_packed_value: &[u8],
+    ) -> Result<Relation, LuceneError>;
 
     /// Notifies the caller that this many documents are about to be visited.
     fn grow(&mut self, _count: usize) {}

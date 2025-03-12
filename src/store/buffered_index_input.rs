@@ -190,7 +190,6 @@ where
         use_buffer: bool,
     ) -> Result<(), LuceneError> {
         // This closure is not expected to be called under any circumstances.
-
         self.read_buffer(pos, len, output, 1, |_| unreachable!(), use_buffer)
     }
     fn read_ints(
@@ -391,7 +390,7 @@ where
         }
         // If the buffer is not used or the remaining data exceeds the buffer size,
         // read directly from the underlying input
-        let after = self.buffer_start + (self.length + remaining_bytes) as i64;
+        let after = self.buffer_start + (self.length + remaining_bytes - unaligned_bytes) as i64;
         if after > self.sub_index_input.length() {
             return Err(LuceneError::eof(format!("read past EOF: {}", self)));
         }

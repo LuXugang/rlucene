@@ -90,12 +90,12 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
-        if _target >= self.length {
+    fn advance(&mut self, target: i32) -> Result<i32, LuceneError> {
+        if target >= self.length {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
         }
-        let next = self.bits.next_set_bit(max(0, _target - self.doc_base));
+        let next = self.bits.next_set_bit(max(0, target - self.doc_base));
         if next == NO_MORE_DOCS {
             self.doc = NO_MORE_DOCS
         } else {
