@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::Comparator;
+use crate::util::{Comparator, ToInt};
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Display;
@@ -167,11 +167,7 @@ impl Comparator<IntsRef> for IntsRef {
         let b_ints = b.ints.borrow();
         let a_slice = &a_ints[a.offset as usize..(a.offset + a.length) as usize];
         let b_slice = &b_ints[a.offset as usize..(a.offset + a.length) as usize];
-        match a_slice.cmp(b_slice) {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 1,
-            std::cmp::Ordering::Greater => 1,
-        }
+        a_slice.cmp(b_slice).to_int()
     }
 }
 impl Display for IntsRef {

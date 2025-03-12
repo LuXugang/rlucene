@@ -298,7 +298,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::selector::Selector;
-    use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault};
+    use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt};
     use rand::rngs::StdRng;
     use rand::Rng;
 
@@ -377,12 +377,7 @@ mod tests {
         }
 
         fn compare_pivot(&mut self, j: i32) -> i32 {
-            let result = self.pivot.cmp(&self.actual[j as usize]);
-            match result {
-                std::cmp::Ordering::Less => -1,
-                std::cmp::Ordering::Equal => 0,
-                std::cmp::Ordering::Greater => 1,
-            }
+            self.pivot.cmp(&self.actual[j as usize]).to_int()
         }
     }
 

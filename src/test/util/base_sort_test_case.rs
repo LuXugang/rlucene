@@ -19,7 +19,7 @@ use crate::test::util::base_sort_test_case::Strategy::{
 };
 use crate::test::util::lucene_test_case::rarely;
 use crate::test::util::test_util::TestUtil;
-use crate::util::{Comparator, Sorter, COMPARATOR_TYPE};
+use crate::util::{Comparator, Sorter, ToInt, COMPARATOR_TYPE};
 use rand::prelude::StdRng;
 use rand::Rng;
 use std::cmp::Ordering;
@@ -185,11 +185,7 @@ impl Comparator<Entry> for Entry {
     const TYPE: &'static str = COMPARATOR_TYPE;
 
     fn compare(&self, a: &Entry, b: &Entry) -> i32 {
-        match a.value.cmp(&b.value) {
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-            Ordering::Greater => 1,
-        }
+        a.value.cmp(&b.value).to_int()
     }
 }
 

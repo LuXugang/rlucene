@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::util::BytesRefComparator;
+use crate::util::{BytesRefComparator, ToInt};
 
 pub trait Comparator<T> {
     const TYPE: &'static str;
@@ -55,12 +55,7 @@ where
     const TYPE: &'static str = COMPARATOR_TYPE;
 
     fn compare(&self, a: &T, b: &T) -> i32 {
-        let result = a.cmp(b);
-        match result {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }
+        a.cmp(b).to_int()
     }
 }
 

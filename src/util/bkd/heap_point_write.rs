@@ -23,7 +23,7 @@ use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{CommonUtil, VecCopyOps};
+use crate::util::{CommonUtil, ToInt, VecCopyOps};
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -203,11 +203,7 @@ where
         let len = self.data_dims_and_doc_length as usize;
         let slice_i = &block_i[offset_i..offset_i + len];
         let slice_j = &block_j[offset_j..offset_j + len];
-        match slice_i.cmp(slice_j) {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }
+        slice_i.cmp(slice_j).to_int()
     }
 
     /// Computes the cardinality of the points between `from` tp `to`

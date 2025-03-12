@@ -54,3 +54,17 @@ impl CommonUtil {
         }
     }
 }
+
+pub trait ToInt {
+    fn to_int(&self) -> i32;
+}
+
+impl ToInt for Ordering {
+    fn to_int(&self) -> i32 {
+        match self {
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
+            Ordering::Greater => 1,
+        }
+    }
+}

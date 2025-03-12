@@ -1069,7 +1069,7 @@ mod tests {
     use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::numeric_utils::NumericUtils;
-    use crate::util::CommonUtil;
+    use crate::util::{CommonUtil, ToInt};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cell::RefCell;
@@ -1464,11 +1464,7 @@ mod tests {
     }
 
     fn compare_unsigned(a: &[u8], len_a: usize, b: &[u8], len_b: usize) -> i32 {
-        match a[..len_a].cmp(&b[..len_b]) {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }
+        a[..len_a].cmp(&b[..len_b]).to_int()
     }
 
     fn copy_points<D: Directory>(

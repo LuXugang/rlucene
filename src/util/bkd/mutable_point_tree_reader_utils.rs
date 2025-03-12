@@ -25,7 +25,7 @@ use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::util::selector::Selector;
 use crate::util::{
     IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorter, MSBRadixSorterBase,
-    Sorter, StableMSBRadixSorter, StableMSBRadixSorterBase,
+    Sorter, StableMSBRadixSorter, StableMSBRadixSorterBase, ToInt,
 };
 use std::cell::RefCell;
 use std::cmp::max;
@@ -223,17 +223,12 @@ impl Sorter for IntroSorterImpl<'_> {
             let pivot_slice = &self.pivot.bytes[pivot_index_start..pivot_index_end];
             let scratch_slice = &self.scratch2.bytes[scratch_index_start..scratch_index_end];
 
-            let cmp = match pivot_slice.cmp(scratch_slice) {
-                std::cmp::Ordering::Less => -1,
-                std::cmp::Ordering::Equal => 0,
-                std::cmp::Ordering::Greater => 1,
-            };
-
-            if cmp == 0 {
-                return Ok(self.pivot_doc - self.reader.get_doc_id(j));
+            let cmp = pivot_slice.cmp(scratch_slice).to_int();
+            return if cmp == 0 {
+                Ok(self.pivot_doc - self.reader.get_doc_id(j))
             } else {
-                return Ok(cmp);
-            }
+                Ok(cmp)
+            };
         }
         Ok(cmp)
     }
@@ -356,11 +351,7 @@ impl IntroSelectorBaseDefault for IntroSelectorImpl {
             let scratch_slice = &self.scratch2.bytes[(self.scratch2.offset + self.data_start)
                 as usize
                 ..(self.scratch2.offset + self.data_end) as usize];
-            let cmp = match pivot_slice.cmp(scratch_slice) {
-                std::cmp::Ordering::Less => -1,
-                std::cmp::Ordering::Equal => 0,
-                std::cmp::Ordering::Greater => 1,
-            };
+            let cmp = pivot_slice.cmp(scratch_slice).to_int();
             if cmp != 0 {
                 return cmp;
             }
@@ -388,6 +379,7 @@ pub(crate) mod tests {
     use crate::util::bkd::bkd_config::BKDConfig;
     use crate::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
     use crate::util::error::lucene_error::LuceneError;
+    use crate::util::ToInt;
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
     use std::cell::RefCell;
@@ -634,12 +626,7 @@ pub(crate) mod tests {
     }
 
     fn compare_unsigned(a: &[u8], b: &[u8]) -> i32 {
-        use std::cmp::Ordering;
-        match a.cmp(b) {
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-            Ordering::Greater => 1,
-        }
+        a.cmp(b).to_int()
     }
 
     fn create_random_config(random: &mut StdRng) -> Result<BKDConfig, LuceneError> {

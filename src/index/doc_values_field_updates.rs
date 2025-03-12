@@ -33,7 +33,7 @@ use crate::util::packed::paged_mutable::PagedMutable;
 use crate::util::packed::{Mutable, PackedInts, Reader};
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::util::Sorter;
+use crate::util::{Sorter, ToInt};
 use std::sync::{Arc, Mutex};
 
 pub(crate) const PAGE_SIZE: i32 = 1024;
@@ -395,11 +395,7 @@ where
         if cmp == std::cmp::Ordering::Equal {
             Ok((self.ords.get(i)? - self.ords.get(j)?) as i32)
         } else {
-            match cmp {
-                std::cmp::Ordering::Less => Ok(-1),
-                std::cmp::Ordering::Greater => Ok(1),
-                std::cmp::Ordering::Equal => Ok(0),
-            }
+            Ok(cmp.to_int())
         }
     }
 
@@ -425,11 +421,7 @@ where
             // If docIDs are the same, compare pivot_ord with ords[j]
             cmp = (self.pivot_ord - self.ords.get(j)?).cmp(&0);
         }
-        match cmp {
-            std::cmp::Ordering::Less => Ok(-1),
-            std::cmp::Ordering::Greater => Ok(1),
-            std::cmp::Ordering::Equal => Ok(0),
-        }
+        Ok(cmp.to_int())
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {

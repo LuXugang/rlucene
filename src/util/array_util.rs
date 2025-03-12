@@ -21,7 +21,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::selector::Selector;
 use crate::util::{
     ArrayIntroSorter, Comparator, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault,
-    NaturalOrder, Sorter, TimSorter, VecCopyOps,
+    NaturalOrder, Sorter, TimSorter, ToInt, VecCopyOps,
 };
 use std::cmp::Ordering;
 use std::mem;
@@ -591,21 +591,17 @@ impl ByteArrayComparator for ByteArrayComparatorEnum {
 pub struct U64byteArrayComparator;
 impl ByteArrayComparator for U64byteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        match (BitUtil::get_i64_be(a, a_i) as u64).cmp(&(BitUtil::get_i64_be(b, b_i) as u64)) {
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-            Ordering::Greater => 1,
-        }
+        (BitUtil::get_i64_be(a, a_i) as u64)
+            .cmp(&(BitUtil::get_i64_be(b, b_i) as u64))
+            .to_int()
     }
 }
 pub struct U32byteArrayComparator;
 impl ByteArrayComparator for U32byteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        match (BitUtil::get_i32_be(a, a_i) as u32).cmp(&(BitUtil::get_i32_be(b, b_i) as u32)) {
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-            Ordering::Greater => 1,
-        }
+        (BitUtil::get_i32_be(a, a_i) as u32)
+            .cmp(&(BitUtil::get_i32_be(b, b_i) as u32))
+            .to_int()
     }
 }
 pub struct ByteByteArrayComparator {
@@ -615,11 +611,9 @@ impl ByteArrayComparator for ByteByteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
         debug_assert!(a.len() >= a_i + self.num_bytes);
         debug_assert!(b.len() >= b_i + self.num_bytes);
-        match &a[a_i..a_i + self.num_bytes].cmp(&b[b_i..b_i + self.num_bytes]) {
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-            Ordering::Greater => 1,
-        }
+        a[a_i..a_i + self.num_bytes]
+            .cmp(&b[b_i..b_i + self.num_bytes])
+            .to_int()
     }
 }
 
@@ -633,7 +627,7 @@ mod tests {
     };
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{NaturalOrder, ReverseOrder};
+    use crate::util::{NaturalOrder, ReverseOrder, ToInt};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cmp::Ordering;
@@ -1280,14 +1274,9 @@ mod tests {
         }
 
         for i in 0..BitUtil::INT_BYTES {
-            let result = a[a_offset..a_offset + BitUtil::INT_BYTES]
-                .cmp(&b[b_offset..b_offset + BitUtil::INT_BYTES]);
-            let expected: i32 = match result {
-                std::cmp::Ordering::Less => -1,
-                std::cmp::Ordering::Equal => 0,
-                std::cmp::Ordering::Greater => 1,
-            };
-
+            let expected = a[a_offset..a_offset + BitUtil::INT_BYTES]
+                .cmp(&b[b_offset..b_offset + BitUtil::INT_BYTES])
+                .to_int();
             let cmp = U32byteArrayComparator;
             let actual = cmp.compare(&a, a_offset, &b, b_offset);
             assert_eq!(expected.signum(), actual.signum());
@@ -1316,13 +1305,9 @@ mod tests {
             }
         }
         for i in 0..BitUtil::LONG_BYTES {
-            let result = a[a_offset..a_offset + BitUtil::LONG_BYTES]
-                .cmp(&b[b_offset..b_offset + BitUtil::LONG_BYTES]);
-            let expected: i32 = match result {
-                std::cmp::Ordering::Less => -1,
-                std::cmp::Ordering::Equal => 0,
-                std::cmp::Ordering::Greater => 1,
-            };
+            let expected = a[a_offset..a_offset + BitUtil::LONG_BYTES]
+                .cmp(&b[b_offset..b_offset + BitUtil::LONG_BYTES])
+                .to_int();
             let cmp = U64byteArrayComparator;
             let actual = cmp.compare(&a, a_offset, &b, b_offset);
             assert_eq!(expected.signum(), actual.signum());

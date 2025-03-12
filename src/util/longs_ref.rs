@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::Comparator;
+use crate::util::{Comparator, ToInt};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -223,11 +223,7 @@ impl Comparator<LongsRef> for LongsRefComparator {
     fn compare(&self, a: &LongsRef, b: &LongsRef) -> i32 {
         let a_slice = &a.longs[a.offset as usize..(a.offset + a.length) as usize];
         let b_slice = &b.longs[b.offset as usize..(b.offset + b.length) as usize];
-        match a_slice.cmp(b_slice) {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }
+        a_slice.cmp(b_slice).to_int()
     }
 }
 
