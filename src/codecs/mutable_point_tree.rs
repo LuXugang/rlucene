@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::point_values::{IntersectVisitor, PointTree};
+use crate::index::point_values::PointTree;
+use crate::index::point_values_writer::MutableSortingPointValues;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+#[cfg(test)]
+use crate::util::bkd::mutable_point_tree_reader_utils::tests::DummyPointsReader;
 
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
@@ -40,44 +42,10 @@ pub trait MutablePointTree: PointTree {
     fn restore(&mut self, i: i32, j: i32);
 }
 
-pub enum MutablePointTreeEnum {}
-
-impl PointTree for MutablePointTreeEnum {
-    fn clone_tree(&self) -> Self {
-        todo!()
-    }
-
-    fn move_to_child(&mut self) -> Result<bool, LuceneError> {
-        todo!()
-    }
-
-    fn move_to_sibling(&mut self) -> Result<bool, LuceneError> {
-        todo!()
-    }
-
-    fn move_to_parent(&mut self) -> Result<bool, LuceneError> {
-        todo!()
-    }
-
-    fn get_min_packed_value(&self) -> &[u8] {
-        todo!()
-    }
-
-    fn get_max_packed_value(&self) -> &[u8] {
-        todo!()
-    }
-
-    fn size(&self) -> u64 {
-        todo!()
-    }
-
-    fn visit_doc_ids(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
-        todo!()
-    }
-
-    fn visit_doc_values(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
-        todo!()
-    }
+pub enum MutablePointTreeEnum {
+    #[cfg(test)]
+    Dummy(DummyPointsReader),
+    MutableSorting(MutableSortingPointValues),
 }
 
 impl Clone for MutablePointTreeEnum {
@@ -85,29 +53,54 @@ impl Clone for MutablePointTreeEnum {
         todo!()
     }
 }
-
 impl MutablePointTree for MutablePointTreeEnum {
     fn get_value(&self, i: i32, packed_value: &mut BytesRef) {
-        todo!()
+        match self {
+            MutablePointTreeEnum::MutableSorting(reader) => reader.get_value(i, packed_value),
+            #[cfg(test)]
+            MutablePointTreeEnum::Dummy(reader) => reader.get_value(i, packed_value),
+        }
     }
 
     fn get_byte_at(&self, i: i32, k: i32) -> u8 {
-        todo!()
+        match self {
+            MutablePointTreeEnum::MutableSorting(reader) => reader.get_byte_at(i, k),
+            #[cfg(test)]
+            MutablePointTreeEnum::Dummy(reader) => reader.get_byte_at(i, k),
+        }
     }
 
     fn get_doc_id(&self, i: i32) -> i32 {
-        todo!()
+        match self {
+            MutablePointTreeEnum::MutableSorting(reader) => reader.get_doc_id(i),
+            #[cfg(test)]
+            MutablePointTreeEnum::Dummy(reader) => reader.get_doc_id(i),
+        }
     }
 
     fn swap(&mut self, i: i32, j: i32) {
-        todo!()
+        match self {
+            MutablePointTreeEnum::MutableSorting(reader) => reader.swap(i, j),
+            #[cfg(test)]
+            MutablePointTreeEnum::Dummy(reader) => reader.swap(i, j),
+        }
     }
 
     fn save(&mut self, i: i32, j: i32) {
-        todo!()
+        match self {
+            MutablePointTreeEnum::MutableSorting(reader) => reader.save(i, j),
+            #[cfg(test)]
+            MutablePointTreeEnum::Dummy(reader) => reader.save(i, j),
+        }
     }
 
     fn restore(&mut self, i: i32, j: i32) {
-        todo!()
+        match self {
+            MutablePointTreeEnum::MutableSorting(reader) => reader.restore(i, j),
+            #[cfg(test)]
+            MutablePointTreeEnum::Dummy(reader) => reader.restore(i, j),
+        }
     }
 }
+
+impl PointTree for MutablePointTreeEnum {}

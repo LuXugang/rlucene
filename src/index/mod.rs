@@ -61,6 +61,7 @@ pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
 mod parallel_postings_array;
 pub mod point_values;
+pub(crate) mod point_values_writer;
 pub mod prefix_coded_terms;
 pub mod segment_commit_info;
 pub mod segment_info;

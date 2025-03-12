@@ -567,7 +567,6 @@ impl TermsHashPerFieldType {
     }
 }
 
-
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::document::fields::Fields;
@@ -575,24 +574,26 @@ pub(crate) mod tests {
     use crate::index::byte_slice_reader::ByteSliceReader;
     use std::cell::RefCell;
 
+    use crate::index::index_options::IndexOptions;
     use crate::index::parallel_postings_array::PostingsArrayEnum;
-    use crate::index::terms_hash_per_field::{PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType};
+    use crate::index::terms_hash_per_field::{
+        PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
+    };
     use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
     use crate::index::BytesRef;
     use crate::store::DataInput;
     use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
     use crate::test::util::test_util::TestUtil;
+    use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::LuceneError;
+    use crate::util::int_block_pool::IntBlockPool;
+    use crate::util::{ByteBlockPool, CounterEnum};
     use rand::distr::Alphanumeric;
     use rand::prelude::SliceRandom;
     use rand::Rng;
     use std::collections::{BTreeMap, HashMap};
     use std::rc::Rc;
     use std::sync::atomic::{AtomicI64, Ordering};
-    use crate::index::index_options::IndexOptions;
-    use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
-    use crate::util::{ByteBlockPool, CounterEnum};
-    use crate::util::int_block_pool::IntBlockPool;
 
     #[allow(dead_code)] // for quick search
     struct TestTermsHashPerField;

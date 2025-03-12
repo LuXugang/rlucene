@@ -172,10 +172,4 @@ pub trait IntroSorter: Sorter {
             Ok(k)
         }
     }
-
-    #[allow(unused)]
-    fn compare_default(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
-        self.set_pivot(i);
-        self.compare_pivot(j)
-    }
 }

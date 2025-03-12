@@ -38,34 +38,68 @@ pub enum Relation {
 /// Basic operations to read the KD-tree.
 pub trait PointTree: Clone {
     /// Clone, the current node becomes the root of the new tree.
-    fn clone_tree(&self) -> Self;
+    fn clone_tree(&self) -> Result<Self, LuceneError> {
+        Err(LuceneError::need_implemented(
+            "clone_tree is not implemented",
+        ))
+    }
 
     /// Move to the first child node and return `true` upon success.
     /// Returns `false` for leaf nodes and `true` otherwise.
-    fn move_to_child(&mut self) -> Result<bool, LuceneError>;
+    fn move_to_child(&mut self) -> Result<bool, LuceneError> {
+        Err(LuceneError::need_implemented(
+            "move_to_child is not implemented",
+        ))
+    }
 
     /// Move to the next sibling node and return `true` upon success.
     /// Returns `false` if the current node has no more siblings.
-    fn move_to_sibling(&mut self) -> Result<bool, LuceneError>;
+    fn move_to_sibling(&mut self) -> Result<bool, LuceneError> {
+        Err(LuceneError::need_implemented(
+            "move_to_sibling is not implemented",
+        ))
+    }
 
     /// Move to the parent node and return `true` upon success.
     /// Returns `false` for the root node and `true` otherwise.
-    fn move_to_parent(&mut self) -> Result<bool, LuceneError>;
+    fn move_to_parent(&mut self) -> Result<bool, LuceneError> {
+        Err(LuceneError::need_implemented(
+            "move_to_parent is not implemented",
+        ))
+    }
 
     /// Return the minimum packed value of the current node.
-    fn get_min_packed_value(&self) -> &[u8];
+    fn get_min_packed_value(&self) -> Result<&[u8], LuceneError> {
+        Err(LuceneError::need_implemented(
+            "get_min_packed_value is not implemented",
+        ))
+    }
 
     /// Return the maximum packed value of the current node.
-    fn get_max_packed_value(&self) -> &[u8];
+    fn get_max_packed_value(&self) -> Result<&[u8], LuceneError> {
+        Err(LuceneError::need_implemented(
+            "get_max_packed_value is not implemented",
+        ))
+    }
 
     /// Return the number of points below the current node.
-    fn size(&self) -> u64;
+    fn size(&self) -> Result<i64, LuceneError> {
+        Err(LuceneError::need_implemented("size is not implemented"))
+    }
 
     /// Visit all the docs below the current node.
-    fn visit_doc_ids(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError>;
+    fn visit_doc_ids(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+        Err(LuceneError::need_implemented(
+            "visit_doc_ids is not implemented",
+        ))
+    }
 
     /// Visit all the docs and values below the current node.
-    fn visit_doc_values(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError>;
+    fn visit_doc_values(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+        Err(LuceneError::need_implemented(
+            "visit_doc_values is not implemented",
+        ))
+    }
 }
 /// We recurse the [PointTree], using a provided instance of this to guide the recursion.
 pub trait IntersectVisitor {
