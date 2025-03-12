@@ -51,7 +51,7 @@ impl DocBaseBitSetIterator {
                 doc_base
             )));
         }
-        let length = bits.length();
+        let length = bits.length() + doc_base;
         Ok(DocBaseBitSetIterator {
             bits,
             length,
