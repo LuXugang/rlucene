@@ -20,11 +20,12 @@ use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparato
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::intro_sorter::IntroSorter;
-use crate::util::radix_selector::RadixSelectorBase;
+use crate::util::packed::PackedInts;
+use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::util::selector::Selector;
 use crate::util::{
     IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorterBase, Sorter,
-    StableMSBRadixSorterBase,
+    StableMSBRadixSorter, StableMSBRadixSorterBase,
 };
 use std::cell::RefCell;
 use std::cmp::max;
@@ -32,6 +33,110 @@ use std::rc::Rc;
 
 /// Utility APIs for sorting and partitioning buffered points.
 pub struct MutablePointTreeReaderUtils;
+
+impl MutablePointTreeReaderUtils {
+    /// Sort the given [`MutablePointTree`] based on its packed value then doc ID.
+    pub fn sort(
+        config: &BKDConfig,
+        max_doc: i32,
+        reader: &mut MutablePointTreeEnum,
+        from: i32,
+        to: i32,
+    ) -> Result<(), LuceneError> {
+        let mut sorted_by_doc_id = true;
+        let mut prev_doc = 0;
+        for i in from..to {
+            let doc = reader.get_doc_id(i);
+            if doc < prev_doc {
+                sorted_by_doc_id = false;
+                break;
+            }
+            prev_doc = doc;
+        }
+
+        // No need to tie break on doc IDs if already sorted by doc ID, since we use a stable sort.
+        // This should be a common situation as IndexWriter accumulates data in doc ID order when
+        // index sorting is not enabled.
+        let bits_per_doc_id = if sorted_by_doc_id {
+            0
+        } else {
+            PackedInts::bits_required((max_doc - 1) as i64)?
+        };
+        let max_length = config.packed_bytes_length() + (bits_per_doc_id + 7) / 8;
+        let delegate_sorter = StableMSBRadixSorterImpl {
+            reader,
+            config: Rc::new(config.clone()),
+            bits_per_doc_id,
+        };
+        let mut stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter, max_length);
+        stable_msb_radix_sorter.sort(from, to)
+    }
+
+    /// Sort points on the given dimension.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sort_by_dim(
+        config: &BKDConfig,
+        sorted_dim: i32,
+        _common_prefix_lengths: &[i32],
+        reader: &mut MutablePointTreeEnum,
+        from: i32,
+        to: i32,
+        _scratch1: &mut BytesRef,
+        _scratch2: &mut BytesRef,
+    ) -> Result<(), LuceneError> {
+        // Get an unsigned comparator for the byte arrays.
+        let comparator = ArrayUtil::get_unsigned_comparator(config.bytes_per_dim as usize);
+        let start = sorted_dim * config.bytes_per_dim;
+        // No need for a fancy radix sort here, this is called on the leaves only so
+        // there are not many values to sort.
+        let mut intro_sorter = IntroSorterImpl {
+            reader,
+            config: Rc::new(config.clone()),
+            bits_per_doc_id: 0,
+            pivot: BytesRef::new(),
+            scratch2: BytesRef::new(),
+            pivot_doc: 0,
+            comparator,
+            start,
+        };
+        intro_sorter.sort(from, to)?;
+        Ok(())
+    }
+    /// Partition points around `mid`. All values on the left must be less than or equal to it
+    /// and all values on the right must be greater than or equal to it.
+    #[allow(clippy::too_many_arguments)]
+    pub fn partition(
+        config: &BKDConfig,
+        max_doc: i32,
+        split_dim: i32,
+        common_prefix_len: i32,
+        reader: Rc<RefCell<MutablePointTreeEnum>>,
+        from: i32,
+        to: i32,
+        mid: i32,
+        _scratch1: &mut BytesRef,
+        _scratch2: &mut BytesRef,
+    ) -> Result<(), LuceneError> {
+        let dim_offset = split_dim * config.bytes_per_dim + common_prefix_len;
+        let dim_cmp_bytes = config.bytes_per_dim - common_prefix_len;
+        let data_cmp_bytes =
+            (config.num_dims - config.num_index_dims) * config.bytes_per_dim + dim_cmp_bytes;
+        let bits_per_doc_id = PackedInts::bits_required((max_doc - 1) as i64)?;
+        let max_length = data_cmp_bytes + ((bits_per_doc_id + 7) / 8);
+
+        let sub_selector = RadixSelectorImpl {
+            split_dim,
+            config: Rc::new(config.clone()),
+            dim_cmp_bytes,
+            reader,
+            dim_offset,
+            data_cmp_bytes,
+            bits_per_doc_id,
+        };
+        let mut radix_selector = RadixSelector::new(max_length, sub_selector);
+        radix_selector.select(from, to, mid)
+    }
+}
 
 struct StableMSBRadixSorterImpl<'a> {
     reader: &'a mut MutablePointTreeEnum,
