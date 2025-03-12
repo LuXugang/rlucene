@@ -16,6 +16,7 @@
  */
 use crate::util::array_tim_sorter::ArrayTimSorter;
 use crate::util::bit_util::BitUtil;
+use crate::util::bkd::bkd_util::{CommonPrefixLength4, CommonPrefixLength8, CommonPrefixLengthN};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::selector::Selector;
 use crate::util::{
@@ -570,6 +571,9 @@ pub enum ByteArrayComparatorEnum {
     U64(U64byteArrayComparator),
     U32(U32byteArrayComparator),
     Byte(ByteByteArrayComparator),
+    CommonPrefixLength8(CommonPrefixLength8),
+    CommonPrefixLength4(CommonPrefixLength4),
+    CommonPrefixLengthN(CommonPrefixLengthN),
 }
 impl ByteArrayComparator for ByteArrayComparatorEnum {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
@@ -577,6 +581,9 @@ impl ByteArrayComparator for ByteArrayComparatorEnum {
             ByteArrayComparatorEnum::U64(c) => c.compare(a, a_i, b, b_i),
             ByteArrayComparatorEnum::U32(c) => c.compare(a, a_i, b, b_i),
             ByteArrayComparatorEnum::Byte(c) => c.compare(a, a_i, b, b_i),
+            ByteArrayComparatorEnum::CommonPrefixLength8(c) => c.compare(a, a_i, b, b_i),
+            ByteArrayComparatorEnum::CommonPrefixLength4(c) => c.compare(a, a_i, b, b_i),
+            ByteArrayComparatorEnum::CommonPrefixLengthN(c) => c.compare(a, a_i, b, b_i),
         }
     }
 }

@@ -16,6 +16,7 @@
  */
 pub(crate) mod bkd_config;
 mod bkd_radix_selector;
+pub mod bkd_util;
 mod heap_point_reader;
 mod heap_point_write;
 pub mod mutable_point_tree_reader_utils;
