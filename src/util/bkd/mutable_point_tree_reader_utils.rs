@@ -449,17 +449,17 @@ pub(crate) mod tests {
                 assert_eq!(sorted_points.len(), reader.points.len());
 
                 let mut prev_point: Option<&Point> = None;
-                for i in 0..sorted_points.len() {
-                    assert_eq!(sorted_points[i].packed_value, reader.points[i].packed_value);
+                for (sorted_point, reader_point) in sorted_points.iter().zip(reader.points.iter()) {
+                    assert_eq!(sorted_point.packed_value, reader_point.packed_value);
                     if let Some(prev) = prev_point {
-                        if reader.points[i].packed_value == prev.packed_value {
+                        if reader_point.packed_value == prev.packed_value {
                             assert!(
-                                reader.points[i].doc >= prev.doc,
+                                reader_point.doc >= prev.doc,
                                 "Doc IDs not in ascending order"
                             );
                         }
                     }
-                    prev_point = Some(&reader.points[i]);
+                    prev_point = Some(reader_point);
                 }
             }
             _ => unreachable!(),
@@ -675,9 +675,10 @@ pub(crate) mod tests {
                 };
                 points.push(Point::new(random, &value, doc));
             }
-            for i in 0..(config.num_dims as usize) {
-                common_prefix_lengths[i] = TestUtil::next_int(random, 0, config.bytes_per_dim);
-            }
+            common_prefix_lengths
+                .iter_mut()
+                .for_each(|prefix| *prefix = TestUtil::next_int(random, 0, config.bytes_per_dim));
+
             let first_value = points[0].packed_value.clone();
             for point in points.iter_mut().skip(1) {
                 for dim in 0..config.num_dims {
@@ -709,12 +710,15 @@ pub(crate) mod tests {
                 };
                 points.push(Point::new(random, &value, doc));
             }
-            for i in 0..(config.num_index_dims as usize) {
-                common_prefix_lengths[i] = config.bytes_per_dim;
-            }
-            for i in (config.num_index_dims as usize)..(config.num_dims as usize) {
-                common_prefix_lengths[i] = TestUtil::next_int(random, 0, config.bytes_per_dim);
-            }
+            common_prefix_lengths
+                .iter_mut()
+                .take(config.num_index_dims as usize)
+                .for_each(|prefix| *prefix = config.bytes_per_dim);
+
+            common_prefix_lengths[config.num_index_dims as usize..config.num_dims as usize]
+                .iter_mut()
+                .for_each(|prefix| *prefix = TestUtil::next_int(random, 0, config.bytes_per_dim));
+
             let first_value = points[0].packed_value.clone();
             for point in points.iter_mut().skip(1) {
                 for dim in config.num_index_dims..config.num_dims {

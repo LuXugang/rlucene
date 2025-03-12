@@ -494,8 +494,12 @@ where
 
     fn partition_point_from_common_prefix(&self) -> Result<Vec<u8>, LuceneError> {
         let mut partition = vec![0u8; self.config.bytes_per_dim as usize];
-        for i in 0..self.config.bytes_per_dim as usize {
-            partition[i] = self.partition_bucket[i] as u8;
+        for (i, p) in partition
+            .iter_mut()
+            .enumerate()
+            .take(self.config.bytes_per_dim as usize)
+        {
+            *p = self.partition_bucket[i] as u8;
         }
         Ok(partition)
     }
