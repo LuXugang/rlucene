@@ -158,6 +158,7 @@ where
         common_prefix_length
     }
 
+    #[allow(clippy::mut_range_bound)]
     fn compute_common_prefix_length_and_build_histogram_part1(
         &mut self,
         from: i32,

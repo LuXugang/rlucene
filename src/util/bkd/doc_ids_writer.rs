@@ -114,8 +114,8 @@ impl DocIdsWriter {
             for i in 0..half_len {
                 scratch[i] = scratch[half_len + i] | (scratch[i] << 16);
             }
-            for i in 0..half_len {
-                out.write_int(scratch[i])?;
+            for value in scratch.iter().take(half_len) {
+                out.write_int(*value)?;
             }
             if count & 1 == 1 {
                 out.write_short(scratch[count_index - 1] as i16)?;

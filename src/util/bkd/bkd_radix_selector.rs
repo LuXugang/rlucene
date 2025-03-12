@@ -1228,7 +1228,7 @@ mod tests {
             get_random_point_writer(&mut random, config.clone(), dir.clone(), values as i64)?;
         let mut value = vec![0u8; config.packed_bytes_length() as usize];
         random.fill(&mut value[..]);
-        for i in 0..values {
+        for _ in 0..values {
             if random.random_bool(0.5) {
                 points.append_bytes(&value, 1)?;
             } else {
@@ -1262,7 +1262,7 @@ mod tests {
             get_random_point_writer(&mut random, config.clone(), dir.clone(), values as i64)?;
         let mut value = vec![0u8; config.packed_bytes_length() as usize];
         random.fill(&mut value[..]);
-        for i in 0..values {
+        for _ in 0..values {
             points.append_bytes(&value, 0)?;
         }
         points.close();
