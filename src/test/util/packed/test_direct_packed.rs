@@ -18,6 +18,8 @@ use crate::store::data_output::DataOutput;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput};
 use crate::test::util::lucene_test_case::{is_night_mode, new_directory, random};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::LuceneError;
@@ -27,7 +29,6 @@ use crate::util::packed::direct_writer::DirectWriter;
 use crate::util::packed::PackedInts;
 use rand::rngs::StdRng;
 use rand::Rng;
-use std::sync::{Arc, Mutex};
 
 #[allow(dead_code)] // for quick search
 pub struct TestDirectPacked;
@@ -50,7 +51,7 @@ fn test_simple() -> Result<(), LuceneError> {
     let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let slice = input.random_access_slice(0, input.length())?;
     let mut reader =
-        DirectReader::get_instance_with_offset(Arc::new(Mutex::new(slice)), bits_per_value, 0);
+        DirectReader::get_instance_with_offset(Rc::new(RefCell::new(slice)), bits_per_value, 0);
     assert_eq!(1, reader.get(0)?);
     assert_eq!(0, reader.get(1)?);
     assert_eq!(2, reader.get(2)?);
@@ -152,7 +153,7 @@ where
         }
 
         let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
-        let slice = Arc::new(Mutex::new(input.random_access_slice(0, input.length())?));
+        let slice = Rc::new(RefCell::new(input.random_access_slice(0, input.length())?));
         let mut reader = if merge {
             DirectReader::get_merge_instance_with_base_offset(
                 slice.clone(),

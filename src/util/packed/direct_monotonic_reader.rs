@@ -20,7 +20,8 @@ use crate::store::IndexInput;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 /// Retrieves an instance previously written by [`DirectMonotonicWriter`](crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
 ///
 /// # See also
@@ -155,14 +156,14 @@ where
         Ok(-1 - lo)
     }
     /// Retrieves a non-merging instance from the specified slice.
-    pub fn get_instance(meta: &Meta, data: Arc<Mutex<R>>) -> Result<Self, LuceneError> {
+    pub fn get_instance(meta: &Meta, data: Rc<RefCell<R>>) -> Result<Self, LuceneError> {
         Self::get_instance_with_merging(meta, data, false)
     }
 
     /// Retrieves an instance from the specified slice.
     pub fn get_instance_with_merging(
         meta: &Meta,
-        data: Arc<Mutex<R>>,
+        data: Rc<RefCell<R>>,
         merging: bool,
     ) -> Result<Self, LuceneError> {
         let mut readers = Vec::with_capacity(meta.num_blocks);

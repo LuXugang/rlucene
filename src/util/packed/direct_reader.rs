@@ -18,7 +18,8 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::{LongValues, Zeroes};
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 /// Retrieves an instance previously written by `DirectWriter`.
 ///
 /// # See also
@@ -31,7 +32,7 @@ impl DirectReader {
 
     /// Retrieves an instance from the specified slice, decoding `bits_per_value` for each value.
     #[allow(unused)]
-    pub(crate) fn get_instance<R>(slice: Arc<Mutex<R>>, bits_per_value: i32) -> DirectPackedEnum<R>
+    pub(crate) fn get_instance<R>(slice: Rc<RefCell<R>>, bits_per_value: i32) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,
     {
@@ -39,7 +40,7 @@ impl DirectReader {
     }
     /// Retrieves an instance from the specified `offset` of the given slice, decoding `bits_per_value` for each value.
     pub(crate) fn get_instance_with_offset<R>(
-        slice: Arc<Mutex<R>>,
+        slice: Rc<RefCell<R>>,
         bits_per_value: i32,
         offset: i64,
     ) -> DirectPackedEnum<R>
@@ -67,7 +68,7 @@ impl DirectReader {
     /// Retrieves an instance specialized for merges, typically faster for sequential access but slower for random access.
     #[allow(unused)]
     pub(crate) fn get_merge_instance<R>(
-        slice: Arc<Mutex<R>>,
+        slice: Rc<RefCell<R>>,
         bits_per_value: i32,
         num_values: i64,
     ) -> DirectPackedEnum<R>
@@ -78,7 +79,7 @@ impl DirectReader {
     }
     /// Retrieves an instance specialized for merges, typically faster for sequential access.
     pub(crate) fn get_merge_instance_with_base_offset<R>(
-        slice: Arc<Mutex<R>>,
+        slice: Rc<RefCell<R>>,
         bits_per_value: i32,
         base_offset: i64,
         num_values: i64,
@@ -99,7 +100,7 @@ pub(crate) struct LongValuesImpl<R>
 where
     R: RandomAccessInput,
 {
-    slice: Arc<Mutex<R>>,
+    slice: Rc<RefCell<R>>,
     bits_per_value: i32,
     num_values: i64,
     base_offset: i64,
@@ -111,7 +112,7 @@ where
     R: RandomAccessInput,
 {
     fn new(
-        slice: Arc<Mutex<R>>,
+        slice: Rc<RefCell<R>>,
         bits_per_value: i32,
         num_values: i64,
         base_offset: i64,
@@ -128,10 +129,7 @@ where
 
     fn fill_buffer(&mut self, index: i64) -> Result<(), LuceneError> {
         // NOTE: we're not allowed to read more than 3 bytes past the last value
-        let mut slice = self
-            .slice
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.slice.borrow_mut();
         if index >= self.num_values - DirectReader::MERGE_BUFFER_SIZE as i64 {
             // 128 values left or less
             let mut slow_instance = DirectReader::get_instance_with_offset(
@@ -218,14 +216,14 @@ pub(crate) struct DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 impl<R> DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> DirectPackedReader1<R> {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> DirectPackedReader1<R> {
         DirectPackedReader1 { input, offset }
     }
 }
@@ -235,10 +233,7 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         let shift = (index & 7) as i32;
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
         let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
         Ok(result as i64)
     }
@@ -248,7 +243,7 @@ pub(crate) struct DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -256,7 +251,7 @@ impl<R> DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader2 { input, offset }
     }
 }
@@ -268,10 +263,7 @@ where
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
         let shift = ((index & 3) as i32) << 1;
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
         let byte = slice.read_byte(self.offset + (index >> 2))?;
         let result = (byte >> shift) & 0x3;
         Ok(result as i64)
@@ -282,7 +274,7 @@ pub(crate) struct DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -290,7 +282,7 @@ impl<R> DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader4 { input, offset }
     }
 }
@@ -302,10 +294,8 @@ where
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
         let shift = ((index & 1) as i32) << 2;
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let byte = slice.read_byte(self.offset + (index >> 1))?;
         let result = (byte >> shift) & 0xF;
         Ok(result as i64)
@@ -316,7 +306,7 @@ pub(crate) struct DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -324,7 +314,7 @@ impl<R> DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader8 { input, offset }
     }
 }
@@ -335,10 +325,8 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let byte = slice.read_byte(self.offset + index)?;
         let result = byte;
         Ok(result as i64)
@@ -349,7 +337,7 @@ pub(crate) struct DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -357,7 +345,7 @@ impl<R> DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader12 { input, offset }
     }
 }
@@ -370,10 +358,8 @@ where
         debug_assert!(index >= 0);
         let off = (index * 12) >> 3;
         let shift = ((index & 1) as i32) << 2;
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let short_val = slice.read_short(self.offset + off)?;
         let result = ((short_val as u16) >> shift) & 0xFFF;
         Ok(result as i64)
@@ -384,7 +370,7 @@ pub(crate) struct DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -392,7 +378,7 @@ impl<R> DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader16 { input, offset }
     }
 }
@@ -403,10 +389,8 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let result = slice.read_short(self.offset + (index << 1))? as u16;
         Ok(result as i64)
     }
@@ -415,7 +399,7 @@ pub(crate) struct DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -423,7 +407,7 @@ impl<R> DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader20 { input, offset }
     }
 }
@@ -436,10 +420,8 @@ where
         debug_assert!(index >= 0);
         let off = (index * 20) >> 3;
         let shift = ((index & 1) as i32) << 2;
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let int_val = slice.read_int(self.offset + off)?;
         let result = (int_val >> shift) & 0xFFFFF;
         Ok(result as i64)
@@ -450,7 +432,7 @@ pub(crate) struct DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -458,7 +440,7 @@ impl<R> DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader24 { input, offset }
     }
 }
@@ -469,10 +451,8 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let int_val = slice.read_int(self.offset + index * 3)?;
         let result = int_val & 0xFFFFFF;
         Ok(result as i64)
@@ -483,7 +463,7 @@ pub(crate) struct DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -491,7 +471,7 @@ impl<R> DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader28 { input, offset }
     }
 }
@@ -504,10 +484,8 @@ where
         debug_assert!(index >= 0);
         let off = (index * 28) >> 3;
         let shift = ((index & 1) as i32) << 2;
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let int_val = slice.read_int(self.offset + off)?;
         let result = (int_val >> shift) & 0xFFFFFFF;
         Ok(result as i64)
@@ -518,7 +496,7 @@ pub(crate) struct DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -526,7 +504,7 @@ impl<R> DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader32 { input, offset }
     }
 }
@@ -537,10 +515,8 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let int_val = slice.read_int(self.offset + (index << 2))?;
         let result = int_val as u32;
         Ok(result as i64)
@@ -551,7 +527,7 @@ pub(crate) struct DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -559,7 +535,7 @@ impl<R> DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader40 { input, offset }
     }
 }
@@ -570,10 +546,8 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let long_val = slice.read_long(self.offset + index * 5)?;
         let result = long_val & 0xFFFFFFFFFF;
         Ok(result)
@@ -584,7 +558,7 @@ pub(crate) struct DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -592,7 +566,7 @@ impl<R> DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader48 { input, offset }
     }
 }
@@ -603,10 +577,8 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let long_val = slice.read_long(self.offset + index * 6)?;
         let result = long_val & 0xFFFFFFFFFFFF;
         Ok(result)
@@ -617,7 +589,7 @@ pub(crate) struct DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -625,7 +597,7 @@ impl<R> DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader56 { input, offset }
     }
 }
@@ -636,10 +608,8 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let long_val = slice.read_long(self.offset + index * 7)?;
         let result = long_val & 0xFFFFFFFFFFFFFF;
         Ok(result)
@@ -650,7 +620,7 @@ pub(crate) struct DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {
-    input: Arc<Mutex<R>>,
+    input: Rc<RefCell<R>>,
     offset: i64,
 }
 
@@ -658,7 +628,7 @@ impl<R> DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Arc<Mutex<R>>, offset: i64) -> Self {
+    pub fn new(input: Rc<RefCell<R>>, offset: i64) -> Self {
         DirectPackedReader64 { input, offset }
     }
 }
@@ -669,10 +639,8 @@ where
 {
     fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
         debug_assert!(index >= 0);
-        let mut slice = self
-            .input
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut slice = self.input.borrow_mut();
+
         let result = slice.read_long(self.offset + (index << 3))?;
         Ok(result)
     }

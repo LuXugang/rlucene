@@ -19,6 +19,8 @@ use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::index_output::IndexOutput;
 use crate::store::{IOContext, IndexInput};
 use crate::test::util::lucene_test_case::{at_least, new_directory, random};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::test::util::test_util::TestUtil;
 use crate::util::array_util::ArrayUtil;
@@ -28,7 +30,6 @@ use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use rand::rngs::StdRng;
 use rand::Rng;
-use std::sync::{Arc, Mutex};
 
 #[allow(dead_code)] // for quick search
 pub struct TestDirectMonotonic;
@@ -76,7 +77,7 @@ pub fn test_empty() -> Result<(), LuceneError> {
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
         let meta = DirectMonotonicReader::load_meta(&mut meta_in, 0, block_shift)?;
-        let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+        let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         DirectMonotonicReader::get_instance(&meta, slice)?;
     }
     Ok(())
@@ -111,7 +112,7 @@ pub fn test_simple() -> Result<(), LuceneError> {
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
         let meta = DirectMonotonicReader::load_meta(&mut meta_in, num_values as i64, block_shift)?;
-        let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+        let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
             assert_eq!(v, values.get(i as i64)?);
@@ -157,7 +158,7 @@ pub fn test_constant_slope() -> Result<(), LuceneError> {
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
         let meta = DirectMonotonicReader::load_meta(&mut meta_in, num_values as i64, block_shift)?;
-        let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+        let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
             assert_eq!(v, values.get(i as i64)?);
@@ -202,7 +203,7 @@ pub fn test_zero_values_small_blob_shift() -> Result<(), LuceneError> {
         let meta = DirectMonotonicReader::load_meta(&mut meta_in, num_values as i64, block_shift)?;
         assert_eq!(meta_in.length(), meta_in.get_file_pointer());
         meta_in.seek(0)?;
-        let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+        let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for _ in 0..num_values {
             assert_eq!(0, values.get(0)?);
@@ -274,7 +275,7 @@ fn do_test_random(random: &mut StdRng, merging: bool) -> Result<(), LuceneError>
             let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
             let meta =
                 DirectMonotonicReader::load_meta(&mut meta_in, num_values as i64, block_shift)?;
-            let slice = Arc::new(Mutex::new(data_in.random_access_slice(0, data_length)?));
+            let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
             let mut values =
                 DirectMonotonicReader::get_instance_with_merging(&meta, slice, merging)?;
             for (i, &v) in actual_values.iter().enumerate() {
@@ -351,7 +352,7 @@ where
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
         let meta = DirectMonotonicReader::load_meta(&mut meta_in, array.len() as i64, block_shift)?;
-        let slice = Arc::new(Mutex::new(
+        let slice = Rc::new(RefCell::new(
             data_in.random_access_slice(0, dir.file_length("data")?)?,
         ));
         let mut reader = DirectMonotonicReader::get_instance(&meta, slice.clone())?;

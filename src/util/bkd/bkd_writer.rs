@@ -14,16 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod bkd_config;
-mod bkd_radix_selector;
-pub mod bkd_util;
-mod doc_ids_writer;
-mod heap_point_reader;
-mod heap_point_write;
-pub mod mutable_point_tree_reader_utils;
-pub(crate) mod offline_point_reader;
-mod offline_point_write;
-pub(crate) mod point_reader;
-pub(crate) mod point_value;
-pub(crate) mod point_writer;
-mod bkd_writer;
+pub struct BKDWriter {}

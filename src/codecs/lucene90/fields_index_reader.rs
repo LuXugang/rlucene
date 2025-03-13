@@ -23,6 +23,8 @@ use crate::store::{IOContext, IndexInput, ReadAdvice};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, Meta};
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 #[allow(unused)]
 pub(crate) struct FieldsIndexReader<I>
@@ -99,10 +101,10 @@ where
             start_pointers_end_pointer - start_pointers_start_pointer,
         )?;
         let docs =
-            DirectMonotonicReader::get_instance(&docs_meta, Arc::new(Mutex::new(docs_slice)))?;
+            DirectMonotonicReader::get_instance(&docs_meta, Rc::new(RefCell::new(docs_slice)))?;
         let start_pointers = DirectMonotonicReader::get_instance(
             &start_pointers_meta,
-            Arc::new(Mutex::new(start_pointers_slice)),
+            Rc::new(RefCell::new(start_pointers_slice)),
         )?;
 
         Ok(FieldsIndexReader {
