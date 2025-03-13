@@ -110,7 +110,7 @@ where
     /// at the given offset
     pub fn copy_dim(&self, i: i32, dim: i32, bytes: &mut [u8], offset: usize) {
         let start = (i * self.config.bytes_per_doc() + dim) as usize;
-        let len = self.config.get_bytes_per_dim() as usize;
+        let len = self.config.bytes_per_dim as usize;
         bytes[offset..offset + len].copy_from_slice(&self.block.borrow()[start..start + len]);
     }
 
@@ -212,11 +212,10 @@ where
         for i in (from + 1)..to {
             let point_offset = ((i - 1) * self.config.bytes_per_doc()) as usize;
             let next_point_offset = point_offset + self.config.bytes_per_doc() as usize;
-            for dim in 0..self.config.get_num_dims() {
-                let start = (dim * self.config.get_bytes_per_dim()
-                    + common_prefix_lengths[dim as usize]) as usize;
-                let end = (dim * self.config.get_bytes_per_dim() + self.config.get_bytes_per_dim())
+            for dim in 0..self.config.num_dims {
+                let start = (dim * self.config.bytes_per_dim + common_prefix_lengths[dim as usize])
                     as usize;
+                let end = (dim * self.config.bytes_per_dim + self.config.bytes_per_dim) as usize;
                 if CommonUtil::miss_match(
                     &self.block.borrow()[next_point_offset + start..next_point_offset + end],
                     &self.block.borrow()[point_offset + start..point_offset + end],

@@ -390,7 +390,7 @@ mod tests {
                 }
             }
             let mut array = vec![0; num_docs as usize + random.random_range(0..100)];
-            let mut it = BitSetIterator::new(&docs, 0).unwrap();
+            let mut it = BitSetIterator::new(&docs, 0)?;
             let mut j = 0;
             let mut doc = it.next_doc()?;
             while doc != NO_MORE_DOCS {

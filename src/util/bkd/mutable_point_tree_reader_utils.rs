@@ -279,13 +279,13 @@ impl RadixSelectorBase for RadixSelectorImpl {
     where
         Self: Sized,
     {
-        let dim_start = self.split_dim * self.config.get_bytes_per_dim();
+        let dim_start = self.split_dim * self.config.bytes_per_dim;
         let data_start = if k < self.dim_cmp_bytes {
             self.config.packed_index_bytes_length()
         } else {
             self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes
         };
-        let data_end = self.config.get_num_dims() * self.config.get_bytes_per_dim();
+        let data_end = self.config.num_dims * self.config.bytes_per_dim;
         let dim_comparator = ArrayUtil::get_unsigned_comparator(self.config.bytes_per_dim as usize);
 
         let sub_selector = IntroSelectorImpl {

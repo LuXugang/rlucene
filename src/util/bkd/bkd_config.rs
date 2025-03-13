@@ -16,7 +16,6 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use derive_getters::Getters;
 
 /// Basic parameters for indexing points on the BKD tree.
 ///
@@ -25,7 +24,7 @@ use derive_getters::Getters;
 /// - `num_index_dims`: How many dimensions are indexed in the internal nodes.
 /// - `bytes_per_dim`: How many bytes each value in each dimension takes.
 /// - `max_points_in_leaf_node`: Maximum points allowed in a leaf block.
-#[derive(Clone, Debug, Getters)]
+#[derive(Clone, Debug)]
 pub struct BKDConfig {
     pub num_dims: i32,
     pub num_index_dims: i32,

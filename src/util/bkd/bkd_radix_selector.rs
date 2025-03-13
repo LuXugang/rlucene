@@ -75,8 +75,8 @@ where
         // between two points we tie break first using the data-only dimensions and if those are still
         // equal
         // we tie-break on the docID. Here we account for all bytes used in the process.
-        let bytes_sorted = config.get_bytes_per_dim()
-            + (config.get_num_dims() - config.get_num_index_dims()) * config.get_bytes_per_dim()
+        let bytes_sorted = config.bytes_per_dim
+            + (config.num_dims - config.num_index_dims) * config.bytes_per_dim
             + BitUtil::INT_BYTES as i32;
         let number_of_points_offline =
             Self::MAX_SIZE_OFFLINE_BUFFER / config.bytes_per_doc() as usize;
@@ -211,7 +211,7 @@ where
         dim_common_prefix: i32,
     ) -> Result<i32, LuceneError> {
         let mut common_prefix_position = self.bytes_sorted;
-        let offset = dim * self.config.get_bytes_per_dim();
+        let offset = dim * self.config.bytes_per_dim;
         let mut reader =
             points.get_reader_with_buffer(from, to - from, self.offline_buffer.clone())?;
         debug_assert!(common_prefix_position > dim_common_prefix);
@@ -223,13 +223,13 @@ where
             let (packed_value_offset, length) = point_value.packed_value_doc_id_bytes();
 
             let mut start = (packed_value_offset + offset) as usize;
-            let mut end = start + self.config.get_bytes_per_dim() as usize;
+            let mut end = start + self.config.bytes_per_dim as usize;
             self.scratch.copy_from(&value.borrow()[start..end], 0);
 
             start = (packed_value_offset + self.config.packed_index_bytes_length()) as usize;
             end = start
-                + ((self.config.get_num_dims() - self.config.get_num_index_dims())
-                    * self.config.get_bytes_per_dim()) as usize
+                + ((self.config.num_dims - self.config.num_index_dims) * self.config.bytes_per_dim)
+                    as usize
                 + BitUtil::INT_BYTES;
             self.scratch.copy_from(
                 &value.borrow()[start..end],
@@ -261,9 +261,9 @@ where
                 let point_value = point_value_ref.borrow();
                 // Check common prefix and adjust histogram
                 let scratch_start_index =
-                    min(dim_common_prefix, self.config.get_bytes_per_dim()) as usize;
+                    min(dim_common_prefix, self.config.bytes_per_dim) as usize;
                 let scratch_end_index =
-                    min(common_prefix_position, self.config.get_bytes_per_dim()) as usize;
+                    min(common_prefix_position, self.config.bytes_per_dim) as usize;
                 let (packed_value_offset, length) = point_value.packed_value_doc_id_bytes();
                 let packed_value_start_index =
                     (packed_value_offset + offset) as usize + scratch_start_index;
@@ -275,10 +275,10 @@ where
                         [packed_value_start_index..packed_value_end_index],
                 );
                 if j == -1 {
-                    if common_prefix_position > self.config.get_bytes_per_dim() {
+                    if common_prefix_position > self.config.bytes_per_dim {
                         let start_tie_break = self.config.packed_index_bytes_length();
-                        let end_tie_break = start_tie_break + common_prefix_position
-                            - self.config.get_bytes_per_dim();
+                        let end_tie_break =
+                            start_tie_break + common_prefix_position - self.config.bytes_per_dim;
                         let k = CommonUtil::miss_match(
                             &self.scratch[self.config.bytes_per_dim as usize
                                 ..common_prefix_position as usize],
@@ -288,7 +288,7 @@ where
                                 ..(packed_value_offset + end_tie_break) as usize],
                         );
                         if k != -1 {
-                            common_prefix_position = self.config.get_bytes_per_dim() + k;
+                            common_prefix_position = self.config.bytes_per_dim + k;
                             self.histogram.fill(0);
                             self.histogram
                                 [self.scratch[common_prefix_position as usize] as usize] = i - from;
