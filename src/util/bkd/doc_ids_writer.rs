@@ -489,6 +489,9 @@ mod tests {
     use rand::Rng;
     use std::collections::HashSet;
 
+    #[allow(dead_code)] // for quick search
+    struct TestDocIdsWriter;
+
     #[test]
     fn test_random() -> Result<(), LuceneError> {
         let mut random = random();

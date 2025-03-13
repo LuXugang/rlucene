@@ -1757,6 +1757,8 @@ mod tests {
         use rand::Rng;
         use std::cell::RefCell;
         use std::rc::Rc;
+        #[allow(dead_code)] // for quick search
+        struct TestBKDRadixSort;
         #[test]
         fn test_random() -> Result<(), LuceneError> {
             let mut random = random();
@@ -1995,19 +1997,18 @@ mod tests {
                         let (packed_value_offset, _length) = point_value.borrow().packed_value();
                         let bytes_ref = point_value.borrow().get_value();
                         let bytes = bytes_ref.borrow();
-                        if let diff = CommonUtil::miss_match(
+                        let diff = CommonUtil::miss_match(
                             &bytes[packed_value_offset as usize + offset
                                 ..packed_value_offset as usize
                                     + offset
                                     + config.bytes_per_dim as usize],
                             &first_value,
-                        ) {
-                            if diff != -1 && common_prefix_length > diff {
-                                if diff == 0 {
-                                    return diff;
-                                }
-                                common_prefix_length = diff;
+                        );
+                        if diff != -1 && common_prefix_length > diff {
+                            if diff == 0 {
+                                return diff;
                             }
+                            common_prefix_length = diff;
                         }
                     }
 
