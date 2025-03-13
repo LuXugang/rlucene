@@ -20,10 +20,10 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
+use std::rc::Rc;
 
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
-use std::sync::Arc;
 
 //TODO
 #[allow(unused)]
@@ -141,7 +141,7 @@ impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
         None
     }
 }

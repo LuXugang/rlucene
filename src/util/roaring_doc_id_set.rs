@@ -25,7 +25,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 use std::cmp::min;
-use std::sync::Arc;
+use std::rc::Rc;
 
 // Number of documents in a block
 const BLOCK_SIZE: i32 = 1 << 16;
@@ -74,7 +74,7 @@ impl DocIdSet for RoaringDocIdSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
         None
     }
 }
@@ -251,7 +251,7 @@ impl DocIdSet for ShortArrayDocIdSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
         None
     }
 }
@@ -426,7 +426,7 @@ impl DocIdSet for DocIdSetEnum {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
         None
     }
 }

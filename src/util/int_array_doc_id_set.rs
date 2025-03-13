@@ -21,7 +21,7 @@ use crate::util::bits::MatchNoBits;
 
 use crate::util::error::lucene_error::LuceneError;
 use std::cmp::min;
-use std::sync::Arc;
+use std::rc::Rc;
 
 // TODO
 #[allow(unused)]
@@ -74,7 +74,7 @@ impl DocIdSet for IntArrayDocIdSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
         None
     }
 }
