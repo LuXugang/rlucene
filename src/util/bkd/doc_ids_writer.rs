@@ -16,7 +16,6 @@
  */
 use crate::index::point_values::IntersectVisitor;
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
-use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
@@ -61,12 +60,12 @@ impl DocIdsWriter {
             scratch_ints_ref,
         }
     }
-    fn write_doc_ids<D: Directory>(
+    pub(crate) fn write_doc_ids(
         &mut self,
         doc_ids: &[i32],
         start: i32,
         count: i32,
-        out: &mut D::IndexOutputType,
+        out: &mut impl DataOutput,
     ) -> Result<(), LuceneError> {
         // docs can be sorted either when all docs in a block have the same value
         // or when a segment is sorted
@@ -97,7 +96,7 @@ impl DocIdsWriter {
                 // expanding too much storage.
                 // A field with lower cardinality will have higher probability to trigger this optimization.
                 out.write_byte(DocIdsWriter::BITSET_IDS as u8)?;
-                Self::write_ids_as_bit_set::<D>(doc_ids, start, count, out)?;
+                Self::write_ids_as_bit_set(doc_ids, start, count, out)?;
                 return Ok(());
             }
         }
@@ -165,11 +164,11 @@ impl DocIdsWriter {
         }
         Ok(())
     }
-    fn write_ids_as_bit_set<D: Directory>(
+    fn write_ids_as_bit_set(
         doc_ids: &[i32],
         start: i32,
         count: i32,
-        out: &mut D::IndexOutputType,
+        out: &mut impl DataOutput,
     ) -> Result<(), LuceneError> {
         let min = doc_ids[start as usize];
         let max = doc_ids[(start + count - 1) as usize];
@@ -589,7 +588,7 @@ mod tests {
         let mut doc_ids_writer = DocIdsWriter::new(ints.len() as i32);
         {
             let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
-            doc_ids_writer.write_doc_ids::<D>(ints, 0, ints.len() as i32, &mut out)?;
+            doc_ids_writer.write_doc_ids(ints, 0, ints.len() as i32, &mut out)?;
             len = out.get_file_pointer();
             if random.random_bool(0.5) {
                 out.write_long(0)?;
