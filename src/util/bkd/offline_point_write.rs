@@ -154,7 +154,7 @@ where
 
     fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<(), LuceneError> {
         debug_assert!(!self.closed, "Point writer is already closed");
-        let (offset, length) = point_value.packed_value_doc_id_bytes();
+        let (value, offset, length) = point_value.packed_value_doc_id_bytes();
         assert_eq!(
             length,
             self.config.bytes_per_doc(),
@@ -162,11 +162,10 @@ where
             self.config.bytes_per_doc(),
             length
         );
-        self.out.as_mut().unwrap().write_bytes_range(
-            point_value.get_value().borrow_mut().as_slice(),
-            offset,
-            length,
-        )?;
+        self.out
+            .as_mut()
+            .unwrap()
+            .write_bytes_range(value.borrow().as_slice(), offset, length)?;
         self.count += 1;
         debug_assert!(
             self.expected_count == 0 || self.count <= self.expected_count,

@@ -204,9 +204,7 @@ where
         MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, reader, 0, size)?;
 
         let one_dim_writer = OneDimensionBKDWriter::new(data_out, self)?;
-        let mut intersect_visitor = IntersectVisitorImpl {
-            one_dim_writer,
-        };
+        let mut intersect_visitor = IntersectVisitorImpl { one_dim_writer };
         reader.visit_doc_values(&mut intersect_visitor)?;
         intersect_visitor.one_dim_writer.finish()
     }
@@ -384,9 +382,7 @@ where
         }
         {
             let point_value = reader.point_value();
-            let value_ref = point_value.borrow();
-            let value = value_ref.get_value();
-            let (offset, _length) = value_ref.packed_value();
+            let (value, offset, _length) = point_value.borrow().packed_value();
             min_packed_value[..self.config.packed_index_bytes_length() as usize].copy_from_slice(
                 &value.borrow()
                     [offset as usize..(offset + self.config.packed_index_bytes_length()) as usize],
@@ -399,9 +395,7 @@ where
 
         while reader.next()? {
             let point_value = reader.point_value();
-            let value_ref = point_value.borrow();
-            let value = value_ref.get_value();
-            let (offset, length) = value_ref.packed_value();
+            let (value, offset, _length) = point_value.borrow().packed_value();
             for dim in 0..self.config.num_index_dims {
                 let start_offset = (dim * self.config.bytes_per_dim) as usize;
                 if self.comparator.compare(

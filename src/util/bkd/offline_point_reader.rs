@@ -225,8 +225,8 @@ impl PointValue for OfflinePointValue {
         self.offset = offset;
     }
 
-    fn packed_value(&self) -> (i32, i32) {
-        (self.offset, self.packed_value_length)
+    fn packed_value(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32) {
+        (self.value.clone(), self.offset, self.packed_value_length)
     }
 
     fn doc_id(&self, bytes: &[u8]) -> i32 {
@@ -234,7 +234,11 @@ impl PointValue for OfflinePointValue {
         BitUtil::get_i32_be(&bytes[position..], 0)
     }
 
-    fn packed_value_doc_id_bytes(&self) -> (i32, i32) {
-        (self.offset, self.packed_value_doc_id_length)
+    fn packed_value_doc_id_bytes(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32) {
+        (
+            self.value.clone(),
+            self.offset,
+            self.packed_value_doc_id_length,
+        )
     }
 }

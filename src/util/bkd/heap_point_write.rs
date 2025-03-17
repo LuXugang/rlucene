@@ -271,7 +271,7 @@ where
             self.next_write + 1,
             self.size
         );
-        let (offset, length) = point_value.packed_value_doc_id_bytes();
+        let (packed_value, offset, length) = point_value.packed_value_doc_id_bytes();
         assert_eq!(
             length,
             self.config.bytes_per_doc(),
@@ -280,7 +280,6 @@ where
             length
         );
         let position = self.next_write * self.config.bytes_per_doc();
-        let packed_value = point_value.get_value();
         self.block.borrow_mut().copy_from(
             &packed_value.borrow()
                 [offset as usize..(offset + self.config.bytes_per_doc()) as usize],
@@ -391,8 +390,8 @@ impl PointValue for HeapPointValue {
         self.offset = offset;
     }
 
-    fn packed_value(&self) -> (i32, i32) {
-        (self.offset, self.packed_value_length)
+    fn packed_value(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32) {
+        (self.value.clone(), self.offset, self.packed_value_length)
     }
 
     fn doc_id(&self, bytes: &[u8]) -> i32 {
@@ -400,7 +399,11 @@ impl PointValue for HeapPointValue {
         BitUtil::get_i32_be(&bytes[position..], 0)
     }
 
-    fn packed_value_doc_id_bytes(&self) -> (i32, i32) {
-        (self.offset, self.packed_value_doc_id_length)
+    fn packed_value_doc_id_bytes(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32) {
+        (
+            self.value.clone(),
+            self.offset,
+            self.packed_value_doc_id_length,
+        )
     }
 }
