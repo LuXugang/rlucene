@@ -163,7 +163,7 @@ impl PrefixCodedTermsBuilder {
             suffix,
         )?;
         self.last_term_bytes.copy_bytes_with_ref(bytes)?;
-        self.last_term.bytes = self.last_term_bytes.get_bytes_ref();
+        self.last_term.bytes = self.last_term_bytes.get_bytes_ref_copy();
         self.last_term.field = field;
         self.size += 1;
 
@@ -188,7 +188,7 @@ pub struct TermIterator<'a> {
 impl<'a> TermIterator<'a> {
     pub fn new(del_gen: i64, input: ByteBuffersDataInput<'a>) -> Self {
         let mut builder = BytesRefBuilder::new();
-        let bytes = builder.get_bytes_ref();
+        let bytes = builder.get_bytes_ref_copy();
         let end = input.length();
         Self {
             input,
@@ -209,7 +209,7 @@ impl<'a> TermIterator<'a> {
             suffix,
         )?;
         self.builder.set_length(prefix + suffix);
-        self.bytes = self.builder.get_bytes_ref();
+        self.bytes = self.builder.get_bytes_ref_copy();
         Ok(())
     }
 }

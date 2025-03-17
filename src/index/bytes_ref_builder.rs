@@ -88,7 +88,7 @@ impl BytesRefBuilder {
 
     /// Reset this builder to the empty state.
     pub fn append_builder(&mut self, b: &mut BytesRefBuilder) {
-        self.append_ref(b.get())
+        self.append_ref(b.get_bytes_ref())
     }
     pub fn clear(&mut self) {
         self.set_length(0);
@@ -123,7 +123,7 @@ impl BytesRefBuilder {
         self.copy_bytes_with_vec(&b.bytes, b.offset, b.length)
     }
     pub fn copy_bytes_with_builder(&mut self, b: &mut BytesRefBuilder) -> Result<(), LuceneError> {
-        self.copy_bytes_with_ref(b.get())
+        self.copy_bytes_with_ref(b.get_bytes_ref())
     }
     pub fn copy_chars_with_string(&mut self, s: &str) -> Result<(), LuceneError> {
         debug_assert!(s.len() <= i32::MAX as usize);
@@ -146,15 +146,18 @@ impl BytesRefBuilder {
 
     /// Return a BytesRef that points to the internal content of this builder. Any update to
     ///  the content of this builder might invalidate the provided bytes_ref and vice versa.
-    pub fn get(&mut self) -> &mut BytesRef {
+    pub fn get_bytes_ref(&mut self) -> &mut BytesRef {
         debug_assert_eq!(
             self.bytes_ref.offset, 0,
             "Modifying the offset of the returned ref is illegal"
         );
         &mut self.bytes_ref
     }
+    pub fn get_bytes_owner(&mut self) -> BytesRef {
+        std::mem::take(&mut self.bytes_ref)
+    }
     /// Build a new BytesRef that has the same content as this buffer.
-    pub fn get_bytes_ref(&mut self) -> BytesRef {
+    pub fn get_bytes_ref_copy(&mut self) -> BytesRef {
         BytesRef::from_bytes(ArrayUtil::copy_of_sub_array(
             &self.bytes_ref.bytes,
             0,

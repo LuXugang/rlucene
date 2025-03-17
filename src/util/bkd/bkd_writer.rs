@@ -14,22 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
 use crate::index::BytesRef;
+use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexOutput};
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_util::{ByteArrayPredicate, ByteArrayPredicateEnum};
 use crate::util::bkd::doc_ids_writer::DocIdsWriter;
+use crate::util::bkd::point_writer::PointWriterEnum;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::io_runnable::IORunnable;
 use crate::util::ToInt;
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
-use crate::store::directory::Directory;
-use crate::util::bkd::point_writer::PointWriterEnum;
 
-pub struct BKDWriter<D> where D: Directory {
+pub struct BKDWriter<D>
+where
+    D: Directory,
+{
     config: Rc<BKDConfig>,
     common_prefix_comparator: ByteArrayComparatorEnum,
     scratch_bytes_ref1: BytesRef,
@@ -43,7 +46,10 @@ pub struct BKDWriter<D> where D: Directory {
     equals_predicate: Rc<ByteArrayPredicateEnum>,
     doc_ids_writer: DocIdsWriter,
 }
-impl<D> BKDWriter<D> where D: Directory {
+impl<D> BKDWriter<D>
+where
+    D: Directory,
+{
     fn check_max_leaf_node_count(&self, num_leaves: usize) -> Result<(), LuceneError> {
         if (self.config.bytes_per_dim as u64) * (num_leaves as u64)
             > ArrayUtil::MAX_ARRAY_LENGTH as u64
@@ -78,8 +84,7 @@ impl<D> BKDWriter<D> where D: Directory {
         doc_ids: &[i32],
         start: i32,
         count: i32,
-    ) -> Result<(), LuceneError>
-    {
+    ) -> Result<(), LuceneError> {
         debug_assert!(
             count > 0,
             "config.max_points_in_leaf_node()={}",
@@ -105,7 +110,10 @@ impl<D> BKDWriter<D> where D: Directory {
         Ok(())
     }
 }
-pub struct OneDimensionBKDWriter<'a,D> where D:Directory{
+pub struct OneDimensionBKDWriter<'a, D>
+where
+    D: Directory,
+{
     meta_out: Rc<RefCell<D::IndexOutputType>>,
     index_out: Rc<RefCell<D::IndexOutputType>>,
     data_out: Rc<RefCell<D::IndexOutputType>>,
@@ -601,38 +609,54 @@ impl IORunnable for IORunnableEnum {
     }
 }
 
-trait PackedValues{
-    fn apply(&mut self, i: i32) -> (&[u8],i32,i32);
+trait PackedValues {
+    fn apply(&mut self, i: i32) -> (&[u8], i32, i32);
 }
-struct ScratchBytesRefPackedValues{
+struct ScratchBytesRefPackedValues {
     scratch_bytes_ref: BytesRef,
     config: Rc<BKDConfig>,
 }
 impl PackedValues for ScratchBytesRefPackedValues {
-    fn apply(&mut self, i: i32) -> (&[u8],i32,i32) {
+    fn apply(&mut self, i: i32) -> (&[u8], i32, i32) {
         self.scratch_bytes_ref.offset = self.config.packed_bytes_length() * i;
-        (&self.scratch_bytes_ref.bytes, self.scratch_bytes_ref.offset, self.scratch_bytes_ref.length)
+        (
+            &self.scratch_bytes_ref.bytes,
+            self.scratch_bytes_ref.offset,
+            self.scratch_bytes_ref.length,
+        )
     }
 }
-struct MutablePointTreePackedValues{
+struct MutablePointTreePackedValues {
     reader: Rc<RefCell<MutablePointTreeEnum>>,
-    from:i32,
+    from: i32,
     scratch_bytes_ref1: BytesRef,
 }
 impl PackedValues for MutablePointTreePackedValues {
-    fn apply(&mut self, i: i32) ->(&[u8],i32,i32) {
+    fn apply(&mut self, i: i32) -> (&[u8], i32, i32) {
         {
-            self.reader.borrow().get_value(i + self.from, &mut self.scratch_bytes_ref1);
+            self.reader
+                .borrow()
+                .get_value(i + self.from, &mut self.scratch_bytes_ref1);
         }
-        (&self.scratch_bytes_ref1.bytes, self.scratch_bytes_ref1.offset, self.scratch_bytes_ref1.length)
+        (
+            &self.scratch_bytes_ref1.bytes,
+            self.scratch_bytes_ref1.offset,
+            self.scratch_bytes_ref1.length,
+        )
     }
 }
-struct PointWriterPackedValues<D> where D:Directory{
+struct PointWriterPackedValues<D>
+where
+    D: Directory,
+{
     heap_source: Rc<RefCell<PointWriterEnum<D>>>,
     from: i32,
 }
-impl<D> PackedValues for PointWriterPackedValues<D> where D:Directory {
+impl<D> PackedValues for PointWriterPackedValues<D>
+where
+    D: Directory,
+{
     fn apply(&mut self, i: i32) -> (&[u8], i32, i32) {
-       todo!()
+        todo!()
     }
 }

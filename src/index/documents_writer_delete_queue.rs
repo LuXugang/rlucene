@@ -1130,7 +1130,7 @@ mod tests {
         let mut bytes_ref = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
             bytes_ref.copy_bytes_with_ref(&byte_ref)?;
-            let term = Term::new(iter.field().to_string(), bytes_ref.get_bytes_ref());
+            let term = Term::new(iter.field().to_string(), bytes_ref.get_bytes_ref_copy());
             frozen_set.insert(term.clone());
         }
         assert_eq!(unique_values, frozen_set);
@@ -1303,7 +1303,7 @@ mod tests {
         let mut builder = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
             builder.copy_bytes_with_ref(&byte_ref)?;
-            let term = Term::new(iter.field().to_string(), builder.get_bytes_ref());
+            let term = Term::new(iter.field().to_string(), builder.get_bytes_ref_copy());
             frozen_set.insert(term);
         }
         assert_eq!(unique_values.len(), frozen_set.len());

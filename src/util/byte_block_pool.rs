@@ -458,7 +458,7 @@ mod tests {
                 let value_copy = value.clone();
                 list.push(BytesRef::from_string(&value));
                 bytes_ref_builder.copy_chars_with_string(&value_copy)?;
-                pool.append_bytes_ref(bytes_ref_builder.get())?;
+                pool.append_bytes_ref(bytes_ref_builder.get_bytes_ref())?;
             }
             let mut position = 0;
             let mut builder = BytesRefBuilder::new();
@@ -470,7 +470,7 @@ mod tests {
                     0 => {
                         pool.read_bytes(
                             position,
-                            &mut bytes_ref_builder.get().bytes,
+                            &mut bytes_ref_builder.get_bytes_ref().bytes,
                             0,
                             bytes_ref_builder_length,
                         )?;
@@ -484,7 +484,7 @@ mod tests {
                             position,
                             bytes_ref_builder.length(),
                         )?;
-                        bytes_ref_builder.get().bytes.copy_from(
+                        bytes_ref_builder.get_bytes_ref().bytes.copy_from(
                             &scratch.bytes[scratch.offset as usize
                                 ..(scratch.offset + bytes_ref_builder_length) as usize],
                             0,
@@ -494,7 +494,7 @@ mod tests {
                         unreachable!()
                     }
                 }
-                assert!(bytes_ref_builder.get().bytes_equals(expected));
+                assert!(bytes_ref_builder.get_bytes_ref().bytes_equals(expected));
                 position += bytes_ref_builder.length() as i64;
             }
             pool.reset(random.random_bool(0.5), reuse_first)?;

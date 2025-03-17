@@ -93,7 +93,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         let sub_iterator = BinaryDocValuesIterator::new(
             Some(&mut self.offsets),
             Some(&mut self.lengths),
-            Some(self.values.get()),
+            Some(self.values.get_bytes_ref()),
         );
         Ok(AbstractIterator::new(inner, del_gen, sub_iterator))
     }

@@ -1030,7 +1030,7 @@ mod tests {
                 }
                 ref_builder.copy_chars_with_string(&str_value)?;
                 let count = hash.size();
-                let key = hash.add(ref_builder.get())?;
+                let key = hash.add(ref_builder.get_bytes_ref())?;
 
                 if key < 0 {
                     assert_eq!(hash.size(), count,);
@@ -1071,7 +1071,7 @@ mod tests {
 
                 ref_builder.copy_chars_with_string(&str_value)?;
                 let count = hash.size();
-                let key = hash.add(ref_builder.get())?;
+                let key = hash.add(ref_builder.get_bytes_ref())?;
 
                 if key >= 0 {
                     assert!(strings.insert(str_value.clone(), key).is_none());
@@ -1087,7 +1087,7 @@ mod tests {
             for (key, value) in &strings {
                 ref_builder.copy_chars_with_string(key)?;
                 hash.get(*value, &mut scratch)?;
-                assert_eq!(*ref_builder.get(), scratch);
+                assert_eq!(*ref_builder.get_bytes_ref(), scratch);
             }
 
             hash.clear()?;
@@ -1119,7 +1119,7 @@ mod tests {
                 }
 
                 ref_builder.copy_chars_with_string(&str_value)?;
-                let key = hash.add(ref_builder.get())?;
+                let key = hash.add(ref_builder.get_bytes_ref())?;
 
                 if key < 0 {
                     assert!(bits.contains(((-key) - 1) as usize));
@@ -1169,7 +1169,7 @@ mod tests {
                 }
 
                 ref_builder.copy_chars_with_string(&str_value)?;
-                hash.add(ref_builder.get())?;
+                hash.add(ref_builder.get_bytes_ref())?;
                 strings.insert(str_value);
             }
 
@@ -1184,7 +1184,7 @@ mod tests {
                     hash.get(bytes_id, &mut scratch)?;
                     let sorted_ref = scratch.clone();
                     assert_eq!(
-                        *ref_builder.get(),
+                        *ref_builder.get_bytes_ref(),
                         sorted_ref,
                         "Sorted value mismatch at index {}",
                         i
@@ -1223,7 +1223,7 @@ mod tests {
 
                 ref_builder.copy_chars_with_string(&str_value)?;
                 let count = hash.size();
-                let key = hash.add(ref_builder.get())?;
+                let key = hash.add(ref_builder.get_bytes_ref())?;
 
                 if key >= 0 {
                     assert!(strings.insert(str_value.clone()));
@@ -1270,7 +1270,7 @@ mod tests {
 
                 ref_builder.copy_chars_with_string(&str_value)?;
                 let count = hash.size();
-                let key = hash.find(ref_builder.get())?;
+                let key = hash.find(ref_builder.get_bytes_ref())?;
 
                 if key >= 0 {
                     assert!(!strings.insert(str_value.clone()));
@@ -1279,7 +1279,7 @@ mod tests {
                     assert_eq!(str_value, scratch.utf8_to_string()?);
                     assert_eq!(count, hash.size());
                 } else {
-                    let key = hash.add(ref_builder.get())?;
+                    let key = hash.add(ref_builder.get_bytes_ref())?;
                     assert!(strings.insert(str_value.clone()));
                     assert_eq!(unique_count, key);
                     assert_eq!(hash.size(), count + 1);
@@ -1451,7 +1451,7 @@ mod tests {
 
                 ref_builder.copy_chars_with_string(&str_value)?;
                 let count = hash.size();
-                let key = hash.add(ref_builder.get())?;
+                let key = hash.add(ref_builder.get_bytes_ref())?;
 
                 if key >= 0 {
                     assert!(strings.insert(str_value.clone()));
@@ -1481,10 +1481,14 @@ mod tests {
 
             for string in &strings {
                 ref_builder.copy_chars_with_string(string)?;
-                let key = hash.add(ref_builder.get())?;
+                let key = hash.add(ref_builder.get_bytes_ref())?;
                 offset_hash.get(-key - 1, &mut scratch)?;
                 let bytes_ref = scratch.clone();
-                assert_eq!(*ref_builder.get(), bytes_ref, "Values should match.");
+                assert_eq!(
+                    *ref_builder.get_bytes_ref(),
+                    bytes_ref,
+                    "Values should match."
+                );
             }
 
             hash.clear()?;
@@ -1512,7 +1516,7 @@ mod tests {
 
         for string in strings {
             ref_builder.copy_chars_with_string(string)?;
-            let key = hash.add(ref_builder.get())?; // add again to check duplicates
+            let key = hash.add(ref_builder.get_bytes_ref())?; // add again to check duplicates
             hash.get((-key) - 1, &mut scratch)?;
             assert_eq!(*string, scratch.utf8_to_string()?);
             assert_eq!(

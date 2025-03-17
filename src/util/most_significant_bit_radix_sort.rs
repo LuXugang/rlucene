@@ -660,7 +660,7 @@ mod tests {
                     }
                 }
             }
-            let br = builder.get_bytes_ref();
+            let br = builder.get_bytes_ref_copy();
             strings_set.insert(br);
             iters += 1;
         }
