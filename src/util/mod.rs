@@ -58,7 +58,6 @@ pub mod int_block_pool;
 pub mod intro_selector;
 pub mod intro_sorter;
 pub mod ints_ref;
-pub mod io_runnable;
 pub mod io_utils;
 pub mod long_bit_set;
 pub mod long_values;

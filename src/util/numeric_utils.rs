@@ -96,8 +96,8 @@ impl NumericUtils {
 
     /// Result = a - b, where a >= b, else `LuceneError` is returned.
     pub fn subtract(
-        bytes_per_dim: u32,
-        dim: u32,
+        bytes_per_dim: i32,
+        dim: i32,
         a: &[u8],
         b: &[u8],
         result: &mut [u8],
@@ -816,7 +816,7 @@ mod tests {
 
             let mut result = vec![0u8; num_bytes];
 
-            NumericUtils::subtract(num_bytes as u32, 0, &v1_bytes, &v2_bytes, &mut result)?;
+            NumericUtils::subtract(num_bytes as i32, 0, &v1_bytes, &v2_bytes, &mut result)?;
 
             let v1_clone = v1.clone();
             let v2_clone = v2.clone();

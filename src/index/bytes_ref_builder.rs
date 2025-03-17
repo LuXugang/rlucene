@@ -110,7 +110,6 @@ impl BytesRefBuilder {
     /// - [`clear`](BytesRefBuilder::clear)
     /// - [`append`](BytesRefBuilder::append)
     pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: i32, len: i32) -> Result<(), LuceneError> {
-        self.grow(len)?;
         debug_assert_eq!(self.bytes_ref.offset, 0);
         self.bytes_ref.length = len;
         self.grow_no_copy(len)?;
