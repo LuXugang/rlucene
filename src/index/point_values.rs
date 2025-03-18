@@ -37,13 +37,6 @@ pub enum Relation {
 }
 /// Basic operations to read the KD-tree.
 pub trait PointTree: Clone {
-    /// Clone, the current node becomes the root of the new tree.
-    fn clone_tree(&self) -> Result<Self, LuceneError> {
-        Err(LuceneError::need_implemented(
-            "clone_tree is not implemented",
-        ))
-    }
-
     /// Move to the first child node and return `true` upon success.
     /// Returns `false` for leaf nodes and `true` otherwise.
     fn move_to_child(&mut self) -> Result<bool, LuceneError> {
@@ -88,14 +81,14 @@ pub trait PointTree: Clone {
     }
 
     /// Visit all the docs below the current node.
-    fn visit_doc_ids(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_ids(&mut self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
         Err(LuceneError::need_implemented(
             "visit_doc_ids is not implemented",
         ))
     }
 
     /// Visit all the docs and values below the current node.
-    fn visit_doc_values(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
         Err(LuceneError::need_implemented(
             "visit_doc_values is not implemented",
         ))
@@ -172,5 +165,5 @@ pub trait IntersectVisitor {
     ) -> Result<Relation, LuceneError>;
 
     /// Notifies the caller that this many documents are about to be visited.
-    fn grow(&mut self, _count: usize) {}
+    fn grow(&mut self, _count: i32) {}
 }

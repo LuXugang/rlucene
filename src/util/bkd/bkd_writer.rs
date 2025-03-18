@@ -382,10 +382,7 @@ where
                 / self.config.max_points_in_leaf_node as i64,
         )
         .map_err(|_| {
-            LuceneError::integer_overflow(format!(
-                "total_point_count is too large: {}",
-                self.total_point_count
-            ))
+            LuceneError::integer_overflow(format!("value too large: {}", self.total_point_count))
         })?;
         let num_splits = num_leaves - 1;
 
@@ -397,7 +394,7 @@ where
 
         let point_count = i32::try_from(self.point_count).map_err(|_| {
             LuceneError::integer_overflow(format!(
-                "total_point_count is too large: {}",
+                "point_count is too large: {}",
                 self.total_point_count
             ))
         })?;
@@ -463,12 +460,9 @@ where
         reader: Rc<RefCell<MutablePointTreeEnum>>,
     ) -> Result<Option<IORunnable>, LuceneError> {
         let mut reader = reader.borrow_mut();
-        let size = i32::try_from(reader.size()?).map_err(|_| {
-            LuceneError::integer_overflow(format!(
-                "total_point_count is too large: {}",
-                self.total_point_count
-            ))
-        })?;
+        let value = reader.size()?;
+        let size = i32::try_from(value)
+            .map_err(|_| LuceneError::integer_overflow(format!("value is too large: {}", value)))?;
         MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, &mut reader, 0, size)?;
 
         let one_dim_writer = OneDimensionBKDWriter::new(data_out, self)?;
@@ -538,15 +532,9 @@ where
         );
 
         let max_points_in_leaf_node = self.config.max_points_in_leaf_node as i64;
-        let num_leaves = i32::try_from(
-            (self.point_count + max_points_in_leaf_node - 1) / max_points_in_leaf_node,
-        )
-        .map_err(|_| {
-            LuceneError::integer_overflow(format!(
-                "total_point_count is too large: {}",
-                self.total_point_count
-            ))
-        })?;
+        let value = (self.point_count + max_points_in_leaf_node - 1) / max_points_in_leaf_node;
+        let num_leaves = i32::try_from(value)
+            .map_err(|_| LuceneError::integer_overflow(format!("value is too large: {}", value)))?;
         let num_splits = num_leaves - 1;
 
         debug_assert!(num_leaves >= 0);
@@ -1320,10 +1308,7 @@ where
     ) -> Result<PointWriterEnum<D>, LuceneError> {
         let source_count = source.count();
         let count = i32::try_from(source_count).map_err(|_| {
-            LuceneError::integer_overflow(format!(
-                "total_point_count is too large: {}",
-                self.total_point_count
-            ))
+            LuceneError::integer_overflow(format!("source_count is too large: {}", source_count))
         })?;
         let mut reader = source.get_reader(0, source_count)?;
         let mut writer = HeapPointWriter::new(self.config.clone(), count);

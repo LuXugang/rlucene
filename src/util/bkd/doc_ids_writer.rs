@@ -213,7 +213,7 @@ impl DocIdsWriter {
     }
 
     /// Read `count` integers into `doc_ids`.
-    fn read_ints(
+    pub(crate) fn read_ints(
         &mut self,
         input: &mut impl IndexInput,
         count: i32,
@@ -358,7 +358,7 @@ impl DocIdsWriter {
         input.read_ints(doc_ids, 0, count)?;
         Ok(())
     }
-    fn read_ints_with_visitor(
+    pub(crate) fn read_ints_with_visitor(
         &mut self,
         input: &mut impl IndexInput,
         count: i32,
