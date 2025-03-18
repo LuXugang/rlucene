@@ -251,7 +251,6 @@ mod tests {
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
     use rand::Rng;
-    
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetBuilder {}
