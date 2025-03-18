@@ -251,6 +251,7 @@ mod tests {
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
     use rand::Rng;
+    
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetBuilder {}
@@ -457,9 +458,16 @@ mod tests {
         assert_equals(Some(bit_doc_id_set), Some(builder.build()?))?;
         Ok(())
     }
+    #[test]
+    fn test_empty_points() -> Result<(), LuceneError> {
+        // TODO: waiting for the implementation of `PointValues`
+        Ok(())
+    }
 
     #[test]
     fn test_leverage_stats() -> Result<(), LuceneError> {
+        // TODO: waiting for the implementation of `PointValues`
+        // TODO: waiting for the implementation of `Terms`
         // single-valued points
         let mut doc_count = 42;
         let mut value_count = 42;
