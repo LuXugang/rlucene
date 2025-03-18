@@ -28,7 +28,7 @@ impl BKDUtil {
     pub fn get_prefix_length_comparator(num_bytes: usize) -> ByteArrayComparatorEnum {
         if num_bytes == BitUtil::LONG_BYTES {
             ByteArrayComparatorEnum::CommonPrefixLength8(CommonPrefixLength8)
-        } else if (num_bytes == BitUtil::INT_BYTES) {
+        } else if num_bytes == BitUtil::INT_BYTES {
             ByteArrayComparatorEnum::CommonPrefixLength4(CommonPrefixLength4)
         } else {
             ByteArrayComparatorEnum::CommonPrefixLength(CommonPrefixLengthN { num_bytes })
