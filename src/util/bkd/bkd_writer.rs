@@ -26,7 +26,7 @@ use crate::util::bit_set::BitSet;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_radix_selector::{BKDRadixSelector, PathSlice};
-use crate::util::bkd::bkd_util::{ByteArrayPredicate, ByteArrayPredicateEnum};
+use crate::util::bkd::bkd_util::{BKDUtil, ByteArrayPredicate, ByteArrayPredicateEnum};
 use crate::util::bkd::bkd_writer::PackedValuesEnum::ScratchBytesRef;
 use crate::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::util::bkd::heap_point_write::HeapPointWriter;
@@ -42,7 +42,33 @@ use crate::util::{ToInt, VecCopyOps};
 use std::cell::RefCell;
 use std::cmp::max;
 use std::rc::Rc;
+// TODO
+//   - allow variable length `byte[]` (across docs and dims), but this is quite a bit more complex
+//   - we could also index "auto-prefix terms" here, and use better compression, and maybe only use
+//     for the "fully contained" case so we'd only index docIDs
+//   - the index could be efficiently encoded as an FST, so we don't have wasteful
+//     (monotonic) `long[]` leafBlockFPs; or we could use `MonotonicLongValues` ... but then
+//     the index is already quite small: 60M OSM points --> 1.1 MB with 128 points per leaf,
+//     and you can reduce that by putting more points per leaf
+//   - we could use threads while building; the higher nodes are very parallelizable
 
+/// Recursively builds a block KD-tree to assign all incoming points in N-dim space to
+/// smaller and smaller N-dim rectangles (cells) until the number of points in a given
+/// rectangle is <= `config.max_points_in_leaf_node()`. The tree is partially balanced,
+/// which means the leaf nodes will have the requested `config.max_points_in_leaf_node()`
+/// except one that might have less. Leaf nodes may straddle the two bottom levels of
+/// the binary tree. Values that fall exactly on a cell boundary may be in either cell.
+///
+/// The number of dimensions can be 1 to 8, but every `byte[]` value is fixed length.
+///
+/// This consumes heap during writing: it allocates a `Vec<i64>` (`num_leaves` size),
+/// a `Vec<u8>` (`num_leaves * (1 + config.bytes_per_dim)`) and then uses up to the
+/// specified `max_mb_sort_in_heap` heap space for writing.
+///
+/// **NOTE**: This can write at most `i32::MAX * config.max_points_in_leaf_node / config.bytes_per_dim`
+/// total points.
+///
+/// @lucene.experimental
 pub struct BKDWriter<D>
 where
     D: Directory,
@@ -52,6 +78,7 @@ where
     common_prefix_comparator: ByteArrayComparatorEnum,
     temp_dir: Rc<RefCell<D>>,
     temp_file_name_prefix: String,
+    max_mb_sort_in_heap: f64,
     scratch_diff: Vec<u8>,
     scratch: Vec<u8>,
     scratch_bytes_ref1: BytesRef,
@@ -61,11 +88,14 @@ where
     point_writer: Option<PointWriterEnum<D>>,
     finished: bool,
     max_points_sort_in_heap: i32,
+    /// Minimum per-dim values, packed.
     min_packed_value: Vec<u8>,
+    /// Maximum per-dim values, packed.
     max_packed_value: Vec<u8>,
     point_count: i64,
+    /// An upper bound on how many points the caller will add (includes deletions).
     total_point_count: i64,
-    equals_predicate: Rc<ByteArrayPredicateEnum>,
+    equals_predicate: ByteArrayPredicateEnum,
     max_doc: i32,
     doc_ids_writer: DocIdsWriter,
 }
@@ -87,6 +117,73 @@ impl<D> BKDWriter<D>
 where
     D: Directory,
 {
+    pub fn new(
+        max_doc: i32,
+        temp_dir: Rc<RefCell<D>>,
+        temp_file_name_prefix: &str,
+        config: Rc<BKDConfig>,
+        max_mb_sort_in_heap: f64,
+        total_point_count: i64,
+    ) -> Result<Self, LuceneError> {
+        Self::verify_params(max_mb_sort_in_heap, total_point_count)?;
+
+        let bytes_per_dim = config.bytes_per_dim as usize;
+        let packed_bytes_length = config.packed_bytes_length() as usize;
+        let packed_index_bytes_length = config.packed_index_bytes_length() as usize;
+        //TODO: TrackingDirectoryWrapper实现后来修改这里
+        // let temp_dir = TrackingDirectoryWrapper::new(temp_dir);
+        let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
+        let equals_predicate = BKDUtil::get_equals_predicate(bytes_per_dim);
+        let common_prefix_comparator = BKDUtil::get_prefix_length_comparator(bytes_per_dim);
+        let docs_seen = FixedBitSet::new(max_doc);
+
+        let scratch_diff = vec![0u8; config.bytes_per_dim as usize];
+        let scratch = vec![0u8; packed_bytes_length];
+        let common_prefix_lengths = vec![0; config.num_dims as usize];
+
+        let min_packed_value = vec![0u8; packed_index_bytes_length];
+        let max_packed_value = vec![0u8; packed_index_bytes_length];
+
+        // Maximum number of points we hold in memory at any time
+        let max_points_sort_in_heap =
+            ((max_mb_sort_in_heap * 1024.0 * 1024.0) / config.bytes_per_doc() as f64) as i32;
+        let doc_ids_writer = DocIdsWriter::new(config.max_points_in_leaf_node);
+        // Finally, we must be able to hold at least the leaf node in heap during build:
+        if max_points_sort_in_heap < config.max_points_in_leaf_node {
+            return Err(LuceneError::illegal_argument(format!(
+                "maxMBSortInHeap={} only allows for maxPointsSortInHeap={}, but this is less than maxPointsInLeafNode={}; \
+                either increase maxMBSortInHeap or decrease maxPointsInLeafNode",
+                max_mb_sort_in_heap,
+                max_points_sort_in_heap,
+                config.max_points_in_leaf_node
+            )));
+        }
+
+        Ok(Self {
+            config,
+            comparator,
+            equals_predicate,
+            common_prefix_comparator,
+            temp_dir,
+            temp_file_name_prefix: temp_file_name_prefix.to_string(),
+            max_mb_sort_in_heap,
+            scratch_diff,
+            scratch,
+            scratch_bytes_ref1: BytesRef::default(),
+            scratch_bytes_ref2: BytesRef::default(),
+            common_prefix_lengths,
+            docs_seen,
+            point_writer: None,
+            finished: false,
+            max_points_sort_in_heap,
+            min_packed_value,
+            max_packed_value,
+            point_count: 0,
+            total_point_count,
+            max_doc,
+            doc_ids_writer,
+        })
+    }
     fn verify_params(max_mb_sort_in_heap: f64, total_point_count: i64) -> Result<(), LuceneError> {
         if max_mb_sort_in_heap < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
@@ -154,17 +251,16 @@ where
             self.min_packed_value[..length].copy_from_slice(&packed_value[..length]);
             self.max_packed_value[..length].copy_from_slice(&packed_value[..length]);
         } else {
-            for dim in 0..self.config.num_index_dims {
-                let offset = (dim * self.config.bytes_per_dim) as usize;
+            let bytes_per_dim = self.config.bytes_per_dim as usize;
+            for dim in 0..self.config.num_index_dims as usize {
+                let offset = dim * bytes_per_dim;
                 if self
                     .comparator
                     .compare(packed_value, offset, &self.min_packed_value, offset)
                     < 0
                 {
-                    self.min_packed_value[offset..offset + self.config.bytes_per_dim as usize]
-                        .copy_from_slice(
-                            &packed_value[offset..offset + self.config.bytes_per_dim as usize],
-                        );
+                    self.min_packed_value[offset..offset + bytes_per_dim]
+                        .copy_from_slice(&packed_value[offset..offset + bytes_per_dim]);
                 } else if self.comparator.compare(
                     packed_value,
                     offset,
@@ -172,10 +268,8 @@ where
                     offset,
                 ) > 0
                 {
-                    self.max_packed_value[offset..offset + self.config.bytes_per_dim as usize]
-                        .copy_from_slice(
-                            &packed_value[offset..offset + self.config.bytes_per_dim as usize],
-                        );
+                    self.max_packed_value[offset..offset + bytes_per_dim]
+                        .copy_from_slice(&packed_value[offset..offset + bytes_per_dim]);
                 }
             }
         }
@@ -557,7 +651,8 @@ where
             data_start_fp,
         }))
     }
-
+    /// Packs the two arrays, representing a semi-balanced binary tree, into a compact byte[]
+    /// structure.
     fn pack_index(&self, leaf_nodes: &BKDTreeLeafNodesEnum) -> Result<Vec<u8>, LuceneError> {
         // Reused while packing the index
         let mut write_buffer = ByteBuffersDataOutput::with_resettable_instance();
@@ -1039,6 +1134,8 @@ where
         }
         Ok(())
     }
+    /// Return an array that contains the min and max values for the [offset, offset+length] interval
+    /// of the given {@link BytesRef}s.
     fn compute_min_max(
         &self,
         count: i32,
@@ -1157,6 +1254,15 @@ where
         //TODO: TrackingDirectoryWrapper实现后来修改这里
         Ok(())
     }
+    /// Pick the next dimension to split.
+    ///
+    /// # Arguments
+    /// * `min_packed_value` - The min values for all dimensions.
+    /// * `max_packed_value` - The max values for all dimensions.
+    /// * `parent_splits` - How many times each dimension has been split on the parent levels.
+    ///
+    /// # Returns
+    /// The dimension to split.
     fn split(
         &mut self,
         min_packed_value: &[u8],
@@ -1207,7 +1313,7 @@ where
         }
         Ok(split_dim)
     }
-
+    /// Pull a partition back into heap once the point count is low enough while recursing.
     fn switch_to_heap(
         &self,
         source: &mut PointWriterEnum<D>,
@@ -1239,6 +1345,8 @@ where
         Ok(PointWriterEnum::Heap(writer))
     }
 
+    /// Recursively reorders the provided reader and writes the bkd-tree on the fly; this method is used
+    /// when we are writing a new segment directly from IndexWriter's indexing buffer (MutablePointsReader).
     #[allow(clippy::too_many_arguments)]
     fn build_with_reader(
         &mut self,
@@ -1575,6 +1683,8 @@ where
 
         Ok(())
     }
+    /// The point writer contains the data that is going to be splitted using radix selection. /* This
+    /// method is used when we are merging previously written segments, in the numDims > 1 case.
     #[allow(clippy::too_many_arguments)]
     fn build(
         &mut self,

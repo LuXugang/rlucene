@@ -14,13 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::array_util::ByteArrayComparator;
+use crate::util::array_util::{
+    ByteArrayComparatorEnum, CommonPrefixLength4, CommonPrefixLength8, CommonPrefixLengthN,
+};
 use crate::util::bit_util::BitUtil;
 use crate::util::CommonUtil;
 
 pub(crate) struct BKDUtil;
 
 impl BKDUtil {
+    /// Return a comparator that computes the common prefix length across the next {@code numBytes} of
+    /// the provided arrays.
+    pub fn get_prefix_length_comparator(num_bytes: usize) -> ByteArrayComparatorEnum {
+        if num_bytes == BitUtil::LONG_BYTES {
+            ByteArrayComparatorEnum::CommonPrefixLength8(CommonPrefixLength8)
+        } else if (num_bytes == BitUtil::INT_BYTES) {
+            ByteArrayComparatorEnum::CommonPrefixLength4(CommonPrefixLength4)
+        } else {
+            ByteArrayComparatorEnum::CommonPrefixLength(CommonPrefixLengthN { num_bytes })
+        }
+    }
     /// Return the length of the common prefix across the next 8 bytes of both provided arrays.
     pub fn common_prefix_length8(a: &[u8], a_offset: usize, b: &[u8], b_offset: usize) -> i32 {
         let a_long = BitUtil::get_i64_le(a, a_offset);
@@ -76,26 +89,6 @@ impl BKDUtil {
         } else {
             cmp
         }
-    }
-}
-pub struct CommonPrefixLength8;
-impl ByteArrayComparator for CommonPrefixLength8 {
-    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        BKDUtil::common_prefix_length8(a, a_i, b, b_i)
-    }
-}
-pub struct CommonPrefixLength4;
-impl ByteArrayComparator for CommonPrefixLength4 {
-    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        BKDUtil::common_prefix_length4(a, a_i, b, b_i)
-    }
-}
-pub struct CommonPrefixLengthN {
-    num_bytes: usize,
-}
-impl ByteArrayComparator for CommonPrefixLengthN {
-    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
-        BKDUtil::common_prefix_length_n(a, a_i, b, b_i, self.num_bytes)
     }
 }
 

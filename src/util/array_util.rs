@@ -16,7 +16,7 @@
  */
 use crate::util::array_tim_sorter::ArrayTimSorter;
 use crate::util::bit_util::BitUtil;
-use crate::util::bkd::bkd_util::{CommonPrefixLength4, CommonPrefixLength8, CommonPrefixLengthN};
+use crate::util::bkd::BKDUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::selector::Selector;
 use crate::util::{
@@ -573,7 +573,7 @@ pub enum ByteArrayComparatorEnum {
     Byte(ByteByteArrayComparator),
     CommonPrefixLength8(CommonPrefixLength8),
     CommonPrefixLength4(CommonPrefixLength4),
-    CommonPrefixLengthN(CommonPrefixLengthN),
+    CommonPrefixLength(CommonPrefixLengthN),
 }
 impl ByteArrayComparator for ByteArrayComparatorEnum {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
@@ -583,7 +583,7 @@ impl ByteArrayComparator for ByteArrayComparatorEnum {
             ByteArrayComparatorEnum::Byte(c) => c.compare(a, a_i, b, b_i),
             ByteArrayComparatorEnum::CommonPrefixLength8(c) => c.compare(a, a_i, b, b_i),
             ByteArrayComparatorEnum::CommonPrefixLength4(c) => c.compare(a, a_i, b, b_i),
-            ByteArrayComparatorEnum::CommonPrefixLengthN(c) => c.compare(a, a_i, b, b_i),
+            ByteArrayComparatorEnum::CommonPrefixLength(c) => c.compare(a, a_i, b, b_i),
         }
     }
 }
@@ -614,6 +614,26 @@ impl ByteArrayComparator for ByteByteArrayComparator {
         a[a_i..a_i + self.num_bytes]
             .cmp(&b[b_i..b_i + self.num_bytes])
             .to_int()
+    }
+}
+pub struct CommonPrefixLength8;
+impl ByteArrayComparator for CommonPrefixLength8 {
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
+        BKDUtil::common_prefix_length8(a, a_i, b, b_i)
+    }
+}
+pub struct CommonPrefixLength4;
+impl ByteArrayComparator for CommonPrefixLength4 {
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
+        BKDUtil::common_prefix_length4(a, a_i, b, b_i)
+    }
+}
+pub struct CommonPrefixLengthN {
+    pub(crate) num_bytes: usize,
+}
+impl ByteArrayComparator for CommonPrefixLengthN {
+    fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
+        BKDUtil::common_prefix_length_n(a, a_i, b, b_i, self.num_bytes)
     }
 }
 
