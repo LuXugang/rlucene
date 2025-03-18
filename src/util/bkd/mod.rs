@@ -16,7 +16,7 @@
  */
 pub(crate) mod bkd_config;
 mod bkd_radix_selector;
-mod bkd_reader;
+pub mod bkd_reader;
 pub mod bkd_util;
 mod bkd_writer;
 mod doc_ids_writer;

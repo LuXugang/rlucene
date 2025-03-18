@@ -15,16 +15,28 @@
  * limitations under the License.
  */
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::store::dummy::dummy_index_input::DummyIndexInput;
+use crate::store::IndexInput;
 use crate::util::bkd::bkd_config::BKDConfig;
+use crate::util::bkd::bkd_reader::{BKDPointTree, BKDReader};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::ints_ref::IntsRef;
 
-pub struct PointValues;
-impl PointValues {
+pub struct PointValues<I>
+where
+    I: IndexInput,
+{
+    sub_point_values: PointValuesBaseEnum<I>,
+}
+impl PointValues<DummyIndexInput> {
     pub const MAX_NUM_BYTES: i32 = 16;
     pub const MAX_DIMENSIONS: i32 = BKDConfig::MAX_DIMS;
     pub const MAX_INDEX_DIMENSIONS: i32 = BKDConfig::MAX_INDEX_DIMS;
-
+}
+impl<I> PointValues<I>
+where
+    I: IndexInput,
+{
     /// Finds all documents and points matching the provided visitor.
     /// This method does not enforce live documents, so it's up to the caller
     /// to test whether each document is deleted, if necessary.
@@ -185,44 +197,47 @@ impl PointValues {
         }
     }
 }
-impl PointValuesBase for PointValues {
-    fn get_point_tree(&self) -> Result<PointTreeEnum, LuceneError> {
-        todo!()
+impl<I> PointValuesBase for PointValues<I>
+where
+    I: IndexInput,
+{
+    fn get_point_tree(&self) -> Result<impl PointTree, LuceneError> {
+        self.sub_point_values.get_point_tree()
     }
-    fn get_min_packed_value(&self) -> Result<Option<&[u8]>, LuceneError> {
-        todo!()
+    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+        self.sub_point_values.get_min_packed_value()
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<&[u8]>, LuceneError> {
-        todo!()
+    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+        self.sub_point_values.get_max_packed_value()
     }
 
     fn get_num_dimensions(&self) -> Result<i32, LuceneError> {
-        todo!()
+        self.sub_point_values.get_num_dimensions()
     }
 
     fn get_num_index_dimensions(&self) -> Result<i32, LuceneError> {
-        todo!()
+        self.sub_point_values.get_num_dimensions()
     }
 
     fn get_bytes_per_dimension(&self) -> Result<i32, LuceneError> {
-        todo!()
+        self.sub_point_values.get_bytes_per_dimension()
     }
 
     fn size(&self) -> Result<i64, LuceneError> {
-        todo!()
+        self.sub_point_values.size()
     }
 
     fn get_doc_count(&self) -> Result<i32, LuceneError> {
-        todo!()
+        self.sub_point_values.get_doc_count()
     }
 }
 pub trait PointValuesBase {
     /// Returns minimum value for each dimension, packed, or None if `size()` is `0`
-    fn get_min_packed_value(&self) -> Result<Option<&[u8]>, LuceneError>;
+    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError>;
 
     /// Returns maximum value for each dimension, packed, or None if `size()` is `0`
-    fn get_max_packed_value(&self) -> Result<Option<&[u8]>, LuceneError>;
+    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError>;
 
     /// Returns how many dimensions are represented in the values
     fn get_num_dimensions(&self) -> Result<i32, LuceneError>;
@@ -238,7 +253,65 @@ pub trait PointValuesBase {
 
     /// Returns the total number of documents that have indexed at least one point.
     fn get_doc_count(&self) -> Result<i32, LuceneError>;
-    fn get_point_tree(&self) -> Result<PointTreeEnum, LuceneError>;
+    fn get_point_tree(&self) -> Result<impl PointTree, LuceneError>;
+}
+pub enum PointValuesBaseEnum<I>
+where
+    I: IndexInput,
+{
+    BKD(BKDReader<I>),
+}
+impl<I> PointValuesBase for PointValuesBaseEnum<I>
+where
+    I: IndexInput,
+{
+    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+        match self {
+            PointValuesBaseEnum::BKD(bkd) => bkd.get_min_packed_value(),
+        }
+    }
+
+    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+        match self {
+            PointValuesBaseEnum::BKD(bkd) => bkd.get_max_packed_value(),
+        }
+    }
+
+    fn get_num_dimensions(&self) -> Result<i32, LuceneError> {
+        match self {
+            PointValuesBaseEnum::BKD(bkd) => bkd.get_num_dimensions(),
+        }
+    }
+
+    fn get_num_index_dimensions(&self) -> Result<i32, LuceneError> {
+        match self {
+            PointValuesBaseEnum::BKD(bkd) => bkd.get_num_index_dimensions(),
+        }
+    }
+
+    fn get_bytes_per_dimension(&self) -> Result<i32, LuceneError> {
+        match self {
+            PointValuesBaseEnum::BKD(bkd) => bkd.get_bytes_per_dimension(),
+        }
+    }
+
+    fn size(&self) -> Result<i64, LuceneError> {
+        match self {
+            PointValuesBaseEnum::BKD(bkd) => bkd.size(),
+        }
+    }
+
+    fn get_doc_count(&self) -> Result<i32, LuceneError> {
+        match self {
+            PointValuesBaseEnum::BKD(bkd) => bkd.get_doc_count(),
+        }
+    }
+
+    fn get_point_tree(&self) -> Result<impl PointTree, LuceneError> {
+        match self {
+            PointValuesBaseEnum::BKD(bkd) => bkd.get_point_tree(),
+        }
+    }
 }
 /// Used by `intersect` to check how each recursive cell corresponds to the query.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -309,15 +382,23 @@ pub trait PointTree: Clone {
         ))
     }
 }
-pub enum PointTreeEnum {}
+pub enum PointTreeEnum<I>
+where
+    I: IndexInput,
+{
+    BKD(BKDPointTree<I>),
+}
 
-impl Clone for PointTreeEnum {
+impl<I> Clone for PointTreeEnum<I>
+where
+    I: IndexInput,
+{
     fn clone(&self) -> Self {
         todo!()
     }
 }
 
-impl PointTree for PointTreeEnum {}
+impl<I> PointTree for PointTreeEnum<I> where I: IndexInput {}
 /// We recurse the [PointTree], using a provided instance of this to guide the recursion.
 pub trait IntersectVisitor {
     /// Called for all documents in a leaf cell that's fully contained by the query.
