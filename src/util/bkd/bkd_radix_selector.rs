@@ -68,7 +68,7 @@ where
         config: Rc<BKDConfig>,
         max_points_sort_in_heap: i32,
         temp_dir: Rc<RefCell<D>>,
-        temp_file_name_prefix: String,
+        temp_file_name_prefix: &str,
     ) -> Self {
         // Selection and sorting is done in a given dimension. In case the value of the dimension are
         // equal
@@ -92,7 +92,7 @@ where
             config,
             max_points_sort_in_heap,
             temp_dir,
-            temp_file_name_prefix,
+            temp_file_name_prefix: temp_file_name_prefix.to_string(),
             bytes_sorted,
             offline_buffer,
             partition_bucket,
@@ -1360,12 +1360,8 @@ mod tests {
             middle: i64,
             sorted_on_heap: i32,
         ) -> Result<(), LuceneError> {
-            let mut radix_selector = BKDRadixSelector::new(
-                config.clone(),
-                sorted_on_heap,
-                dir.clone(),
-                "test".to_string(),
-            );
+            let mut radix_selector =
+                BKDRadixSelector::new(config.clone(), sorted_on_heap, dir.clone(), "test");
             let data_only_dims = config.num_dims - config.num_index_dims;
 
             for split_dim in 0..config.num_index_dims {
@@ -1874,8 +1870,7 @@ mod tests {
             end: i32,
             dir: Rc<RefCell<D>>,
         ) -> Result<(), LuceneError> {
-            let radix_selector =
-                BKDRadixSelector::new(config.clone(), 1000, dir, "test".to_string());
+            let radix_selector = BKDRadixSelector::new(config.clone(), 1000, dir, "test");
             // we check for each dimension
             for split_dim in 0..config.num_dims {
                 let common_prefix_length;
