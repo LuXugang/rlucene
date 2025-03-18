@@ -1574,16 +1574,22 @@ mod tests {
                 let data_offset = config.packed_index_bytes_length();
                 let data_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
 
-                let value_ref = bytes.borrow();
-                let dim_slice = &value_ref[(packed_value_offset + offset) as usize
-                    ..(packed_value_offset + offset + config.bytes_per_dim) as usize];
-                let partition_slice = &partition_point[0..config.bytes_per_dim as usize];
-                let data_slice = &value_ref[(packed_value_offset + data_offset) as usize
-                    ..(packed_value_offset + data_offset + data_length) as usize];
-                let data_dim_slice = &data_dim[0..data_length as usize];
+                let slice1_equal1;
+                let slice1_equal2;
+                {
+                    let value_ref = bytes.borrow();
+                    let dim_slice = &value_ref[(packed_value_offset + offset) as usize
+                        ..(packed_value_offset + offset + config.bytes_per_dim) as usize];
+                    let partition_slice = &partition_point[0..config.bytes_per_dim as usize];
+                    let data_slice = &value_ref[(packed_value_offset + data_offset) as usize
+                        ..(packed_value_offset + data_offset + data_length) as usize];
+                    let data_dim_slice = &data_dim[0..data_length as usize];
+                    slice1_equal1 = data_slice == partition_slice;
+                    slice1_equal2 = dim_slice == data_dim_slice;
+                }
 
-                if dim_slice == partition_slice && data_slice == data_dim_slice {
-                    let new_doc_id = point_value.doc_id(&value_ref);
+                if slice1_equal1 && slice1_equal2 {
+                    let new_doc_id = point_value.doc_id();
                     if new_doc_id < doc_id {
                         doc_id = new_doc_id;
                     }
@@ -1699,16 +1705,22 @@ mod tests {
                 let offset = dimension * config.bytes_per_dim;
                 let data_offset = config.packed_index_bytes_length();
                 let data_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
+                let slice1_equal1;
+                let slice1_equal2;
+                {
+                    let dim_slice = &value.borrow()[(packed_value_offset + offset) as usize
+                        ..(packed_value_offset + offset + config.bytes_per_dim) as usize];
+                    let partition_slice = &partition_point[0..config.bytes_per_dim as usize];
 
-                let dim_slice = &value.borrow()[(packed_value_offset + offset) as usize
-                    ..(packed_value_offset + offset + config.bytes_per_dim) as usize];
-                let partition_slice = &partition_point[0..config.bytes_per_dim as usize];
+                    let data_slice = &value.borrow()[(packed_value_offset + data_offset) as usize
+                        ..(packed_value_offset + data_offset + data_length) as usize];
+                    let data_dim_slice = &data_dim[0..data_length as usize];
+                    slice1_equal1 = dim_slice == partition_slice;
+                    slice1_equal2 = data_slice == data_dim_slice;
+                }
 
-                let data_slice = &value.borrow()[(packed_value_offset + data_offset) as usize
-                    ..(packed_value_offset + data_offset + data_length) as usize];
-                let data_dim_slice = &data_dim[0..data_length as usize];
-                if dim_slice == partition_slice && data_slice == data_dim_slice {
-                    let new_doc_id = point_value.doc_id(&value.borrow());
+                if slice1_equal1 && slice1_equal2 {
+                    let new_doc_id = point_value.doc_id();
                     if new_doc_id > doc_id {
                         doc_id = new_doc_id;
                     }
@@ -1897,42 +1909,44 @@ mod tests {
                     PointWriterEnum::Heap(heap_writer) => {
                         for j in start..end {
                             let point_value = heap_writer.get_packed_value_slice(j);
+                            let mut cmp;
                             let (bytes_ref, packed_value_offset, _) =
                                 point_value.borrow().packed_value();
-                            let value = bytes_ref.borrow();
-
-                            let mut cmp = value[packed_value_offset as usize + dim_offset
-                                ..packed_value_offset as usize
-                                    + dim_offset
-                                    + config.bytes_per_dim as usize]
-                                .cmp(
-                                    &previous
-                                        [dim_offset..dim_offset + config.bytes_per_dim as usize],
-                                )
-                                .to_int();
-                            assert!(
-                                cmp >= 0,
-                                "Sorting validation failed for split_dim {}, cmp: {}",
-                                split_dim,
-                                cmp
-                            );
-
-                            if cmp == 0 {
-                                let data_offset =
-                                    (config.num_index_dims * config.bytes_per_dim) as usize;
-                                cmp = value[packed_value_offset as usize + data_offset
+                            {
+                                let value = bytes_ref.borrow();
+                                cmp = value[packed_value_offset as usize + dim_offset
                                     ..packed_value_offset as usize
-                                        + config.packed_bytes_length() as usize]
+                                        + dim_offset
+                                        + config.bytes_per_dim as usize]
                                     .cmp(
-                                        &previous
-                                            [data_offset..config.packed_bytes_length() as usize],
+                                        &previous[dim_offset
+                                            ..dim_offset + config.bytes_per_dim as usize],
                                     )
                                     .to_int();
-                                assert!(cmp >= 0, "Data dimension sorting validation failed");
+                                assert!(
+                                    cmp >= 0,
+                                    "Sorting validation failed for split_dim {}, cmp: {}",
+                                    split_dim,
+                                    cmp
+                                );
+
+                                if cmp == 0 {
+                                    let data_offset =
+                                        (config.num_index_dims * config.bytes_per_dim) as usize;
+                                    cmp = value[packed_value_offset as usize + data_offset
+                                        ..packed_value_offset as usize
+                                            + config.packed_bytes_length() as usize]
+                                        .cmp(
+                                            &previous[data_offset
+                                                ..config.packed_bytes_length() as usize],
+                                        )
+                                        .to_int();
+                                    assert!(cmp >= 0, "Data dimension sorting validation failed");
+                                }
                             }
 
                             if cmp == 0 {
-                                let doc_id = point_value.borrow().doc_id(&value);
+                                let doc_id = point_value.borrow().doc_id();
                                 assert!(
                                     doc_id >= previous_doc_id,
                                     "DocID order validation failed: {} < {}",
@@ -1941,12 +1955,15 @@ mod tests {
                                 );
                             }
 
-                            previous.copy_from_slice(
-                                &value[packed_value_offset as usize
-                                    ..packed_value_offset as usize
-                                        + config.packed_bytes_length() as usize],
-                            );
-                            previous_doc_id = point_value.borrow().doc_id(&value);
+                            {
+                                let value = bytes_ref.borrow();
+                                previous.copy_from_slice(
+                                    &value[packed_value_offset as usize
+                                        ..packed_value_offset as usize
+                                            + config.packed_bytes_length() as usize],
+                                );
+                            }
+                            previous_doc_id = point_value.borrow().doc_id();
                         }
                     }
                     _ => {

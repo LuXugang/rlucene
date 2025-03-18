@@ -394,8 +394,9 @@ impl PointValue for HeapPointValue {
         (self.value.clone(), self.offset, self.packed_value_length)
     }
 
-    fn doc_id(&self, bytes: &[u8]) -> i32 {
+    fn doc_id(&self) -> i32 {
         let position = (self.offset + self.packed_value_length) as usize;
+        let bytes = self.value.borrow();
         BitUtil::get_i32_be(&bytes[position..], 0)
     }
 

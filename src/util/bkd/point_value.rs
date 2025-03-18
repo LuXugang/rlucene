@@ -28,7 +28,7 @@ pub(crate) trait PointValue {
     fn packed_value(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32);
 
     /// Returns the docID.
-    fn doc_id(&self, bytes: &[u8]) -> i32;
+    fn doc_id(&self) -> i32;
 
     /// Returns the byte representation of the packed value together with the docID.
     fn packed_value_doc_id_bytes(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32);
@@ -61,10 +61,10 @@ impl PointValue for PointValueEnum {
         }
     }
 
-    fn doc_id(&self, bytes: &[u8]) -> i32 {
+    fn doc_id(&self) -> i32 {
         match self {
-            PointValueEnum::Heap(heap) => heap.doc_id(bytes),
-            PointValueEnum::Offline(offline) => offline.doc_id(bytes),
+            PointValueEnum::Heap(heap) => heap.doc_id(),
+            PointValueEnum::Offline(offline) => offline.doc_id(),
         }
     }
 
