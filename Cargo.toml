@@ -29,11 +29,12 @@ tempfile = "3.14.0"
 overflow-checks = false
 
 [features]
-default= ["test_only", "not_required_in_rust_lucene", "wait_other_impl"]
+default= ["test_only", "not_required_in_rust_lucene", "wait_other_impl","unused"]
 test_only = []
 not_required_in_rust_lucene = []
 wait_other_impl = []
 test_log_verbose = []
+unused = []
 [workspace]
 members = [
     ".",
