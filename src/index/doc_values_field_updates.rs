@@ -437,7 +437,7 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 /// Only documents with updates are returned by this iterator, and the documents are returned
 /// in increasing order.
 #[allow(unused)]
-pub trait DocValuesFieldIterator: DocValuesIterator + Default + PartialEq {
+pub trait DocValuesFieldIterator: DocValuesIterator + Default{
     fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
         BinaryDocValuesImpl::new(iterator);
     }
@@ -627,15 +627,6 @@ where
 
 impl<T> DocValuesIterator for PriorityQueueIterator<T> where T: DocValuesFieldIterator {}
 
-impl<T> PartialEq for PriorityQueueIterator<T>
-where
-    T: DocValuesFieldIterator,
-{
-    fn eq(&self, _other: &Self) -> bool {
-        unimplemented!("eq must be implemented if you need to use it")
-    }
-}
-
 impl<T> DocValuesFieldIterator for PriorityQueueIterator<T>
 where
     T: DocValuesFieldIterator,
@@ -768,15 +759,6 @@ where
         debug_assert!((long_doc as u64 >> SHIFT) <= i32::MAX as u64);
         self.doc = (long_doc as u64 >> SHIFT) as i32;
         Ok(self.doc)
-    }
-}
-
-impl<A> PartialEq for AbstractIterator<A>
-where
-    A: AbstractIteratorBase + Default,
-{
-    fn eq(&self, _other: &Self) -> bool {
-        unimplemented!("eq must be implemented if you need to use it")
     }
 }
 
@@ -1008,15 +990,6 @@ where
             iterator: None,
             single: None,
         }
-    }
-}
-
-impl<S> PartialEq for SingleValueDocValuesFieldUpdatesIterator<'_, S>
-where
-    S: Default + SingleValueDocValuesFieldUpdatesBase,
-{
-    fn eq(&self, _other: &Self) -> bool {
-        unimplemented!("eq must be implemented if you need to use it")
     }
 }
 
