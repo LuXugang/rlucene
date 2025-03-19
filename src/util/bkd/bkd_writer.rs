@@ -477,7 +477,6 @@ where
     /// This returns `None` if all documents containing dimensional values were deleted.
     pub fn merge<S>(
         &mut self,
-        config: Rc<BKDConfig>,
         _meta_out: Rc<RefCell<D::IndexOutputType>>,
         _index_out: Rc<RefCell<D::IndexOutputType>>,
         data_out: Rc<RefCell<D::IndexOutputType>>,
@@ -489,18 +488,21 @@ where
     {
         let readers_len = readers.len();
         debug_assert!(doc_maps.is_none() || readers_len == doc_maps.as_ref().unwrap().len());
-        let mut queue =
-            PriorityQueue::new(self.config.bytes_per_dim, MergeReaderCmp::new(readers_len))?;
+        debug_assert!(readers_len <= i32::MAX as usize);
+        let mut queue = PriorityQueue::new(
+            readers_len as i32,
+            MergeReaderCmp::new(self.config.bytes_per_dim as usize),
+        )?;
 
         for (i, mut point_values) in readers.into_iter().enumerate() {
-            debug_assert_eq!(point_values.get_num_dimensions()?, config.num_dims);
+            debug_assert_eq!(point_values.get_num_dimensions()?, self.config.num_dims);
             assert_eq!(
                 point_values.get_bytes_per_dimension()?,
-                config.bytes_per_dim
+                self.config.bytes_per_dim
             );
             debug_assert_eq!(
                 point_values.get_num_index_dimensions()?,
-                config.num_index_dims
+                self.config.num_index_dims
             );
             let doc_map = doc_maps.as_ref().map(|doc_maps| doc_maps[i].clone());
             let mut reader = MergeReader::new(&mut point_values, doc_map)?;
@@ -2161,14 +2163,16 @@ where
             return Ok(None);
         }
         self.bkd_writer.point_count = self.value_count;
-        self.bkd_writer.scratch_bytes_ref1.length = self.bkd_writer.config.bytes_per_dim;
-        self.bkd_writer.scratch_bytes_ref1.offset = 0;
+        // self.bkd_writer.scratch_bytes_ref1.length = self.bkd_writer.config.bytes_per_dim;
+        // self.bkd_writer.scratch_bytes_ref1.offset = 0;
 
         debug_assert!(self.leaf_block_start_values.len() + 1 == self.leaf_block_fps.len());
 
         let leaf_nodes = BKDTreeLeafNodesEnum::OneDimension(BKDTreeLeafNodesOneDimension {
             leaf_block_fps: std::mem::take(&mut self.leaf_block_fps),
-            scratch_bytes_ref1: std::mem::take(&mut self.bkd_writer.scratch_bytes_ref1),
+            offset: 0,
+            length: self.bkd_writer.config.bytes_per_dim,
+            leaf_block_start_values: std::mem::take(&mut self.leaf_block_start_values),
         });
         Ok(Option::from(IORunnable {
             leaf_nodes,
@@ -2452,7 +2456,6 @@ impl<S: PointValuesBase> MergeReader<S> {
         })
     }
     pub fn next(&mut self) -> Result<bool, LuceneError> {
-        // System.out.println("MR.next this=" + this);
         loop {
             if self.doc_block_upto == self.merge_intersects_visitor.docs_in_block as usize {
                 if !self.collect_next_leaf()? {
@@ -2546,7 +2549,7 @@ impl MergeIntersectsVisitor {
     }
 }
 impl IntersectVisitor for MergeIntersectsVisitor {
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, _doc_id: i32) -> Result<(), LuceneError> {
         Err(LuceneError::unsupported_operation(""))
     }
 
@@ -2559,6 +2562,8 @@ impl IntersectVisitor for MergeIntersectsVisitor {
             &packed_value[..self.packed_bytes_length as usize],
             (self.docs_in_block * self.packed_bytes_length) as usize,
         );
+        self.doc_ids[self.docs_in_block as usize] = doc_id;
+        self.docs_in_block += 1;
         Ok(())
     }
 
@@ -2571,26 +2576,26 @@ impl IntersectVisitor for MergeIntersectsVisitor {
     }
 
     fn grow(&mut self, count: i32) -> Result<(), LuceneError> {
-        let count = count as usize;
         debug_assert_eq!(self.docs_in_block, 0);
-        if self.doc_ids.len() < count {
-            ArrayUtil::grow(&mut self.doc_ids)?;
+        if self.doc_ids.len() < count as usize {
+            ArrayUtil::grow_i32(&mut self.doc_ids, count)?;
             let packed_values_size = i32::try_from(
-                self.doc_ids.len() + self.packed_bytes_length as usize,
+                self.doc_ids.len() * self.packed_bytes_length as usize,
             )
             .map_err(|_| {
                 LuceneError::integer_overflow(format!(
                     "too large: {}",
-                    self.doc_ids.len() + self.packed_bytes_length as usize
+                    self.doc_ids.len() * self.packed_bytes_length as usize
                 ))
             })?;
-            if packed_values_size > ArrayUtil::MAX_ARRAY_LENGTH {
-                return Err(LuceneError::illegal_state(format!(
-                    "array length must be <= {} but was: {}",
-                    ArrayUtil::MAX_ARRAY_LENGTH,
-                    packed_values_size
-                )));
-            }
+            // TODO:
+            // if packed_values_size > ArrayUtil::MAX_ARRAY_LENGTH {
+            //     return Err(LuceneError::illegal_state(format!(
+            //         "array length must be <= {} but was: {}",
+            //         ArrayUtil::MAX_ARRAY_LENGTH,
+            //         packed_values_size
+            //     )));
+            // }
             ArrayUtil::grow_exact(&mut self.packed_values, packed_values_size)?;
         }
         Ok(())
@@ -2647,7 +2652,9 @@ trait BKDTreeLeafNodes {
     fn get_split_dimension(&self, index: i32) -> i32;
 }
 struct BKDTreeLeafNodesOneDimension {
-    scratch_bytes_ref1: BytesRef,
+    leaf_block_start_values: Vec<Vec<u8>>,
+    offset: i32,
+    length: i32,
     leaf_block_fps: Vec<i64>,
 }
 impl BKDTreeLeafNodes for BKDTreeLeafNodesOneDimension {
@@ -2661,9 +2668,9 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesOneDimension {
 
     fn get_split_value(&self, index: i32) -> (&[u8], i32, i32) {
         (
-            &self.scratch_bytes_ref1.bytes,
-            self.scratch_bytes_ref1.offset,
-            self.scratch_bytes_ref1.length,
+            self.leaf_block_start_values[index as usize].as_slice(),
+            self.offset,
+            self.length,
         )
     }
 

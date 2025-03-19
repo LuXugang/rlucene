@@ -35,6 +35,7 @@ test_only = []
 not_required_in_rust_lucene = []
 wait_other_impl = []
 test_log_verbose = []
+nightly = []
 unused = []
 [workspace]
 members = [

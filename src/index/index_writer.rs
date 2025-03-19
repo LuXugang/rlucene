@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::merge_state::DocMap;
+
 pub struct IndexWriter;
 
 impl IndexWriter {
@@ -29,5 +31,12 @@ impl IndexWriter {
 
     pub fn get_actual_max_docs() -> i32 {
         IndexWriter::ACTUAL_MAX_DOCS
+    }
+}
+
+pub struct DocMapIndexWriter;
+impl DocMap for DocMapIndexWriter {
+    fn get(&self, doc_id: i32) -> i32 {
+        todo!()
     }
 }

@@ -317,14 +317,17 @@ pub trait PointTree: Clone {
     }
 
     /// Visit all the docs below the current node.
-    fn visit_doc_ids(&mut self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_ids(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
         Err(LuceneError::need_implemented(
             "visit_doc_ids is not implemented",
         ))
     }
 
     /// Visit all the docs and values below the current node.
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_values(
+        &mut self,
+        _visitor: &mut impl IntersectVisitor,
+    ) -> Result<(), LuceneError> {
         Err(LuceneError::need_implemented(
             "visit_doc_values is not implemented",
         ))

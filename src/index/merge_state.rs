@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::index_writer::DocMapIndexWriter;
+#[cfg(test)]
+use crate::util::bkd::bkd_reader::tests::DocMapImpl;
 
 /// A map of doc IDs.
 pub trait DocMap {
@@ -21,9 +24,17 @@ pub trait DocMap {
     fn get(&self, doc_id: i32) -> i32;
 }
 
-pub enum DocMapEnum {}
+pub enum DocMapEnum {
+    #[cfg(test)]
+    DocMapMock(DocMapImpl),
+    DocMapImpl(DocMapIndexWriter),
+}
 impl DocMap for DocMapEnum {
     fn get(&self, doc_id: i32) -> i32 {
-        todo!()
+        match self {
+            #[cfg(test)]
+            DocMapEnum::DocMapMock(doc_map) => doc_map.get(doc_id),
+            DocMapEnum::DocMapImpl(doc_map) => doc_map.get(doc_id),
+        }
     }
 }

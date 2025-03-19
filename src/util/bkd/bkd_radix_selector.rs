@@ -1133,7 +1133,7 @@ mod tests {
             do_test_random_binary(&mut random, 25000)
         }
 
-        // TODO:: nightly?
+        #[cfg(feature = "nightly")]
         #[test]
         fn test_random_binary_big() -> Result<(), LuceneError> {
             let mut random = random();
