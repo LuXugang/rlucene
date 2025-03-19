@@ -57,6 +57,7 @@ pub mod leaf_metadata;
 pub mod leaf_reader_context;
 mod live_index_writer_config;
 mod merge_policy;
+pub mod merge_state;
 pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
 mod parallel_postings_array;
