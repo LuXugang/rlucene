@@ -40,11 +40,33 @@ where
     heap: Vec<T>,
     compare: C,
 }
-
 impl<T, C> PriorityQueue<T, C>
 where
     C: Compare<T>,
     T: Default + PartialEq,
+{
+    /// Removes an existing element currently stored in the priority queue. The cost is linear with the size
+    /// of the queue. (A specialization of the priority queue that tracks element positions would provide a
+    /// constant remove time, but the trade-off would be extra cost to all additions/insertions.)
+    pub fn remove(&mut self, element: &T) -> bool {
+        if let Some(i) = (1..=self.size).next() {
+            if self.heap[i] == *element {
+                self.heap.swap(i, self.size);
+            }
+            self.size -= 1;
+            if i <= self.size && !self.up_heap(i) {
+                self.down_heap(i);
+            }
+            return true;
+        }
+        false
+    }
+}
+
+impl<T, C> PriorityQueue<T, C>
+where
+    C: Compare<T>,
+    T: Default,
 {
     pub fn heap(&self) -> &Vec<T> {
         &self.heap
@@ -259,23 +281,6 @@ where
         self.size = 0;
     }
 
-    /// Removes an existing element currently stored in the priority queue. The cost is linear with the size
-    /// of the queue. (A specialization of the priority queue that tracks element positions would provide a
-    /// constant remove time, but the trade-off would be extra cost to all additions/insertions.)
-    pub fn remove(&mut self, element: &T) -> bool {
-        if let Some(i) = (1..=self.size).next() {
-            if self.heap[i] == *element {
-                self.heap.swap(i, self.size);
-            }
-            self.size -= 1;
-            if i <= self.size && !self.up_heap(i) {
-                self.down_heap(i);
-            }
-            return true;
-        }
-        false
-    }
-
     pub fn up_heap(&mut self, orig_pos: usize) -> bool {
         let mut i = orig_pos;
         let mut j = i >> 1;
@@ -325,7 +330,6 @@ where
 pub struct PriorityQueueIterator<'a, T, C>
 where
     C: Compare<T>,
-    T: PartialEq,
 {
     pq: &'a PriorityQueue<T, C>,
     index: usize,
@@ -333,7 +337,6 @@ where
 impl<'a, T, C> PriorityQueueIterator<'a, T, C>
 where
     C: Compare<T>,
-    T: PartialEq,
 {
     fn new(pq: &'a PriorityQueue<T, C>) -> Self {
         Self { pq, index: 0 }
@@ -342,7 +345,6 @@ where
 impl<'a, T, C> Iterator for PriorityQueueIterator<'a, T, C>
 where
     C: Compare<T>,
-    T: PartialEq,
 {
     type Item = &'a T;
 
