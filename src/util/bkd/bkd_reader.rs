@@ -56,10 +56,11 @@ where
     /// Caller must pre-seek the provided `IndexInput` to the index location
     /// that `BKDWriter::finish()` returned. BKD tree is always stored off-heap.
     pub fn new(
-        meta_in: &mut I,
+        meta_in: Rc<RefCell<I>>,
         index_in: Rc<RefCell<I>>,
         data_in: Rc<RefCell<I>>,
     ) -> Result<Self, LuceneError> {
+        let meta_in = &mut *meta_in.borrow_mut();
         let version = CodecUtil::check_header(
             meta_in,
             BKDWriter::CODEC_NAME,
@@ -88,10 +89,10 @@ where
         debug_assert!(num_leaves > 0);
         let packed_index_bytes_length = config.packed_index_bytes_length();
         let mut min_packed_value = vec![0; packed_index_bytes_length as usize];
-        let max_packed_value = vec![0; packed_index_bytes_length as usize];
+        let mut max_packed_value = vec![0; packed_index_bytes_length as usize];
 
         DataInput::read_bytes(meta_in, &mut min_packed_value, 0, packed_index_bytes_length)?;
-        DataInput::read_bytes(meta_in, &mut min_packed_value, 0, packed_index_bytes_length)?;
+        DataInput::read_bytes(meta_in, &mut max_packed_value, 0, packed_index_bytes_length)?;
 
         let bytes_per_dim = config.bytes_per_dim as usize;
         let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
@@ -614,7 +615,7 @@ where
 
         Ok(())
     }
-    pub fn visit_leaves_one_by_one(
+    fn visit_leaves_one_by_one(
         &mut self,
         visitor: &mut impl IntersectVisitor,
     ) -> Result<(), LuceneError> {
@@ -633,7 +634,7 @@ where
         Ok(())
     }
 
-    pub fn visit_doc_values(
+    fn visit_doc_values(
         &mut self,
         visitor: &mut impl IntersectVisitor,
         fp: i64,
@@ -821,7 +822,7 @@ where
             visitor.grow(count);
             self.visit_unique_raw_doc_values(count, visitor)?;
         } else {
-            if self.config.num_index_dims > 1 {
+            if self.config.num_index_dims != 1 {
                 self.scratch_min_index_packed_value[..packed_index_bytes_length]
                     .copy_from_slice(&self.scratch_data_packed_value[..packed_index_bytes_length]);
 
@@ -995,7 +996,7 @@ where
         Ok(())
     }
     fn read_compressed_dim(&mut self) -> Result<i32, LuceneError> {
-        let compressed_dim = DataInput::read_byte(&mut *self.leaf_nodes.borrow_mut())? as i32;
+        let compressed_dim = DataInput::read_byte(&mut *self.leaf_nodes.borrow_mut())? as i8 as i32;
 
         if compressed_dim < -2
             || compressed_dim >= self.config.num_dims
@@ -1214,5 +1215,663 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
         _max_packed_value: &[u8],
     ) -> Result<Relation, LuceneError> {
         Err(LuceneError::not_implemented(""))
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::index::merge_state::DocMap;
+    use crate::index::point_values::{
+        IntersectVisitor, PointTree, PointValues, PointValuesBase, PointValuesBaseEnum, Relation,
+    };
+    use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+    use crate::store::directory::Directory;
+    use crate::store::{IOContext, IndexInput, IndexOutput};
+    use crate::test::util::lucene_test_case::{at_least, new_directory, random, rarely};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::bit_util::BitUtil;
+    use crate::util::bkd::bkd_config::BKDConfig;
+    use crate::util::bkd::bkd_reader::BKDReader;
+    use crate::util::bkd::bkd_writer::BKDWriter;
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::numeric_utils::NumericUtils;
+    use crate::util::ToInt;
+    use bit_set::BitSet;
+    use num_bigint::{BigInt, Sign};
+    use num_traits::Zero;
+    use rand::rngs::StdRng;
+    use rand::{Rng, RngCore};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestBKD;
+
+    fn get_point_values<I: IndexInput>(
+        index_input: Rc<RefCell<I>>,
+    ) -> Result<BKDReader<I>, LuceneError> {
+        BKDReader::new(index_input.clone(), index_input.clone(), index_input)
+    }
+    #[test]
+    fn test_basic_ints_1d() -> Result<(), LuceneError> {
+        let mut random = random();
+        let config = Rc::new(BKDConfig::new(1, 1, 4, 2)?);
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+
+        {
+            let mut writer = BKDWriter::new(100, dir.clone(), "tmp", config.clone(), 1.0, 100)?;
+            let mut scratch = [0u8; 4];
+
+            for doc_id in 0..100 {
+                NumericUtils::int_to_sortable_bytes(doc_id, &mut scratch, 0);
+                writer.add(&scratch, doc_id)?;
+            }
+
+            let index_fp;
+            {
+                let out = Rc::new(RefCell::new(
+                    dir.borrow_mut()
+                        .create_output("bkd", &IOContext::default_io_context()?)?,
+                ));
+                let finalizer = writer.finish(out.clone())?.unwrap();
+                {
+                    index_fp = out.borrow().get_file_pointer();
+                }
+                writer.write_index(out.clone(), out.clone(), &finalizer)?;
+            }
+
+            {
+                let mut input = dir
+                    .borrow_mut()
+                    .open_input("bkd", &IOContext::default_io_context()?)?;
+                input.seek(index_fp)?;
+                let reader = get_point_values(Rc::new(RefCell::new(input)))?;
+
+                // Simple 1D range query:
+                let mut query_min = vec![vec![0u8; 4]];
+                NumericUtils::int_to_sortable_bytes(42, &mut query_min[0], 0);
+                let mut query_max = vec![vec![0u8; 4]];
+                NumericUtils::int_to_sortable_bytes(87, &mut query_max[0], 0);
+
+                let mut hits = BitSet::new();
+                let mut visitor = IntersectVisitorImpl {
+                    hits: &mut hits,
+                    query_min: &query_min,
+                    query_max: &query_max,
+                    config: config.clone(),
+                };
+                let sub_point_values = PointValuesBaseEnum::BKD(reader);
+                let r = PointValues::new(sub_point_values);
+                r.intersect(&mut visitor)?;
+
+                for doc_id in 0..100 {
+                    let expected = (42..=87).contains(&doc_id);
+                    let actual = hits.contains(doc_id);
+                    assert_eq!(expected, actual, "docID={}", doc_id);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_ints_n_dims() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num_docs = at_least(&mut random, 1000);
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+
+        let num_dims = TestUtil::next_int(&mut random, 1, 5);
+        let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
+        let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100);
+        let max_mb: f32 = 3.0 + (3.0 * random.random::<f32>());
+        let config = Rc::new(BKDConfig::new(
+            num_dims,
+            num_index_dims,
+            4,
+            max_points_in_leaf_node,
+        )?);
+        let mut writer = BKDWriter::new(
+            num_docs,
+            dir.clone(),
+            "tmp",
+            config.clone(),
+            max_mb as f64,
+            num_docs as i64,
+        )?;
+        let num_dims = num_dims as usize;
+        let mut docs = vec![vec![]; num_docs as usize];
+        let mut scratch = vec![0u8; 4 * num_dims];
+        let mut min_value = vec![i32::MAX; num_dims];
+        let mut max_value = vec![i32::MIN; num_dims];
+
+        for doc_id in 0..num_docs {
+            let mut values = vec![0; num_dims];
+            if cfg!(feature = "test_log_verbose") {
+                println!("doc_id={}", doc_id);
+            }
+            for dim in 0..num_dims {
+                values[dim] = random.random();
+                min_value[dim] = min_value[dim].min(values[dim]);
+                max_value[dim] = max_value[dim].max(values[dim]);
+                NumericUtils::int_to_sortable_bytes(
+                    values[dim],
+                    &mut scratch,
+                    dim * BitUtil::INT_BYTES,
+                );
+                if cfg!(feature = "test_log_verbose") {
+                    println!("    {} -> {}", doc_id, values[dim]);
+                }
+            }
+            docs[doc_id as usize] = values;
+            writer.add(&scratch, doc_id)?;
+        }
+
+        let index_fp;
+        {
+            let out = Rc::new(RefCell::new(
+                dir.borrow_mut()
+                    .create_output("bkd", &IOContext::default_io_context()?)?,
+            ));
+            let finalizer = writer.finish(out.clone())?.unwrap();
+            {
+                index_fp = out.borrow().get_file_pointer();
+            }
+            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        }
+
+        {
+            let mut input = dir
+                .borrow_mut()
+                .open_input("bkd", &IOContext::default_io_context()?)?;
+            input.seek(index_fp)?;
+            let reader = get_point_values(Rc::new(RefCell::new(input)))?;
+            let sub_point_values = PointValuesBaseEnum::BKD(reader);
+            let r = PointValues::new(sub_point_values);
+
+            let min_packed_value = r.get_min_packed_value()?.unwrap();
+            let max_packed_value = r.get_max_packed_value()?.unwrap();
+            for dim in 0..num_index_dims as usize {
+                assert_eq!(
+                    min_value[dim],
+                    NumericUtils::sortable_bytes_to_int(
+                        &min_packed_value,
+                        dim * BitUtil::INT_BYTES
+                    ),
+                    "Mismatch in min value for dim {}",
+                    dim
+                );
+                assert_eq!(
+                    max_value[dim],
+                    NumericUtils::sortable_bytes_to_int(
+                        &max_packed_value,
+                        dim * BitUtil::INT_BYTES
+                    ),
+                    "Mismatch in max value for dim {}",
+                    dim
+                );
+            }
+
+            let iters = at_least(&mut random, 100);
+            for iter in 0..iters {
+                if cfg!(feature = "test_log_verbose") {
+                    println!("TEST: iter={}", iter);
+                }
+                let mut query_min = vec![0; num_dims];
+                let mut query_min_bytes = vec![vec![0u8; 4]; num_dims];
+                let mut query_max = vec![0; num_dims];
+                let mut query_max_bytes = vec![vec![0u8; 4]; num_dims];
+
+                for dim in 0..num_index_dims as usize {
+                    query_min[dim] = random.random();
+                    query_max[dim] = random.random();
+                    if query_min[dim] > query_max[dim] {
+                        std::mem::swap(&mut query_min[dim], &mut query_max[dim]);
+                    }
+                    NumericUtils::int_to_sortable_bytes(
+                        query_min[dim],
+                        &mut query_min_bytes[dim],
+                        0,
+                    );
+                    NumericUtils::int_to_sortable_bytes(
+                        query_max[dim],
+                        &mut query_max_bytes[dim],
+                        0,
+                    );
+                }
+
+                let mut hits = BitSet::new();
+                let mut visitor = IntersectVisitorImpl {
+                    hits: &mut hits,
+                    query_min: &query_min_bytes,
+                    query_max: &query_max_bytes,
+                    config: config.clone(),
+                };
+
+                r.intersect(&mut visitor)?;
+
+                for (doc_id, doc_values) in docs.iter().enumerate() {
+                    let mut expected = true;
+                    for dim in 0..num_index_dims as usize {
+                        let x = doc_values[dim];
+                        if x < query_min[dim] || x > query_max[dim] {
+                            expected = false;
+                            break;
+                        }
+                    }
+                    let actual = hits.contains(doc_id);
+                    assert_eq!(expected, actual, "docID={}", doc_id);
+                }
+            }
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test11() -> Result<(), LuceneError> {
+        for i in 0..1000 {
+            test_big_int_n_dims()?;
+        }
+        Ok(())
+    }
+    // Tests on N-dimensional points where each dimension is a BigInteger
+    #[test]
+    fn test_big_int_n_dims() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num_docs = at_least(&mut random, 1000);
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+
+        let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
+        let num_dims = TestUtil::next_int(&mut random, 1, 5);
+        let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100);
+        let max_mb: f32 = 3.0 + (3.0 * random.random::<f32>());
+        let config = Rc::new(BKDConfig::new(
+            num_dims,
+            num_dims,
+            num_bytes_per_dim,
+            max_points_in_leaf_node,
+        )?);
+        let mut writer = BKDWriter::new(
+            num_docs,
+            dir.clone(),
+            "tmp",
+            config.clone(),
+            max_mb as f64,
+            num_docs as i64,
+        )?;
+
+        let num_bytes_per_dim = num_bytes_per_dim as usize;
+        let num_dims = num_dims as usize;
+        let mut docs = vec![vec![]; num_docs as usize];
+        let mut scratch = vec![0u8; num_bytes_per_dim * num_dims];
+
+        for doc_id in 0..num_docs {
+            let mut values = vec![BigInt::zero(); num_dims];
+            if cfg!(feature = "test_log_verbose") {
+                println!("  doc_id={}", doc_id);
+            }
+            for dim in 0..num_dims {
+                values[dim] = random_big_int(num_bytes_per_dim, &mut random);
+                NumericUtils::big_int_to_sortable_bytes(
+                    &values[dim],
+                    num_bytes_per_dim,
+                    &mut scratch,
+                    dim * num_bytes_per_dim,
+                )?;
+                if cfg!(feature = "test_log_verbose") {
+                    println!("    {} -> {}", dim, values[dim]);
+                }
+            }
+            docs[doc_id as usize] = values;
+            writer.add(&scratch, doc_id)?;
+        }
+
+        let index_fp;
+        {
+            let out = Rc::new(RefCell::new(
+                dir.borrow_mut()
+                    .create_output("bkd", &IOContext::default_io_context()?)?,
+            ));
+            let finalizer = writer.finish(out.clone())?.unwrap();
+            {
+                index_fp = out.borrow().get_file_pointer();
+            }
+            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        }
+
+        {
+            let mut input = dir
+                .borrow_mut()
+                .open_input("bkd", &IOContext::default_io_context()?)?;
+            input.seek(index_fp)?;
+            let reader = get_point_values(Rc::new(RefCell::new(input)))?;
+            let sub_point_values = PointValuesBaseEnum::BKD(reader);
+            let point_values = PointValues::new(sub_point_values);
+
+            let iters = at_least(&mut random, 100);
+            for iter in 0..iters {
+                if cfg!(feature = "test_log_verbose") {
+                    println!("TEST: iter={}", iter);
+                }
+                let mut query_min = vec![BigInt::zero(); num_dims];
+                let mut query_min_bytes = vec![vec![0u8; num_bytes_per_dim]; num_dims];
+                let mut query_max = vec![BigInt::zero(); num_dims];
+                let mut query_max_bytes = vec![vec![0u8; num_bytes_per_dim]; num_dims];
+
+                for dim in 0..num_dims {
+                    query_min[dim] = random_big_int(num_bytes_per_dim, &mut random);
+                    query_max[dim] = random_big_int(num_bytes_per_dim, &mut random);
+                    if query_min[dim] > query_max[dim] {
+                        std::mem::swap(&mut query_min[dim], &mut query_max[dim]);
+                    }
+                    NumericUtils::big_int_to_sortable_bytes(
+                        &query_min[dim],
+                        num_bytes_per_dim,
+                        &mut query_min_bytes[dim],
+                        0,
+                    )?;
+                    NumericUtils::big_int_to_sortable_bytes(
+                        &query_max[dim],
+                        num_bytes_per_dim,
+                        &mut query_max_bytes[dim],
+                        0,
+                    )?;
+                }
+
+                let mut hits = BitSet::new();
+                let mut visitor = IntersectVisitorImpl {
+                    hits: &mut hits,
+                    query_min: &query_min_bytes,
+                    query_max: &query_max_bytes,
+                    config: config.clone(),
+                };
+
+                point_values.intersect(&mut visitor)?;
+
+                for (doc_id, doc_values) in docs.iter().enumerate() {
+                    let mut expected = true;
+                    for dim in 0..num_dims {
+                        let x = &doc_values[dim];
+                        if x < &query_min[dim] || x > &query_max[dim] {
+                            expected = false;
+                            break;
+                        }
+                    }
+                    let actual = hits.contains(doc_id);
+                    assert_eq!(expected, actual, "docID={}", doc_id);
+                }
+            }
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_with_exceptions() {
+        // TODO: MockDirectoryWrapper not Implemented
+    }
+    #[test]
+    fn test_too_little_heap() -> Result<(), LuceneError> {
+        let dir = Rc::new(RefCell::new(new_directory(&mut random())?));
+
+        let err = BKDWriter::new(
+            1,
+            dir.clone(),
+            "bkd",
+            Rc::new(BKDConfig::new(1, 1, 16, 1_000_000)?),
+            0.001,
+            0,
+        );
+        assert!(err.is_err());
+        if let Err(err) = err {
+            let err_msg = format!("{:?}", err);
+            assert!(
+                err_msg.contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode")
+            );
+        }
+        Ok(())
+    }
+
+    struct DocMapImpl {
+        cur_doc_id_base: i32,
+    }
+    impl DocMap for DocMapImpl {
+        fn get(&self, doc_id: i32) -> i32 {
+            self.cur_doc_id_base + doc_id
+        }
+    }
+
+    fn assert_size(tree: &mut impl PointTree, random: &mut StdRng) -> Result<(), LuceneError> {
+        let mut clone = tree.clone();
+        assert_eq!(clone.size()?, tree.size()?);
+
+        // Rarely continue with the clone tree
+        let tree = if rarely(random) { &mut clone } else { tree };
+
+        let mut visit_doc_id_size = vec![0; 1];
+        let mut visit_doc_values_size = vec![0; 1];
+
+        let mut visitor = IntersectVisitorImpl1 {
+            visit_doc_id_size: &mut visit_doc_id_size,
+        };
+
+        if random.random_bool(0.5) {
+            tree.visit_doc_ids(&mut visitor)?;
+            tree.visit_doc_values(&mut visitor)?;
+        } else {
+            tree.visit_doc_values(&mut visitor)?;
+            tree.visit_doc_ids(&mut visitor)?;
+        }
+
+        assert_eq!(visit_doc_id_size[0], visit_doc_values_size[0]);
+        assert_eq!(visit_doc_id_size[0], tree.size()?);
+
+        if tree.move_to_child()? {
+            loop {
+                random_point_tree_navigation(tree, random)?;
+                assert_size(tree, random)?;
+                if !tree.move_to_sibling()? {
+                    break;
+                }
+            }
+            tree.move_to_parent()?;
+        }
+        Ok(())
+    }
+
+    struct IntersectVisitorImpl1<'a> {
+        visit_doc_id_size: &'a mut [i64],
+    }
+    impl<'a> IntersectVisitor for IntersectVisitorImpl1<'a> {
+        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+            self.visit_doc_id_size[0] += 1;
+            Ok(())
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            doc_id: i32,
+            packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            self.visit_doc_id_size[0] += 1;
+            Ok(())
+        }
+
+        fn compare(
+            &self,
+            min_packed_value: &[u8],
+            max_packed_value: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            Ok(Relation::CellCrossesQuery)
+        }
+    }
+    fn random_point_tree_navigation(
+        tree: &mut impl PointTree,
+        random: &mut StdRng,
+    ) -> Result<(), LuceneError> {
+        let min_packed_value = tree.get_min_packed_value()?.to_vec();
+        let max_packed_value = tree.get_max_packed_value()?.to_vec();
+        let size = tree.size()?;
+
+        if random.random_bool(0.5) && tree.move_to_child()? {
+            random_point_tree_navigation(tree, random)?;
+            if random.random_bool(0.5) && tree.move_to_sibling()? {
+                random_point_tree_navigation(tree, random)?;
+            }
+            tree.move_to_parent()?;
+        }
+
+        // Ensure we always finish on the same node we started
+        assert_eq!(min_packed_value, tree.get_min_packed_value()?);
+        assert_eq!(max_packed_value, tree.get_max_packed_value()?);
+        assert_eq!(size, tree.size()?);
+
+        Ok(())
+    }
+
+    fn assert_hits(hits: &BitSet, expected: &BitSet) {
+        let limit = expected.len().max(hits.len());
+        for doc_id in 0..limit {
+            assert_eq!(
+                expected.contains(doc_id),
+                hits.contains(doc_id),
+                "docID={}",
+                doc_id
+            );
+        }
+    }
+
+    fn random_big_int(num_bytes: usize, random: &mut StdRng) -> BigInt {
+        let num_bits = num_bytes * 8 - 1;
+        let mut bytes = vec![0u8; (num_bits + 7) / 8];
+
+        random.fill_bytes(&mut bytes);
+
+        if let Some(first_byte) = bytes.first_mut() {
+            *first_byte &= !(1 << (num_bits % 8));
+        }
+
+        let x = BigInt::from_bytes_be(Sign::Plus, &bytes);
+
+        if random.random_bool(0.5) {
+            -x
+        } else {
+            x
+        }
+    }
+
+    // TODO:
+    // fn get_directory(num_points: i32) {
+    // }
+    struct IntersectVisitorImpl<'a> {
+        hits: &'a mut BitSet,
+        query_min: &'a [Vec<u8>],
+        query_max: &'a [Vec<u8>],
+        config: Rc<BKDConfig>,
+    }
+
+    impl IntersectVisitor for IntersectVisitorImpl<'_> {
+        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+            self.hits.insert(doc_id as usize);
+            Ok(())
+        }
+        fn visit_with_packed_value(
+            &mut self,
+            doc_id: i32,
+            packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            let num_index_dims = self.config.num_index_dims as usize;
+            let bytes_per_dim = self.config.bytes_per_dim as usize;
+
+            for dim in 0..num_index_dims {
+                let offset = dim * bytes_per_dim;
+                if packed_value[offset..offset + bytes_per_dim]
+                    .cmp(&self.query_min[dim][0..bytes_per_dim])
+                    .to_int()
+                    < 0
+                    || packed_value[offset..offset + bytes_per_dim]
+                        .cmp(&self.query_max[dim][0..bytes_per_dim])
+                        .to_int()
+                        > 0
+                {
+                    return Ok(());
+                }
+            }
+            // If all dimensions pass the range check, mark the document as a hit
+            self.hits.insert(doc_id as usize);
+            Ok(())
+        }
+
+        fn visit_iterator_with_packed_value(
+            &mut self,
+            iterator: &mut impl DocIdSetIterator,
+            packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            let mut random = random();
+            if random.random_bool(0.5) {
+                // Check the default method is correct
+                IntersectVisitor::default_visit_iterator_with_packed_value_(
+                    self,
+                    iterator,
+                    packed_value,
+                )?;
+            } else {
+                assert_eq!(iterator.doc_id(), -1);
+
+                let cost = iterator.cost()? as i32;
+                let mut number_of_points = 0;
+
+                while let Ok(doc_id) = iterator.next_doc() {
+                    if doc_id == NO_MORE_DOCS {
+                        break;
+                    }
+
+                    assert_eq!(iterator.doc_id(), doc_id);
+                    self.visit_with_packed_value(doc_id, packed_value)?;
+                    number_of_points += 1;
+                }
+
+                assert_eq!(cost, number_of_points);
+                assert_eq!(iterator.doc_id(), NO_MORE_DOCS);
+                assert_eq!(iterator.next_doc()?, NO_MORE_DOCS);
+                assert_eq!(iterator.doc_id(), NO_MORE_DOCS);
+            }
+            Ok(())
+        }
+
+        fn compare(&self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation, LuceneError> {
+            let num_index_dims = self.config.num_index_dims as usize;
+            let bytes_per_dim = self.config.bytes_per_dim as usize;
+            let mut crosses = false;
+
+            for dim in 0..num_index_dims {
+                let offset = dim * bytes_per_dim;
+
+                if max_packed[offset..offset + bytes_per_dim]
+                    .cmp(&self.query_min[dim][..bytes_per_dim])
+                    .to_int()
+                    < 0
+                    || min_packed[offset..offset + bytes_per_dim]
+                        .cmp(&self.query_max[dim][..bytes_per_dim])
+                        .to_int()
+                        > 0
+                {
+                    return Ok(Relation::CellOutsideQuery);
+                } else if min_packed[offset..offset + bytes_per_dim]
+                    .cmp(&self.query_min[dim][..bytes_per_dim])
+                    .to_int()
+                    < 0
+                    || max_packed[offset..offset + bytes_per_dim]
+                        .cmp(&self.query_max[dim][..bytes_per_dim])
+                        .to_int()
+                        > 0
+                {
+                    crosses = true;
+                }
+            }
+
+            if crosses {
+                Ok(Relation::CellCrossesQuery)
+            } else {
+                Ok(Relation::CellInsideQuery)
+            }
+        }
     }
 }

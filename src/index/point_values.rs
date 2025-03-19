@@ -37,6 +37,9 @@ impl<I> PointValues<I>
 where
     I: IndexInput,
 {
+    pub fn new(sub_point_values: PointValuesBaseEnum<I>) -> Self {
+        Self { sub_point_values }
+    }
     /// Finds all documents and points matching the provided visitor.
     /// This method does not enforce live documents, so it's up to the caller
     /// to test whether each document is deleted, if necessary.
@@ -425,6 +428,9 @@ pub trait IntersectVisitor {
     /// Even if the implementation does the same thing as this method, this may be a speed improvement
     /// due to fewer virtual calls.
     fn visit_with_ints_ref(&mut self, ints_ref: &IntsRef) -> Result<(), LuceneError> {
+        self.default_visit_with_ints_ref(ints_ref)
+    }
+    fn default_visit_with_ints_ref(&mut self, ints_ref: &IntsRef) -> Result<(), LuceneError> {
         let ints = ints_ref.ints.borrow();
         for i in ints_ref.offset as usize..(ints_ref.offset + ints_ref.length) as usize {
             self.visit(ints[i])?;
@@ -447,6 +453,13 @@ pub trait IntersectVisitor {
     /// The provided iterator should not escape the scope of this method so that implementations of PointValues
     /// are free to reuse it.
     fn visit_iterator_with_packed_value(
+        &mut self,
+        iterator: &mut impl DocIdSetIterator,
+        packed_value: &[u8],
+    ) -> Result<(), LuceneError> {
+        self.default_visit_iterator_with_packed_value_(iterator, packed_value)
+    }
+    fn default_visit_iterator_with_packed_value_(
         &mut self,
         iterator: &mut impl DocIdSetIterator,
         packed_value: &[u8],

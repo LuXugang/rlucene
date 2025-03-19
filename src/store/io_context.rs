@@ -60,12 +60,11 @@ impl IOContext {
         merge_info: Option<MergeInfo>,
         flush_info: Option<FlushInfo>,
     ) -> Result<IOContext, LuceneError> {
-        let context = context.ok_or(LuceneError::illegal_argument(
-            "context must not be None".to_string(),
-        ))?;
-        let read_advice = read_advice.ok_or(LuceneError::illegal_argument(
-            "read_advice must not be None".to_string(),
-        ))?;
+        let context = context
+            .ok_or_else(|| LuceneError::illegal_argument("context must not be None".to_string()))?;
+        let read_advice = read_advice.ok_or_else(|| {
+            LuceneError::illegal_argument("read_advice must not be None".to_string())
+        })?;
         if matches!(context, Context::Merge) && merge_info.is_none() {
             return Err(LuceneError::illegal_argument(
                 "merge_info must not be None if context is MERGE".to_string(),

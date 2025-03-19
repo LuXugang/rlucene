@@ -18,5 +18,5 @@
 /// A map of doc IDs.
 pub trait DocMap {
     /// Return the mapped docID or -1 if the given doc is not mapped.
-    fn get(doc_id: i32) -> i32;
+    fn get(&self, doc_id: i32) -> i32;
 }

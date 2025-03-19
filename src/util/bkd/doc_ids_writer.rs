@@ -37,6 +37,8 @@ pub struct DocIdsWriter {
     /// method. This seems to make a difference in performance, probably due to fewer virtual calls
     /// then happening (once per read call rather than once per doc).
     scratch_ints_ref: IntsRef,
+    /// used to init a new scratch
+    max_points_in_leaf: usize,
 }
 
 impl DocIdsWriter {
@@ -54,10 +56,12 @@ impl DocIdsWriter {
             // This is here to not rely on the default constructor of IntsRef to set offset to 0
             scratch_ints_ref.offset = 0;
         }
+        let max_points_in_leaf = max_points_in_leaf as usize;
         Self {
-            scratch: vec![0; max_points_in_leaf as usize],
+            scratch: vec![0; max_points_in_leaf],
             scratch_longs: LongsRef::new(),
             scratch_ints_ref,
+            max_points_in_leaf,
         }
     }
     pub(crate) fn write_doc_ids(
@@ -428,6 +432,7 @@ impl DocIdsWriter {
     ) -> Result<(), LuceneError> {
         Self::read_delta16(input, count, &mut self.scratch)?;
         self.scratch_ints_ref.ints = Rc::new(RefCell::new(std::mem::take(&mut self.scratch)));
+        self.scratch = vec![0; self.max_points_in_leaf];
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
         Ok(())
@@ -469,6 +474,7 @@ impl DocIdsWriter {
     ) -> Result<(), LuceneError> {
         input.read_ints(&mut self.scratch, 0, count)?;
         self.scratch_ints_ref.ints = Rc::new(RefCell::new(std::mem::take(&mut self.scratch)));
+        self.scratch = vec![0; self.max_points_in_leaf];
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
         Ok(())
