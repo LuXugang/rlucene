@@ -28,7 +28,8 @@ use std::mem;
 
 pub struct ArrayUtil;
 impl ArrayUtil {
-    pub const MAX_ARRAY_LENGTH: i32 = i32::MAX;
+    // TODO:: MAX_ARRAY_LENGTH's definition should reconsider
+    pub const MAX_ARRAY_LENGTH: i32 = i32::MAX - 1;
     const MIN_RADIX: i32 = 2;
     const MAX_RADIX: i32 = 36;
     /// Parses a char array into an i32 with the default radix of 10.

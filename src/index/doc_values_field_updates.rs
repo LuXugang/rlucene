@@ -437,7 +437,7 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 /// Only documents with updates are returned by this iterator, and the documents are returned
 /// in increasing order.
 #[allow(unused)]
-pub trait DocValuesFieldIterator: DocValuesIterator + Default{
+pub trait DocValuesFieldIterator: DocValuesIterator + Default {
     fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
         BinaryDocValuesImpl::new(iterator);
     }

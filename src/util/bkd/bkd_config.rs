@@ -24,7 +24,7 @@ use crate::util::error::lucene_error::LuceneError;
 /// - `num_index_dims`: How many dimensions are indexed in the internal nodes.
 /// - `bytes_per_dim`: How many bytes each value in each dimension takes.
 /// - `max_points_in_leaf_node`: Maximum points allowed in a leaf block.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct BKDConfig {
     pub num_dims: i32,
     pub num_index_dims: i32,

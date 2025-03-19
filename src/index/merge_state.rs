@@ -20,3 +20,10 @@ pub trait DocMap {
     /// Return the mapped docID or -1 if the given doc is not mapped.
     fn get(&self, doc_id: i32) -> i32;
 }
+
+pub enum DocMapEnum {}
+impl DocMap for DocMapEnum {
+    fn get(&self, doc_id: i32) -> i32 {
+        todo!()
+    }
+}

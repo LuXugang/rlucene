@@ -16,11 +16,14 @@
  */
 use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
 use crate::codecs::CodecUtil;
-use crate::index::point_values::{IntersectVisitor, PointTree, Relation};
+use crate::index::merge_state::{DocMap, DocMapEnum};
+use crate::index::point_values::{
+    IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
+};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
-use crate::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
+use crate::store::{ByteBuffersDataOutput, DataOutput, IndexInput, IndexOutput};
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bit_set::BitSet;
 use crate::util::bit_util::BitUtil;
@@ -38,6 +41,7 @@ use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::numeric_utils::NumericUtils;
+use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::{ToInt, VecCopyOps};
 use std::cell::RefCell;
 use std::cmp::max;
@@ -467,6 +471,59 @@ where
         let mut intersect_visitor = IntersectVisitorImpl { one_dim_writer };
         reader.visit_doc_values(&mut intersect_visitor)?;
         intersect_visitor.one_dim_writer.finish()
+    }
+    /// More efficient bulk-add for incoming `PointValuesBase`s.
+    /// This does a merge sort of the already sorted values and currently only works when num_dims==1.
+    /// This returns `None` if all documents containing dimensional values were deleted.
+    pub fn merge<S>(
+        &mut self,
+        config: Rc<BKDConfig>,
+        _meta_out: Rc<RefCell<D::IndexOutputType>>,
+        _index_out: Rc<RefCell<D::IndexOutputType>>,
+        data_out: Rc<RefCell<D::IndexOutputType>>,
+        doc_maps: Option<Vec<Rc<DocMapEnum>>>,
+        readers: Vec<PointValues<S>>,
+    ) -> Result<Option<IORunnable>, LuceneError>
+    where
+        S: PointValuesBase,
+    {
+        let readers_len = readers.len();
+        debug_assert!(doc_maps.is_none() || readers_len == doc_maps.as_ref().unwrap().len());
+        let mut queue =
+            PriorityQueue::new(self.config.bytes_per_dim, MergeReaderCmp::new(readers_len))?;
+
+        for (i, mut point_values) in readers.into_iter().enumerate() {
+            debug_assert_eq!(point_values.get_num_dimensions()?, config.num_dims);
+            assert_eq!(
+                point_values.get_bytes_per_dimension()?,
+                config.bytes_per_dim
+            );
+            debug_assert_eq!(
+                point_values.get_num_index_dimensions()?,
+                config.num_index_dims
+            );
+            let doc_map = doc_maps.as_ref().map(|doc_maps| doc_maps[i].clone());
+            let mut reader = MergeReader::new(&mut point_values, doc_map)?;
+            if reader.next()? {
+                queue.add(reader);
+            }
+        }
+
+        let mut one_dim_writer = OneDimensionBKDWriter::new(data_out.clone(), self)?;
+
+        while queue.size() != 0 {
+            let reader = queue.top();
+            one_dim_writer.add(&reader.packed_value, reader.doc_id)?;
+
+            if reader.next()? {
+                queue.update_top();
+            } else {
+                // This segment was exhausted
+                queue.pop();
+            }
+        }
+
+        one_dim_writer.finish()
     }
     fn get_num_left_leaf_nodes(&self, num_leaves: i32) -> i32 {
         debug_assert!(
@@ -2353,6 +2410,223 @@ fn value_in_bounds(
         }
     }
     true
+}
+struct MergeReader<S: PointValuesBase> {
+    point_tree: Option<S::PointTreeType>,
+    packed_bytes_length: usize,
+    doc_map: Option<Rc<DocMapEnum>>,
+    merge_intersects_visitor: MergeIntersectsVisitor,
+    doc_block_upto: usize,
+    doc_id: i32,
+    packed_value: Vec<u8>,
+}
+
+impl<S: PointValuesBase> MergeReader<S> {
+    fn new(
+        point_values: &mut PointValues<S>,
+        doc_map: Option<Rc<DocMapEnum>>,
+    ) -> Result<Self, LuceneError> {
+        let packed_bytes_length = (point_values.get_bytes_per_dimension()? as usize)
+            * (point_values.get_num_dimensions()? as usize);
+        let mut point_tree = point_values.get_point_tree()?;
+        let mut merge_intersects_visitor = MergeIntersectsVisitor {
+            docs_in_block: 0,
+            packed_values: vec![0u8; packed_bytes_length],
+            doc_ids: Vec::new(),
+            packed_bytes_length: packed_bytes_length as i32,
+        };
+
+        // Move to first child of the tree and collect docs
+        while point_tree.move_to_child()? {}
+
+        point_tree.visit_doc_values(&mut merge_intersects_visitor)?;
+
+        Ok(Self {
+            point_tree: Some(point_tree),
+            packed_bytes_length,
+            doc_map,
+            merge_intersects_visitor,
+            doc_block_upto: 0,
+            doc_id: -1,
+            packed_value: vec![0u8; packed_bytes_length],
+        })
+    }
+    pub fn next(&mut self) -> Result<bool, LuceneError> {
+        // System.out.println("MR.next this=" + this);
+        loop {
+            if self.doc_block_upto == self.merge_intersects_visitor.docs_in_block as usize {
+                if !self.collect_next_leaf()? {
+                    debug_assert!(self.merge_intersects_visitor.docs_in_block == 0);
+                    return Ok(false);
+                }
+                debug_assert!(self.merge_intersects_visitor.docs_in_block > 0);
+                self.doc_block_upto = 0;
+            }
+
+            let index = self.doc_block_upto;
+            self.doc_block_upto += 1;
+            let old_doc_id = self.merge_intersects_visitor.doc_ids[index];
+
+            let mapped_doc_id = if self.doc_map.is_none() {
+                old_doc_id
+            } else {
+                self.doc_map.as_ref().unwrap().get(old_doc_id)
+            };
+
+            if mapped_doc_id != -1 {
+                // Not deleted!
+                self.doc_id = mapped_doc_id;
+                let start = index * self.packed_bytes_length;
+                let end = start + self.packed_bytes_length;
+                self.packed_value
+                    .copy_from(&self.merge_intersects_visitor.packed_values[start..end], 0);
+                return Ok(true);
+            }
+        }
+    }
+
+    fn collect_next_leaf(&mut self) -> Result<bool, LuceneError> {
+        match self.point_tree {
+            Some(ref mut point_tree) => {
+                debug_assert!(!point_tree.move_to_child()?);
+                self.merge_intersects_visitor.reset();
+                loop {
+                    if point_tree.move_to_sibling()? {
+                        // Move to first child of this node and collect docs
+                        while point_tree.move_to_child()? {}
+                        point_tree.visit_doc_values(&mut self.merge_intersects_visitor)?;
+                        return Ok(true);
+                    }
+                    if !point_tree.move_to_parent()? {
+                        break;
+                    }
+                }
+            }
+            None => {
+                return Ok(false);
+            }
+        }
+
+        Ok(false)
+    }
+}
+impl<S: PointValuesBase> Default for MergeReader<S> {
+    fn default() -> Self {
+        Self {
+            point_tree: None,
+            packed_bytes_length: 0,
+            doc_map: None,
+            merge_intersects_visitor: MergeIntersectsVisitor::default(),
+            doc_block_upto: 0,
+            doc_id: -1,
+            packed_value: Vec::new(),
+        }
+    }
+}
+
+#[derive(Default)]
+struct MergeIntersectsVisitor {
+    docs_in_block: i32,
+    packed_values: Vec<u8>,
+    doc_ids: Vec<i32>,
+    packed_bytes_length: i32,
+}
+
+impl MergeIntersectsVisitor {
+    fn new(packed_bytes_length: i32) -> Self {
+        Self {
+            docs_in_block: 0,
+            doc_ids: Vec::new(),
+            packed_values: Vec::new(),
+            packed_bytes_length,
+        }
+    }
+    fn reset(&mut self) {
+        self.docs_in_block = 0;
+    }
+}
+impl IntersectVisitor for MergeIntersectsVisitor {
+    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn visit_with_packed_value(
+        &mut self,
+        doc_id: i32,
+        packed_value: &[u8],
+    ) -> Result<(), LuceneError> {
+        self.packed_values.copy_from(
+            &packed_value[..self.packed_bytes_length as usize],
+            (self.docs_in_block * self.packed_bytes_length) as usize,
+        );
+        Ok(())
+    }
+
+    fn compare(
+        &self,
+        _min_packed_value: &[u8],
+        _max_packed_value: &[u8],
+    ) -> Result<Relation, LuceneError> {
+        Ok(Relation::CellCrossesQuery)
+    }
+
+    fn grow(&mut self, count: i32) -> Result<(), LuceneError> {
+        let count = count as usize;
+        debug_assert_eq!(self.docs_in_block, 0);
+        if self.doc_ids.len() < count {
+            ArrayUtil::grow(&mut self.doc_ids)?;
+            let packed_values_size = i32::try_from(
+                self.doc_ids.len() + self.packed_bytes_length as usize,
+            )
+            .map_err(|_| {
+                LuceneError::integer_overflow(format!(
+                    "too large: {}",
+                    self.doc_ids.len() + self.packed_bytes_length as usize
+                ))
+            })?;
+            if packed_values_size > ArrayUtil::MAX_ARRAY_LENGTH {
+                return Err(LuceneError::illegal_state(format!(
+                    "array length must be <= {} but was: {}",
+                    ArrayUtil::MAX_ARRAY_LENGTH,
+                    packed_values_size
+                )));
+            }
+            ArrayUtil::grow_exact(&mut self.packed_values, packed_values_size)?;
+        }
+        Ok(())
+    }
+}
+
+struct MergeReaderCmp {
+    comparator: ByteArrayComparatorEnum,
+}
+impl MergeReaderCmp {
+    fn new(bytes_per_dim: usize) -> Self {
+        Self {
+            comparator: ArrayUtil::get_unsigned_comparator(bytes_per_dim),
+        }
+    }
+}
+#[allow(clippy::comparison_chain)]
+impl<S> Compare<MergeReader<S>> for MergeReaderCmp
+where
+    S: PointValuesBase,
+{
+    fn less_than(&self, a: &MergeReader<S>, b: &MergeReader<S>) -> bool {
+        debug_assert!(a as *const _ != b as *const _);
+        let cmp = self
+            .comparator
+            .compare(&a.packed_value, 0, &b.packed_value, 0);
+
+        if cmp < 0 {
+            true
+        } else if cmp > 0 {
+            false
+        } else {
+            // Tie break by sorting smaller docIDs earlier:
+            a.doc_id < b.doc_id
+        }
+    }
 }
 
 /// flat representation of a kd-tree

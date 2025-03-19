@@ -208,7 +208,9 @@ where
         Ok(self.doc_count)
     }
 
-    fn get_point_tree(&self) -> Result<impl PointTree, LuceneError> {
+    type PointTreeType = BKDPointTree<I>;
+
+    fn get_point_tree(&self) -> Result<Self::PointTreeType, LuceneError> {
         let slice = self.index_in.borrow_mut().slice(
             "packedIndex",
             self.index_start_pointer,
@@ -1221,7 +1223,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
 mod tests {
     use crate::index::merge_state::DocMap;
     use crate::index::point_values::{
-        IntersectVisitor, PointTree, PointValues, PointValuesBase, PointValuesBaseEnum, Relation,
+        IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
     };
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
     use crate::store::directory::Directory;
@@ -1284,7 +1286,7 @@ mod tests {
                     .borrow_mut()
                     .open_input("bkd", &IOContext::default_io_context()?)?;
                 input.seek(index_fp)?;
-                let reader = get_point_values(Rc::new(RefCell::new(input)))?;
+                let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
 
                 // Simple 1D range query:
                 let mut query_min = vec![vec![0u8; 4]];
@@ -1299,7 +1301,6 @@ mod tests {
                     query_max: &query_max,
                     config: config.clone(),
                 };
-                let sub_point_values = PointValuesBaseEnum::BKD(reader);
                 let r = PointValues::new(sub_point_values);
                 r.intersect(&mut visitor)?;
 
@@ -1384,8 +1385,7 @@ mod tests {
                 .borrow_mut()
                 .open_input("bkd", &IOContext::default_io_context()?)?;
             input.seek(index_fp)?;
-            let reader = get_point_values(Rc::new(RefCell::new(input)))?;
-            let sub_point_values = PointValuesBaseEnum::BKD(reader);
+            let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
             let r = PointValues::new(sub_point_values);
 
             let min_packed_value = r.get_min_packed_value()?.unwrap();
@@ -1536,8 +1536,7 @@ mod tests {
                 .borrow_mut()
                 .open_input("bkd", &IOContext::default_io_context()?)?;
             input.seek(index_fp)?;
-            let reader = get_point_values(Rc::new(RefCell::new(input)))?;
-            let sub_point_values = PointValuesBaseEnum::BKD(reader);
+            let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
             let point_values = PointValues::new(sub_point_values);
 
             let iters = at_least(&mut random, 100);

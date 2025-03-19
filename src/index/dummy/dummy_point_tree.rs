@@ -14,6 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_indexable_field_type;
-pub mod dummy_point_tree;
-pub mod dummy_point_value_base;
+use crate::index::point_values::PointTree;
+
+pub struct DummyPointTree;
+
+impl Clone for DummyPointTree {
+    fn clone(&self) -> Self {
+        unreachable!()
+    }
+}
+impl PointTree for DummyPointTree {}
