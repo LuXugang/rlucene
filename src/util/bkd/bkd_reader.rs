@@ -1466,13 +1466,6 @@ mod tests {
 
         Ok(())
     }
-    #[test]
-    fn test11() -> Result<(), LuceneError> {
-        for i in 0..1000 {
-            test_big_int_n_dims()?;
-        }
-        Ok(())
-    }
     // Tests on N-dimensional points where each dimension is a BigInteger
     #[test]
     fn test_big_int_n_dims() -> Result<(), LuceneError> {
@@ -1646,7 +1639,7 @@ mod tests {
         let tree = if rarely(random) { &mut clone } else { tree };
 
         let mut visit_doc_id_size = vec![0; 1];
-        let mut visit_doc_values_size = vec![0; 1];
+        let visit_doc_values_size = [0; 1];
 
         let mut visitor = IntersectVisitorImpl1 {
             visit_doc_id_size: &mut visit_doc_id_size,
@@ -1679,7 +1672,7 @@ mod tests {
     struct IntersectVisitorImpl1<'a> {
         visit_doc_id_size: &'a mut [i64],
     }
-    impl<'a> IntersectVisitor for IntersectVisitorImpl1<'a> {
+    impl IntersectVisitor for IntersectVisitorImpl1<'_> {
         fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
             self.visit_doc_id_size[0] += 1;
             Ok(())

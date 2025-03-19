@@ -551,7 +551,7 @@ mod tests {
         for (i, value) in values.iter().enumerate() {
             let offset = encoded[i].offset as usize;
             NumericUtils::big_int_to_sortable_bytes(
-                &value,
+                value,
                 4, // Integer.BYTES = 4
                 encoded[i].bytes.as_mut_slice(),
                 offset,
