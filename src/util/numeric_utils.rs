@@ -233,7 +233,7 @@ impl NumericUtils {
     /// # See Also
     /// - [`sortable_bytes_to_big_int`](NumericUtils::sortable_bytes_to_big_int)
     pub fn big_int_to_sortable_bytes(
-        big_int: BigInt,
+        big_int: &BigInt,
         big_int_size: usize,
         result: &mut [u8],
         offset: usize,
@@ -263,7 +263,7 @@ impl NumericUtils {
             {
                 let converted = Self::sortable_bytes_to_big_int(result, offset, big_int_size)
                     .expect("Error decoding BigInt");
-                converted == big_int
+                converted == *big_int
             },
             "BigInt={} converted={}",
             big_int,
@@ -386,7 +386,7 @@ mod tests {
         for value in -100_000..100_000 {
             let big_int = BigInt::from_i64(value).unwrap();
             NumericUtils::big_int_to_sortable_bytes(
-                big_int.clone(),
+                &big_int,
                 size,
                 current.bytes.as_mut_slice(),
                 0,
@@ -551,7 +551,7 @@ mod tests {
         for (i, value) in values.iter().enumerate() {
             let offset = encoded[i].offset as usize;
             NumericUtils::big_int_to_sortable_bytes(
-                value.clone(),
+                &value,
                 4, // Integer.BYTES = 4
                 encoded[i].bytes.as_mut_slice(),
                 offset,
@@ -958,7 +958,7 @@ mod tests {
             let max_length =
                 TestUtil::next_int(&mut random, length as i32, length as i32 + 3) as usize;
             let mut encoded = vec![0u8; max_length];
-            NumericUtils::big_int_to_sortable_bytes(value.clone(), max_length, &mut encoded, 0)?;
+            NumericUtils::big_int_to_sortable_bytes(&value, max_length, &mut encoded, 0)?;
             let decoded = NumericUtils::sortable_bytes_to_big_int(&encoded, 0, max_length)?;
             assert_eq!(
                 decoded, value,
@@ -1120,19 +1120,9 @@ mod tests {
             let left_value = TestUtil::next_big_integer(&mut random, max_length as i32);
             let right_value = TestUtil::next_big_integer(&mut random, max_length as i32);
             let mut left = BytesRef::from_bytes(vec![0u8; max_length]);
-            NumericUtils::big_int_to_sortable_bytes(
-                left_value.clone(),
-                max_length,
-                &mut left.bytes,
-                0,
-            )?;
+            NumericUtils::big_int_to_sortable_bytes(&left_value, max_length, &mut left.bytes, 0)?;
             let mut right = BytesRef::from_bytes(vec![0u8; max_length]);
-            NumericUtils::big_int_to_sortable_bytes(
-                right_value.clone(),
-                max_length,
-                &mut right.bytes,
-                0,
-            )?;
+            NumericUtils::big_int_to_sortable_bytes(&right_value, max_length, &mut right.bytes, 0)?;
             let expected_sign = left_value.cmp(&right_value) as i32;
             let actual_sign = left.cmp(&right) as i32;
             assert_eq!(
