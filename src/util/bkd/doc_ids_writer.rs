@@ -653,7 +653,7 @@ mod tests {
         }
 
         fn compare(
-            &self,
+            &mut self,
             _min_packed_value: &[u8],
             _max_packed_value: &[u8],
         ) -> Result<Relation, LuceneError> {

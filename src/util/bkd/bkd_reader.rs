@@ -1213,7 +1213,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
     }
 
     fn compare(
-        &self,
+        &mut self,
         _min_packed_value: &[u8],
         _max_packed_value: &[u8],
     ) -> Result<Relation, LuceneError> {
@@ -1222,6 +1222,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
 }
 #[cfg(test)]
 pub mod tests {
+    use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
     use crate::index::merge_state::{DocMap, DocMapEnum};
     use crate::index::point_values::{
         IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
@@ -1230,7 +1231,7 @@ pub mod tests {
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
     use crate::store::directory::Directory;
     use crate::store::{IOContext, IndexInput, IndexOutput};
-    use crate::test::util::lucene_test_case::{at_least, new_directory, random, rarely};
+    use crate::test::util::lucene_test_case::{at_least, new_directory, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_util::BitUtil;
     use crate::util::bkd::bkd_config::BKDConfig;
@@ -1956,13 +1957,7 @@ pub mod tests {
             self.cur_doc_id_base + doc_id
         }
     }
-    #[test]
-    fn test111() -> Result<(), LuceneError> {
-        for i in 0..100 {
-            test_multi_valued()?;
-        }
-        Ok(())
-    }
+
     #[test]
     fn test_multi_valued() -> Result<(), LuceneError> {
         let mut random = random();
@@ -2350,7 +2345,7 @@ pub mod tests {
         let mut visit_doc_id_size = vec![0; 1];
         let mut visit_doc_values_size = vec![0; 1];
 
-        let mut visitor = IntersectVisitorImpl1 {
+        let mut visitor = IntersectVisitorMock1 {
             visit_doc_id_size: &mut visit_doc_id_size,
             visit_doc_values_size: &mut visit_doc_values_size,
         };
@@ -2379,11 +2374,11 @@ pub mod tests {
         Ok(())
     }
 
-    struct IntersectVisitorImpl1<'a> {
+    struct IntersectVisitorMock1<'a> {
         visit_doc_id_size: &'a mut [i64],
         visit_doc_values_size: &'a mut [i64],
     }
-    impl IntersectVisitor for IntersectVisitorImpl1<'_> {
+    impl IntersectVisitor for IntersectVisitorMock1<'_> {
         fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
             self.visit_doc_id_size[0] += 1;
             Ok(())
@@ -2399,7 +2394,7 @@ pub mod tests {
         }
 
         fn compare(
-            &self,
+            &mut self,
             min_packed_value: &[u8],
             max_packed_value: &[u8],
         ) -> Result<Relation, LuceneError> {
@@ -2540,7 +2535,11 @@ pub mod tests {
             Ok(())
         }
 
-        fn compare(&self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation, LuceneError> {
+        fn compare(
+            &mut self,
+            min_packed: &[u8],
+            max_packed: &[u8],
+        ) -> Result<Relation, LuceneError> {
             let num_index_dims = self.config.num_index_dims as usize;
             let bytes_per_dim = self.config.bytes_per_dim as usize;
             let mut crosses = false;
@@ -2577,5 +2576,777 @@ pub mod tests {
                 Ok(Relation::CellInsideQuery)
             }
         }
+    }
+    #[test]
+    fn test_bit_flipped_on_partition1() -> Result<(), LuceneError> {
+        // TODO: MockDirectoryWrapper not Implemented
+        Ok(())
+    }
+    #[test]
+    fn test_bit_flippedon_partition2() -> Result<(), LuceneError> {
+        // TODO: MockDirectoryWrapper not Implemented
+        Ok(())
+    }
+    struct IntersectVisitorMock2 {
+        last_doc_id: i32,
+    }
+    impl IntersectVisitorMock2 {
+        fn new() -> Self {
+            Self { last_doc_id: -1 }
+        }
+    }
+    impl IntersectVisitor for IntersectVisitorMock2 {
+        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+            assert!(
+                doc_id > self.last_doc_id,
+                "lastDocID={} docID={}",
+                self.last_doc_id,
+                doc_id
+            );
+            self.last_doc_id = doc_id;
+            Ok(())
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            doc_id: i32,
+            _packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            self.visit(doc_id)
+        }
+
+        fn compare(
+            &mut self,
+            min_packed_value: &[u8],
+            max_packed_value: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            Ok(Relation::CellCrossesQuery)
+        }
+    }
+    #[test]
+    fn test_tie_break_order() -> Result<(), LuceneError> {
+        let mut random = random();
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let num_docs = 10_000;
+
+        let config = Rc::new(BKDConfig::new(1, 1, 4, 2)?);
+        let mut writer = BKDWriter::new(
+            num_docs + 1,
+            dir.clone(),
+            "tmp",
+            config,
+            0.01,
+            num_docs as i64,
+        )?;
+
+        let bytes = [0u8; 4];
+        for doc_id in 0..num_docs {
+            writer.add(&bytes, doc_id)?;
+        }
+
+        let out = Rc::new(RefCell::new(
+            dir.borrow_mut()
+                .create_output("bkd", &IOContext::default_io_context()?)?,
+        ));
+
+        let finalizer = writer.finish(out.clone())?.unwrap();
+        let fp = out.borrow().get_file_pointer();
+        writer.write_index(out.clone(), out.clone(), &finalizer)?;
+
+        let mut input = dir
+            .borrow_mut()
+            .open_input("bkd", &IOContext::default_io_context()?)?;
+        input.seek(fp)?;
+        let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+        let point_values = PointValues::new(sub_point_values);
+        point_values.intersect(&mut IntersectVisitorMock2::new())?;
+        Ok(())
+    }
+    struct IntersectVisitorMock3 {
+        previous: Option<Vec<u8>>,
+        has_changed: bool,
+        num_data_dims: i32,
+        num_bytes_per_dim: i32,
+    }
+    impl IntersectVisitorMock3 {
+        fn new(num_data_dims: i32, num_bytes_per_dim: i32) -> Self {
+            Self {
+                previous: None,
+                has_changed: false,
+                num_data_dims,
+                num_bytes_per_dim,
+            }
+        }
+    }
+    impl IntersectVisitor for IntersectVisitorMock3 {
+        fn visit(&mut self, _doc_id: i32) -> Result<(), LuceneError> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            _doc_id: i32,
+            packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            let len = (self.num_data_dims * self.num_bytes_per_dim) as usize;
+            if self.previous.is_none() {
+                let mut value = vec![0u8; len];
+                value[0..len].copy_from_slice(&packed_value[..len]);
+                self.previous = Some(value);
+            } else if let Some(prev) = &mut self.previous {
+                let mismatch = packed_value.eq(prev.as_slice());
+                if !mismatch {
+                    if !self.has_changed {
+                        self.has_changed = true;
+                        prev[0..len].copy_from_slice(&packed_value[..len]);
+                    } else {
+                        return Err(LuceneError::illegal_state(
+                            "Points are not in optimal order".to_string(),
+                        ));
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        fn compare(
+            &mut self,
+            _min_packed_value: &[u8],
+            _max_packed_value: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            Ok(Relation::CellCrossesQuery)
+        }
+    }
+    #[test]
+    fn test_check_data_dim_optimal_order() -> Result<(), LuceneError> {
+        let mut random = random();
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let num_values = at_least(&mut random, 5000);
+        let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500);
+        let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
+        let max_mb = 3.0 + 3.0 * random.random::<f64>();
+        let num_index_dims = TestUtil::next_int(&mut random, 1, 8);
+        let num_data_dims = TestUtil::next_int(&mut random, num_index_dims, 8);
+
+        let mut point_value1 = vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
+        let mut point_value2 = vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
+        random.fill_bytes(&mut point_value1);
+        random.fill_bytes(&mut point_value2);
+
+        // Equal index dimensions but different data dimensions
+        for i in 0..num_index_dims {
+            let offset = (i * num_bytes_per_dim) as usize;
+            point_value2[offset..offset + num_bytes_per_dim as usize]
+                .copy_from_slice(&point_value1[offset..offset + num_bytes_per_dim as usize]);
+        }
+
+        let config = Rc::new(BKDConfig::new(
+            num_data_dims,
+            num_index_dims,
+            num_bytes_per_dim,
+            max_points_in_leaf_node,
+        )?);
+
+        let index_fp;
+        {
+            let mut writer = BKDWriter::new(
+                2 * num_values,
+                dir.clone(),
+                "_temp",
+                config.clone(),
+                max_mb,
+                (2 * num_values) as i64,
+            )?;
+
+            for i in 0..num_values {
+                writer.add(&point_value1, i)?;
+                writer.add(&point_value2, i)?;
+            }
+
+            let out = Rc::new(RefCell::new(
+                dir.borrow_mut()
+                    .create_output("bkd", &IOContext::default_io_context()?)?,
+            ));
+            let finalizer = writer.finish(out.clone())?.unwrap();
+            index_fp = out.borrow().get_file_pointer();
+            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+            writer.close()?;
+        }
+
+        let mut point_in = dir
+            .borrow_mut()
+            .open_input("bkd", &IOContext::default_io_context()?)?;
+        point_in.seek(index_fp)?;
+
+        let sub_point_values = get_point_values(Rc::new(RefCell::new(point_in)))?;
+        let point_values = PointValues::new(sub_point_values);
+        point_values.intersect(&mut IntersectVisitorMock3::new(
+            num_data_dims,
+            num_bytes_per_dim,
+        ))?;
+        Ok(())
+    }
+    struct IntersectVisitorMock4<'a> {
+        count: &'a mut [i32],
+        random: &'a mut StdRng,
+    }
+    impl<'a> IntersectVisitorMock4<'a> {
+        fn new(count: &'a mut [i32], random: &'a mut StdRng) -> Self {
+            Self { count, random }
+        }
+    }
+    impl IntersectVisitor for IntersectVisitorMock4<'_> {
+        fn visit(&mut self, _doc_id: i32) -> Result<(), LuceneError> {
+            self.count[0] += 1;
+            Ok(())
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            doc_id: i32,
+            _packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            self.visit(doc_id)
+        }
+
+        fn compare(
+            &mut self,
+            _min_packed_value: &[u8],
+            _max_packed_value: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            if self.random.random_range(0..7) == 1 {
+                Ok(Relation::CellCrossesQuery)
+            } else {
+                Ok(Relation::CellInsideQuery)
+            }
+        }
+    }
+    #[test]
+    fn test_2d_long_ords_offline() -> Result<(), LuceneError> {
+        let mut random = random();
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let num_docs = 100_000;
+
+        let config = Rc::new(BKDConfig::new(2, 2, 4, 2)?);
+        let mut writer = BKDWriter::new(
+            num_docs + 1,
+            dir.clone(),
+            "tmp",
+            config,
+            0.01,
+            num_docs as i64,
+        )?;
+
+        let mut buffer = vec![0u8; 2 * 4];
+        for doc_id in 0..num_docs {
+            random.fill_bytes(&mut buffer);
+            writer.add(&buffer, doc_id)?;
+        }
+
+        let fp;
+        {
+            let out = Rc::new(RefCell::new(
+                dir.borrow_mut()
+                    .create_output("bkd", &IOContext::default_io_context()?)?,
+            ));
+            let finalizer = writer.finish(out.clone())?.unwrap();
+            fp = out.borrow().get_file_pointer();
+            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        }
+
+        let mut input = dir
+            .borrow_mut()
+            .open_input("bkd", &IOContext::default_io_context()?)?;
+        input.seek(fp)?;
+        let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+        let point_values = PointValues::new(sub_point_values);
+
+        let mut count = [0];
+        let mut visitor = IntersectVisitorMock4 {
+            count: &mut count,
+            random: &mut random,
+        };
+        point_values.intersect(&mut visitor)?;
+        assert_eq!(count[0], num_docs);
+
+        Ok(())
+    }
+    struct IntersectVisitorMock5<'a> {
+        count: &'a mut [i32],
+        random: &'a mut StdRng,
+        num_index_dims: i32,
+        bytes_per_dim: i32,
+        num_dims: i32,
+    }
+    impl IntersectVisitor for IntersectVisitorMock5<'_> {
+        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+            self.count[0] += 1;
+            Ok(())
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            doc_id: i32,
+            packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            assert_eq!(
+                packed_value.len(),
+                (self.num_dims * self.bytes_per_dim) as usize
+            );
+            self.visit(doc_id)
+        }
+
+        fn compare(
+            &mut self,
+            min_packed: &[u8],
+            max_packed: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            assert_eq!(
+                min_packed.len(),
+                (self.num_index_dims * self.bytes_per_dim) as usize
+            );
+            assert_eq!(
+                max_packed.len(),
+                (self.num_index_dims * self.bytes_per_dim) as usize
+            );
+            if self.random.random_range(0..7) == 1 {
+                Ok(Relation::CellCrossesQuery)
+            } else {
+                Ok(Relation::CellInsideQuery)
+            }
+        }
+    }
+    #[test]
+    fn test_wasted_leading_bytes() -> Result<(), LuceneError> {
+        let mut random = random();
+        let num_dims = TestUtil::next_int(&mut random, 1, PointValues::MAX_INDEX_DIMENSIONS);
+        let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
+        let bytes_per_dim = PointValues::MAX_NUM_BYTES;
+        let bytes_used = TestUtil::next_int(&mut random, 1, 3);
+
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let num_docs = at_least(&mut random, 10000);
+        let config = Rc::new(BKDConfig::new(num_dims, num_index_dims, bytes_per_dim, 32)?);
+
+        let mut writer = BKDWriter::new(
+            num_docs + 1,
+            dir.clone(),
+            "tmp",
+            config.clone(),
+            1.0,
+            num_docs as i64,
+        )?;
+
+        let mut tmp = vec![0u8; bytes_used as usize];
+        let mut buffer = vec![0u8; (num_dims * bytes_per_dim) as usize];
+
+        for doc_id in 0..num_docs {
+            for dim in 0..num_dims {
+                random.fill_bytes(&mut tmp);
+                let offset = (dim * bytes_per_dim + (bytes_per_dim - bytes_used)) as usize;
+                buffer[offset..offset + bytes_used as usize].copy_from_slice(&tmp);
+            }
+            writer.add(&buffer, doc_id)?;
+        }
+        let fp;
+        {
+            let out = Rc::new(RefCell::new(
+                dir.borrow_mut()
+                    .create_output("bkd", &IOContext::default_io_context()?)?,
+            ));
+
+            let finalizer = writer.finish(out.clone())?.unwrap();
+            fp = out.borrow().get_file_pointer();
+            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        }
+        let mut input = dir
+            .borrow_mut()
+            .open_input("bkd", &IOContext::default_io_context()?)?;
+        input.seek(fp)?;
+        let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+        let point_values = PointValues::new(sub_point_values);
+
+        let mut count = [0];
+        let mut visitor = IntersectVisitorMock5 {
+            count: &mut count,
+            random: &mut random,
+            num_index_dims,
+            bytes_per_dim,
+            num_dims,
+        };
+        point_values.intersect(&mut visitor)?;
+        assert_eq!(count[0], num_docs);
+
+        Ok(())
+    }
+    struct IntersectVisitorMock6;
+    impl IntersectVisitor for IntersectVisitorMock6 {
+        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+            Ok(())
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            doc_id: i32,
+            packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            Ok(())
+        }
+
+        fn compare(
+            &mut self,
+            min_packed_value: &[u8],
+            max_packed_value: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            Ok(Relation::CellInsideQuery)
+        }
+    }
+    struct IntersectVisitorMock7;
+    impl IntersectVisitor for IntersectVisitorMock7 {
+        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+            Ok(())
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            doc_id: i32,
+            packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            Ok(())
+        }
+
+        fn compare(
+            &mut self,
+            min_packed_value: &[u8],
+            max_packed_value: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            Ok(Relation::CellOutsideQuery)
+        }
+    }
+    struct IntersectVisitorMock8<'a> {
+        unique_point_value: &'a [u8],
+        num_bytes_per_dim: i32,
+    }
+    impl IntersectVisitor for IntersectVisitorMock8<'_> {
+        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+            Ok(())
+        }
+
+        fn visit_with_packed_value(
+            &mut self,
+            doc_id: i32,
+            packed_value: &[u8],
+        ) -> Result<(), LuceneError> {
+            Ok(())
+        }
+
+        fn compare(
+            &mut self,
+            min_packed_value: &[u8],
+            max_packed_value: &[u8],
+        ) -> Result<Relation, LuceneError> {
+            if self.unique_point_value[..self.num_bytes_per_dim as usize]
+                .cmp(&max_packed_value[..self.num_bytes_per_dim as usize])
+                .to_int()
+                > 0
+                || self.unique_point_value[..self.num_bytes_per_dim as usize]
+                    .cmp(&min_packed_value[..self.num_bytes_per_dim as usize])
+                    .to_int()
+                    < 0
+            {
+                Ok(Relation::CellOutsideQuery)
+            } else {
+                Ok(Relation::CellCrossesQuery)
+            }
+        }
+    }
+    #[test]
+    fn test_estimate_point_count() -> Result<(), LuceneError> {
+        let mut random = random();
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+        let num_values = at_least(&mut random, 10_000);
+        let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500);
+        let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
+
+        let mut point_value = vec![0u8; num_bytes_per_dim as usize];
+        let mut unique_point_value = vec![0u8; num_bytes_per_dim as usize];
+        random.fill_bytes(&mut unique_point_value);
+
+        let config = Rc::new(BKDConfig::new(
+            1,
+            1,
+            num_bytes_per_dim,
+            max_points_in_leaf_node,
+        )?);
+        let mut writer = BKDWriter::new(
+            num_values,
+            dir.clone(),
+            "_temp",
+            config.clone(),
+            BKDWriter::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+            num_values as i64,
+        )?;
+
+        for i in 0..num_values {
+            if i == num_values / 2 {
+                writer.add(&unique_point_value, i)?;
+            } else {
+                loop {
+                    random.fill_bytes(&mut point_value);
+                    if point_value != unique_point_value {
+                        break;
+                    }
+                }
+                writer.add(&point_value, i)?;
+            }
+        }
+
+        let index_fp;
+        {
+            let out = Rc::new(RefCell::new(
+                dir.borrow_mut()
+                    .create_output("bkd", &IOContext::default_io_context()?)?,
+            ));
+            let finalizer = writer.finish(out.clone())?.unwrap();
+            index_fp = out.borrow().get_file_pointer();
+            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        }
+
+        let mut input = dir
+            .borrow_mut()
+            .open_input("bkd", &IOContext::default_io_context()?)?;
+        input.seek(index_fp)?;
+        let point_values = PointValues::new(get_point_values(Rc::new(RefCell::new(input)))?);
+
+        // If all points match, then the point count is numValues
+        assert_eq!(
+            point_values.estimate_point_count(&mut IntersectVisitorMock6)?,
+            num_values as i64
+        );
+        // Return 0 if no points match
+        assert_eq!(
+            point_values.estimate_point_count(&mut IntersectVisitorMock7)?,
+            0
+        );
+        // If only one point matches, then the point count is (actualMaxPointsInLeafNode + 1) / 2
+        // in general, or maybe 2x that if the point is a split value
+        let point_count = point_values.estimate_point_count(&mut IntersectVisitorMock8 {
+            unique_point_value: &unique_point_value,
+            num_bytes_per_dim,
+        })?;
+        let last_node_point_count = num_values % max_points_in_leaf_node;
+        let mid = ((max_points_in_leaf_node + 1) / 2) as i64;
+        let mid_last = ((last_node_point_count + 1) / 2) as i64;
+
+        assert!(
+            point_count == mid// common case
+                // not fully populated leaf
+                || point_count == mid_last
+                // if the point is a split value
+                || point_count == 2 * mid
+                // if the point is a split value and one leaf is not fully populated
+                || point_count == mid + mid_last,
+            "Unexpected point count: {}",
+            point_count
+        );
+
+        Ok(())
+    }
+    pub struct MutablePointTreeMock1 {
+        point_values: Vec<u8>,
+        num_points_added: i32,
+    }
+
+    impl PointTree for MutablePointTreeMock1 {
+        fn size(&self) -> Result<i64, LuceneError> {
+            Ok(self.num_points_added as i64)
+        }
+
+        fn visit_doc_values(
+            &mut self,
+            visitor: &mut impl IntersectVisitor,
+        ) -> Result<(), LuceneError> {
+            for _ in 0..self.num_points_added {
+                visitor.visit_with_packed_value(0, self.point_values.as_slice())?;
+            }
+            Ok(())
+        }
+    }
+
+    impl Clone for MutablePointTreeMock1 {
+        fn clone(&self) -> Self {
+            unreachable!()
+        }
+    }
+
+    impl MutablePointTree for MutablePointTreeMock1 {
+        fn get_value(&self, i: i32, packed_value: &mut BytesRef) {
+            packed_value.bytes = self.point_values.clone();
+        }
+
+        fn get_byte_at(&self, i: i32, k: i32) -> u8 {
+            let mut b = BytesRef::new();
+            self.get_value(i, &mut b);
+            b.bytes[(b.offset + k) as usize]
+        }
+
+        fn get_doc_id(&self, i: i32) -> i32 {
+            0
+        }
+
+        fn swap(&mut self, i: i32, j: i32) {}
+
+        fn save(&mut self, i: i32, j: i32) {}
+
+        fn restore(&mut self, i: i32, j: i32) {}
+    }
+    #[test]
+    fn test_total_point_count_validation() -> Result<(), LuceneError> {
+        let mut random = random();
+        let dir = Rc::new(RefCell::new(new_directory(&mut random).unwrap()));
+        let num_values = 10;
+        let num_points_added = 50;
+        let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
+        let mut point_value = vec![0u8; num_bytes_per_dim as usize];
+        random.fill_bytes(&mut point_value);
+
+        let mock = MutablePointTreeMock1 {
+            point_values: point_value.clone(),
+            num_points_added,
+        };
+        let reader = Rc::new(RefCell::new(MutablePointTreeEnum::Mock1(mock)));
+
+        let config = Rc::new(BKDConfig::new(
+            1,
+            1,
+            num_bytes_per_dim,
+            BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+        )?);
+
+        let mut writer = BKDWriter::new(
+            num_values,
+            dir.clone(),
+            "_temp",
+            config,
+            BKDWriter::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+            num_values as i64,
+        )?;
+        let out = Rc::new(RefCell::new(
+            dir.borrow_mut()
+                .create_output("bkd", &IOContext::default_io_context()?)?,
+        ));
+
+        let result = writer.write_field(out.clone(), reader, "test_field_name");
+
+        assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+        Ok(())
+    }
+    pub struct MutablePointTreeMock2 {
+        tmp_values: Vec<Vec<u8>>,
+        tmp_docs: Vec<i32>,
+        num_bytes_per_dim: i32,
+        point_values: Vec<Vec<u8>>,
+        doc_id: Vec<i32>,
+    }
+
+    impl PointTree for MutablePointTreeMock2 {
+        fn size(&self) -> Result<i64, LuceneError> {
+            Ok(11)
+        }
+
+        fn visit_doc_values(
+            &mut self,
+            visitor: &mut impl IntersectVisitor,
+        ) -> Result<(), LuceneError> {
+            for i in 0..self.size()? as usize {
+                visitor.visit_with_packed_value(self.doc_id[i], &self.point_values[i])?
+            }
+            Ok(())
+        }
+    }
+
+    impl Clone for MutablePointTreeMock2 {
+        fn clone(&self) -> Self {
+            unreachable!()
+        }
+    }
+
+    impl MutablePointTree for MutablePointTreeMock2 {
+        fn get_value(&self, i: i32, packed_value: &mut BytesRef) {
+            packed_value.bytes = self.point_values[i as usize].clone();
+            packed_value.offset = 0;
+            packed_value.length = self.num_bytes_per_dim;
+        }
+
+        fn get_byte_at(&self, i: i32, k: i32) -> u8 {
+            self.point_values[i as usize][k as usize]
+        }
+
+        fn get_doc_id(&self, i: i32) -> i32 {
+            self.doc_id[i as usize]
+        }
+
+        fn swap(&mut self, i: i32, j: i32) {
+            self.point_values.swap(i as usize, j as usize);
+            self.doc_id.swap(i as usize, j as usize)
+        }
+
+        fn save(&mut self, i: i32, j: i32) {
+            self.tmp_values[j as usize] = self.point_values[i as usize].clone();
+            self.tmp_docs[j as usize] = self.doc_id[i as usize];
+        }
+
+        fn restore(&mut self, i: i32, j: i32) {
+            for k in i as usize..j as usize {
+                self.point_values[k] = self.tmp_values[k].clone();
+                self.doc_id[k] = self.tmp_docs[k];
+            }
+        }
+    }
+    #[test]
+    fn test_too_many_points_1d() -> Result<(), LuceneError> {
+        let mut random = random();
+        let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+
+        let num_values = 10;
+        let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
+        let mut point_values = vec![vec![0u8; num_bytes_per_dim as usize]; 11];
+        let mut doc_ids = vec![0i32; 11];
+
+        for i in 0..=num_values as usize {
+            random.fill_bytes(&mut point_values[i]);
+            doc_ids[i] = i as i32;
+        }
+
+        let mock2 = MutablePointTreeMock2 {
+            tmp_values: vec![vec![]; num_values as usize],
+            tmp_docs: vec![],
+            num_bytes_per_dim,
+            point_values,
+            doc_id: doc_ids,
+        };
+        let reader = Rc::new(RefCell::new(MutablePointTreeEnum::Mock2(mock2)));
+
+        let config = Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim, 2)?);
+        let mut writer = BKDWriter::new(
+            num_values + 1,
+            dir.clone(),
+            "_temp",
+            config,
+            BKDWriter::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+            num_values as i64,
+        )?;
+
+        let out = Rc::new(RefCell::new(
+            dir.borrow_mut()
+                .create_output("bkd", &IOContext::default_io_context()?)?,
+        ));
+
+        let result = writer.write_field(out.clone(), reader, "");
+        assert!(
+            matches!(result, Err(LuceneError::IllegalState(msg)) if msg.message.eq("totalPointCount=10 was passed when we were created, but we just hit 11 values"))
+        );
+
+        Ok(())
     }
 }

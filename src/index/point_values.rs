@@ -111,7 +111,7 @@ where
     /// Estimate if the point count that would be matched by `intersect`
     /// with the given `IntersectVisitor` is greater than or equal to the `upper_bound`.
     pub fn is_estimated_point_count_greater_than_or_equal_to(
-        visitor: &impl IntersectVisitor,
+        visitor: &mut impl IntersectVisitor,
         point_tree: &mut impl PointTree,
         upper_bound: i64,
     ) -> Result<bool, LuceneError> {
@@ -127,7 +127,7 @@ where
     ///
     /// TODO: will broad-first help estimation terminate earlier?
     fn estimate_point_count_with_point_tree(
-        visitor: &impl IntersectVisitor,
+        visitor: &mut impl IntersectVisitor,
         point_tree: &mut impl PointTree,
         upper_bound: i64,
     ) -> Result<i64, LuceneError> {
@@ -425,7 +425,7 @@ pub trait IntersectVisitor {
     /// Called for non-leaf cells to test how the cell relates to the query,
     /// to determine how to further recurse down the tree.
     fn compare(
-        &self,
+        &mut self,
         min_packed_value: &[u8],
         max_packed_value: &[u8],
     ) -> Result<Relation, LuceneError>;

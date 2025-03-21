@@ -2018,19 +2018,6 @@ where
         Ok(())
     }
 }
-impl<D> Drop for BKDWriter<D>
-where
-    D: Directory,
-{
-    fn drop(&mut self) {
-        match self.close() {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Error closing BKDWriter: {:?}", e);
-            }
-        }
-    }
-}
 pub struct OneDimensionBKDWriter<'a, D>
 where
     D: Directory,
@@ -2568,7 +2555,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
     }
 
     fn compare(
-        &self,
+        &mut self,
         _min_packed_value: &[u8],
         _max_packed_value: &[u8],
     ) -> Result<Relation, LuceneError> {
@@ -2854,7 +2841,7 @@ where
     }
 
     fn compare(
-        &self,
+        &mut self,
         min_packed_value: &[u8],
         max_packed_value: &[u8],
     ) -> Result<Relation, LuceneError> {
