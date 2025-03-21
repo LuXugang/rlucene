@@ -90,7 +90,6 @@ where
         if len > tmp_len as i32 {
             self.tmp.resize(len as usize, T::default());
         }
-        // TODO: avoid using clone, could we use std::men:take?
         self.tmp[0..len as usize]
             .clone_from_slice(&self.arr[start as usize..start as usize + len as usize]);
     }

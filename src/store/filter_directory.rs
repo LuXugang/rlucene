@@ -20,7 +20,17 @@ use crate::store::IOContext;
 use crate::util::error::lucene_error::LuceneError;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-
+/// Directory implementation that delegates calls to another directory.
+///
+/// This struct can be used to add limitations on top of an existing
+/// [`Directory`] implementation such as
+/// [`NRTCachingDirectory`], or to add additional
+/// sanity checks for tests.
+///
+/// However, if you plan to write your own [`Directory`] implementation,
+/// you should consider extending directly [`Directory`] or
+/// [`BaseDirectory`](crate::store::base_directory::BaseDirectory) rather than trying to reuse functionality of
+/// existing [`Directory`]s by wrapping this one.
 pub struct FilterDirectory<D>
 where
     D: Directory,
