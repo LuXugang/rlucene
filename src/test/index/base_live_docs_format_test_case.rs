@@ -25,7 +25,7 @@ use crate::test::util::lucene_test_case::new_directory;
 use crate::test::util::test_util::TestUtil;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{StringHelper, LATEST};
 use rand::rngs::StdRng;
@@ -34,26 +34,26 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 pub trait BaseLiveDocsFormatTestCase {
-    fn test_dense_live_docs(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test_dense_live_docs(&self, random: &mut StdRng) -> Result<()> {
         let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, max_doc - 1, false)?;
         Self::test_serialization(random, max_doc, max_doc - 1, true)?;
         Ok(())
     }
-    fn test_empty_live_docs(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test_empty_live_docs(&self, random: &mut StdRng) -> Result<()> {
         let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, 0, false)?;
         Self::test_serialization(random, max_doc, 0, true)?;
 
         Ok(())
     }
-    fn test_sparse_live_docs(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test_sparse_live_docs(&self, random: &mut StdRng) -> Result<()> {
         let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, 1, false)?;
         Self::test_serialization(random, max_doc, 1, true)?;
         Ok(())
     }
-    fn test_over_flow(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test_over_flow(&self, random: &mut StdRng) -> Result<()> {
         Self::test_serialization(
             random,
             IndexWriter::MAX_DOCS,
@@ -68,7 +68,7 @@ pub trait BaseLiveDocsFormatTestCase {
         max_doc: i32,
         num_live_docs: i32,
         fixed_bit_set: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let format = LATEST_CODEC.live_docs_format();
         let mut live_docs = FixedBitSet::new(max_doc);
         if num_live_docs > max_doc / 2 {

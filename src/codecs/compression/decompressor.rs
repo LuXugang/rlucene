@@ -16,7 +16,7 @@
  */
 use crate::index::BytesRef;
 use crate::store::DataInput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 /// A decompressor.
 pub trait Decompressor: Clone {
@@ -38,7 +38,7 @@ pub trait Decompressor: Clone {
         offset: i32,
         length: i32,
         bytes: &mut BytesRef,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         I: DataInput;
 }

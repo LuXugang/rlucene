@@ -17,7 +17,7 @@
 use crate::document::fields::Fields;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt;
 use std::sync::Arc;
 use std::vec::IntoIter;
@@ -87,7 +87,7 @@ impl Document {
     ///
     /// # Returns
     /// A `Vec<Arc<BytesRef>>` of binary field values.
-    pub fn get_binary_values(&self, name: &str) -> Result<Vec<Arc<BytesRef>>, LuceneError> {
+    pub fn get_binary_values(&self, name: &str) -> Result<Vec<Arc<BytesRef>>> {
         let mut result = Vec::new();
 
         for field in &self.fields {
@@ -110,7 +110,7 @@ impl Document {
     ///
     /// # Returns
     /// A `Option<Arc<BytesRef>>` containing the binary field value, or `None` if no matching field is found.
-    pub fn get_binary_value(&self, name: &str) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+    pub fn get_binary_value(&self, name: &str) -> Result<Option<Arc<BytesRef>>> {
         for field in &self.fields {
             if field.name() == name {
                 return match field.binary_value() {
@@ -170,7 +170,7 @@ impl Document {
     ///
     /// # Returns
     /// A `Vec<Arc<String>`, which is an empty vector if no matching fields are found.
-    pub fn get_values(&self, name: &str) -> Result<Vec<Arc<String>>, LuceneError> {
+    pub fn get_values(&self, name: &str) -> Result<Vec<Arc<String>>> {
         let mut result = Vec::new();
         for field in &self.fields {
             if field.name() == name {
@@ -193,7 +193,7 @@ impl Document {
     ///
     /// # Returns
     /// An `Option<Arc<String>>`,  `None` means no string value is found (e.g., for binary fields).
-    pub fn get(&self, name: &str) -> Result<Option<Arc<String>>, LuceneError> {
+    pub fn get(&self, name: &str) -> Result<Option<Arc<String>>> {
         for field in &self.fields {
             if field.name() == name {
                 return match field.string_value() {
@@ -245,7 +245,7 @@ mod tests {
     use crate::index::indexable_field::IndexableField;
     use crate::index::indexable_field_type::IndexableFieldType;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use std::sync::Arc;
 
     #[allow(dead_code)]
@@ -256,7 +256,7 @@ mod tests {
     /// # Errors
     /// - Returns an error if an exception occurs during execution.
     #[test]
-    fn test_binary_field() -> Result<(), LuceneError> {
+    fn test_binary_field() -> Result<()> {
         let binary_val = "this text will be stored as a byte array in the index";
         let binary_val2 = "this text will be also stored as a byte array in the index";
 
@@ -320,7 +320,7 @@ mod tests {
     /// # Errors
     /// - Returns an error if an exception occurs.
     #[test]
-    fn test_remove_for_new_document() -> Result<(), LuceneError> {
+    fn test_remove_for_new_document() -> Result<()> {
         let mut doc = make_document_with_fields()?;
         assert_eq!(10, doc.get_fields().len());
 
@@ -358,12 +358,12 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_constructor_exceptions() -> Result<(), LuceneError> {
+    fn test_constructor_exceptions() -> Result<()> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
     #[test]
-    fn test_clear_document() -> Result<(), LuceneError> {
+    fn test_clear_document() -> Result<()> {
         let mut doc = make_document_with_fields()?;
         assert_eq!(doc.get_fields().len(), 10);
         doc.clear();
@@ -372,22 +372,22 @@ mod tests {
     }
 
     #[test]
-    fn test_get_fields_immutable() -> Result<(), LuceneError> {
+    fn test_get_fields_immutable() -> Result<()> {
         //`fields` is an immutable slice.
         Ok(())
     }
 
     #[test]
-    fn test_get_values_for_new_document() -> Result<(), LuceneError> {
+    fn test_get_values_for_new_document() -> Result<()> {
         do_assert(&make_document_with_fields()?, false)
     }
     #[test]
-    fn test_get_values_for_indexed_document() -> Result<(), LuceneError> {
+    fn test_get_values_for_indexed_document() -> Result<()> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
     #[test]
-    fn test_get_values() -> Result<(), LuceneError> {
+    fn test_get_values() -> Result<()> {
         let doc = make_document_with_fields()?;
 
         let keyword_values = doc.get_values("keyword")?;
@@ -408,12 +408,12 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_position_increment_multi_fields() -> Result<(), LuceneError> {
+    fn test_position_increment_multi_fields() -> Result<()> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
 
-    fn make_document_with_fields() -> Result<Document, LuceneError> {
+    fn make_document_with_fields() -> Result<Document> {
         let mut doc = Document::new();
         let mut stored = FieldType::new();
         stored.set_stored(true)?;
@@ -451,7 +451,7 @@ mod tests {
         Ok(doc)
     }
 
-    fn do_assert(doc: &Document, from_index: bool) -> Result<(), LuceneError> {
+    fn do_assert(doc: &Document, from_index: bool) -> Result<()> {
         let keyword_field_values = doc.get_fields_with_name("keyword");
         let text_field_values = doc.get_fields_with_name("text");
         let unindexed_field_values = doc.get_fields_with_name("unindexed");
@@ -506,7 +506,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_field_set_value() -> Result<(), LuceneError> {
+    fn test_field_set_value() -> Result<()> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
@@ -517,7 +517,7 @@ mod tests {
     }
 
     #[test]
-    fn test_numeric_field_as_string() -> Result<(), LuceneError> {
+    fn test_numeric_field_as_string() -> Result<()> {
         // TODO : IndexWriter not implemented
         Ok(())
     }

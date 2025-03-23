@@ -19,7 +19,7 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::IOUtils;
 use std::sync::{Arc, Mutex};
@@ -67,7 +67,7 @@ where
         id: Vec<u8>,
         block_shift: i32,
         io_context: IOContext,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let mut dir_guard = dir
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
@@ -107,7 +107,7 @@ where
             previous_fp: 0,
         })
     }
-    fn write_index(&mut self, num_docs: i32, start_pointer: i64) -> Result<(), LuceneError> {
+    fn write_index(&mut self, num_docs: i32, start_pointer: i64) -> Result<()> {
         debug_assert!(start_pointer >= self.previous_fp);
         debug_assert!(self.docs_out.is_some());
         debug_assert!(self.file_pointers_out.is_some());
@@ -127,7 +127,7 @@ where
         num_docs: i32,
         max_pointer: i64,
         meta_out: &mut D::IndexOutputType,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if num_docs != self.total_docs {
             return Err(LuceneError::illegal_state(format!(
                 "Expected {} docs, but got {}",
@@ -175,7 +175,7 @@ where
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
                 .open_checksum_input(&docs_out_file_name)?;
             let mut prior_e = None;
-            let result: Result<(), LuceneError> = (|| {
+            let result: Result<()> = (|| {
                 CodecUtil::check_header(
                     &mut docs_in,
                     &format!("{}Docs", self.codec_name),

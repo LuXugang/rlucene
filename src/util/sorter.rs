@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Base class for sorting algorithm implementations.
 ///
@@ -34,21 +34,21 @@ pub trait Sorter {
     // Below this size threshold, the sub-range is sorted using Insertion sort.
     const INSERTION_SORT_THRESHOLD: i32 = 16;
     /// Compare entries found in slots i and j
-    fn compare(&mut self, _i: i32, _j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, _i: i32, _j: i32) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "compare() must be implemented if it need to be used",
         ))
     }
 
     /// Swap values at slots <code>i</code> and `j`.
-    fn swap(&mut self, _i: i32, _j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
         Err(LuceneError::illegal_state(
             "swap() must be implemented if it need to be used",
         ))
     }
 
     /// Save the value at slot i so that it can later be used as a pivot, see `comparePivot(i32)`.
-    fn set_pivot(&mut self, _i: i32) -> Result<(), LuceneError> {
+    fn set_pivot(&mut self, _i: i32) -> Result<()> {
         Err(LuceneError::illegal_state(
             "set_pivot() must be implemented if it need to be used",
         ))
@@ -56,20 +56,20 @@ pub trait Sorter {
 
     /// Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
     /// compare(i, j).
-    fn compare_pivot(&mut self, _i: i32) -> Result<i32, LuceneError> {
+    fn compare_pivot(&mut self, _i: i32) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "compare_pivot() must be implemented if it need to be used",
         ))
     }
 
     /// Sort the slice which starts at `from` (inclusive) and ends at `to` (exclusive).
-    fn sort(&mut self, _from: i32, _to: i32) -> Result<(), LuceneError> {
+    fn sort(&mut self, _from: i32, _to: i32) -> Result<()> {
         Err(LuceneError::illegal_state(
             "sort() must be implemented if it need to be used",
         ))
     }
 
-    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) -> Result<(), LuceneError> {
+    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) -> Result<()> {
         if from == mid || mid == to || self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
         } else if to - from == 2 {
@@ -105,7 +105,7 @@ pub trait Sorter {
         Ok(())
     }
 
-    fn lower(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32, LuceneError> {
+    fn lower(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32> {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 1;
@@ -120,7 +120,7 @@ pub trait Sorter {
         Ok(from)
     }
 
-    fn upper(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32, LuceneError> {
+    fn upper(&mut self, mut from: i32, to: i32, val: i32) -> Result<i32> {
         let mut len = to - from;
         while len > 0 {
             let half = len >> 1;
@@ -135,7 +135,7 @@ pub trait Sorter {
         Ok(from)
     }
     // faster than lower when val is at the end of [from:to[
-    fn lower2(&mut self, from: i32, to: i32, val: i32) -> Result<i32, LuceneError> {
+    fn lower2(&mut self, from: i32, to: i32, val: i32) -> Result<i32> {
         let mut f = to - 1;
         let mut t = to;
 
@@ -152,7 +152,7 @@ pub trait Sorter {
     }
 
     // faster than upper when val is at the beginning of [from:to[
-    fn upper2(&mut self, from: i32, to: i32, val: i32) -> Result<i32, LuceneError> {
+    fn upper2(&mut self, from: i32, to: i32, val: i32) -> Result<i32> {
         let mut f = from;
         let mut t = f + 1;
 
@@ -168,7 +168,7 @@ pub trait Sorter {
         self.upper(f, to, val)
     }
 
-    fn reverse(&mut self, mut from: i32, to: i32) -> Result<(), LuceneError> {
+    fn reverse(&mut self, mut from: i32, to: i32) -> Result<()> {
         let mut to = to - 1;
         while from < to {
             self.swap(from, to)?;
@@ -178,7 +178,7 @@ pub trait Sorter {
         Ok(())
     }
 
-    fn rotate(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), LuceneError> {
+    fn rotate(&mut self, lo: i32, mid: i32, hi: i32) -> Result<()> {
         debug_assert!(lo <= mid && mid <= hi);
         if lo == mid || mid == hi {
             return Ok(());
@@ -186,7 +186,7 @@ pub trait Sorter {
         self.do_rotate(lo, mid, hi)
     }
 
-    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) -> Result<(), LuceneError> {
+    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) -> Result<()> {
         if mid - lo == hi - mid {
             while mid < hi {
                 self.swap(lo, mid)?;
@@ -208,16 +208,11 @@ pub trait Sorter {
     /// when the number of items to sort becomes smaller than `BINARY_SORT_THRESHOLD`.
     ///
     /// This algorithm is **stable**.
-    fn binary_sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn binary_sort(&mut self, from: i32, to: i32) -> Result<()> {
         self.binary_sort_with_start(from, to, from + 1)
     }
 
-    fn binary_sort_with_start(
-        &mut self,
-        from: i32,
-        to: i32,
-        mut i: i32,
-    ) -> Result<(), LuceneError> {
+    fn binary_sort_with_start(&mut self, from: i32, to: i32, mut i: i32) -> Result<()> {
         while i < to {
             self.set_pivot(i)?;
             let mut l = from;
@@ -244,7 +239,7 @@ pub trait Sorter {
     /// Sorts between `from` (inclusive) and `to` (exclusive) with insertion sort. Runs in `O(n^2)`.
     /// It is typically used by more sophisticated implementations as a fall-back when the number of
     /// items to sort becomes less than `INSERTION_SORT_THRESHOLD`. This algorithm is stable.
-    fn insertion_sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn insertion_sort(&mut self, from: i32, to: i32) -> Result<()> {
         let mut i = from + 1;
         while i < to {
             let mut current = i;
@@ -267,7 +262,7 @@ pub trait Sorter {
     /// Uses heap sort to sort items between `from` (inclusive) and `to` (exclusive). This runs
     /// in `O(n * log(n))` and is used as a fall-back by [`IntroSorter`](crate::util::intro_sorter).
     /// This algorithm is NOT stable.
-    fn heap_sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn heap_sort(&mut self, from: i32, to: i32) -> Result<()> {
         if to - from <= 1 {
             return Ok(());
         }
@@ -281,7 +276,7 @@ pub trait Sorter {
         Ok(())
     }
 
-    fn heapify(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn heapify(&mut self, from: i32, to: i32) -> Result<()> {
         let mut i = Self::heap_parent(from, to - 1);
         while i >= from {
             self.sift_down(i, from, to)?;
@@ -290,7 +285,7 @@ pub trait Sorter {
         Ok(())
     }
 
-    fn sift_down(&mut self, mut i: i32, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sift_down(&mut self, mut i: i32, from: i32, to: i32) -> Result<()> {
         let mut left_child = Self::heap_child(from, i);
         while left_child < to {
             let right_child = left_child + 1;
@@ -320,7 +315,7 @@ pub trait Sorter {
         ((i - from) << 1) + 1 + from
     }
 }
-pub fn check_range(from: i32, to: i32) -> Result<(), LuceneError> {
+pub fn check_range(from: i32, to: i32) -> Result<()> {
     if to < from {
         return Err(LuceneError::illegal_argument(format!(
             "'to' must be >= 'from', got from= {} and to= {}",

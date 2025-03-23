@@ -16,7 +16,7 @@
  */
 use crate::index::sort::Sort;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::{Version, LATEST};
 use derive_getters::Getters;
 
@@ -39,7 +39,7 @@ impl LeafMetaData {
         min_version: Option<Version>,
         sort: Option<Sort>,
         has_blocks: bool,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if created_version_major > LATEST.major {
             return Err(LuceneError::illegal_argument(format!(
                 "created_version_major is in the future: {}",

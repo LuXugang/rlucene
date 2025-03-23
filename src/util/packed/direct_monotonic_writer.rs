@@ -17,7 +17,7 @@
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::IndexOutput;
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_writer::DirectWriter;
 /// Write monotonically-increasing sequences of integers. This writer splits data into blocks and
 /// then for each block, computes the average slope, the minimum value, and encodes only the delta
@@ -55,7 +55,7 @@ where
         data_out: &'a mut I,
         num_values: i64,
         block_shift: i32,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if !(DirectMonotonicWriter::MIN_BLOCK_SHIFT..=DirectMonotonicWriter::MAX_BLOCK_SHIFT)
             .contains(&block_shift)
         {
@@ -106,7 +106,7 @@ where
             previous: i64::MIN,
         })
     }
-    fn flush(&mut self) -> Result<(), LuceneError> {
+    fn flush(&mut self) -> Result<()> {
         debug_assert!(self.buffer_size != 0);
 
         let avg_inc = {
@@ -154,7 +154,7 @@ where
     ///
     /// # Errors
     /// - Returns an error if values are not provided in order.
-    pub fn add(&mut self, v: i64) -> Result<(), LuceneError> {
+    pub fn add(&mut self, v: i64) -> Result<()> {
         if v < self.previous {
             return Err(LuceneError::illegal_argument(format!(
                 "Values do not come in order: {}, {}",
@@ -171,7 +171,7 @@ where
         Ok(())
     }
     /// This must be called exactly once after all values have been added using [`add(i64)`](DirectMonotonicWriter::add).
-    pub fn finish(&mut self) -> Result<(), LuceneError> {
+    pub fn finish(&mut self) -> Result<()> {
         if self.count != self.num_values {
             return Err(LuceneError::illegal_state(format!(
                 "Wrong number of values added, expected: {}, got: {}",
@@ -197,7 +197,7 @@ where
         data_out: &'a mut I,
         num_values: i64,
         block_shift: i32,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         Self::new(meta_out, data_out, num_values, block_shift)
     }
 }

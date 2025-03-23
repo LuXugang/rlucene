@@ -17,7 +17,7 @@
 use crate::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IndexInput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use std::cell::RefCell;
@@ -43,11 +43,7 @@ impl DirectMonotonicReader<DummyRandomAccessInput> {
     ///
     /// # See also
     /// `DirectMonotonicReader::getInstance(Meta, RandomAccessInput)`
-    pub fn load_meta<I>(
-        meta_in: &mut I,
-        num_values: i64,
-        block_shift: i32,
-    ) -> Result<Meta, LuceneError>
+    pub fn load_meta<I>(meta_in: &mut I, num_values: i64, block_shift: i32) -> Result<Meta>
     where
         I: IndexInput,
     {
@@ -81,7 +77,7 @@ where
         mins: Vec<i64>,
         avgs: Vec<f32>,
         bpvs: Vec<u8>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let readers_len = readers.len();
         if readers_len != mins.len() || readers_len != avgs.len() || readers_len != bpvs.len() {
             return Err(LuceneError::illegal_argument(String::from(
@@ -100,7 +96,7 @@ where
     }
 
     /// Get lower/upper bounds for the value at a given index without hitting the direct reader.
-    fn get_bounds(&self, index: i64) -> Result<[i64; 2], LuceneError> {
+    fn get_bounds(&self, index: i64) -> Result<[i64; 2]> {
         match i32::try_from((index as u64) >> self.block_shift) {
             Ok(block) => {
                 let block = block as usize;
@@ -121,12 +117,7 @@ where
         }
     }
 
-    pub fn binary_search(
-        &mut self,
-        from_index: i64,
-        to_index: i64,
-        key: i64,
-    ) -> Result<i64, LuceneError> {
+    pub fn binary_search(&mut self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
         if from_index < 0 || from_index > to_index {
             return Err(LuceneError::illegal_argument(format!(
                 "fromIndex={}, toIndex={}",
@@ -156,7 +147,7 @@ where
         Ok(-1 - lo)
     }
     /// Retrieves a non-merging instance from the specified slice.
-    pub fn get_instance(meta: &Meta, data: Rc<RefCell<R>>) -> Result<Self, LuceneError> {
+    pub fn get_instance(meta: &Meta, data: Rc<RefCell<R>>) -> Result<Self> {
         Self::get_instance_with_merging(meta, data, false)
     }
 
@@ -165,7 +156,7 @@ where
         meta: &Meta,
         data: Rc<RefCell<R>>,
         merging: bool,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let mut readers = Vec::with_capacity(meta.num_blocks);
         for i in 0..meta.num_blocks {
             let bpv = meta.bpvs[i];
@@ -202,7 +193,7 @@ impl<R> LongValues for DirectMonotonicReader<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         let block = ((index as u64) >> self.block_shift) as usize;
         let block_index = index & self.block_mask;
         let delta = self.readers[block].get(block_index)?;

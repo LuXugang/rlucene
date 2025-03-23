@@ -16,7 +16,7 @@
  */
 use crate::index::BytesRef;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
 use crate::util::CommonUtil;
 use once_cell::sync::Lazy;
@@ -43,10 +43,7 @@ impl StringHelper {
     /// # Returns
     ///
     /// The number of common elements (from the start of each).
-    pub fn bytes_difference(
-        prior_term: &BytesRef,
-        current_term: &BytesRef,
-    ) -> Result<i32, LuceneError> {
+    pub fn bytes_difference(prior_term: &BytesRef, current_term: &BytesRef) -> Result<i32> {
         let mismatch = CommonUtil::miss_match(
             &prior_term.bytes
                 [prior_term.offset as usize..(prior_term.offset + prior_term.length) as usize],
@@ -75,10 +72,7 @@ impl StringHelper {
     /// # Returns
     ///
     /// The length needed for the sort key.
-    pub fn sort_key_length(
-        prior_term: &BytesRef,
-        current_term: &BytesRef,
-    ) -> Result<i32, LuceneError> {
+    pub fn sort_key_length(prior_term: &BytesRef, current_term: &BytesRef) -> Result<i32> {
         let difference = Self::bytes_difference(prior_term, current_term)?;
         Ok(difference + 1)
     }
@@ -250,7 +244,7 @@ impl StringHelper {
             "(null)".to_string()
         }
     }
-    pub fn ints_ref_to_bytes_ref(_ints: IntsRef) -> Result<BytesRef, String> {
+    pub fn ints_ref_to_bytes_ref(_ints: IntsRef) -> Result<BytesRef> {
         unimplemented!()
     }
 }
@@ -280,13 +274,13 @@ mod tests {
     use crate::test::util::lucene_test_case::new_bytes_ref_from_string;
     use crate::test::util::lucene_test_case::random;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::StringHelper;
 
     #[allow(dead_code)] // for quick search
     pub struct TestStringHelper;
     #[test]
-    fn test_bytes_difference() -> Result<(), LuceneError> {
+    fn test_bytes_difference() -> Result<()> {
         let mut random = random();
         let left = new_bytes_ref_from_string(&mut random, "foobar")?;
         let right = new_bytes_ref_from_string(&mut random, "foozo")?;
@@ -343,7 +337,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_starts_with() -> Result<(), LuceneError> {
+    fn test_starts_with() -> Result<()> {
         let mut random = random();
         let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foo")?;
@@ -351,7 +345,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_ends_with() -> Result<(), LuceneError> {
+    fn test_ends_with() -> Result<()> {
         let mut random = random();
         let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "bar")?;
@@ -359,7 +353,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_starts_with_whole() -> Result<(), LuceneError> {
+    fn test_starts_with_whole() -> Result<()> {
         let mut random = random();
         let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
@@ -367,7 +361,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_ends_with_whole() -> Result<(), LuceneError> {
+    fn test_ends_with_whole() -> Result<()> {
         let mut random = random();
         let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
@@ -375,7 +369,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_murmur_hash3() -> Result<(), LuceneError> {
+    fn test_murmur_hash3() -> Result<()> {
         let mut random = random();
         // Hashes computed using murmur3_32 from https://code.google.com/p/pyfasthash
         assert_eq!(
@@ -409,7 +403,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_sort_key_length() -> Result<(), LuceneError> {
+    fn test_sort_key_length() -> Result<()> {
         let mut random = random();
         assert_eq!(
             StringHelper::sort_key_length(

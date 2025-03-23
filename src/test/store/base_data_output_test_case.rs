@@ -18,7 +18,7 @@ use crate::store::data_output::DataOutput;
 use crate::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::store::DataInput;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rand_xoshiro::rand_core::SeedableRng;
@@ -27,13 +27,10 @@ use rand_xoshiro::Xoroshiro128Plus;
 pub trait BaseDataOutputTestCase {
     type DO: DataOutput;
 
-    fn new_instance(&self) -> Result<Self::DO, LuceneError>;
+    fn new_instance(&self) -> Result<Self::DO>;
     fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8>;
 
-    fn test_randomized_writes<DI: DataInput>(
-        &mut self,
-        random: &mut StdRng,
-    ) -> Result<(), LuceneError> {
+    fn test_randomized_writes<DI: DataInput>(&mut self, random: &mut StdRng) -> Result<()> {
         let seed: u64 = random.random();
         let mut instance = self.new_instance()?;
         let mut buffer = Vec::new();

@@ -16,7 +16,7 @@
  */
 use crate::store::DataInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::abstract_block_packed_writer::{
     BPV_SHIFT, MAX_BLOCK_SIZE, MIN_BLOCK_SIZE, MIN_VALUE_EQUALS_0,
@@ -55,7 +55,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// # Errors
     ///
     /// Returns an `IoError` if the reading fails.
-    fn read_vlong(data_input: &mut T) -> Result<i64, LuceneError> {
+    fn read_vlong(data_input: &mut T) -> Result<i64> {
         let mut l = 0u64;
         for shift in (0..56).step_by(7) {
             let b = data_input.read_byte()?;
@@ -73,7 +73,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         packed_ints_version: i32,
         block_size: i32,
         value_count: i64,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let values = vec![0; block_size as usize];
         let long_ref = LongsRef::from_slice(values, 0, 0);
@@ -112,7 +112,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// # Errors
     ///
     /// Returns a `LuceneError` if `count` is invalid or if there is an issue reading the input.
-    pub fn skip(&mut self, mut count: i64) -> Result<(), LuceneError> {
+    pub fn skip(&mut self, mut count: i64) -> Result<()> {
         debug_assert!(count >= 0);
         if self.ord + count > self.value_count {
             return Err(LuceneError::eof("Attempt to skip past end of file"));
@@ -162,7 +162,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         self.off += count as i32;
         Ok(())
     }
-    fn skip_bytes(&mut self, count: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, count: i64) -> Result<()> {
         if self.data_input.is_index_input() {
             let new_position = self.data_input.get_file_pointer_in_data_input() + count;
             self.data_input.seek_in_data_input(new_position)?;
@@ -194,7 +194,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// - If the current block is exhausted (`off == block_size`), it will refill the block.
     /// - Increments the `ord` to track the current position in the stream.
     /// - Returns the next value from the `values` buffer.
-    pub fn next_value(&mut self) -> Result<i64, LuceneError> {
+    pub fn next_value(&mut self) -> Result<i64> {
         if self.ord == self.value_count {
             return Err(LuceneError::eof("Reached end of value stream"));
         }
@@ -220,7 +220,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// # Errors
     ///
     /// Returns an `EOFError` if the reader has reached the end of the value stream.
-    pub fn next_batch(&mut self, mut count: i32) -> Result<&LongsRef, LuceneError> {
+    pub fn next_batch(&mut self, mut count: i32) -> Result<&LongsRef> {
         debug_assert!(count > 0);
         if self.ord == self.value_count {
             return Err(LuceneError::eof("Reached end of value stream"));
@@ -238,7 +238,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         Ok(&self.values_ref)
     }
 
-    fn refill(&mut self) -> Result<(), LuceneError> {
+    fn refill(&mut self) -> Result<()> {
         let token = self.data_input.read_byte()? as i32;
         let min_equals_0 = (token & MIN_VALUE_EQUALS_0) != 0;
         let bits_per_value = token >> BPV_SHIFT;

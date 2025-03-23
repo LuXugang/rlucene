@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::data_output::DataOutput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 
 /// A `DataOutput` for appending data to a file in a `Directory`.
@@ -47,7 +47,7 @@ pub trait IndexOutput: DataOutput + Display {
     ///
     /// # See Also
     /// [`align_offset`]
-    fn align_file_pointer(&mut self, alignment_bytes: i32) -> Result<i64, LuceneError> {
+    fn align_file_pointer(&mut self, alignment_bytes: i32) -> Result<i64> {
         let offset = self.get_file_pointer();
         let aligned_offset = align_offset(offset, alignment_bytes)?;
         let count = (aligned_offset - offset) as usize;
@@ -63,7 +63,7 @@ pub trait IndexOutput: DataOutput + Display {
 /// # Arguments
 /// * `offset` - The offset to be aligned.
 /// * `alignment_bytes` - The alignment to which it should be rounded (must be a power of 2).
-pub fn align_offset(offset: i64, alignment_bytes: i32) -> Result<i64, LuceneError> {
+pub fn align_offset(offset: i64, alignment_bytes: i32) -> Result<i64> {
     if alignment_bytes == 0 || alignment_bytes.count_ones() != 1 {
         return Err(LuceneError::illegal_argument(
             "Alignment must be a power of 2",

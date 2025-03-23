@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
 
 /// Class that Posting and PostingVector use to write interleaved byte streams into shared fixed-size
@@ -56,7 +56,7 @@ impl ByteSlicePool {
     ///
     /// # Returns
     /// The position where the slice starts
-    pub fn new_slice(&mut self, size: i32) -> Result<i32, LuceneError> {
+    pub fn new_slice(&mut self, size: i32) -> Result<i32> {
         if size > ByteBlockPool::BYTE_BLOCK_SIZE {
             return Err(LuceneError::illegal_argument(format!(
                 "Slice size {} should be less than the block size {}",
@@ -85,7 +85,7 @@ impl ByteSlicePool {
     ///
     /// # Returns
     /// The offset of the new slice in the pool.
-    pub fn alloc_slice(&mut self, slice_index: i32, upto: i32) -> Result<i32, LuceneError> {
+    pub fn alloc_slice(&mut self, slice_index: i32, upto: i32) -> Result<i32> {
         Ok(self.alloc_known_size_slice(slice_index, upto)? >> 8)
     }
     /// Creates a new byte slice in continuation of the provided slice and returns its length and offset
@@ -98,11 +98,7 @@ impl ByteSlicePool {
     /// # Returns
     /// A value where the lower 8 bits represent the new slice's length, and the other 24 bits represent
     /// the offset into the pool.
-    pub fn alloc_known_size_slice(
-        &mut self,
-        slice_index: i32,
-        upto: i32,
-    ) -> Result<i32, LuceneError> {
+    pub fn alloc_known_size_slice(&mut self, slice_index: i32, upto: i32) -> Result<i32> {
         let mut pool = self.pool.borrow_mut();
         let upto = upto as usize;
         let level;
@@ -161,7 +157,7 @@ mod tests {
         AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
     };
     use crate::util::bit_util::BitUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnum, SliceCopyOps};
     use rand::rngs::StdRng;
     use rand::Rng;
@@ -169,7 +165,7 @@ mod tests {
     use std::rc::Rc;
 
     #[test]
-    fn test_alloc_known_size_slice() -> Result<(), LuceneError> {
+    fn test_alloc_known_size_slice() -> Result<()> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
@@ -222,7 +218,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_alloc_large_slice() -> Result<(), LuceneError> {
+    fn test_alloc_large_slice() -> Result<()> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         let mut slice_pool = ByteSlicePool::new(pool.clone());
@@ -292,7 +288,7 @@ mod tests {
         ///
         /// # Returns
         /// `true` if a slice is written and `false` if we're out of data to write.
-        pub fn write_slice(&mut self) -> Result<bool, LuceneError> {
+        pub fn write_slice(&mut self) -> Result<bool> {
             // The first slice is special
             let mut slice_pool = self.slice_pool.borrow_mut();
             if !self.has_started {
@@ -454,7 +450,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_random_interleaved_slices() -> Result<(), LuceneError> {
+    fn test_random_interleaved_slices() -> Result<()> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));

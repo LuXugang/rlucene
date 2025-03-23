@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::packed::monotonic_block_packed_reader::expected;
 use crate::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
 
@@ -31,12 +31,7 @@ impl MonotonicLongValues {
     pub(crate) fn new(averages: Vec<f32>) -> Self {
         Self { averages }
     }
-    pub(crate) fn decode_block(
-        &mut self,
-        block: i32,
-        dest: &mut [i64],
-        count: i32,
-    ) -> Result<i32, LuceneError> {
+    pub(crate) fn decode_block(&mut self, block: i32, dest: &mut [i64], count: i32) -> Result<i32> {
         let average = self.averages[block as usize];
         for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
             debug_assert!(i <= i32::MAX as usize);
@@ -45,12 +40,7 @@ impl MonotonicLongValues {
         Ok(count)
     }
 
-    pub(crate) fn get_value(
-        &mut self,
-        block: i32,
-        element: i32,
-        value: u64,
-    ) -> Result<i64, LuceneError> {
+    pub(crate) fn get_value(&mut self, block: i32, element: i32, value: u64) -> Result<i64> {
         Ok(expected(
             value as i64,
             self.averages[block as usize],
@@ -80,7 +70,7 @@ impl MonotonicLongValuesBuilder {
         }
     }
 
-    pub fn build(mut self, values_off: i32) -> Result<MonotonicLongValues, LuceneError> {
+    pub fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
         let _ = self.averages.split_off(values_off as usize);
 
         // TODO
@@ -94,12 +84,7 @@ impl MonotonicLongValuesBuilder {
         Self::BASE_RAM_BYTES_USED
     }
 
-    pub(crate) fn pack(
-        &mut self,
-        values: &mut [i64],
-        num_values: i32,
-        block: i32,
-    ) -> Result<(), LuceneError> {
+    pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) -> Result<()> {
         let average = if num_values == 1 {
             0.0
         } else {
@@ -114,7 +99,7 @@ impl MonotonicLongValuesBuilder {
         Ok(())
     }
 
-    pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<(), LuceneError> {
+    pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
         // TODO: memory calculation not implemented
         ArrayUtil::grow_exact(&mut self.averages, new_block_count)
     }

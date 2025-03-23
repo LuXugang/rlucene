@@ -18,7 +18,7 @@ use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
 use crate::index::BytesRef;
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bkd::bkd_config::BKDConfig;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::packed::PackedInts;
 use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
@@ -42,7 +42,7 @@ impl MutablePointTreeReaderUtils {
         reader: &mut MutablePointTreeEnum,
         from: i32,
         to: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut sorted_by_doc_id = true;
         let mut prev_doc = 0;
         for i in from..to {
@@ -84,7 +84,7 @@ impl MutablePointTreeReaderUtils {
         to: i32,
         _scratch1: &mut BytesRef,
         _scratch2: &mut BytesRef,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         // Get an unsigned comparator for the byte arrays.
         let comparator = ArrayUtil::get_unsigned_comparator(config.bytes_per_dim as usize);
         let start = sorted_dim * config.bytes_per_dim;
@@ -117,7 +117,7 @@ impl MutablePointTreeReaderUtils {
         mid: i32,
         _scratch1: &mut BytesRef,
         _scratch2: &mut BytesRef,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let dim_offset = split_dim * config.bytes_per_dim + common_prefix_len;
         let dim_cmp_bytes = config.bytes_per_dim - common_prefix_len;
         let data_cmp_bytes =
@@ -146,7 +146,7 @@ struct StableMSBRadixSorterImpl<'a> {
 }
 
 impl MSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         if k < self.config.packed_bytes_length() {
             Ok(self.reader.get_byte_at(i, k) as i32)
         } else {
@@ -158,7 +158,7 @@ impl MSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
 }
 
 impl Sorter for StableMSBRadixSorterImpl<'_> {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.reader.swap(i, j);
         Ok(())
     }
@@ -185,23 +185,23 @@ struct IntroSorterImpl<'a> {
     start: i32,
 }
 impl Sorter for IntroSorterImpl<'_> {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.set_pivot(i)?;
         self.compare_pivot(j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.reader.swap(i, j);
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.reader.get_value(i, &mut self.pivot);
         self.pivot_doc = self.reader.get_doc_id(i);
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32, LuceneError> {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         self.reader.get_value(j, &mut self.scratch2);
 
         let cmp = self.comparator.compare(
@@ -233,7 +233,7 @@ impl Sorter for IntroSorterImpl<'_> {
         Ok(cmp)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -252,7 +252,7 @@ struct RadixSelectorImpl {
 }
 
 impl Selector for RadixSelectorImpl {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.reader.borrow_mut().swap(i, j);
         Ok(())
     }
@@ -361,7 +361,7 @@ impl IntroSelectorBaseDefault for IntroSelectorImpl {
 }
 
 impl Selector for IntroSelectorImpl {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.reader.borrow_mut().swap(i, j);
         Ok(())
     }
@@ -378,7 +378,7 @@ pub(crate) mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::bkd::bkd_config::BKDConfig;
     use crate::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::{SliceCopyOps, ToInt};
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
@@ -389,7 +389,7 @@ pub(crate) mod tests {
     #[allow(dead_code)] // for quick search
     struct TestMutablePointTreeReaderUtils;
     #[test]
-    fn test_sort() -> Result<(), LuceneError> {
+    fn test_sort() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             do_test_sort(&mut random, false)?;
@@ -398,7 +398,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_sort_with_incremental_doc_id() -> Result<(), LuceneError> {
+    fn test_sort_with_incremental_doc_id() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             do_test_sort(&mut random, true)?;
@@ -406,7 +406,7 @@ pub(crate) mod tests {
         Ok(())
     }
 
-    fn do_test_sort(random: &mut StdRng, is_doc_id_incremental: bool) -> Result<(), LuceneError> {
+    fn do_test_sort(random: &mut StdRng, is_doc_id_incremental: bool) -> Result<()> {
         let bytes_per_dim = TestUtil::next_int(random, 1, 16);
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
@@ -460,7 +460,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_sort_by_dim() -> Result<(), LuceneError> {
+    fn test_sort_by_dim() -> Result<()> {
         let mut random = random();
         for _ in 0..5 {
             do_test_sort_by_dim(&mut random)?;
@@ -468,7 +468,7 @@ pub(crate) mod tests {
         Ok(())
     }
 
-    fn do_test_sort_by_dim(random: &mut StdRng) -> Result<(), LuceneError> {
+    fn do_test_sort_by_dim(random: &mut StdRng) -> Result<()> {
         let config = Rc::new(create_random_config(random)?);
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
@@ -535,14 +535,14 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_partition() -> Result<(), LuceneError> {
+    fn test_partition() -> Result<()> {
         let mut random = random();
         for _ in 0..5 {
             do_test_partition(&mut random)?;
         }
         Ok(())
     }
-    fn do_test_partition(random: &mut StdRng) -> Result<(), LuceneError> {
+    fn do_test_partition(random: &mut StdRng) -> Result<()> {
         let config = Rc::new(create_random_config(random)?);
         let mut common_prefix_lengths = vec![0; config.num_dims as usize];
         let end = 1 << random.random_range(0..30);
@@ -629,7 +629,7 @@ pub(crate) mod tests {
         a.cmp(b).to_int()
     }
 
-    fn create_random_config(random: &mut StdRng) -> Result<BKDConfig, LuceneError> {
+    fn create_random_config(random: &mut StdRng) -> Result<BKDConfig> {
         let num_index_dims = TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
         let num_dims = TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
         let bytes_per_dim = TestUtil::next_int(random, 1, 16);
@@ -768,15 +768,15 @@ pub(crate) mod tests {
         }
     }
     impl PointTree for DummyPointsReader {
-        fn move_to_child(&mut self) -> Result<bool, LuceneError> {
+        fn move_to_child(&mut self) -> Result<bool> {
             Ok(false)
         }
 
-        fn move_to_sibling(&mut self) -> Result<bool, LuceneError> {
+        fn move_to_sibling(&mut self) -> Result<bool> {
             Ok(false)
         }
 
-        fn move_to_parent(&mut self) -> Result<bool, LuceneError> {
+        fn move_to_parent(&mut self) -> Result<bool> {
             Ok(false)
         }
     }

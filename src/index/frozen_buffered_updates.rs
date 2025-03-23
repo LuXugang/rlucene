@@ -25,7 +25,7 @@ use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::util::{ByteBlockPoolLock, CounterEnumLock};
 use std::collections::HashMap;
@@ -78,7 +78,7 @@ where
             MTPostingsArrayWrapper,
         >,
         private_segment: Option<Arc<SegmentCommitInfo<D>>>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         assert!(
             private_segment.is_none() || updates.delete_terms.is_empty(),
             "segment private packet should only have del queries"

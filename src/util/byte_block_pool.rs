@@ -18,7 +18,7 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;
 use std::cmp::min;
@@ -106,7 +106,7 @@ where
     /// * `zero_fill_buffers` - If `true`, the buffers are filled with `0`. This should be set to `true` if this pool is used with slices.
     /// * `reuse_first` - If `true`, the first buffer will be reused, and calling [`ByteBlockPool::next_buffer`](#method.next_buffer) is not needed after reset,
     ///   if the block pool was used before (i.e., [`ByteBlockPool::next_buffer`](#method.next_buffer) was called before).
-    pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) -> Result<(), LuceneError> {
+    pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) -> Result<()> {
         if self.buffer_upto != -1 {
             if zero_fill_buffers {
                 for i in 0..(self.buffer_upto + 1) as usize {
@@ -138,7 +138,7 @@ where
     /// constructor to initialize the pool. In contrast to the constructor, a
     /// [`ByteBlockPool::reset`](#method.reset) call will advance the pool to its first buffer
     /// immediately.
-    pub fn next_buffer(&mut self) -> Result<(), LuceneError> {
+    pub fn next_buffer(&mut self) -> Result<()> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
             self.buffers.push(self.allocator.get_byte_block()?);
         }
@@ -171,7 +171,7 @@ where
         result: &mut BytesRef,
         offset: i64,
         length: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if result.length < length {
             result.bytes = vec![0; length as usize];
         }
@@ -194,7 +194,7 @@ where
         Ok(())
     }
     /// Appends the bytes in the provided BytesRef at the current position.
-    pub fn append_bytes_ref(&mut self, bytes: &BytesRef) -> Result<(), LuceneError> {
+    pub fn append_bytes_ref(&mut self, bytes: &BytesRef) -> Result<()> {
         self.append_range(&bytes.bytes, bytes.offset, bytes.length)
     }
     /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and length.
@@ -208,7 +208,7 @@ where
         src_pool: &ByteBlockPool<A>,
         mut src_offset: i64,
         length: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut bytes_left = length;
         while bytes_left > 0 {
             let buffer_left = ByteBlockPool::BYTE_BLOCK_SIZE - self.byte_upto;
@@ -254,7 +254,7 @@ where
     ///
     /// # Arguments
     /// * `bytes` - The byte array to write.
-    pub fn append(&mut self, bytes: &[u8]) -> Result<(), LuceneError> {
+    pub fn append(&mut self, bytes: &[u8]) -> Result<()> {
         let length = bytes.len() as i32;
         self.append_range(bytes, 0, length)
     }
@@ -264,12 +264,7 @@ where
     /// * `src_pool` - The source pool to copy from.
     /// * `src_offset` - The source pool offset.
     /// * `length` - The number of bytes to copy.
-    pub fn append_range(
-        &mut self,
-        bytes: &[u8],
-        mut offset: i32,
-        length: i32,
-    ) -> Result<(), LuceneError> {
+    pub fn append_range(&mut self, bytes: &[u8], mut offset: i32, length: i32) -> Result<()> {
         let mut bytes_left = length;
         while bytes_left > 0 {
             let buffer_left = ByteBlockPool::BYTE_BLOCK_SIZE - self.byte_upto;
@@ -308,7 +303,7 @@ where
         bytes: &mut [u8],
         mut bytes_offset: i32,
         bytes_length: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut bytes_left = bytes_length;
         let shift = offset >> ByteBlockPool::BYTE_BLOCK_SHIFT;
         match i32::try_from(shift) {
@@ -355,7 +350,7 @@ where
     pub fn get_buffer(&mut self, buffer_index: i32) -> &mut Vec<u8> {
         &mut self.buffers[buffer_index as usize]
     }
-    pub fn get_bytes_used(&self) -> Result<i64, LuceneError> {
+    pub fn get_bytes_used(&self) -> Result<i64> {
         self.allocator.get_used()
     }
 }
@@ -381,7 +376,7 @@ mod tests {
         AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
     };
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{ByteBlockPool, CounterEnum, SliceCopyOps};
     use rand::distr::Alphanumeric;
     use rand::{Rng, RngCore};
@@ -391,7 +386,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestByteBlockPool {}
     #[test]
-    fn test_append_from_other_pool() -> Result<(), LuceneError> {
+    fn test_append_from_other_pool() -> Result<()> {
         let mut random = random();
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let mut pool = ByteBlockPool::new(allocator);
@@ -437,7 +432,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_read_and_write() -> Result<(), LuceneError> {
+    fn test_read_and_write() -> Result<()> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used.clone()));
@@ -511,7 +506,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_large_random_block() -> Result<(), LuceneError> {
+    fn test_large_random_block() -> Result<()> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used.clone()));
@@ -552,7 +547,7 @@ mod tests {
     }
 
     #[test]
-    fn test_too_many_allocs() -> Result<(), LuceneError> {
+    fn test_too_many_allocs() -> Result<()> {
         // Use a mock allocator that doesn't waste memory
         let allocator =
             AllocatorByteEnum::<Rc<RefCell<CounterEnum>>>::DA(DirectAllocatorByte::new());

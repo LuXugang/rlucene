@@ -17,7 +17,7 @@
 use crate::store::dummy::dummy_data_output::DummyDataOutput;
 use crate::store::DataOutput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::Format::Packed;
 use crate::util::packed::{FormatBehavior, PackedImpl, PackedInts};
 /// Writer for packed integers that can be directly read from a [`Directory`](crate::store::directory::Directory) via [`DirectReader`](crate::util::packed::direct_reader::DirectReader).
@@ -43,11 +43,7 @@ impl<'a, D> DirectWriter<'a, D>
 where
     D: DataOutput,
 {
-    pub fn new(
-        output: &'a mut D,
-        num_values: i64,
-        bits_per_value: i32,
-    ) -> Result<Self, LuceneError> {
+    pub fn new(output: &'a mut D, num_values: i64, bits_per_value: i32) -> Result<Self> {
         let memory_budget_in_bits = i8::BITS as i32 * PackedInts::DEFAULT_BUFFER_SIZE;
         // For every value we need 64 bits for the value and bitsPerValue for the encoded value
         let mut buffer_size = memory_budget_in_bits / (u64::BITS as i32 + bits_per_value);
@@ -71,7 +67,7 @@ where
         })
     }
     /// Adds a value to this writer.
-    pub fn add(&mut self, l: i64) -> Result<(), LuceneError> {
+    pub fn add(&mut self, l: i64) -> Result<()> {
         debug_assert!(
             self.bits_per_value == 64
                 || (l >= 0 && l <= PackedInts::max_value(self.bits_per_value)),
@@ -90,7 +86,7 @@ where
         self.count += 1;
         Ok(())
     }
-    fn flush(&mut self) -> Result<(), LuceneError> {
+    fn flush(&mut self) -> Result<()> {
         if self.off == 0 {
             return Ok(());
         }
@@ -166,7 +162,7 @@ where
         }
     }
     /// finishes writing.
-    pub fn finish(&mut self) -> Result<(), LuceneError> {
+    pub fn finish(&mut self) -> Result<()> {
         if self.count != self.num_values {
             return Err(LuceneError::illegal_state(format!(
                 "Wrong number of values added, expected: {}, got: {}",
@@ -201,11 +197,7 @@ where
         Ok(())
     }
     /// Returns an instance suitable for encoding `numValues` using `bitsPerValue`.
-    pub fn get_instance(
-        output: &'a mut D,
-        num_values: i64,
-        bits_per_value: i32,
-    ) -> Result<Self, LuceneError> {
+    pub fn get_instance(output: &'a mut D, num_values: i64, bits_per_value: i32) -> Result<Self> {
         match Self::SUPPORTED_BITS_PER_VALUE.binary_search(&bits_per_value) {
             Ok(_) => (),
             Err(_) => {
@@ -257,7 +249,7 @@ impl DirectWriter<'_, DummyDataOutput> {
     ///
     /// # See also
     /// `PackedInts::bits_required(long)`
-    pub fn bits_required(max_value: i64) -> Result<i32, LuceneError> {
+    pub fn bits_required(max_value: i64) -> Result<i32> {
         Ok(Self::round_bits(PackedInts::bits_required(max_value)?))
     }
     pub fn unsigned_bits_required(max_value: i64) -> i32 {

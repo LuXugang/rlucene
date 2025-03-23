@@ -17,7 +17,7 @@
 use crate::store::data_output::DataOutput;
 use crate::store::index_output::IndexOutput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher;
@@ -51,7 +51,7 @@ where
         name: &str,
         inner: W,
         buffer_size: i32,
-    ) -> Result<OutputStreamIndexOutput<W>, LuceneError> {
+    ) -> Result<OutputStreamIndexOutput<W>> {
         if (buffer_size as usize) < BitUtil::LONG_BYTES {
             return Err(LuceneError::illegal_argument(format!(
                 "Buffer size too small, need: {}, got: {}",
@@ -73,28 +73,28 @@ impl<W: Write> DataOutput for OutputStreamIndexOutput<W>
 where
     W: Write,
 {
-    fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
+    fn write_byte(&mut self, b: u8) -> Result<()> {
         self.bytes_written += 1;
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
         let end = offset + length;
         self.bytes_written += length as i64;
         self.os.write_bytes(&b[offset as usize..end as usize])
     }
 
-    fn write_int(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn write_int(&mut self, i: i32) -> Result<()> {
         self.bytes_written += 4;
         self.os.write_i32(i)
     }
 
-    fn write_short(&mut self, i: i16) -> Result<(), LuceneError> {
+    fn write_short(&mut self, i: i16) -> Result<()> {
         self.bytes_written += 2;
         self.os.write_i16(i)
     }
 
-    fn write_long(&mut self, i: i64) -> Result<(), LuceneError> {
+    fn write_long(&mut self, i: i64) -> Result<()> {
         self.bytes_written += 8;
         self.os.write_i64(i)
     }
@@ -152,32 +152,32 @@ impl<W: Write> XBufferedOutputStream<W> {
         self.hasher.update(buf);
     }
 
-    pub fn write_u8(&mut self, value: u8) -> Result<(), LuceneError> {
+    pub fn write_u8(&mut self, value: u8) -> Result<()> {
         self.inner.write_u8(value)?;
         self.update_checksum(&[value]);
         Ok(())
     }
 
-    pub fn write_bytes(&mut self, buf: &[u8]) -> Result<(), LuceneError> {
+    pub fn write_bytes(&mut self, buf: &[u8]) -> Result<()> {
         debug_assert!(buf.len() <= u32::MAX as usize);
         self.inner.write_all(buf)?;
         self.update_checksum(buf);
         Ok(())
     }
 
-    pub fn write_i16(&mut self, value: i16) -> Result<(), LuceneError> {
+    pub fn write_i16(&mut self, value: i16) -> Result<()> {
         self.inner.write_i16::<LittleEndian>(value)?;
         self.update_checksum(&value.to_le_bytes());
         Ok(())
     }
 
-    pub fn write_i32(&mut self, value: i32) -> Result<(), LuceneError> {
+    pub fn write_i32(&mut self, value: i32) -> Result<()> {
         self.inner.write_i32::<LittleEndian>(value)?;
         self.update_checksum(&value.to_le_bytes());
         Ok(())
     }
 
-    pub fn write_i64(&mut self, value: i64) -> Result<(), LuceneError> {
+    pub fn write_i64(&mut self, value: i64) -> Result<()> {
         self.inner.write_i64::<LittleEndian>(value)?;
         self.update_checksum(&value.to_le_bytes());
         Ok(())
@@ -189,7 +189,7 @@ mod tests {
     use crate::store::data_output::DataOutput;
     use crate::store::index_output::IndexOutput;
     use crate::store::output_stream_index_output::OutputStreamIndexOutput;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use byteorder::{LittleEndian, ReadBytesExt};
     use std::io::Cursor;
 
@@ -197,14 +197,14 @@ mod tests {
     struct TestOutputStreamIndexOutput;
 
     #[test]
-    fn test_data_types() -> Result<(), LuceneError> {
+    fn test_data_types() -> Result<()> {
         for offset in 0..12 {
             do_test_data_types(offset)?;
         }
         Ok(())
     }
 
-    fn do_test_data_types(offset: usize) -> Result<(), LuceneError> {
+    fn do_test_data_types(offset: usize) -> Result<()> {
         use crc32fast::Hasher;
 
         let mut buffer = Vec::new();
@@ -245,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_exceeding_buffer() -> Result<(), LuceneError> {
+    fn test_write_exceeding_buffer() -> Result<()> {
         use crc32fast::Hasher;
 
         let buffer_size = 8;
@@ -272,7 +272,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_multiple_writes_with_checksum() -> Result<(), LuceneError> {
+    fn test_multiple_writes_with_checksum() -> Result<()> {
         use crc32fast::Hasher;
 
         let mut buffer = Vec::new();

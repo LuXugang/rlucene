@@ -14,16 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::Ordering;
 
 pub struct CommonUtil;
 impl CommonUtil {
-    pub fn check_from_index_size(
-        from_index: i32,
-        size: i32,
-        length: i32,
-    ) -> Result<i32, LuceneError> {
+    pub fn check_from_index_size(from_index: i32, size: i32, length: i32) -> Result<i32> {
         if from_index < 0 || size < 0 || length < 0 {
             Err(LuceneError::array_index_out_of_bounds(format!(
                 "from_index: {}, size: {}, and length {} must be non-negative",

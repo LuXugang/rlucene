@@ -25,7 +25,7 @@ use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::number::Number;
 use crate::util::numeric_utils::NumericUtils;
 use std::fmt;
@@ -35,7 +35,7 @@ pub struct DoublePoint {
     parent_field: Field,
 }
 impl DoublePoint {
-    pub fn new(name: &str, point: &[f64]) -> Result<DoublePoint, LuceneError> {
+    pub fn new(name: &str, point: &[f64]) -> Result<DoublePoint> {
         let packed = Self::pack(point)?;
         let len = packed.len();
         let value = Arc::new(BytesRef::from_vec(packed, 0, len as i32));
@@ -45,14 +45,14 @@ impl DoublePoint {
         Ok(DoublePoint { parent_field })
     }
 
-    fn get_type(num_dims: i32) -> Result<FieldType, LuceneError> {
+    fn get_type(num_dims: i32) -> Result<FieldType> {
         let mut field_type = FieldType::new();
         field_type.set_dimensions(num_dims, BitUtil::DOUBLE_BYTES as i32)?;
         field_type.freeze();
         Ok(field_type)
     }
     /// Change the values of this field
-    pub fn set_double_values(&mut self, point: &[f64]) -> Result<(), LuceneError> {
+    pub fn set_double_values(&mut self, point: &[f64]) -> Result<()> {
         if self.parent_field.field_type().point_dimension_count() as usize != point.len() {
             return Err(LuceneError::illegal_argument( format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
@@ -68,7 +68,7 @@ impl DoublePoint {
         self.parent_field.fields_data = Option::from(FieldDataEnum::Binary(value));
         Ok(())
     }
-    fn pack(point: &[f64]) -> Result<Vec<u8>, LuceneError> {
+    fn pack(point: &[f64]) -> Result<Vec<u8>> {
         if point.is_empty() {
             return Err(LuceneError::illegal_argument(
                 "point must not be 0 dimensions".to_string(),
@@ -95,7 +95,7 @@ impl DoublePoint {
     }
 }
 impl FieldBase for DoublePoint {
-    fn set_double_value(&mut self, value: f64) -> Result<(), LuceneError> {
+    fn set_double_value(&mut self, value: f64) -> Result<()> {
         self.set_double_values(&[value])
     }
 }
@@ -114,23 +114,23 @@ impl IndexableField for DoublePoint {
         &self,
         analyzer: Option<&impl Analyzer>,
         reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum, LuceneError> {
+    ) -> Result<TokenStreamEnum> {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
         self.parent_field.binary_value()
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn string_value(&self) -> Result<Option<Arc<String>>> {
         self.parent_field.string_value()
     }
 
-    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+    fn reader_value(&self) -> Result<Option<ReaderEnum>> {
         todo!()
     }
 
-    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+    fn numeric_value(&self) -> Result<Option<Number>> {
         if self.parent_field.field_type().point_dimension_count() != 1 {
             return Err(LuceneError::illegal_argument(format!(
                 "this field (name={}) uses {} dimensions; cannot convert to a single numeric value",
@@ -151,11 +151,11 @@ impl IndexableField for DoublePoint {
         }
     }
 
-    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+    fn stored_value(&self) -> Result<Option<StoredValue>> {
         todo!()
     }
 
-    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+    fn invertable_type(&self) -> Result<&InvertableType> {
         todo!()
     }
 }

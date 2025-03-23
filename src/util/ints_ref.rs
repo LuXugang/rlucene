@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{Comparator, ToInt};
 use std::cell::RefCell;
 use std::fmt;
@@ -68,7 +68,7 @@ impl IntsRef {
         instance
     }
     /// Performs internal consistency checks. Always returns true (or Error)
-    pub fn is_valid(&self) -> Result<bool, LuceneError> {
+    pub fn is_valid(&self) -> Result<bool> {
         let ints_ref = self.ints.borrow();
         if self.length < 0 {
             return Err(LuceneError::illegal_state(format!(

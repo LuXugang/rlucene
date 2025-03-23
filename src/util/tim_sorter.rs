@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::{sorter, Sorter};
 use std::cmp::{max, min};
 
@@ -91,7 +91,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         self.stack_size += 1;
     }
     // Compute the length of the next run, make the run sorted and return its length.
-    fn next_run(&mut self) -> Result<i32, LuceneError> {
+    fn next_run(&mut self) -> Result<i32> {
         let run_base = self.run_end(0);
         debug_assert!(run_base < self.to);
 
@@ -113,7 +113,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         self.binary_sort_with_start(run_base, run_hi, o)?;
         Ok(run_hi - run_base)
     }
-    pub fn ensure_invariants(&mut self) -> Result<(), LuceneError> {
+    pub fn ensure_invariants(&mut self) -> Result<()> {
         while self.stack_size > 1 {
             let run_len0 = self.run_len(0);
             let run_len1 = self.run_len(1);
@@ -141,7 +141,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         }
         Ok(())
     }
-    pub fn exhaust_stack(&mut self) -> Result<(), LuceneError> {
+    pub fn exhaust_stack(&mut self) -> Result<()> {
         while self.stack_size > 1 {
             self.merge_at(0)?;
         }
@@ -161,7 +161,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         };
     }
 
-    pub fn merge_at(&mut self, n: i32) -> Result<(), LuceneError> {
+    pub fn merge_at(&mut self, n: i32) -> Result<()> {
         debug_assert!(self.stack_size >= 2);
         self.merge(self.run_base(n + 1), self.run_base(n), self.run_end(n))?;
 
@@ -173,7 +173,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    fn merge(&mut self, mut lo: i32, mid: i32, mut hi: i32) -> Result<(), LuceneError> {
+    fn merge(&mut self, mut lo: i32, mid: i32, mut hi: i32) -> Result<()> {
         if self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
         }
@@ -190,7 +190,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), LuceneError> {
+    fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) -> Result<()> {
         debug_assert!(self.delegate_sorter.compare(lo, mid)? > 0);
 
         let len1 = mid - lo;
@@ -241,7 +241,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) -> Result<(), LuceneError> {
+    pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) -> Result<()> {
         debug_assert!(self.compare(mid - 1, hi - 1)? > 0);
 
         let len2 = hi - mid;
@@ -358,23 +358,23 @@ impl<T> Sorter for TimSorter<T>
 where
     T: Sorter + TimSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.delegate_sorter.compare(i, j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.delegate_sorter.set_pivot(i)
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32, LuceneError> {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32> {
         self.delegate_sorter.compare_pivot(i)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
         sorter::check_range(from, to)?;
         if to - from <= 1 {
             return Ok(());
@@ -397,7 +397,7 @@ where
         Ok(())
     }
 
-    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) -> Result<(), LuceneError> {
+    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) -> Result<()> {
         let len1 = mid - lo;
         let len2 = hi - mid;
 

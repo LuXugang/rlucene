@@ -20,7 +20,7 @@ use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, ReadAdvice};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, Meta};
 use std::cell::RefCell;
@@ -60,7 +60,7 @@ where
         id: Vec<u8>,
         meta_in: &mut I,
         context: &IOContext,
-    ) -> Result<Self, LuceneError>
+    ) -> Result<Self>
     where
         D: Directory<IndexInputType = I>,
     {
@@ -132,7 +132,7 @@ impl<I> FieldsIndex for FieldsIndexReader<I>
 where
     I: IndexInput,
 {
-    fn get_block_id(&mut self, doc_id: i32) -> Result<i64, LuceneError> {
+    fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
         assert!(doc_id >= 0 && doc_id < self.max_doc);
         let block_index = self
             .docs
@@ -145,11 +145,11 @@ where
         Ok(block_index)
     }
 
-    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64, LuceneError> {
+    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64> {
         self.start_pointers.get(block_id)
     }
 
-    fn get_block_length(&mut self, block_id: i64) -> Result<i64, LuceneError> {
+    fn get_block_length(&mut self, block_id: i64) -> Result<i64> {
         let end_pointer = if block_id == (self.num_chunks - 1) as i64 {
             self.max_pointer
         } else {
@@ -158,7 +158,7 @@ where
         Ok(end_pointer - self.get_block_start_pointer(block_id)?)
     }
 
-    fn check_integrity(&mut self) -> Result<(), LuceneError> {
+    fn check_integrity(&mut self) -> Result<()> {
         CodecUtil::checksum_entire_file(&mut self.index_input)?;
         Ok(())
     }

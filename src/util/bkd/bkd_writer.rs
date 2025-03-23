@@ -38,7 +38,7 @@ use crate::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::util::bkd::point_reader::PointReader;
 use crate::util::bkd::point_value::PointValue;
 use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::numeric_utils::NumericUtils;
 use crate::util::priority_queue::{Compare, PriorityQueue};
@@ -126,7 +126,7 @@ where
         config: Rc<BKDConfig>,
         max_mb_sort_in_heap: f64,
         total_point_count: i64,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         Self::verify_params(max_mb_sort_in_heap, total_point_count)?;
 
         let bytes_per_dim = config.bytes_per_dim as usize;
@@ -186,7 +186,7 @@ where
             doc_ids_writer,
         })
     }
-    fn verify_params(max_mb_sort_in_heap: f64, total_point_count: i64) -> Result<(), LuceneError> {
+    fn verify_params(max_mb_sort_in_heap: f64, total_point_count: i64) -> Result<()> {
         if max_mb_sort_in_heap < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
                 "maxMBSortInHeap must be >= 0.0 (got: {})",
@@ -201,7 +201,7 @@ where
         }
         Ok(())
     }
-    fn init_point_writer(&mut self) -> Result<(), LuceneError> {
+    fn init_point_writer(&mut self) -> Result<()> {
         debug_assert!(
             self.point_writer.is_none(),
             "Point writer is already initialized"
@@ -230,7 +230,7 @@ where
 
         Ok(())
     }
-    pub fn add(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError> {
+    pub fn add(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         if packed_value.len() != self.config.packed_bytes_length() as usize {
             return Err(LuceneError::illegal_argument(format!(
                 "packedValue should be length={} (got: {})",
@@ -292,7 +292,7 @@ where
         data_out: Rc<RefCell<D::IndexOutputType>>,
         reader: Rc<RefCell<MutablePointTreeEnum>>,
         filename: &str,
-    ) -> Result<Option<IORunnable>, LuceneError> {
+    ) -> Result<Option<IORunnable>> {
         if self.config.num_dims == 1 {
             self.write_field_1dim(data_out, filename, reader)
         } else {
@@ -307,7 +307,7 @@ where
         to: i32,
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if from == to {
             return Ok(());
         }
@@ -362,7 +362,7 @@ where
         &mut self,
         data_out: Rc<RefCell<D::IndexOutputType>>,
         values: Rc<RefCell<MutablePointTreeEnum>>,
-    ) -> Result<Option<IORunnable>, LuceneError> {
+    ) -> Result<Option<IORunnable>> {
         if self.point_count != 0 {
             return Err(LuceneError::illegal_state(
                 "cannot mix add and write_field".to_string(),
@@ -464,7 +464,7 @@ where
         data_out: Rc<RefCell<D::IndexOutputType>>,
         _field_name: &str,
         reader: Rc<RefCell<MutablePointTreeEnum>>,
-    ) -> Result<Option<IORunnable>, LuceneError> {
+    ) -> Result<Option<IORunnable>> {
         let mut reader = reader.borrow_mut();
         let value = reader.size()?;
         let size = i32::try_from(value)
@@ -486,7 +486,7 @@ where
         data_out: Rc<RefCell<D::IndexOutputType>>,
         doc_maps: Option<Vec<Rc<DocMapEnum>>>,
         readers: Vec<PointValues<S>>,
-    ) -> Result<Option<IORunnable>, LuceneError>
+    ) -> Result<Option<IORunnable>>
     where
         S: PointValuesBase,
     {
@@ -556,7 +556,7 @@ where
         num_left_leaf_nodes
     }
 
-    fn check_max_leaf_node_count(&self, num_leaves: usize) -> Result<(), LuceneError> {
+    fn check_max_leaf_node_count(&self, num_leaves: usize) -> Result<()> {
         if (self.config.bytes_per_dim as u64) * (num_leaves as u64)
             > ArrayUtil::MAX_ARRAY_LENGTH as u64
         {
@@ -573,7 +573,7 @@ where
     pub fn finish(
         &mut self,
         data_out: Rc<RefCell<D::IndexOutputType>>,
-    ) -> Result<Option<IORunnable>, LuceneError> {
+    ) -> Result<Option<IORunnable>> {
         if self.finished {
             return Err(LuceneError::illegal_state("already finished".to_string()));
         }
@@ -632,7 +632,7 @@ where
         let data_start_fp = data_out.borrow().get_file_pointer();
         let mut success = false;
 
-        let result = (|| -> Result<(), LuceneError> {
+        let result = (|| -> Result<()> {
             let mut parent_splits = vec![0i32; self.config.num_index_dims as usize];
             self.build(
                 0,
@@ -687,7 +687,7 @@ where
         split_dimension_values: Vec<u8>,
         leaf_block_fps: Vec<i64>,
         data_start_fp: i64,
-    ) -> Result<Option<IORunnable>, LuceneError> {
+    ) -> Result<Option<IORunnable>> {
         let leaf_nodes = BKDTreeLeafNodesEnum::MultiDimensions(BKDTreeLeafNodesImpl {
             scratch_bytes_ref1: split_packed_values,
             leaf_block_fps,
@@ -702,7 +702,7 @@ where
     }
     /// Packs the two arrays, representing a semi-balanced binary tree, into a compact byte[]
     /// structure.
-    fn pack_index(&self, leaf_nodes: &BKDTreeLeafNodesEnum) -> Result<Vec<u8>, LuceneError> {
+    fn pack_index(&self, leaf_nodes: &BKDTreeLeafNodesEnum) -> Result<Vec<u8>> {
         // Reused while packing the index
         let mut write_buffer = ByteBuffersDataOutput::with_resettable_instance();
 
@@ -767,7 +767,7 @@ where
         is_left: bool,
         leaves_offset: i32,
         num_leaves: i32,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         if num_leaves == 1 {
             if is_left {
                 debug_assert!(leaf_nodes.get_leaf_lp(leaves_offset) - min_block_fp == 0);
@@ -919,7 +919,7 @@ where
         meta_out: Rc<RefCell<D::IndexOutputType>>,
         index_out: Rc<RefCell<D::IndexOutputType>>,
         data: &IORunnable,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let packed_index = self.pack_index(&data.leaf_nodes)?;
         self.write_index_with_packed_index(meta_out, index_out, &packed_index, data)
     }
@@ -929,7 +929,7 @@ where
         index_out: Rc<RefCell<D::IndexOutputType>>,
         packed_index: &[u8],
         data: &IORunnable,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         // If metaOut and indexOut are the same file, we account for the fact that
         // writing a long makes the index start 8 bytes later.
         let index_start_offset = if Rc::ptr_eq(&meta_out, &index_out) {
@@ -989,7 +989,7 @@ where
         doc_ids: &[i32],
         start: i32,
         count: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         debug_assert!(
             count > 0,
             "config.max_points_in_leaf_node()={}",
@@ -1007,7 +1007,7 @@ where
         sorted_dim: i32,
         packed_values: &mut PackedValuesEnum<D>,
         leaf_cardinality: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let prefix_len_sum: i32 = self.common_prefix_lengths.iter().sum();
         if prefix_len_sum == self.config.packed_bytes_length() {
             // all values in this block are equal
@@ -1075,7 +1075,7 @@ where
         out: &mut impl DataOutput,
         count: i32,
         packed_values: &mut PackedValuesEnum<D>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if self.config.num_index_dims != 1 {
             self.write_actual_bounds(out, count, packed_values)?;
         }
@@ -1137,7 +1137,7 @@ where
         sorted_dim: i32,
         packed_values: &mut PackedValuesEnum<D>,
         compressed_byte_offset: usize,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if self.config.num_index_dims != 1 {
             self.write_actual_bounds(out, count, packed_values)?;
         }
@@ -1173,7 +1173,7 @@ where
         out: &mut impl DataOutput,
         count: i32,
         packed_values: &mut PackedValuesEnum<D>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         for dim in 0..self.config.num_index_dims {
             let common_prefix_length = self.common_prefix_lengths[dim as usize];
             let suffix_length = self.config.bytes_per_dim - common_prefix_length;
@@ -1200,7 +1200,7 @@ where
         packed_values: &mut PackedValuesEnum<D>,
         offset: i32,
         length: i32,
-    ) -> Result<(BytesRef, BytesRef), LuceneError> {
+    ) -> Result<(BytesRef, BytesRef)> {
         debug_assert!(length > 0);
         let (bytes_ref, first_offset, _first_length) = packed_values.apply(0)?;
         let mut min = BytesRefBuilder::new();
@@ -1243,7 +1243,7 @@ where
         start: i32,
         end: i32,
         packed_values: &mut PackedValuesEnum<D>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         for i in start..end {
             let (bytes_ref, offset, length) = packed_values.apply(i)?;
             debug_assert!(length == self.config.packed_bytes_length());
@@ -1265,7 +1265,7 @@ where
         start: i32,
         end: i32,
         byte_offset: usize,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         let (bytes_ref, offset, _) = packed_values.apply(start)?;
         let b = bytes_ref.borrow()[offset as usize + byte_offset];
         for i in (start + 1)..end {
@@ -1283,7 +1283,7 @@ where
         out: &mut impl DataOutput,
         common_prefixes: &[i32],
         packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let num_dims = self.config.num_dims as usize;
         for (dim, &prefix) in common_prefixes.iter().enumerate().take(num_dims) {
             out.write_vint(prefix)?;
@@ -1298,7 +1298,7 @@ where
         &self,
         prior_exception: &LuceneError,
         writer: &PointWriterEnum<D>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         //TODO: TrackingDirectoryWrapper实现后来修改这里
         Ok(())
     }
@@ -1316,7 +1316,7 @@ where
         min_packed_value: &[u8],
         max_packed_value: &[u8],
         parent_splits: &[i32],
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         // First look at whether there is a dimension that has split less than 2x less than
         // the dim that has most splits, and return it if there is such a dimension and it
         // does not only have equal values. This helps ensure all dimensions are indexed.
@@ -1366,10 +1366,7 @@ where
         Ok(split_dim)
     }
     /// Pull a partition back into heap once the point count is low enough while recursing.
-    fn switch_to_heap(
-        &self,
-        source: &mut PointWriterEnum<D>,
-    ) -> Result<PointWriterEnum<D>, LuceneError> {
+    fn switch_to_heap(&self, source: &mut PointWriterEnum<D>) -> Result<PointWriterEnum<D>> {
         let source_count = source.count();
         let count = i32::try_from(source_count).map_err(|_| {
             LuceneError::integer_overflow(format!("source_count is too large: {}", source_count))
@@ -1377,7 +1374,7 @@ where
         let mut reader = source.get_reader(0, source_count)?;
         let mut writer = HeapPointWriter::new(self.config.clone(), count);
 
-        let result: Result<_, LuceneError> = (|| {
+        let result: Result<_> = (|| {
             for _ in 0..count {
                 let has_next = reader.next()?;
                 debug_assert!(has_next);
@@ -1412,7 +1409,7 @@ where
         split_dimension_values: &mut [u8],
         leaf_block_fps: &mut [i64],
         spare_doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if num_leaves == 1 {
             // leaf node
             let count = to - from;
@@ -1672,7 +1669,7 @@ where
         slice: &PathSlice<D>,
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut reader = slice.writer.borrow().get_reader(slice.start, slice.count)?;
 
         if !reader.next()? {
@@ -1745,7 +1742,7 @@ where
         split_dimension_values: &mut [u8],
         leaf_block_fps: &mut [i64],
         spare_doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if num_leaves == 1 {
             let is_heap = {
                 let writer = points.writer.borrow();
@@ -2004,7 +2001,7 @@ where
             }
         }
     }
-    pub fn close(&mut self) -> Result<(), LuceneError> {
+    pub fn close(&mut self) -> Result<()> {
         self.finished = true;
         if let Some(ref mut point_writer) = self.point_writer {
             if let PointWriterEnum::Offline(ref mut offline_point_writer) = point_writer {
@@ -2043,7 +2040,7 @@ where
     pub fn new(
         data_out: Rc<RefCell<D::IndexOutputType>>,
         bkd_writer: &'a mut BKDWriter<D>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if bkd_writer.config.num_index_dims != 1 {
             return Err(LuceneError::unsupported_operation(format!(
                 "config.numIndexDims() must be 1 but got {}",
@@ -2088,7 +2085,7 @@ where
             bkd_writer,
         })
     }
-    pub fn add(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError> {
+    pub fn add(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         debug_assert!(value_in_order(
             self.bkd_writer.config.clone(),
             self.value_count + self.leaf_count as i64,
@@ -2138,7 +2135,7 @@ where
 
         Ok(())
     }
-    pub fn finish(&mut self) -> Result<Option<IORunnable>, LuceneError> {
+    pub fn finish(&mut self) -> Result<Option<IORunnable>> {
         if self.leaf_count > 0 {
             self.write_leaf_block(self.leaf_cardinality)?;
             self.leaf_cardinality = 0;
@@ -2166,7 +2163,7 @@ where
             data_start_fp: self.data_start_fp,
         }))
     }
-    fn write_leaf_block(&mut self, leaf_cardinality: i32) -> Result<(), LuceneError> {
+    fn write_leaf_block(&mut self, leaf_cardinality: i32) -> Result<()> {
         debug_assert!(self.leaf_count != 0);
         let packed_index_bytes_length = self.bkd_writer.config.packed_index_bytes_length() as usize;
         if self.value_count == 0 {
@@ -2261,7 +2258,7 @@ fn values_in_order_and_bounds<D: Directory>(
     values: &mut PackedValuesEnum<D>,
     docs: &[i32],
     docs_offset: usize,
-) -> Result<bool, LuceneError> {
+) -> Result<bool> {
     let mut last_packed_value = vec![0u8; config.packed_bytes_length() as usize];
     let mut last_doc = -1;
     for i in 0..count {
@@ -2404,10 +2401,7 @@ struct MergeReader<S: PointValuesBase> {
 }
 
 impl<S: PointValuesBase> MergeReader<S> {
-    fn new(
-        point_values: &mut PointValues<S>,
-        doc_map: Option<Rc<DocMapEnum>>,
-    ) -> Result<Self, LuceneError> {
+    fn new(point_values: &mut PointValues<S>, doc_map: Option<Rc<DocMapEnum>>) -> Result<Self> {
         let packed_bytes_length = (point_values.get_bytes_per_dimension()? as usize)
             * (point_values.get_num_dimensions()? as usize);
         let mut point_tree = point_values.get_point_tree()?;
@@ -2433,7 +2427,7 @@ impl<S: PointValuesBase> MergeReader<S> {
             packed_value: vec![0u8; packed_bytes_length],
         })
     }
-    pub fn next(&mut self) -> Result<bool, LuceneError> {
+    pub fn next(&mut self) -> Result<bool> {
         loop {
             if self.doc_block_upto == self.merge_intersects_visitor.docs_in_block as usize {
                 if !self.collect_next_leaf()? {
@@ -2466,7 +2460,7 @@ impl<S: PointValuesBase> MergeReader<S> {
         }
     }
 
-    fn collect_next_leaf(&mut self) -> Result<bool, LuceneError> {
+    fn collect_next_leaf(&mut self) -> Result<bool> {
         match self.point_tree {
             Some(ref mut point_tree) => {
                 debug_assert!(!point_tree.move_to_child()?);
@@ -2527,15 +2521,11 @@ impl MergeIntersectsVisitor {
     }
 }
 impl IntersectVisitor for MergeIntersectsVisitor {
-    fn visit(&mut self, _doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         self.packed_values.copy_from(
             &packed_value[..self.packed_bytes_length as usize],
             (self.docs_in_block * self.packed_bytes_length) as usize,
@@ -2545,15 +2535,11 @@ impl IntersectVisitor for MergeIntersectsVisitor {
         Ok(())
     }
 
-    fn compare(
-        &mut self,
-        _min_packed_value: &[u8],
-        _max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 
-    fn grow(&mut self, count: i32) -> Result<(), LuceneError> {
+    fn grow(&mut self, count: i32) -> Result<()> {
         debug_assert_eq!(self.docs_in_block, 0);
         if self.doc_ids.len() < count as usize {
             ArrayUtil::grow_i32(&mut self.doc_ids, count)?;
@@ -2725,7 +2711,7 @@ pub struct IORunnable {
 }
 
 trait PackedValues {
-    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32), LuceneError>;
+    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>;
 }
 enum PackedValuesEnum<D>
 where
@@ -2739,7 +2725,7 @@ impl<D> PackedValues for PackedValuesEnum<D>
 where
     D: Directory,
 {
-    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32), LuceneError> {
+    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)> {
         match self {
             PackedValuesEnum::ScratchBytesRef(packed) => packed.apply(i),
             PackedValuesEnum::MutablePointTree(packed) => packed.apply(i),
@@ -2753,7 +2739,7 @@ struct ScratchBytesRefPackedValues {
     packed_bytes_length: i32,
 }
 impl PackedValues for ScratchBytesRefPackedValues {
-    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32), LuceneError> {
+    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)> {
         Ok((
             self.scratch_bytes_ref_byte.clone(),
             self.packed_bytes_length * i,
@@ -2768,7 +2754,7 @@ struct MutablePointTreePackedValues {
 }
 
 impl PackedValues for MutablePointTreePackedValues {
-    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32), LuceneError> {
+    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)> {
         {
             self.reader
                 .borrow()
@@ -2794,7 +2780,7 @@ impl<D> PackedValues for PointWriterPackedValues<D>
 where
     D: Directory,
 {
-    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32), LuceneError> {
+    fn apply(&mut self, i: i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)> {
         let mut point_writer = self.heap_source.borrow_mut();
         match &mut *point_writer {
             PointWriterEnum::Heap(heap) => {
@@ -2819,23 +2805,15 @@ impl<D> IntersectVisitor for IntersectVisitorImpl<'_, D>
 where
     D: Directory,
 {
-    fn visit(&mut self, _doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         Err(LuceneError::illegal_argument(""))
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         self.one_dim_writer.add(packed_value, doc_id)
     }
 
-    fn compare(
-        &mut self,
-        min_packed_value: &[u8],
-        max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }

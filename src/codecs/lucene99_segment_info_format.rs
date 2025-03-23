@@ -25,7 +25,7 @@ use crate::index::IndexFileNames;
 use crate::search::sort_field::SortFiledBase;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::Version;
 use std::sync::{Arc, Mutex};
 
@@ -78,7 +78,7 @@ impl Lucene99SegmentInfoFormat {
         input: &mut T,
         segment: &str,
         segment_id: Vec<u8>,
-    ) -> Result<SegmentInfo<D>, LuceneError>
+    ) -> Result<SegmentInfo<D>>
     where
         D: Directory,
         T: DataInput,
@@ -159,7 +159,7 @@ impl Lucene99SegmentInfoFormat {
         si.set_files(files);
         Ok(si)
     }
-    fn write_segment_info<T, D>(output: &mut T, si: &SegmentInfo<D>) -> Result<(), LuceneError>
+    fn write_segment_info<T, D>(output: &mut T, si: &SegmentInfo<D>) -> Result<()>
     where
         T: DataOutput,
         D: Directory,
@@ -250,7 +250,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         segment: &str,
         segment_id: Vec<u8>,
         _context: &IOContext,
-    ) -> Result<SegmentInfo<D>, LuceneError>
+    ) -> Result<SegmentInfo<D>>
     where
         D: Directory,
     {
@@ -307,7 +307,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         dir: Arc<Mutex<D>>,
         si: &mut SegmentInfo<D>,
         io_context: &IOContext,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: Directory,
     {
@@ -336,7 +336,7 @@ mod tests {
     use crate::test::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
     use crate::test::util::lucene_test_case::random;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::{Version, LATEST};
 
     pub struct TestLucene99SegmentInfoFormat;
@@ -350,75 +350,75 @@ mod tests {
     }
 
     #[test]
-    fn test_files() -> Result<(), LuceneError> {
+    fn test_files() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_files(&mut random)
     }
     #[test]
-    fn test_has_blocks() -> Result<(), LuceneError> {
+    fn test_has_blocks() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_has_blocks(&mut random)
     }
     #[test]
-    fn test_adds_self_to_files() -> Result<(), LuceneError> {
+    fn test_adds_self_to_files() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_adds_self_to_files(&mut random)
     }
     #[test]
-    fn test_diagnostics() -> Result<(), LuceneError> {
+    fn test_diagnostics() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_diagnostics(&mut random)
     }
     #[test]
-    fn test_attributes() -> Result<(), LuceneError> {
+    fn test_attributes() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_attributes(&mut random)
     }
     #[test]
-    fn test_unique_id() -> Result<(), LuceneError> {
+    fn test_unique_id() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_unique_id(&mut random)
     }
     #[test]
-    fn test_versions() -> Result<(), LuceneError> {
+    fn test_versions() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_versions(&mut random)
     }
     #[test]
-    fn test_sort() -> Result<(), LuceneError> {
+    fn test_sort() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_sort(&mut random)
     }
     #[test]
-    fn test_exception_on_create_output() -> Result<(), LuceneError> {
+    fn test_exception_on_create_output() -> Result<()> {
         let test = TestLucene99SegmentInfoFormat;
         test.test_exception_on_create_output()
     }
     #[test]
-    fn test_exception_on_close_output() -> Result<(), LuceneError> {
+    fn test_exception_on_close_output() -> Result<()> {
         let test = TestLucene99SegmentInfoFormat;
         test.test_exception_on_close_output()
     }
     #[test]
-    fn test_exception_on_open_input() -> Result<(), LuceneError> {
+    fn test_exception_on_open_input() -> Result<()> {
         let test = TestLucene99SegmentInfoFormat;
         test.test_exception_on_open_input()
     }
     #[test]
-    fn test_exception_on_close_input() -> Result<(), LuceneError> {
+    fn test_exception_on_close_input() -> Result<()> {
         let test = TestLucene99SegmentInfoFormat;
         test.test_exception_on_close_input()
     }
     #[test]
-    fn test_random() -> Result<(), LuceneError> {
+    fn test_random() -> Result<()> {
         let mut random = random();
         let test = TestLucene99SegmentInfoFormat;
         test.test_random(&mut random)

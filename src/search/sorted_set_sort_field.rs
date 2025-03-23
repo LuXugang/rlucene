@@ -20,7 +20,7 @@ use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, Sort
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_set_selector::SortedSetSelectorType;
 use crate::store::{DataInput, DataOutput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 
@@ -36,7 +36,7 @@ impl SortedSetSortField {
     ///
     /// * `field` - Name of the field to sort by.
     /// * `reverse` - `true` if natural order should be reversed.
-    pub fn new(field: String, reverse: bool) -> Result<Self, LuceneError> {
+    pub fn new(field: String, reverse: bool) -> Result<Self> {
         Self::with_selector(field, reverse, SortedSetSelectorType::Min)
     }
 
@@ -53,16 +53,14 @@ impl SortedSetSortField {
         field: String,
         reverse: bool,
         selector: SortedSetSelectorType,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
         Ok(SortedSetSortField {
             selector,
             parent_sort: sort_field,
         })
     }
-    fn read_selector_type<T: DataInput>(
-        data_input: &mut T,
-    ) -> Result<SortedSetSelectorType, LuceneError> {
+    fn read_selector_type<T: DataInput>(data_input: &mut T) -> Result<SortedSetSelectorType> {
         let selector_type = data_input.read_int()?;
 
         match selector_type {
@@ -96,10 +94,7 @@ impl Display for SortedSetSortField {
     }
 }
 impl SortFiledBase for SortedSetSortField {
-    fn set_missing_value(
-        &mut self,
-        missing_value: Option<MissingValueEnum>,
-    ) -> Result<(), LuceneError> {
+    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
         match missing_value {
             Some(MissingValueEnum::StringFirst) | Some(MissingValueEnum::StringLast) => {
                 self.parent_sort.missing_value = missing_value;
@@ -118,7 +113,7 @@ impl SortFiledBase for SortedSetSortField {
         }))
     }
 
-    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError> {
+    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<()> {
         debug_assert!(self.parent_sort.get_field().is_some());
         out.write_string(self.parent_sort.get_field().unwrap())?;
         out.write_int(if self.parent_sort.reverse { 1 } else { 0 })?;
@@ -144,7 +139,7 @@ impl SetProvider {
     pub const NAME: &'static str = "SortedSetSortField";
 }
 impl SortFieldProvider for SetProvider {
-    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortFieldEnum, LuceneError>
+    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortFieldEnum>
     where
         D: DataInput,
     {
@@ -165,7 +160,7 @@ impl SortFieldProvider for SetProvider {
         Ok(SortFieldEnum::SortedSet(sorted_set_sort_field))
     }
 
-    fn write_sort_field<D>(&self, sf: &SortFieldEnum, output: &mut D) -> Result<(), LuceneError>
+    fn write_sort_field<D>(&self, sf: &SortFieldEnum, output: &mut D) -> Result<()>
     where
         D: DataOutput,
     {

@@ -16,7 +16,7 @@
  */
 use crate::index::{BytesRef, BytesRefBuilder};
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::{
     BytesRefComparator, Comparator, MSBRadixSorter, MSBRadixSorterBase, MergeSorter, Sorter,
     StableMSBRadixSorter, StableMSBRadixSorterBase, StringSorterBase,
@@ -43,12 +43,7 @@ impl<T> StringSorterBase for StableStringSorter<T>
 where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
 {
-    fn get(
-        &mut self,
-        builder: &mut BytesRefBuilder,
-        result: &mut BytesRef,
-        i: i32,
-    ) -> Result<(), LuceneError> {
+    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
         self.delegate_sorter.get(builder, result, i)
     }
 
@@ -94,7 +89,7 @@ where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 }
@@ -104,7 +99,7 @@ where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         Ok(self.cmp.byte_at(&self.scratch_bytes1, k))
@@ -147,7 +142,7 @@ where
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate_sorter
@@ -163,7 +158,7 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 }
@@ -173,12 +168,7 @@ where
     C: BytesRefComparator + Comparator<BytesRef>,
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
 {
-    fn get(
-        &mut self,
-        builder: &mut BytesRefBuilder,
-        result: &mut BytesRef,
-        i: i32,
-    ) -> Result<(), LuceneError> {
+    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
         self.delegate_sorter.get(builder, result, i)
     }
 }
@@ -202,7 +192,7 @@ where
     C: BytesRefComparator + Comparator<BytesRef>,
     T: Sorter + StableStringSorterBase + MSBRadixSorterBase,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         self.delegate_sorter.byte_at(i, k)
     }
 

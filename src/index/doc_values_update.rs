@@ -18,7 +18,7 @@ use crate::index::doc_values_type::DocValuesType;
 use crate::index::term::Term;
 use crate::index::BytesRef;
 use crate::store::DataOutput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt::Display;
 
 /// An in-place update to a DocValues field.
@@ -97,7 +97,7 @@ pub trait DocValuesUpdateBase {
     }
     fn value_to_string(&self) -> String;
 
-    fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef) -> Result<(), LuceneError> {
+    fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef) -> Result<()> {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     fn has_value(&self) -> bool;

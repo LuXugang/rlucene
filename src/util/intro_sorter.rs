@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::sorter::{check_range, Sorter};
 /// Below this size threshold, the partition selection is simplified to a single median.
 pub const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
@@ -34,7 +34,7 @@ pub const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 /// # Note
 /// This is an internal API.
 pub trait IntroSorter: Sorter {
-    fn sort_range(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sort_range(&mut self, from: i32, to: i32) -> Result<()> {
         check_range(from, to)?;
         self.sort_in_intro(from, to, (2.0 * ((to - from) as f64).log2()) as usize)?;
         Ok(())
@@ -45,12 +45,7 @@ pub trait IntroSorter: Sorter {
     /// Sorts small ranges with insertion sort. Falls back to heapsort to avoid quadratic worst
     /// case. Selects the pivot with medians and partitions using the Bentley-McIlroy fast 3-way
     /// algorithm (Engineering a Sort Function, Bentley-McIlroy).
-    fn sort_in_intro(
-        &mut self,
-        mut from: i32,
-        mut to: i32,
-        mut max_depth: usize,
-    ) -> Result<(), LuceneError> {
+    fn sort_in_intro(&mut self, mut from: i32, mut to: i32, mut max_depth: usize) -> Result<()> {
         while to - from > Self::INSERTION_SORT_THRESHOLD {
             if max_depth == 0 {
                 // Max recursion depth exceeded: fallback to heap sort.
@@ -152,7 +147,7 @@ pub trait IntroSorter: Sorter {
     }
 
     /// Returns the index of the median element among three elements at provided indices.
-    fn median(&mut self, i: i32, j: i32, k: i32) -> Result<i32, LuceneError> {
+    fn median(&mut self, i: i32, j: i32, k: i32) -> Result<i32> {
         if self.compare(i, j)? < 0 {
             if self.compare(j, k)? <= 0 {
                 return Ok(j);

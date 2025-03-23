@@ -20,7 +20,7 @@ use crate::store::directory::Directory;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
@@ -50,29 +50,25 @@ where
     D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
     CompoundDirectoryEnum<D>: Display,
 {
-    fn list_all(&self) -> Result<Vec<String>, LuceneError> {
+    fn list_all(&self) -> Result<Vec<String>> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.list_all(),
         }
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<(), LuceneError> {
+    fn delete_file(&mut self, name: &str) -> Result<()> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.delete_file(name),
         }
     }
 
-    fn file_length(&self, name: &str) -> Result<i64, LuceneError> {
+    fn file_length(&self, name: &str) -> Result<i64> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.file_length(name),
         }
     }
 
-    fn create_output(
-        &mut self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.create_output(name, context),
         }
@@ -85,7 +81,7 @@ where
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    ) -> Result<Self::IndexOutputType> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => {
                 reader.create_temp_output(prefix, suffix, context)
@@ -93,19 +89,19 @@ where
         }
     }
 
-    fn sync(&mut self, names: &[&str]) -> Result<(), LuceneError> {
+    fn sync(&mut self, names: &[&str]) -> Result<()> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.sync(names),
         }
     }
 
-    fn sync_metadata(&mut self) -> Result<(), LuceneError> {
+    fn sync_metadata(&mut self) -> Result<()> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.sync_metadata(),
         }
     }
 
-    fn rename(&mut self, source: &str, dest: &str) -> Result<(), LuceneError> {
+    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.rename(source, dest),
         }
@@ -113,23 +109,19 @@ where
 
     type IndexInputType = D::IndexInputType;
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.open_input(name, context),
         }
     }
 
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, LuceneError> {
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.obtain_lock(name),
         }
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError> {
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.get_pending_deletions(),
         }
@@ -140,7 +132,7 @@ where
     D: Directory,
     D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
-    fn check_integrity(&mut self) -> Result<(), LuceneError> {
+    fn check_integrity(&mut self) -> Result<()> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.check_integrity(),
         }

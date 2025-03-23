@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 use crate::util::packed::mutable_enum::MutableEnum;
 use crate::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
@@ -50,7 +50,7 @@ where
         size: i64,
         page_size: i32,
         sub_reader: T,
-    ) -> Result<AbstractPagedMutable<T>, LuceneError> {
+    ) -> Result<AbstractPagedMutable<T>> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let page_mask = page_size - 1;
         let num_pages = PackedInts::num_blocks(size, page_size)?;
@@ -72,7 +72,7 @@ where
         };
         Ok(result)
     }
-    pub fn fill_pages(&mut self) -> Result<(), LuceneError> {
+    pub fn fill_pages(&mut self) -> Result<()> {
         let num_pages = PackedInts::num_blocks(self.size, self.page_size())?;
         for i in 0..num_pages {
             // do not allocate for more entries than necessary on the last page
@@ -109,7 +109,7 @@ where
         (index & self.page_mask as i64) as i32
     }
     /// Sets the value at the specified index.
-    pub fn set(&mut self, index: i64, value: i64) -> Result<(), LuceneError> {
+    pub fn set(&mut self, index: i64, value: i64) -> Result<()> {
         debug_assert!(
             index < self.size,
             "Index out of bounds: index={} size={}",
@@ -125,7 +125,7 @@ where
     }
     /// Create a new copy of size <code>newSize</code> based on the content of this buffer. This
     /// is much more efficient than creating a new instance and copying values one by one.
-    pub fn resize(&mut self, new_size: i64) -> Result<AbstractPagedMutable<T>, LuceneError> {
+    pub fn resize(&mut self, new_size: i64) -> Result<AbstractPagedMutable<T>> {
         let mut copy = self
             .sub_reader
             .new_unfilled_copy(new_size, self.page_size())?;
@@ -159,10 +159,7 @@ where
         }
         Ok(copy)
     }
-    pub fn grow_with_size(
-        &mut self,
-        min_size: i64,
-    ) -> Result<Option<AbstractPagedMutable<T>>, LuceneError> {
+    pub fn grow_with_size(&mut self, min_size: i64) -> Result<Option<AbstractPagedMutable<T>>> {
         if min_size <= self.size {
             return Ok(None);
         }
@@ -174,7 +171,7 @@ where
         Ok(Some(self.resize(new_size)?))
     }
     #[allow(unused)]
-    pub fn grow(&mut self) -> Result<Option<AbstractPagedMutable<T>>, LuceneError> {
+    pub fn grow(&mut self) -> Result<Option<AbstractPagedMutable<T>>> {
         self.grow_with_size(self.size() << 1)
     }
 }
@@ -182,7 +179,7 @@ impl<T> LongValues for AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index < self.size, "index={} size={}", index, self.size);
         let page_index = self.page_index(index);
         let index_in_page = self.index_in_page(index);
@@ -216,17 +213,13 @@ where
     }
 }
 pub(crate) trait AbstractPagedMutableBase: Default {
-    fn new_mutable(
-        &self,
-        value_count: i32,
-        bits_per_value: i32,
-    ) -> Result<MutableEnum, LuceneError>;
+    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum>;
     type PagedMutableBase: AbstractPagedMutableBase;
     fn new_unfilled_copy(
         &self,
         new_size: i64,
         page_size: i32,
-    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>, LuceneError>;
+    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>>;
     fn base_ram_bytes_used_base(&self) -> i64;
     fn fill_pages(&self) -> bool;
 }

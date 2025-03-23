@@ -21,7 +21,7 @@ use crate::test::util::lucene_test_case::{at_least, random};
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -341,7 +341,7 @@ impl BitSet for RustUtilBitSet {
         NO_MORE_DOCS
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, _iter: T) -> Result<(), LuceneError> {
+    fn or<T: DocIdSetIterator>(&mut self, _iter: T) -> Result<()> {
         todo!()
     }
 }

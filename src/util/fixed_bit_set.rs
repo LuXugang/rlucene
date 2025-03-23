@@ -20,7 +20,7 @@ use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bits::FixedBits;
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
@@ -79,7 +79,7 @@ impl Clone for FixedBitSet {
 /// The returned bitset reuses the underlying `long[]` of the given `bits` if possible.
 /// Also, calling `length()` on the returned bits may return a value greater than `num_bits`.
 impl FixedBitSet {
-    pub fn ensure_capacity(bits: &mut FixedBitSet, num_bits: i32) -> Result<(), LuceneError> {
+    pub fn ensure_capacity(bits: &mut FixedBitSet, num_bits: i32) -> Result<()> {
         if num_bits < bits.num_bits {
         } else {
             let num_words = Self::bits2words(num_bits);
@@ -164,7 +164,7 @@ impl FixedBitSet {
     /// # Arguments
     /// * `stored_bits` - The array to use as the backing store (`Vec<i64>`).
     /// * `num_bits` - The number of bits actually needed.
-    pub fn with_capacity(stored_bits: Vec<i64>, num_bits: i32) -> Result<FixedBitSet, LuceneError> {
+    pub fn with_capacity(stored_bits: Vec<i64>, num_bits: i32) -> Result<FixedBitSet> {
         let num_words = Self::bits2words(num_bits);
         if num_words as usize > stored_bits.len() {
             return Err(LuceneError::illegal_argument(format!(
@@ -295,7 +295,7 @@ impl FixedBitSet {
         }
     }
 
-    pub fn and_not_iter(&mut self, mut iter: impl DocIdSetIterator) -> Result<(), LuceneError> {
+    pub fn and_not_iter(&mut self, mut iter: impl DocIdSetIterator) -> Result<()> {
         let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
             self.clear_with_index(doc);
@@ -650,7 +650,7 @@ impl BitSet for FixedBitSet {
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<(), LuceneError> {
+    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<()> {
         //TODO: this is a naive implementation, we can optimize it from Java Lucene
         Self::check_unpositioned(&iter)?;
         let mut doc = iter.next_doc()?;
@@ -678,7 +678,7 @@ mod tests {
     use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
     use crate::test::util::lucene_test_case::{is_night_mode, random};
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
     use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
@@ -889,7 +889,7 @@ mod tests {
         a: &bit_set::BitSet,
         b: &FixedBitSet,
         mode: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         match mode {
             1 => do_iterate1(random, a, b),
             2 => do_iterate2(random, a, b),
@@ -897,11 +897,7 @@ mod tests {
         }
     }
 
-    fn do_iterate1(
-        random: &mut StdRng,
-        a: &bit_set::BitSet,
-        b: &FixedBitSet,
-    ) -> Result<(), LuceneError> {
+    fn do_iterate1(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<()> {
         assert_eq!(a.len(), b.cardinality() as usize);
         let mut iterator = BitSetIterator::new(b, 0).unwrap();
         let iter = a.iter();
@@ -917,11 +913,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_iterate2(
-        random: &mut StdRng,
-        a: &bit_set::BitSet,
-        b: &FixedBitSet,
-    ) -> Result<(), LuceneError> {
+    fn do_iterate2(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<()> {
         assert_eq!(a.len(), b.cardinality() as usize);
         let mut iterator = BitSetIterator::new(b, 0).unwrap();
         let iter = a.iter();
@@ -937,7 +929,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) -> Result<(), LuceneError> {
+    fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) -> Result<()> {
         // let max_size = random.random_range(1200..=i32::MAX);
         let max_size = random.random_range(1200..=100000);
         let mut a0: bit_set::BitSet = Default::default();
@@ -1060,7 +1052,7 @@ mod tests {
     }
 
     #[test]
-    fn test_small() -> Result<(), LuceneError> {
+    fn test_small() -> Result<()> {
         let mut random = random();
         let iters = if is_night_mode() {
             random.random_range(1000..100000)
@@ -1138,11 +1130,7 @@ mod tests {
         }
     }
 
-    fn make_fixed_bitset(
-        random: &mut StdRng,
-        a: &Vec<i32>,
-        num_bits: i32,
-    ) -> Result<FixedBitSet, LuceneError> {
+    fn make_fixed_bitset(random: &mut StdRng, a: &Vec<i32>, num_bits: i32) -> Result<FixedBitSet> {
         let mut bs: FixedBitSet;
         if random.random_bool(0.5) {
             let bits_2_words = FixedBitSet::bits2words(num_bits);
@@ -1192,7 +1180,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_capacity() -> Result<(), LuceneError> {
+    fn test_ensure_capacity() -> Result<()> {
         let mut bits = FixedBitSet::new(5);
         bits.set(1);
         bits.set(4);
@@ -1284,7 +1272,7 @@ mod tests {
     }
 
     #[test]
-    fn test_and_not() -> Result<(), LuceneError> {
+    fn test_and_not() -> Result<()> {
         let mut random = random();
 
         let num_bits2 = random.random_range(1000..=2000);

@@ -16,7 +16,7 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IndexInput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::io::Cursor;
 
 pub trait BufferedIndexInputBase: Clone {
@@ -25,27 +25,18 @@ pub trait BufferedIndexInputBase: Clone {
     ///
     /// # See Also
     /// [`read_internal`](BufferedIndexInputBase::read_internal)
-    fn seek_internal(&mut self, pos: i64) -> Result<(), LuceneError>;
+    fn seek_internal(&mut self, pos: i64) -> Result<()>;
     /// Expert: Implements buffer refill. Reads bytes from the current position in the input.
     ///
     /// # Arguments
     /// * `b` - The buffer to read bytes into.
-    fn read_internal(
-        &mut self,
-        b: &mut Cursor<Vec<u8>>,
-        len: i64,
-        file_pointer: i64,
-    ) -> Result<(), LuceneError>;
+    fn read_internal(&mut self, b: &mut Cursor<Vec<u8>>, len: i64, file_pointer: i64)
+        -> Result<()>;
 
     /// Creates a slice of this index input, with the given description, offset, and length.
     /// The slice is positioned at the beginning.
     type Slice: IndexInput + RandomAccessInput;
-    fn slice(
-        &self,
-        slice_description: &str,
-        offset: i64,
-        length: i64,
-    ) -> Result<Self::Slice, LuceneError>;
+    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice>;
 
     /// The number of bytes in the file.
     fn length(&self) -> i64;

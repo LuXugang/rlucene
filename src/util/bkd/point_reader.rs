@@ -18,7 +18,7 @@ use crate::store::directory::Directory;
 use crate::util::bkd::heap_point_reader::HeapPointReader;
 use crate::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::util::bkd::point_value::PointValueEnum;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -33,7 +33,7 @@ pub trait PointReader {
     /// # Errors
     ///
     /// Returns an `io::Error` if an I/O error occurs during iteration.
-    fn next(&mut self) -> Result<bool, LuceneError>;
+    fn next(&mut self) -> Result<bool>;
 
     /// Returns the current point value.
     fn point_value(&self) -> Rc<RefCell<PointValueEnum>>;
@@ -50,7 +50,7 @@ impl<D> PointReader for PointReaderEnum<D>
 where
     D: Directory,
 {
-    fn next(&mut self) -> Result<bool, LuceneError> {
+    fn next(&mut self) -> Result<bool> {
         match self {
             PointReaderEnum::Offline(offline) => offline.next(),
             PointReaderEnum::Heap(heap) => heap.next(),

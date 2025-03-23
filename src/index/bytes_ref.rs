@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{StringHelper, GOOD_FAST_HASH_SEED};
 use std::cmp::Ordering;
 use std::fmt::Display;
@@ -106,7 +106,7 @@ impl BytesRef {
         false
     }
     /// Interprets the stored bytes as UTF-8, returning the resulting string.
-    pub fn utf8_to_string(&self) -> Result<String, LuceneError> {
+    pub fn utf8_to_string(&self) -> Result<String> {
         std::str::from_utf8(&self.bytes[self.offset as usize..(self.offset + self.length) as usize])
             .map(|s| s.to_owned())
             .map_err(LuceneError::Utf8Error)
@@ -120,7 +120,7 @@ impl BytesRef {
         BytesRef::from_vec(bytes, 0, other.length)
     }
     /// Performs internal consistency checks. Always returns `true` (or throws `IllegalStateError`).
-    pub fn is_valid(&self) -> Result<bool, LuceneError> {
+    pub fn is_valid(&self) -> Result<bool> {
         if self.length as usize > self.bytes.len() {
             return Err(LuceneError::illegal_state(format!(
                 "length is out of bounds: {},bytes.length= {}",

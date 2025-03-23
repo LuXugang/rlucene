@@ -18,7 +18,7 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::sync::{Arc, Mutex};
 
 /// Encodes/decodes FieldInfos
@@ -32,7 +32,7 @@ pub trait FieldInfosFormat {
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         io_context: &IOContext,
-    ) -> Result<FieldInfos, LuceneError>
+    ) -> Result<FieldInfos>
     where
         D: Directory;
 
@@ -44,7 +44,7 @@ pub trait FieldInfosFormat {
         segment_suffix: &str,
         infos: &FieldInfos,
         io_context: &IOContext,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: Directory;
 }

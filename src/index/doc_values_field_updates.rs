@@ -24,7 +24,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
@@ -65,7 +65,7 @@ pub(crate) struct DocValuesFieldInner {
 }
 #[allow(unused)]
 impl DocValuesFieldInner {
-    pub(crate) fn new(bits_per_value: i32) -> Result<Self, LuceneError> {
+    pub(crate) fn new(bits_per_value: i32) -> Result<Self> {
         let sub_mutable =
             PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
         let writer = AbstractPagedMutable::new(bits_per_value, 1, PAGE_SIZE, sub_mutable)?;
@@ -75,18 +75,18 @@ impl DocValuesFieldInner {
             size: 0,
         })
     }
-    pub(crate) fn resize(&mut self, size: i32) -> Result<(), LuceneError> {
+    pub(crate) fn resize(&mut self, size: i32) -> Result<()> {
         self.docs = self.docs.resize(size as i64)?;
         Ok(())
     }
-    pub(crate) fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
+    pub(crate) fn grow(&mut self, size: i32) -> Result<()> {
         let result = self.docs.grow_with_size(size as i64)?;
         if result.is_some() {
             self.docs = result.unwrap();
         }
         Ok(())
     }
-    pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let tmp_doc = self.docs.get(j as i64)?;
         let value_i = self.docs.get(i as i64)?;
         self.docs.set(j as i64, value_i)?;
@@ -105,7 +105,7 @@ where
         field: String,
         doc_values_type: DocValuesType,
         sub_update: D,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let bits_per_value = PackedInts::bits_required(max_doc as i64 - 1)? + SHIFT;
         let inner = DocValuesFieldInner::new(bits_per_value)?;
         Ok(Self {
@@ -118,7 +118,7 @@ where
         })
     }
     #[allow(unused)]
-    fn get_finished(&self) -> Result<bool, LuceneError> {
+    fn get_finished(&self) -> Result<bool> {
         let inner = self
             .inner
             .lock()
@@ -127,7 +127,7 @@ where
     }
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
-    pub(crate) fn add_value(&mut self, doc: i32, value: i64) -> Result<(), LuceneError> {
+    pub(crate) fn add_value(&mut self, doc: i32, value: i64) -> Result<()> {
         let index = if self.sub_update.need_add_doc() {
             self.add(doc)?
         } else {
@@ -138,14 +138,12 @@ where
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
     #[allow(unused)]
-    fn add_byte_ref(&mut self, doc: i32, value: BytesRef) -> Result<(), LuceneError> {
+    fn add_byte_ref(&mut self, doc: i32, value: BytesRef) -> Result<()> {
         let index = self.add(doc)?;
         self.sub_update.add_byte_ref(doc, value, index)
     }
     /// Returns an iterator for updated documents and their values.
-    pub(crate) fn iterator(
-        &mut self,
-    ) -> Result<impl DocValuesFieldIterator + use<'_, D>, LuceneError> {
+    pub(crate) fn iterator(&mut self) -> Result<impl DocValuesFieldIterator + use<'_, D>> {
         self.ensure_finished()?;
         self.sub_update.iterator(self.inner.clone(), self.del_gen)
     }
@@ -155,13 +153,13 @@ where
     /// [`IteratorBase::binary_value`], since the implementation knows whether it is
     /// a long value iterator or a binary value iterator.
     #[allow(unused)]
-    fn add_iterator<T>(&mut self, doc_id: i32, iterator: T) -> Result<(), LuceneError>
+    fn add_iterator<T>(&mut self, doc_id: i32, iterator: T) -> Result<()>
     where
         T: DocValuesFieldIterator,
     {
         self.sub_update.add_iterator(doc_id, iterator)
     }
-    pub(crate) fn finish(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn finish(&mut self) -> Result<()> {
         let mut inner = self
             .inner
             .lock()
@@ -205,7 +203,7 @@ where
         Ok(())
     }
     /// Returns true if this instance contains any updates.
-    pub(crate) fn any(&self) -> Result<bool, LuceneError> {
+    pub(crate) fn any(&self) -> Result<bool> {
         let inner = self
             .inner
             .lock()
@@ -218,7 +216,7 @@ where
         }
     }
     /// Adds an update that resets the document value.
-    pub(crate) fn reset(&mut self, doc: i32) -> Result<(), LuceneError> {
+    pub(crate) fn reset(&mut self, doc: i32) -> Result<()> {
         if self.sub_update.need_reset() {
             self.sub_update.reset(doc)
         } else {
@@ -226,10 +224,10 @@ where
         }
     }
 
-    pub(crate) fn add(&mut self, doc: i32) -> Result<i32, LuceneError> {
+    pub(crate) fn add(&mut self, doc: i32) -> Result<i32> {
         self.add_internal(doc, HAS_VALUE_MASK)
     }
-    fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<i32, LuceneError> {
+    fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<i32> {
         let mut inner = self
             .inner
             .lock()
@@ -257,7 +255,7 @@ where
         inner.size += 1;
         Ok(inner.size - 1)
     }
-    // pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    // pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<()> {
     //     self.sub_update.swap(i, j)?;
     //     let mut inner = self.inner.lock().map_err(|_| {
     //             LuceneError::illegal_state("Failed to acquire lock".to_string())
@@ -265,7 +263,7 @@ where
     //     inner.swap(i, j)?;
     //     Ok(())
     // }
-    pub(crate) fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
+    pub(crate) fn grow(&mut self, size: i32) -> Result<()> {
         self.sub_update.grow(size)?;
         let mut inner = self
             .inner
@@ -274,7 +272,7 @@ where
         inner.grow(size)?;
         Ok(())
     }
-    pub(crate) fn resize(&mut self, size: i32) -> Result<(), LuceneError> {
+    pub(crate) fn resize(&mut self, size: i32) -> Result<()> {
         self.sub_update.resize(size)?;
         let mut inner = self
             .inner
@@ -283,7 +281,7 @@ where
         inner.resize(size)?;
         Ok(())
     }
-    pub(crate) fn ensure_finished(&self) -> Result<(), LuceneError> {
+    pub(crate) fn ensure_finished(&self) -> Result<()> {
         let inner = self
             .inner
             .lock()
@@ -295,7 +293,7 @@ where
     }
 }
 #[allow(unused)]
-pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<PriorityQueueIterator<T>>, LuceneError>
+pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<PriorityQueueIterator<T>>>
 where
     T: DocValuesFieldIterator,
 {
@@ -330,35 +328,31 @@ where
 }
 #[allow(unused)]
 pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
-    fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<(), LuceneError>;
-    fn add_byte_ref(&mut self, doc: i32, value: BytesRef, index: i32) -> Result<(), LuceneError>;
-    fn add_iterator<T: DocValuesFieldIterator>(
-        &mut self,
-        doc_id: i32,
-        iterator: T,
-    ) -> Result<(), LuceneError>;
+    fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<()>;
+    fn add_byte_ref(&mut self, doc: i32, value: BytesRef, index: i32) -> Result<()>;
+    fn add_iterator<T: DocValuesFieldIterator>(&mut self, doc_id: i32, iterator: T) -> Result<()>;
     /// Returns an iterator for updated documents and their values.
     fn iterator(
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
-    ) -> Result<impl DocValuesFieldIterator, LuceneError>;
-    fn swap(&mut self, _i: i32, _j: i32) -> Result<(), LuceneError> {
+    ) -> Result<impl DocValuesFieldIterator>;
+    fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
         unimplemented!("any must be implemented if you need to use it")
     }
-    fn grow(&mut self, _size: i32) -> Result<(), LuceneError> {
+    fn grow(&mut self, _size: i32) -> Result<()> {
         unimplemented!("any must be implemented if you need to use it")
     }
-    fn resize(&mut self, _size: i32) -> Result<(), LuceneError> {
+    fn resize(&mut self, _size: i32) -> Result<()> {
         Ok(())
     }
-    fn reset(&mut self, _doc: i32) -> Result<(), LuceneError> {
+    fn reset(&mut self, _doc: i32) -> Result<()> {
         unimplemented!("any must be implemented if you need to use it")
     }
     fn need_reset(&self) -> bool {
         false
     }
-    fn any(&self, _super_any: bool) -> Result<bool, LuceneError> {
+    fn any(&self, _super_any: bool) -> Result<bool> {
         unimplemented!("any must be implemented if you need to use it")
     }
     fn need_any(&self) -> bool {
@@ -385,7 +379,7 @@ impl<D> Sorter for IntroSorterImpl<'_, D>
 where
     D: DocValuesFieldUpdatesBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         // increasing docID order:
         // NOTE: we can have ties here, when the same docID was updated in the same segment, in
         // which case we rely on sort being
@@ -399,7 +393,7 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let tmp_ord = self.ords.get(i)?;
         let value = self.ords.get(j)?;
         self.ords.set(i, value)?;
@@ -409,13 +403,13 @@ where
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot_doc = self.inner.docs.get(i as i64)? >> 1;
         self.pivot_ord = self.ords.get(i)?;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32, LuceneError> {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         let mut cmp = (self.pivot_doc).cmp(&((self.inner.docs.get(j as i64)? as u64 >> 1) as i64));
         if cmp == std::cmp::Ordering::Equal {
             // If docIDs are the same, compare pivot_ord with ords[j]
@@ -424,7 +418,7 @@ where
         Ok(cmp.to_int())
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -445,10 +439,10 @@ pub trait DocValuesFieldIterator: DocValuesIterator + Default {
         NumericDocValuesImpl::new(iterator);
     }
     /// Returns a long value for the current document if this iterator is a long iterator.
-    fn long_value(&mut self) -> Result<i64, LuceneError>;
+    fn long_value(&mut self) -> Result<i64>;
 
     /// Returns a binary value for the current document if this iterator is a binary value iterator.
-    fn binary_value(&mut self) -> Result<BytesRef, LuceneError>;
+    fn binary_value(&mut self) -> Result<BytesRef>;
 
     /// Returns the delGen for this packet.
     fn del_gen(&self) -> i64;
@@ -489,15 +483,15 @@ where
         self.iterator.doc_id()
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.iterator.next_doc()
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         self.iterator.advance(_target)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         self.iterator.cost()
     }
 }
@@ -506,7 +500,7 @@ impl<T> BinaryDocValues for BinaryDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
+    fn binary_value(&mut self) -> Result<BytesRef> {
         self.iterator.binary_value()
     }
 }
@@ -545,15 +539,15 @@ where
         self.iterator.doc_id()
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.iterator.next_doc()
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         self.iterator.advance(_target)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         self.iterator.cost()
     }
 }
@@ -562,7 +556,7 @@ impl<T> NumericDocValues for NumericDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn long_value(&mut self) -> Result<i64, LuceneError> {
+    fn long_value(&mut self) -> Result<i64> {
         self.iterator.long_value()
     }
 }
@@ -620,7 +614,7 @@ impl<T> PriorityQueueIterator<T>
 where
     T: DocValuesFieldIterator,
 {
-    pub fn new(queue: PriorityQueue<T, IteratorPQCmp<T>>) -> Result<Self, LuceneError> {
+    pub fn new(queue: PriorityQueue<T, IteratorPQCmp<T>>) -> Result<Self> {
         Ok(Self { queue, doc: -1 })
     }
 }
@@ -631,11 +625,11 @@ impl<T> DocValuesFieldIterator for PriorityQueueIterator<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn long_value(&mut self) -> Result<i64, LuceneError> {
+    fn long_value(&mut self) -> Result<i64> {
         self.queue.top().long_value()
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
+    fn binary_value(&mut self) -> Result<BytesRef> {
         self.queue.top().binary_value()
     }
 
@@ -655,7 +649,7 @@ where
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         loop {
             if self.queue.size() == 0 {
                 self.doc = NO_MORE_DOCS;
@@ -730,7 +724,7 @@ where
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         let mut inner = self
             .inner
             .lock()
@@ -766,11 +760,11 @@ impl<A> DocValuesFieldIterator for AbstractIterator<A>
 where
     A: AbstractIteratorBase + Default,
 {
-    fn long_value(&mut self) -> Result<i64, LuceneError> {
+    fn long_value(&mut self) -> Result<i64> {
         self.sub.long_value()
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
+    fn binary_value(&mut self) -> Result<BytesRef> {
         self.sub.binary_value()
     }
 
@@ -788,9 +782,9 @@ pub trait AbstractIteratorBase {
     /// # Arguments
     ///
     /// * `idx` - The internal index to set the value to.
-    fn set(&mut self, idx: i64) -> Result<(), LuceneError>;
-    fn long_value(&mut self) -> Result<i64, LuceneError>;
-    fn binary_value(&mut self) -> Result<BytesRef, LuceneError>;
+    fn set(&mut self, idx: i64) -> Result<()>;
+    fn long_value(&mut self) -> Result<i64>;
+    fn binary_value(&mut self) -> Result<BytesRef>;
 }
 
 #[allow(unused)]
@@ -812,12 +806,7 @@ impl<S> SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
 {
-    pub fn new(
-        sub: S,
-        max_doc: i32,
-        del_gen: i64,
-        dov_values_type: DocValuesType,
-    ) -> Result<Self, LuceneError> {
+    pub fn new(sub: S, max_doc: i32, del_gen: i64, dov_values_type: DocValuesType) -> Result<Self> {
         Ok(Self {
             sub_update: sub,
             bit_set: SparseFixedBitSet::new(max_doc)?,
@@ -829,10 +818,10 @@ where
             dov_values_type,
         })
     }
-    pub fn binary_value(&self) -> Result<BytesRef, LuceneError> {
+    pub fn binary_value(&self) -> Result<BytesRef> {
         self.sub_update.binary_value()
     }
-    pub fn long_value(&self) -> Result<i64, LuceneError> {
+    pub fn long_value(&self) -> Result<i64> {
         self.sub_update.long_value()
     }
 }
@@ -850,7 +839,7 @@ impl<S> DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
 {
-    fn add_value(&mut self, doc: i32, value: i64, _index: i32) -> Result<(), LuceneError> {
+    fn add_value(&mut self, doc: i32, value: i64, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.long_value()? == value);
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
@@ -860,7 +849,7 @@ where
         Ok(())
     }
 
-    fn add_byte_ref(&mut self, doc: i32, value: BytesRef, _index: i32) -> Result<(), LuceneError> {
+    fn add_byte_ref(&mut self, doc: i32, value: BytesRef, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.binary_value()? == value);
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
@@ -874,7 +863,7 @@ where
         &mut self,
         _doc_id: i32,
         _iterator: T,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         unreachable!("add_iterator is not supported")
     }
 
@@ -882,7 +871,7 @@ where
         &mut self,
         _inner: Arc<Mutex<DocValuesFieldInner>>,
         _del_gen: i64,
-    ) -> Result<impl DocValuesFieldIterator, LuceneError> {
+    ) -> Result<impl DocValuesFieldIterator> {
         let iterator = BitSetIterator::new(&self.bit_set, self.max_doc as i64)?;
         SingleValueDocValuesFieldUpdatesIterator::new(
             Some(iterator),
@@ -892,7 +881,7 @@ where
         )
     }
 
-    fn reset(&mut self, doc: i32) -> Result<(), LuceneError> {
+    fn reset(&mut self, doc: i32) -> Result<()> {
         let _guide = self
             .lock
             .lock()
@@ -910,7 +899,7 @@ where
         true
     }
 
-    fn any(&self, super_any: bool) -> Result<bool, LuceneError> {
+    fn any(&self, super_any: bool) -> Result<bool> {
         let _guide = self
             .lock
             .lock()
@@ -933,8 +922,8 @@ where
 
 #[allow(unused)]
 pub trait SingleValueDocValuesFieldUpdatesBase {
-    fn binary_value(&self) -> Result<BytesRef, LuceneError>;
-    fn long_value(&self) -> Result<i64, LuceneError>;
+    fn binary_value(&self) -> Result<BytesRef>;
+    fn long_value(&self) -> Result<i64>;
     fn sub_type(&self) -> DocValuesType;
 }
 /// # Note
@@ -961,7 +950,7 @@ where
         del_gen: i64,
         has_no_value: Option<&'a mut SparseFixedBitSet>,
         single: Option<&'a mut S>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         debug_assert!(single.is_some());
         Ok(Self {
             del_gen,
@@ -997,11 +986,11 @@ impl<S> DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator<'_, 
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
 {
-    fn long_value(&mut self) -> Result<i64, LuceneError> {
+    fn long_value(&mut self) -> Result<i64> {
         self.single.as_ref().unwrap().long_value()
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
+    fn binary_value(&mut self) -> Result<BytesRef> {
         self.single.as_ref().unwrap().binary_value()
     }
 
@@ -1039,7 +1028,7 @@ where
         }
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.iterator.as_mut().unwrap().next_doc()
     }
 }
@@ -1056,14 +1045,14 @@ mod tests {
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
     use crate::test::util::lucene_test_case::{random, rarely};
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use rand::prelude::SliceRandom;
     use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     pub struct TestDocValuesFieldUpdates;
     #[test]
-    fn test_merge_iterator() -> Result<(), LuceneError> {
+    fn test_merge_iterator() -> Result<()> {
         let mut random = random();
         let sub_update1 = NumericDocValuesFieldUpdates::new()?;
         let mut updates1 = DocValuesFieldUpdates::new(
@@ -1157,7 +1146,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_update_and_reset_same_doc() -> Result<(), LuceneError> {
+    fn test_update_and_reset_same_doc() -> Result<()> {
         let sub_update = NumericDocValuesFieldUpdates::new()?;
         let mut updates = DocValuesFieldUpdates::new(
             2,
@@ -1179,7 +1168,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_update_and_reset_update_same_doc() -> Result<(), LuceneError> {
+    fn test_update_and_reset_update_same_doc() -> Result<()> {
         let sub_update = NumericDocValuesFieldUpdates::new()?;
         let mut updates = DocValuesFieldUpdates::new(
             3,
@@ -1203,7 +1192,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_updates_and_reset_random() -> Result<(), LuceneError> {
+    fn test_updates_and_reset_random() -> Result<()> {
         let mut random = random();
 
         let sub_update = NumericDocValuesFieldUpdates::new()?;
@@ -1260,7 +1249,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_shared_value_updates() -> Result<(), LuceneError> {
+    fn test_shared_value_updates() -> Result<()> {
         let mut random = random();
 
         let del_gen = random.random::<i64>();

@@ -19,7 +19,7 @@ use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::store::{DataOutput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::ints_ref::IntsRef;
 use crate::util::longs_ref::LongsRef;
@@ -70,7 +70,7 @@ impl DocIdsWriter {
         start: i32,
         count: i32,
         out: &mut impl DataOutput,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         // docs can be sorted either when all docs in a block have the same value
         // or when a segment is sorted
         let mut strictly_sorted = true;
@@ -173,7 +173,7 @@ impl DocIdsWriter {
         start: i32,
         count: i32,
         out: &mut impl DataOutput,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let min = doc_ids[start as usize];
         let max = doc_ids[(start + count - 1) as usize];
 
@@ -222,7 +222,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let bpv = input.read_byte()? as i8;
         match bpv {
             DocIdsWriter::CONTINUOUS_IDS => Self::read_continuous_ids(input, count, doc_ids),
@@ -241,7 +241,7 @@ impl DocIdsWriter {
         &mut self,
         input: &mut impl IndexInput,
         count: i32,
-    ) -> Result<impl DocIdSetIterator, LuceneError> {
+    ) -> Result<impl DocIdSetIterator> {
         let offset_words = input.read_vint()?;
         let long_len = input.read_vint()?;
         let long_len_index = long_len as usize;
@@ -265,7 +265,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let start = input.read_vint()?;
         for (i, doc_id) in doc_ids.iter_mut().take(count as usize).enumerate() {
             *doc_id = start + i as i32;
@@ -277,7 +277,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut doc = 0;
         for doc_id in doc_ids.iter_mut().take(count as usize) {
             doc += input.read_vint()?;
@@ -291,7 +291,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut iterator = self.read_bit_set_iterator(input, count)?;
         let mut pos = 0;
         let mut doc_id;
@@ -306,11 +306,7 @@ impl DocIdsWriter {
         Ok(())
     }
 
-    fn read_delta16(
-        input: &mut impl IndexInput,
-        count: i32,
-        doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    fn read_delta16(input: &mut impl IndexInput, count: i32, doc_ids: &mut [i32]) -> Result<()> {
         let min = input.read_vint()?;
         let half_len = (count as usize) >> 1;
         input.read_ints(doc_ids, 0, half_len as i32)?;
@@ -325,11 +321,7 @@ impl DocIdsWriter {
         Ok(())
     }
 
-    fn read_ints24(
-        input: &mut impl IndexInput,
-        count: i32,
-        doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    fn read_ints24(input: &mut impl IndexInput, count: i32, doc_ids: &mut [i32]) -> Result<()> {
         let mut i = 0;
         let count_usize = count as usize;
         while i < count_usize.saturating_sub(7) {
@@ -354,11 +346,7 @@ impl DocIdsWriter {
         Ok(())
     }
 
-    fn read_ints32(
-        input: &mut impl IndexInput,
-        count: i32,
-        doc_ids: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    fn read_ints32(input: &mut impl IndexInput, count: i32, doc_ids: &mut [i32]) -> Result<()> {
         input.read_ints(doc_ids, 0, count)?;
         Ok(())
     }
@@ -367,7 +355,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let bpv = input.read_byte()? as i8;
         match bpv {
             DocIdsWriter::CONTINUOUS_IDS => {
@@ -392,7 +380,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut bit_set_iterator = self.read_bit_set_iterator(input, count)?;
         visitor.visit_with_iterator(&mut bit_set_iterator)?;
         Ok(())
@@ -401,7 +389,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let start = input.read_vint()?;
         let extra = start & 63;
         let offset = start - extra;
@@ -416,7 +404,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut doc = 0;
         for _ in 0..count {
             doc += input.read_vint()?;
@@ -429,7 +417,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         Self::read_delta16(input, count, &mut self.scratch)?;
         self.scratch_ints_ref.ints = Rc::new(RefCell::new(std::mem::take(&mut self.scratch)));
         self.scratch = vec![0; self.max_points_in_leaf];
@@ -441,7 +429,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut i = 0;
         let count_usize = count as usize;
         while i < count_usize.saturating_sub(7) {
@@ -471,7 +459,7 @@ impl DocIdsWriter {
         input: &mut impl IndexInput,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         input.read_ints(&mut self.scratch, 0, count)?;
         self.scratch_ints_ref.ints = Rc::new(RefCell::new(std::mem::take(&mut self.scratch)));
         self.scratch = vec![0; self.max_points_in_leaf];
@@ -489,7 +477,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, new_directory, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::bkd::doc_ids_writer::DocIdsWriter;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::collections::HashSet;
@@ -498,7 +486,7 @@ mod tests {
     struct TestDocIdsWriter;
 
     #[test]
-    fn test_random() -> Result<(), LuceneError> {
+    fn test_random() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
         let mut dir = new_directory(&mut random)?;
@@ -515,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sorted() -> Result<(), LuceneError> {
+    fn test_sorted() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
         let mut dir = new_directory(&mut random)?;
@@ -533,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cluster() -> Result<(), LuceneError> {
+    fn test_cluster() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
         let mut dir = new_directory(&mut random)?;
@@ -551,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bit_set() -> Result<(), LuceneError> {
+    fn test_bit_set() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
         let mut dir = new_directory(&mut random)?;
@@ -569,7 +557,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_continuous_ids() -> Result<(), LuceneError> {
+    fn test_continuous_ids() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
         let mut dir = new_directory(&mut random)?;
@@ -585,11 +573,7 @@ mod tests {
         Ok(())
     }
 
-    fn test<D: Directory>(
-        random: &mut StdRng,
-        dir: &mut D,
-        ints: &[i32],
-    ) -> Result<(), LuceneError> {
+    fn test<D: Directory>(random: &mut StdRng, dir: &mut D, ints: &[i32]) -> Result<()> {
         let len: i64;
         let mut doc_ids_writer = DocIdsWriter::new(ints.len() as i32);
         {
@@ -623,7 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn test_crash() -> Result<(), LuceneError> {
+    fn test_crash() -> Result<()> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
@@ -638,17 +622,13 @@ mod tests {
         }
     }
     impl IntersectVisitor for IntersectVisitorMock<'_> {
-        fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+        fn visit(&mut self, doc_id: i32) -> Result<()> {
             self.read[self.i] = doc_id;
             self.i += 1;
             Ok(())
         }
 
-        fn visit_with_packed_value(
-            &mut self,
-            _doc_id: i32,
-            _packed_value: &[u8],
-        ) -> Result<(), LuceneError> {
+        fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
             Err(LuceneError::unsupported_operation(""))
         }
 
@@ -656,7 +636,7 @@ mod tests {
             &mut self,
             _min_packed_value: &[u8],
             _max_packed_value: &[u8],
-        ) -> Result<Relation, LuceneError> {
+        ) -> Result<Relation> {
             Err(LuceneError::unsupported_operation(""))
         }
     }

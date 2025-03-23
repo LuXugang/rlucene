@@ -17,7 +17,7 @@
 use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::nio_fs_index_input::NIOFSIndexInput;
 use crate::store::{BufferedIndexInput, IOContext};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::path::Path;
@@ -52,12 +52,7 @@ impl Display for NIOFSDirectory {
 /// this method should only be called in [`FSDirectory::open_input`](crate::store::fs_directory::FSDirectory), which will first check whether file could be read
 impl FSDirectoryBase for NIOFSDirectory {
     type Output = BufferedIndexInput<NIOFSIndexInput>;
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-        path: &Path,
-    ) -> Result<Self::Output, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output> {
         let file_path = path.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         let file = match File::open(file_path) {
@@ -81,7 +76,7 @@ mod tests {
     use crate::test::store::base_directory_test_case::BaseDirectoryTestCase;
     use crate::test::util::lucene_test_case::random;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use std::path::PathBuf;
 
     #[allow(dead_code)] // for quick search
@@ -90,325 +85,325 @@ mod tests {
     impl BaseDirectoryTestCase for TestNIOFSDirectory {
         type Directory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
         type Output = BufferedIndexInput<NIOFSIndexInput>;
-        fn get_directory(&self, path: PathBuf) -> Result<Self::Directory, LuceneError> {
+        fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
             let sub_directory = NIOFSDirectory::new();
             FSDirectory::new(path, sub_directory)
         }
     }
 
     #[test]
-    fn test_copy_from() -> Result<(), LuceneError> {
+    fn test_copy_from() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_copy_from(&mut random)
     }
     #[test]
-    fn test_rename() -> Result<(), LuceneError> {
+    fn test_rename() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_rename(&mut random)
     }
     #[test]
-    fn test_delete_file() -> Result<(), LuceneError> {
+    fn test_delete_file() -> Result<()> {
         let test = TestNIOFSDirectory;
         test.test_delete_file()
     }
     #[test]
-    fn test_byte() -> Result<(), LuceneError> {
+    fn test_byte() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_byte(&mut random)
     }
     #[test]
-    fn test_short() -> Result<(), LuceneError> {
+    fn test_short() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_short(&mut random)
     }
     #[test]
-    fn test_int() -> Result<(), LuceneError> {
+    fn test_int() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_int(&mut random)
     }
     #[test]
-    fn test_long() -> Result<(), LuceneError> {
+    fn test_long() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_long(&mut random)
     }
     #[test]
-    fn test_aligned_little_endian_longs() -> Result<(), LuceneError> {
+    fn test_aligned_little_endian_longs() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_aligned_little_endian_longs(&mut random)
     }
     #[test]
-    fn test_unaligned_little_endian_longs() -> Result<(), LuceneError> {
+    fn test_unaligned_little_endian_longs() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_unaligned_little_endian_longs(&mut random)
     }
     #[test]
-    fn test_little_endian_longs_underflow() -> Result<(), LuceneError> {
+    fn test_little_endian_longs_underflow() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_little_endian_longs_underflow(&mut random)
     }
     #[test]
-    fn test_aligned_ints() -> Result<(), LuceneError> {
+    fn test_aligned_ints() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_aligned_ints(&mut random)
     }
     #[test]
-    fn test_unaligned_ints() -> Result<(), LuceneError> {
+    fn test_unaligned_ints() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_unaligned_ints(&mut random)
     }
     #[test]
-    fn test_ints_underflow() -> Result<(), LuceneError> {
+    fn test_ints_underflow() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_ints_underflow(&mut random)
     }
     #[test]
-    fn test_aligned_floats() -> Result<(), LuceneError> {
+    fn test_aligned_floats() -> Result<()> {
         let test = TestNIOFSDirectory;
         test.test_aligned_floats()
     }
     #[test]
-    fn test_unaligned_floats() -> Result<(), LuceneError> {
+    fn test_unaligned_floats() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_unaligned_floats(&mut random)
     }
     #[test]
-    fn test_floats_underflow() -> Result<(), LuceneError> {
+    fn test_floats_underflow() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_floats_underflow(&mut random)
     }
     #[test]
-    fn test_string() -> Result<(), LuceneError> {
+    fn test_string() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_string(&mut random)
     }
     #[test]
-    fn test_vint() -> Result<(), LuceneError> {
+    fn test_vint() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_vint(&mut random)
     }
     #[test]
-    fn test_vlong() -> Result<(), LuceneError> {
+    fn test_vlong() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_vlong(&mut random)
     }
     #[test]
-    fn test_zint() -> Result<(), LuceneError> {
+    fn test_zint() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_zint(&mut random)
     }
     #[test]
-    fn test_zlong() -> Result<(), LuceneError> {
+    fn test_zlong() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_zlong(&mut random)
     }
     #[test]
-    fn test_set_of_strings() -> Result<(), LuceneError> {
+    fn test_set_of_strings() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_set_of_strings(&mut random)
     }
     #[test]
-    fn test_map_of_strings() -> Result<(), LuceneError> {
+    fn test_map_of_strings() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_map_of_strings(&mut random)
     }
     #[test]
-    fn test_checksum() -> Result<(), LuceneError> {
+    fn test_checksum() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_checksum(&mut random)
     }
     #[test]
-    fn test_thread_safety_in_list_all() -> Result<(), LuceneError> {
+    fn test_thread_safety_in_list_all() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_thread_safety_in_list_all(&mut random)
     }
     #[test]
-    fn test_file_exists_in_list_after_created() -> Result<(), LuceneError> {
+    fn test_file_exists_in_list_after_created() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_file_exists_in_list_after_created(&mut random)
     }
     #[test]
-    fn test_seek_to_eof_then_back() -> Result<(), LuceneError> {
+    fn test_seek_to_eof_then_back() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_seek_to_eof_then_back(&mut random)
     }
     #[test]
-    fn test_illegal_eof() -> Result<(), LuceneError> {
+    fn test_illegal_eof() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_illegal_eof(&mut random)
     }
     #[test]
-    fn test_seek_past_eof() -> Result<(), LuceneError> {
+    fn test_seek_past_eof() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_seek_past_eof(&mut random)
     }
     #[test]
-    fn test_slice_out_of_bounds() -> Result<(), LuceneError> {
+    fn test_slice_out_of_bounds() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_slice_out_of_bounds(&mut random)
     }
     #[test]
-    fn test_no_dir() -> Result<(), LuceneError> {
+    fn test_no_dir() -> Result<()> {
         //TODO
         Ok(())
     }
 
     #[test]
-    fn test_copy_bytes() -> Result<(), LuceneError> {
+    fn test_copy_bytes() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_copy_bytes(&mut random)
     }
     #[test]
-    fn test_copy_bytes_with_threads() -> Result<(), LuceneError> {
+    fn test_copy_bytes_with_threads() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_copy_bytes_with_threads(&mut random)
     }
     #[test]
-    fn test_fsync_doesnt_create_new_files() -> Result<(), LuceneError> {
+    fn test_fsync_doesnt_create_new_files() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_fsync_doesnt_create_new_files(&mut random)
     }
     #[test]
-    fn test_random_long() -> Result<(), LuceneError> {
+    fn test_random_long() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_random_long(&mut random)
     }
     #[test]
-    fn test_random_int() -> Result<(), LuceneError> {
+    fn test_random_int() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_random_int(&mut random)
     }
     #[test]
-    fn test_random_short() -> Result<(), LuceneError> {
+    fn test_random_short() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_random_short(&mut random)
     }
     #[test]
-    fn test_random_byte() -> Result<(), LuceneError> {
+    fn test_random_byte() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_random_byte(&mut random)
     }
     #[test]
-    fn test_slice_of_slice() -> Result<(), LuceneError> {
+    fn test_slice_of_slice() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_slice_of_slice(&mut random)
     }
     #[test]
-    fn test_large_writes() -> Result<(), LuceneError> {
+    fn test_large_writes() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_large_writes(&mut random)
     }
     #[test]
-    fn test_index_output_to_string() -> Result<(), LuceneError> {
+    fn test_index_output_to_string() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_index_output_to_string(&mut random)
     }
     #[test]
-    fn test_create_temp_output() -> Result<(), LuceneError> {
+    fn test_create_temp_output() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_create_temp_output(&mut random)
     }
     #[test]
-    fn test_create_output_for_existing_file() -> Result<(), LuceneError> {
+    fn test_create_output_for_existing_file() -> Result<()> {
         let test = TestNIOFSDirectory;
         test.test_create_output_for_existing_file()
     }
     #[test]
-    fn test_seek_to_end_of_file() -> Result<(), LuceneError> {
+    fn test_seek_to_end_of_file() -> Result<()> {
         let test = TestNIOFSDirectory;
         test.test_seek_to_end_of_file()
     }
     #[test]
-    fn test_seek_beyond_end_of_file() -> Result<(), LuceneError> {
+    fn test_seek_beyond_end_of_file() -> Result<()> {
         let test = TestNIOFSDirectory;
         test.test_seek_beyond_end_of_file()
     }
     #[test]
-    fn test_pending_deletions() -> Result<(), LuceneError> {
+    fn test_pending_deletions() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_pending_deletions(&mut random)
     }
     #[test]
-    fn test_list_all_is_sorted() -> Result<(), LuceneError> {
+    fn test_list_all_is_sorted() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_list_all_is_sorted(&mut random)
     }
     #[test]
-    fn test_data_types() -> Result<(), LuceneError> {
+    fn test_data_types() -> Result<()> {
         let test = TestNIOFSDirectory;
         test.test_data_types()
     }
     #[test]
-    fn test_group_vint_overflow() -> Result<(), LuceneError> {
+    fn test_group_vint_overflow() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_group_vint_overflow(&mut random)
     }
     #[test]
-    fn test_group_vint() -> Result<(), LuceneError> {
+    fn test_group_vint() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_group_vint(&mut random)
     }
     #[test]
-    fn test_prefetch() -> Result<(), LuceneError> {
+    fn test_prefetch() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_prefetch(&mut random)
     }
     #[test]
-    fn test_prefetch_on_slice() -> Result<(), LuceneError> {
+    fn test_prefetch_on_slice() -> Result<()> {
         let mut random = random();
         let test = TestNIOFSDirectory;
         test.test_prefetch_on_slice(&mut random)
     }
     #[test]
-    fn test_is_loaded() -> Result<(), LuceneError> {
+    fn test_is_loaded() -> Result<()> {
         //TODO
         Ok(())
     }
     #[test]
-    fn test_is_loaded_on_slice() -> Result<(), LuceneError> {
+    fn test_is_loaded_on_slice() -> Result<()> {
         //TODO
         Ok(())
     }

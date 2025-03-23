@@ -26,7 +26,7 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::compress::lz4::{
     FastCompressionHashTable, HashTableEnum, HighCompressionHashTable, LZ4,
 };
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use flate2::read::DeflateDecoder;
 use flate2::write::DeflateEncoder;
 use flate2::Compression;
@@ -178,7 +178,7 @@ impl Decompressor for LZ4Decompressor {
         offset: i32,
         length: i32,
         bytes: &mut BytesRef,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         I: DataInput,
     {
@@ -230,7 +230,7 @@ impl Decompressor for DecompressorEnum {
         offset: i32,
         length: i32,
         bytes: &mut BytesRef,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         I: DataInput,
     {
@@ -261,11 +261,7 @@ impl LZ4FastCompressor {
 }
 
 impl Compressor for LZ4FastCompressor {
-    fn compress<D>(
-        &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
-        out: &mut D,
-    ) -> Result<(), LuceneError>
+    fn compress<D>(&mut self, buffers_input: &mut ByteBuffersDataInput, out: &mut D) -> Result<()>
     where
         D: DataOutput,
     {
@@ -288,11 +284,7 @@ impl LZ4HighCompressor {
     }
 }
 impl Compressor for LZ4HighCompressor {
-    fn compress<D>(
-        &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
-        out: &mut D,
-    ) -> Result<(), LuceneError>
+    fn compress<D>(&mut self, buffers_input: &mut ByteBuffersDataInput, out: &mut D) -> Result<()>
     where
         D: DataOutput,
     {
@@ -319,7 +311,7 @@ impl Decompressor for DeflateDecompressor {
         offset: i32,
         length: i32,
         bytes: &mut BytesRef,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         I: DataInput,
     {
@@ -362,11 +354,7 @@ impl DeflateCompressor {
     }
 }
 impl Compressor for DeflateCompressor {
-    fn compress<D>(
-        &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
-        out: &mut D,
-    ) -> Result<(), LuceneError>
+    fn compress<D>(&mut self, buffers_input: &mut ByteBuffersDataInput, out: &mut D) -> Result<()>
     where
         D: DataOutput,
     {
@@ -391,11 +379,7 @@ pub enum CompressorEnum {
     LZ4Dict(LZ4WithPresetDictCompressor),
 }
 impl Compressor for CompressorEnum {
-    fn compress<D>(
-        &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
-        out: &mut D,
-    ) -> Result<(), LuceneError>
+    fn compress<D>(&mut self, buffers_input: &mut ByteBuffersDataInput, out: &mut D) -> Result<()>
     where
         D: DataOutput,
     {
@@ -424,7 +408,7 @@ mod tests {
     use crate::util::array_util::ArrayUtil;
 
     use crate::codecs::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cmp::min;
@@ -470,13 +454,7 @@ mod tests {
             }
         }
 
-        fn compress(
-            &self,
-            decompressed: &[u8],
-            off: i32,
-            len: i32,
-            limit: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        fn compress(&self, decompressed: &[u8], off: i32, len: i32, limit: i32) -> Result<Vec<u8>> {
             let mut compressor = self.get_mode().new_compressor();
             Self::compress_with_compressor(&mut compressor, decompressed, off, len, limit)
         }
@@ -487,7 +465,7 @@ mod tests {
             off: i32,
             len: i32,
             limit: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        ) -> Result<Vec<u8>> {
             let compressed_len = len * 3 + 16;
             let mut compressed = vec![0; compressed_len as usize]; // should be enough
             let mut cursor_vec = Vec::new();
@@ -513,11 +491,7 @@ mod tests {
             Ok(result)
         }
 
-        fn decompress(
-            &self,
-            compressed: Vec<u8>,
-            original_length: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        fn decompress(&self, compressed: Vec<u8>, original_length: i32) -> Result<Vec<u8>> {
             let mut decompressor = self.get_mode().new_decompressor();
             Self::decompress_with_decompressor(&mut decompressor, compressed, original_length)
         }
@@ -526,7 +500,7 @@ mod tests {
             decompressor: &mut DecompressorEnum,
             compressed: Vec<u8>,
             original_length: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        ) -> Result<Vec<u8>> {
             let mut bytes = BytesRef::default();
             let mut input = ByteArrayDataInput::with_bytes(compressed);
             decompressor.decompress(&mut input, original_length, 0, original_length, &mut bytes)?;
@@ -538,7 +512,7 @@ mod tests {
             original_length: i32,
             offset: i32,
             length: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        ) -> Result<Vec<u8>> {
             let mut decompressor = self.get_mode().new_decompressor();
             let mut bytes = BytesRef::default();
             let mut input = ByteArrayDataInput::with_bytes(compressed);
@@ -546,7 +520,7 @@ mod tests {
             Ok(BytesRef::deep_copy_of(&bytes).bytes)
         }
 
-        fn test_decompress(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_decompress(&self, random: &mut StdRng) -> Result<()> {
             let iterations = at_least(random, 3);
             for _ in 0..iterations {
                 let (decompressed, limit) = Self::random_array(random);
@@ -573,7 +547,7 @@ mod tests {
             Ok(())
         }
 
-        fn test_partial_decompress(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_partial_decompress(&self, random: &mut StdRng) -> Result<()> {
             let iterations = at_least(random, 3);
             for _ in 0..iterations {
                 let (decompressed, limit) = Self::random_array(random);
@@ -603,7 +577,7 @@ mod tests {
             Ok(())
         }
 
-        fn test(&self, decompressed: &[u8], limit: i32) -> Result<Vec<u8>, LuceneError> {
+        fn test(&self, decompressed: &[u8], limit: i32) -> Result<Vec<u8>> {
             self.test_with_range(decompressed, 0, decompressed.len() as i32, limit)
         }
 
@@ -613,7 +587,7 @@ mod tests {
             off: i32,
             len: i32,
             limit: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        ) -> Result<Vec<u8>> {
             assert!(off <= limit);
             assert!(limit <= len);
             let compressed = self.compress(decompressed, off, min(len, limit), limit)?;
@@ -627,12 +601,12 @@ mod tests {
             Ok(compressed_copy)
         }
 
-        fn test_empty_sequence(&self) -> Result<(), LuceneError> {
+        fn test_empty_sequence(&self) -> Result<()> {
             self.test(&[], 0)?;
             Ok(())
         }
 
-        fn test_short_sequence(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_short_sequence(&self, random: &mut StdRng) -> Result<()> {
             let limit = random.random_range(0..256);
             let mut bytes = vec![0u8; 1024];
             for byte in bytes.iter_mut().take(limit) {
@@ -642,7 +616,7 @@ mod tests {
             Ok(())
         }
 
-        fn test_incompressible(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_incompressible(&self, random: &mut StdRng) -> Result<()> {
             let limit = random.random_range(20..=256);
             let mut decompressed = vec![0; 1024];
             for byte in decompressed.iter_mut().take(limit) {
@@ -652,7 +626,7 @@ mod tests {
             Ok(())
         }
 
-        fn test_constant(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_constant(&self, random: &mut StdRng) -> Result<()> {
             let limit = TestUtil::next_int(random, 1, 10000);
             let mut decompressed = vec![0; 10240];
             for byte in decompressed.iter_mut().take(limit as usize) {
@@ -662,7 +636,7 @@ mod tests {
             Ok(())
         }
 
-        fn test_extremely_large_input(&self) -> Result<(), LuceneError> {
+        fn test_extremely_large_input(&self) -> Result<()> {
             let limit = 1 << 24; // 16MB
             let mut decompressed = vec![0u8; limit as usize];
             for (i, byte) in decompressed.iter_mut().enumerate() {
@@ -703,7 +677,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_decompress() -> Result<(), LuceneError> {
+    fn test_decompress() -> Result<()> {
         let mut random = random();
         TestFastCompressionMode.test_decompress(&mut random)?;
         TestFastDecompressionMode.test_decompress(&mut random)?;
@@ -711,7 +685,7 @@ mod tests {
         TestLZ4WithPresetDictCompressionMode.test_decompress(&mut random)
     }
     #[test]
-    fn test_partial_decompress() -> Result<(), LuceneError> {
+    fn test_partial_decompress() -> Result<()> {
         let mut random = random();
         TestFastCompressionMode.test_partial_decompress(&mut random)?;
         TestFastDecompressionMode.test_partial_decompress(&mut random)?;
@@ -719,14 +693,14 @@ mod tests {
         TestLZ4WithPresetDictCompressionMode.test_partial_decompress(&mut random)
     }
     #[test]
-    fn test_empty_sequence() -> Result<(), LuceneError> {
+    fn test_empty_sequence() -> Result<()> {
         TestFastCompressionMode.test_empty_sequence()?;
         TestFastDecompressionMode.test_empty_sequence()?;
         TestHighCompressionMode.test_empty_sequence()?;
         TestLZ4WithPresetDictCompressionMode.test_empty_sequence()
     }
     #[test]
-    fn test_short_sequence() -> Result<(), LuceneError> {
+    fn test_short_sequence() -> Result<()> {
         let mut random = random();
         TestFastCompressionMode.test_short_sequence(&mut random)?;
         TestFastDecompressionMode.test_short_sequence(&mut random)?;
@@ -734,7 +708,7 @@ mod tests {
         TestLZ4WithPresetDictCompressionMode.test_short_sequence(&mut random)
     }
     #[test]
-    fn test_incompressible() -> Result<(), LuceneError> {
+    fn test_incompressible() -> Result<()> {
         let mut random = random();
         TestFastCompressionMode.test_incompressible(&mut random)?;
         TestFastDecompressionMode.test_incompressible(&mut random)?;
@@ -742,7 +716,7 @@ mod tests {
         TestLZ4WithPresetDictCompressionMode.test_incompressible(&mut random)
     }
     #[test]
-    fn test_constant() -> Result<(), LuceneError> {
+    fn test_constant() -> Result<()> {
         let mut random = random();
         TestFastCompressionMode.test_constant(&mut random)?;
         TestFastDecompressionMode.test_constant(&mut random)?;
@@ -750,7 +724,7 @@ mod tests {
         TestLZ4WithPresetDictCompressionMode.test_constant(&mut random)
     }
     #[test]
-    fn test_extremely_large_input() -> Result<(), LuceneError> {
+    fn test_extremely_large_input() -> Result<()> {
         TestFastCompressionMode.test_extremely_large_input()?;
         TestFastDecompressionMode.test_extremely_large_input()?;
         TestHighCompressionMode.test_extremely_large_input()?;

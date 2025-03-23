@@ -16,7 +16,7 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, ReadAdvice};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Provides random-access input operations for files within a [`Directory`](crate::store::directory::Directory).
 ///
@@ -45,7 +45,7 @@ pub trait IndexInput: DataInput + Clone {
     ///
     /// # See Also
     /// [`get_file_pointer`](IndexInput::get_file_pointer)
-    fn seek(&mut self, pos: i64) -> Result<(), LuceneError>;
+    fn seek(&mut self, pos: i64) -> Result<()>;
     /// Inherits documentation from the parent implementation.
     ///
     /// # Behavior
@@ -55,7 +55,7 @@ pub trait IndexInput: DataInput + Clone {
     /// [`get_file_pointer`](IndexInput::get_file_pointer)
     ///
     /// [`seek`](IndexInput::seek)
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         if num_bytes < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "num_bytes must be >= 0, got {}",
@@ -72,12 +72,7 @@ pub trait IndexInput: DataInput + Clone {
     /// Creates a slice of this index input, with the given description, offset, and length.
     /// The slice is positioned at the beginning.
     type Slice: IndexInput + RandomAccessInput;
-    fn slice(
-        &self,
-        slice_description: &str,
-        offset: i64,
-        length: i64,
-    ) -> Result<Self::Slice, LuceneError>;
+    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used by
     /// [`CompoundFormat`](crate::codecs::compound_format) implementations to honor
     /// the [`ReadAdvice`] of each file within the compound file.
@@ -95,7 +90,7 @@ pub trait IndexInput: DataInput + Clone {
         offset: i64,
         length: i64,
         read_advice: &ReadAdvice,
-    ) -> Result<Self::Slice, LuceneError> {
+    ) -> Result<Self::Slice> {
         self.default_slice_with_read_advice(description, offset, length, read_advice)
     }
     fn default_slice_with_read_advice(
@@ -104,7 +99,7 @@ pub trait IndexInput: DataInput + Clone {
         offset: i64,
         length: i64,
         _read_advice: &ReadAdvice,
-    ) -> Result<Self::Slice, LuceneError> {
+    ) -> Result<Self::Slice> {
         self.slice(description, offset, length)
     }
     /// Creates a random-access slice of this index input, with the given offset and length.
@@ -112,7 +107,7 @@ pub trait IndexInput: DataInput + Clone {
     /// # Note
     /// The default implementation calls [`slice`](IndexInput::slice), and it doesn't support random access.
     /// It implements absolute reads as seek+read.
-    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice, LuceneError>;
+    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice>;
 
     /// Optional method: Gives a hint to this input that some bytes will be read soon.
     /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data
@@ -124,11 +119,11 @@ pub trait IndexInput: DataInput + Clone {
     ///
     /// # Note
     /// The default implementation is a no-op.
-    fn prefetch(&mut self, pos: i64, len: i64) -> Result<(), LuceneError> {
+    fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
         self.default_prefetch(pos, len)
     }
 
-    fn default_prefetch(&mut self, _pos: i64, _len: i64) -> Result<(), LuceneError> {
+    fn default_prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
         Ok(())
     }
 }

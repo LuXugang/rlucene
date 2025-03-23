@@ -16,7 +16,7 @@
  */
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::of;
@@ -70,7 +70,7 @@ impl PackedInts {
         format: Format,
         version: i32,
         bits_per_value: i32,
-    ) -> Result<&'static BulkOperationPackedEnum, LuceneError> {
+    ) -> Result<&'static BulkOperationPackedEnum> {
         check_version(version)?;
         Ok(of(format, bits_per_value))
     }
@@ -87,7 +87,7 @@ impl PackedInts {
         format: Format,
         version: i32,
         bits_per_value: i32,
-    ) -> Result<&'static BulkOperationPackedEnum, LuceneError> {
+    ) -> Result<&'static BulkOperationPackedEnum> {
         PackedInts::get_decoder(format, version, bits_per_value)
     }
     /// Expert: Restore a [`ReaderIterator`] from a stream without reading metadata at the
@@ -114,7 +114,7 @@ impl PackedInts {
         value_count: i32,
         bits_per_value: i32,
         mem: i32,
-    ) -> Result<ReaderIteratorImpl<impl ReaderIterator + use<'_, T>>, LuceneError>
+    ) -> Result<ReaderIteratorImpl<impl ReaderIterator + use<'_, T>>>
     where
         T: DataInput,
     {
@@ -148,7 +148,7 @@ impl PackedInts {
         value_count: i32,
         bits_per_value: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<MutablePacked64Enum, LuceneError> {
+    ) -> Result<MutablePacked64Enum> {
         let format_and_bits =
             fastest_format_and_bits(value_count, bits_per_value, acceptable_overhead_ratio);
         PackedInts::get_mutable_impl(
@@ -163,7 +163,7 @@ impl PackedInts {
         value_count: i32,
         bits_per_value: i32,
         format: Format,
-    ) -> Result<MutablePacked64Enum, LuceneError> {
+    ) -> Result<MutablePacked64Enum> {
         debug_assert!(value_count >= 0);
         match format {
             Format::PackedSingleBlock(_) => Ok(create(value_count, bits_per_value)?),
@@ -235,7 +235,7 @@ impl PackedInts {
     ///
     /// The number of bits needed to represent values from 0 to `max_value`.
     ///
-    pub fn bits_required(max_value: i64) -> Result<i32, LuceneError> {
+    pub fn bits_required(max_value: i64) -> Result<i32> {
         if max_value < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "max_value must be non-negative (got {})",
@@ -283,7 +283,7 @@ impl PackedInts {
         dest_pos: i32,
         len: i32,
         mem: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         debug_assert!(
             src_pos + len <= src.size(),
             "Source position and length out of bounds"
@@ -315,7 +315,7 @@ impl PackedInts {
         mut dest_pos: i32,
         mut len: i32,
         buf: &mut [i64],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         debug_assert!(!buf.is_empty(), "Buffer length must be greater than 0");
 
         let mut remaining = 0;
@@ -358,7 +358,7 @@ impl PackedInts {
         block_size: i32,
         min_block_size: i32,
         max_block_size: i32,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         if block_size < min_block_size || block_size > max_block_size {
             return Err(LuceneError::illegal_argument(format!(
                 "block_size must be >= {} and <= {}, got {}",
@@ -377,7 +377,7 @@ impl PackedInts {
         Ok(result as i32)
     }
     /// Return the number of blocks required to store `size` values on `block_size`.
-    pub fn num_blocks(size: i64, block_size: i32) -> Result<i32, LuceneError> {
+    pub fn num_blocks(size: i64, block_size: i32) -> Result<i32> {
         let num_blocks =
             (size / block_size as i64) + if size % block_size as i64 == 0 { 0 } else { 1 };
         let result = num_blocks.checked_mul(block_size as i64);
@@ -408,7 +408,7 @@ impl PackedInts {
 /// # Errors
 ///
 /// Returns an `IllegalArgumentError` if the version is out of bounds.
-pub fn check_version(version: i32) -> Result<(), LuceneError> {
+pub fn check_version(version: i32) -> Result<()> {
     if version < PackedInts::VERSION_START {
         return Err(LuceneError::illegal_argument(format!(
             "Version is too old, should be at least {} (got {})",
@@ -701,28 +701,16 @@ pub trait Encoder {
 /// A read-only random access array of positive integers.
 pub trait Reader: Accountable {
     /// Get the value at the given index.
-    fn get(&mut self, _index: i32) -> Result<i64, LuceneError> {
+    fn get(&mut self, _index: i32) -> Result<i64> {
         unimplemented!("get() must be implemented if it need to be used")
     }
 
     /// Bulk get: read at least one and at most `len` values starting from `index`
     /// into `arr[off.off+len]` and return the actual number of values that have been read.
-    fn get_bulk(
-        &mut self,
-        index: i32,
-        arr: &mut [i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         self.default_get_bulk(index, arr, off, len)
     }
-    fn default_get_bulk(
-        &mut self,
-        index: i32,
-        arr: &mut [i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn default_get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0");
         debug_assert!(index < self.size(), "index out of bounds: {}", index);
         debug_assert!(
@@ -749,7 +737,7 @@ pub trait ReaderIterator: Display {
     /// # Errors
     ///
     /// Returns an error if there is an issue decoding the next value.
-    fn next(&mut self) -> Result<i64, LuceneError> {
+    fn next(&mut self) -> Result<i64> {
         unimplemented!("next() must be implemented if it need to be used")
     }
 
@@ -764,7 +752,7 @@ pub trait ReaderIterator: Display {
     /// # Errors
     ///
     /// Returns an error if there is an issue decoding the values.
-    fn next_batch(&mut self, count: i32) -> Result<&mut LongsRef, LuceneError>;
+    fn next_batch(&mut self, count: i32) -> Result<&mut LongsRef>;
 
     /// Returns the number of bits per value.
     fn get_bits_per_value(&self) -> i32 {
@@ -812,7 +800,7 @@ impl<C> ReaderIterator for ReaderIteratorImpl<C>
 where
     C: ReaderIterator,
 {
-    fn next(&mut self) -> Result<i64, LuceneError> {
+    fn next(&mut self) -> Result<i64> {
         let next_values = self.next_batch(1)?;
         debug_assert!(next_values.length > 0, "next_values buffer is empty");
         let result = next_values.longs[next_values.offset as usize];
@@ -821,7 +809,7 @@ where
         Ok(result)
     }
 
-    fn next_batch(&mut self, count: i32) -> Result<&mut LongsRef, LuceneError> {
+    fn next_batch(&mut self, count: i32) -> Result<&mut LongsRef> {
         self.sub_reader.next_batch(count)
     }
 
@@ -862,7 +850,7 @@ pub trait Mutable: Reader + Display {
     /// * `index` - The position where the value should be set.
     /// * `value` - The value to be stored, which must conform to the constraints of the array.
     ///
-    fn set(&mut self, _index: i32, _value: i64) -> Result<(), LuceneError> {
+    fn set(&mut self, _index: i32, _value: i64) -> Result<()> {
         unimplemented!("set() must be implemented if it need to be used")
     }
     /// Sets a range of values in the array.
@@ -878,22 +866,10 @@ pub trait Mutable: Reader + Display {
     ///
     /// The actual number of values that have been set.
     ///
-    fn set_bulk(
-        &mut self,
-        index: i32,
-        arr: &[i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
         self.default_set_bulk(index, arr, off, len)
     }
-    fn default_set_bulk(
-        &mut self,
-        index: i32,
-        arr: &[i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn default_set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(
             index >= 0 && index < self.size(),
@@ -920,15 +896,10 @@ pub trait Mutable: Reader + Display {
     /// * `from_index` - The start index of the range to fill (inclusive).
     /// * `to_index` - The end index of the range to fill (exclusive).
     /// * `val` - The value to fill with.
-    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<(), LuceneError> {
+    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
         self.default_fill(from_index, to_index, val)
     }
-    fn default_fill(
-        &mut self,
-        from_index: i32,
-        to_index: i32,
-        val: i64,
-    ) -> Result<(), LuceneError> {
+    fn default_fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
         debug_assert!(val <= PackedInts::max_value(self.get_bits_per_value()));
         debug_assert!(
             from_index <= to_index,
@@ -943,7 +914,7 @@ pub trait Mutable: Reader + Display {
     }
 
     /// Sets all values in the packed array to 0.
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         self.fill(0, self.size(), 0)
     }
 }
@@ -1014,17 +985,11 @@ impl Accountable for NullReader {
     }
 }
 impl Reader for NullReader {
-    fn get(&mut self, _index: i32) -> Result<i64, LuceneError> {
+    fn get(&mut self, _index: i32) -> Result<i64> {
         Ok(0)
     }
 
-    fn get_bulk(
-        &mut self,
-        index: i32,
-        arr: &mut [i64],
-        off: i32,
-        mut len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(
             index < self.value_count,
@@ -1051,11 +1016,11 @@ pub trait Writer {
     /// The format used to serialize values.
     fn get_format(&self) -> &Format;
     ///  Add a value to the stream.
-    fn add(&mut self, v: i64) -> Result<(), LuceneError>;
+    fn add(&mut self, v: i64) -> Result<()>;
     /// The number of bits per value.
     fn bits_per_values(&self) -> i32;
     /// Perform end-of-stream operations.
-    fn finish(&mut self) -> Result<(), LuceneError>;
+    fn finish(&mut self) -> Result<()>;
     /// Returns the current ord in the stream (number of values that have been written so far minus one).
     fn ord(&self) -> i32;
 }
@@ -1085,7 +1050,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{new_directory, new_io_context, random, rarely};
 
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::long_values::LongValues;
     use crate::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
     use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
@@ -1147,7 +1112,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_bits_required() -> Result<(), LuceneError> {
+    fn test_bits_required() -> Result<()> {
         assert_eq!(PackedInts::bits_required((2u64.pow(61) - 1) as i64)?, 61);
         assert_eq!(PackedInts::bits_required(0x1FFFFFFFFFFFFFFF)?, 61);
         assert_eq!(PackedInts::bits_required(0x3FFFFFFFFFFFFFFF)?, 62);
@@ -1174,7 +1139,7 @@ mod tests {
         );
     }
     #[test]
-    fn test_packed_ints() -> Result<(), LuceneError> {
+    fn test_packed_ints() -> Result<()> {
         let mut random = random();
         let num = at_least(&mut random, 3);
         let io_context = new_io_context(&mut random)?;
@@ -1294,7 +1259,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_end_pointer() -> Result<(), LuceneError> {
+    fn test_end_pointer() -> Result<()> {
         let mut random = random();
 
         let mut directory = new_directory(&mut random)?;
@@ -1356,7 +1321,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_controlled_equality() -> Result<(), LuceneError> {
+    fn test_controlled_equality() -> Result<()> {
         const VALUE_COUNT: i32 = 255;
         const BITS_PER_VALUE: i32 = 8;
 
@@ -1374,7 +1339,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_bulk_copy() -> Result<(), LuceneError> {
+    fn test_random_bulk_copy() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3);
 
@@ -1446,7 +1411,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_equality() -> Result<(), LuceneError> {
+    fn test_random_equality() -> Result<()> {
         let mut random = random();
         let num_iters = if is_night_mode() {
             at_least(&mut random, 10)
@@ -1461,11 +1426,7 @@ mod tests {
         }
         Ok(())
     }
-    fn assert_random_equality(
-        value_count: i32,
-        bits_per_value: i32,
-        random: u64,
-    ) -> Result<(), LuceneError> {
+    fn assert_random_equality(value_count: i32, bits_per_value: i32, random: u64) -> Result<()> {
         let mut packed_ints = create_packed_ints(value_count, bits_per_value)?;
 
         for packed_int in &mut packed_ints {
@@ -1480,7 +1441,7 @@ mod tests {
     fn create_packed_ints(
         value_count: i32,
         bits_per_value: i32,
-    ) -> Result<Vec<MutablePacked64Enum>, LuceneError> {
+    ) -> Result<Vec<MutablePacked64Enum>> {
         let mut packed_ints: Vec<MutablePacked64Enum> = Vec::new();
         let packed64 = Packed64::new(value_count, bits_per_value);
         let mutable_impl = MutableImpl::new(packed64);
@@ -1495,11 +1456,7 @@ mod tests {
         Ok(packed_ints)
     }
 
-    fn fill(
-        packed_int: &mut MutablePacked64Enum,
-        bits_per_value: i32,
-        seed: u64,
-    ) -> Result<(), LuceneError> {
+    fn fill(packed_int: &mut MutablePacked64Enum, bits_per_value: i32, seed: u64) -> Result<()> {
         let max_value = if bits_per_value == 64 {
             i64::MAX
         } else {
@@ -1528,13 +1485,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_list_equality(packed_ints: &mut [MutablePacked64Enum]) -> Result<(), LuceneError> {
+    fn assert_list_equality(packed_ints: &mut [MutablePacked64Enum]) -> Result<()> {
         assert_list_equality_impl("", packed_ints)
     }
     fn assert_list_equality_impl(
         message: &str,
         packed_ints: &mut [MutablePacked64Enum],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if packed_ints.is_empty() {
             return Ok(());
         }
@@ -1569,7 +1526,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_secondary_block_change() -> Result<(), LuceneError> {
+    fn test_secondary_block_change() -> Result<()> {
         let mut mutable = MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(26, 5)));
         mutable.set(24, 31)?;
         assert_eq!(mutable.get(24)?, 31, "The value #24 should be correct");
@@ -1583,11 +1540,11 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_int_overflow() -> Result<(), LuceneError> {
+    fn test_int_overflow() -> Result<()> {
         Ok(())
     }
     #[test]
-    fn test_fill() -> Result<(), LuceneError> {
+    fn test_fill() -> Result<()> {
         let mut random = random();
         let value_count = 1111;
         let from = random.random_range(0..value_count + 1);
@@ -1617,7 +1574,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_packed_ints_null() -> Result<(), LuceneError> {
+    fn test_packed_ints_null() -> Result<()> {
         let mut random = random();
         // must be > 10 for the bulk reads below
         let size = TestUtil::next_int(&mut random, 11, 256);
@@ -1657,7 +1614,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_bulk_get() -> Result<(), LuceneError> {
+    fn test_bulk_get() -> Result<()> {
         let mut random = random();
         let value_count = 1111;
         let index = random.random_range(0..value_count) as usize;
@@ -1708,7 +1665,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bulk_set() -> Result<(), LuceneError> {
+    fn test_bulk_set() -> Result<()> {
         let mut random = random();
         let value_count = 1111;
         let index = random.random_range(0..value_count);
@@ -1759,7 +1716,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_copy() -> Result<(), LuceneError> {
+    fn test_copy() -> Result<()> {
         let mut random = random();
         let value_count = TestUtil::next_int(&mut random, 5, 600);
         let off1 = random.random_range(0..value_count);
@@ -1805,7 +1762,7 @@ mod tests {
     }
 
     #[test]
-    fn test_growable_writer() -> Result<(), LuceneError> {
+    fn test_growable_writer() -> Result<()> {
         let mut random = random();
         let value_count = 113 + random.random_range(0..1112);
 
@@ -1841,7 +1798,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_paged_growable_writer() -> Result<(), LuceneError> {
+    fn test_paged_growable_writer() -> Result<()> {
         let mut random = random();
 
         let page_size = 1 << TestUtil::next_int(&mut random, 6, 30);
@@ -1923,7 +1880,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_paged_mutable() -> Result<(), LuceneError> {
+    fn test_paged_mutable() -> Result<()> {
         let mut random = random();
         let bits_per_value = TestUtil::next_int(&mut random, 1, 64);
         let max = PackedInts::max_value(bits_per_value);
@@ -2001,7 +1958,7 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_decode() -> Result<(), LuceneError> {
+    fn test_encode_decode() -> Result<()> {
         let mut random = random();
 
         for format in &[
@@ -2202,7 +2159,7 @@ mod tests {
         Monotonic,
     }
     #[test]
-    fn test_packed_long_values() -> Result<(), LuceneError> {
+    fn test_packed_long_values() -> Result<()> {
         let mut random = random();
 
         let arr_size = if is_night_mode() {
@@ -2312,7 +2269,7 @@ mod tests {
         // PackedDataOutput is only used for tests, so we don't need to test it
     }
     #[test]
-    fn test_block_packed_reader_writer() -> Result<(), LuceneError> {
+    fn test_block_packed_reader_writer() -> Result<()> {
         let mut random = random();
         let iters = at_least(&mut random, 2);
         for _ in 0..iters {
@@ -2479,7 +2436,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_monotonic_block_packed_reader_writer() -> Result<(), LuceneError> {
+    fn test_monotonic_block_packed_reader_writer() -> Result<()> {
         let mut random = random();
         let iters = at_least(&mut random, 2);
         for _ in 0..iters {
@@ -2539,7 +2496,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_block_reader_overflow() -> Result<(), LuceneError> {
+    fn test_block_reader_overflow() -> Result<()> {
         if !is_night_mode() {
             return Ok(());
         }

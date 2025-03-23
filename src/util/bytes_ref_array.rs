@@ -20,7 +20,7 @@ use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, CounterEnumBorrow,
@@ -55,9 +55,7 @@ pub type MTBytesRefArray = BytesRefArray<CounterEnumLock>;
 
 impl BytesRefArray<CounterEnumBorrow> {
     /// for single-threaded scenarios
-    pub fn new(
-        byte_used: CounterEnumBorrow,
-    ) -> Result<BytesRefArray<CounterEnumBorrow>, LuceneError> {
+    pub fn new(byte_used: CounterEnumBorrow) -> Result<BytesRefArray<CounterEnumBorrow>> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = ByteBlockPool::new(allocator);
         BytesRefArray::new_impl(pool, byte_used)
@@ -65,9 +63,7 @@ impl BytesRefArray<CounterEnumBorrow> {
 }
 impl BytesRefArray<CounterEnumLock> {
     /// for multi-threaded scenarios
-    pub fn new_sync(
-        byte_used: CounterEnumLock,
-    ) -> Result<BytesRefArray<CounterEnumLock>, LuceneError> {
+    pub fn new_sync(byte_used: CounterEnumLock) -> Result<BytesRefArray<CounterEnumLock>> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = ByteBlockPool::new_sync(allocator);
         BytesRefArray::new_impl(pool, byte_used)
@@ -78,7 +74,7 @@ impl<A> BytesRefArray<A>
 where
     A: Access<CounterEnum>,
 {
-    fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A>, LuceneError> {
+    fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A>> {
         pool.next_buffer()?;
         let offsets = Vec::new();
         byte_used.with_exclusive(|b| Ok(b.add_and_get(BitUtil::INT_BYTES as i64)))?;
@@ -102,7 +98,7 @@ where
     /// # Errors
     /// Returns [`LuceneError::array_index_out_of_bounds`] if the index is invalid.
     ///
-    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef, LuceneError> {
+    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef> {
         if index < 0 || index >= self.last_element {
             return Err(LuceneError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
@@ -138,7 +134,7 @@ where
         spare: &mut BytesRefBuilder,
         result: &mut BytesRef,
         index: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if index < 0 || index >= self.last_element {
             return Err(LuceneError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
@@ -173,7 +169,7 @@ where
         &mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
         stable: bool,
-    ) -> Result<SortState, LuceneError> {
+    ) -> Result<SortState> {
         let size = self.size();
         let mut ordered_entries: Vec<i32> = (0..size).collect();
         if stable {
@@ -233,7 +229,7 @@ impl<'a, A> SortableBytesRefArray<'a> for BytesRefArray<A>
 where
     A: Access<CounterEnum> + 'a,
 {
-    fn append(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
+    fn append(&mut self, bytes: &BytesRef) -> Result<i32> {
         self.pool.append_bytes_ref(bytes)?;
         self.offsets.push(self.current_offset);
         self.last_element += 1;
@@ -243,7 +239,7 @@ where
         Ok(self.last_element - 1)
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         self.last_element = 0;
         self.current_offset = 0;
         self.offsets.clear();
@@ -267,7 +263,7 @@ where
     fn iterator(
         &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<Self::Iter, LuceneError> {
+    ) -> Result<Self::Iter> {
         let ords = self.sort(comp, false)?;
         Ok(self.iterator_with_state(Arc::from(ords)))
     }
@@ -324,7 +320,7 @@ impl<A> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn next(&mut self) -> Result<Option<BytesRef>, LuceneError> {
+    fn next(&mut self) -> Result<Option<BytesRef>> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
@@ -372,7 +368,7 @@ impl<A> Sorter for StableStringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.ordered_entries.swap(i as usize, j as usize);
         Ok(())
     }
@@ -382,12 +378,7 @@ impl<A> StringSorterBase for StableStringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn get(
-        &mut self,
-        builder: &mut BytesRefBuilder,
-        result: &mut BytesRef,
-        i: i32,
-    ) -> Result<(), LuceneError> {
+    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
         self.bytes_ref_array
             .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
@@ -418,7 +409,7 @@ impl<A> Sorter for StringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.ordered_entries.swap(i as usize, j as usize);
         Ok(())
     }
@@ -427,12 +418,7 @@ impl<A> StringSorterBase for StringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn get(
-        &mut self,
-        builder: &mut BytesRefBuilder,
-        result: &mut BytesRef,
-        i: i32,
-    ) -> Result<(), LuceneError> {
+    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
         self.bytes_ref_array
             .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
@@ -444,7 +430,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::{BytesRefArray, CounterEnum, Natural, NaturalOrder, SortableBytesRefArray};
     use rand::Rng;
     use std::cell::RefCell;
@@ -454,7 +440,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestBytesRefArray;
     #[test]
-    fn test_append() -> Result<(), LuceneError> {
+    fn test_append() -> Result<()> {
         let mut random = random();
         let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let mut list = BytesRefArray::new(counter)?;
@@ -511,7 +497,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_sort() -> Result<(), LuceneError> {
+    fn test_sort() -> Result<()> {
         let mut random = random();
         let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let mut list = BytesRefArray::new(counter)?;
@@ -579,7 +565,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_stable_sort() -> Result<(), LuceneError> {
+    fn test_stable_sort() -> Result<()> {
         let mut random = random();
 
         let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));

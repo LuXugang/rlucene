@@ -17,7 +17,7 @@
 use crate::store::directory::Directory;
 use crate::store::lock::Lock;
 use crate::store::IOContext;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 /// Directory implementation that delegates calls to another directory.
@@ -62,23 +62,19 @@ impl<D> Directory for FilterDirectory<D>
 where
     D: Directory,
 {
-    fn list_all(&self) -> Result<Vec<String>, LuceneError> {
+    fn list_all(&self) -> Result<Vec<String>> {
         self.delegate.list_all()
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<(), LuceneError> {
+    fn delete_file(&mut self, name: &str) -> Result<()> {
         self.delegate.delete_file(name)
     }
 
-    fn file_length(&self, name: &str) -> Result<i64, LuceneError> {
+    fn file_length(&self, name: &str) -> Result<i64> {
         self.delegate.file_length(name)
     }
 
-    fn create_output(
-        &mut self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
         self.delegate.create_output(name, context)
     }
 
@@ -89,37 +85,33 @@ where
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    ) -> Result<Self::IndexOutputType> {
         self.delegate.create_temp_output(prefix, suffix, context)
     }
 
-    fn sync(&mut self, names: &[&str]) -> Result<(), LuceneError> {
+    fn sync(&mut self, names: &[&str]) -> Result<()> {
         self.delegate.sync(names)
     }
 
-    fn sync_metadata(&mut self) -> Result<(), LuceneError> {
+    fn sync_metadata(&mut self) -> Result<()> {
         self.delegate.sync_metadata()
     }
 
-    fn rename(&mut self, source: &str, dest: &str) -> Result<(), LuceneError> {
+    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
         self.delegate.rename(source, dest)
     }
 
     type IndexInputType = D::IndexInputType;
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         self.delegate.open_input(name, context)
     }
 
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, LuceneError> {
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
         self.delegate.obtain_lock(name)
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError> {
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         self.delegate.get_pending_deletions()
     }
 }

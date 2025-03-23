@@ -16,7 +16,7 @@
  */
 use crate::util::bkd::point_reader::PointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -43,7 +43,7 @@ impl HeapPointReader {
     }
 }
 impl PointReader for HeapPointReader {
-    fn next(&mut self) -> Result<bool, LuceneError> {
+    fn next(&mut self) -> Result<bool> {
         self.cur_read += 1;
         Ok(self.cur_read < self.end)
     }

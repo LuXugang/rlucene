@@ -23,7 +23,7 @@ use crate::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_writer::BKDWriter;
 use crate::util::bkd::doc_ids_writer::DocIdsWriter;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::math_util::MathUtil;
 use crate::util::SliceCopyOps;
 use std::cell::RefCell;
@@ -59,7 +59,7 @@ where
         meta_in: Rc<RefCell<I>>,
         index_in: Rc<RefCell<I>>,
         data_in: Rc<RefCell<I>>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let meta_in = &mut *meta_in.borrow_mut();
         let version = CodecUtil::check_header(
             meta_in,
@@ -144,7 +144,7 @@ where
         Ok(reader)
     }
     /// Checks if the tree is balanced.
-    fn is_tree_balanced(&self) -> Result<bool, LuceneError> {
+    fn is_tree_balanced(&self) -> Result<bool> {
         if self.version >= BKDWriter::VERSION_META_FILE {
             // Since Lucene 8.6 all trees are unbalanced.
             return Ok(false);
@@ -180,37 +180,37 @@ impl<I> PointValuesBase for BKDReader<I>
 where
     I: IndexInput,
 {
-    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>> {
         Ok(Option::from(self.min_packed_value.clone()))
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>> {
         Ok(Option::from(self.max_packed_value.clone()))
     }
 
-    fn get_num_dimensions(&self) -> Result<i32, LuceneError> {
+    fn get_num_dimensions(&self) -> Result<i32> {
         Ok(self.config.num_dims)
     }
 
-    fn get_num_index_dimensions(&self) -> Result<i32, LuceneError> {
+    fn get_num_index_dimensions(&self) -> Result<i32> {
         Ok(self.config.num_index_dims)
     }
 
-    fn get_bytes_per_dimension(&self) -> Result<i32, LuceneError> {
+    fn get_bytes_per_dimension(&self) -> Result<i32> {
         Ok(self.config.bytes_per_dim)
     }
 
-    fn size(&self) -> Result<i64, LuceneError> {
+    fn size(&self) -> Result<i64> {
         Ok(self.point_count)
     }
 
-    fn get_doc_count(&self) -> Result<i32, LuceneError> {
+    fn get_doc_count(&self) -> Result<i32> {
         Ok(self.doc_count)
     }
 
     type PointTreeType = BKDPointTree<I>;
 
-    fn get_point_tree(&self) -> Result<Self::PointTreeType, LuceneError> {
+    fn get_point_tree(&self) -> Result<Self::PointTreeType> {
         let slice = self.index_in.borrow_mut().slice(
             "packedIndex",
             self.index_start_pointer,
@@ -300,7 +300,7 @@ where
         min_packed_value: &[u8],
         max_packed_value: &[u8],
         is_tree_balanced: bool,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let packed_bytes_len = config.packed_bytes_length() as usize;
         let packed_index_bytes_len = config.packed_index_bytes_length() as usize;
         let num_dims = config.num_dims as usize;
@@ -345,7 +345,7 @@ where
         scratch_max_index_packed_value: Vec<u8>,
         common_prefix_lengths: Vec<i32>,
         is_tree_balanced: bool,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         // stack arrays that keep information at different levels
         let tree_depth = Self::get_tree_depth(num_leaves)? as usize;
         let split_values_stack =
@@ -396,7 +396,7 @@ where
             scratch_max_index_packed_value,
         })
     }
-    fn reset_node_data_position(&mut self) -> Result<(), LuceneError> {
+    fn reset_node_data_position(&mut self) -> Result<()> {
         // move position of the inner nodes index to visit the first child
         let position = self.read_node_data_positions[self.level as usize] as i64;
         debug_assert!(position <= self.inner_nodes.get_file_pointer());
@@ -437,7 +437,7 @@ where
             split_dim_pos,
         );
     }
-    fn push_left(&mut self) -> Result<(), LuceneError> {
+    fn push_left(&mut self) -> Result<()> {
         self.node_id *= 2;
         self.level += 1;
         self.read_node_data(true)
@@ -473,7 +473,7 @@ where
             split_dim_pos,
         );
     }
-    fn push_right(&mut self) -> Result<(), LuceneError> {
+    fn push_right(&mut self) -> Result<()> {
         let node_position = self.right_node_positions[self.level as usize] as i64;
 
         debug_assert!(
@@ -526,7 +526,7 @@ where
         self.node_id - self.leaf_node_offset < self.leaf_node_offset
     }
     /// Only valid after pushLeft or pushRight, not pop!.
-    fn get_leaf_block_fp(&self) -> Result<i64, LuceneError> {
+    fn get_leaf_block_fp(&self) -> Result<i64> {
         debug_assert!(self.is_leaf_node(), "nodeID={} is not a leaf", self.node_id);
         Ok(self.leaf_block_fp_stack[self.level as usize])
     }
@@ -534,7 +534,7 @@ where
         &self,
         left_most_leaf_node: i32,
         right_most_leaf_node: i32,
-    ) -> Result<i64, LuceneError> {
+    ) -> Result<i64> {
         // number of points that need to be distributed between leaves, one per leaf
         let extra_points = i32::try_from(
             self.config.max_points_in_leaf_node as i64 * self.leaf_node_offset as i64
@@ -591,11 +591,7 @@ where
             self.balance_tree_node_position(mid, max_node, node, position + (1 << level), level + 1)
         }
     }
-    fn add_all(
-        &mut self,
-        visitor: &mut impl IntersectVisitor,
-        mut grown: bool,
-    ) -> Result<(), LuceneError> {
+    fn add_all(&mut self, visitor: &mut impl IntersectVisitor, mut grown: bool) -> Result<()> {
         if !grown {
             let size = self.size()?;
             if size <= i32::MAX as i64 {
@@ -626,10 +622,7 @@ where
 
         Ok(())
     }
-    fn visit_leaves_one_by_one(
-        &mut self,
-        visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    fn visit_leaves_one_by_one(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
         if self.is_leaf_node() {
             let leaf_fp = self.get_leaf_block_fp()?;
             self.visit_doc_values(visitor, leaf_fp)?;
@@ -645,11 +638,7 @@ where
         Ok(())
     }
 
-    fn visit_doc_values(
-        &mut self,
-        visitor: &mut impl IntersectVisitor,
-        fp: i64,
-    ) -> Result<(), LuceneError> {
+    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor, fp: i64) -> Result<()> {
         let count = self.read_doc_ids(fp)?;
 
         if self.version >= BKDWriter::VERSION_LOW_CARDINALITY_LEAVES {
@@ -661,7 +650,7 @@ where
         Ok(())
     }
 
-    fn read_doc_ids(&mut self, block_fp: i64) -> Result<i32, LuceneError> {
+    fn read_doc_ids(&mut self, block_fp: i64) -> Result<i32> {
         let mut index_input = self.leaf_nodes.borrow_mut();
         index_input.seek(block_fp)?;
         let count = index_input.read_vint()?;
@@ -685,7 +674,7 @@ where
         }
     }
 
-    fn read_node_data(&mut self, is_left: bool) -> Result<(), LuceneError> {
+    fn read_node_data(&mut self, is_left: bool) -> Result<()> {
         self.leaf_block_fp_stack[self.level as usize] =
             self.leaf_block_fp_stack[(self.level - 1) as usize];
         if !is_left {
@@ -765,14 +754,14 @@ where
     ///   For example, to have a fully balanced tree with 4 leaves, you need a tree of depth 3.
     /// - The second `+1` ensures that the depth is correctly calculated, as `log2(num_leaves)`
     ///   computes the floor of the logarithm. For example, with 5 leaves, you need a tree of depth 4.
-    fn get_tree_depth(num_leaves: i32) -> Result<i32, LuceneError> {
+    fn get_tree_depth(num_leaves: i32) -> Result<i32> {
         Ok(MathUtil::log(num_leaves as i64, 2)? + 2)
     }
     fn visit_doc_values_no_cardinality(
         &mut self,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let packed_index_bytes_length = self.config.packed_index_bytes_length() as usize;
 
         self.read_common_prefixes()?;
@@ -827,7 +816,7 @@ where
         &mut self,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let packed_index_bytes_length = self.config.packed_index_bytes_length() as usize;
         self.read_common_prefixes()?;
         let compressed_dim = self.read_compressed_dim()?;
@@ -883,7 +872,7 @@ where
 
         Ok(())
     }
-    fn read_min_max(&mut self) -> Result<(), LuceneError> {
+    fn read_min_max(&mut self) -> Result<()> {
         let index_input = &mut *self.leaf_nodes.borrow_mut();
         for dim in 0..self.config.num_index_dims {
             let prefix = self.common_prefix_lengths[dim as usize];
@@ -909,7 +898,7 @@ where
         &mut self,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut i = 0;
         {
             let index_input = &mut *self.leaf_nodes.borrow_mut();
@@ -950,7 +939,7 @@ where
         &mut self,
         count: i32,
         visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.scratch_iterator.reset(0, count);
         visitor.visit_iterator_with_packed_value(
             &mut self.scratch_iterator,
@@ -963,7 +952,7 @@ where
         count: i32,
         visitor: &mut impl IntersectVisitor,
         compressed_dim: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let bytes_per_dim = self.config.bytes_per_dim as usize;
         let compressed_dim = compressed_dim as usize;
 
@@ -1010,7 +999,7 @@ where
 
         Ok(())
     }
-    fn read_compressed_dim(&mut self) -> Result<i32, LuceneError> {
+    fn read_compressed_dim(&mut self) -> Result<i32> {
         let compressed_dim = DataInput::read_byte(&mut *self.leaf_nodes.borrow_mut())? as i8 as i32;
 
         if compressed_dim < -2
@@ -1027,7 +1016,7 @@ where
         Ok(compressed_dim)
     }
 
-    pub fn read_common_prefixes(&mut self) -> Result<(), LuceneError> {
+    pub fn read_common_prefixes(&mut self) -> Result<()> {
         let num_dims = self.config.num_dims;
         let index_input = &mut *self.leaf_nodes.borrow_mut();
         for dim in 0..num_dims {
@@ -1061,7 +1050,7 @@ impl<I> PointTree for BKDPointTree<I>
 where
     I: IndexInput,
 {
-    fn move_to_child(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_child(&mut self) -> Result<bool> {
         if self.is_leaf_node() {
             return Ok(false);
         }
@@ -1071,7 +1060,7 @@ where
         Ok(true)
     }
 
-    fn move_to_sibling(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_sibling(&mut self) -> Result<bool> {
         if !self.is_left_node() || self.is_root_node() {
             return Ok(false);
         }
@@ -1085,7 +1074,7 @@ where
         Ok(true)
     }
 
-    fn move_to_parent(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_parent(&mut self) -> Result<bool> {
         if self.is_root_node() {
             return Ok(false);
         }
@@ -1095,15 +1084,15 @@ where
         Ok(true)
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8], LuceneError> {
+    fn get_min_packed_value(&self) -> Result<&[u8]> {
         Ok(&self.min_packed_value)
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8], LuceneError> {
+    fn get_max_packed_value(&self) -> Result<&[u8]> {
         Ok(&self.max_packed_value)
     }
 
-    fn size(&self) -> Result<i64, LuceneError> {
+    fn size(&self) -> Result<i64> {
         let mut left_most_leaf_node = self.node_id;
         while left_most_leaf_node < self.leaf_node_offset {
             left_most_leaf_node *= 2;
@@ -1145,12 +1134,12 @@ where
         Ok(size)
     }
 
-    fn visit_doc_ids(&mut self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_ids(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
         self.reset_node_data_position()?;
         self.add_all(visitor, false)
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
         self.reset_node_data_position()?;
         self.visit_leaves_one_by_one(visitor)
     }
@@ -1189,7 +1178,7 @@ impl DocIdSetIterator for BKDReaderDocIDSetIterator {
         self.doc_id
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         if self.idx == self.length {
             self.doc_id = NO_MORE_DOCS;
         } else {
@@ -1199,11 +1188,11 @@ impl DocIdSetIterator for BKDReaderDocIDSetIterator {
         Ok(self.doc_id)
     }
 
-    fn advance(&mut self, target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         DocIdSetIterator::slow_advance(self, target)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(self.length as i64)
     }
 }
@@ -1212,24 +1201,16 @@ struct IntersectVisitorImpl<'a> {
     count: &'a mut [i32],
 }
 impl IntersectVisitor for IntersectVisitorImpl<'_> {
-    fn visit(&mut self, _doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         self.count[0] += 1;
         Ok(())
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        _doc_id: i32,
-        _packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn compare(
-        &mut self,
-        _min_packed_value: &[u8],
-        _max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Err(LuceneError::not_implemented(""))
     }
 }

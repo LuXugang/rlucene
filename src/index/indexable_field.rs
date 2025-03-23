@@ -23,7 +23,7 @@ use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -56,30 +56,30 @@ pub trait IndexableField: Display {
         &self,
         _analyzer: Option<&impl Analyzer>,
         _reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum, LuceneError>;
+    ) -> Result<TokenStreamEnum>;
     /// Non-null if this field has a binary value.
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError>;
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>>;
 
     /// Non-null if this field has a string value.
-    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError>;
+    fn string_value(&self) -> Result<Option<Arc<String>>>;
     /// Non-null if this field has a string value.
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
         self.string_value()
     }
 
     /// Non-null if this field has a Reader value.
-    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError>;
+    fn reader_value(&self) -> Result<Option<ReaderEnum>>;
 
     /// Non-null if this field has a numeric value.
-    fn numeric_value(&self) -> Result<Option<Number>, LuceneError>;
+    fn numeric_value(&self) -> Result<Option<Number>>;
 
     /// Stored value. This method is called to populate stored fields and must return a non-null value
     /// if the field stored.
-    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError>;
+    fn stored_value(&self) -> Result<Option<StoredValue>>;
 
     /// Describes how this field should be inverted. This must return a non-null value if the field
     /// indexes terms and postings.
-    fn invertable_type(&self) -> Result<&InvertableType, LuceneError>;
+    fn invertable_type(&self) -> Result<&InvertableType>;
 }
 
 #[cfg(test)]

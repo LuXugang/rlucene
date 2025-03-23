@@ -14,33 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 pub trait Access<T>: Clone {
-    fn with_shared<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_shared<F, R>(&self, f: F) -> Result<R>
     where
-        F: FnOnce(&T) -> Result<R, LuceneError>;
+        F: FnOnce(&T) -> Result<R>;
 
-    fn with_exclusive<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_exclusive<F, R>(&self, f: F) -> Result<R>
     where
-        F: FnOnce(&mut T) -> Result<R, LuceneError>;
+        F: FnOnce(&mut T) -> Result<R>;
 }
 
 impl<T> Access<T> for Rc<RefCell<T>> {
-    fn with_shared<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_shared<F, R>(&self, f: F) -> Result<R>
     where
-        F: FnOnce(&T) -> Result<R, LuceneError>,
+        F: FnOnce(&T) -> Result<R>,
     {
         let borrow = self.borrow();
         f(&*borrow)
     }
 
-    fn with_exclusive<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_exclusive<F, R>(&self, f: F) -> Result<R>
     where
-        F: FnOnce(&mut T) -> Result<R, LuceneError>,
+        F: FnOnce(&mut T) -> Result<R>,
     {
         let mut borrow = self.borrow_mut();
         f(&mut *borrow)
@@ -48,9 +48,9 @@ impl<T> Access<T> for Rc<RefCell<T>> {
 }
 
 impl<T> Access<T> for Arc<Mutex<T>> {
-    fn with_shared<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_shared<F, R>(&self, f: F) -> Result<R>
     where
-        F: FnOnce(&T) -> Result<R, LuceneError>,
+        F: FnOnce(&T) -> Result<R>,
     {
         let guard: MutexGuard<T> = self
             .lock()
@@ -58,9 +58,9 @@ impl<T> Access<T> for Arc<Mutex<T>> {
         f(&*guard)
     }
 
-    fn with_exclusive<F, R>(&self, f: F) -> Result<R, LuceneError>
+    fn with_exclusive<F, R>(&self, f: F) -> Result<R>
     where
-        F: FnOnce(&mut T) -> Result<R, LuceneError>,
+        F: FnOnce(&mut T) -> Result<R>,
     {
         let mut guard: MutexGuard<T> = self
             .lock()

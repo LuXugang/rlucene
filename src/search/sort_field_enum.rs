@@ -19,7 +19,7 @@ use crate::search::sort_field::{MissingValueEnum, SortField, SortFiledBase};
 use crate::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::search::sorted_set_sort_field::SortedSetSortField;
 use crate::store::DataOutput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -32,10 +32,7 @@ pub enum SortFieldEnum {
 }
 
 impl SortFiledBase for SortFieldEnum {
-    fn set_missing_value(
-        &mut self,
-        missing_value: Option<MissingValueEnum>,
-    ) -> Result<(), LuceneError> {
+    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
         match self {
             SortFieldEnum::SortedNumeric(sort_field) => sort_field.set_missing_value(missing_value),
             SortFieldEnum::SortedSet(sort_field) => sort_field.set_missing_value(missing_value),
@@ -51,7 +48,7 @@ impl SortFiledBase for SortFieldEnum {
         }
     }
 
-    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<(), LuceneError> {
+    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<()> {
         match self {
             SortFieldEnum::SortedNumeric(sort_field) => sort_field.serialize(out),
             SortFieldEnum::SortedSet(sort_field) => sort_field.serialize(out),

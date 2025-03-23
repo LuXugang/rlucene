@@ -349,7 +349,7 @@ fn get_package_implementation_version() {
 mod tests {
     use crate::test::util::lucene_test_case::random;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::{
         Version, LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0, LUCENE_CURRENT,
     };
@@ -360,7 +360,7 @@ mod tests {
     struct TestVersion;
 
     #[test]
-    fn test_on_or_after() -> Result<(), LuceneError> {
+    fn test_on_or_after() -> Result<()> {
         let versions = vec![&*LUCENE_10_0_0, &*LUCENE_10_1_0, &*LUCENE_11_0_0];
 
         for version in versions {
@@ -377,7 +377,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_to_string() -> Result<(), LuceneError> {
+    fn test_to_string() -> Result<()> {
         assert_eq!(Version::from_bits(9, 0, 0)?.to_string(), "9.0.0");
         assert_eq!(LUCENE_10_0_0.to_string(), "10.0.0");
         assert_eq!(LUCENE_10_1_0.to_string(), "10.1.0");
@@ -386,7 +386,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_leniently() -> Result<(), LuceneError> {
+    fn test_parse_leniently() -> Result<()> {
         assert_eq!(Version::parse_leniently("11.0")?, *LUCENE_11_0_0);
         assert_eq!(Version::parse_leniently("11.0.0")?, *LUCENE_11_0_0);
         assert_eq!(Version::parse_leniently("LUCENE_11_0")?, *LUCENE_11_0_0);
@@ -446,7 +446,7 @@ mod tests {
         );
     }
     #[test]
-    fn test_parse_leniently_on_all_constants() -> Result<(), LuceneError> {
+    fn test_parse_leniently_on_all_constants() -> Result<()> {
         let versions = vec![
             (&*LUCENE_10_0_0, "LUCENE_10_0_0"),
             (&*LUCENE_10_1_0, "LUCENE_10_1_0"),
@@ -483,7 +483,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_parse() -> Result<(), LuceneError> {
+    fn test_parse() -> Result<()> {
         assert_eq!(Version::parse("10.0.0")?, *LUCENE_10_0_0);
         assert_eq!(Version::parse("11.0.0")?, *LUCENE_11_0_0);
 
@@ -493,7 +493,7 @@ mod tests {
     }
 
     #[test]
-    fn test_forwards_compatibility() -> Result<(), LuceneError> {
+    fn test_forwards_compatibility() -> Result<()> {
         assert!(Version::parse("11.10.20")?.on_or_after(&LUCENE_11_0_0));
         assert!(Version::parse("10.10.20")?.on_or_after(&LUCENE_10_0_0));
         assert!(Version::parse("9.10.20")?.on_or_after(&Version::from_bits(9, 0, 0)?));
@@ -536,7 +536,7 @@ mod tests {
         );
     }
     #[test]
-    fn test_non_floating_point_compliant_version_numbers() -> Result<(), LuceneError> {
+    fn test_non_floating_point_compliant_version_numbers() -> Result<()> {
         let version800 = Version::parse("8.0.0")?;
         assert!(
             Version::parse("8.10.0")?.on_or_after(&version800),
@@ -573,7 +573,7 @@ mod tests {
     }
 
     #[test]
-    fn test_equals_hash_code() -> Result<(), LuceneError> {
+    fn test_equals_hash_code() -> Result<()> {
         let mut random = random();
 
         let version = format!(

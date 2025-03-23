@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 /// Allows access to the score of a query.
 pub trait Scorable {
@@ -22,7 +22,7 @@ pub trait Scorable {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn score(&self) -> Result<f32, LuceneError>;
+    fn score(&self) -> Result<f32>;
 
     /// Returns the smoothing score of the current document matching the query.
     ///
@@ -37,7 +37,7 @@ pub trait Scorable {
     ///   "Combining the Language Model and Inference Network Approaches to Retrieval,"
     ///   *Information Processing and Management Special Issue on Bayesian Networks and Information Retrieval*,
     ///   40(5), pp. 735-750.
-    fn smoothing_score(&self, _doc_id: i32) -> Result<f32, LuceneError> {
+    fn smoothing_score(&self, _doc_id: i32) -> Result<f32> {
         Ok(0.0)
     }
 
@@ -47,12 +47,12 @@ pub trait Scorable {
     /// # Note
     /// This method may only be called from collectors that use [`ScoreMode::TOP_SCORES`](crate::search::score_mode::ScoreMode::TopScores), and
     /// successive calls may only set increasing values of `min_score`.
-    fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<(), LuceneError> {
+    fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
         Ok(())
     }
 
     /// Returns child sub-scorers positioned on the current document.
-    fn get_children<T: Scorable>(&self) -> Result<Vec<ChildScorable<T>>, LuceneError> {
+    fn get_children<T: Scorable>(&self) -> Result<Vec<ChildScorable<T>>> {
         Ok(vec![])
     }
 }

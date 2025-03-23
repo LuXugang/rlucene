@@ -19,7 +19,7 @@ use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::store::IndexInput;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_reader::BKDPointTree;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
 
 pub struct PointValues<S>
@@ -43,7 +43,7 @@ where
     /// Finds all documents and points matching the provided visitor.
     /// This method does not enforce live documents, so it's up to the caller
     /// to test whether each document is deleted, if necessary.
-    pub fn intersect(&self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    pub fn intersect(&self, visitor: &mut impl IntersectVisitor) -> Result<()> {
         let mut point_tree = self.get_point_tree()?;
         self.intersect_with_point_tree(visitor, &mut point_tree)?;
         debug_assert!(!point_tree.move_to_parent()?);
@@ -55,7 +55,7 @@ where
         &self,
         visitor: &mut impl IntersectVisitor,
         point_tree: &mut impl PointTree,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let relation = visitor.compare(
             point_tree.get_min_packed_value()?,
             point_tree.get_max_packed_value()?,
@@ -98,10 +98,7 @@ where
     /// Estimate the number of points that would be visited by `intersect`
     /// with the given `IntersectVisitor`. This should run many times faster
     /// than `intersect(IntersectVisitor)`.
-    pub fn estimate_point_count(
-        &self,
-        visitor: &mut impl IntersectVisitor,
-    ) -> Result<i64, LuceneError> {
+    pub fn estimate_point_count(&self, visitor: &mut impl IntersectVisitor) -> Result<i64> {
         let mut point_tree = self.get_point_tree()?;
         let count = Self::estimate_point_count_with_point_tree(visitor, &mut point_tree, i64::MAX)?;
         debug_assert!(!point_tree.move_to_parent()?);
@@ -114,7 +111,7 @@ where
         visitor: &mut impl IntersectVisitor,
         point_tree: &mut impl PointTree,
         upper_bound: i64,
-    ) -> Result<bool, LuceneError> {
+    ) -> Result<bool> {
         Ok(
             Self::estimate_point_count_with_point_tree(visitor, point_tree, upper_bound)?
                 >= upper_bound,
@@ -130,7 +127,7 @@ where
         visitor: &mut impl IntersectVisitor,
         point_tree: &mut impl PointTree,
         upper_bound: i64,
-    ) -> Result<i64, LuceneError> {
+    ) -> Result<i64> {
         let relation = visitor.compare(
             point_tree.get_min_packed_value()?,
             point_tree.get_max_packed_value()?,
@@ -174,7 +171,7 @@ where
     ///
     /// See also: `DocIdSetIterator::cost`
 
-    fn estimate_doc_count(&self, visitor: &mut impl IntersectVisitor) -> Result<i64, LuceneError> {
+    fn estimate_doc_count(&self, visitor: &mut impl IntersectVisitor) -> Result<i64> {
         let estimated_point_count = self.estimate_point_count(visitor)?;
         let doc_count = self.get_doc_count()?;
         let size = self.size()?;
@@ -204,62 +201,62 @@ impl<S> PointValuesBase for PointValues<S>
 where
     S: PointValuesBase,
 {
-    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>> {
         self.sub_point_values.get_min_packed_value()
     }
-    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>> {
         self.sub_point_values.get_max_packed_value()
     }
 
-    fn get_num_dimensions(&self) -> Result<i32, LuceneError> {
+    fn get_num_dimensions(&self) -> Result<i32> {
         self.sub_point_values.get_num_dimensions()
     }
 
-    fn get_num_index_dimensions(&self) -> Result<i32, LuceneError> {
+    fn get_num_index_dimensions(&self) -> Result<i32> {
         self.sub_point_values.get_num_dimensions()
     }
 
-    fn get_bytes_per_dimension(&self) -> Result<i32, LuceneError> {
+    fn get_bytes_per_dimension(&self) -> Result<i32> {
         self.sub_point_values.get_bytes_per_dimension()
     }
 
-    fn size(&self) -> Result<i64, LuceneError> {
+    fn size(&self) -> Result<i64> {
         self.sub_point_values.size()
     }
 
-    fn get_doc_count(&self) -> Result<i32, LuceneError> {
+    fn get_doc_count(&self) -> Result<i32> {
         self.sub_point_values.get_doc_count()
     }
 
     type PointTreeType = S::PointTreeType;
 
-    fn get_point_tree(&self) -> Result<Self::PointTreeType, LuceneError> {
+    fn get_point_tree(&self) -> Result<Self::PointTreeType> {
         self.sub_point_values.get_point_tree()
     }
 }
 pub trait PointValuesBase {
     /// Returns minimum value for each dimension, packed, or None if `size()` is `0`
-    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError>;
+    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>>;
 
     /// Returns maximum value for each dimension, packed, or None if `size()` is `0`
-    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError>;
+    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>>;
 
     /// Returns how many dimensions are represented in the values
-    fn get_num_dimensions(&self) -> Result<i32, LuceneError>;
+    fn get_num_dimensions(&self) -> Result<i32>;
 
     /// Returns how many dimensions are used for the index
-    fn get_num_index_dimensions(&self) -> Result<i32, LuceneError>;
+    fn get_num_index_dimensions(&self) -> Result<i32>;
 
     /// Returns the number of bytes per dimension
-    fn get_bytes_per_dimension(&self) -> Result<i32, LuceneError>;
+    fn get_bytes_per_dimension(&self) -> Result<i32>;
 
     /// Returns the total number of indexed points across all documents.
-    fn size(&self) -> Result<i64, LuceneError>;
+    fn size(&self) -> Result<i64>;
 
     /// Returns the total number of documents that have indexed at least one point.
-    fn get_doc_count(&self) -> Result<i32, LuceneError>;
+    fn get_doc_count(&self) -> Result<i32>;
     type PointTreeType: PointTree;
-    fn get_point_tree(&self) -> Result<Self::PointTreeType, LuceneError>;
+    fn get_point_tree(&self) -> Result<Self::PointTreeType>;
 }
 /// Used by `intersect` to check how each recursive cell corresponds to the query.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -275,7 +272,7 @@ pub enum Relation {
 pub trait PointTree: Clone {
     /// Move to the first child node and return `true` upon success.
     /// Returns `false` for leaf nodes and `true` otherwise.
-    fn move_to_child(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_child(&mut self) -> Result<bool> {
         Err(LuceneError::need_implemented(
             "move_to_child is not implemented",
         ))
@@ -283,7 +280,7 @@ pub trait PointTree: Clone {
 
     /// Move to the next sibling node and return `true` upon success.
     /// Returns `false` if the current node has no more siblings.
-    fn move_to_sibling(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_sibling(&mut self) -> Result<bool> {
         Err(LuceneError::need_implemented(
             "move_to_sibling is not implemented",
         ))
@@ -291,43 +288,40 @@ pub trait PointTree: Clone {
 
     /// Move to the parent node and return `true` upon success.
     /// Returns `false` for the root node and `true` otherwise.
-    fn move_to_parent(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_parent(&mut self) -> Result<bool> {
         Err(LuceneError::need_implemented(
             "move_to_parent is not implemented",
         ))
     }
 
     /// Return the minimum packed value of the current node.
-    fn get_min_packed_value(&self) -> Result<&[u8], LuceneError> {
+    fn get_min_packed_value(&self) -> Result<&[u8]> {
         Err(LuceneError::need_implemented(
             "get_min_packed_value is not implemented",
         ))
     }
 
     /// Return the maximum packed value of the current node.
-    fn get_max_packed_value(&self) -> Result<&[u8], LuceneError> {
+    fn get_max_packed_value(&self) -> Result<&[u8]> {
         Err(LuceneError::need_implemented(
             "get_max_packed_value is not implemented",
         ))
     }
 
     /// Return the number of points below the current node.
-    fn size(&self) -> Result<i64, LuceneError> {
+    fn size(&self) -> Result<i64> {
         Err(LuceneError::need_implemented("size is not implemented"))
     }
 
     /// Visit all the docs below the current node.
-    fn visit_doc_ids(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_ids(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<()> {
         Err(LuceneError::need_implemented(
             "visit_doc_ids is not implemented",
         ))
     }
 
     /// Visit all the docs and values below the current node.
-    fn visit_doc_values(
-        &mut self,
-        _visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    fn visit_doc_values(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<()> {
         Err(LuceneError::need_implemented(
             "visit_doc_values is not implemented",
         ))
@@ -354,14 +348,11 @@ impl<I> PointTree for PointTreeEnum<I> where I: IndexInput {}
 pub trait IntersectVisitor {
     /// Called for all documents in a leaf cell that's fully contained by the query.
     /// The consumer should blindly accept the docID.
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError>;
+    fn visit(&mut self, doc_id: i32) -> Result<()>;
 
     /// Similar to `visit(doc_id)`, but a bulk visit and implementations may have their optimizations.
     /// Default implementation that iterates over the provided `DocIdSetIterator`.
-    fn visit_with_iterator(
-        &mut self,
-        iterator: &mut impl DocIdSetIterator,
-    ) -> Result<(), LuceneError> {
+    fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
         loop {
             let doc_id = iterator.next_doc()?;
             if doc_id == NO_MORE_DOCS {
@@ -375,10 +366,10 @@ pub trait IntersectVisitor {
     /// Similar to `visit(doc_id)`, but a bulk visit and implementations may have their optimizations.
     /// Even if the implementation does the same thing as this method, this may be a speed improvement
     /// due to fewer virtual calls.
-    fn visit_with_ints_ref(&mut self, ints_ref: &IntsRef) -> Result<(), LuceneError> {
+    fn visit_with_ints_ref(&mut self, ints_ref: &IntsRef) -> Result<()> {
         self.default_visit_with_ints_ref(ints_ref)
     }
-    fn default_visit_with_ints_ref(&mut self, ints_ref: &IntsRef) -> Result<(), LuceneError> {
+    fn default_visit_with_ints_ref(&mut self, ints_ref: &IntsRef) -> Result<()> {
         let ints = ints_ref.ints.borrow();
         for i in ints_ref.offset as usize..(ints_ref.offset + ints_ref.length) as usize {
             self.visit(ints[i])?;
@@ -390,11 +381,7 @@ pub trait IntersectVisitor {
     /// The consumer should scrutinize the `packed_value` to decide whether to accept it.
     /// In the 1D case, values are visited in increasing order, and in the case of ties,
     /// in increasing docID order.
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError>;
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()>;
 
     /// Similar to `visit_with_packed_value(doc_id, packed_value)` but in this case the `packed_value`
     /// can have more than one docID associated to it.
@@ -404,14 +391,14 @@ pub trait IntersectVisitor {
         &mut self,
         iterator: &mut impl DocIdSetIterator,
         packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.default_visit_iterator_with_packed_value_(iterator, packed_value)
     }
     fn default_visit_iterator_with_packed_value_(
         &mut self,
         iterator: &mut impl DocIdSetIterator,
         packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         loop {
             let doc_id = iterator.next_doc()?;
             if doc_id == NO_MORE_DOCS {
@@ -424,14 +411,10 @@ pub trait IntersectVisitor {
 
     /// Called for non-leaf cells to test how the cell relates to the query,
     /// to determine how to further recurse down the tree.
-    fn compare(
-        &mut self,
-        min_packed_value: &[u8],
-        max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError>;
+    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation>;
 
     /// Notifies the caller that this many documents are about to be visited.
-    fn grow(&mut self, _count: i32) -> Result<(), LuceneError> {
+    fn grow(&mut self, _count: i32) -> Result<()> {
         Ok(())
     }
 }

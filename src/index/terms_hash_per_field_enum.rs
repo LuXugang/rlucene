@@ -22,7 +22,7 @@ use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash_per_field::tests::TermsHashPerFieldMock;
 use crate::index::terms_hash_per_field::TermsHashPerFieldBase;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::ByteBlockPoolBorrow;
 #[allow(unused)]
 pub(crate) enum TermsHashPerFieldEnum {
@@ -56,7 +56,7 @@ impl TermsHashPerFieldEnum {
             }
         }
     }
-    fn reinit_hash(&mut self) -> Result<(), LuceneError> {
+    fn reinit_hash(&mut self) -> Result<()> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.reinit_hash()
@@ -69,7 +69,7 @@ impl TermsHashPerFieldEnum {
         }
     }
 
-    pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<(), LuceneError> {
+    pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<()> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.write_byte(stream, b)
@@ -88,7 +88,7 @@ impl TermsHashPerFieldEnum {
         b: &[u8],
         offset: i32,
         len: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.write_bytes(stream, b, offset, len)
@@ -103,7 +103,7 @@ impl TermsHashPerFieldEnum {
         }
     }
 
-    pub(crate) fn write_vint(&mut self, stream: i32, i: i32) -> Result<(), LuceneError> {
+    pub(crate) fn write_vint(&mut self, stream: i32, i: i32) -> Result<()> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.write_vint(stream, i)
@@ -123,7 +123,7 @@ impl TermsHashPerFieldEnum {
             TermsHashPerFieldEnum::Mock(t) => t.parent_per_field.byte_pool.clone(),
         }
     }
-    fn add_with_text_start(&mut self, text_start: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn add_with_text_start(&mut self, text_start: i32, doc_id: i32) -> Result<()> {
         let parent = match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => &mut inner.parent_per_field,
             TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => &mut inner.parent_per_field,
@@ -140,11 +140,7 @@ impl TermsHashPerFieldEnum {
     }
     /// Called once per inverted token. This is the primary entry point (for first TermsHash); postings
     /// use this API.
-    pub(crate) fn add_with_bytes_ref(
-        &mut self,
-        term_bytes: &BytesRef,
-        doc_id: i32,
-    ) -> Result<(), LuceneError> {
+    pub(crate) fn add_with_bytes_ref(&mut self, term_bytes: &BytesRef, doc_id: i32) -> Result<()> {
         let mut term_id;
         {
             let parent = match self {
@@ -189,7 +185,7 @@ impl TermsHashPerFieldEnum {
 }
 
 impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
-    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.init_stream_slices(term_id, doc_id),
             TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.init_stream_slices(term_id, doc_id),
@@ -198,7 +194,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
         }
     }
 
-    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
+    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => {
                 t.position_stream_slice(term_id, doc_id)
@@ -211,7 +207,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
         }
     }
 
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
+    fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.start(field, first),
             TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.start(field, first),
@@ -220,7 +216,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
         }
     }
 
-    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.new_term(term_id, doc_id),
             TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.new_term(term_id, doc_id),
@@ -229,7 +225,7 @@ impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
         }
     }
 
-    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.add_term(term_id, doc_id),
             TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.add_term(term_id, doc_id),

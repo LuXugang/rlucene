@@ -21,7 +21,7 @@ use crate::test::util::lucene_test_case::is_night_mode;
 
 use crate::test::util::test_util::TestUtil;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use rand::prelude::StdRng;
 use rand::Rng;
 use std::cmp::max;
@@ -29,13 +29,13 @@ use std::cmp::max;
 pub trait BaseDocIdSetTestCase {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet;
     /// Test length=0.
-    fn test_bit_0(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test_bit_0(&self, random: &mut StdRng) -> Result<()> {
         let bs = bit_set::BitSet::with_capacity(1);
         let copy = self.copy_of(&bs, 1);
         self.assert_equals(random, 1, &bs, copy)
     }
     /// Test length=1.
-    fn test_bit_1(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test_bit_1(&self, random: &mut StdRng) -> Result<()> {
         let mut bs = bit_set::BitSet::with_capacity(1);
         if random.random_bool(0.5) {
             bs.insert(0);
@@ -44,7 +44,7 @@ pub trait BaseDocIdSetTestCase {
         self.assert_equals(random, 1, &bs, copy)
     }
     /// Test length=2.
-    fn test_bit_2(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test_bit_2(&self, random: &mut StdRng) -> Result<()> {
         let mut bs = bit_set::BitSet::with_capacity(2);
         if random.random_bool(0.5) {
             bs.insert(0);
@@ -56,7 +56,7 @@ pub trait BaseDocIdSetTestCase {
         self.assert_equals(random, 2, &bs, copy)
     }
     /// Compare the content of the set against a {@link BitSet}.
-    fn test_against_bit_set(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test_against_bit_set(&self, random: &mut StdRng) -> Result<()> {
         let num_bits = random.random_range(100..1 << 20);
         let random_float: f32 = random.random();
         for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
@@ -104,7 +104,7 @@ pub trait BaseDocIdSetTestCase {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    ) -> Result<(), LuceneError>;
+    ) -> Result<()>;
 }
 // todo
 #[allow(unused)]
@@ -118,7 +118,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         num_bits: i32,
         ds1: &bit_set::BitSet,
         ds2: T,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         // nextDoc
         let mut it2 = ds2.iterator();
         if it2.is_none() {

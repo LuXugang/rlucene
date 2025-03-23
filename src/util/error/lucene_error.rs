@@ -215,3 +215,4 @@ impl LuceneError {
         LuceneError::Unreachable(UnreachableError::new(msg))
     }
 }
+pub type Result<T> = core::result::Result<T, LuceneError>;

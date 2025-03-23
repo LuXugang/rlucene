@@ -16,7 +16,7 @@
  */
 use crate::index::BytesRefBuilder;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{check_range, Sorter};
 use std::cmp::min;
@@ -61,7 +61,7 @@ where
             delegate_sorter,
         }
     }
-    pub fn sort_impl(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<(), LuceneError> {
+    pub fn sort_impl(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<()> {
         if self.should_fallback(from, to, l) {
             self.get_fallback_sorter(k).sort(from, to)
         } else {
@@ -75,11 +75,7 @@ where
     ///
     /// This method has been split to avoid platform-specific issues.
     ///
-    fn compute_initial_common_prefix_length(
-        &mut self,
-        from: i32,
-        k: i32,
-    ) -> Result<i32, LuceneError> {
+    fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> Result<i32> {
         let common_prefix = &mut self.common_prefix;
         let mut common_prefix_length = min(common_prefix.len(), (self.max_length - k) as usize);
 
@@ -105,7 +101,7 @@ where
         l: i32,
         common_prefix_length: i32,
         i: i32,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         if i < to {
             debug_assert!(common_prefix_length == 0);
             self.build_histogram(self.common_prefix[0] + 1, i - from, i, to, k, l)?;
@@ -126,7 +122,7 @@ where
         to: i32,
         k: i32,
         l: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.delegate_sorter.build_histogram(
             prefix_common_bucket,
             prefix_common_len,
@@ -143,7 +139,7 @@ where
         k: i32,
         l: i32,
         mut common_prefix_length: i32,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         let mut i = from + 1;
 
         'outer: for idx in from + 1..to {
@@ -177,7 +173,7 @@ where
         to: i32,
         k: i32,
         l: i32,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         let common_prefix_length = self.compute_initial_common_prefix_length(from, k)?;
         self.compute_common_prefix_length_and_build_histogram_part1(
             from,
@@ -205,7 +201,7 @@ where
     /// - `start_offsets`: Start offsets per bucket.
     /// - `end_offsets`: End offsets per bucket.
     /// - `k`: The current position offset.
-    fn reorder(&mut self, from: i32, to: i32, l: i32, k: i32) -> Result<(), LuceneError> {
+    fn reorder(&mut self, from: i32, to: i32, l: i32, k: i32) -> Result<()> {
         self.delegate_sorter.reorder(
             from,
             to,
@@ -221,7 +217,7 @@ where
     /// - `to`: End index (exclusive).
     /// - `k`: The character number to compare.
     /// - `l`: The level of recursion.
-    fn radix_sort(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<(), LuceneError> {
+    fn radix_sort(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<()> {
         // Access or initialize the histogram for this level
         if self.histograms[l as usize].is_empty() {
             self.histograms[l as usize] = vec![0; HISTOGRAM_SIZE];
@@ -304,19 +300,19 @@ impl<T> Sorter for MSBRadixSorter<T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.delegate_sorter.set_pivot(i)
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32, LuceneError> {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32> {
         self.delegate_sorter.compare_pivot(i)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
         check_range(from, to)?;
         self.sort_impl(from, to, 0, 0)
     }
@@ -336,7 +332,7 @@ impl<T> Sorter for MSBRadixIntroSorterImpl<'_, T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.k..self.max_length {
             let b1 = self.delegate_sorter.byte_at(i, o)?;
             let b2 = self.delegate_sorter.byte_at(j, o)?;
@@ -350,11 +346,11 @@ where
         Ok(0)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot.set_length(0);
 
         for o in self.k..self.max_length {
@@ -367,7 +363,7 @@ where
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32, LuceneError> {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
             let b2 = self.delegate_sorter.byte_at(j, self.k + o)?;
@@ -386,7 +382,7 @@ where
         }
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -407,7 +403,7 @@ pub trait MSBRadixSorterBase: Sorter {
     ///
     /// # Note
     /// In Rust, this method might return a signed integer (`i32`) to accommodate the `-1` case, which differs from Java's default integer handling.
-    fn byte_at(&mut self, _i: i32, _k: i32) -> Result<i32, LuceneError> {
+    fn byte_at(&mut self, _i: i32, _k: i32) -> Result<i32> {
         unimplemented!("byte_at() must be implemented if it need to be used")
     }
 
@@ -439,7 +435,7 @@ pub trait MSBRadixSorterBase: Sorter {
         start_offsets: &mut [i32],
         end_offsets: &mut [i32],
         k: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         // Reorder in place, similar to the Dutch national flag problem
         for i in 0..HISTOGRAM_SIZE {
             let limit = end_offsets[i];
@@ -454,7 +450,7 @@ pub trait MSBRadixSorterBase: Sorter {
         Ok(())
     }
 
-    fn get_bucket(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+    fn get_bucket(&mut self, i: i32, k: i32) -> Result<i32> {
         Ok(self.byte_at(i, k)? + 1)
     }
 
@@ -466,7 +462,7 @@ pub trait MSBRadixSorterBase: Sorter {
         to: i32,
         k: i32,
         histogram: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         histogram[prefix_common_bucket as usize] = prefix_common_len;
 
         for i in from..to {
@@ -490,14 +486,14 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
 
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
     use std::collections::{BTreeSet, HashSet};
 
     #[allow(dead_code)] // for quick search
     struct TestMSBRadixSorter;
 
-    fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<()> {
         let mut expected: Vec<BytesRef> = refs[..len].to_vec();
         expected.sort();
 
@@ -521,14 +517,14 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_empty() -> Result<(), LuceneError> {
+    fn test_empty() -> Result<()> {
         let mut random = random();
         let mut refs: Vec<BytesRef> = vec![BytesRef::default(); random.random_range(0..5)];
         assert!(test(&mut refs, 0, &mut random).is_ok());
         test(&mut refs, 0, &mut random)
     }
     #[test]
-    fn test_one_value() -> Result<(), LuceneError> {
+    fn test_one_value() -> Result<()> {
         let mut random = random();
 
         let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
@@ -536,7 +532,7 @@ mod tests {
         test(&mut refs, 1, &mut random)
     }
     #[test]
-    fn test_two_values() -> Result<(), LuceneError> {
+    fn test_two_values() -> Result<()> {
         let mut random = random();
 
         let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
@@ -546,11 +542,7 @@ mod tests {
         test(&mut refs, 2, &mut random)
     }
 
-    fn test_random_impl(
-        common_prefix_len: usize,
-        max_len: i32,
-        random: &mut StdRng,
-    ) -> Result<(), LuceneError> {
+    fn test_random_impl(common_prefix_len: usize, max_len: i32, random: &mut StdRng) -> Result<()> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.random_range(0..10000);
@@ -566,7 +558,7 @@ mod tests {
         test(&mut bytes, len, random)
     }
     #[test]
-    fn test_random() -> Result<(), LuceneError> {
+    fn test_random() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             test_random_impl(0, 10, &mut random)?;
@@ -575,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_lots_of_duplicates() -> Result<(), LuceneError> {
+    fn test_random_with_lots_of_duplicates() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             test_random_impl(0, 2, &mut random)?;
@@ -584,7 +576,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_shared_prefix() -> Result<(), LuceneError> {
+    fn test_random_with_shared_prefix() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
@@ -594,7 +586,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), LuceneError> {
+    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
@@ -604,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random2() -> Result<(), LuceneError> {
+    fn test_random2() -> Result<()> {
         let mut random = random();
         // How large our alphabet is
         let letter_count = TestUtil::next_int(&mut random, 2, 10);
@@ -685,7 +677,7 @@ mod tests {
     }
 
     impl MSBRadixSorterBase for MSBRadixSorterImpl {
-        fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+        fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
             assert!(
                 k < self.final_max_length,
                 "Index out of bounds: k={} exceeds final_max_length={}",
@@ -702,7 +694,7 @@ mod tests {
         }
     }
     impl Sorter for MSBRadixSorterImpl {
-        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
             self.refs.swap(i as usize, j as usize);
             Ok(())
         }

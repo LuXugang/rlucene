@@ -16,7 +16,7 @@
  */
 use crate::store::index_input::get_full_slice_description;
 use crate::store::{BufferedIndexInput, BufferedIndexInputBase};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -68,7 +68,7 @@ impl NIOFSIndexInput {
 }
 
 impl BufferedIndexInputBase for NIOFSIndexInput {
-    fn seek_internal(&mut self, pos: i64) -> Result<(), LuceneError> {
+    fn seek_internal(&mut self, pos: i64) -> Result<()> {
         if pos > self.length() {
             return Err(LuceneError::eof(format!(
                 "read past EOF: pos={} vs length={} in {}",
@@ -117,7 +117,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         buffer: &mut Cursor<Vec<u8>>,
         len: i64,
         file_pointer: i64,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         debug_assert!(buffer.remain() >= len as u64, "buffer overflow");
         let mut pos = file_pointer + self.off;
 
@@ -172,12 +172,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
 
     type Slice = BufferedIndexInput<NIOFSIndexInput>;
 
-    fn slice(
-        &self,
-        slice_description: &str,
-        offset: i64,
-        length: i64,
-    ) -> Result<Self::Slice, LuceneError> {
+    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
         if offset < 0 || length < 0 || offset + length > self.length() {
             return Err(LuceneError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",

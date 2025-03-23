@@ -29,7 +29,7 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_reader::BKDReader;
 use crate::util::bkd::bkd_writer::BKDWriter;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
 use crate::util::{SliceCopyOps, ToInt};
 use bit_set::BitSet;
@@ -43,13 +43,11 @@ use std::rc::Rc;
 #[allow(dead_code)] // for quick search
 struct TestBKD;
 
-fn get_point_values<I: IndexInput>(
-    index_input: Rc<RefCell<I>>,
-) -> Result<BKDReader<I>, LuceneError> {
+fn get_point_values<I: IndexInput>(index_input: Rc<RefCell<I>>) -> Result<BKDReader<I>> {
     BKDReader::new(index_input.clone(), index_input.clone(), index_input)
 }
 #[test]
-fn test_basic_ints_1d() -> Result<(), LuceneError> {
+fn test_basic_ints_1d() -> Result<()> {
     let mut random = random();
     let config = Rc::new(BKDConfig::new(1, 1, 4, 2)?);
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
@@ -112,7 +110,7 @@ fn test_basic_ints_1d() -> Result<(), LuceneError> {
 }
 
 #[test]
-fn test_random_ints_n_dims() -> Result<(), LuceneError> {
+fn test_random_ints_n_dims() -> Result<()> {
     let mut random = random();
     let num_docs = at_least(&mut random, 1000);
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
@@ -251,7 +249,7 @@ fn test_random_ints_n_dims() -> Result<(), LuceneError> {
 }
 // Tests on N-dimensional points where each dimension is a BigInteger
 #[test]
-fn test_big_int_n_dims() -> Result<(), LuceneError> {
+fn test_big_int_n_dims() -> Result<()> {
     let mut random = random();
     let num_docs = at_least(&mut random, 1000);
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
@@ -386,25 +384,25 @@ fn test_with_exceptions() {
 }
 
 #[test]
-fn test_random_binary_tiny() -> Result<(), LuceneError> {
+fn test_random_binary_tiny() -> Result<()> {
     let mut random = random();
     do_test_random_binary(&mut random, 10)
 }
 
 #[test]
-fn test_random_binary_medium() -> Result<(), LuceneError> {
+fn test_random_binary_medium() -> Result<()> {
     let mut random = random();
     do_test_random_binary(&mut random, 10_000)
 }
 
 #[cfg(feature = "nightly")]
 #[test]
-fn test_random_binary_big() -> Result<(), LuceneError> {
+fn test_random_binary_big() -> Result<()> {
     let mut random = random();
     do_test_random_binary(&mut random, 200_000)
 }
 #[test]
-fn test_too_little_heap() -> Result<(), LuceneError> {
+fn test_too_little_heap() -> Result<()> {
     let dir = Rc::new(RefCell::new(new_directory(&mut random())?));
 
     let err = BKDWriter::new(
@@ -422,7 +420,7 @@ fn test_too_little_heap() -> Result<(), LuceneError> {
     }
     Ok(())
 }
-fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<(), LuceneError> {
+fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<()> {
     let num_docs = TestUtil::next_int(random, count, count * 2);
     let num_bytes_per_dim = TestUtil::next_int(random, 2, 30);
 
@@ -454,7 +452,7 @@ fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<(), LuceneEr
 }
 
 #[test]
-fn test_all_equal() -> Result<(), LuceneError> {
+fn test_all_equal() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
@@ -491,7 +489,7 @@ fn test_all_equal() -> Result<(), LuceneError> {
 }
 
 #[test]
-fn test_index_dim_equal_data_dim_different() -> Result<(), LuceneError> {
+fn test_index_dim_equal_data_dim_different() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
@@ -540,7 +538,7 @@ fn test_index_dim_equal_data_dim_different() -> Result<(), LuceneError> {
 }
 
 #[test]
-fn test_one_dim_equal() -> Result<(), LuceneError> {
+fn test_one_dim_equal() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
@@ -581,7 +579,7 @@ fn test_one_dim_equal() -> Result<(), LuceneError> {
 }
 
 #[test]
-fn test_one_dim_low_card() -> Result<(), LuceneError> {
+fn test_one_dim_low_card() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
@@ -641,7 +639,7 @@ fn test_one_dim_low_card() -> Result<(), LuceneError> {
 }
 
 #[test]
-fn test_one_dim_two_values() -> Result<(), LuceneError> {
+fn test_one_dim_two_values() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
@@ -693,7 +691,7 @@ fn test_one_dim_two_values() -> Result<(), LuceneError> {
 }
 
 #[test]
-fn test_random_few_different_values() -> Result<(), LuceneError> {
+fn test_random_few_different_values() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
@@ -745,7 +743,7 @@ impl DocMap for DocMapImpl {
 }
 
 #[test]
-fn test_multi_valued() -> Result<(), LuceneError> {
+fn test_multi_valued() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
@@ -796,7 +794,7 @@ fn verify(
     num_data_dims: i32,
     num_index_dims: i32,
     num_bytes_per_dim: i32,
-) -> Result<(), LuceneError> {
+) -> Result<()> {
     let max_points_in_leaf_node = TestUtil::next_int(random, 50, 1000);
     verify_full(
         random,
@@ -817,7 +815,7 @@ fn verify_full(
     num_index_dims: i32,
     num_bytes_per_dim: i32,
     max_points_in_leaf_node: i32,
-) -> Result<(), LuceneError> {
+) -> Result<()> {
     let dir = Rc::new(RefCell::new(new_directory(random)?));
     let max_mb: f64 = 3.0 + (3.0 * random.random::<f64>());
     verify_with_max_mb(
@@ -843,7 +841,7 @@ fn verify_with_max_mb<D: Directory>(
     num_bytes_per_dim: i32,
     mut max_points_in_leaf_node: i32,
     mut max_mb: f64,
-) -> Result<(), LuceneError> {
+) -> Result<()> {
     let num_values = doc_values.len();
 
     if cfg!(feature = "test_log_verbose") {
@@ -1116,7 +1114,7 @@ fn verify_with_max_mb<D: Directory>(
 
     Ok(())
 }
-fn assert_size(tree: &mut impl PointTree, random: &mut StdRng) -> Result<(), LuceneError> {
+fn assert_size(tree: &mut impl PointTree, random: &mut StdRng) -> Result<()> {
     // TODO:do we need clone?
     // let mut clone = tree.clone();
     // assert_eq!(clone.size()?, tree.size()?);
@@ -1161,32 +1159,21 @@ struct IntersectVisitorMock1<'a> {
     visit_doc_values_size: &'a mut [i64],
 }
 impl IntersectVisitor for IntersectVisitorMock1<'_> {
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, doc_id: i32) -> Result<()> {
         self.visit_doc_id_size[0] += 1;
         Ok(())
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         self.visit_doc_values_size[0] += 1;
         Ok(())
     }
 
-    fn compare(
-        &mut self,
-        min_packed_value: &[u8],
-        max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
-fn random_point_tree_navigation(
-    tree: &mut impl PointTree,
-    random: &mut StdRng,
-) -> Result<(), LuceneError> {
+fn random_point_tree_navigation(tree: &mut impl PointTree, random: &mut StdRng) -> Result<()> {
     let min_packed_value = tree.get_min_packed_value()?.to_vec();
     let max_packed_value = tree.get_max_packed_value()?.to_vec();
     let size = tree.size()?;
@@ -1250,15 +1237,11 @@ struct IntersectVisitorImpl<'a> {
 }
 
 impl IntersectVisitor for IntersectVisitorImpl<'_> {
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, doc_id: i32) -> Result<()> {
         self.hits.insert(doc_id as usize);
         Ok(())
     }
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         let num_index_dims = self.config.num_index_dims as usize;
         let bytes_per_dim = self.config.bytes_per_dim as usize;
 
@@ -1285,7 +1268,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
         &mut self,
         iterator: &mut impl DocIdSetIterator,
         packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if self.random.random_bool(0.5) {
             // Check the default method is correct
             IntersectVisitor::default_visit_iterator_with_packed_value_(
@@ -1317,7 +1300,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
         Ok(())
     }
 
-    fn compare(&mut self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
         let num_index_dims = self.config.num_index_dims as usize;
         let bytes_per_dim = self.config.bytes_per_dim as usize;
         let mut crosses = false;
@@ -1356,12 +1339,12 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
     }
 }
 #[test]
-fn test_bit_flipped_on_partition1() -> Result<(), LuceneError> {
+fn test_bit_flipped_on_partition1() -> Result<()> {
     // TODO: MockDirectoryWrapper not Implemented
     Ok(())
 }
 #[test]
-fn test_bit_flippedon_partition2() -> Result<(), LuceneError> {
+fn test_bit_flippedon_partition2() -> Result<()> {
     // TODO: MockDirectoryWrapper not Implemented
     Ok(())
 }
@@ -1374,7 +1357,7 @@ impl IntersectVisitorMock2 {
     }
 }
 impl IntersectVisitor for IntersectVisitorMock2 {
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, doc_id: i32) -> Result<()> {
         assert!(
             doc_id > self.last_doc_id,
             "lastDocID={} docID={}",
@@ -1385,24 +1368,16 @@ impl IntersectVisitor for IntersectVisitorMock2 {
         Ok(())
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        _packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, _packed_value: &[u8]) -> Result<()> {
         self.visit(doc_id)
     }
 
-    fn compare(
-        &mut self,
-        min_packed_value: &[u8],
-        max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
 #[test]
-fn test_tie_break_order() -> Result<(), LuceneError> {
+fn test_tie_break_order() -> Result<()> {
     let mut random = random();
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
     let num_docs = 10_000;
@@ -1457,15 +1432,11 @@ impl IntersectVisitorMock3 {
     }
 }
 impl IntersectVisitor for IntersectVisitorMock3 {
-    fn visit(&mut self, _doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        _doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, _doc_id: i32, packed_value: &[u8]) -> Result<()> {
         let len = (self.num_data_dims * self.num_bytes_per_dim) as usize;
         if self.previous.is_none() {
             let mut value = vec![0u8; len];
@@ -1487,16 +1458,12 @@ impl IntersectVisitor for IntersectVisitorMock3 {
         Ok(())
     }
 
-    fn compare(
-        &mut self,
-        _min_packed_value: &[u8],
-        _max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
 #[test]
-fn test_check_data_dim_optimal_order() -> Result<(), LuceneError> {
+fn test_check_data_dim_optimal_order() -> Result<()> {
     let mut random = random();
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
     let num_values = at_least(&mut random, 5000);
@@ -1576,24 +1543,16 @@ impl<'a> IntersectVisitorMock4<'a> {
     }
 }
 impl IntersectVisitor for IntersectVisitorMock4<'_> {
-    fn visit(&mut self, _doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         self.count[0] += 1;
         Ok(())
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        _packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, _packed_value: &[u8]) -> Result<()> {
         self.visit(doc_id)
     }
 
-    fn compare(
-        &mut self,
-        _min_packed_value: &[u8],
-        _max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         if self.random.random_range(0..7) == 1 {
             Ok(Relation::CellCrossesQuery)
         } else {
@@ -1602,7 +1561,7 @@ impl IntersectVisitor for IntersectVisitorMock4<'_> {
     }
 }
 #[test]
-fn test_2d_long_ords_offline() -> Result<(), LuceneError> {
+fn test_2d_long_ords_offline() -> Result<()> {
     let mut random = random();
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
     let num_docs = 100_000;
@@ -1659,16 +1618,12 @@ struct IntersectVisitorMock5<'a> {
     num_dims: i32,
 }
 impl IntersectVisitor for IntersectVisitorMock5<'_> {
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, doc_id: i32) -> Result<()> {
         self.count[0] += 1;
         Ok(())
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         assert_eq!(
             packed_value.len(),
             (self.num_dims * self.bytes_per_dim) as usize
@@ -1676,7 +1631,7 @@ impl IntersectVisitor for IntersectVisitorMock5<'_> {
         self.visit(doc_id)
     }
 
-    fn compare(&mut self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
         assert_eq!(
             min_packed.len(),
             (self.num_index_dims * self.bytes_per_dim) as usize
@@ -1693,7 +1648,7 @@ impl IntersectVisitor for IntersectVisitorMock5<'_> {
     }
 }
 #[test]
-fn test_wasted_leading_bytes() -> Result<(), LuceneError> {
+fn test_wasted_leading_bytes() -> Result<()> {
     let mut random = random();
     let num_dims = TestUtil::next_int(&mut random, 1, PointValues::MAX_INDEX_DIMENSIONS);
     let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
@@ -1757,45 +1712,29 @@ fn test_wasted_leading_bytes() -> Result<(), LuceneError> {
 }
 struct IntersectVisitorMock6;
 impl IntersectVisitor for IntersectVisitorMock6 {
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, doc_id: i32) -> Result<()> {
         Ok(())
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         Ok(())
     }
 
-    fn compare(
-        &mut self,
-        min_packed_value: &[u8],
-        max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellInsideQuery)
     }
 }
 struct IntersectVisitorMock7;
 impl IntersectVisitor for IntersectVisitorMock7 {
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, doc_id: i32) -> Result<()> {
         Ok(())
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         Ok(())
     }
 
-    fn compare(
-        &mut self,
-        min_packed_value: &[u8],
-        max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellOutsideQuery)
     }
 }
@@ -1804,23 +1743,15 @@ struct IntersectVisitorMock8<'a> {
     num_bytes_per_dim: i32,
 }
 impl IntersectVisitor for IntersectVisitorMock8<'_> {
-    fn visit(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    fn visit(&mut self, doc_id: i32) -> Result<()> {
         Ok(())
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        _doc_id: i32,
-        _packed_value: &[u8],
-    ) -> Result<(), LuceneError> {
+    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
         Ok(())
     }
 
-    fn compare(
-        &mut self,
-        min_packed_value: &[u8],
-        max_packed_value: &[u8],
-    ) -> Result<Relation, LuceneError> {
+    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         if self.unique_point_value[..self.num_bytes_per_dim as usize]
             .cmp(&max_packed_value[..self.num_bytes_per_dim as usize])
             .to_int()
@@ -1837,7 +1768,7 @@ impl IntersectVisitor for IntersectVisitorMock8<'_> {
     }
 }
 #[test]
-fn test_estimate_point_count() -> Result<(), LuceneError> {
+fn test_estimate_point_count() -> Result<()> {
     let mut random = random();
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
     let num_values = at_least(&mut random, 10_000);
@@ -1934,11 +1865,11 @@ pub struct MutablePointTreeMock1 {
 }
 
 impl PointTree for MutablePointTreeMock1 {
-    fn size(&self) -> Result<i64, LuceneError> {
+    fn size(&self) -> Result<i64> {
         Ok(self.num_points_added as i64)
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
         for _ in 0..self.num_points_added {
             visitor.visit_with_packed_value(0, self.point_values.as_slice())?;
         }
@@ -1974,7 +1905,7 @@ impl MutablePointTree for MutablePointTreeMock1 {
     fn restore(&mut self, _i: i32, _j: i32) {}
 }
 #[test]
-fn test_total_point_count_validation() -> Result<(), LuceneError> {
+fn test_total_point_count_validation() -> Result<()> {
     let mut random = random();
     let dir = Rc::new(RefCell::new(new_directory(&mut random).unwrap()));
     let num_values = 10;
@@ -2023,11 +1954,11 @@ pub struct MutablePointTreeMock2 {
 }
 
 impl PointTree for MutablePointTreeMock2 {
-    fn size(&self) -> Result<i64, LuceneError> {
+    fn size(&self) -> Result<i64> {
         Ok(11)
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
         for i in 0..self.size()? as usize {
             visitor.visit_with_packed_value(self.doc_id[i], &self.point_values[i])?
         }
@@ -2074,7 +2005,7 @@ impl MutablePointTree for MutablePointTreeMock2 {
     }
 }
 #[test]
-fn test_too_many_points_1d() -> Result<(), LuceneError> {
+fn test_too_many_points_1d() -> Result<()> {
     let mut random = random();
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
 

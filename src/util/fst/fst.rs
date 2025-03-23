@@ -16,7 +16,7 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
 use crate::util::fst::reverse_bytes_reader::ReverseBytesReader;
 use crate::util::fst::reverse_random_access_reader::ReverseRandomAccessReader;
@@ -45,19 +45,19 @@ where
 pub struct DummyBytesReader;
 
 impl DataInput for DummyBytesReader {
-    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self) -> Result<u8> {
         Err(LuceneError::unsupported_operation(
             "DummyBytesReader does not support reading bytes".to_string(),
         ))
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "DummyBytesReader does not support reading bytes".to_string(),
         ))
     }
 
-    fn skip_bytes(&mut self, _num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "DummyBytesReader does not support skipping bytes".to_string(),
         ))

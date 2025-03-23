@@ -24,7 +24,7 @@ use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput, ReadAdvice, IO_CONTEXT_DEFAULT};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex};
@@ -54,7 +54,7 @@ impl<D> Lucene90CompoundReader<D>
 where
     D: Directory,
 {
-    pub fn new(directory: Arc<Mutex<D>>, si: &SegmentInfo<D>) -> Result<Self, LuceneError> {
+    pub fn new(directory: Arc<Mutex<D>>, si: &SegmentInfo<D>) -> Result<Self> {
         let segment_name = si.name.clone();
         let data_file_name = IndexFileNames::segment_file_name(
             &segment_name,
@@ -122,7 +122,7 @@ where
         segment_id: &[u8],
         dir: &Arc<Mutex<D>>,
         entries_file_name: &str,
-    ) -> Result<(i32, HashMap<String, FileEntry>), LuceneError> {
+    ) -> Result<(i32, HashMap<String, FileEntry>)> {
         let directory = dir
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
@@ -151,9 +151,7 @@ where
             }
         }
     }
-    fn read_mapping(
-        entries_stream: &mut impl IndexInput,
-    ) -> Result<HashMap<String, FileEntry>, LuceneError> {
+    fn read_mapping(entries_stream: &mut impl IndexInput) -> Result<HashMap<String, FileEntry>> {
         let num_entries = entries_stream.read_vint()?;
         let mut mapping = HashMap::with_capacity(num_entries as usize);
         for _ in 0..num_entries {
@@ -178,7 +176,7 @@ where
     D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     /// Returns an array of strings, one for each file in the directory.
-    fn list_all(&self) -> Result<Vec<String>, LuceneError> {
+    fn list_all(&self) -> Result<Vec<String>> {
         let mut res: Vec<String> = self.entries.keys().cloned().collect();
         for entry in &mut res {
             *entry = format!("{}{}", self.segment_name, entry);
@@ -186,7 +184,7 @@ where
         Ok(res)
     }
 
-    fn delete_file(&mut self, _name: &str) -> Result<(), LuceneError> {
+    fn delete_file(&mut self, _name: &str) -> Result<()> {
         Err(LuceneError::illegal_state(
             "delete_file() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
@@ -194,7 +192,7 @@ where
     }
 
     /// Returns the length of a file in the directory.
-    fn file_length(&self, name: &str) -> Result<i64, LuceneError> {
+    fn file_length(&self, name: &str) -> Result<i64> {
         let stripped_name = IndexFileNames::strip_segment_name(name);
         let entry = self
             .entries
@@ -207,7 +205,7 @@ where
         &mut self,
         _name: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    ) -> Result<Self::IndexOutputType> {
         Err(LuceneError::illegal_state(
             "create_output() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
@@ -220,27 +218,27 @@ where
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    ) -> Result<Self::IndexOutputType> {
         Err(LuceneError::illegal_state(
             "create_temp_output() wrapped by CompoundDirectory, this method should never not be called".to_string(),
         ))
     }
 
-    fn sync(&mut self, _names: &[&str]) -> Result<(), LuceneError> {
+    fn sync(&mut self, _names: &[&str]) -> Result<()> {
         Err(LuceneError::illegal_state(
             "sync() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))
     }
 
-    fn sync_metadata(&mut self) -> Result<(), LuceneError> {
+    fn sync_metadata(&mut self) -> Result<()> {
         Err(LuceneError::illegal_state(
             "sync_metadata() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))
     }
 
-    fn rename(&mut self, _source: &str, _dest: &str) -> Result<(), LuceneError> {
+    fn rename(&mut self, _source: &str, _dest: &str) -> Result<()> {
         Err(LuceneError::illegal_state(
             "rename() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
@@ -249,11 +247,7 @@ where
 
     type IndexInputType = D::IndexInputType;
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         let id = IndexFileNames::strip_segment_name(name);
         let entry = match self.entries.get(id) {
             Some(entry) => entry,
@@ -278,14 +272,14 @@ where
         Ok(input)
     }
 
-    fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock, LuceneError> {
-        Err::<DummyLock, LuceneError>(LuceneError::illegal_state(
+    fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock> {
+        Err::<DummyLock,LuceneError>(LuceneError::illegal_state(
             "obtain_lock() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError> {
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         Ok(HashSet::new())
     }
 }
@@ -316,7 +310,7 @@ impl<D> CompoundDirectoryBase for Lucene90CompoundReader<D>
 where
     D: Directory,
 {
-    fn check_integrity(&mut self) -> Result<(), LuceneError> {
+    fn check_integrity(&mut self) -> Result<()> {
         let _ = CodecUtil::checksum_entire_file(&mut self.handle)?;
         Ok(())
     }

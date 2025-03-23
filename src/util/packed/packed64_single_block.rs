@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::format_behavior::PackedSingleBlockImpl;
@@ -78,7 +78,7 @@ impl<T> Reader for Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
-    fn get(&mut self, _index: i32) -> Result<i64, LuceneError> {
+    fn get(&mut self, _index: i32) -> Result<i64> {
         Ok(self.sub_reader.get(_index, &mut self.blocks))
     }
 
@@ -88,7 +88,7 @@ where
         arr: &mut [i64],
         mut off: i32,
         mut len: i32,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
@@ -164,10 +164,7 @@ where
         self.value_count
     }
 }
-pub(crate) fn create(
-    value_count: i32,
-    bits_per_value: i32,
-) -> Result<MutablePacked64Enum, LuceneError> {
+pub(crate) fn create(value_count: i32, bits_per_value: i32) -> Result<MutablePacked64Enum> {
     match bits_per_value {
         1 => {
             let sub_reader =
@@ -291,18 +288,12 @@ where
         self.bits_per_value
     }
 
-    fn set(&mut self, index: i32, value: i64) -> Result<(), LuceneError> {
+    fn set(&mut self, index: i32, value: i64) -> Result<()> {
         self.sub_reader.set(index, value, &mut self.blocks);
         Ok(())
     }
 
-    fn set_bulk(
-        &mut self,
-        mut index: i32,
-        arr: &[i64],
-        mut off: i32,
-        mut len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
@@ -376,7 +367,7 @@ where
         }
     }
 
-    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<(), LuceneError> {
+    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<()> {
         debug_assert!(from_index <= to_index, "from_index must be <= to_index");
         debug_assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
@@ -422,7 +413,7 @@ where
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         self.blocks.fill(0);
         Ok(())
     }

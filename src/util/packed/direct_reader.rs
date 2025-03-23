@@ -16,7 +16,7 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::long_values::{LongValues, Zeroes};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -127,7 +127,7 @@ where
         }
     }
 
-    fn fill_buffer(&mut self, index: i64) -> Result<(), LuceneError> {
+    fn fill_buffer(&mut self, index: i64) -> Result<()> {
         // NOTE: we're not allowed to read more than 3 bytes past the last value
         let mut slice = self.slice.borrow_mut();
         if index >= self.num_values - DirectReader::MERGE_BUFFER_SIZE as i64 {
@@ -200,7 +200,7 @@ impl<R> LongValues for LongValuesImpl<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         debug_assert!(index < self.num_values);
         let block_index = index >> DirectReader::MERGE_BUFFER_SHIFT;
@@ -231,7 +231,7 @@ impl<R> LongValues for DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         let shift = (index & 7) as i32;
         let mut slice = self.input.borrow_mut();
         let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
@@ -260,7 +260,7 @@ impl<R> LongValues for DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let shift = ((index & 3) as i32) << 1;
         let mut slice = self.input.borrow_mut();
@@ -291,7 +291,7 @@ impl<R> LongValues for DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let shift = ((index & 1) as i32) << 2;
         let mut slice = self.input.borrow_mut();
@@ -323,7 +323,7 @@ impl<R> LongValues for DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -354,7 +354,7 @@ impl<R> LongValues for DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let off = (index * 12) >> 3;
         let shift = ((index & 1) as i32) << 2;
@@ -387,7 +387,7 @@ impl<R> LongValues for DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -416,7 +416,7 @@ impl<R> LongValues for DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let off = (index * 20) >> 3;
         let shift = ((index & 1) as i32) << 2;
@@ -449,7 +449,7 @@ impl<R> LongValues for DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -480,7 +480,7 @@ impl<R> LongValues for DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let off = (index * 28) >> 3;
         let shift = ((index & 1) as i32) << 2;
@@ -513,7 +513,7 @@ impl<R> LongValues for DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -544,7 +544,7 @@ impl<R> LongValues for DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -575,7 +575,7 @@ impl<R> LongValues for DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -606,7 +606,7 @@ impl<R> LongValues for DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -637,7 +637,7 @@ impl<R> LongValues for DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -671,7 +671,7 @@ impl<R> LongValues for DirectPackedEnum<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         match self {
             DirectPackedEnum::DirectPackedReader1(reader) => reader.get(index),
             DirectPackedEnum::DirectPackedReader2(reader) => reader.get(index),

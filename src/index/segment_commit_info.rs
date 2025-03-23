@@ -20,7 +20,7 @@ use crate::codecs::LATEST_CODEC;
 use crate::index::segment_info::SegmentInfo;
 
 use crate::store::directory::Directory;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -93,7 +93,7 @@ where
         field_infos_gen: i64,
         doc_values_gen: i64,
         id: Option<Vec<u8>>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         // Validate the ID length
         if id.is_some() && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH as usize {
             return Err(LuceneError::illegal_argument(format!(
@@ -230,7 +230,7 @@ where
     }
 
     /// Returns the total size in bytes of all files for this segment.
-    pub fn size_in_bytes(&self) -> Result<i64, LuceneError> {
+    pub fn size_in_bytes(&self) -> Result<i64> {
         let current_size = self.size_in_bytes.load(Ordering::SeqCst);
         if current_size != -1 {
             return Ok(current_size);
@@ -249,7 +249,7 @@ where
         Ok(sum)
     }
     /// Returns all files in use by this segment.
-    pub fn files(&self) -> Result<HashSet<String>, LuceneError> {
+    pub fn files(&self) -> Result<HashSet<String>> {
         // Start from the wrapped info's files (deep copy):
         let mut files: HashSet<String> = self.info.files()?.clone();
         // TODO we could rely on TrackingDir.getCreatedFiles() (like we do for
@@ -274,7 +274,7 @@ where
 
     /// Sets the buffered deletes generation number.
     /// Can only be set once, otherwise it will throw an error.
-    pub fn set_buffered_deletes_gen(&mut self, v: i64) -> Result<(), LuceneError> {
+    pub fn set_buffered_deletes_gen(&mut self, v: i64) -> Result<()> {
         if self.buffered_deletes_gen == -1 {
             self.buffered_deletes_gen = v;
             self.generation_advanced();
@@ -334,7 +334,7 @@ where
         self.soft_del_count
     }
 
-    pub fn set_del_count(&mut self, del_count: i32) -> Result<(), LuceneError> {
+    pub fn set_del_count(&mut self, del_count: i32) -> Result<()> {
         let max_doc = self.info.max_doc()?;
         if del_count < 0 || del_count > max_doc {
             return Err(LuceneError::illegal_argument(format!(
@@ -355,7 +355,7 @@ where
         Ok(())
     }
 
-    pub fn set_soft_del_count(&mut self, soft_del_count: i32) -> Result<(), LuceneError> {
+    pub fn set_soft_del_count(&mut self, soft_del_count: i32) -> Result<()> {
         let max_doc = self.info.max_doc()?;
         if soft_del_count < 0 || soft_del_count > max_doc {
             return Err(LuceneError::illegal_argument(format!(
@@ -375,10 +375,7 @@ where
         Ok(())
     }
     /// Returns a description of this segment.
-    pub fn to_string_with_pending_del_count(
-        &self,
-        pending_del_count: i32,
-    ) -> Result<String, LuceneError> {
+    pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> Result<String> {
         let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count)?;
 
         if self.del_gen != -1 {

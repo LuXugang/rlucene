@@ -23,7 +23,7 @@ use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 use once_cell::sync::Lazy;
 use std::fmt::{Display, Formatter};
@@ -67,7 +67,7 @@ impl StoredField {
         name: &str,
         bytes: Arc<BytesRef>,
         file_type: FieldType,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let parent_field = Field::with_bytes_ref(name, bytes.clone(), Arc::new(file_type))?;
         Ok(Self { parent_field })
     }
@@ -80,7 +80,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: Byte array pointing to binary content.
-    pub fn with_binary(name: &str, value: Vec<u8>) -> Result<Self, LuceneError> {
+    pub fn with_binary(name: &str, value: Vec<u8>) -> Result<Self> {
         let len = value.len();
         debug_assert!(len <= i32::MAX as usize);
         let bytes_ref = Arc::new(BytesRef::from_vec(value, 0, len as i32));
@@ -98,12 +98,7 @@ impl StoredField {
     /// - `value`: Byte array pointing to binary content .
     /// - `offset`: Starting position in the byte array.
     /// - `length`: Valid length of the byte array.
-    pub fn with_binary_range(
-        name: &str,
-        value: Vec<u8>,
-        offset: i32,
-        length: i32,
-    ) -> Result<Self, LuceneError> {
+    pub fn with_binary_range(name: &str, value: Vec<u8>, offset: i32, length: i32) -> Result<Self> {
         let bytes_ref = Arc::new(BytesRef::from_vec(value, offset, length));
         let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
@@ -117,7 +112,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: [`BytesRef`] pointing to binary content (**not copied**).
-    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef>) -> Result<Self, LuceneError> {
+    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef>) -> Result<Self> {
         let parent_field = Field::with_bytes_ref(name, value.clone(), Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
     }
@@ -126,7 +121,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: String value.
-    pub fn with_string(name: &str, value: &str) -> Result<Self, LuceneError> {
+    pub fn with_string(name: &str, value: &str) -> Result<Self> {
         let value_str = Arc::new(value.to_string());
         let parent_field = Field::with_string(name, value_str, Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
@@ -137,11 +132,7 @@ impl StoredField {
     /// - `name`: Field name.
     /// - `value`: String value.
     /// - `field_type`: Custom [`FieldType`] for this field.
-    pub fn with_string_and_type(
-        name: &str,
-        value: &str,
-        file_type: FieldType,
-    ) -> Result<Self, LuceneError> {
+    pub fn with_string_and_type(name: &str, value: &str, file_type: FieldType) -> Result<Self> {
         let value_str = Arc::new(value.to_string());
         let parent_field = Field::with_string(name, value_str, Arc::new(file_type))?;
         Ok(Self { parent_field })
@@ -151,7 +142,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: i32 value.
-    pub fn with_i32(name: &str, value: i32) -> Result<Self, LuceneError> {
+    pub fn with_i32(name: &str, value: i32) -> Result<Self> {
         let fields_data = FieldDataEnum::Number(Number::I32(value));
         let mut parent_field = Field::new(name, Arc::clone(&TYPE));
         parent_field.fields_data = Option::from(fields_data.clone());
@@ -162,7 +153,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: Long value.
-    pub fn with_i64(name: &str, value: i64) -> Result<Self, LuceneError> {
+    pub fn with_i64(name: &str, value: i64) -> Result<Self> {
         let fields_data = FieldDataEnum::Number(Number::I64(value));
         let mut parent_field = Field::new(name, Arc::clone(&TYPE));
         parent_field.fields_data = Option::from(fields_data.clone());
@@ -173,7 +164,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: f32 value.
-    pub fn with_f32(name: &str, value: f32) -> Result<Self, LuceneError> {
+    pub fn with_f32(name: &str, value: f32) -> Result<Self> {
         let fields_data = FieldDataEnum::Number(Number::F32(value));
         let mut parent_field = Field::new(name, Arc::clone(&TYPE));
         parent_field.fields_data = Option::from(fields_data.clone());
@@ -184,7 +175,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: f64 value.
-    pub fn with_f64(name: &str, value: f64) -> Result<Self, LuceneError> {
+    pub fn with_f64(name: &str, value: f64) -> Result<Self> {
         let fields_data = FieldDataEnum::Number(Number::F64(value));
         let mut parent_field = Field::new(name, Arc::clone(&TYPE));
         parent_field.fields_data = Option::from(fields_data.clone());
@@ -214,35 +205,35 @@ impl IndexableField for StoredField {
         &self,
         analyzer: Option<&impl Analyzer>,
         reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum, LuceneError> {
+    ) -> Result<TokenStreamEnum> {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
         self.parent_field.binary_value()
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn string_value(&self) -> Result<Option<Arc<String>>> {
         self.parent_field.string_value()
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
         self.parent_field.get_char_sequence_value()
     }
 
-    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+    fn reader_value(&self) -> Result<Option<ReaderEnum>> {
         self.parent_field.reader_value()
     }
 
-    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+    fn numeric_value(&self) -> Result<Option<Number>> {
         self.parent_field.numeric_value()
     }
 
-    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+    fn stored_value(&self) -> Result<Option<StoredValue>> {
         self.parent_field.stored_value()
     }
 
-    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+    fn invertable_type(&self) -> Result<&InvertableType> {
         self.parent_field.invertable_type()
     }
 }

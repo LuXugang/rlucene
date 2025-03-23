@@ -25,7 +25,7 @@ use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::number::Number;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -94,7 +94,7 @@ impl Field {
         name: &str,
         reader: ReaderEnum,
         indexable_field_type: Arc<FieldType>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if indexable_field_type.stored() {
             return Err(LuceneError::illegal_argument(
                 "fields with a Reader value cannot be stored",
@@ -124,7 +124,7 @@ impl Field {
         name: &str,
         token_stream: TokenStreamEnum,
         indexable_field_type: Arc<FieldType>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if !indexable_field_type.tokenized()
             || indexable_field_type.index_options() == &IndexOptions::None
         {
@@ -160,7 +160,7 @@ impl Field {
         name: &str,
         value: Vec<u8>,
         indexable_field_type: Arc<FieldType>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let len = value.len() as i32;
         Self::with_binary_range(name, value, 0, len, indexable_field_type)
     }
@@ -185,7 +185,7 @@ impl Field {
         offset: i32,
         length: i32,
         indexable_field_type: Arc<FieldType>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let value = Arc::new(BytesRef::from_vec(value, offset, length));
         Self::with_bytes_ref(name, value, indexable_field_type)
     }
@@ -206,7 +206,7 @@ impl Field {
         name: &str,
         bytes: Arc<BytesRef>,
         indexable_field_type: Arc<FieldType>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if indexable_field_type
             .index_options()
             .cmp(&IndexOptions::DocsAndFreqsAndPositionsAndOffsets)
@@ -251,7 +251,7 @@ impl Field {
         name: &str,
         value: Arc<String>,
         indexable_field_type: Arc<FieldType>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if !indexable_field_type.stored()
             && indexable_field_type.index_options() == &IndexOptions::None
         {
@@ -267,7 +267,7 @@ impl Field {
     }
     /// Returns the `TokenStream` for this field to be used when indexing, or `None` if not set.
     /// If `None`, the `Reader` value or `String` value is analyzed to produce the indexed tokens.
-    pub fn token_stream_value(&self) -> Result<Option<TokenStreamEnum>, LuceneError> {
+    pub fn token_stream_value(&self) -> Result<Option<TokenStreamEnum>> {
         if let Some(token_stream) = &self.fields_data {
             match token_stream {
                 FieldDataEnum::TokenStream(token_stream) => Ok(Option::from(token_stream.clone())),
@@ -285,7 +285,7 @@ impl Field {
     /// # Note
     /// Each `Field` instance should only be used once within a single `Document` instance.  
     /// See [ImproveIndexingSpeed](http://wiki.apache.org/lucene-java/ImproveIndexingSpeed) for details.
-    pub fn set_string_value(&mut self, value: Arc<String>) -> Result<(), LuceneError> {
+    pub fn set_string_value(&mut self, value: Arc<String>) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::String(_)) => {}
             _ => {
@@ -300,7 +300,7 @@ impl Field {
         Ok(())
     }
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
-    pub fn set_reader_value(&mut self, value: ReaderEnum) -> Result<(), LuceneError> {
+    pub fn set_reader_value(&mut self, value: ReaderEnum) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Reader(_)) => {}
             _ => {
@@ -314,13 +314,13 @@ impl Field {
         self.fields_data = Some(FieldDataEnum::Reader(value));
         Ok(())
     }
-    pub fn set_vec_value(&mut self, value: Vec<u8>) -> Result<(), LuceneError> {
+    pub fn set_vec_value(&mut self, value: Vec<u8>) -> Result<()> {
         self.set_bytes_value(Arc::new(BytesRef::from_bytes(value)))
     }
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     ///
     /// NOTE: the provided [`BytesRef`] is not copied, so be sure not to change it until you're done with this field.
-    pub fn set_bytes_value(&mut self, value: Arc<BytesRef>) -> Result<(), LuceneError> {
+    pub fn set_bytes_value(&mut self, value: Arc<BytesRef>) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Binary(_)) => {}
             _ => {
@@ -334,7 +334,7 @@ impl Field {
         Ok(())
     }
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
-    pub fn set_byte_value(&mut self, value: u8) -> Result<(), LuceneError> {
+    pub fn set_byte_value(&mut self, value: u8) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Number(Number::U8(_))) => {}
             _ => {
@@ -348,7 +348,7 @@ impl Field {
         Ok(())
     }
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
-    pub fn set_short_value(&mut self, value: i16) -> Result<(), LuceneError> {
+    pub fn set_short_value(&mut self, value: i16) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Number(Number::I16(_))) => {}
             _ => {
@@ -362,7 +362,7 @@ impl Field {
         Ok(())
     }
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
-    pub fn set_int_value(&mut self, value: i32) -> Result<(), LuceneError> {
+    pub fn set_int_value(&mut self, value: i32) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Number(Number::I32(_))) => {}
             _ => {
@@ -377,7 +377,7 @@ impl Field {
         Ok(())
     }
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
-    pub fn set_long_value(&mut self, value: i64) -> Result<(), LuceneError> {
+    pub fn set_long_value(&mut self, value: i64) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Number(Number::I64(_))) => {}
             _ => {
@@ -392,7 +392,7 @@ impl Field {
         Ok(())
     }
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
-    pub fn set_float_value(&mut self, value: f32) -> Result<(), LuceneError> {
+    pub fn set_float_value(&mut self, value: f32) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Number(Number::F32(_))) => {}
             _ => {
@@ -407,7 +407,7 @@ impl Field {
         Ok(())
     }
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
-    pub fn set_double_value(&mut self, value: f64) -> Result<(), LuceneError> {
+    pub fn set_double_value(&mut self, value: f64) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Number(Number::F64(_))) => {}
             _ => {
@@ -422,7 +422,7 @@ impl Field {
         Ok(())
     }
     /// Expert: sets the token stream to be used for indexing.
-    pub fn set_token_stream(&mut self, token_stream: TokenStreamEnum) -> Result<(), LuceneError> {
+    pub fn set_token_stream(&mut self, token_stream: TokenStreamEnum) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::TokenStream(_)) => {}
             _ => {
@@ -453,11 +453,11 @@ impl IndexableField for Field {
         &self,
         _analyzer: Option<&impl Analyzer>,
         _reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum, LuceneError> {
+    ) -> Result<TokenStreamEnum> {
         todo!()
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
         if let Some(FieldDataEnum::Binary(ref bytes)) = &self.fields_data {
             Ok(Some(bytes.clone()))
         } else {
@@ -469,7 +469,7 @@ impl IndexableField for Field {
     /// If `None`, the `Reader` value or binary value is used.
     ///
     /// Exactly one of `string_value()`, `reader_value()`, or `binary_value()` must be set.
-    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn string_value(&self) -> Result<Option<Arc<String>>> {
         if let Some(FieldDataEnum::String(ref s)) = &self.fields_data {
             Ok(Some(s.clone()))
         } else if let Some(FieldDataEnum::Number(val)) = &self.fields_data {
@@ -479,7 +479,7 @@ impl IndexableField for Field {
         }
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
         if let Some(FieldDataEnum::String(ref s)) = &self.fields_data {
             Ok(Some(s.clone()))
         } else {
@@ -491,11 +491,11 @@ impl IndexableField for Field {
     /// If `None`, the `String` value or binary value is used.
     ///
     /// Exactly one of `string_value()`, `reader_value()`, or `binary_value()` must be set.
-    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+    fn reader_value(&self) -> Result<Option<ReaderEnum>> {
         todo!()
     }
 
-    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+    fn numeric_value(&self) -> Result<Option<Number>> {
         if let Some(FieldDataEnum::Number(ref n)) = &self.fields_data {
             Ok(Some(*n))
         } else {
@@ -503,7 +503,7 @@ impl IndexableField for Field {
         }
     }
 
-    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+    fn stored_value(&self) -> Result<Option<StoredValue>> {
         if !self.indexable_field_type.stored() {
             return Ok(None);
         }
@@ -527,7 +527,7 @@ impl IndexableField for Field {
         }
     }
 
-    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+    fn invertable_type(&self) -> Result<&InvertableType> {
         Ok(&InvertableType::TokenStream)
     }
 }
@@ -545,52 +545,52 @@ impl Display for Field {
 }
 
 pub trait FieldBase {
-    fn set_bytes_value(&mut self, _value: Arc<BytesRef>) -> Result<(), LuceneError> {
+    fn set_bytes_value(&mut self, _value: Arc<BytesRef>) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_bytes_value is not implemented",
         ))
     }
-    fn set_byte_value(&mut self, _value: u8) -> Result<(), LuceneError> {
+    fn set_byte_value(&mut self, _value: u8) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_byte_value is not implemented",
         ))
     }
-    fn set_short_value(&mut self, _value: i16) -> Result<(), LuceneError> {
+    fn set_short_value(&mut self, _value: i16) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_short_value is not implemented",
         ))
     }
-    fn set_int_value(&mut self, _value: i32) -> Result<(), LuceneError> {
+    fn set_int_value(&mut self, _value: i32) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_int_value is not implemented",
         ))
     }
-    fn set_long_value(&mut self, _value: i64) -> Result<(), LuceneError> {
+    fn set_long_value(&mut self, _value: i64) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_long_value is not implemented",
         ))
     }
-    fn set_float_value(&mut self, _value: f32) -> Result<(), LuceneError> {
+    fn set_float_value(&mut self, _value: f32) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_float_value is not implemented",
         ))
     }
-    fn set_double_value(&mut self, _value: f64) -> Result<(), LuceneError> {
+    fn set_double_value(&mut self, _value: f64) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_double_value is not implemented",
         ))
     }
-    fn set_token_stream(&mut self, _token_stream: Arc<TokenStreamEnum>) -> Result<(), LuceneError> {
+    fn set_token_stream(&mut self, _token_stream: Arc<TokenStreamEnum>) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_token_stream is not implemented",
         ))
     }
-    fn set_string_value(&mut self, _value: &str) -> Result<(), LuceneError> {
+    fn set_string_value(&mut self, _value: &str) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_string_value is not implemented",
         ))
     }
-    fn set_reader_value(&mut self, _value: Arc<ReaderEnum>) -> Result<(), LuceneError> {
+    fn set_reader_value(&mut self, _value: Arc<ReaderEnum>) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_reader_value is not implemented",
         ))
@@ -631,7 +631,7 @@ mod tests {
     use crate::index::indexable_field::IndexableField;
     use crate::index::BytesRef;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::number::Number;
 
     use crate::document::field_type::FieldType;
@@ -643,7 +643,7 @@ mod tests {
     struct TestField;
 
     #[test]
-    fn test_double_point() -> Result<(), LuceneError> {
+    fn test_double_point() -> Result<()> {
         let mut field = DoublePoint::new("foo", &[5.0])?;
         let mut result = try_set_byte_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
@@ -674,7 +674,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_double_point_2d() -> Result<(), LuceneError> {
+    fn test_double_point_2d() -> Result<()> {
         let mut field = DoublePoint::new("foo", &[5.0, 4.0])?;
         let mut result = try_set_byte_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
@@ -714,220 +714,220 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_double_doc_values_field() -> Result<(), LuceneError> {
+    fn test_double_doc_values_field() -> Result<()> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_float_doc_values_field() -> Result<(), LuceneError> {
+    fn test_float_doc_values_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_float_point() -> Result<(), LuceneError> {
+    fn test_float_point() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_float_point_2d() -> Result<(), LuceneError> {
+    fn test_float_point_2d() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_int_point() -> Result<(), LuceneError> {
+    fn test_int_point() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_int_point_2d() -> Result<(), LuceneError> {
+    fn test_int_point_2d() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_int_field() -> Result<(), LuceneError> {
+    fn test_int_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_long_field() -> Result<(), LuceneError> {
+    fn test_long_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_float_field() -> Result<(), LuceneError> {
+    fn test_float_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_double_field() -> Result<(), LuceneError> {
+    fn test_double_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_numeric_doc_values_field() -> Result<(), LuceneError> {
+    fn test_numeric_doc_values_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_long_point() -> Result<(), LuceneError> {
+    fn test_long_point() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_long_point_2d() -> Result<(), LuceneError> {
+    fn test_long_point_2d() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_sorted_bytes_doc_values_field() -> Result<(), LuceneError> {
+    fn test_sorted_bytes_doc_values_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_binary_doc_values_field() -> Result<(), LuceneError> {
+    fn test_binary_doc_values_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_string_field() -> Result<(), LuceneError> {
+    fn test_string_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_binary_string_field() -> Result<(), LuceneError> {
+    fn test_binary_string_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_text_field_string() -> Result<(), LuceneError> {
+    fn test_text_field_string() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_text_field_reader() -> Result<(), LuceneError> {
+    fn test_text_field_reader() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_stored_field_bytes() -> Result<(), LuceneError> {
+    fn test_stored_field_bytes() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_stored_field_string() -> Result<(), LuceneError> {
+    fn test_stored_field_string() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_stored_field_int() -> Result<(), LuceneError> {
+    fn test_stored_field_int() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_stored_field_double() -> Result<(), LuceneError> {
+    fn test_stored_field_double() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_stored_field_float() -> Result<(), LuceneError> {
+    fn test_stored_field_float() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_stored_field_long() -> Result<(), LuceneError> {
+    fn test_stored_field_long() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_indexed_binary_field() -> Result<(), LuceneError> {
+    fn test_indexed_binary_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
     #[test]
-    fn test_knn_vector_field() -> Result<(), LuceneError> {
+    fn test_knn_vector_field() -> Result<()> {
         // TODO
         Ok(())
     }
 
-    fn try_set_byte_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_byte_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_byte_value(10)
     }
-    fn try_set_bytes_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_bytes_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_bytes_value(Arc::new(BytesRef::from_bytes(vec![5, 5])))
     }
 
-    fn try_set_bytes_ref_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_bytes_ref_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_bytes_value(Arc::new(BytesRef::from_string("bogus")))
     }
 
-    fn try_set_double_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_double_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_double_value(f64::MAX)
     }
 
-    fn try_set_int_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_int_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_int_value(i32::MAX)
     }
 
-    fn try_set_long_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_long_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_long_value(i64::MAX)
     }
 
-    fn try_set_float_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_float_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_float_value(f32::MAX)
     }
 
-    fn try_set_reader_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_reader_value<F: FieldBase>(f: &mut F) -> Result<()> {
         let cursor = Arc::new(std::io::Cursor::new("BOO!".to_string()));
         let read = ReaderEnum::CursorStr(cursor);
         f.set_reader_value(Arc::from(read))
     }
 
-    fn try_set_short_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_short_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_short_value(i16::MAX)
     }
 
-    fn try_set_string_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_string_value<F: FieldBase>(f: &mut F) -> Result<()> {
         f.set_string_value("BOO!")
     }
 
-    fn try_set_token_stream_value<F: FieldBase>(f: &mut F) -> Result<(), LuceneError> {
+    fn try_set_token_stream_value<F: FieldBase>(f: &mut F) -> Result<()> {
         let token_stream = TokenStreamEnum::Dummy(Arc::new(DummyTokenStream));
         f.set_token_stream(Arc::new(token_stream))
     }
     #[test]
-    fn test_disabled_field() -> Result<(), LuceneError> {
+    fn test_disabled_field() -> Result<()> {
         let ft = FieldType::new();
         let result = Field::with_string("foo", Arc::new("".to_string()), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
     #[test]
-    fn test_tokenized_binary_field() -> Result<(), LuceneError> {
+    fn test_tokenized_binary_field() -> Result<()> {
         let mut ft = FieldType::new();
         ft.set_tokenized(true)?;
         ft.set_index_options(IndexOptions::DOCS)?;
@@ -936,7 +936,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_offsets_binary_field() -> Result<(), LuceneError> {
+    fn test_offsets_binary_field() -> Result<()> {
         let mut ft = FieldType::new();
         ft.set_tokenized(false)?;
         ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
@@ -945,7 +945,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_term_vectors_offsets_binary_field() -> Result<(), LuceneError> {
+    fn test_term_vectors_offsets_binary_field() -> Result<()> {
         let mut ft = FieldType::new();
         ft.set_tokenized(false)?;
         ft.set_store_term_vectors(true)?;

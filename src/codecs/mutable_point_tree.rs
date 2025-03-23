@@ -21,7 +21,7 @@ use crate::index::BytesRef;
 use crate::test::util::bkd::test_bkd::{MutablePointTreeMock1, MutablePointTreeMock2};
 #[cfg(test)]
 use crate::util::bkd::mutable_point_tree_reader_utils::tests::DummyPointsReader;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
@@ -135,7 +135,7 @@ impl MutablePointTree for MutablePointTreeEnum {
 }
 
 impl PointTree for MutablePointTreeEnum {
-    fn move_to_child(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_child(&mut self) -> Result<bool> {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.move_to_child(),
@@ -147,7 +147,7 @@ impl PointTree for MutablePointTreeEnum {
         }
     }
 
-    fn move_to_sibling(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_sibling(&mut self) -> Result<bool> {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.move_to_sibling(),
@@ -159,7 +159,7 @@ impl PointTree for MutablePointTreeEnum {
         }
     }
 
-    fn move_to_parent(&mut self) -> Result<bool, LuceneError> {
+    fn move_to_parent(&mut self) -> Result<bool> {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.move_to_parent(),
@@ -171,7 +171,7 @@ impl PointTree for MutablePointTreeEnum {
         }
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8], LuceneError> {
+    fn get_min_packed_value(&self) -> Result<&[u8]> {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.get_min_packed_value(),
@@ -183,7 +183,7 @@ impl PointTree for MutablePointTreeEnum {
         }
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8], LuceneError> {
+    fn get_max_packed_value(&self) -> Result<&[u8]> {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.get_max_packed_value(),
@@ -195,7 +195,7 @@ impl PointTree for MutablePointTreeEnum {
         }
     }
 
-    fn size(&self) -> Result<i64, LuceneError> {
+    fn size(&self) -> Result<i64> {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.size(),
@@ -207,7 +207,7 @@ impl PointTree for MutablePointTreeEnum {
         }
     }
 
-    fn visit_doc_ids(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<(), LuceneError> {
+    fn visit_doc_ids(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<()> {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.visit_doc_ids(_visitor),
@@ -219,10 +219,7 @@ impl PointTree for MutablePointTreeEnum {
         }
     }
 
-    fn visit_doc_values(
-        &mut self,
-        _visitor: &mut impl IntersectVisitor,
-    ) -> Result<(), LuceneError> {
+    fn visit_doc_values(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<()> {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.visit_doc_values(_visitor),

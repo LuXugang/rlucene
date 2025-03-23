@@ -18,7 +18,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, SliceCopyOps};
 use byteorder::{ByteOrder, LE};
@@ -82,7 +82,7 @@ impl<'a> ByteBuffersDataInput<'a> {
         output: &mut [T],
         type_size: i32,
         converter: C,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         C: Fn(&[u8]) -> T,
         T: Copy,
@@ -135,24 +135,24 @@ impl<'a> ByteBuffersDataInput<'a> {
 
         Ok(())
     }
-    fn read_longs(&mut self, pos: i64, len: i32, output: &mut [i64]) -> Result<(), LuceneError> {
+    fn read_longs(&mut self, pos: i64, len: i32, output: &mut [i64]) -> Result<()> {
         self.read_buffer(pos, len, output, BitUtil::LONG_BYTES as i32, LE::read_i64)
     }
-    fn read_bytes(&mut self, pos: i64, len: i32, output: &mut [u8]) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, pos: i64, len: i32, output: &mut [u8]) -> Result<()> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
-    fn read_ints(&mut self, pos: i64, len: i32, output: &mut [i32]) -> Result<(), LuceneError> {
+    fn read_ints(&mut self, pos: i64, len: i32, output: &mut [i32]) -> Result<()> {
         self.read_buffer(pos, len, output, BitUtil::INT_BYTES as i32, LE::read_i32)
     }
-    fn read_shorts(&mut self, pos: i64, len: i32, output: &mut [i16]) -> Result<(), LuceneError> {
+    fn read_shorts(&mut self, pos: i64, len: i32, output: &mut [i16]) -> Result<()> {
         self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES as i32, LE::read_i16)
     }
-    fn read_floats(&mut self, pos: i64, len: i32, output: &mut [f32]) -> Result<(), LuceneError> {
+    fn read_floats(&mut self, pos: i64, len: i32, output: &mut [f32]) -> Result<()> {
         self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES as i32, LE::read_f32)
     }
 
-    pub fn seek(&mut self, position: i64) -> Result<(), LuceneError> {
+    pub fn seek(&mut self, position: i64) -> Result<()> {
         self.pos = position + self.offset;
         if position > self.length() {
             self.pos = self.length;
@@ -163,7 +163,7 @@ impl<'a> ByteBuffersDataInput<'a> {
     pub fn position(&self) -> i64 {
         self.pos - self.offset
     }
-    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<'a>, LuceneError> {
+    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<'a>> {
         if offset < 0 || length < 0 || offset + length > self.length {
             return Err(LuceneError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
@@ -197,33 +197,33 @@ impl Display for ByteBuffersDataInput<'_> {
 }
 
 impl DataInput for ByteBuffersDataInput<'_> {
-    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self) -> Result<u8> {
         let mut bytes = [0; 1];
         self.read_bytes(self.pos, 1, &mut bytes)?;
         self.pos += 1;
         Ok(bytes[0])
     }
-    fn read_bytes(&mut self, arr: &mut [u8], off: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, arr: &mut [u8], off: i32, len: i32) -> Result<()> {
         self.read_bytes(self.pos, len, &mut arr[off as usize..(off + len) as usize])?;
         self.pos += len as i64;
         Ok(())
     }
 
-    fn read_short(&mut self) -> Result<i16, LuceneError> {
+    fn read_short(&mut self) -> Result<i16> {
         let mut output = [0; 1];
         self.read_shorts(self.pos, 1, &mut output)?;
         self.pos += BitUtil::SHORT_BYTES as i64;
         Ok(output[0])
     }
 
-    fn read_int(&mut self) -> Result<i32, LuceneError> {
+    fn read_int(&mut self) -> Result<i32> {
         let mut output = [0; 1];
         self.read_ints(self.pos, 1, &mut output)?;
         self.pos += BitUtil::INT_BYTES as i64;
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<(), LuceneError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<()> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
         let block = self.blocks.get_mut(block_index as usize).unwrap();
@@ -239,14 +239,14 @@ impl DataInput for ByteBuffersDataInput<'_> {
         self.pos += len as i64;
         Ok(())
     }
-    fn read_long(&mut self) -> Result<i64, LuceneError> {
+    fn read_long(&mut self) -> Result<i64> {
         let mut output = [0; 1];
         self.read_longs(self.pos, 1, &mut output)?;
         self.pos += BitUtil::LONG_BYTES as i64;
         Ok(output[0])
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
         self.read_longs(
             self.pos,
             len,
@@ -256,7 +256,7 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(())
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
         self.read_floats(
             self.pos,
             len,
@@ -266,7 +266,7 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         let skip_to = self.position() + num_bytes;
         self.seek(skip_to)
     }
@@ -278,35 +278,35 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
         self.length
     }
 
-    fn read_byte(&mut self, pos: i64) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self, pos: i64) -> Result<u8> {
         let pos = pos + self.offset;
         let mut bytes = [0; 1];
         self.read_bytes(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_short(&mut self, pos: i64) -> Result<i16, LuceneError> {
+    fn read_short(&mut self, pos: i64) -> Result<i16> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::SHORT_BYTES];
         self.read_shorts(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_int(&mut self, pos: i64) -> Result<i32, LuceneError> {
+    fn read_int(&mut self, pos: i64) -> Result<i32> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::INT_BYTES];
         self.read_ints(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_long(&mut self, pos: i64) -> Result<i64, LuceneError> {
+    fn read_long(&mut self, pos: i64) -> Result<i64> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::LONG_BYTES];
         self.read_longs(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<(), LuceneError> {
+    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
         Ok(())
     }
 }
@@ -365,7 +365,7 @@ mod tests {
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::random;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use rand::Rng;
     use rand_xoshiro::rand_core::SeedableRng;
     use rand_xoshiro::Xoroshiro128Plus;
@@ -374,7 +374,7 @@ mod tests {
     struct TestByteBuffersDataInput;
 
     #[test]
-    fn test_sanity() -> Result<(), LuceneError> {
+    fn test_sanity() -> Result<()> {
         let mut out = ByteBuffersDataOutput::with_resettable_instance();
         let mut o1 = out.get_data_input();
         assert_eq!(0, o1.length());
@@ -401,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_reads() -> Result<(), LuceneError> {
+    fn test_random_reads() -> Result<()> {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         let seed: u64 = random.random();
@@ -418,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_reads_on_slices() -> Result<(), LuceneError> {
+    fn test_random_reads_on_slices() -> Result<()> {
         let mut random = random();
         let reps = random.random_range(1..=20);
         for _i in 0..=reps {
@@ -448,7 +448,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_seek_empty() -> Result<(), LuceneError> {
+    fn test_seek_empty() -> Result<()> {
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         let mut data_input = dst.get_data_input();
         let mut result = data_input.seek(0);
@@ -463,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn test_seek_and_skip() -> Result<(), LuceneError> {
+    fn test_seek_and_skip() -> Result<()> {
         let mut random = random();
         let reps = random.random_range(1..=20);
         for _i in 0..reps {
@@ -519,7 +519,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_slicing_window() -> Result<(), LuceneError> {
+    fn test_slicing_window() -> Result<()> {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         assert_eq!(0, dst.get_data_input().slice(0, 0)?.length());
@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn test_eof_on_array_read_past_buffer_size() -> Result<(), LuceneError> {
+    fn test_eof_on_array_read_past_buffer_size() -> Result<()> {
         let mut dst = ByteBuffersDataOutput::with_resettable_instance();
         let bytes: Vec<u8> = vec![0; 10];
         dst.write_bytes(bytes)?;
@@ -553,7 +553,7 @@ mod tests {
     }
 
     #[test]
-    fn test_slicing_large_buffers() -> Result<(), LuceneError> {
+    fn test_slicing_large_buffers() -> Result<()> {
         // Simulate a "large" (> 4GB) input by duplicating
         // buffers with the same content.
         let mut random = random();

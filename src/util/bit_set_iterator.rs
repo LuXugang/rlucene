@@ -17,7 +17,7 @@
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::bit_set::BitSet;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::any::TypeId;
@@ -34,7 +34,7 @@ pub struct BitSetIterator<'a, T: BitSet> {
 }
 
 impl<'a, T: BitSet> BitSetIterator<'a, T> {
-    pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<'a, T>, LuceneError> {
+    pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<'a, T>> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
@@ -103,11 +103,11 @@ impl<T: BitSet> DocIdSetIterator for BitSetIterator<'_, T> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         if _target >= self.length {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
@@ -116,7 +116,7 @@ impl<T: BitSet> DocIdSetIterator for BitSetIterator<'_, T> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(self.cost)
     }
 }

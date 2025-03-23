@@ -17,7 +17,7 @@
 use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::ReadAdvice;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use derive_getters::Getters;
 use once_cell::sync::Lazy;
 
@@ -59,7 +59,7 @@ impl IOContext {
         read_advice: Option<ReadAdvice>,
         merge_info: Option<MergeInfo>,
         flush_info: Option<FlushInfo>,
-    ) -> Result<IOContext, LuceneError> {
+    ) -> Result<IOContext> {
         let context = context
             .ok_or_else(|| LuceneError::illegal_argument("context must not be None".to_string()))?;
         let read_advice = read_advice.ok_or_else(|| {
@@ -91,12 +91,12 @@ impl IOContext {
         })
     }
 
-    fn with_read_advice(read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
+    fn with_read_advice(read_advice: ReadAdvice) -> Result<IOContext> {
         Self::new(Some(Context::Default), Some(read_advice), None, None)
     }
 
     ///  Creates an `IOContext` for flushing.
-    pub fn with_flush(flush_info: FlushInfo) -> Result<IOContext, LuceneError> {
+    pub fn with_flush(flush_info: FlushInfo) -> Result<IOContext> {
         Self::new(
             Some(Context::Flush),
             Some(ReadAdvice::Sequential),
@@ -105,7 +105,7 @@ impl IOContext {
         )
     }
     ///  Creates an `IOContext` for merging.
-    pub fn with_merge(merge_info: MergeInfo) -> Result<IOContext, LuceneError> {
+    pub fn with_merge(merge_info: MergeInfo) -> Result<IOContext> {
         Self::new(
             Some(Context::Merge),
             Some(ReadAdvice::Sequential),
@@ -114,7 +114,7 @@ impl IOContext {
         )
     }
 
-    pub fn read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext, LuceneError> {
+    pub fn read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext> {
         if matches!(self.context, Context::Default) {
             // TODO: maybe should statically define all types of context
             Self::with_read_advice(read_advice)
@@ -122,10 +122,10 @@ impl IOContext {
             Ok(self.clone())
         }
     }
-    pub fn default_io_context() -> Result<IOContext, LuceneError> {
+    pub fn default_io_context() -> Result<IOContext> {
         Self::with_read_advice(ReadAdvice::default_read_advice())
     }
-    pub fn read_once_io_context() -> Result<IOContext, LuceneError> {
+    pub fn read_once_io_context() -> Result<IOContext> {
         Self::with_read_advice(ReadAdvice::Sequential)
     }
 }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::SINGLE_MEDIAN_THRESHOLD;
 use crate::util::selector::Selector;
 use rand::rngs::ThreadRng;
@@ -46,13 +46,7 @@ where
             sub_selector,
         }
     }
-    pub fn select(
-        &mut self,
-        mut from: i32,
-        mut to: i32,
-        k: i32,
-        mut max_depth: i32,
-    ) -> Result<(), LuceneError> {
+    pub fn select(&mut self, mut from: i32, mut to: i32, k: i32, mut max_depth: i32) -> Result<()> {
         // This code is inspired from IntroSorter#sort, adapted to loop on a single partition.
 
         // For efficiency, we must enter the loop with at least 4 entries to be able to skip
@@ -227,7 +221,7 @@ where
     }
     /// Sorts 3 entries starting at from (inclusive). This specialized method is more efficient than
     /// calling `insertionSort(int, int)`.
-    pub fn sort3(&mut self, from: i32) -> Result<(), LuceneError> {
+    pub fn sort3(&mut self, from: i32) -> Result<()> {
         let mid = from + 1;
         let last = from + 2;
 
@@ -249,7 +243,7 @@ where
         Ok(())
     }
     /// Shuffles the entries between from (inclusive) and to (exclusive) with Durstenfeld's algorithm.
-    pub fn shuffle(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    pub fn shuffle(&mut self, from: i32, to: i32) -> Result<()> {
         if self.random.is_none() {
             self.random = Some(rand::rng());
         }
@@ -267,7 +261,7 @@ impl<T> Selector for IntroSelector<T>
 where
     T: IntroSelectorBase,
 {
-    fn select(&mut self, from: i32, to: i32, k: i32) -> Result<(), LuceneError> {
+    fn select(&mut self, from: i32, to: i32, k: i32) -> Result<()> {
         self.check_args(from, to, k)?;
         let max_depth = 2 * (f64::log2((to - from) as f64) as i32);
         self.select(from, to, k, max_depth)?;
@@ -296,7 +290,7 @@ pub trait IntroSelectorBaseDefault {
 mod tests {
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::selector::Selector;
     use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt};
     use rand::rngs::StdRng;
@@ -306,7 +300,7 @@ mod tests {
     pub struct TestIntroSelector;
 
     #[test]
-    pub fn test_select() -> Result<(), LuceneError> {
+    pub fn test_select() -> Result<()> {
         let mut random = random();
         for _ in 0..100 {
             do_test_select(&mut random)?;
@@ -314,7 +308,7 @@ mod tests {
         Ok(())
     }
 
-    pub fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
+    pub fn do_test_select(random: &mut StdRng) -> Result<()> {
         let from: i32 = random.random_range(0..5);
         let to: i32 = from + TestUtil::next_int(random, 1, 10000);
         let max: i32 = if random.random_bool(0.5) {
@@ -365,7 +359,7 @@ mod tests {
         }
     }
     impl Selector for IntroSelectorMock<'_> {
-        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
             self.actual.swap(i as usize, j as usize);
             Ok(())
         }

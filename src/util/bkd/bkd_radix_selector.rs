@@ -22,7 +22,7 @@ use crate::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::util::bkd::point_reader::PointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::util::selector::Selector;
@@ -124,7 +124,7 @@ where
         partition_point: i64,
         dim: i32,
         dim_common_prefix: i32,
-    ) -> Result<Vec<u8>, LuceneError> {
+    ) -> Result<Vec<u8>> {
         Self::check_args(from, to, partition_point)?;
         debug_assert!(partition_slices.len() <= 1,);
         partition_slices.clear();
@@ -189,7 +189,7 @@ where
         }
     }
 
-    fn check_args(from: i64, to: i64, partition_point: i64) -> Result<(), LuceneError> {
+    fn check_args(from: i64, to: i64, partition_point: i64) -> Result<()> {
         if partition_point < from {
             return Err(LuceneError::illegal_argument(
                 "partitionPoint must be >= from".to_string(),
@@ -210,7 +210,7 @@ where
         to: i64,
         dim: i32,
         dim_common_prefix: i32,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         let mut common_prefix_position = self.bytes_sorted;
         let offset = dim * self.config.bytes_per_dim;
         let mut reader =
@@ -345,7 +345,7 @@ where
         iteration: i32,
         base_common_prefix: i32,
         dim: i32,
-    ) -> Result<Vec<u8>, LuceneError> {
+    ) -> Result<Vec<u8>> {
         // Find common prefix from baseCommonPrefix and build histogram
         let common_prefix =
             self.find_common_prefix_and_histogram(points, from, to, dim, base_common_prefix)?;
@@ -461,7 +461,7 @@ where
         dim: i32,
         byte_position: i32,
         num_docs_tiebreak: i64,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         debug_assert!(byte_position == self.bytes_sorted - 1 || delta_points.is_some());
         let offset = dim * self.config.bytes_per_dim;
         let mut tiebreak_counter = 0i64;
@@ -491,7 +491,7 @@ where
         Ok(())
     }
 
-    fn partition_point_from_common_prefix(&self) -> Result<Vec<u8>, LuceneError> {
+    fn partition_point_from_common_prefix(&self) -> Result<Vec<u8>> {
         let mut partition = vec![0u8; self.config.bytes_per_dim as usize];
         for (i, p) in partition
             .iter_mut()
@@ -514,7 +514,7 @@ where
         to: i32,
         partition_point: i32,
         common_prefix: i32,
-    ) -> Result<Vec<u8>, LuceneError> {
+    ) -> Result<Vec<u8>> {
         let points = Rc::new(RefCell::new(points));
         let partition = self.heap_radix_select(
             points.clone(),
@@ -552,7 +552,7 @@ where
         to: i32,
         partition_point: i32,
         common_prefix_length: i32,
-    ) -> Result<Vec<u8>, LuceneError> {
+    ) -> Result<Vec<u8>> {
         let bytes_per_dim = self.config.bytes_per_dim;
         let dim_offset = dim * bytes_per_dim + common_prefix_length;
         let dim_cmp_bytes = bytes_per_dim - common_prefix_length;
@@ -600,7 +600,7 @@ where
         to: i32,
         dim: i32,
         common_prefix_length: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let bytes_per_dim = self.config.bytes_per_dim;
         let dim_offset = dim * bytes_per_dim + common_prefix_length;
         let dim_cmp_bytes = bytes_per_dim - common_prefix_length;
@@ -626,7 +626,7 @@ where
         right: &mut PointWriterEnum<D>,
         delta: i64,
         iteration: i32,
-    ) -> Result<PointWriterEnum<D>, LuceneError> {
+    ) -> Result<PointWriterEnum<D>> {
         if delta >= i32::MAX as i64 {
             return Err(LuceneError::integer_overflow(
                 "Delta is too large".to_string(),
@@ -665,7 +665,7 @@ where
         self.max_points_sort_in_heap - points_used
     }
 
-    fn get_point_writer(&self, count: i64, desc: &str) -> Result<PointWriterEnum<D>, LuceneError> {
+    fn get_point_writer(&self, count: i64, desc: &str) -> Result<PointWriterEnum<D>> {
         // As we recurse, we hold two on-heap point writers at any point. Therefore the
         // max size for these objects is half of the total points we can have on-heap.
         if count <= self.max_points_sort_in_heap as i64 / 2 {
@@ -726,7 +726,7 @@ impl<D> Sorter for MSBRadixSorterImpl<D>
 where
     D: Directory,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let mut points = self.points.borrow_mut();
         match &mut *points {
             PointWriterEnum::Heap(heap_writer) => {
@@ -745,7 +745,7 @@ impl<D> MSBRadixSorterBase for MSBRadixSorterImpl<D>
 where
     D: Directory,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         debug_assert!(k >= 0, "negative prefix {}", k);
         let pos = if k < self.dim_cmp_bytes {
             self.dim_offset + k
@@ -793,7 +793,7 @@ impl<D> Sorter for IntroSorterImpl<D>
 where
     D: Directory,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         let points = self.points.borrow();
         match &*points {
             PointWriterEnum::Heap(heap_writer) => {
@@ -812,7 +812,7 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let mut points = self.points.borrow_mut();
         match &mut *points {
             PointWriterEnum::Heap(heap_writer) => {
@@ -826,7 +826,7 @@ where
         }
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         let mut points = self.points.borrow_mut();
         match &mut *points {
             PointWriterEnum::Heap(heap_writer) => {
@@ -848,7 +848,7 @@ where
     }
 
     //TODO: 回头这里将改成 if match
-    fn compare_pivot(&mut self, j: i32) -> Result<i32, LuceneError> {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         let point = self.points.borrow();
         match &*point {
             PointWriterEnum::Heap(heap_writer) => {
@@ -871,7 +871,7 @@ where
             }
         }
     }
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -897,7 +897,7 @@ impl<D> Selector for RadixSelectorImpl<D>
 where
     D: Directory,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let mut points = self.points.borrow_mut();
         match &mut *points {
             PointWriterEnum::Heap(heap_writer) => {
@@ -1013,7 +1013,7 @@ impl<D> Selector for IntroSelectorImpl<D>
 where
     D: Directory,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let mut points = self.points.borrow_mut();
         match &mut *points {
             PointWriterEnum::Heap(heap_writer) => {
@@ -1066,7 +1066,7 @@ mod tests {
         use crate::util::bkd::point_reader::PointReader;
         use crate::util::bkd::point_value::PointValue;
         use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
-        use crate::util::error::lucene_error::LuceneError;
+        use crate::util::error::lucene_error::Result;
         use crate::util::numeric_utils::NumericUtils;
         use crate::util::{CommonUtil, SliceCopyOps, ToInt};
         use rand::rngs::StdRng;
@@ -1079,7 +1079,7 @@ mod tests {
         struct TestBKDRadixSelector;
 
         #[test]
-        fn test_basic() -> Result<(), LuceneError> {
+        fn test_basic() -> Result<()> {
             let mut random = random();
             let values = 4;
             let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
@@ -1123,24 +1123,24 @@ mod tests {
         }
 
         #[test]
-        fn test_random_binary_tiny() -> Result<(), LuceneError> {
+        fn test_random_binary_tiny() -> Result<()> {
             let mut random = random();
             do_test_random_binary(&mut random, 10)
         }
 
         #[test]
-        fn test_random_binary_medium() -> Result<(), LuceneError> {
+        fn test_random_binary_medium() -> Result<()> {
             let mut random = random();
             do_test_random_binary(&mut random, 25000)
         }
 
         #[cfg(feature = "nightly")]
         #[test]
-        fn test_random_binary_big() -> Result<(), LuceneError> {
+        fn test_random_binary_big() -> Result<()> {
             let mut random = random();
             do_test_random_binary(&mut random, 500000)
         }
-        fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<(), LuceneError> {
+        fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<()> {
             let config = get_random_config(random)?;
             let packed_bytes_length = config.packed_bytes_length();
             let config = Rc::new(config);
@@ -1176,7 +1176,7 @@ mod tests {
             Ok(())
         }
         #[test]
-        fn test_random_all_dimensions_equals() -> Result<(), LuceneError> {
+        fn test_random_all_dimensions_equals() -> Result<()> {
             let mut random = random();
             let dimensions = TestUtil::next_int(&mut random, 1, BKDConfig::MAX_INDEX_DIMS);
             let bytes_per_dimensions = TestUtil::next_int(&mut random, 2, 30);
@@ -1216,7 +1216,7 @@ mod tests {
         }
 
         #[test]
-        fn test_random_last_byte_two_values() -> Result<(), LuceneError> {
+        fn test_random_last_byte_two_values() -> Result<()> {
             let mut random = random();
             let values = random.random_range(1..=15000);
             let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
@@ -1250,7 +1250,7 @@ mod tests {
         }
 
         #[test]
-        fn test_random_all_docs_equals() -> Result<(), LuceneError> {
+        fn test_random_all_docs_equals() -> Result<()> {
             let mut random = random();
             let values = random.random_range(1..=15000);
             let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
@@ -1280,7 +1280,7 @@ mod tests {
         }
 
         #[test]
-        fn test_random_few_different_values() -> Result<(), LuceneError> {
+        fn test_random_few_different_values() -> Result<()> {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let values = at_least(&mut random, 15000);
@@ -1315,7 +1315,7 @@ mod tests {
         }
 
         #[test]
-        fn test_random_data_dim_diff_values() -> Result<(), LuceneError> {
+        fn test_random_data_dim_diff_values() -> Result<()> {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let values = at_least(&mut random, 15000);
@@ -1359,7 +1359,7 @@ mod tests {
             end: i64,
             middle: i64,
             sorted_on_heap: i32,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let mut radix_selector =
                 BKDRadixSelector::new(config.clone(), sorted_on_heap, dir.clone(), "test");
             let data_only_dims = config.num_dims - config.num_index_dims;
@@ -1467,7 +1467,7 @@ mod tests {
             config: Rc<BKDConfig>,
             dir: Rc<RefCell<D>>,
             points: &PointWriterEnum<D>,
-        ) -> Result<PointWriterEnum<D>, LuceneError> {
+        ) -> Result<PointWriterEnum<D>> {
             let mut copy = get_random_point_writer(random, config, dir, points.count())?;
             let count = points.count();
             let mut reader = points.get_reader(0, count)?;
@@ -1486,7 +1486,7 @@ mod tests {
             input_slice: &PathSlice<D>,
             split_dim: i32,
             random: &mut StdRng,
-        ) -> Result<i32, LuceneError> {
+        ) -> Result<i32> {
             let points_max = get_max(config.clone(), input_slice, split_dim)?;
             let points_min = get_min(config.clone(), input_slice, split_dim)?;
             let mut common_prefix_length = CommonUtil::miss_match(
@@ -1511,7 +1511,7 @@ mod tests {
             config: Rc<BKDConfig>,
             dir: Rc<RefCell<D>>,
             num_points: i64,
-        ) -> Result<PointWriterEnum<D>, LuceneError> {
+        ) -> Result<PointWriterEnum<D>> {
             assert!(num_points <= i32::MAX as i64);
             if num_points < 4096 && random.random_bool(0.5) {
                 Ok(PointWriterEnum::Heap(HeapPointWriter::new(
@@ -1532,7 +1532,7 @@ mod tests {
             config: Rc<BKDConfig>,
             path_slice: &PathSlice<D>,
             dimension: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        ) -> Result<Vec<u8>> {
             let size = config.bytes_per_dim as usize;
             let mut min = vec![0xffu8; size];
             let mut reader = path_slice
@@ -1559,7 +1559,7 @@ mod tests {
             dimension: i32,
             partition_point: &[u8],
             data_dim: &[u8],
-        ) -> Result<i32, LuceneError> {
+        ) -> Result<i32> {
             let mut doc_id = i32::MAX;
             let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
             while reader.next()? {
@@ -1599,7 +1599,7 @@ mod tests {
             p: &PathSlice<D>,
             min_dim: &[u8],
             split_dim: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        ) -> Result<Vec<u8>> {
             let num_data_dims = config.num_dims - config.num_index_dims;
             let size = (num_data_dims * config.bytes_per_dim) as usize;
             let mut min = vec![0xffu8; size];
@@ -1632,7 +1632,7 @@ mod tests {
             config: Rc<BKDConfig>,
             p: &PathSlice<D>,
             dimension: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        ) -> Result<Vec<u8>> {
             let size = config.bytes_per_dim as usize;
             let mut max = vec![0u8; size];
             let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
@@ -1656,7 +1656,7 @@ mod tests {
             p: &PathSlice<D>,
             max_dim: &[u8],
             split_dim: i32,
-        ) -> Result<Vec<u8>, LuceneError> {
+        ) -> Result<Vec<u8>> {
             let num_data_dims = config.num_dims - config.num_index_dims;
             let size = (num_data_dims * config.bytes_per_dim) as usize;
             let mut max = vec![0u8; size];
@@ -1691,7 +1691,7 @@ mod tests {
             dimension: i32,
             partition_point: &[u8],
             data_dim: &[u8],
-        ) -> Result<i32, LuceneError> {
+        ) -> Result<i32> {
             let mut doc_id = i32::MIN;
             let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
             while reader.next()? {
@@ -1725,7 +1725,7 @@ mod tests {
             Ok(doc_id)
         }
 
-        fn get_random_config(random: &mut StdRng) -> Result<BKDConfig, LuceneError> {
+        fn get_random_config(random: &mut StdRng) -> Result<BKDConfig> {
             let num_index_dims = TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
             let num_dims = TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
             let bytes_per_dim = TestUtil::next_int(random, 2, 30);
@@ -1747,7 +1747,7 @@ mod tests {
         use crate::util::bkd::heap_point_write::HeapPointWriter;
         use crate::util::bkd::point_value::PointValue;
         use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
-        use crate::util::error::lucene_error::LuceneError;
+        use crate::util::error::lucene_error::Result;
         use crate::util::{CommonUtil, SliceCopyOps, ToInt};
         use rand::prelude::StdRng;
         use rand::Rng;
@@ -1756,7 +1756,7 @@ mod tests {
         #[allow(dead_code)] // for quick search
         struct TestBKDRadixSort;
         #[test]
-        fn test_random() -> Result<(), LuceneError> {
+        fn test_random() -> Result<()> {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let num_points =
@@ -1773,7 +1773,7 @@ mod tests {
             Ok(())
         }
         #[test]
-        fn test_random_all_equals() -> Result<(), LuceneError> {
+        fn test_random_all_equals() -> Result<()> {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let num_points =
@@ -1791,7 +1791,7 @@ mod tests {
             Ok(())
         }
         #[test]
-        fn test_random_last_byte_two_values() -> Result<(), LuceneError> {
+        fn test_random_last_byte_two_values() -> Result<()> {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let num_points =
@@ -1813,7 +1813,7 @@ mod tests {
         }
 
         #[test]
-        fn test_random_few_different_values() -> Result<(), LuceneError> {
+        fn test_random_few_different_values() -> Result<()> {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let num_points =
@@ -1837,7 +1837,7 @@ mod tests {
         }
 
         #[test]
-        fn test_random_data_dim_different() -> Result<(), LuceneError> {
+        fn test_random_data_dim_different() -> Result<()> {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let num_points =
@@ -1869,7 +1869,7 @@ mod tests {
             start: i32,
             end: i32,
             dir: Rc<RefCell<D>>,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let radix_selector = BKDRadixSelector::new(config.clone(), 1000, dir, "test");
             // we check for each dimension
             for split_dim in 0..config.num_dims {
@@ -2027,7 +2027,7 @@ mod tests {
             }
         }
 
-        fn get_random_config(random: &mut StdRng) -> Result<BKDConfig, LuceneError> {
+        fn get_random_config(random: &mut StdRng) -> Result<BKDConfig> {
             let num_index_dims = TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
             let num_dims = TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
             let bytes_per_dim = TestUtil::next_int(random, 2, 30);

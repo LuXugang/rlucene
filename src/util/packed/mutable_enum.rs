@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::packed::growable_writer::GrowableWriter;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::{DummyMutable, Mutable, Reader};
@@ -45,7 +45,7 @@ impl Accountable for MutableEnum {
     }
 }
 impl Reader for MutableEnum {
-    fn get(&mut self, index: i32) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i32) -> Result<i64> {
         match self {
             MutableEnum::Packed(op) => op.get(index),
             MutableEnum::GrowableW(op) => op.get(index),
@@ -53,13 +53,7 @@ impl Reader for MutableEnum {
         }
     }
 
-    fn get_bulk(
-        &mut self,
-        index: i32,
-        arr: &mut [i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         match self {
             MutableEnum::Packed(op) => op.get_bulk(index, arr, off, len),
             MutableEnum::GrowableW(op) => op.get_bulk(index, arr, off, len),
@@ -84,7 +78,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn set(&mut self, index: i32, value: i64) -> Result<(), LuceneError> {
+    fn set(&mut self, index: i32, value: i64) -> Result<()> {
         match self {
             MutableEnum::Packed(op) => op.set(index, value),
             MutableEnum::GrowableW(op) => op.set(index, value),
@@ -92,13 +86,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn set_bulk(
-        &mut self,
-        index: i32,
-        arr: &[i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
         match self {
             MutableEnum::Packed(op) => op.set_bulk(index, arr, off, len),
             MutableEnum::GrowableW(op) => op.set_bulk(index, arr, off, len),
@@ -106,7 +94,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<(), LuceneError> {
+    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
         match self {
             MutableEnum::Packed(op) => op.fill(from_index, to_index, val),
             MutableEnum::GrowableW(op) => op.fill(from_index, to_index, val),
@@ -114,7 +102,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         match self {
             MutableEnum::Packed(op) => op.clear(),
             MutableEnum::GrowableW(op) => op.clear(),

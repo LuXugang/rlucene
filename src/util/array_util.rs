@@ -17,7 +17,7 @@
 use crate::util::array_tim_sorter::ArrayTimSorter;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::BKDUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::selector::Selector;
 use crate::util::{
     ArrayIntroSorter, Comparator, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault,
@@ -47,19 +47,14 @@ impl ArrayUtil {
     /// # Errors
     ///
     /// Returns a `LuceneError::NumberFormat` if it can't parse the chars into an integer.
-    pub fn parse_int_default(chars: &[char], offset: i32, len: i32) -> Result<i32, LuceneError> {
+    pub fn parse_int_default(chars: &[char], offset: i32, len: i32) -> Result<i32> {
         Self::parse_int(chars, offset, len, 10)
     }
 
     /// Parses the string argument as if it were an `i32` value and returns the result.
     /// Throws a `LuceneError::NumberFormat` if the string does not represent an `i32` quantity.
     /// The second argument specifies the radix to use when parsing the value.
-    pub fn parse_int(
-        chars: &[char],
-        mut offset: i32,
-        mut len: i32,
-        radix: i32,
-    ) -> Result<i32, LuceneError> {
+    pub fn parse_int(chars: &[char], mut offset: i32, mut len: i32, radix: i32) -> Result<i32> {
         if !(ArrayUtil::MIN_RADIX..=ArrayUtil::MAX_RADIX).contains(&radix) {
             return Err(LuceneError::number_format("Invalid radix"));
         }
@@ -81,13 +76,7 @@ impl ArrayUtil {
         Self::parse(chars, offset, len, radix, negative)
     }
 
-    pub fn parse(
-        chars: &[char],
-        offset: i32,
-        len: i32,
-        radix: i32,
-        negative: bool,
-    ) -> Result<i32, LuceneError> {
+    pub fn parse(chars: &[char], offset: i32, len: i32, radix: i32, negative: bool) -> Result<i32> {
         let max = i32::MIN / radix;
         let mut result = 0;
         for i in 0..len {
@@ -140,7 +129,7 @@ impl ArrayUtil {
     pub fn oversize(min_target_size: i32, _bytes_per_element: i32) -> i32 {
         min_target_size.saturating_mul(2)
     }
-    pub fn grow_exact<T>(vec: &mut Vec<T>, new_length: i32) -> Result<(), LuceneError>
+    pub fn grow_exact<T>(vec: &mut Vec<T>, new_length: i32) -> Result<()>
     where
         T: Default,
     {
@@ -168,7 +157,7 @@ impl ArrayUtil {
         }
         Ok(())
     }
-    pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: i32) -> Result<(), LuceneError>
+    pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: i32) -> Result<()>
     where
         T: Clone + Default,
     {
@@ -191,7 +180,7 @@ impl ArrayUtil {
         }
         Ok(())
     }
-    pub fn grow<T>(vec: &mut Vec<T>) -> Result<(), LuceneError>
+    pub fn grow<T>(vec: &mut Vec<T>) -> Result<()>
     where
         T: Default,
     {
@@ -204,11 +193,7 @@ impl ArrayUtil {
     }
     /// Returns an array whose size is at least {@code minLength}, generally over-allocating
     /// exponentially, but never allocating more than {@code maxLength} elements.
-    pub fn grow_in_range<T>(
-        vec: &mut Vec<T>,
-        min_length: i32,
-        max_length: i32,
-    ) -> Result<(), LuceneError>
+    pub fn grow_in_range<T>(vec: &mut Vec<T>, min_length: i32, max_length: i32) -> Result<()>
     where
         T: Default,
     {
@@ -237,12 +222,12 @@ impl ArrayUtil {
     }
     /// Returns a vector whose size is at least `min_size`, generally over-allocating
     /// exponentially, but never allocating more than `i32::MAX` elements.
-    pub fn grow_i32(vec: &mut Vec<i32>, min_size: i32) -> Result<(), LuceneError> {
+    pub fn grow_i32(vec: &mut Vec<i32>, min_size: i32) -> Result<()> {
         Self::grow_in_range(vec, min_size, i32::MAX)
     }
     /// Returns a vector whose size is at least `min_size`, generally over-allocating
     /// exponentially, and it will not copy the original data to the new vector.
-    pub fn grow_no_copy<T>(vec: &[T], min_size: i32) -> Result<Option<Vec<T>>, LuceneError>
+    pub fn grow_no_copy<T>(vec: &[T], min_size: i32) -> Result<Option<Vec<T>>>
     where
         T: Default + Clone,
     {
@@ -279,7 +264,7 @@ impl ArrayUtil {
         from_index: i32,
         to_index: i32,
         comp: C,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         T: Default + Clone + Ord,
         C: Comparator<T>,
@@ -291,7 +276,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn intro_sort_with_comparator<T, C>(a: &mut Vec<T>, comp: C) -> Result<(), LuceneError>
+    pub fn intro_sort_with_comparator<T, C>(a: &mut Vec<T>, comp: C) -> Result<()>
     where
         T: Default + Clone + Ord,
         C: Comparator<T>,
@@ -300,11 +285,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice in natural order using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn intro_sort_with_range<T>(
-        a: &mut Vec<T>,
-        from_index: i32,
-        to_index: i32,
-    ) -> Result<(), LuceneError>
+    pub fn intro_sort_with_range<T>(a: &mut Vec<T>, from_index: i32, to_index: i32) -> Result<()>
     where
         T: Default + Clone + Ord,
     {
@@ -315,7 +296,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice in natural order using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn intro_sort<T>(a: &mut Vec<T>) -> Result<(), LuceneError>
+    pub fn intro_sort<T>(a: &mut Vec<T>) -> Result<()>
     where
         T: Default + Clone + Ord,
     {
@@ -323,12 +304,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice using the Tim sort algorithm
     /// falling back to binary sort for small arrays.
-    pub fn do_tim_sort<T, C>(
-        a: &mut Vec<T>,
-        from_index: i32,
-        to_index: i32,
-        comp: C,
-    ) -> Result<(), LuceneError>
+    pub fn do_tim_sort<T, C>(a: &mut Vec<T>, from_index: i32, to_index: i32, comp: C) -> Result<()>
     where
         T: Default + Clone + Ord,
         C: Comparator<T>,
@@ -343,7 +319,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.
-    pub fn tim_sort_with_comparator<T, C>(a: &mut Vec<T>, comp: C) -> Result<(), LuceneError>
+    pub fn tim_sort_with_comparator<T, C>(a: &mut Vec<T>, comp: C) -> Result<()>
     where
         T: Default + Clone + Ord,
         C: Comparator<T>,
@@ -352,11 +328,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice in natural order using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.
-    pub fn tim_sort_with_range<T>(
-        a: &mut Vec<T>,
-        from_index: i32,
-        to_index: i32,
-    ) -> Result<(), LuceneError>
+    pub fn tim_sort_with_range<T>(a: &mut Vec<T>, from_index: i32, to_index: i32) -> Result<()>
     where
         T: Default + Clone + Ord,
     {
@@ -367,7 +339,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice in natural order using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.
-    pub fn tim_sort<T>(a: &mut Vec<T>) -> Result<(), LuceneError>
+    pub fn tim_sort<T>(a: &mut Vec<T>) -> Result<()>
     where
         T: Default + Clone + Ord,
     {
@@ -393,7 +365,7 @@ impl ArrayUtil {
         to: i32,
         k: i32,
         comparator: &mut C,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         T: Default + Ord,
         C: Comparator<T>,
@@ -548,7 +520,7 @@ where
     T: Default + Ord,
     C: Comparator<T>,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         // The data pointed to by the pivot has been swapped.
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
@@ -647,7 +619,7 @@ mod tests {
         ArrayUtil, ByteArrayComparator, U32byteArrayComparator, U64byteArrayComparator,
     };
     use crate::util::bit_util::BitUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{NaturalOrder, ReverseOrder, SliceCopyOps, ToInt};
     use rand::rngs::StdRng;
     use rand::Rng;
@@ -715,7 +687,7 @@ mod tests {
             assert!(v >= min_target_size);
         }
     }
-    fn parse_int(random: &mut StdRng, s: &str) -> Result<i32, LuceneError> {
+    fn parse_int(random: &mut StdRng, s: &str) -> Result<i32> {
         let start = random.random_range(0..5);
         let extra_length = random.random_range(0..4);
         let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
@@ -774,7 +746,7 @@ mod tests {
         array
     }
     #[test]
-    fn test_intro_sort() -> Result<(), LuceneError> {
+    fn test_intro_sort() -> Result<()> {
         let mut random = random();
         let num = at_least(&mut random, 50);
         for _ in 0..num {
@@ -809,7 +781,7 @@ mod tests {
     // This is a test for LUCENE-3054 (which fails without the merge sort fall back with stack
     // overflow in most cases)
     #[test]
-    fn test_quick_to_heap_sort_fallback() -> Result<(), LuceneError> {
+    fn test_quick_to_heap_sort_fallback() -> Result<()> {
         let mut random = random();
         let num = at_least(&mut random, 10);
         for _ in 0..num {
@@ -822,7 +794,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_tim_sort() -> Result<(), LuceneError> {
+    fn test_tim_sort() -> Result<()> {
         let mut random = random();
         let num = at_least(&mut random, 50);
 
@@ -885,7 +857,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_sort_stability() -> Result<(), LuceneError> {
+    fn test_merge_sort_stability() -> Result<()> {
         let mut random = random();
         let mut items = Vec::with_capacity(100);
 
@@ -924,7 +896,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_tim_sort_stability() -> Result<(), LuceneError> {
+    fn test_tim_sort_stability() -> Result<()> {
         let mut random = rand::rng();
         let mut items = Vec::with_capacity(100);
 
@@ -964,7 +936,7 @@ mod tests {
     }
     // should produce no exceptions
     #[test]
-    fn test_empty_array_sort() -> Result<(), LuceneError> {
+    fn test_empty_array_sort() -> Result<()> {
         let mut a: Vec<i32> = Vec::new();
         ArrayUtil::intro_sort(&mut a)?;
         ArrayUtil::tim_sort(&mut a)?;
@@ -974,7 +946,7 @@ mod tests {
     }
 
     #[test]
-    fn test_select() -> Result<(), LuceneError> {
+    fn test_select() -> Result<()> {
         let mut random = random();
         for _ in 0..100 {
             do_test_select(&mut random)?
@@ -982,7 +954,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
+    fn do_test_select(random: &mut StdRng) -> Result<()> {
         let from = random.random_range(0..5) as usize;
         let to = from + TestUtil::next_int(random, 1, 10_000) as usize;
         let max = if random.random_bool(0.5) {
@@ -1024,7 +996,7 @@ mod tests {
     }
 
     #[test]
-    fn test_grow_exact() -> Result<(), LuceneError> {
+    fn test_grow_exact() -> Result<()> {
         let mut random = random();
         let mut arr: Vec<i16> = vec![1, 2, 3];
         ArrayUtil::grow_exact(&mut arr, 4)?;
@@ -1141,7 +1113,7 @@ mod tests {
     }
 
     #[test]
-    fn test_grow_in_range() -> Result<(), LuceneError> {
+    fn test_grow_in_range() -> Result<()> {
         let mut array: Vec<i32> = vec![1, 2, 3];
         // If minLength is negative, maxLength does not matter
         // TODO

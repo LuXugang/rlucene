@@ -26,7 +26,7 @@ use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::{DataInput, IndexOutput, IO_CONTEXT_DEFAULT};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::output_enum::OutputEnum;
 use crate::util::{IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR};
 use once_cell::sync::Lazy;
@@ -131,7 +131,7 @@ impl SegmentInfos<DummyDirectory> {
     pub const VERSION_CURRENT: i32 = Self::VERSION_86;
     /// Name of the generation reference file name.
     pub const OLD_SEGMENTS_GEN: &'static str = "segments.gen";
-    pub fn with_defaults(index_created_version_major: i32) -> Result<Self, LuceneError> {
+    pub fn with_defaults(index_created_version_major: i32) -> Result<Self> {
         SegmentInfos::new(index_created_version_major)
     }
 }
@@ -144,7 +144,7 @@ where
     /// # Arguments
     /// - `index_created_version_major`: The Lucene version major at index creation time,
     ///   or 6 if the index was created before 7.0.
-    pub fn new(index_created_version_major: i32) -> Result<SegmentInfos<D>, LuceneError> {
+    pub fn new(index_created_version_major: i32) -> Result<SegmentInfos<D>> {
         if index_created_version_major > LATEST.major {
             return Err(LuceneError::illegal_argument(format!(
                 "indexCreatedVersionMajor is in the future: {}",
@@ -214,7 +214,7 @@ where
     pub fn read_commit(
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D>, LuceneError> {
+    ) -> Result<SegmentsFileEnum<D>> {
         Self::read_commit_with_file_min_version(directory, segment_file_name, *MIN_SUPPORTED_MAJOR)
     }
 
@@ -230,7 +230,7 @@ where
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
         min_supported_major_version: i32,
-    ) -> Result<SegmentsFileEnum<D>, LuceneError> {
+    ) -> Result<SegmentsFileEnum<D>> {
         let generation = generation_from_segments_file_name(segment_file_name)?;
         let mut input;
         {
@@ -267,7 +267,7 @@ where
         directory: Arc<Mutex<D>>,
         input: &mut I,
         generation: i64,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         Self::read_commit_impl(directory, input, generation, *MIN_SUPPORTED_MAJOR)
     }
     /// Read the commit from the provided [`ChecksumIndexInput`].
@@ -276,7 +276,7 @@ where
         input: &mut I,
         generation: i64,
         min_supported_major_version: i32,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let mut prior_error: Option<LuceneError> = None;
 
         // Read the magic number
@@ -349,7 +349,7 @@ where
         input: &mut I,
         infos: &mut SegmentInfos<D>,
         format: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         infos.version = CodecUtil::read_be_long(input)?;
         let counter_value = input.read_vlong()?;
         debug_assert!(counter_value >= 0);
@@ -512,7 +512,7 @@ where
         Ok(())
     }
 
-    pub fn read_codec<I: DataInput>(input: &mut I) -> Result<Lucene101Codec, LuceneError> {
+    pub fn read_codec<I: DataInput>(input: &mut I) -> Result<Lucene101Codec> {
         let name = input.read_string()?;
         let codec = get_default_code();
         if codec.get_name() != name {
@@ -526,9 +526,7 @@ where
         Ok(codec)
     }
     /// Find the latest commit (`segments_N` file) and load all `SegmentCommitInfo`s.
-    pub fn read_latest_commit(
-        directory: Arc<Mutex<D>>,
-    ) -> Result<SegmentsFileEnum<D>, LuceneError> {
+    pub fn read_latest_commit(directory: Arc<Mutex<D>>) -> Result<SegmentsFileEnum<D>> {
         Self::read_latest_commit_with_min_version(directory, *MIN_SUPPORTED_MAJOR)
     }
 
@@ -537,7 +535,7 @@ where
     pub fn read_latest_commit_with_min_version(
         directory: Arc<Mutex<D>>,
         min_supported_major_version: i32,
-    ) -> Result<SegmentsFileEnum<D>, LuceneError> {
+    ) -> Result<SegmentsFileEnum<D>> {
         let sub = FindSegmentsFileImpl {
             min_supported_major_version,
         };
@@ -545,7 +543,7 @@ where
         find_segments_file.run()
     }
 
-    fn write_with_directory(&mut self, directory: &mut D) -> Result<(), LuceneError> {
+    fn write_with_directory(&mut self, directory: &mut D) -> Result<()> {
         let next_generation = self.get_next_pending_generation();
         let segment_file_name_wrap = IndexFileNames::file_name_from_generation(
             IndexFileNames::PENDING_SEGMENTS,
@@ -590,7 +588,7 @@ where
     /// # Errors
     ///
     /// Returns a `LuceneError` if there is an issue writing the segment information.
-    pub fn write<T: IndexOutput>(&self, out: &mut T) -> Result<(), LuceneError> {
+    pub fn write<T: IndexOutput>(&self, out: &mut T) -> Result<()> {
         CodecUtil::write_index_header(
             out,
             "segments",
@@ -704,7 +702,7 @@ where
         Ok(())
     }
 
-    pub fn try_clone(&self) -> Result<Self, LuceneError> {
+    pub fn try_clone(&self) -> Result<Self> {
         let mut cloned = Self {
             counter: self.counter,
             version: self.version,
@@ -753,7 +751,7 @@ where
     }
 
     /// Set the generation to be used for the next commit.
-    pub fn set_next_write_generation(&mut self, generation: i64) -> Result<(), LuceneError> {
+    pub fn set_next_write_generation(&mut self, generation: i64) -> Result<()> {
         if generation < self.generation {
             return Err(LuceneError::illegal_state(format!(
                 "Cannot decrease generation to {} from current generation {}",
@@ -788,7 +786,7 @@ where
     /// to complete the commit or [`rollback_commit`](SegmentInfos::rollback_commit) to abort it.
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
-    pub fn prepare_commit(&mut self, dir: Arc<Mutex<D>>) -> Result<(), LuceneError> {
+    pub fn prepare_commit(&mut self, dir: Arc<Mutex<D>>) -> Result<()> {
         if self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was already called".to_string(),
@@ -803,7 +801,7 @@ where
     }
 
     /// Returns all file names referenced by `SegmentInfo`. The returned collection is recomputed on each invocation.
-    pub fn files(&self, include_segments_file: bool) -> Result<HashSet<String>, LuceneError> {
+    pub fn files(&self, include_segments_file: bool) -> Result<HashSet<String>> {
         let mut files = HashSet::new();
         if include_segments_file {
             if let Some(segment_file_name) = self.get_segments_file_name() {
@@ -816,7 +814,7 @@ where
         Ok(files)
     }
     /// Returns the committed `segments_N` filename.
-    pub fn finish_commit(&mut self, dir: Arc<Mutex<D>>) -> Result<String, LuceneError> {
+    pub fn finish_commit(&mut self, dir: Arc<Mutex<D>>) -> Result<String> {
         if !self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was not called".to_string(),
@@ -872,7 +870,7 @@ where
     /// Writes and syncs to the Directory, taking care to remove the segment file on exception.
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
-    pub fn commit(&mut self, dir: Arc<Mutex<D>>) -> Result<(), LuceneError> {
+    pub fn commit(&mut self, dir: Arc<Mutex<D>>) -> Result<()> {
         self.prepare_commit(dir.clone())?;
         self.finish_commit(dir.clone())?;
         Ok(())
@@ -907,7 +905,7 @@ where
     }
 
     /// Returns the sum of all segment's `max_docs`. Note that this does not include deletions.
-    pub fn total_max_doc(&self) -> Result<i64, LuceneError> {
+    pub fn total_max_doc(&self) -> Result<i64> {
         let mut count: i64 = 0;
         for segment_commit_info in &self.segments {
             count += segment_commit_info.info.max_doc()? as i64;
@@ -923,7 +921,7 @@ where
     }
 
     /// Set the version to a new value. The new version must be greater than or equal to the current version.
-    pub fn set_version(&mut self, new_version: i64) -> Result<(), LuceneError> {
+    pub fn set_version(&mut self, new_version: i64) -> Result<()> {
         if new_version < self.version {
             return Err(LuceneError::illegal_argument(format!(
                 "newVersion (={}) cannot be less than current version (={})",
@@ -938,7 +936,7 @@ where
     //     &mut self,
     //     merge: &MergePolicy<D, W>,
     //     drop_segment: bool,
-    // ) -> Result<(), LuceneError> {
+    // ) -> Result<()> {
     //     if self.index_created_version_major >= 7 && merge.info.info.min_version.is_none() {
     //         return Err(LuceneError::illegal_argument(
     //             "All segments must record the minVersion for indices created on or after Lucene 7"
@@ -975,7 +973,7 @@ where
     //
     //     Ok(())
     // }
-    pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>, LuceneError> {
+    pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>> {
         let mut backup_list = Vec::with_capacity(self.segments.len());
         for segment_commit_info in &self.segments {
             // debug_assert!(
@@ -1010,7 +1008,7 @@ where
     }
 
     /// Appends the provided `SegmentCommitInfo` to the `segments` list.
-    pub fn add(&mut self, si: SegmentCommitInfo<D>) -> Result<(), LuceneError> {
+    pub fn add(&mut self, si: SegmentCommitInfo<D>) -> Result<()> {
         if self.index_created_version_major >= 7 && si.info.min_version.is_none() {
             return Err(LuceneError::illegal_argument(format!(
                 "All segments must record the minVersion for indices created on or after Lucene 7, but minVersion is missing for segment: {}",
@@ -1022,10 +1020,7 @@ where
     }
 
     /// Appends the provided [`SegmentCommitInfo`]s.
-    pub fn add_all(
-        &mut self,
-        sis: impl IntoIterator<Item = SegmentCommitInfo<D>>,
-    ) -> Result<(), LuceneError> {
+    pub fn add_all(&mut self, sis: impl IntoIterator<Item = SegmentCommitInfo<D>>) -> Result<()> {
         for si in sis {
             self.add(si)?;
         }
@@ -1139,10 +1134,10 @@ where
     pub fn new(directory: Arc<Mutex<D>>, sub: FB) -> Self {
         FindSegmentsFile { directory, sub }
     }
-    pub fn run(&self) -> Result<SegmentsFileEnum<D>, LuceneError> {
+    pub fn run(&self) -> Result<SegmentsFileEnum<D>> {
         self.run_with_commit(None::<DummyIndexCommit>)
     }
-    pub fn run_with_commit<I>(&self, commit: Option<I>) -> Result<SegmentsFileEnum<D>, LuceneError>
+    pub fn run_with_commit<I>(&self, commit: Option<I>) -> Result<SegmentsFileEnum<D>>
     where
         I: IndexCommit,
     {
@@ -1243,7 +1238,7 @@ pub trait FindSegmentsFileBase {
         &self,
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D>, LuceneError>
+    ) -> Result<SegmentsFileEnum<D>>
     where
         D: Directory;
 }
@@ -1265,7 +1260,7 @@ where
     }
 }
 /// Sets the global INFO_STREAM to the given `OutputEnum`.
-pub fn set_info_stream(output: OutputEnum) -> Result<(), LuceneError> {
+pub fn set_info_stream(output: OutputEnum) -> Result<()> {
     let mut info_stream = INFO_STREAM
         .lock()
         .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
@@ -1274,7 +1269,7 @@ pub fn set_info_stream(output: OutputEnum) -> Result<(), LuceneError> {
 }
 
 /// Returns the current global INFO_STREAM as an `Option<Arc<Mutex<OutputEnum>>>`.
-pub fn get_info_stream() -> Result<Option<Arc<Mutex<OutputEnum>>>, LuceneError> {
+pub fn get_info_stream() -> Result<Option<Arc<Mutex<OutputEnum>>>> {
     let info_stream = INFO_STREAM
         .lock()
         .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
@@ -1283,7 +1278,7 @@ pub fn get_info_stream() -> Result<Option<Arc<Mutex<OutputEnum>>>, LuceneError> 
 
 /// Prints a message to the INFO_STREAM if it is set.
 /// This function assumes the caller has checked whether INFO_STREAM is `Some`.
-pub fn message(msg: &str) -> Result<(), LuceneError> {
+pub fn message(msg: &str) -> Result<()> {
     let info_stream = INFO_STREAM
         .lock()
         .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
@@ -1306,7 +1301,7 @@ impl FindSegmentsFileBase for FindSegmentsFileImpl {
         &self,
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D>, LuceneError>
+    ) -> Result<SegmentsFileEnum<D>>
     where
         D: Directory,
     {
@@ -1322,7 +1317,7 @@ impl FindSegmentsFileBase for FindSegmentsFileImpl {
 ///
 /// # Arguments
 /// - `files`: A slice of file names to check.
-pub fn get_last_commit_generation(files: &[String]) -> Result<i64, LuceneError> {
+pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
     let mut max = -1;
     for file in files {
         if file.starts_with(IndexFileNames::SEGMENTS)
@@ -1339,15 +1334,13 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64, LuceneError> 
 }
 
 /// Get the generation of the most recent commit to the index in this directory.
-pub fn get_last_commit_generation_from_directory<D: Directory>(
-    directory: &D,
-) -> Result<i64, LuceneError> {
+pub fn get_last_commit_generation_from_directory<D: Directory>(directory: &D) -> Result<i64> {
     let files = directory.list_all()?;
     get_last_commit_generation(&files)
 }
 
 /// Get the filename of the segments_N file for the most recent commit in the list of index files.
-pub fn get_last_commit_segments_file_name(files: &[String]) -> Result<Option<String>, LuceneError> {
+pub fn get_last_commit_segments_file_name(files: &[String]) -> Result<Option<String>> {
     let last_gen = get_last_commit_generation(files)?;
     Ok(IndexFileNames::file_name_from_generation(
         IndexFileNames::SEGMENTS,
@@ -1359,7 +1352,7 @@ pub fn get_last_commit_segments_file_name(files: &[String]) -> Result<Option<Str
 /// Get the filename of the segments_N file for the most recent commit to the index in this Directory.
 pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
     directory: &D,
-) -> Result<Option<String>, LuceneError> {
+) -> Result<Option<String>> {
     let last_gen = get_last_commit_generation_from_directory(directory)?;
     Ok(IndexFileNames::file_name_from_generation(
         IndexFileNames::SEGMENTS,
@@ -1368,7 +1361,7 @@ pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
     ))
 }
 /// Parse the generation off the segment file name and return it.
-pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64, LuceneError> {
+pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64> {
     if file_name == SegmentInfos::OLD_SEGMENTS_GEN {
         Err(LuceneError::illegal_argument(format!(
             "\"{}\" is not a valid segment file name since 4.0",
@@ -1408,7 +1401,7 @@ mod tests {
     use crate::test::util::lucene_test_case::random;
 
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
     use rand::Rng;
     use std::collections::{HashMap, HashSet};
@@ -1417,7 +1410,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     pub struct TestSegmentInfos;
     #[test]
-    fn test_illegal_created_version() -> Result<(), LuceneError> {
+    fn test_illegal_created_version() -> Result<()> {
         // Test for an indexCreatedVersionMajor less than 6
         let result = SegmentInfos::with_defaults(5);
         assert!(result.is_err());
@@ -1441,7 +1434,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_versions_no_segments() -> Result<(), LuceneError> {
+    fn test_versions_no_segments() -> Result<()> {
         let mut random = random();
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut sis = SegmentInfos::new(LATEST.major)?;
@@ -1456,7 +1449,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_versions_one_segment() -> Result<(), LuceneError> {
+    fn test_versions_one_segment() -> Result<()> {
         let mut random = random();
         let dir = new_directory(&mut random)?;
         let directory = Arc::new(Mutex::new(dir));
@@ -1508,7 +1501,7 @@ mod tests {
     }
 
     #[test]
-    fn test_versions_two_segments() -> Result<(), LuceneError> {
+    fn test_versions_two_segments() -> Result<()> {
         let mut random = random();
         let dir = new_directory(&mut random)?;
         let directory = Arc::new(Mutex::new(dir));
@@ -1605,7 +1598,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_to_string() -> Result<(), LuceneError> {
+    fn test_to_string() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         // Diagnostics map
@@ -1713,7 +1706,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_id_changes_on_advance() -> Result<(), LuceneError> {
+    fn test_id_changes_on_advance() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         let id = StringHelper::random_id();
@@ -1783,7 +1776,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<(), LuceneError> {
+    fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         let id = StringHelper::random_id();
@@ -1912,7 +1905,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_add_diagnostics() -> Result<(), LuceneError> {
+    fn test_add_diagnostics() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         // Diagnostics map

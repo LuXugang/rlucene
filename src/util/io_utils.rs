@@ -16,7 +16,7 @@
  */
 
 use crate::store::directory::Directory;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
@@ -34,10 +34,7 @@ impl IOUtils {
             }
         }
     }
-    pub fn delete_files<D: Directory>(
-        dir: Arc<Mutex<D>>,
-        names: Vec<String>,
-    ) -> Result<(), LuceneError> {
+    pub fn delete_files<D: Directory>(dir: Arc<Mutex<D>>, names: Vec<String>) -> Result<()> {
         for name in names {
             dir.lock()
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
@@ -53,7 +50,7 @@ impl IOUtils {
     /// * `file_to_sync` - The path to the file or directory to sync.
     /// * `is_dir` - If `true`, the given path is a directory. On platforms where directory syncing
     ///   is unsupported (like Windows), this will be ignored for directories.
-    pub fn fsync(file_to_sync: &PathBuf, is_dir: bool) -> Result<(), LuceneError> {
+    pub fn fsync(file_to_sync: &PathBuf, is_dir: bool) -> Result<()> {
         if is_dir {
             if cfg!(windows) {
                 if !file_to_sync.exists() {

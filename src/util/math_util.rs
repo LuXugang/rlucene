@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Math utility methods.
 pub struct MathUtil;
@@ -31,7 +31,7 @@ impl MathUtil {
     ///
     /// # Panics
     /// - If `base <= 1`, it will panic.
-    pub fn log(mut x: i64, base: i32) -> Result<i32, LuceneError> {
+    pub fn log(mut x: i64, base: i32) -> Result<i32> {
         if base == 2 {
             // This specialized method is significantly faster.
             return if x <= 0 {

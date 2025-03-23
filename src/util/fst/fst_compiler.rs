@@ -16,7 +16,7 @@
  */
 use crate::store::DataOutput;
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst::fst::DummyBytesReader;
 use crate::util::fst::fst_reader::FstReader;
 #[allow(unused)]
@@ -31,13 +31,13 @@ impl Accountable for NullFSTReader {
 impl FstReader for NullFSTReader {
     type FstBytesReader = DummyBytesReader;
 
-    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader, LuceneError> {
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         Err(LuceneError::unsupported_operation(
             "NullFSTReader does not support reading bytes".to_string(),
         ))
     }
 
-    fn write_to<D: DataOutput>(&self, _out: &mut D) -> Result<(), LuceneError> {
+    fn write_to<D: DataOutput>(&self, _out: &mut D) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "NullFSTReader does not support writing bytes".to_string(),
         ))

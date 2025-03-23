@@ -16,18 +16,14 @@
  */
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::DataOutput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 /// A data compressor.
 pub trait Compressor {
     /// Compress bytes into `out`. It is the responsibility of the compressor to add all
     /// necessary information so that a `Decompressor` will know when to stop decompressing bytes
     /// from the stream.
-    fn compress<D>(
-        &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
-        out: &mut D,
-    ) -> Result<(), LuceneError>
+    fn compress<D>(&mut self, buffers_input: &mut ByteBuffersDataInput, out: &mut D) -> Result<()>
     where
         D: DataOutput;
 }

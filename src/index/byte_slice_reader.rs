@@ -17,7 +17,7 @@
 use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, SliceCopyOps};
 use std::fmt::{Display, Formatter};
 
@@ -108,7 +108,7 @@ impl Display for ByteSliceReader {
 }
 
 impl DataInput for ByteSliceReader {
-    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self) -> Result<u8> {
         debug_assert!(!self.eof());
         debug_assert!(self.upto <= self.limit);
         if self.upto == self.limit {
@@ -121,7 +121,7 @@ impl DataInput for ByteSliceReader {
         Ok(byte)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, mut len: i32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, mut len: i32) -> Result<()> {
         let mut offset = offset as usize;
         debug_assert!(self.pool.is_some());
         while len > 0 {
@@ -154,7 +154,7 @@ impl DataInput for ByteSliceReader {
         Ok(())
     }
 
-    fn skip_bytes(&mut self, mut num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, mut num_bytes: i64) -> Result<()> {
         if num_bytes < 0 {
             return Err(LuceneError::illegal_argument(
                 "numBytes must be >= 0".to_string(),
@@ -182,7 +182,7 @@ mod tests {
     use crate::store::DataInput;
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -195,9 +195,7 @@ mod tests {
     struct TestByteSliceReader;
 
     #[allow(clippy::type_complexity)]
-    pub fn before_class(
-        random: &mut StdRng,
-    ) -> Result<(Vec<u8>, ByteBlockPoolBorrow, i32), LuceneError> {
+    pub fn before_class(random: &mut StdRng) -> Result<(Vec<u8>, ByteBlockPoolBorrow, i32)> {
         let len = 100; // You can adjust this value if needed
         let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
@@ -226,7 +224,7 @@ mod tests {
         Ok((random_data, block_pool, block_pool_end))
     }
     #[test]
-    fn test_read_byte() -> Result<(), LuceneError> {
+    fn test_read_byte() -> Result<()> {
         let mut random = random();
         let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
         let mut reader = ByteSliceReader::new();
@@ -238,7 +236,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_skip_bytes() -> Result<(), LuceneError> {
+    fn test_skip_bytes() -> Result<()> {
         let mut random = random();
         let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
         let mut slice_reader = ByteSliceReader::new();

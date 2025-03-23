@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::{BufferedIndexInput, BufferedIndexInputBase};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::io::Cursor;
 
 pub struct DummyBufferedIndexInputBase;
@@ -27,7 +27,7 @@ impl Clone for DummyBufferedIndexInputBase {
 }
 
 impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
-    fn seek_internal(&mut self, _pos: i64) -> Result<(), LuceneError> {
+    fn seek_internal(&mut self, _pos: i64) -> Result<()> {
         unreachable!("DummyBufferedIndexInputBase should not be called")
     }
 
@@ -36,18 +36,13 @@ impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
         _b: &mut Cursor<Vec<u8>>,
         _len: i64,
         _file_pointer: i64,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         unreachable!("DummyBufferedIndexInputBase should not be called")
     }
 
     type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
 
-    fn slice(
-        &self,
-        _slice_description: &str,
-        _offset: i64,
-        _length: i64,
-    ) -> Result<Self::Slice, LuceneError> {
+    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
         unreachable!("DummyBufferedIndexInputBase should not be called");
     }
 

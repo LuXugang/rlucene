@@ -18,7 +18,7 @@ use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::index_input::IndexInput;
 use crate::store::{BufferedChecksum, Checksum, DataInput, HasherChecksum};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
 
@@ -45,7 +45,7 @@ where
         self.main.get_file_pointer()
     }
 
-    fn seek(&mut self, pos: i64) -> Result<(), LuceneError> {
+    fn seek(&mut self, pos: i64) -> Result<()> {
         ChecksumIndexInput::seek(self, pos)
     }
 
@@ -54,21 +54,12 @@ where
     }
 
     type Slice = DummyIndexInput;
-    fn slice(
-        &self,
-        _slice_description: &str,
-        _offset: i64,
-        _length: i64,
-    ) -> Result<Self::Slice, LuceneError> {
+    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support slicing",
         ))
     }
-    fn random_access_slice(
-        &self,
-        _offset: i64,
-        _length: i64,
-    ) -> Result<DummyIndexInput, LuceneError> {
+    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",
         ))
@@ -80,19 +71,19 @@ impl<T> DataInput for BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
 {
-    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self) -> Result<u8> {
         let b = self.main.read_byte()?;
         self.digest.update(b);
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         self.main.read_bytes(b, offset, len)?;
         self.digest.update_bytes(b, offset, len);
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         IndexInput::skip_bytes(self, num_bytes)
     }
 
@@ -100,7 +91,7 @@ where
         true
     }
 
-    fn seek_in_data_input(&mut self, pos: i64) -> Result<(), LuceneError> {
+    fn seek_in_data_input(&mut self, pos: i64) -> Result<()> {
         debug_assert!(self.is_index_input());
         IndexInput::seek(self, pos)
     }

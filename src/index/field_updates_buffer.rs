@@ -24,7 +24,7 @@ use crate::util::bit_set::BitSet;
 use crate::util::bit_util::BitUtil;
 use crate::util::bits::{Bits, MatchAllBits};
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{
     BytesRefArray, Counter, CounterEnumLock, IndexedBytesRefIteratorImpl, MTBytesRefArray,
@@ -75,7 +75,7 @@ impl FieldUpdatesBuffer {
         initial_value: &DocValuesUpdate,
         doc_upto: i32,
         is_numeric: bool,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let has_values = if !initial_value.has_value {
             Some(FixedBitSet::new(1))
         } else {
@@ -115,7 +115,7 @@ impl FieldUpdatesBuffer {
         bytes_used: CounterEnumLock,
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let numeric = initial_value
             .sub_update
             .get_numeric()
@@ -147,7 +147,7 @@ impl FieldUpdatesBuffer {
         bytes_used: CounterEnumLock,
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let binary = initial_value
             .sub_update
             .get_binary()
@@ -192,7 +192,7 @@ impl FieldUpdatesBuffer {
         doc_upto: i32,
         ord: i32,
         has_value: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         debug_assert!(!self.finished, "buffer was finished already");
         let fields_len = self.fields.len();
         if self.fields[0] != field || fields_len != 1 {
@@ -259,12 +259,7 @@ impl FieldUpdatesBuffer {
         }
         Ok(())
     }
-    pub fn add_update_with_long(
-        &mut self,
-        term: &Term,
-        value: i64,
-        doc_up_to: i32,
-    ) -> Result<(), LuceneError> {
+    pub fn add_update_with_long(&mut self, term: &Term, value: i64, doc_up_to: i32) -> Result<()> {
         debug_assert!(self.is_numeric);
         let ord = self.append(term)?;
         let field = term.field.clone();
@@ -297,7 +292,7 @@ impl FieldUpdatesBuffer {
         Ok(())
     }
 
-    pub(crate) fn add_no_value(&mut self, term: &Term, doc_up_to: i32) -> Result<(), LuceneError> {
+    pub(crate) fn add_no_value(&mut self, term: &Term, doc_up_to: i32) -> Result<()> {
         let ord = self.append(term)?;
         self.add(term.field.clone(), doc_up_to, ord, false)
     }
@@ -306,7 +301,7 @@ impl FieldUpdatesBuffer {
         term: &Term,
         value: &BytesRef,
         doc_up_to: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         debug_assert!(!self.is_numeric);
         debug_assert!(self.byte_values.is_some());
         let ord = self.append(term)?;
@@ -315,13 +310,13 @@ impl FieldUpdatesBuffer {
         Ok(())
     }
 
-    fn append(&mut self, term: &Term) -> Result<i32, LuceneError> {
+    fn append(&mut self, term: &Term) -> Result<i32> {
         self.term_values.append(&term.bytes)?;
         let ord = self.num_updates;
         self.num_updates += 1;
         Ok(ord)
     }
-    pub(crate) fn finish(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn finish(&mut self) -> Result<()> {
         if self.finished {
             return Err(LuceneError::illegal_state(
                 "Buffer was finished already".to_string(),
@@ -352,7 +347,7 @@ impl FieldUpdatesBuffer {
         let mut last: Option<BytesRef> = None;
         let mut last_ord = 0;
 
-        let result: Result<(), LuceneError> = (|| {
+        let result: Result<()> = (|| {
             while let Some(current) = iterator.next()? {
                 if let Some(last_term) = &last {
                     let cmp = current.cmp(last_term);
@@ -380,7 +375,7 @@ impl FieldUpdatesBuffer {
         );
         true
     }
-    pub(crate) fn iterator(&self) -> Result<BufferedUpdateIterator, LuceneError> {
+    pub(crate) fn iterator(&self) -> Result<BufferedUpdateIterator> {
         if !self.finished {
             return Err(LuceneError::illegal_state(
                 "Buffer was not finished".to_string(),
@@ -494,7 +489,7 @@ impl<'a> BufferedUpdateIterator<'a> {
     }
     /// Moves to the next BufferedUpdate or return null if all updates are consumed. The returned
     /// instance is a shared instance and must be fully consumed before the next call to this method.
-    pub(crate) fn next_value(&mut self) -> Result<Option<BufferedUpdate>, LuceneError> {
+    pub(crate) fn next_value(&mut self) -> Result<Option<BufferedUpdate>> {
         let mut buffered_update = BufferedUpdate::default();
         let next_term = self.next_term()?;
 
@@ -531,7 +526,7 @@ impl<'a> BufferedUpdateIterator<'a> {
         }
     }
 
-    fn next_term(&mut self) -> Result<Option<BytesRef>, LuceneError> {
+    fn next_term(&mut self) -> Result<Option<BytesRef>> {
         if let Some(look_ahead_term_iterator) = &mut self.look_ahead_term_iterator {
             if self.buffered_update.term_value.is_none() {
                 look_ahead_term_iterator.next()?;
@@ -626,7 +621,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{random, rarely};
 
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::CounterEnum;
     use rand::rngs::StdRng;
     use rand::Rng;
@@ -638,7 +633,7 @@ mod tests {
     pub struct TestFieldUpdatesBuffer;
 
     #[test]
-    pub fn test_basics() -> Result<(), LuceneError> {
+    pub fn test_basics() -> Result<()> {
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let update = DocValuesUpdate::new(
             DocValuesType::Numeric,
@@ -705,7 +700,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_update_share_values() -> Result<(), LuceneError> {
+    fn test_update_share_values() -> Result<()> {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let int_value = random.random::<i32>();
@@ -770,7 +765,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    pub fn test_update_share_values_binary() -> Result<(), LuceneError> {
+    pub fn test_update_share_values_binary() -> Result<()> {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let value_for_three = random.random_bool(0.5);
@@ -896,7 +891,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_binary_random() -> Result<(), LuceneError> {
+    pub fn test_binary_random() -> Result<()> {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
@@ -953,7 +948,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    pub fn test_numeric_random() -> Result<(), LuceneError> {
+    pub fn test_numeric_random() -> Result<()> {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
@@ -1002,7 +997,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    pub fn test_no_numeric_value() -> Result<(), LuceneError> {
+    pub fn test_no_numeric_value() -> Result<()> {
         let update = DocValuesUpdate::new(
             DocValuesType::Numeric,
             Term::from_text("id".to_string(), "1"),
@@ -1022,7 +1017,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<(), LuceneError> {
+    pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<()> {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
@@ -1083,7 +1078,7 @@ mod tests {
         buffer: &FieldUpdatesBuffer,
         updates: &mut [DocValuesUpdate],
         term_sorted: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut updates = updates.to_owned();
         if term_sorted {
             updates.sort_by(|a, b| a.term.bytes.cmp(&b.term.bytes));

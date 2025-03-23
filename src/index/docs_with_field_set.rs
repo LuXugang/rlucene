@@ -22,7 +22,7 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
 use std::rc::Rc;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 
 //TODO
@@ -56,7 +56,7 @@ impl DocsWithFieldSet<FixedBitSet> {
     ///
     /// # Parameters
     /// - `doc_id`: The document ID to be added.
-    pub fn add(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    pub fn add(&mut self, doc_id: i32) -> Result<()> {
         if doc_id <= self.last_doc_id {
             return Err(LuceneError::illegal_argument(format!(
                 "Out of order doc ids: last= {}, next= {}",
@@ -92,21 +92,21 @@ impl<T: BitSet> DocIdSetIterator for DocsWithFieldSetEnum<'_, T> {
         }
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         match self {
             DocsWithFieldSetEnum::Dense(d) => d.next_doc(),
             DocsWithFieldSetEnum::Sparse(s) => s.next_doc(),
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         match self {
             DocsWithFieldSetEnum::Dense(d) => d.advance(_target),
             DocsWithFieldSetEnum::Sparse(s) => s.advance(_target),
         }
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         match self {
             DocsWithFieldSetEnum::Dense(d) => d.cost(),
             DocsWithFieldSetEnum::Sparse(s) => s.cost(),
@@ -154,13 +154,13 @@ mod tests {
     use crate::test::util::lucene_test_case::random;
 
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     struct TestDocsWithFieldSet {}
     #[test]
-    fn test_dense() -> Result<(), LuceneError> {
+    fn test_dense() -> Result<()> {
         let mut set = DocsWithFieldSet::new();
         let mut it = set.iterator().unwrap();
         assert_eq!(it.next_doc()?, NO_MORE_DOCS);
@@ -186,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse() -> Result<(), LuceneError> {
+    fn test_sparse() -> Result<()> {
         let mut random = random();
         let mut set = DocsWithFieldSet::new();
         let doc = random.random_range(0..10000);
@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_then_sparse() -> Result<(), LuceneError> {
+    fn test_dense_then_sparse() -> Result<()> {
         let mut random = random();
         let dense_count = random.random_range(1..10000);
         let next_doc = dense_count + random.random_range(1..10000);

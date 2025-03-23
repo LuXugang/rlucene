@@ -20,7 +20,7 @@ use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{DirectAllocatorByte, MTAllocatorByteEnum, STAllocatorByteEnum};
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum, CounterEnumBorrow,
     CounterEnumLock, SliceCopyOps,
@@ -84,14 +84,14 @@ where
         self.byte_block_pool.clone()
     }
     /// Resets this buffer to the empty state.
-    pub fn reset(&mut self) -> Result<(), LuceneError> {
+    pub fn reset(&mut self) -> Result<()> {
         self.byte_block_pool
             .with_exclusive(|byte_block_pool| byte_block_pool.reset(false, false))?;
         Ok(())
     }
 
     /// Populates the given `BytesRef` with the term starting at `start`.
-    pub fn fill_bytes_ref(&self, term: &mut BytesRef, start: i32) -> Result<(), LuceneError> {
+    pub fn fill_bytes_ref(&self, term: &mut BytesRef, start: i32) -> Result<()> {
         self.byte_block_pool.with_exclusive(|pool| {
             {
                 let block = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
@@ -123,7 +123,7 @@ where
     ///
     /// # See Also
     /// * `fill_bytes_ref(BytesRef, int)`
-    pub fn add_bytes_ref(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
+    pub fn add_bytes_ref(&mut self, bytes: &BytesRef) -> Result<i32> {
         let length = bytes.length;
         let len2 = 2 + bytes.length;
         self.byte_block_pool.with_exclusive(|pool| {
@@ -168,7 +168,7 @@ where
         })
     }
     /// Computes the hash of the BytesRef at the given start.
-    pub fn hash(&mut self, start: i32) -> Result<i32, LuceneError> {
+    pub fn hash(&mut self, start: i32) -> Result<i32> {
         let offset = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.with_exclusive(|pool| {
             let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
@@ -186,7 +186,7 @@ where
         })
     }
     /// Computes the equality between the BytesRef at the given start position and the provided BytesRef.
-    pub fn equals(&self, start: i32, b: &BytesRef) -> Result<bool, LuceneError> {
+    pub fn equals(&self, start: i32, b: &BytesRef) -> Result<bool> {
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.with_exclusive(|pool| {
             let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);

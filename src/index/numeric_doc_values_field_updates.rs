@@ -21,7 +21,7 @@ use crate::index::doc_values_field_updates::{
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::BytesRef;
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
@@ -39,7 +39,7 @@ where
 }
 #[allow(unused)]
 impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
-    pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>, LuceneError> {
+    pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>> {
         let sub_reader = PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT);
         let values = AbstractPagedMutable::new(1, 1, PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
@@ -57,9 +57,7 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
     ) -> Result<
         NumericDocValuesFieldUpdates<
             impl AbstractPagedMutableBase<PagedMutableBase = PagedMutable>,
-        >,
-        LuceneError,
-    > {
+        >> {
         let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
         let sub_reader =
             PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
@@ -85,7 +83,7 @@ impl<T> DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T> + Default,
 {
-    fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<(), LuceneError> {
+    fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<()> {
         let _guard = self
             .lock
             .lock()
@@ -93,12 +91,7 @@ where
         self.values.set(index as i64, value - self.min_value)
     }
 
-    fn add_byte_ref(
-        &mut self,
-        _doc: i32,
-        _value: BytesRef,
-        _index: i32,
-    ) -> Result<(), LuceneError> {
+    fn add_byte_ref(&mut self, _doc: i32, _value: BytesRef, _index: i32) -> Result<()> {
         unreachable!("NumericDocValuesFieldUpdates does not support add_byte_ref")
     }
 
@@ -106,7 +99,7 @@ where
         &mut self,
         doc_id: i32,
         mut iterator: I,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.add_value(doc_id, iterator.long_value()?, 0)
     }
 
@@ -114,13 +107,13 @@ where
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
-    ) -> Result<impl DocValuesFieldIterator, LuceneError> {
+    ) -> Result<impl DocValuesFieldIterator> {
         let sub_iterator =
             NumericDocValuesFieldUpdatesIterator::new(Some(&mut self.values), 0, self.min_value);
         Ok(AbstractIterator::new(inner, del_gen, sub_iterator))
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let tmp_val = self.values.get(j as i64)?;
         let value = self.values.get(i as i64)?;
         self.values.set(j as i64, value)?;
@@ -128,7 +121,7 @@ where
         Ok(())
     }
 
-    fn grow(&mut self, size: i32) -> Result<(), LuceneError> {
+    fn grow(&mut self, size: i32) -> Result<()> {
         let value_result = self.values.grow_with_size(size as i64)?;
         if value_result.is_some() {
             self.values = value_result.unwrap();
@@ -136,7 +129,7 @@ where
         Ok(())
     }
 
-    fn resize(&mut self, _size: i32) -> Result<(), LuceneError> {
+    fn resize(&mut self, _size: i32) -> Result<()> {
         self.values = self.values.resize(_size as i64)?;
         Ok(())
     }
@@ -175,16 +168,16 @@ impl<T> AbstractIteratorBase for NumericDocValuesFieldUpdatesIterator<'_, T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    fn set(&mut self, idx: i64) -> Result<(), LuceneError> {
+    fn set(&mut self, idx: i64) -> Result<()> {
         self.value = self.values.as_mut().unwrap().get(idx)? + self.min_value;
         Ok(())
     }
 
-    fn long_value(&mut self) -> Result<i64, LuceneError> {
+    fn long_value(&mut self) -> Result<i64> {
         Ok(self.value)
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef, LuceneError> {
+    fn binary_value(&mut self) -> Result<BytesRef> {
         unreachable!("NumericDocValuesFieldUpdatesIterator does not support binary_value")
     }
 }
@@ -200,11 +193,11 @@ impl SingleValueNumericDocValuesFieldUpdates {
     }
 }
 impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUpdates {
-    fn binary_value(&self) -> Result<BytesRef, LuceneError> {
+    fn binary_value(&self) -> Result<BytesRef> {
         unreachable!("SingleValueNumericDocValuesFieldUpdates does not support binary_value")
     }
 
-    fn long_value(&self) -> Result<i64, LuceneError> {
+    fn long_value(&self) -> Result<i64> {
         Ok(self.value)
     }
 

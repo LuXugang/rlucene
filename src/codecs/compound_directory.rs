@@ -21,7 +21,7 @@ use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 /// A read-only [`Directory`] that provides a view over a compound file.
@@ -65,17 +65,17 @@ where
     D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
     CompoundDirectory<D>: Display,
 {
-    fn list_all(&self) -> Result<Vec<String>, LuceneError> {
+    fn list_all(&self) -> Result<Vec<String>> {
         self.sub_compound_dir.list_all()
     }
 
-    fn delete_file(&mut self, _name: &str) -> Result<(), LuceneError> {
+    fn delete_file(&mut self, _name: &str) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "delete_file".to_string(),
         ))
     }
 
-    fn file_length(&self, name: &str) -> Result<i64, LuceneError> {
+    fn file_length(&self, name: &str) -> Result<i64> {
         self.sub_compound_dir.file_length(name)
     }
 
@@ -83,7 +83,7 @@ where
         &mut self,
         _name: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    ) -> Result<Self::IndexOutputType> {
         Err(LuceneError::unsupported_operation(
             "create_output".to_string(),
         ))
@@ -95,41 +95,37 @@ where
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    ) -> Result<Self::IndexOutputType> {
         Err(LuceneError::unsupported_operation(
             "create_temp_output".to_string(),
         ))
     }
 
-    fn sync(&mut self, _names: &[&str]) -> Result<(), LuceneError> {
+    fn sync(&mut self, _names: &[&str]) -> Result<()> {
         Err(LuceneError::unsupported_operation("sync".to_string()))
     }
 
-    fn sync_metadata(&mut self) -> Result<(), LuceneError> {
+    fn sync_metadata(&mut self) -> Result<()> {
         Ok(())
     }
 
-    fn rename(&mut self, _source: &str, _dest: &str) -> Result<(), LuceneError> {
+    fn rename(&mut self, _source: &str, _dest: &str) -> Result<()> {
         Err(LuceneError::unsupported_operation("rename".to_string()))
     }
 
     type IndexInputType = D::IndexInputType;
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         self.sub_compound_dir.open_input(name, context)
     }
 
-    fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock, LuceneError> {
-        Err::<DummyLock, LuceneError>(LuceneError::unsupported_operation(
+    fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock> {
+        Err::<DummyLock,LuceneError>(LuceneError::unsupported_operation(
             "obtain_lock".to_string(),
         ))
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError> {
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         self.sub_compound_dir.get_pending_deletions()
     }
 }
@@ -140,5 +136,5 @@ pub trait CompoundDirectoryBase {
     /// # Note
     /// This operation may be costly in terms of I/O. For example, it might compute checksum values
     /// against large data files.
-    fn check_integrity(&mut self) -> Result<(), LuceneError>;
+    fn check_integrity(&mut self) -> Result<()>;
 }

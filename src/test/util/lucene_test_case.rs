@@ -25,7 +25,7 @@ use crate::store::{
 use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
 
 use crate::test::util::test_util::TestUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::SliceCopyOps;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -91,20 +91,20 @@ pub(crate) fn rarely(random: &mut StdRng) -> bool {
 // TODO: When we have implemented multiple directories, we need to select one randomly. Currently, we choose NIOFSDirectory.
 pub(crate) fn new_directory(
     _random: &mut StdRng,
-) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, LuceneError> {
+) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>> {
     let temp_dir = TempDir::new()?;
     let sub_directory = NIOFSDirectory::new();
     FSDirectory::new(temp_dir.into_path(), sub_directory)
 }
 
-pub(crate) fn new_io_context(random: &mut StdRng) -> Result<IOContext, LuceneError> {
+pub(crate) fn new_io_context(random: &mut StdRng) -> Result<IOContext> {
     new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
 }
 
 pub(crate) fn new_io_context_with_default(
     random: &mut StdRng,
     old_context: &IOContext,
-) -> Result<IOContext, LuceneError> {
+) -> Result<IOContext> {
     if *old_context == *IO_CONTEXT_READ_ONCE {
         // Don't modify the READONCE singleton
         return Ok(old_context.clone());
@@ -147,7 +147,7 @@ pub(crate) fn new_io_context_with_default(
         }
     }
 }
-pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool, LuceneError> {
+pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
     let result = dir.open_input(name, &IOContext::default_io_context()?);
     match result {
         Ok(_) => Ok(true),
@@ -157,10 +157,7 @@ pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool,
 /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
 /// that sometimes uses a non-zero offset and non-zero end-padding to
 /// tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_string(
-    random: &mut StdRng,
-    s: &str,
-) -> Result<BytesRef, LuceneError> {
+pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRef> {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
 }
@@ -168,10 +165,7 @@ pub(crate) fn new_bytes_ref_from_string(
 /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero offset,
 /// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_from_bytes_ref(
-    random: &mut StdRng,
-    b: &BytesRef,
-) -> Result<BytesRef, LuceneError> {
+pub(crate) fn new_bytes_ref_from_bytes_ref(random: &mut StdRng, b: &BytesRef) -> Result<BytesRef> {
     assert!(b.is_valid()?);
     new_bytes_ref(random, &b.bytes, b.offset, b.length)
 }
@@ -179,17 +173,14 @@ pub(crate) fn new_bytes_ref_from_bytes_ref(
 /// Creates a random `BytesRef` from the incoming bytes, sometimes using a non-zero offset,
 /// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_from_bytes(
-    random: &mut StdRng,
-    bytes_in: &[u8],
-) -> Result<BytesRef, LuceneError> {
+pub(crate) fn new_bytes_ref_from_bytes(random: &mut StdRng, bytes_in: &[u8]) -> Result<BytesRef> {
     new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
 }
 
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and non-zero
 /// end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, LuceneError> {
+pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef> {
     new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref` function
 }
 
@@ -197,10 +188,7 @@ pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef, Lucen
 /// that sometimes uses a non-zero offset and non-zero end-padding to tickle latent bugs
 /// that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_with_length(
-    byte_length: i32,
-    random: &mut StdRng,
-) -> Result<BytesRef, LuceneError> {
+pub(crate) fn new_bytes_ref_with_length(byte_length: i32, random: &mut StdRng) -> Result<BytesRef> {
     let bytes_in = vec![0u8; byte_length as usize];
     new_bytes_ref(random, &bytes_in, 0, byte_length)
 }
@@ -212,7 +200,7 @@ pub(crate) fn new_bytes_ref(
     bytes_in: &[u8],
     offset: i32,
     length: i32,
-) -> Result<BytesRef, LuceneError> {
+) -> Result<BytesRef> {
     assert!(
         bytes_in.len() >= (offset + length) as usize,
         "got offset={} length={} bytesIn.length={}",

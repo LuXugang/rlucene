@@ -19,7 +19,7 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
@@ -39,7 +39,7 @@ pub trait LiveDocsFormat {
         dir: Arc<Mutex<D>>,
         info: &SegmentCommitInfo<D>,
         context: &IOContext,
-    ) -> Result<impl Bits, LuceneError>
+    ) -> Result<impl Bits>
     where
         D: Directory;
 
@@ -52,17 +52,13 @@ pub trait LiveDocsFormat {
         info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: Directory,
         B: Bits;
 
     /// Records all files in use by this [`SegmentCommitInfo`] into the files argument.
-    fn files<D>(
-        &self,
-        info: &SegmentCommitInfo<D>,
-        files: &mut HashSet<String>,
-    ) -> Result<(), LuceneError>
+    fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
     where
         D: Directory;
 }

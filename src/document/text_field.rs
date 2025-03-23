@@ -24,7 +24,7 @@ use crate::document::stored_value::StoredValue;
 use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 use once_cell::sync::Lazy;
 use std::fmt;
@@ -66,7 +66,7 @@ impl TextField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `reader`: `ReaderEnum` value.
-    pub fn with_reader(name: &str, reader: ReaderEnum) -> Result<Self, LuceneError> {
+    pub fn with_reader(name: &str, reader: ReaderEnum) -> Result<Self> {
         let name_arc = Arc::new(name.to_string());
         let parent_field = Field::with_reader(name, reader, Arc::clone(&TYPE_NOT_STORED))?;
         Ok(Self {
@@ -80,7 +80,7 @@ impl TextField {
     /// - `name`: Field name.
     /// - `value`: String value.
     /// - `store`: `Store::Yes` if the content should also be stored.
-    pub fn with_string(name: &str, value: &str, store: Store) -> Result<Self, LuceneError> {
+    pub fn with_string(name: &str, value: &str, store: Store) -> Result<Self> {
         let store = store.into();
         let value_str = Arc::new(value.to_string());
         let field_type = if store {
@@ -104,7 +104,7 @@ impl TextField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `stream`: `TokenStream` value.
-    pub fn with_token_stream(name: &str, stream: TokenStreamEnum) -> Result<Self, LuceneError> {
+    pub fn with_token_stream(name: &str, stream: TokenStreamEnum) -> Result<Self> {
         let parent_field = Field::with_token_stream(name, stream, Arc::clone(&TYPE_NOT_STORED))?;
         Ok(Self {
             parent_field,
@@ -113,7 +113,7 @@ impl TextField {
     }
 }
 impl FieldBase for TextField {
-    fn set_string_value(&mut self, value: &str) -> Result<(), LuceneError> {
+    fn set_string_value(&mut self, value: &str) -> Result<()> {
         let value_str = Arc::new(value.to_string());
         self.parent_field.set_string_value(value_str.clone())?;
         if let Some(ref mut sv) = self.stored_value {
@@ -137,35 +137,35 @@ impl IndexableField for TextField {
         &self,
         analyzer: Option<&impl Analyzer>,
         reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum, LuceneError> {
+    ) -> Result<TokenStreamEnum> {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
         self.parent_field.binary_value()
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn string_value(&self) -> Result<Option<Arc<String>>> {
         self.parent_field.string_value()
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
         self.parent_field.get_char_sequence_value()
     }
 
-    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+    fn reader_value(&self) -> Result<Option<ReaderEnum>> {
         self.parent_field.reader_value()
     }
 
-    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+    fn numeric_value(&self) -> Result<Option<Number>> {
         self.parent_field.numeric_value()
     }
 
-    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+    fn stored_value(&self) -> Result<Option<StoredValue>> {
         Ok(self.stored_value.clone())
     }
 
-    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+    fn invertable_type(&self) -> Result<&InvertableType> {
         todo!()
     }
 }

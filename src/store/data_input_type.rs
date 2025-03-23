@@ -16,7 +16,7 @@
  */
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::{ByteArrayDataInput, DataInput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 pub enum DataInputType<'a> {
@@ -40,63 +40,63 @@ impl Display for DataInputType<'_> {
 }
 
 impl DataInput for DataInputType<'_> {
-    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self) -> Result<u8> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_byte(),
             DataInputType::ByteBuffers(data_input) => data_input.read_byte(),
         }
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, length: i32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, length: i32) -> Result<()> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_bytes(b, offset, length),
             DataInputType::ByteBuffers(data_input) => data_input.read_bytes(b, offset, length),
         }
     }
 
-    fn read_short(&mut self) -> Result<i16, LuceneError> {
+    fn read_short(&mut self) -> Result<i16> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_short(),
             DataInputType::ByteBuffers(data_input) => data_input.read_short(),
         }
     }
 
-    fn read_int(&mut self) -> Result<i32, LuceneError> {
+    fn read_int(&mut self) -> Result<i32> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_int(),
             DataInputType::ByteBuffers(data_input) => data_input.read_int(),
         }
     }
 
-    fn read_vint(&mut self) -> Result<i32, LuceneError> {
+    fn read_vint(&mut self) -> Result<i32> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_vint(),
             DataInputType::ByteBuffers(data_input) => data_input.read_vint(),
         }
     }
 
-    fn read_long(&mut self) -> Result<i64, LuceneError> {
+    fn read_long(&mut self) -> Result<i64> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_long(),
             DataInputType::ByteBuffers(data_input) => data_input.read_long(),
         }
     }
 
-    fn read_vlong(&mut self) -> Result<i64, LuceneError> {
+    fn read_vlong(&mut self) -> Result<i64> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_vlong(),
             DataInputType::ByteBuffers(data_input) => data_input.read_vlong(),
         }
     }
 
-    fn read_string(&mut self) -> Result<String, LuceneError> {
+    fn read_string(&mut self) -> Result<String> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.read_string(),
             DataInputType::ByteBuffers(data_input) => data_input.read_string(),
         }
     }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         match self {
             DataInputType::ByteArray(data_input) => data_input.skip_bytes(num_bytes),
             DataInputType::ByteBuffers(data_input) => data_input.skip_bytes(num_bytes),

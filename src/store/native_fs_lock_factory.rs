@@ -17,7 +17,7 @@
 use crate::store::fs_lock_factory::FSLockFactory;
 use crate::store::lock::{FSLockEnum, Lock};
 use crate::store::lock_factory::LockFactory;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use chrono::{DateTime, Utc};
 use fs2::FileExt;
 use std::collections::HashSet;
@@ -79,7 +79,7 @@ impl NativeFSLockFactory {
     }
 }
 impl LockFactory for NativeFSLockFactory {
-    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, LuceneError> {
+    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum> {
         FSLockFactory::obtain_lock(self, dir, lock_name)
     }
 }
@@ -91,7 +91,7 @@ impl Display for NativeFSLockFactory {
 }
 
 impl FSLockFactory for NativeFSLockFactory {
-    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum, LuceneError> {
+    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum> {
         fs::create_dir_all(dir)
             .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
 
@@ -226,7 +226,7 @@ impl Lock for NativeFSLock {
     ///   - The file lock is no longer valid.
     ///   - The lock file size is not 0.
     ///   - The lock file has been deleted or is inaccessible.
-    fn ensure_valid(&self) -> Result<(), LuceneError> {
+    fn ensure_valid(&self) -> Result<()> {
         let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
         let lock_held = lock_held
             .lock()

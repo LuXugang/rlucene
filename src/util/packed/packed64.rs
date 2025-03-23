@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::packed::bulk_operation::of;
 use crate::util::packed::format_behavior::{FormatBehavior, PackedImpl};
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
@@ -100,7 +100,7 @@ impl Packed64 {
 }
 
 impl Reader for Packed64 {
-    fn get(&mut self, index: i32) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i32) -> Result<i64> {
         // The abstract index in a bit stream
         let major_bit_pos = (index as u64) * (self.bits_per_value as u64);
 
@@ -130,7 +130,7 @@ impl Reader for Packed64 {
         arr: &mut [i64],
         mut off: i32,
         mut len: i32,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(
             index >= 0 && index < self.value_count,
@@ -218,7 +218,7 @@ impl Mutable for Packed64 {
         self.bits_per_value
     }
 
-    fn set(&mut self, index: i32, value: i64) -> Result<(), LuceneError> {
+    fn set(&mut self, index: i32, value: i64) -> Result<()> {
         // The abstract index in a contiguous bit stream
         let major_bit_pos = (index as u64) * self.bits_per_value as u64;
         // The index in the backing blocks array
@@ -243,13 +243,7 @@ impl Mutable for Packed64 {
         Ok(())
     }
 
-    fn set_bulk(
-        &mut self,
-        mut index: i32,
-        arr: &[i64],
-        mut off: i32,
-        mut len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
@@ -310,7 +304,7 @@ impl Mutable for Packed64 {
         }
     }
 
-    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<(), LuceneError> {
+    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<()> {
         debug_assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
             "Value requires more bits than allowed by bits_per_value"
@@ -367,7 +361,7 @@ impl Mutable for Packed64 {
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         self.blocks.fill(0);
         Ok(())
     }

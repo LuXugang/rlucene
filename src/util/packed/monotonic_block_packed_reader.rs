@@ -16,7 +16,7 @@
  */
 use crate::store::IndexInput;
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};
@@ -48,7 +48,7 @@ impl MonotonicBlockPackedReader {
         packed_ints_version: i32,
         block_size: i32,
         value_count: i64,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         Self::new(input, packed_ints_version, block_size, value_count)
     }
     fn new<I: IndexInput>(
@@ -56,7 +56,7 @@ impl MonotonicBlockPackedReader {
         packed_ints_version: i32,
         block_size: i32,
         value_count: i64,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let block_shift = PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let block_mask = (block_size - 1) as u32;
         let num_blocks = PackedInts::num_blocks(value_count, block_size)?;
@@ -132,7 +132,7 @@ pub struct MonotonicLongValues {
     mask_right: u64,
 }
 impl LongValues for MonotonicLongValues {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         // The abstract index in a bit stream
         let major_bit_pos = index * self.bits_per_values as i64;
         // The offset of the first block in the backing byte-array
@@ -155,7 +155,7 @@ impl LongValues for MonotonicLongValues {
     }
 }
 impl LongValues for MonotonicBlockPackedReader {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(
             index < self.value_count,
             "Index out of bounds: {} >= {}",
@@ -203,7 +203,7 @@ pub enum LongValuesEnum {
     ZeroesLongValues(Zeroes),
 }
 impl LongValues for LongValuesEnum {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         match self {
             LongValuesEnum::Monotonic(mlv) => mlv.get(index),
             LongValuesEnum::ZeroesLongValues(zlv) => zlv.get(index),

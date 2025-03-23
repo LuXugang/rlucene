@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::DataOutput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::bulk_operation::{of, BulkOperation};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
@@ -69,7 +69,7 @@ where
             data_output,
         }
     }
-    fn flush(&mut self) -> Result<(), LuceneError> {
+    fn flush(&mut self) -> Result<()> {
         self.encoder.encode_i64_to_u8(
             &self.next_values,
             0,
@@ -99,7 +99,7 @@ where
         &self.format
     }
 
-    fn add(&mut self, v: i64) -> Result<(), LuceneError> {
+    fn add(&mut self, v: i64) -> Result<()> {
         debug_assert!(
             PackedInts::unsigned_bits_required(v) <= self.bits_per_value,
             "Value exceeds allowed bits per value"
@@ -121,7 +121,7 @@ where
         self.bits_per_value
     }
 
-    fn finish(&mut self) -> Result<(), LuceneError> {
+    fn finish(&mut self) -> Result<()> {
         debug_assert!(!self.finished, "Already finished");
         if self.value_count != -1 {
             while self.written < self.value_count {

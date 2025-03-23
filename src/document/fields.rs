@@ -26,7 +26,7 @@ use crate::document::string_field::StringField;
 use crate::document::text_field::TextField;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
@@ -74,7 +74,7 @@ impl IndexableField for Fields {
         &self,
         _analyzer: Option<&impl Analyzer>,
         _reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum, LuceneError> {
+    ) -> Result<TokenStreamEnum> {
         match self {
             Fields::Field(f) => f.token_stream(_analyzer, _reuse),
             Fields::TextField(f) => f.token_stream(_analyzer, _reuse),
@@ -83,7 +83,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>, LuceneError> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
         match self {
             Fields::Field(f) => f.binary_value(),
             Fields::TextField(f) => f.binary_value(),
@@ -92,7 +92,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn string_value(&self) -> Result<Option<Arc<String>>> {
         match self {
             Fields::Field(f) => f.string_value(),
             Fields::TextField(f) => f.string_value(),
@@ -101,7 +101,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>, LuceneError> {
+    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
         match self {
             Fields::Field(f) => f.get_char_sequence_value(),
             Fields::TextField(f) => f.get_char_sequence_value(),
@@ -110,7 +110,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn reader_value(&self) -> Result<Option<ReaderEnum>, LuceneError> {
+    fn reader_value(&self) -> Result<Option<ReaderEnum>> {
         match self {
             Fields::Field(f) => f.reader_value(),
             Fields::TextField(f) => f.reader_value(),
@@ -119,7 +119,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn numeric_value(&self) -> Result<Option<Number>, LuceneError> {
+    fn numeric_value(&self) -> Result<Option<Number>> {
         match self {
             Fields::Field(f) => f.numeric_value(),
             Fields::TextField(f) => f.numeric_value(),
@@ -128,7 +128,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn stored_value(&self) -> Result<Option<StoredValue>, LuceneError> {
+    fn stored_value(&self) -> Result<Option<StoredValue>> {
         match self {
             Fields::Field(f) => f.stored_value(),
             Fields::TextField(f) => f.stored_value(),
@@ -137,7 +137,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn invertable_type(&self) -> Result<&InvertableType, LuceneError> {
+    fn invertable_type(&self) -> Result<&InvertableType> {
         match self {
             Fields::Field(f) => f.invertable_type(),
             Fields::TextField(f) => f.invertable_type(),

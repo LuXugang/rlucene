@@ -19,30 +19,26 @@ use crate::util::bkd::heap_point_write::HeapPointWriter;
 use crate::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::PointValueEnum;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 /// Appends many points, and then at the end provides a PointReader to iterate those points.
 /// This abstracts away whether we write to disk, or use simple arrays in heap.
 pub trait PointWriter {
     /// Add a new point from the packed value and docId
-    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError>;
+    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()>;
 
     /// Add a new point from a PointValue
-    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<(), LuceneError>;
+    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()>;
 
     /// Returns a PointReader iterator to step through all previously added points
     type Dir: Directory;
-    fn get_reader(
-        &self,
-        start_point: i64,
-        length: i64,
-    ) -> Result<PointReaderEnum<Self::Dir>, LuceneError>;
+    fn get_reader(&self, start_point: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>>;
 
     /// Return the number of points in this writer
     fn count(&self) -> i64;
 
     /// Removes any temp files behind this writer
-    fn destroy(&mut self) -> Result<(), LuceneError>;
+    fn destroy(&mut self) -> Result<()>;
 
     fn close(&mut self);
 }
@@ -58,14 +54,14 @@ impl<D> PointWriter for PointWriterEnum<D>
 where
     D: Directory,
 {
-    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError> {
+    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         match self {
             PointWriterEnum::Offline(offline) => offline.append_bytes(packed_value, doc_id),
             PointWriterEnum::Heap(heap) => heap.append_bytes(packed_value, doc_id),
         }
     }
 
-    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<(), LuceneError> {
+    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
         match self {
             PointWriterEnum::Offline(offline) => offline.append_point_value(point_value),
             PointWriterEnum::Heap(heap) => heap.append_point_value(point_value),
@@ -73,11 +69,7 @@ where
     }
 
     type Dir = D;
-    fn get_reader(
-        &self,
-        start_point: i64,
-        length: i64,
-    ) -> Result<PointReaderEnum<Self::Dir>, LuceneError> {
+    fn get_reader(&self, start_point: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>> {
         match self {
             PointWriterEnum::Offline(offline) => offline.get_reader(start_point, length),
             PointWriterEnum::Heap(heap) => heap.get_reader(start_point, length),
@@ -91,7 +83,7 @@ where
         }
     }
 
-    fn destroy(&mut self) -> Result<(), LuceneError> {
+    fn destroy(&mut self) -> Result<()> {
         match self {
             PointWriterEnum::Offline(offline) => offline.destroy(),
             PointWriterEnum::Heap(heap) => heap.destroy(),

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::lock::Lock;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 pub struct SimpleFSLock;
@@ -27,7 +27,7 @@ impl Display for SimpleFSLock {
 }
 
 impl Lock for SimpleFSLock {
-    fn ensure_valid(&self) -> Result<(), LuceneError> {
+    fn ensure_valid(&self) -> Result<()> {
         todo!()
     }
 }

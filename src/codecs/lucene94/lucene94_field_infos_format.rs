@@ -27,7 +27,7 @@ use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 /// Lucene 9.0 Field Infos format.
@@ -130,7 +130,7 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn get_doc_values_type<I: IndexInput>(input: &I, b: u8) -> Result<DocValuesType, LuceneError> {
+    fn get_doc_values_type<I: IndexInput>(input: &I, b: u8) -> Result<DocValuesType> {
         match DocValuesType::from_repr(b) {
             Some(dv) => Ok(dv),
             None => Err(LuceneError::corrupt_index(format!(
@@ -143,7 +143,7 @@ impl Lucene94FieldInfosFormat {
     fn get_doc_values_skip_index_type<I: IndexInput>(
         input: &I,
         b: u8,
-    ) -> Result<DocValuesSkipIndexType, LuceneError> {
+    ) -> Result<DocValuesSkipIndexType> {
         match DocValuesSkipIndexType::from_repr(b) {
             Some(dv) => Ok(dv),
             None => Err(LuceneError::corrupt_index(format!(
@@ -153,7 +153,7 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn get_vector_encoding<I: IndexInput>(input: &I, b: u8) -> Result<VectorEncoding, LuceneError> {
+    fn get_vector_encoding<I: IndexInput>(input: &I, b: u8) -> Result<VectorEncoding> {
         match VectorEncoding::from_repr(b) {
             Some(ve) => Ok(ve),
             None => Err(LuceneError::corrupt_index(format!(
@@ -163,10 +163,7 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn get_dist_func<I: IndexInput>(
-        input: &I,
-        b: u8,
-    ) -> Result<VectorSimilarityFunction, LuceneError> {
+    fn get_dist_func<I: IndexInput>(input: &I, b: u8) -> Result<VectorSimilarityFunction> {
         match VectorSimilarityFunction::from_repr(b) {
             Some(func) => Ok(func),
             None => Err(LuceneError::corrupt_index(format!(
@@ -194,7 +191,7 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn get_index_options<I: IndexInput>(input: &I, b: u8) -> Result<IndexOptions, LuceneError> {
+    fn get_index_options<I: IndexInput>(input: &I, b: u8) -> Result<IndexOptions> {
         match IndexOptions::from_repr(b) {
             Some(opt) => Ok(opt),
             None => Err(LuceneError::corrupt_index(format!(
@@ -217,7 +214,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         _io_context: &IOContext,
-    ) -> Result<FieldInfos, LuceneError>
+    ) -> Result<FieldInfos>
     where
         D: Directory,
     {
@@ -364,7 +361,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
         segment_suffix: &str,
         infos: &FieldInfos,
         io_context: &IOContext,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: Directory,
     {
@@ -440,48 +437,48 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 mod tests {
     use crate::test::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
     use crate::test::util::lucene_test_case::random;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
 
     pub struct TestLucene94FieldInfosFormat;
     impl BaseFieldInfoFormatTestCase for TestLucene94FieldInfosFormat {}
     #[test]
-    fn test_one_field() -> Result<(), LuceneError> {
+    fn test_one_field() -> Result<()> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_one_field(&mut random)
     }
     #[test]
-    fn test_immutable_attributes() -> Result<(), LuceneError> {
+    fn test_immutable_attributes() -> Result<()> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_immutable_attributes(&mut random)
     }
     #[test]
-    fn test_exception_on_create_output() -> Result<(), LuceneError> {
+    fn test_exception_on_create_output() -> Result<()> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_create_output(&mut random)
     }
     #[test]
-    fn test_exception_on_close_output() -> Result<(), LuceneError> {
+    fn test_exception_on_close_output() -> Result<()> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_close_output(&mut random)
     }
     #[test]
-    fn test_exception_on_open_input() -> Result<(), LuceneError> {
+    fn test_exception_on_open_input() -> Result<()> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_open_input(&mut random)
     }
     #[test]
-    fn test_exception_on_close_input() -> Result<(), LuceneError> {
+    fn test_exception_on_close_input() -> Result<()> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_exception_on_close_input(&mut random)
     }
     #[test]
-    fn test_random() -> Result<(), LuceneError> {
+    fn test_random() -> Result<()> {
         let mut random = random();
         let test = TestLucene94FieldInfosFormat;
         test.test_random(&mut random)

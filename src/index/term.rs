@@ -16,7 +16,7 @@
  */
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
@@ -60,13 +60,13 @@ impl Term {
 
     /// Returns a human-readable form of the term text. If the term is not valid UTF-8,
     /// the raw bytes will be printed instead.
-    pub fn get_string(term_text: &BytesRef) -> Result<String, LuceneError> {
+    pub fn get_string(term_text: &BytesRef) -> Result<String> {
         term_text.utf8_to_string()
     }
 
     /// Returns the text of this term. In the case of words, this is simply the text of the word. In
     /// the case of dates and other types, this is an encoding of the object as a string.
-    pub fn text(&self) -> Result<String, LuceneError> {
+    pub fn text(&self) -> Result<String> {
         Self::get_string(&self.bytes)
     }
 }

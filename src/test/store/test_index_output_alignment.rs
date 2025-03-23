@@ -19,14 +19,14 @@ use crate::store::{align_offset, IndexOutput, OutputStreamIndexOutput};
 use crate::test::util::lucene_test_case::{random, random_multiplier};
 
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use rand::Rng;
 
 #[allow(dead_code)]
 struct TestIndexOutputAlignment;
 
 #[test]
-fn test_alignment_calculation() -> Result<(), LuceneError> {
+fn test_alignment_calculation() -> Result<()> {
     // Test alignment with various sizes
     assert_eq!(align_offset(0, BitUtil::LONG_BYTES as i32)?, 0);
     assert_eq!(align_offset(0, BitUtil::INT_BYTES as i32)?, 0);
@@ -64,7 +64,7 @@ fn assert_invalid_alignment(size: i32) {
     assert!(result.is_err());
 }
 #[test]
-fn test_output_alignment() -> Result<(), LuceneError> {
+fn test_output_alignment() -> Result<()> {
     let alignments = [
         BitUtil::LONG_BYTES,
         BitUtil::INT_BYTES,
@@ -76,7 +76,7 @@ fn test_output_alignment() -> Result<(), LuceneError> {
     }
     Ok(())
 }
-pub fn run_test_output_alignment(alignment: i32) -> Result<(), LuceneError> {
+pub fn run_test_output_alignment(alignment: i32) -> Result<()> {
     let mut random = random();
     let mut buffer = Vec::new();
     let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;

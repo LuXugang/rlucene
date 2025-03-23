@@ -22,7 +22,7 @@ use crate::util::bkd::heap_point_reader::HeapPointReader;
 use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CommonUtil, SliceCopyOps, ToInt};
 use std::cell::RefCell;
 use std::fmt;
@@ -236,7 +236,7 @@ impl<D> PointWriter for HeapPointWriter<D>
 where
     D: Directory,
 {
-    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError> {
+    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         debug_assert!(!self.closed, "point writer is already closed");
         assert_eq!(
             packed_value.len(),
@@ -265,7 +265,7 @@ where
         Ok(())
     }
 
-    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<(), LuceneError> {
+    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
         debug_assert!(!self.closed, "point writer is already closed");
         debug_assert!(
             self.next_write < self.size,
@@ -293,11 +293,7 @@ where
 
     type Dir = D;
 
-    fn get_reader(
-        &self,
-        start: i64,
-        length: i64,
-    ) -> Result<PointReaderEnum<Self::Dir>, LuceneError> {
+    fn get_reader(&self, start: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>> {
         debug_assert!(
             self.closed,
             "point writer is still open and trying to get a reader"
@@ -340,7 +336,7 @@ where
         self.next_write as i64
     }
 
-    fn destroy(&mut self) -> Result<(), LuceneError> {
+    fn destroy(&mut self) -> Result<()> {
         Ok(())
     }
 

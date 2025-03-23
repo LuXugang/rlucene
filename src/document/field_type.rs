@@ -21,7 +21,7 @@ use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::point_values::PointValues;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -82,7 +82,7 @@ impl FieldType {
     }
 
     /// Creates a new mutable FieldType with all of the properties from `ref_field`.
-    pub fn from_ref<I: IndexableFieldType>(ref_field: &I) -> Result<Self, LuceneError> {
+    pub fn from_ref<I: IndexableFieldType>(ref_field: &I) -> Result<Self> {
         // Copy attributes if available; otherwise use an empty map.
         let attributes = {
             let ref_attrs = ref_field.get_attributes();
@@ -119,7 +119,7 @@ impl FieldType {
     }
     /// Throws an error if this FieldType is frozen.
     /// Subclasses should call this within setters for additional state.
-    pub fn check_if_frozen(&self) -> Result<(), LuceneError> {
+    pub fn check_if_frozen(&self) -> Result<()> {
         if self.frozen {
             return Err(LuceneError::illegal_state(
                 "this FieldType is already frozen and cannot be changed",
@@ -139,7 +139,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_stored(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_stored(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.stored = value;
         Ok(())
@@ -150,7 +150,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_tokenized(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_tokenized(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.tokenized = value;
         Ok(())
@@ -161,7 +161,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_store_term_vectors(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_store_term_vectors(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.store_term_vectors = value;
         Ok(())
@@ -171,7 +171,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_store_term_vector_offsets(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_store_term_vector_offsets(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.store_term_vector_offsets = value;
         Ok(())
@@ -182,7 +182,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_store_term_vector_positions(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_store_term_vector_positions(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.store_term_vector_positions = value;
         Ok(())
@@ -192,7 +192,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_store_term_vector_payloads(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_store_term_vector_payloads(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.store_term_vector_payloads = value;
         Ok(())
@@ -202,7 +202,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_omit_norms(&mut self, value: bool) -> Result<(), LuceneError> {
+    pub fn set_omit_norms(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.omit_norms = value;
         Ok(())
@@ -212,18 +212,14 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications or if the provided value is invalid.
-    pub fn set_index_options(&mut self, value: IndexOptions) -> Result<(), LuceneError> {
+    pub fn set_index_options(&mut self, value: IndexOptions) -> Result<()> {
         self.check_if_frozen()?;
         self.index_options = value;
         Ok(())
     }
 
     /// Enables points indexing.
-    pub fn set_dimensions(
-        &mut self,
-        dimension_count: i32,
-        dimension_num_bytes: i32,
-    ) -> Result<(), LuceneError> {
+    pub fn set_dimensions(&mut self, dimension_count: i32, dimension_num_bytes: i32) -> Result<()> {
         self.set_dimensions_all(dimension_count, dimension_count, dimension_num_bytes)
     }
 
@@ -233,7 +229,7 @@ impl FieldType {
         dimension_count: i32,
         index_dimension_count: i32,
         dimension_num_bytes: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.check_if_frozen()?;
         if dimension_count < 0 {
             return Err(LuceneError::illegal_argument(format!(
@@ -317,7 +313,7 @@ impl FieldType {
         num_dimensions: i32,
         encoding: VectorEncoding,
         similarity: VectorSimilarityFunction,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.check_if_frozen()?;
         if num_dimensions <= 0 {
             return Err(LuceneError::illegal_argument(format!(
@@ -336,11 +332,7 @@ impl FieldType {
     /// This is a key-value mapping for the field that the codec can use to store additional metadata.
     ///
     /// If a value already exists for the field, it will be replaced with the new value.
-    pub fn put_attribute(
-        &mut self,
-        key: String,
-        value: String,
-    ) -> Result<Option<String>, LuceneError> {
+    pub fn put_attribute(&mut self, key: String, value: String) -> Result<Option<String>> {
         self.check_if_frozen()?;
         let mut attrs = self
             .attributes
@@ -354,10 +346,7 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications or if the provided type is invalid.
-    pub fn set_doc_values_type(
-        &mut self,
-        doc_values_type: DocValuesType,
-    ) -> Result<(), LuceneError> {
+    pub fn set_doc_values_type(&mut self, doc_values_type: DocValuesType) -> Result<()> {
         self.check_if_frozen()?;
         self.doc_values_type = doc_values_type;
         Ok(())
@@ -369,7 +358,7 @@ impl FieldType {
     pub fn set_doc_values_skip_index_type(
         &mut self,
         skip_index: DocValuesSkipIndexType,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.check_if_frozen()?;
         self.doc_values_skip_index = skip_index;
         Ok(())
@@ -568,7 +557,7 @@ mod tests {
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::test::util::lucene_test_case::random;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::hash::{DefaultHasher, Hash, Hasher};
@@ -576,7 +565,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestFieldType;
     #[test]
-    fn test_equals() -> Result<(), LuceneError> {
+    fn test_equals() -> Result<()> {
         let ft = FieldType::new();
         assert_eq!(ft, ft);
         assert_ne!(Some(ft.clone()), None);
@@ -620,7 +609,7 @@ mod tests {
     }
 
     #[test]
-    fn test_points_to_string() -> Result<(), LuceneError> {
+    fn test_points_to_string() -> Result<()> {
         let mut ft = FieldType::new();
         ft.set_dimensions(1, PointValues::MAX_NUM_BYTES)?;
         let expected = format!(
@@ -633,7 +622,7 @@ mod tests {
     }
 
     #[test]
-    fn test_attribute_map_frozen() -> Result<(), LuceneError> {
+    fn test_attribute_map_frozen() -> Result<()> {
         let mut ft = FieldType::new();
         ft.put_attribute("dummy".to_string(), "d".to_string())?;
         ft.freeze();
@@ -643,7 +632,7 @@ mod tests {
     }
 
     #[test]
-    fn test_attribute_map_not_frozen() -> Result<(), LuceneError> {
+    fn test_attribute_map_not_frozen() -> Result<()> {
         let mut ft = FieldType::new();
         ft.put_attribute("dummy".to_string(), "d".to_string())?;
         ft.put_attribute("dummy".to_string(), "a".to_string())?;
@@ -667,7 +656,7 @@ mod tests {
     }
 
     // Generates a random FieldType.
-    fn random_field_type(random: &mut StdRng) -> Result<FieldType, LuceneError> {
+    fn random_field_type(random: &mut StdRng) -> Result<FieldType> {
         let mut ft = FieldType::new();
         let max_idx_dims = PointValues::MAX_INDEX_DIMENSIONS;
         let max_dims = PointValues::MAX_DIMENSIONS;
@@ -709,7 +698,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_constructor() -> Result<(), LuceneError> {
+    fn test_copy_constructor() -> Result<()> {
         let mut random = random();
         let iters = 10;
         for _ in 0..iters {

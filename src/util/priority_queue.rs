@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::iter::repeat_with;
 use std::mem;
 
@@ -108,7 +108,7 @@ where
         max_size: i32,
         sentinel_object_supplier: F,
         compare: C,
-    ) -> Result<PriorityQueue<T, C>, LuceneError>
+    ) -> Result<PriorityQueue<T, C>>
     where
         F: Fn() -> Option<T>,
         C: Compare<T>,
@@ -155,7 +155,7 @@ where
     }
 
     // construct
-    pub fn new(max_size: i32, compare: C) -> Result<PriorityQueue<T, C>, LuceneError> {
+    pub fn new(max_size: i32, compare: C) -> Result<PriorityQueue<T, C>> {
         Self::with_sentinel_object(max_size, || None, compare)
     }
 
@@ -166,7 +166,7 @@ where
     /// # Errors
     /// If one tries to add more objects than the `max_size` passed in the constructor, an
     /// [`ArrayIndexOutOfBoundsError`](crate::util::error::array_index_out_of_bounds) is thrown.
-    pub fn add_all(&mut self, elements: Vec<T>) -> Result<(), LuceneError> {
+    pub fn add_all(&mut self, elements: Vec<T>) -> Result<()> {
         if (self.size + elements.len()) > self.max_size {
             return Err(LuceneError::array_index_out_of_bounds(format!(
                 "Cannot add {} elements to a queue with remaining capacity: {}",

@@ -16,7 +16,7 @@
  */
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::CommonUtil;
 use std::sync::Arc;
 
@@ -77,7 +77,7 @@ impl LZ4 {
         decompressed_len: i32,
         dest: &mut [u8],
         d_off: i32,
-    ) -> Result<i32, LuceneError>
+    ) -> Result<i32>
     where
         D: DataInput,
     {
@@ -150,7 +150,7 @@ impl LZ4 {
         }
         Ok(d_off)
     }
-    fn encode_len<D>(mut l: i32, out: &mut D) -> Result<(), LuceneError>
+    fn encode_len<D>(mut l: i32, out: &mut D) -> Result<()>
     where
         D: DataOutput,
     {
@@ -167,7 +167,7 @@ impl LZ4 {
         anchor: i32,
         literal_len: i32,
         out: &mut D,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: DataOutput,
     {
@@ -188,7 +188,7 @@ impl LZ4 {
         anchor: i32,
         literal_len: i32,
         out: &mut D,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: DataOutput,
     {
@@ -203,7 +203,7 @@ impl LZ4 {
         match_off: i32,
         match_len: i32,
         out: &mut D,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: DataOutput,
     {
@@ -233,7 +233,7 @@ impl LZ4 {
         len: i32,
         out: &mut D,
         ht: &mut HashTableEnum,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: DataOutput,
     {
@@ -250,7 +250,7 @@ impl LZ4 {
         len: i32,
         out: &mut D,
         ht: &mut HashTableEnum,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: DataOutput,
     {
@@ -338,7 +338,7 @@ impl LZ4 {
 /// A record of previous occurrences of sequences of 4 bytes.
 pub trait HashTable {
     /// Reset this hash table in order to compress the given content.
-    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError>;
+    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()>;
 
     /// Init `dict_len` bytes to be used as a dictionary.
     fn init_dictionary(&mut self, dict_len: i32);
@@ -492,7 +492,7 @@ impl FastCompressionHashTable {
     }
 }
 impl HashTable for FastCompressionHashTable {
-    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError> {
+    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
         CommonUtil::check_from_index_size(off, len, bytes.len() as i32)?;
         self.bytes = bytes;
         self.base = off;
@@ -621,7 +621,7 @@ impl HighCompressionHashTable {
     }
 }
 impl HashTable for HighCompressionHashTable {
-    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError> {
+    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
         CommonUtil::check_from_index_size(off, len, bytes.len() as i32)?;
 
         if self.end - self.base < self.chain_table.len() as i32 {
@@ -725,7 +725,7 @@ pub enum HashTableEnum {
     HighCompressionHashTable(HighCompressionHashTable),
 }
 impl HashTable for HashTableEnum {
-    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError> {
+    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
         match self {
             HashTableEnum::FastCompressionHashTable(table) => table.reset(b, off, len),
             HashTableEnum::HighCompressionHashTable(table) => table.reset(b, off, len),
@@ -769,7 +769,7 @@ mod tests {
     use crate::util::array_util::ArrayUtil;
     use crate::util::compress::lz4::{FastCompressionHashTable, HighCompressionHashTable, LZ4};
     use crate::util::compress::lz4::{HashTable, HashTableEnum};
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::SliceCopyOps;
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
@@ -785,55 +785,55 @@ mod tests {
         }
     }
     #[test]
-    fn test_empty_fast() -> Result<(), LuceneError> {
+    fn test_empty_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_empty(&mut random)
     }
     #[test]
-    fn test_short_literals_and_matches_fast() -> Result<(), LuceneError> {
+    fn test_short_literals_and_matches_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_short_literals_and_matches(&mut random)
     }
     #[test]
-    fn test_long_matches_fast() -> Result<(), LuceneError> {
+    fn test_long_matches_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_long_matches(&mut random)
     }
     #[test]
-    fn test_long_literals_fast() -> Result<(), LuceneError> {
+    fn test_long_literals_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_long_literals(&mut random)
     }
     #[test]
-    fn test_match_right_before_last_literals_fast() -> Result<(), LuceneError> {
+    fn test_match_right_before_last_literals_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_match_right_before_last_literals(&mut random)
     }
     #[test]
-    fn test_incompressible_random_fast() -> Result<(), LuceneError> {
+    fn test_incompressible_random_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_incompressible_random(&mut random)
     }
     #[test]
-    fn test_compressible_random_fast() -> Result<(), LuceneError> {
+    fn test_compressible_random_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_compressible_random(&mut random)
     }
     #[test]
-    fn test_lucene5201_fast() -> Result<(), LuceneError> {
+    fn test_lucene5201_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_lucene5201(&mut random)
     }
     #[test]
-    fn test_use_dictionary_fast() -> Result<(), LuceneError> {
+    fn test_use_dictionary_fast() -> Result<()> {
         let mut random = random();
         let case = TestFastLZ4;
         case.test_use_dictionary(&mut random)
@@ -849,55 +849,55 @@ mod tests {
         }
     }
     #[test]
-    fn test_empty_high() -> Result<(), LuceneError> {
+    fn test_empty_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_empty(&mut random)
     }
     #[test]
-    fn test_short_literals_and_matches_high() -> Result<(), LuceneError> {
+    fn test_short_literals_and_matches_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_short_literals_and_matches(&mut random)
     }
     #[test]
-    fn test_long_matches_high() -> Result<(), LuceneError> {
+    fn test_long_matches_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_long_matches(&mut random)
     }
     #[test]
-    fn test_long_literals_high() -> Result<(), LuceneError> {
+    fn test_long_literals_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_long_literals(&mut random)
     }
     #[test]
-    fn test_match_right_before_last_literals_high() -> Result<(), LuceneError> {
+    fn test_match_right_before_last_literals_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_match_right_before_last_literals(&mut random)
     }
     #[test]
-    fn test_incompressible_random_high() -> Result<(), LuceneError> {
+    fn test_incompressible_random_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_incompressible_random(&mut random)
     }
     #[test]
-    fn test_compressible_random_high() -> Result<(), LuceneError> {
+    fn test_compressible_random_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_compressible_random(&mut random)
     }
     #[test]
-    fn test_lucene5201_high() -> Result<(), LuceneError> {
+    fn test_lucene5201_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_lucene5201(&mut random)
     }
     #[test]
-    fn test_use_dictionary_high() -> Result<(), LuceneError> {
+    fn test_use_dictionary_high() -> Result<()> {
         let mut random = random();
         let case = TestHighLZ4;
         case.test_use_dictionary(&mut random)
@@ -910,7 +910,7 @@ mod tests {
             random: &mut StdRng,
             data: Vec<u8>,
             hash_table: &mut AssertingHashTable,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             // this triggers special reset logic for high compression
             let offset = if data.len() >= (1 << 16) || random.random_bool(0.5) {
                 random.random_range(0..10)
@@ -935,7 +935,7 @@ mod tests {
             offset: i32,
             length: i32,
             hash_table: &mut AssertingHashTable,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let mut out = ByteBuffersDataOutput::with_resettable_instance();
             LZ4::compress(data.clone(), offset, length, &mut out, &mut hash_table.ht)?;
 
@@ -1036,7 +1036,7 @@ mod tests {
             random: &mut StdRng,
             data: Vec<u8>,
             hash_table: &mut AssertingHashTable,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let mut copy = ByteBuffersDataOutput::with_resettable_instance();
             let dict_off = random.random_range(0..10);
             copy.write_bytes(vec![0u8; dict_off as usize])?;
@@ -1080,7 +1080,7 @@ mod tests {
             dict_len: i32,
             length: i32,
             hash_table: &mut AssertingHashTable,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let mut out = ByteBuffersDataOutput::with_resettable_instance();
             LZ4::compress_with_dictionary(
                 data.clone(),
@@ -1130,13 +1130,13 @@ mod tests {
 
             Ok(())
         }
-        fn test_empty(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_empty(&self, random: &mut StdRng) -> Result<()> {
             // literals and match lengths <= 15
             let data: Vec<u8> = "".to_string().into_bytes();
             Self::do_test(random, data, &mut self.new_hash_table())
         }
 
-        fn test_short_literals_and_matches(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_short_literals_and_matches(&self, random: &mut StdRng) -> Result<()> {
             // literals and match lengths <= 15
             let data: Vec<u8> = "1234562345673456745678910123".to_string().into_bytes();
             Self::do_test(random, data.clone(), &mut self.new_hash_table())?;
@@ -1144,7 +1144,7 @@ mod tests {
             Ok(())
         }
 
-        fn test_long_matches(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_long_matches(&self, random: &mut StdRng) -> Result<()> {
             // match length >= 20
             let len = random.random_range(300..1024);
             let mut data = vec![0u8; len];
@@ -1154,7 +1154,7 @@ mod tests {
             Self::do_test(random, data, &mut self.new_hash_table())?;
             Ok(())
         }
-        fn test_long_literals(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_long_literals(&self, random: &mut StdRng) -> Result<()> {
             // long literals (length >= 16) which are not the last literals
             let len = random.random_range(400..1024);
             let mut data = vec![0u8; len];
@@ -1167,16 +1167,13 @@ mod tests {
             Ok(())
         }
 
-        fn test_match_right_before_last_literals(
-            &self,
-            random: &mut StdRng,
-        ) -> Result<(), LuceneError> {
+        fn test_match_right_before_last_literals(&self, random: &mut StdRng) -> Result<()> {
             let data = vec![1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5];
             Self::do_test(random, data, &mut self.new_hash_table())?;
             Ok(())
         }
 
-        fn test_incompressible_random(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_incompressible_random(&self, random: &mut StdRng) -> Result<()> {
             let len = random.random_range(1..1 << 18);
             let mut b = vec![0u8; len];
             random.fill_bytes(&mut b);
@@ -1186,7 +1183,7 @@ mod tests {
             Ok(())
         }
 
-        fn test_compressible_random(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_compressible_random(&self, random: &mut StdRng) -> Result<()> {
             let len = random.random_range(1..1 << 18);
             let mut b = vec![0u8; len];
             let base = random.random_range(0..256);
@@ -1199,7 +1196,7 @@ mod tests {
             Self::do_test_with_dictionary(random, b_clone, &mut self.new_hash_table())?;
             Ok(())
         }
-        fn test_lucene5201(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_lucene5201(&self, random: &mut StdRng) -> Result<()> {
             let data: Vec<i8> = vec![
                 14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 72, 14, 72, 14, 85, 3, 72, 14, 72, 14,
                 72, 14, 72, 14, 72, 14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3,
@@ -1238,7 +1235,7 @@ mod tests {
             )
         }
 
-        fn test_use_dictionary(&self, random: &mut StdRng) -> Result<(), LuceneError> {
+        fn test_use_dictionary(&self, random: &mut StdRng) -> Result<()> {
             let b: Vec<i8> = vec![1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
             let dict_off = 0;
             let dict_len = 6;
@@ -1279,7 +1276,7 @@ mod tests {
         }
     }
     impl HashTable for AssertingHashTable {
-        fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<(), LuceneError> {
+        fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
             self.ht.reset(b, off, len)?;
             assert!(self.ht.assert_reset());
             Ok(())

@@ -15,20 +15,15 @@
  * limitations under the License.
  */
 use crate::store::DataOutput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyDataOutput;
 impl DataOutput for DummyDataOutput {
-    fn write_byte(&mut self, _b: u8) -> Result<(), LuceneError> {
+    fn write_byte(&mut self, _b: u8) -> Result<()> {
         unreachable!("DummyDataOutput should not be called");
     }
 
-    fn write_bytes_range(
-        &mut self,
-        _b: &[u8],
-        _offset: i32,
-        _length: i32,
-    ) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, _b: &[u8], _offset: i32, _length: i32) -> Result<()> {
         unreachable!("DummyDataOutput should not be called");
     }
 }

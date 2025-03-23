@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::DataInput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::longs_ref::LongsRef;
 use crate::util::packed::bulk_operation::{of, BulkOperation};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
@@ -85,7 +85,7 @@ impl<'a, D> ReaderIterator for PackedReaderIterator<'a, D>
 where
     D: DataInput + 'a,
 {
-    fn next_batch(&mut self, mut count: i32) -> Result<&mut LongsRef, LuceneError> {
+    fn next_batch(&mut self, mut count: i32) -> Result<&mut LongsRef> {
         debug_assert!(count > 0);
         debug_assert!(
             (self.next_values.offset + self.next_values.length) as usize

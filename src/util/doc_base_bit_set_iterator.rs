@@ -18,7 +18,7 @@ use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::cmp::max;
 
@@ -34,11 +34,7 @@ pub struct DocBaseBitSetIterator {
 }
 
 impl DocBaseBitSetIterator {
-    pub fn new(
-        bits: FixedBitSet,
-        cost: i64,
-        doc_base: i32,
-    ) -> Result<DocBaseBitSetIterator, LuceneError> {
+    pub fn new(bits: FixedBitSet, cost: i64, doc_base: i32) -> Result<DocBaseBitSetIterator> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
@@ -86,11 +82,11 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         if target >= self.length {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
@@ -104,7 +100,7 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(self.cost)
     }
 }

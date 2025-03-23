@@ -16,7 +16,7 @@
  */
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::fst::fst::BytesReader;
 use std::fmt::{Display, Formatter};
 
@@ -42,13 +42,13 @@ impl<R> DataInput for ReverseRandomAccessReader<R>
 where
     R: RandomAccessInput,
 {
-    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self) -> Result<u8> {
         let b = self.input.read_byte(self.pos)?;
         self.pos -= 1;
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let offset = offset as usize;
         let len = len as usize;
         let mut i = offset;
@@ -61,7 +61,7 @@ where
         Ok(())
     }
 
-    fn skip_bytes(&mut self, count: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, count: i64) -> Result<()> {
         self.pos -= count;
         Ok(())
     }

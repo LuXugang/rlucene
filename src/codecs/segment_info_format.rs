@@ -18,7 +18,7 @@ use crate::index::segment_info::SegmentInfo;
 
 use crate::store::directory::Directory;
 use crate::store::IOContext;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::sync::{Arc, Mutex};
 
 /// Expert: Controls the format of the [`SegmentInfo`] (segment metadata file).
@@ -47,7 +47,7 @@ pub trait SegmentInfoFormat {
         segment_name: &str,
         segment_id: Vec<u8>,
         context: &IOContext,
-    ) -> Result<SegmentInfo<D>, LuceneError>
+    ) -> Result<SegmentInfo<D>>
     where
         D: Directory;
 
@@ -59,7 +59,7 @@ pub trait SegmentInfoFormat {
         directory: Arc<Mutex<D>>,
         info: &mut SegmentInfo<D>,
         context: &IOContext,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: Directory;
 }

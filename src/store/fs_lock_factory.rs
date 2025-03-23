@@ -17,7 +17,7 @@
 use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
 use crate::store::NativeFSLockFactory;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::path::Path;
 
 /// Base class for file-system-based locking implementation.
@@ -28,7 +28,7 @@ pub trait FSLockFactory: LockFactory {
     /// Returns the default locking implementation for this platform.
     ///
     /// This method always returns [`native_fs_lock_factory`](NativeFSLockFactory).
-    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum, LuceneError> {
+    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum> {
         self.obtain_fs_lock(directory, lock_name)
     }
 
@@ -39,7 +39,7 @@ pub trait FSLockFactory: LockFactory {
     ///
     /// # Note
     /// Implement this method to define how the lock should be acquired.
-    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum, LuceneError>;
+    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum>;
 }
 #[allow(unused)]
 pub(crate) fn get_default() -> impl FSLockFactory {

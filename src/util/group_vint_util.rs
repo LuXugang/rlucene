@@ -18,7 +18,7 @@ use crate::store::data_input::DataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 // we use long array instead of int array to make negative integer to be read as positive long.
 const MASKS: [u64; 4] = [0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF];
@@ -37,11 +37,7 @@ impl GroupVIntUtil {
     ///
     /// # Note
     /// This is an experimental API.
-    pub fn read_group_vints<D>(
-        data_input: &mut D,
-        dst: &mut [i64],
-        limit: i32,
-    ) -> Result<(), LuceneError>
+    pub fn read_group_vints<D>(data_input: &mut D, dst: &mut [i64], limit: i32) -> Result<()>
     where
         D: DataInput,
     {
@@ -64,11 +60,7 @@ impl GroupVIntUtil {
     /// * `in` - The input to use to read data.
     /// * `dst` - The array to read `i64` values into.
     /// * `offset` - The offset in the array to start storing `i64` values.
-    pub fn read_group_vint<D>(
-        data_input: &mut D,
-        dst: &mut [i64],
-        offset: i32,
-    ) -> Result<(), LuceneError>
+    pub fn read_group_vint<D>(data_input: &mut D, dst: &mut [i64], offset: i32) -> Result<()>
     where
         D: DataInput,
     {
@@ -88,10 +80,7 @@ impl GroupVIntUtil {
             Ok(())
         }
     }
-    fn read_long_in_group<D>(
-        data_input: &mut D,
-        num_bytes_minus1: usize,
-    ) -> Result<i64, LuceneError>
+    fn read_long_in_group<D>(data_input: &mut D, num_bytes_minus1: usize) -> Result<i64>
     where
         D: DataInput,
     {
@@ -134,7 +123,7 @@ impl GroupVIntUtil {
         mut pos: i64,
         dst: &mut [i64],
         offset: i32,
-    ) -> Result<i32, LuceneError>
+    ) -> Result<i32>
     where
         D: DataInput + RandomAccessInput,
     {
@@ -181,7 +170,7 @@ impl GroupVIntUtil {
     }
     /// Converts an i64 value to an i32, ensuring it fits within the valid range.
     /// Throws an error if the value is not within 0 to 0xFFFFFFFF.
-    fn get_int(value: i64) -> Result<i32, LuceneError> {
+    fn get_int(value: i64) -> Result<i32> {
         if value > 0xFFFFFFFF {
             Err(LuceneError::integer_overflow(format!(
                 "value: {} is too large to be converted to i32",
@@ -197,7 +186,7 @@ impl GroupVIntUtil {
         scratch: &mut [u8],
         values: &mut [i64],
         limit: i32,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: DataOutput,
     {

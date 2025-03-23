@@ -21,7 +21,7 @@ use crate::index::index_options::IndexOptions;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::collection_util::CollectionUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -50,7 +50,7 @@ pub struct FieldInfos {
 impl FieldInfos {
     /// Constructs a new FieldInfos from an array of FieldInfo objects. The array can be used directly
     /// as the backing structure.
-    pub fn new(mut infos: Vec<Arc<FieldInfo>>) -> Result<Self, LuceneError> {
+    pub fn new(mut infos: Vec<Arc<FieldInfo>>) -> Result<Self> {
         let mut has_term_vectors = false;
         let mut has_postings = false;
         let mut has_prox = false;
@@ -247,10 +247,7 @@ impl FieldInfos {
     /// # Panics
     ///
     /// Panics if field_number is negative.
-    pub fn field_info_by_number(
-        &self,
-        field_number: i32,
-    ) -> Result<Option<Arc<FieldInfo>>, LuceneError> {
+    pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<Arc<FieldInfo>>> {
         if field_number < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "Illegal field number: {}",
@@ -278,7 +275,7 @@ impl<'a> IntoIterator for &'a FieldInfos {
 // /// # NOTE
 // /// the returned field numbers will likely not correspond to the actual field numbers in
 // /// the underlying readers, and codec metadata (FieldInfo::get_attribute) will be unavailable.
-// pub fn get_merged_field_infos(reader: &impl IndexReader) -> Result<FieldInfos, LuceneError> {
+// pub fn get_merged_field_infos(reader: &impl IndexReader) -> Result<FieldInfos> {
 //     let leaves = reader.leaves();
 //     if leaves.is_empty() {
 //         return Ok(FieldInfos::empty());
@@ -301,7 +298,7 @@ impl<'a> IntoIterator for &'a FieldInfos {
 // }
 //
 // /// Helper function to validate and retrieve the parent field name across leaves.
-// fn get_and_validate_parent_field(leaves: &[LeafReaderContext]) -> Result<String, LuceneError> {
+// fn get_and_validate_parent_field(leaves: &[LeafReaderContext]) -> Result<String> {
 //     let mut set = false;
 //     let mut the_field: Option<String> = None;
 //     for ctx in leaves {
@@ -389,7 +386,7 @@ impl FieldNumbers {
     pub(crate) fn new(
         soft_deletes_field_name: Option<String>,
         parent_field_name: Option<String>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if let (Some(ref soft), Some(ref parent)) = (&soft_deletes_field_name, &parent_field_name) {
             if soft == parent {
                 return Err(LuceneError::illegal_argument(format!(
@@ -409,7 +406,7 @@ impl FieldNumbers {
             parent_field_name,
         })
     }
-    pub fn verify_field_info(&self, fi: &FieldInfo) -> Result<(), LuceneError> {
+    pub fn verify_field_info(&self, fi: &FieldInfo) -> Result<()> {
         let field_properties_guard = self
             .field_properties
             .lock()
@@ -423,7 +420,7 @@ impl FieldNumbers {
         Ok(())
     }
 
-    pub(crate) fn add_or_get(&self, fi: Arc<FieldInfo>) -> Result<i32, LuceneError> {
+    pub(crate) fn add_or_get(&self, fi: Arc<FieldInfo>) -> Result<i32> {
         let mut field_properties_guard = self
             .field_properties
             .lock()
@@ -437,7 +434,7 @@ impl FieldNumbers {
         &self,
         fi: Arc<FieldInfo>,
         field_properties: &mut MutexGuard<Property>,
-    ) -> Result<i32, LuceneError> {
+    ) -> Result<i32> {
         let field_name = fi.get_name();
         self.verify_soft_deleted_field_name(field_name, fi.is_soft_deletes_field())?;
         self.verify_parent_field_name(field_name, fi.is_parent_field())?;
@@ -505,7 +502,7 @@ impl FieldNumbers {
         &self,
         field_name: &str,
         is_soft_deletes_field: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if is_soft_deletes_field {
             if self.soft_deletes_field_name.is_none() {
                 return Err(LuceneError::illegal_argument(format!(
@@ -530,11 +527,7 @@ impl FieldNumbers {
         Ok(())
     }
 
-    fn verify_parent_field_name(
-        &self,
-        field_name: &str,
-        is_parent_field: bool,
-    ) -> Result<(), LuceneError> {
+    fn verify_parent_field_name(&self, field_name: &str, is_parent_field: bool) -> Result<()> {
         if is_parent_field {
             if self.parent_field_name.is_none() {
                 return Err(LuceneError::illegal_argument(format!(
@@ -565,7 +558,7 @@ impl FieldNumbers {
         &self,
         fi: &FieldInfo,
         props: &HashMap<String, FieldProperties>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let field_name = fi.get_name();
         debug_assert!(props.contains_key(field_name));
         let field_properties = props.get(field_name).unwrap();
@@ -642,7 +635,7 @@ impl FieldNumbers {
         field_name: &str,
         dv_type: DocValuesType,
         field_must_exist: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut field_properties_guard = self
             .field_properties
             .lock()
@@ -733,7 +726,7 @@ impl FieldNumbers {
         field_name: &str,
         dv_type: DocValuesType,
         new_field_number: i32,
-    ) -> Result<Option<FieldInfo>, LuceneError> {
+    ) -> Result<Option<FieldInfo>> {
         let field_properties_guard = self
             .field_properties
             .lock()
@@ -777,7 +770,7 @@ impl FieldNumbers {
     }
 
     /// Returns a set of field names.
-    pub fn get_field_names(&self) -> Result<HashSet<String>, LuceneError> {
+    pub fn get_field_names(&self) -> Result<HashSet<String>> {
         let field_properties_guard = self
             .field_properties
             .lock()
@@ -786,7 +779,7 @@ impl FieldNumbers {
     }
 
     /// Clears the field numbers.
-    pub fn clear(&mut self) -> Result<(), LuceneError> {
+    pub fn clear(&mut self) -> Result<()> {
         let mut field_properties_guard = self
             .field_properties
             .lock()
@@ -820,15 +813,11 @@ impl Builder {
         &self.global_field_numbers.parent_field_name
     }
 
-    pub fn add(&mut self, fi: Arc<FieldInfo>) -> Result<Arc<FieldInfo>, LuceneError> {
+    pub fn add(&mut self, fi: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
         self.add_with_dv_gen(fi, -1)
     }
 
-    pub fn add_with_dv_gen(
-        &mut self,
-        fi: Arc<FieldInfo>,
-        dv_gen: i64,
-    ) -> Result<Arc<FieldInfo>, LuceneError> {
+    pub fn add_with_dv_gen(&mut self, fi: Arc<FieldInfo>, dv_gen: i64) -> Result<Arc<FieldInfo>> {
         if let Some(cur_fi) = self.field_info(&fi.name) {
             cur_fi.verify_same_schema(&fi)?;
 
@@ -889,7 +878,7 @@ impl Builder {
             panic!("FieldInfos.Builder was already finished; cannot add new fields");
         }
     }
-    pub fn finish(&mut self) -> Result<FieldInfos, LuceneError> {
+    pub fn finish(&mut self) -> Result<FieldInfos> {
         self.finished = true;
         FieldInfos::new(self.by_name.values().cloned().collect())
     }
@@ -904,39 +893,39 @@ mod tests {
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
     #[allow(dead_code)] // for quick search
     struct TestFieldInfos;
     #[test]
-    fn test_field_infos() -> Result<(), LuceneError> {
+    fn test_field_infos() -> Result<()> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_field_attributes() -> Result<(), LuceneError> {
+    fn test_field_attributes() -> Result<()> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_field_attributes_single_segment() -> Result<(), LuceneError> {
+    fn test_field_attributes_single_segment() -> Result<()> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_merged_field_infos_empty() -> Result<(), LuceneError> {
+    fn test_merged_field_infos_empty() -> Result<()> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_merged_field_infos_single_leaf() -> Result<(), LuceneError> {
+    fn test_merged_field_infos_single_leaf() -> Result<()> {
         // TODO
         Ok(())
     }
     #[test]
-    fn test_field_numbers_auto_increment() -> Result<(), LuceneError> {
+    fn test_field_numbers_auto_increment() -> Result<()> {
         let mut field_numbers = FieldNumbers::new(
             Some("softDeletes".to_string()),
             Some("parentDoc".to_string()),

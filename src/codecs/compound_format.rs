@@ -19,7 +19,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::sync::{Arc, Mutex};
 
 /// Encodes/decodes compound files
@@ -29,7 +29,7 @@ pub trait CompoundFormat {
         &self,
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
-    ) -> Result<CompoundDirectory<D>, LuceneError>
+    ) -> Result<CompoundDirectory<D>>
     where
         D: Directory,
         D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput;
@@ -45,6 +45,6 @@ pub trait CompoundFormat {
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
         context: &IOContext,
-    ) -> Result<(), LuceneError>;
+    ) -> Result<()>;
 }
 pub struct SizedFileQueue;

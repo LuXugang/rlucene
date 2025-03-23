@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
 /// # Internal
@@ -105,7 +105,7 @@ impl IntBlockPool {
     /// Advances the pool to its next buffer. This method should be called once after the constructor
     /// to initialize the pool. In contrast to the constructor, a `IntBlockPool::reset(boolean, boolean)`
     /// call will advance the pool to its first buffer immediately.
-    pub fn next_buffer(&mut self) -> Result<(), LuceneError> {
+    pub fn next_buffer(&mut self) -> Result<()> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
             self.buffers
                 .push(self.allocator.borrow_mut().get_byte_block());
@@ -191,14 +191,14 @@ impl AllocatorI32 for AllocatorIntEnum {
 #[cfg(test)]
 mod tests {
     use crate::test::util::lucene_test_case::random;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::int_block_pool::{AllocatorIntEnum, DirectAllocatorI32, IntBlockPool};
     use rand::Rng;
     use std::cell::RefCell;
     use std::rc::Rc;
 
     #[test]
-    fn test_write_read_reset() -> Result<(), LuceneError> {
+    fn test_write_read_reset() -> Result<()> {
         let mut random = random();
         let allocator = Rc::new(RefCell::new(
             AllocatorIntEnum::DA(DirectAllocatorI32::new()),
@@ -243,7 +243,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_too_many_allocs() -> Result<(), LuceneError> {
+    fn test_too_many_allocs() -> Result<()> {
         let allocator = Rc::new(RefCell::new(
             AllocatorIntEnum::DA(DirectAllocatorI32::new()),
         ));

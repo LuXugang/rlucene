@@ -21,7 +21,7 @@ use crate::util::bit_doc_id_set::BitDocIdSet;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 use std::cmp::min;
@@ -119,7 +119,7 @@ impl RoaringDocIdSetBuilder {
         }
     }
     /// Add a new doc-id to this builder. NOTE: doc ids must be added in order.
-    pub fn add(&mut self, doc_id: i32) -> Result<(), LuceneError> {
+    pub fn add(&mut self, doc_id: i32) -> Result<()> {
         if doc_id <= self.last_doc_id {
             return Err(LuceneError::illegal_argument(format!(
                 "Doc ids must be added in-order, got {} which is <= lastDocID=",
@@ -151,7 +151,7 @@ impl RoaringDocIdSetBuilder {
         Ok(())
     }
     /// Add the content of the provided DocIdSetIterator.
-    pub fn add_disi<T: DocIdSetIterator>(&mut self, mut disi: T) -> Result<(), LuceneError> {
+    pub fn add_disi<T: DocIdSetIterator>(&mut self, mut disi: T) -> Result<()> {
         let mut doc = disi.next_doc()?;
         while doc != NO_MORE_DOCS {
             let _ = self.add(doc);
@@ -163,7 +163,7 @@ impl RoaringDocIdSetBuilder {
         let _ = self.flush();
         RoaringDocIdSet::new(std::mem::take(&mut self.sets), self.cardinality)
     }
-    fn flush(&mut self) -> Result<(), LuceneError> {
+    fn flush(&mut self) -> Result<()> {
         debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
         if self.current_block_cardinality <= MAX_ARRAY_LENGTH {
             // use sparse encoding
@@ -278,7 +278,7 @@ impl DocIdSetIterator for ShortArrayDISI<'_> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.i += 1;
         if self.i as usize >= self.doc_ids.len() {
             self.doc = NO_MORE_DOCS;
@@ -288,7 +288,7 @@ impl DocIdSetIterator for ShortArrayDISI<'_> {
         Ok(self.doc)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         let mut lo = self.i + 1;
         let mut hi = self.doc_ids.len() as i32 - 1;
         while lo <= hi {
@@ -310,7 +310,7 @@ impl DocIdSetIterator for ShortArrayDISI<'_> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(self.doc_ids.len() as i64)
     }
 }
@@ -335,7 +335,7 @@ impl<'a> Iterator<'a> {
             cardinality,
         }
     }
-    fn first_doc_from_next_block(&mut self) -> Result<i32, LuceneError> {
+    fn first_doc_from_next_block(&mut self) -> Result<i32> {
         loop {
             self.block += 1;
             if self.block >= self.set_length as i32 {
@@ -360,7 +360,7 @@ impl DocIdSetIterator for Iterator<'_> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         let sub_next = self.sub.as_mut().unwrap().next_doc()?;
         if sub_next == NO_MORE_DOCS {
             return self.first_doc_from_next_block();
@@ -369,7 +369,7 @@ impl DocIdSetIterator for Iterator<'_> {
         Ok(self.doc)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         let target_block = _target >> 16;
         if target_block != self.block {
             self.block = target_block;
@@ -394,7 +394,7 @@ impl DocIdSetIterator for Iterator<'_> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(self.cardinality)
     }
 }
@@ -447,7 +447,7 @@ impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
         }
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         match self {
             DocIdSetIteratorEnum::Sparse(s) => s.next_doc(),
             DocIdSetIteratorEnum::Medium(m) => m.next_doc(),
@@ -456,7 +456,7 @@ impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         match self {
             DocIdSetIteratorEnum::Sparse(s) => s.advance(_target),
             DocIdSetIteratorEnum::Medium(m) => m.advance(_target),
@@ -465,7 +465,7 @@ impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
         }
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         match self {
             DocIdSetIteratorEnum::Sparse(s) => s.cost(),
             DocIdSetIteratorEnum::Medium(m) => m.cost(),
@@ -483,31 +483,31 @@ mod tests {
     };
     use crate::test::util::lucene_test_case::random;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
     use rand::prelude::StdRng;
 
     struct TestRoaringDocIdSet;
     #[test]
-    fn test_bit_0() -> Result<(), LuceneError> {
+    fn test_bit_0() -> Result<()> {
         let test_case = TestRoaringDocIdSet;
         let mut random = random();
         test_case.test_bit_0(&mut random)
     }
     #[test]
-    fn test_bit_1() -> Result<(), LuceneError> {
+    fn test_bit_1() -> Result<()> {
         let test_case = TestRoaringDocIdSet;
         let mut random = random();
         test_case.test_bit_1(&mut random)
     }
     #[test]
-    fn test_bit_2() -> Result<(), LuceneError> {
+    fn test_bit_2() -> Result<()> {
         let test_case = TestRoaringDocIdSet;
         let mut random = random();
         test_case.test_bit_2(&mut random)
     }
     #[test]
-    fn test_against_bit_set() -> Result<(), LuceneError> {
+    fn test_against_bit_set() -> Result<()> {
         let test_case = TestRoaringDocIdSet;
         let mut random = random();
         test_case.test_against_bit_set(&mut random)
@@ -534,7 +534,7 @@ mod tests {
             num_bits: i32,
             ds1: &bit_set::BitSet,
             ds2: T,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }
     }

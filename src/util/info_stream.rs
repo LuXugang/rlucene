@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use once_cell::sync::Lazy;
 use std::sync::{Arc, Mutex};
 
@@ -63,7 +63,7 @@ pub fn get_default_info_stream() -> Arc<Mutex<InfoStreamEnum>> {
 }
 
 /// Sets the default [`InfoStream`] used by a newly instantiated classes.
-pub fn set_default(info_stream: InfoStreamEnum) -> Result<(), LuceneError> {
+pub fn set_default(info_stream: InfoStreamEnum) -> Result<()> {
     let mut lock = DEFAULT_INFOSTREAM
         .lock()
         .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
@@ -99,17 +99,17 @@ pub type InfoStreamLock = Arc<Mutex<InfoStreamEnum>>;
 pub type InfoStreamBorrow = Arc<Mutex<InfoStreamEnum>>;
 #[cfg(test)]
 mod tests {
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search
     pub struct TestInfoStream;
     #[test]
-    fn test_test_points_off() -> Result<(), LuceneError> {
+    fn test_test_points_off() -> Result<()> {
         // TODO : IndexWriter not implemented
         Ok(())
     }
     #[test]
-    fn test_test_pointson() -> Result<(), LuceneError> {
+    fn test_test_pointson() -> Result<()> {
         // TODO : IndexWriter not implemented
         Ok(())
     }

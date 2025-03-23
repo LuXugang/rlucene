@@ -21,7 +21,7 @@ use crate::store::index_input::IndexInput;
 use crate::store::lock::Lock;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexOutput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::{Arc, Mutex};
@@ -52,7 +52,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Errors
     /// Returns an `std::io::Error` in case of an I/O error.
-    fn list_all(&self) -> Result<Vec<String>, LuceneError>;
+    fn list_all(&self) -> Result<Vec<String>>;
     /// Removes an existing file in the directory.
     ///
     /// # Errors
@@ -63,7 +63,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file to be removed.
-    fn delete_file(&mut self, name: &str) -> Result<(), LuceneError>;
+    fn delete_file(&mut self, name: &str) -> Result<()>;
 
     /// Returns the byte length of a file in the directory.
     ///
@@ -75,7 +75,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file.
-    fn file_length(&self, name: &str) -> Result<i64, LuceneError>;
+    fn file_length(&self, name: &str) -> Result<i64>;
     /// Creates a new, empty file in the directory and returns an `IndexOutput` instance for
     /// appending data to this file.
     ///
@@ -87,11 +87,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the file to create.
-    fn create_output(
-        &mut self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError>;
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType>;
 
     /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance
     /// for appending data to this file.
@@ -108,7 +104,7 @@ pub trait Directory: Display + Sized {
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError>;
+    ) -> Result<Self::IndexOutputType>;
     /// Ensures that any writings to these files are moved to stable storage (made durable).
     ///
     /// Lucene uses this to properly commit changes to the index, preventing corruption in case of a
@@ -116,12 +112,12 @@ pub trait Directory: Display + Sized {
     ///
     /// # See Also
     /// [`sync_metadata`](Directory::sync_metadata)
-    fn sync(&mut self, names: &[&str]) -> Result<(), LuceneError>;
+    fn sync(&mut self, names: &[&str]) -> Result<()>;
     /// Ensures that directory metadata, such as recent file renames, are moved to stable storage.
     ///
     /// # See Also
     /// [`sync`](Directory::sync)
-    fn sync_metadata(&mut self) -> Result<(), LuceneError>;
+    fn sync_metadata(&mut self) -> Result<()>;
     /// Renames `source` file to `dest` file where `dest` must not already exist in the directory.
     ///
     /// It is permitted for this operation to not be truly atomic, meaning both `source` and `dest`
@@ -134,7 +130,7 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `source` - The file to rename.
     /// * `dest` - The new name for the file.
-    fn rename(&mut self, source: &str, dest: &str) -> Result<(), LuceneError>;
+    fn rename(&mut self, source: &str, dest: &str) -> Result<()>;
 
     /// Opens a stream for reading an existing file.
     ///
@@ -147,11 +143,7 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `name` - The name of an existing file.
     type IndexInputType: IndexInput + RandomAccessInput;
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType, LuceneError>;
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType>;
 
     /// Opens a checksum-computing stream for reading an existing file.
     ///
@@ -166,7 +158,7 @@ pub trait Directory: Display + Sized {
     fn open_checksum_input(
         &self,
         name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInputType>, LuceneError> {
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInputType>> {
         Ok(BufferedChecksumIndexInput::new(
             self.open_input(name, &IOContext::read_once_io_context()?)?,
         ))
@@ -181,7 +173,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the lock file.
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, LuceneError>;
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock>;
     /// Copies an existing `src` file from directory `from` to a non-existent file `dest` in this directory.
     /// The given `IOContext` is only used for opening the destination file.
     ///
@@ -196,10 +188,10 @@ pub trait Directory: Display + Sized {
         src: &str,
         dest: &str,
         context: &IOContext,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut success = false;
 
-        let result = (|| -> Result<(), LuceneError> {
+        let result = (|| -> Result<()> {
             let dir = from
                 .lock()
                 .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
@@ -228,7 +220,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Note
     /// This is an internal API.
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError>;
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>>;
 
     #[cfg(feature = "test_only")]
     fn is_fs_directory(&self) -> bool {

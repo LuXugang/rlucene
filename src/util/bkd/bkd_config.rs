@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Basic parameters for indexing points on the BKD tree.
 ///
@@ -57,7 +57,7 @@ impl BKDConfig {
         num_index_dims: i32,
         bytes_per_dim: i32,
         max_points_in_leaf_node: i32,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         if !(1..=Self::MAX_DIMS).contains(&num_dims) {
             return Err(LuceneError::illegal_argument(format!(
                 "num_dims must be 1 .. {} (got: {})",

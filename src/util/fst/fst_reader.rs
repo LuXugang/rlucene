@@ -16,7 +16,7 @@
  */
 use crate::store::DataOutput;
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::fst::fst::BytesReader;
 
 /// Abstraction for reading bytes necessary for FST.
@@ -27,7 +27,7 @@ pub trait FstReader: Accountable {
     ///
     /// # Returns
     /// The reverse `BytesReader`.
-    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader, LuceneError>;
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader>;
 
     /// Write this FST to another `DataOutput`.
     ///
@@ -36,5 +36,5 @@ pub trait FstReader: Accountable {
     ///
     /// # Errors
     /// Returns an error if an exception occurred during writing.
-    fn write_to<D: DataOutput>(&self, out: &mut D) -> Result<(), LuceneError>;
+    fn write_to<D: DataOutput>(&self, out: &mut D) -> Result<()>;
 }

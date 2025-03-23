@@ -21,7 +21,7 @@ use crate::index::parallel_postings_array::{
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 #[allow(unused)]
 pub(crate) struct TermVectorsConsumerPerField {
     pub(crate) parent_per_field: TermsHashPerField,
@@ -34,26 +34,26 @@ impl TermVectorsConsumerPerField {
     }
 }
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
-    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         self.parent_per_field.init_stream_slices(term_id, doc_id)?;
         self.new_term(term_id, doc_id)
     }
 
-    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
+    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
         let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
         self.add_term(term_id, doc_id)?;
         Ok(term_id)
     }
 
-    fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool, LuceneError> {
+    fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool> {
         todo!()
     }
 
-    fn new_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<(), LuceneError> {
+    fn new_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<()> {
         todo!()
     }
 
-    fn add_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<(), LuceneError> {
+    fn add_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<()> {
         todo!()
     }
 
@@ -88,7 +88,7 @@ impl PostingsArrayBase for TermVectorsPostingsArray {
     fn bytes_per_posting(&self) -> i32 {
         self.parent_postings_array.bytes_per_posting() + 3 * BitUtil::INT_BYTES as i32
     }
-    fn copy_to(&mut self, new_size: i32) -> Result<(), LuceneError> {
+    fn copy_to(&mut self, new_size: i32) -> Result<()> {
         self.parent_postings_array.copy_to(new_size)?;
         self.size = new_size;
         ArrayUtil::grow_exact(&mut self.freqs, new_size)?;

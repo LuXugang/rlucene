@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// An implementation of a selection algorithm, i.e., computing the k-th greatest value from a collection.
 pub trait Selector {
@@ -22,12 +22,12 @@ pub trait Selector {
     /// sorted and all other elements are partitioned around it:
     /// `[from, k)` only contains elements that are less than or equal to `k`,
     /// and `(k, to)` only contains elements that are greater than or equal to `k`.
-    fn select(&mut self, _from: i32, _to: i32, _k: i32) -> Result<(), LuceneError> {
+    fn select(&mut self, _from: i32, _to: i32, _k: i32) -> Result<()> {
         Err(LuceneError::need_implemented("select() is not implemented"))
     }
 
     /// Check the validity of the `from`, `to`, and `k` indices.
-    fn check_args(&self, from: i32, to: i32, k: i32) -> Result<(), LuceneError> {
+    fn check_args(&self, from: i32, to: i32, k: i32) -> Result<()> {
         if k < from {
             return Err(LuceneError::illegal_argument("k must be >= from"));
         }
@@ -38,7 +38,7 @@ pub trait Selector {
     }
 
     /// Swap values at positions `i` and `j`.
-    fn swap(&mut self, _i: i32, _j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
         Err(LuceneError::need_implemented("swap() is not implemented"))
     }
 }

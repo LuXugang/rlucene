@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{Comparator, ToInt};
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -88,7 +88,7 @@ impl LongsRef {
     /// # Returns
     ///
     /// A new `LongsRef` that is a deep copy of the provided `other`.
-    pub fn deep_copy_of(other: &LongsRef) -> Result<LongsRef, LuceneError> {
+    pub fn deep_copy_of(other: &LongsRef) -> Result<LongsRef> {
         if (other.offset + other.length) as usize > other.longs.len() {
             return Err(LuceneError::array_index_out_of_bounds(
                 "Offset and length exceed vector bounds",
@@ -104,7 +104,7 @@ impl LongsRef {
         })
     }
 
-    pub fn is_valid(longs: &[i64], offset: i32, length: i32) -> Result<bool, LuceneError> {
+    pub fn is_valid(longs: &[i64], offset: i32, length: i32) -> Result<bool> {
         if longs.is_empty() {
             return Err(LuceneError::illegal_state("longs is empty"));
         }
@@ -230,7 +230,7 @@ impl Comparator<LongsRef> for LongsRefComparator {
 #[cfg(test)]
 mod tests {
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::longs_ref::LongsRef;
 
     #[allow(dead_code)] // for quick search
@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_deep_copy() -> Result<(), LuceneError> {
+    fn test_invalid_deep_copy() -> Result<()> {
         let mut from = LongsRef::from_slice(vec![1, 2], 0, 2);
         from.offset += 1;
         let result = LongsRef::deep_copy_of(&from);

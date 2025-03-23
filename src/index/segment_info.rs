@@ -19,7 +19,7 @@ use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
 
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::Version;
 use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
@@ -105,7 +105,7 @@ where
         id: Vec<u8>,
         attributes: HashMap<String, String>,
         index_sort: Option<Sort>,
-    ) -> Result<SegmentInfo<D>, LuceneError> {
+    ) -> Result<SegmentInfo<D>> {
         // debug_assert!(
         //     !dir.is::<TrackingDirectoryWrapper>(),
         //     "dir should not be a TrackingDirectoryWrapper"
@@ -185,7 +185,7 @@ where
         self.has_blocks = true;
     }
     // /// Can only be called once to set the codec
-    // pub fn set_codec(&mut self, codec: Lucene101Codec) -> Result<(), LuceneError> {
+    // pub fn set_codec(&mut self, codec: Lucene101Codec) -> Result<()> {
     //     if self.codec.is_some() {
     //         return Err(LuceneError::illegal_argument(
     //             "Codec was already set".to_string(),
@@ -201,7 +201,7 @@ where
     // }
 
     /// Returns the number of documents in this segment (deletions are not taken into account)
-    pub fn max_doc(&self) -> Result<i32, LuceneError> {
+    pub fn max_doc(&self) -> Result<i32> {
         if self.max_doc.is_none() {
             return Err(LuceneError::illegal_argument(
                 "maxDoc isn't set yet".to_string(),
@@ -211,7 +211,7 @@ where
     }
 
     /// Sets the max_doc value, can only be called once
-    pub fn set_max_doc(&mut self, max_doc: i32) -> Result<(), LuceneError> {
+    pub fn set_max_doc(&mut self, max_doc: i32) -> Result<()> {
         if self.max_doc.is_some() {
             return Err(LuceneError::illegal_argument(format!(
                 "maxDoc was already set: this.maxDoc={} vs maxDoc {}",
@@ -224,7 +224,7 @@ where
     }
 
     /// Returns all files referenced by this SegmentInfo
-    pub fn files(&self) -> Result<&HashSet<String>, LuceneError> {
+    pub fn files(&self) -> Result<&HashSet<String>> {
         if self.set_files.is_none() {
             debug_assert!(self.max_doc.is_some());
             return Err(LuceneError::illegal_argument(format!(
@@ -256,7 +256,7 @@ where
     /// - `45`: Number of documents in the segment.
     /// - `/4`: Number of deletions (only present if deletions exist).
     /// - `[sorter=<long: "timestamp">!]`: Indicates the segment is sorted by the `timestamp` field in descending order (optional, omitted for unsorted segments).
-    pub fn to_string(&self, del_count: i32) -> Result<String, LuceneError> {
+    pub fn to_string(&self, del_count: i32) -> Result<String> {
         let mut s = String::new();
         s.push_str(&self.name);
 
@@ -322,7 +322,7 @@ where
     }
 
     /// Add these files to the set of files written for this segment.
-    pub fn add_files(&mut self, files: HashSet<String>) -> Result<(), LuceneError> {
+    pub fn add_files(&mut self, files: HashSet<String>) -> Result<()> {
         self.check_file_names(&files)?;
         debug_assert!(self.set_files.is_some());
         let transformed_files: HashSet<String> = files
@@ -339,11 +339,11 @@ where
     }
 
     /// Add this file to the set of files written for this segment.
-    pub fn add_file(&mut self, file: String) -> Result<(), LuceneError> {
+    pub fn add_file(&mut self, file: String) -> Result<()> {
         self.add_files(HashSet::from([file]))
     }
 
-    fn check_file_names(&self, files: &HashSet<String>) -> Result<(), LuceneError> {
+    fn check_file_names(&self, files: &HashSet<String>) -> Result<()> {
         for file in files {
             // Check if the file name matches the codec file pattern
             if !CODEC_FILE_PATTERN.is_match(file) {
@@ -370,7 +370,7 @@ where
         format!("{}{}", self.name, IndexFileNames::strip_segment_name(&file))
     }
     /// Get a codec attribute value, or None if it does not exist.
-    pub fn get_attribute(&self, key: &str) -> Result<Option<String>, LuceneError> {
+    pub fn get_attribute(&self, key: &str) -> Result<Option<String>> {
         let attributes = self
             .attributes
             .lock()
@@ -384,7 +384,7 @@ where
     ///
     /// If a value already exists for the field, it will be replaced with the new value. This method
     /// ensures thread safety by making a copy-on-write for every attribute change.
-    pub fn put_attribute(&self, key: String, value: String) -> Result<Option<String>, LuceneError> {
+    pub fn put_attribute(&self, key: String, value: String) -> Result<Option<String>> {
         // This needs to be thread-safe because multiple threads may be updating (different) attributes
         // at the same time due to concurrent merging, plus some threads may be calling toString() on
         // segment info while other threads are updating attributes.
@@ -395,7 +395,7 @@ where
         Ok(attributes.insert(key, value))
     }
     /// Returns the internal codec attributes map.
-    pub fn get_attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>, LuceneError> {
+    pub fn get_attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>> {
         Ok(self.attributes.clone())
     }
 

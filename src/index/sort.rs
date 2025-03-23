@@ -16,7 +16,7 @@
  */
 use crate::search::sort_field::SortField;
 use crate::search::sort_field_enum::SortFieldEnum;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt;
 use std::fmt::Display;
 
@@ -27,12 +27,12 @@ pub struct Sort {
 
 impl Sort {
     /// Replace Java's `Sort.INDEXORDER` with this method.
-    pub fn get_index_order() -> Result<Self, LuceneError> {
+    pub fn get_index_order() -> Result<Self> {
         let sort_field = SortFieldEnum::Sorter(SortField::get_field_doc()?);
         Self::with_fields(vec![sort_field])
     }
     /// Replace Java's `Sort.RELEVANCE` with this method.
-    pub fn get_relevance() -> Result<Self, LuceneError> {
+    pub fn get_relevance() -> Result<Self> {
         Self::new()
     }
 }
@@ -42,7 +42,7 @@ impl Sort {
     ///
     /// This is the same sort criteria as calling `IndexSearcher::search` without a sort criteria,
     /// only with slightly more overhead.
-    pub fn new() -> Result<Self, LuceneError> {
+    pub fn new() -> Result<Self> {
         let sort_field = SortFieldEnum::Sorter(SortField::get_field_score()?);
         Self::with_fields(vec![sort_field])
     }
@@ -75,7 +75,7 @@ impl Sort {
     /// let sort = Sort::with_fields(fileds);
     /// assert!(sort.is_ok());
     /// ```
-    pub fn with_fields(fields: Vec<SortFieldEnum>) -> Result<Self, LuceneError> {
+    pub fn with_fields(fields: Vec<SortFieldEnum>) -> Result<Self> {
         if fields.is_empty() {
             Err(LuceneError::illegal_argument(
                 "There must be at least 1 sort field".to_string(),

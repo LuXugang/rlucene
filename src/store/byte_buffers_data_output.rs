@@ -18,7 +18,7 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 use crate::util::{ReadableCursorExt, WritableCursorExt};
 use byteorder::WriteBytesExt;
@@ -67,11 +67,7 @@ impl ByteBuffersDataOutput {
     /// * `min_bits_per_block` - Minimum bits per block.
     /// * `max_bits_per_block` - Maximum bits per block.
     /// * `reuse` - Reuse this Instance.
-    pub fn new(
-        min_bits_per_block: i32,
-        max_bits_per_block: i32,
-        reuse: bool,
-    ) -> Result<Self, LuceneError> {
+    pub fn new(min_bits_per_block: i32, max_bits_per_block: i32, reuse: bool) -> Result<Self> {
         if min_bits_per_block < Self::LIMIT_MIN_BITS_PER_BLOCK {
             return Err(LuceneError::illegal_argument(format!(
                 "minBitsPerBlock ({}) too small, must be at least {}",
@@ -110,7 +106,7 @@ impl ByteBuffersDataOutput {
     ///
     /// # Arguments
     /// * `expected_size` - Estimated size of the output file.
-    pub fn with_expected_size(expected_size: i64) -> Result<Self, LuceneError> {
+    pub fn with_expected_size(expected_size: i64) -> Result<Self> {
         let block_bits = compute_block_size_bits_for(expected_size);
         Self::new(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
     }
@@ -185,7 +181,7 @@ impl ByteBuffersDataOutput {
         self.current_block_index = (self.blocks.len() - 1) as i32;
     }
     /// Copies the current content of this object into another [`DataOutput`].
-    pub(crate) fn copy_to<D: DataOutput>(&mut self, output: &mut D) -> Result<(), LuceneError> {
+    pub(crate) fn copy_to<D: DataOutput>(&mut self, output: &mut D) -> Result<()> {
         debug_assert!(!self.blocks.is_empty());
         for (index, block) in self.blocks.iter().enumerate() {
             if index == self.current_block_index as usize {
@@ -301,19 +297,19 @@ impl ByteBuffersDataOutput {
         value as i64
     }
     #[cfg(feature = "test_only")]
-    pub fn write_bytes(&mut self, b: Vec<u8>) -> Result<(), LuceneError> {
+    pub fn write_bytes(&mut self, b: Vec<u8>) -> Result<()> {
         debug_assert!(b.len() <= u32::MAX as usize);
         self.write_bytes_range(&b, 0, b.len() as i32)
     }
 
     #[cfg(feature = "test_only")]
-    pub fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
+    pub fn write_byte(&mut self, b: u8) -> Result<()> {
         self.write_bytes_range(&[b], 0, 1)
     }
 }
 
 impl DataOutput for ByteBuffersDataOutput {
-    fn write_byte(&mut self, b: u8) -> Result<(), LuceneError> {
+    fn write_byte(&mut self, b: u8) -> Result<()> {
         self.append_block_if_needed();
         let last_block = self
             .blocks
@@ -322,16 +318,11 @@ impl DataOutput for ByteBuffersDataOutput {
         Ok(last_block.write_u8(b)?)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<(), LuceneError> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<()> {
         self.write_bytes_range(b, 0, len)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        mut offset: i32,
-        mut length: i32,
-    ) -> Result<(), LuceneError> {
+    fn write_bytes_range(&mut self, b: &[u8], mut offset: i32, mut length: i32) -> Result<()> {
         while length > 0 {
             let available_space = self.append_block_if_needed();
             let last_block = self
@@ -347,22 +338,22 @@ impl DataOutput for ByteBuffersDataOutput {
         Ok(())
     }
 
-    fn write_int(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn write_int(&mut self, i: i32) -> Result<()> {
         let value = i.to_le_bytes();
         self.write_bytes_range(&value, 0, 4)
     }
 
-    fn write_short(&mut self, i: i16) -> Result<(), LuceneError> {
+    fn write_short(&mut self, i: i16) -> Result<()> {
         let value = i.to_le_bytes();
         self.write_bytes_range(&value, 0, 2)
     }
 
-    fn write_long(&mut self, i: i64) -> Result<(), LuceneError> {
+    fn write_long(&mut self, i: i64) -> Result<()> {
         let value = i.to_le_bytes();
         self.write_bytes_range(&value, 0, 8)
     }
 
-    fn write_string(&mut self, s: &str) -> Result<(), LuceneError> {
+    fn write_string(&mut self, s: &str) -> Result<()> {
         let bytes = s.as_bytes();
         let length = bytes.len();
         debug_assert!(length <= i32::MAX as usize);
@@ -370,11 +361,7 @@ impl DataOutput for ByteBuffersDataOutput {
         self.write_bytes_range(bytes, 0, length as i32)
     }
 
-    fn copy_bytes<T: DataInput>(
-        &mut self,
-        input: &mut T,
-        mut num_bytes: i64,
-    ) -> Result<(), LuceneError> {
+    fn copy_bytes<T: DataInput>(&mut self, input: &mut T, mut num_bytes: i64) -> Result<()> {
         while num_bytes > 0 {
             let available_space = self.append_block_if_needed();
             let last_block = self
@@ -429,14 +416,14 @@ mod tests {
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::{random, random_from_seed};
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use rand::Rng;
 
     struct TestByteBuffersDataOutput;
     impl BaseDataOutputTestCase for TestByteBuffersDataOutput {
         type DO = ByteBuffersDataOutput;
 
-        fn new_instance(&self) -> Result<Self::DO, LuceneError> {
+        fn new_instance(&self) -> Result<Self::DO> {
             Ok(ByteBuffersDataOutput::with_resettable_instance())
         }
 
@@ -446,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reuse() -> Result<(), LuceneError> {
+    fn test_reuse() -> Result<()> {
         let mut random = random();
         let mut o = ByteBuffersDataOutput::new(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
@@ -467,7 +454,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_constructor_with_expected_size() -> Result<(), LuceneError> {
+    fn test_constructor_with_expected_size() -> Result<()> {
         let mut random = random();
         let mut o = ByteBuffersDataOutput::with_expected_size(0)?;
         o.write_byte(0)?;
@@ -496,7 +483,7 @@ mod tests {
     }
 
     #[test]
-    fn test_randomized_writes() -> Result<(), LuceneError> {
+    fn test_randomized_writes() -> Result<()> {
         let mut test = TestByteBuffersDataOutput;
         let mut random = random();
         // here could use any DataInput impl because this test does not test ByteArrayDataInput
@@ -527,7 +514,7 @@ mod tests {
         assert!(o.is_err());
     }
     #[test]
-    fn test_sanity() -> Result<(), LuceneError> {
+    fn test_sanity() -> Result<()> {
         let case = TestByteBuffersDataOutput;
         let mut o = case.new_instance()?;
 
@@ -548,7 +535,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_large_array_add() -> Result<(), LuceneError> {
+    fn test_large_array_add() -> Result<()> {
         let mut random = random();
         let mut o = ByteBuffersDataOutput::with_resettable_instance();
         let mb = 1024 * 1024;
@@ -570,7 +557,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_copy_bytes_on_heap() -> Result<(), LuceneError> {
+    fn test_copy_bytes_on_heap() -> Result<()> {
         let mut random = random();
         let mut bytes = vec![0u8; 1024 * 8 + 10];
         random.fill(&mut bytes[..]);
@@ -590,7 +577,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_copy_bytes_on_direct_byte_buffer() -> Result<(), LuceneError> {
+    fn test_copy_bytes_on_direct_byte_buffer() -> Result<()> {
         let mut random = random();
         let mut bytes = vec![0u8; 1024 * 8 + 10];
         random.fill(&mut bytes[..]);

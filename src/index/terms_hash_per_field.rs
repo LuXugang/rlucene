@@ -26,7 +26,7 @@ use crate::util::access::Access;
 use crate::util::bytes_ref_hash::{
     BytesRefHash, BytesStartArray, BytesStartArrayEnum, STBytesRefHash,
 };
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, SliceCopyOps};
 use std::cell::RefCell;
@@ -99,7 +99,7 @@ impl TermsHashPerField {
         field_name: String,
         index_options: IndexOptions,
         postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         // In the original Java code, we assert that indexOptions != IndexOptions.NONE.
         debug_assert!(index_options != IndexOptions::None);
         let slice_pool = ByteSlicePool::new(byte_pool.clone());
@@ -160,10 +160,7 @@ impl TermsHashPerField {
     }
     /// Collapse the hash table and sort in-place; also sets this.sortedTermIDs to the results.
     /// This method must not be called twice unless [`reset()`](TermsHashPerFieldBase::reset) or [`reinit_hash()`](TermsHashPerFieldBase::reinit_hash) was called.
-    pub(crate) fn sort_terms(
-        &mut self,
-        bytes_hash: &mut STBytesRefHash,
-    ) -> Result<(), LuceneError> {
+    pub(crate) fn sort_terms(&mut self, bytes_hash: &mut STBytesRefHash) -> Result<()> {
         debug_assert!(!self.sorted_term_ids);
         bytes_hash.sort()?;
         self.sorted_term_ids = true;
@@ -184,7 +181,7 @@ impl TermsHashPerField {
         self.last_doc_id = doc_id;
         true
     }
-    pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<(), LuceneError> {
+    pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<()> {
         let stream_address = (self.stream_address_offset + stream) as usize;
         let mut int_pool = self.int_pool.borrow_mut();
         let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
@@ -218,7 +215,7 @@ impl TermsHashPerField {
         b: &[u8],
         offset: i32,
         len: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut offset = offset as usize;
         let end = offset + len as usize;
         let stream_address = (self.stream_address_offset + stream) as usize;
@@ -263,7 +260,7 @@ impl TermsHashPerField {
         }
         Ok(())
     }
-    pub(crate) fn write_vint(&mut self, stream: i32, mut i: i32) -> Result<(), LuceneError> {
+    pub(crate) fn write_vint(&mut self, stream: i32, mut i: i32) -> Result<()> {
         debug_assert!(stream < self.stream_count);
         while (i & !0x7F) != 0 {
             self.write_byte(stream, ((i & 0x7F) | 0x80) as u8)?;
@@ -297,18 +294,14 @@ impl TermsHashPerField {
         }
     }
 
-    pub(crate) fn reinit_hash(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn reinit_hash(&mut self) -> Result<()> {
         self.sorted_term_ids = false;
         self.bytes_hash.reinit()
     }
     /// Called when we first encounter a new term. We must allocate slices to store the postings
     /// (vInt compressed doc/freq/prox), and also the int pointers to where (in our [`ByteBlockPool`]
     /// storage) the postings for this term begin.
-    pub(crate) fn init_stream_slices(
-        &mut self,
-        term_id: i32,
-        _doc_id: i32,
-    ) -> Result<(), LuceneError> {
+    pub(crate) fn init_stream_slices(&mut self, term_id: i32, _doc_id: i32) -> Result<()> {
         let byte_offset;
         {
             let mut byte_pool = self.byte_pool.borrow_mut();
@@ -371,7 +364,7 @@ impl TermsHashPerField {
         self.stream_address_offset = int_start & IntBlockPool::INT_BLOCK_MASK;
         term_id
     }
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
+    fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
         match self.next_per_field {
             Some(ref next_per_field) => {
                 let mut next_per_field = next_per_field.borrow_mut();
@@ -386,21 +379,21 @@ pub(crate) trait TermsHashPerFieldBase {
     /// Called when we first encounter a new term. We must allocate slies to store the postings (vInt
     /// compressed doc/freq/prox), and also the int pointers to where (in our {@link ByteBlockPool}
     ///storage) the postings for this term begin.
-    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError>;
-    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError>;
+    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
+    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32>;
     ///Start adding a new field instance; first is true if this is the first time this field name was
     ///seen in the document.
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError>;
+    fn start(&mut self, field: &Fields, first: bool) -> Result<bool>;
     /// Called when a term is seen for the first time.
-    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError>;
+    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
     /// Called when a previously seen term is seen again.
-    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError>;
+    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
     /// Called when the postings array is initialized or resized.
     /// # Note
     /// In rust Lucene, we do not need to init new postings array
     /// But we still keep this method for consistent with the original Java code
     #[allow(dead_code)]
-    fn new_postings_array(&mut self) -> Result<(), LuceneError> {
+    fn new_postings_array(&mut self) -> Result<()> {
         Err(LuceneError::not_implemented(
             "should nerve called".to_string(),
         ))
@@ -410,7 +403,7 @@ pub(crate) trait TermsHashPerFieldBase {
     /// In rust Lucene, we do not need to init new postings array
     /// But we still keep this method for consistent with the original Java code
     #[allow(dead_code)]
-    fn create_postings_array(&self, _size: i32) -> Result<PostingsArrayEnum, LuceneError> {
+    fn create_postings_array(&self, _size: i32) -> Result<PostingsArrayEnum> {
         Err(LuceneError::not_implemented(
             "should nerve called".to_string(),
         ))
@@ -444,7 +437,7 @@ where
     C: Access<CounterEnum>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn init(&mut self) -> Result<(), LuceneError> {
+    fn init(&mut self) -> Result<()> {
         self.per_field.with_exclusive(|postings_array_wrapper| {
             if postings_array_wrapper.postings_array.is_none() {
                 postings_array_wrapper.postings_array = Option::from(
@@ -463,7 +456,7 @@ where
         })
     }
 
-    fn grow(&mut self) -> Result<(), LuceneError> {
+    fn grow(&mut self) -> Result<()> {
         self.per_field.with_exclusive(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
@@ -479,7 +472,7 @@ where
         })
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         self.per_field.with_exclusive(|postings_array_wrapper| {
             if postings_array_wrapper.postings_array.is_some() {
                 let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
@@ -498,7 +491,7 @@ where
         self.bytes_used.clone()
     }
 
-    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
+    fn get_value(&self, index: usize) -> Result<i32> {
         self.per_field.with_exclusive(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             Ok(postings_array_wrapper
@@ -509,7 +502,7 @@ where
         })
     }
 
-    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
+    fn set_value(&mut self, index: usize, value: i32) -> Result<()> {
         self.per_field.with_exclusive(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             postings_array_wrapper
@@ -521,7 +514,7 @@ where
         })
     }
 
-    fn len(&self) -> Result<usize, LuceneError> {
+    fn len(&self) -> Result<usize> {
         self.per_field.with_exclusive(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             Ok(postings_array_wrapper
@@ -584,7 +577,7 @@ pub(crate) mod tests {
     use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::int_block_pool::IntBlockPool;
     use crate::util::{ByteBlockPool, CounterEnum};
     use rand::distr::Alphanumeric;
@@ -600,7 +593,7 @@ pub(crate) mod tests {
     fn create_new_hash(
         new_called: AtomicI64,
         add_called: AtomicI64,
-    ) -> Result<TermsHashPerFieldEnum, LuceneError> {
+    ) -> Result<TermsHashPerFieldEnum> {
         let hash = TermsHashPerFieldMock::new(new_called, add_called)?;
         Ok(hash)
     }
@@ -612,7 +605,7 @@ pub(crate) mod tests {
         term_id: i32,
         doc: i32,
         frequency: i32,
-    ) -> Result<bool, LuceneError> {
+    ) -> Result<bool> {
         assert!(term_id >= 0);
         let term_id = term_id as usize;
         let mut postings_array_enum = parent.borrow_mut();
@@ -652,7 +645,7 @@ pub(crate) mod tests {
         Ok(eof)
     }
     #[test]
-    fn test_add_and_update_term() -> Result<(), LuceneError> {
+    fn test_add_and_update_term() -> Result<()> {
         let mut random = random();
         let new_called = AtomicI64::new(0);
         let add_called = AtomicI64::new(0);
@@ -800,7 +793,7 @@ pub(crate) mod tests {
         Ok(())
     }
     #[test]
-    fn test_add_and_update_random() -> Result<(), LuceneError> {
+    fn test_add_and_update_random() -> Result<()> {
         let mut random = random();
         let new_called = AtomicI64::new(0);
         let add_called = AtomicI64::new(0);
@@ -908,7 +901,7 @@ pub(crate) mod tests {
         Ok(())
     }
     #[test]
-    fn test_write_bytes() -> Result<(), LuceneError> {
+    fn test_write_bytes() -> Result<()> {
         let mut random = random();
 
         for _ in 0..100 {
@@ -970,7 +963,7 @@ pub(crate) mod tests {
         pub(crate) fn new(
             new_called: AtomicI64,
             add_called: AtomicI64,
-        ) -> Result<TermsHashPerFieldEnum, LuceneError> {
+        ) -> Result<TermsHashPerFieldEnum> {
             let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
 
             let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -1003,22 +996,22 @@ pub(crate) mod tests {
         }
     }
     impl TermsHashPerFieldBase for TermsHashPerFieldMock {
-        fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+        fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
             self.parent_per_field.init_stream_slices(term_id, doc_id)?;
             self.new_term(term_id, doc_id)
         }
 
-        fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32, LuceneError> {
+        fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
             let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
             self.add_term(term_id, doc_id)?;
             Ok(term_id)
         }
 
-        fn start(&mut self, field: &Fields, first: bool) -> Result<bool, LuceneError> {
+        fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
             self.parent_per_field.start(field, first)
         }
 
-        fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+        fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
             self.new_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let term_id = term_id as usize;
@@ -1045,7 +1038,7 @@ pub(crate) mod tests {
             }
         }
 
-        fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<(), LuceneError> {
+        fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
             self.add_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let term_id = term_id as usize;

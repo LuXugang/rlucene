@@ -24,7 +24,7 @@ use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStreamEnum, InfoStreamLock};
 use crate::util::{ByteBlockPoolLock, CounterEnumLock};
 use std::fmt::{Display, Formatter};
@@ -116,22 +116,19 @@ where
             previous_max_seq_id,
         }
     }
-    pub(crate) fn add_delete_query(&self, queries: Vec<Arc<Q>>) -> Result<i64, LuceneError> {
+    pub(crate) fn add_delete_query(&self, queries: Vec<Arc<Q>>) -> Result<i64> {
         let query_array_node = Node::new(NodeEnum::QueryNodeArray(QueryNodeArray::new(queries)));
         let seq_no = self.add_node(Arc::new(query_array_node))?;
         self.try_apply_global_slice()?;
         Ok(seq_no)
     }
-    pub(crate) fn add_delete_term(&self, terms: Vec<Term>) -> Result<i64, LuceneError> {
+    pub(crate) fn add_delete_term(&self, terms: Vec<Term>) -> Result<i64> {
         let node = Node::new(NodeEnum::TermNodeArray(TermNodeArray::new(terms)));
         let seq_no = self.add_node(Arc::new(node))?;
         self.try_apply_global_slice()?;
         Ok(seq_no)
     }
-    pub(crate) fn add_doc_values_updates(
-        &self,
-        updates: Vec<DocValuesUpdate>,
-    ) -> Result<i64, LuceneError> {
+    pub(crate) fn add_doc_values_updates(&self, updates: Vec<DocValuesUpdate>) -> Result<i64> {
         let node = Node::new(NodeEnum::DocValuesUpdatesNode(DocValuesUpdatesNode::new(
             updates,
         )));
@@ -156,7 +153,7 @@ where
         &self,
         delete_node: Arc<Node<Q>>,
         slice: &mut DeleteSlice<Q>,
-    ) -> Result<i64, LuceneError> {
+    ) -> Result<i64> {
         let seq_no = self.add_node(delete_node.clone())?;
         // This is an update request where the term is the updated documents
         // delTerm. In that case we need to guarantee that this insert is atomic
@@ -177,7 +174,7 @@ where
         Ok(seq_no)
     }
 
-    pub(crate) fn add_node(&self, new_node: Arc<Node<Q>>) -> Result<i64, LuceneError> {
+    pub(crate) fn add_node(&self, new_node: Arc<Node<Q>>) -> Result<i64> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -196,7 +193,7 @@ where
         Ok(self.get_next_sequence_number(global_state.max_seq_no))
     }
 
-    pub(crate) fn any_changes(&self) -> Result<bool, LuceneError> {
+    pub(crate) fn any_changes(&self) -> Result<bool> {
         let global_state = self
             .global_buffer_lock
             .write()
@@ -206,7 +203,7 @@ where
     pub(crate) fn any_changes_with_lock(
         &self,
         global_state: &RwLockWriteGuard<GlobalState<Q>>,
-    ) -> Result<bool, LuceneError> {
+    ) -> Result<bool> {
         //  Check if all items in the global slice were applied,
         //  if the global slice is up-to-date,
         //  and if `global_buffered_updates` has changes.
@@ -220,7 +217,7 @@ where
             || !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail)
             || tail_next.is_some())
     }
-    pub(crate) fn try_apply_global_slice(&self) -> Result<(), LuceneError> {
+    pub(crate) fn try_apply_global_slice(&self) -> Result<()> {
         match self.global_buffer_lock.try_write() {
             Ok(mut global_state) => {
                 self.ensure_open(global_state.closed)?;
@@ -242,7 +239,7 @@ where
     pub(crate) fn freeze_global_buffer<D>(
         &self,
         caller_slice: Option<&mut DeleteSlice<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>>
     where
         D: Directory,
     {
@@ -269,7 +266,7 @@ where
     /// If the queue has been closed, this method will return `None`.
     pub(crate) fn maybe_freeze_global_buffer<D>(
         &self,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>>
     where
         D: Directory,
     {
@@ -297,7 +294,7 @@ where
         &self,
         global_state: &mut RwLockWriteGuard<GlobalState<Q>>,
         current_tail: Arc<Node<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>, LuceneError>
+    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>>
     where
         D: Directory,
     {
@@ -319,7 +316,7 @@ where
             Ok(None)
         }
     }
-    pub(crate) fn new_slice(&self) -> Result<DeleteSlice<Q>, LuceneError> {
+    pub(crate) fn new_slice(&self) -> Result<DeleteSlice<Q>> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -327,7 +324,7 @@ where
         Ok(DeleteSlice::new(global_state.tail.clone()))
     }
     /// Negative result means there were new deletes since we last applied.
-    pub(crate) fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64, LuceneError> {
+    pub(crate) fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -356,13 +353,13 @@ where
         }
     }
 
-    fn ensure_open(&self, closed: bool) -> Result<(), LuceneError> {
+    fn ensure_open(&self, closed: bool) -> Result<()> {
         if closed {
             return Err(LuceneError::already_closed("already closed.".to_string()));
         }
         Ok(())
     }
-    pub(crate) fn is_open(&self) -> Result<bool, LuceneError> {
+    pub(crate) fn is_open(&self) -> Result<bool> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -380,7 +377,7 @@ where
         );
         seq_no
     }
-    pub(crate) fn close(&self) -> Result<(), LuceneError> {
+    pub(crate) fn close(&self) -> Result<()> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -405,14 +402,14 @@ where
         Ok(())
     }
     #[cfg(feature = "test_only")]
-    pub(crate) fn num_global_term_deletes(&self) -> Result<i32, LuceneError> {
+    pub(crate) fn num_global_term_deletes(&self) -> Result<i32> {
         let global_state = self
             .global_buffer_lock
             .read()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         Ok(global_state.global_buffered_updates.delete_terms.size())
     }
-    pub(crate) fn clear(&self) -> Result<(), LuceneError> {
+    pub(crate) fn clear(&self) -> Result<()> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -422,7 +419,7 @@ where
         global_state.global_buffered_updates.clear()?;
         Ok(())
     }
-    pub(crate) fn get_buffered_updates_terms_size(&self) -> Result<i32, LuceneError> {
+    pub(crate) fn get_buffered_updates_terms_size(&self) -> Result<i32> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -478,7 +475,7 @@ where
     pub(crate) fn advance_queue(
         &self,
         max_num_pending_ops: i64,
-    ) -> Result<DocumentsWriterDeleteQueue<Q>, LuceneError> {
+    ) -> Result<DocumentsWriterDeleteQueue<Q>> {
         let mut global_state = self
             .global_buffer_lock
             .write()
@@ -510,7 +507,7 @@ where
 
     /// Returns the maximum sequence number for this queue.
     /// This value will change once this queue is advanced.
-    pub(crate) fn get_max_seq_no(&self) -> Result<i64, LuceneError> {
+    pub(crate) fn get_max_seq_no(&self) -> Result<i64> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -519,7 +516,7 @@ where
     }
 
     /// Returns `true` if the queue has been advanced.
-    pub(crate) fn is_advanced(&self) -> Result<bool, LuceneError> {
+    pub(crate) fn is_advanced(&self) -> Result<bool> {
         let global_state = self
             .global_buffer_lock
             .read()
@@ -596,7 +593,7 @@ impl<Q> GlobalState<Q>
 where
     Q: Query,
 {
-    pub(crate) fn apply(&mut self, doc_id_upto: i32) -> Result<(), LuceneError> {
+    pub(crate) fn apply(&mut self, doc_id_upto: i32) -> Result<()> {
         self.global_slice
             .apply(&mut self.global_buffered_updates, doc_id_upto)
     }
@@ -637,7 +634,7 @@ where
             MTPostingsArrayWrapper,
         >,
         doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if Arc::ptr_eq(&self.slice_head, &self.slice_tail) {
             // 0 length slice
             return Ok(());
@@ -722,11 +719,7 @@ impl<Q> NodeBase<Q> for Node<Q>
 where
     Q: Query,
 {
-    fn apply(
-        &self,
-        buffered_deletes: &mut MTBufferedUpdates<Q>,
-        doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
         self.item.apply(buffered_deletes, doc_id_upto)
     }
 }
@@ -755,11 +748,7 @@ impl<Q> NodeBase<Q> for EmptyNode
 where
     Q: Query,
 {
-    fn apply(
-        &self,
-        _buffered_deletes: &mut MTBufferedUpdates<Q>,
-        _doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    fn apply(&self, _buffered_deletes: &mut MTBufferedUpdates<Q>, _doc_id_upto: i32) -> Result<()> {
         Ok(())
     }
 }
@@ -781,11 +770,7 @@ impl<Q> NodeBase<Q> for TermNode
 where
     Q: Query,
 {
-    fn apply(
-        &self,
-        buffered_deletes: &mut MTBufferedUpdates<Q>,
-        doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
         buffered_deletes.add_term(&self.item, doc_id_upto)
     }
 }
@@ -813,11 +798,7 @@ impl<Q> NodeBase<Q> for QueryNode<Q>
 where
     Q: Query,
 {
-    fn apply(
-        &self,
-        buffered_deletes: &mut MTBufferedUpdates<Q>,
-        doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
         buffered_deletes.add_query(self.item.clone(), doc_id_upto)?;
         Ok(())
     }
@@ -849,11 +830,7 @@ impl<Q> NodeBase<Q> for QueryNodeArray<Q>
 where
     Q: Query,
 {
-    fn apply(
-        &self,
-        buffered_deletes: &mut MTBufferedUpdates<Q>,
-        doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
         for query in &self.item {
             buffered_deletes.add_query(query.clone(), doc_id_upto)?;
         }
@@ -883,11 +860,7 @@ impl<Q> NodeBase<Q> for TermNodeArray
 where
     Q: Query,
 {
-    fn apply(
-        &self,
-        buffered_deletes: &mut MTBufferedUpdates<Q>,
-        doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
         for term in &self.item {
             buffered_deletes.add_term(term, doc_id_upto)?;
         }
@@ -914,11 +887,7 @@ impl<Q> NodeBase<Q> for DocValuesUpdatesNode
 where
     Q: Query,
 {
-    fn apply(
-        &self,
-        buffered_deletes: &mut MTBufferedUpdates<Q>,
-        doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
         for doc_values_update in &self.item {
             match doc_values_update.doc_values_type {
                 DocValuesType::Binary => {
@@ -983,7 +952,7 @@ where
         &self,
         buffered_deletes: &mut MTBufferedUpdates<Q>,
         doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         match self {
             NodeEnum::TermNode(node) => node.apply(buffered_deletes, doc_id_upto),
             NodeEnum::QueryNode(node) => node.apply(buffered_deletes, doc_id_upto),
@@ -1021,11 +990,7 @@ pub(crate) trait NodeBase<Q>
 where
     Q: Query,
 {
-    fn apply(
-        &self,
-        _buffered_deletes: &mut MTBufferedUpdates<Q>,
-        _doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    fn apply(&self, _buffered_deletes: &mut MTBufferedUpdates<Q>, _doc_id_upto: i32) -> Result<()> {
         Err(LuceneError::illegal_argument(
             "sentinel item must never be applied".to_string(),
         ))
@@ -1059,7 +1024,7 @@ mod tests {
     use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
     use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::{get_default_info_stream, InfoStreamLock};
     use crate::util::{ByteBlockPoolLock, CounterEnumLock};
     use rand::Rng;
@@ -1072,7 +1037,7 @@ mod tests {
     pub struct TestDocumentsWriterDeleteQueue;
 
     #[test]
-    fn test_update_delete_slices() -> Result<(), LuceneError> {
+    fn test_update_delete_slices() -> Result<()> {
         let mut random = random();
         let queue: DocumentsWriterDeleteQueue<DummyQuery> =
             DocumentsWriterDeleteQueue::new(get_default_info_stream());
@@ -1151,7 +1116,7 @@ mod tests {
             MTPostingsArrayWrapper,
         >,
         ids: &[i32],
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         Q: Query,
     {
@@ -1162,7 +1127,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_clear() -> Result<(), LuceneError> {
+    fn test_clear() -> Result<()> {
         let mut random = random();
         let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
         assert!(!queue.any_changes()?);
@@ -1188,7 +1153,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_any_changes() -> Result<(), LuceneError> {
+    fn test_any_changes() -> Result<()> {
         let mut random = random();
         let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
         let size = 200 + random.random_range(0..500) * random_multiplier();
@@ -1220,7 +1185,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_partially_applied_global_slice() -> Result<(), LuceneError> {
+    fn test_partially_applied_global_slice() -> Result<()> {
         let queue_: DocumentsWriterDeleteQueue<DummyQuery> =
             DocumentsWriterDeleteQueue::new(get_default_info_stream());
         let queue = Arc::new(Mutex::new(queue_));
@@ -1247,7 +1212,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_stress_delete_queue() -> Result<(), LuceneError> {
+    fn test_stress_delete_queue() -> Result<()> {
         let mut random = random();
         let queue = Arc::new(DocumentsWriterDeleteQueue::<DummyQuery>::new(
             get_default_info_stream(),
@@ -1313,7 +1278,7 @@ mod tests {
     }
 
     #[test]
-    fn test_close() -> Result<(), LuceneError> {
+    fn test_close() -> Result<()> {
         {
             let mut random = random();
             let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
@@ -1385,7 +1350,7 @@ mod tests {
             index: Arc<AtomicI32>,
             ids: Vec<i32>,
             barrier: Arc<Barrier>,
-        ) -> Result<Self, LuceneError> {
+        ) -> Result<Self> {
             let slice = queue.new_slice()?;
             let deletes = Arc::new(Mutex::new(BufferedUpdates::new_sync("deletes".to_string())));
 
@@ -1398,7 +1363,7 @@ mod tests {
                 barrier,
             })
         }
-        fn run(&mut self) -> Result<(), LuceneError> {
+        fn run(&mut self) -> Result<()> {
             self.barrier.wait();
             let mut i = 0;
             while i < self.ids.len() {

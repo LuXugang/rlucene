@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::BytesRefBuilder;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::selector::Selector;
 use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault};
 use std::cmp::{max, min};
@@ -53,7 +53,7 @@ where
         }
     }
 
-    fn select(&mut self, from: i32, to: i32, k: i32, d: i32, l: i32) -> Result<(), LuceneError> {
+    fn select(&mut self, from: i32, to: i32, k: i32, d: i32, l: i32) -> Result<()> {
         if to - from <= Self::LENGTH_THRESHOLD || l > Self::LEVEL_THRESHOLD {
             self.sub_selector
                 .get_fallback_selector(d, self.max_length)
@@ -67,14 +67,7 @@ where
     /// `d` the character number to compare
     ///
     /// `l` the level of recursion
-    pub fn radix_select(
-        &mut self,
-        from: i32,
-        to: i32,
-        k: i32,
-        d: i32,
-        l: i32,
-    ) -> Result<(), LuceneError> {
+    pub fn radix_select(&mut self, from: i32, to: i32, k: i32, d: i32, l: i32) -> Result<()> {
         self.histogram.fill(0);
 
         let common_prefix_length =
@@ -233,7 +226,7 @@ where
         bucket_from: i32,
         bucket_to: i32,
         d: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut left = from;
         let mut right = to - 1;
         let mut slot = bucket_from;
@@ -276,12 +269,12 @@ impl<T> Selector for RadixSelector<T>
 where
     T: RadixSelectorBase,
 {
-    fn select(&mut self, from: i32, to: i32, k: i32) -> Result<(), LuceneError> {
+    fn select(&mut self, from: i32, to: i32, k: i32) -> Result<()> {
         self.check_args(from, to, k)?;
         self.select(from, to, k, 0, 0)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.sub_selector.swap(i, j)
     }
 }
@@ -371,7 +364,7 @@ impl<T> Selector for IntroSelectorImpl<'_, T>
 where
     T: RadixSelectorBase,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 }
@@ -381,7 +374,7 @@ mod tests {
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
     use crate::util::selector::Selector;
     use rand::rngs::StdRng;
@@ -391,7 +384,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestRadixSelector;
     #[test]
-    pub fn test_select() -> Result<(), LuceneError> {
+    pub fn test_select() -> Result<()> {
         let mut random = random();
         for _ in 0..100 {
             do_test_select(&mut random)?;
@@ -399,7 +392,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_test_select(random: &mut StdRng) -> Result<(), LuceneError> {
+    fn do_test_select(random: &mut StdRng) -> Result<()> {
         let from = random.random_range(0..5);
         let to = from + TestUtil::next_int(random, 1, 10000);
         let max_len = TestUtil::next_int(random, 1, 12);
@@ -415,7 +408,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_shared_prefixes() -> Result<(), LuceneError> {
+    pub fn test_shared_prefixes() -> Result<()> {
         let mut random = random();
         for _ in 0..100 {
             do_test_shared_prefixes(&mut random)?;
@@ -423,7 +416,7 @@ mod tests {
         Ok(())
     }
 
-    pub fn do_test_shared_prefixes(random: &mut StdRng) -> Result<(), LuceneError> {
+    pub fn do_test_shared_prefixes(random: &mut StdRng) -> Result<()> {
         let from = random.random_range(0..5);
         let to = from + TestUtil::next_int(random, 1, 10000);
         let max_len = TestUtil::next_int(random, 1, 12);
@@ -453,7 +446,7 @@ mod tests {
         from: i32,
         to: i32,
         max_len: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let k = TestUtil::next_int(random, from, to - 1) as usize;
 
         let mut expected = arr.to_vec();
@@ -494,7 +487,7 @@ mod tests {
     }
 
     impl Selector for RadixSelectorMock {
-        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
             self.actual.swap(i as usize, j as usize);
             Ok(())
         }

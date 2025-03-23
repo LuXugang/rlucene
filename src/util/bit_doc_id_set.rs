@@ -20,7 +20,7 @@ use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use std::rc::Rc;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 //TODO
 #[allow(unused)]
@@ -37,7 +37,7 @@ pub struct BitDocIdSet<T: BitSet> {
 /// Wraps the given [`BitSet`] as a [`DocIdSet`].
 /// The provided [`BitSet`] must not be modified afterwards.
 impl<T: BitSet> BitDocIdSet<T> {
-    pub fn with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>, LuceneError> {
+    pub fn with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
@@ -51,7 +51,7 @@ impl<T: BitSet> BitDocIdSet<T> {
     }
     /// Same as [`BitDocIdSet`] but uses the set's [`BitSet::approximate_cardinality`]
     /// as a cost.
-    pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>, LuceneError> {
+    pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>> {
         let cost = set.as_ref().unwrap().approximate_cardinality();
         Self::with_cost(set, cost as i64)
     }
@@ -95,7 +95,7 @@ mod tests {
 
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
     use rand::prelude::StdRng;
 
@@ -117,7 +117,7 @@ mod tests {
             num_bits: i32,
             ds1: &bit_set::BitSet,
             ds2: T,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }
     }
@@ -125,25 +125,25 @@ mod tests {
     pub struct TestFixedBitDocIdSet;
 
     #[test]
-    fn test_bit_0() -> Result<(), LuceneError> {
+    fn test_bit_0() -> Result<()> {
         let test_case = TestFixedBitDocIdSet;
         let mut random = random();
         test_case.test_bit_0(&mut random)
     }
     #[test]
-    fn test_bit_1() -> Result<(), LuceneError> {
+    fn test_bit_1() -> Result<()> {
         let test_case = TestFixedBitDocIdSet;
         let mut random = random();
         test_case.test_bit_1(&mut random)
     }
     #[test]
-    fn test_bit_2() -> Result<(), LuceneError> {
+    fn test_bit_2() -> Result<()> {
         let test_case = TestFixedBitDocIdSet;
         let mut random = random();
         test_case.test_bit_2(&mut random)
     }
     #[test]
-    fn test_against_bit_set() -> Result<(), LuceneError> {
+    fn test_against_bit_set() -> Result<()> {
         let test_case = TestFixedBitDocIdSet;
         let mut random = random();
         test_case.test_against_bit_set(&mut random)

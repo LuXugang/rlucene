@@ -22,7 +22,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::StringHelper;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
@@ -122,7 +122,7 @@ pub struct PrefixCodedTermsBuilder {
 
 impl PrefixCodedTermsBuilder {
     /// Sole constructor.
-    pub fn new() -> Result<Self, LuceneError> {
+    pub fn new() -> Result<Self> {
         Ok(Self {
             output: ByteBuffersDataOutput::with_resettable_instance(),
             last_term: Term::from_empty("".to_string()),
@@ -131,11 +131,11 @@ impl PrefixCodedTermsBuilder {
         })
     }
     /// add a term.
-    pub fn add_term(&mut self, term: &Term) -> Result<(), LuceneError> {
+    pub fn add_term(&mut self, term: &Term) -> Result<()> {
         self.add(term.field.to_string(), &term.bytes)
     }
     /// Add a term. This fully consumes the incoming [`BytesRef`].
-    pub fn add(&mut self, field: String, bytes: &BytesRef) -> Result<(), LuceneError> {
+    pub fn add(&mut self, field: String, bytes: &BytesRef) -> Result<()> {
         debug_assert!(
             self.last_term == Term::from_empty("".to_string())
                 || Term::new(field.clone(), bytes.clone()).cmp(&self.last_term)
@@ -170,7 +170,7 @@ impl PrefixCodedTermsBuilder {
         Ok(())
     }
     /// return finalized form.
-    pub fn finish(&mut self) -> Result<PrefixCodedTerms, LuceneError> {
+    pub fn finish(&mut self) -> Result<PrefixCodedTerms> {
         let content = self.output.get_owned_buffer_list();
         Ok(PrefixCodedTerms::new(content.1, content.0, self.size))
     }
@@ -200,7 +200,7 @@ impl<'a> TermIterator<'a> {
         }
     }
     // TODO: maybe we should freeze to FST or automaton instead?
-    pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<(), LuceneError> {
+    pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<()> {
         self.builder.grow(prefix + suffix)?;
         DataInput::read_bytes(
             &mut self.input,
@@ -215,7 +215,7 @@ impl<'a> TermIterator<'a> {
 }
 
 impl BytesRefIterator for TermIterator<'_> {
-    fn next(&mut self) -> Result<Option<BytesRef>, LuceneError> {
+    fn next(&mut self) -> Result<Option<BytesRef>> {
         if self.input.position() < self.end {
             let code = self.input.read_vint()?;
             let new_field = (code & 1) != 0;
@@ -255,14 +255,14 @@ mod tests {
 
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use std::collections::BTreeSet;
 
     #[allow(dead_code)] // for quick search
     pub struct TestPrefixCodedTerms;
 
     #[test]
-    fn test_empty() -> Result<(), LuceneError> {
+    fn test_empty() -> Result<()> {
         let mut builder = PrefixCodedTermsBuilder::new()?;
         let prefix_coded_terms = builder.finish()?;
         let mut iter = prefix_coded_terms.iterator();
@@ -270,7 +270,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_one() -> Result<(), LuceneError> {
+    fn test_one() -> Result<()> {
         let term = Term::from_text("foo".to_string(), "bogus");
         let mut builder = PrefixCodedTermsBuilder::new()?;
         builder.add_term(&term)?;
@@ -285,7 +285,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random() -> Result<(), LuceneError> {
+    fn test_random() -> Result<()> {
         let mut random = random();
         let mut terms = BTreeSet::new();
         let nterms = at_least(&mut random, 10_000);

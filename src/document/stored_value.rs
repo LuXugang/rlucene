@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt;
 use std::sync::Arc;
 
@@ -113,7 +113,7 @@ impl StoredValue {
     }
 
     /// Set an integer value.
-    pub fn set_int_value(&mut self, value: i32) -> Result<(), LuceneError> {
+    pub fn set_int_value(&mut self, value: i32) -> Result<()> {
         if let StoredValue::Integer(ref mut v) = self {
             *v = value;
             Ok(())
@@ -126,7 +126,7 @@ impl StoredValue {
     }
 
     /// Set a long value.
-    pub fn set_long_value(&mut self, value: i64) -> Result<(), LuceneError> {
+    pub fn set_long_value(&mut self, value: i64) -> Result<()> {
         if let StoredValue::Long(ref mut v) = self {
             *v = value;
             Ok(())
@@ -139,7 +139,7 @@ impl StoredValue {
     }
 
     /// Set a float value.
-    pub fn set_float_value(&mut self, value: f32) -> Result<(), LuceneError> {
+    pub fn set_float_value(&mut self, value: f32) -> Result<()> {
         if let StoredValue::Float(ref mut v) = self {
             *v = value;
             Ok(())
@@ -152,7 +152,7 @@ impl StoredValue {
     }
 
     /// Set a double value.
-    pub fn set_double_value(&mut self, value: f64) -> Result<(), LuceneError> {
+    pub fn set_double_value(&mut self, value: f64) -> Result<()> {
         if let StoredValue::Double(ref mut v) = self {
             *v = value;
             Ok(())
@@ -165,7 +165,7 @@ impl StoredValue {
     }
 
     /// Set a binary value.
-    pub fn set_binary_value(&mut self, value: Arc<BytesRef>) -> Result<(), LuceneError> {
+    pub fn set_binary_value(&mut self, value: Arc<BytesRef>) -> Result<()> {
         if let StoredValue::Binary(ref mut v) = self {
             *v = value;
             Ok(())
@@ -178,7 +178,7 @@ impl StoredValue {
     }
 
     /// Set a string value.
-    pub fn set_string_value(&mut self, value: Arc<String>) -> Result<(), LuceneError> {
+    pub fn set_string_value(&mut self, value: Arc<String>) -> Result<()> {
         if let StoredValue::String(ref mut v) = self {
             *v = value;
             Ok(())
@@ -191,7 +191,7 @@ impl StoredValue {
     }
 
     /// Retrieve an integer value.
-    pub fn get_int_value(&self) -> Result<i32, LuceneError> {
+    pub fn get_int_value(&self) -> Result<i32> {
         if let StoredValue::Integer(v) = self {
             Ok(*v)
         } else {
@@ -203,7 +203,7 @@ impl StoredValue {
     }
 
     /// Retrieve a long value.
-    pub fn get_long_value(&self) -> Result<i64, LuceneError> {
+    pub fn get_long_value(&self) -> Result<i64> {
         if let StoredValue::Long(v) = self {
             Ok(*v)
         } else {
@@ -215,7 +215,7 @@ impl StoredValue {
     }
 
     /// Retrieve a float value.
-    pub fn get_float_value(&self) -> Result<f32, LuceneError> {
+    pub fn get_float_value(&self) -> Result<f32> {
         if let StoredValue::Float(v) = self {
             Ok(*v)
         } else {
@@ -227,7 +227,7 @@ impl StoredValue {
     }
 
     /// Retrieve a double value.
-    pub fn get_double_value(&self) -> Result<f64, LuceneError> {
+    pub fn get_double_value(&self) -> Result<f64> {
         if let StoredValue::Double(v) = self {
             Ok(*v)
         } else {
@@ -239,7 +239,7 @@ impl StoredValue {
     }
 
     /// Retrieve a binary value.
-    pub fn get_binary_value(&self) -> Result<&BytesRef, LuceneError> {
+    pub fn get_binary_value(&self) -> Result<&BytesRef> {
         if let StoredValue::Binary(ref v) = self {
             Ok(v)
         } else {
@@ -251,7 +251,7 @@ impl StoredValue {
     }
 
     /// Retrieve a string value.
-    pub fn get_string_value(&self) -> Result<&String, LuceneError> {
+    pub fn get_string_value(&self) -> Result<&String> {
         if let StoredValue::String(ref v) = self {
             Ok(v)
         } else {

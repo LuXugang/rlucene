@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// This abstract class defines methods to iterate over a set of non-decreasing document IDs.
 /// Note that this class assumes it iterates on document IDs, and therefore [`NO_MORE_DOCS`]
@@ -35,7 +35,7 @@ pub trait DocIdSetIterator {
     /// # Note
     /// After the iterator has been exhausted, you should not call this method, as it may result in
     /// undefined behavior.
-    fn next_doc(&mut self) -> Result<i32, LuceneError>;
+    fn next_doc(&mut self) -> Result<i32>;
     /// Advances to the first document beyond the current one whose document number is greater than or
     /// equal to the `target`, and returns the document number itself. If `target` is greater than the
     /// highest document number in the set, the iterator is exhausted, and [`NO_MORE_DOCS`]
@@ -65,14 +65,14 @@ pub trait DocIdSetIterator {
     /// This method may be called with [`NO_MORE_DOCS`] for efficiency
     /// by some Scorers. If your implementation cannot efficiently determine that it should exhaust, it
     /// is recommended to check for this value in each call to this method.
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         Err(LuceneError::need_implemented(
             "advance() must be implemented if it need to be used",
         ))
     }
     /// A slow (linear) implementation of [`advance`](DocIdSetIterator::advance) that relies on
     /// [`next_doc`](DocIdSetIterator::next_doc) to move beyond the target position.
-    fn slow_advance(&mut self, target: i32) -> Result<i32, LuceneError> {
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
         debug_assert!(self.doc_id() < target);
         let mut doc;
         loop {
@@ -86,7 +86,7 @@ pub trait DocIdSetIterator {
     /// Returns the estimated cost of this [`DocIdSetIterator`].
     /// This is generally an upper bound on the number of documents this iterator might match, but
     /// it may also be a rough heuristic, a hardcoded value, or otherwise completely inaccurate.
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Err(LuceneError::need_implemented(
             "cost() must be implemented if it need to be used",
         ))
@@ -117,20 +117,20 @@ impl DocIdSetIterator for EmptyDISI {
         }
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         debug_assert!(!self.exhausted);
         self.exhausted = true;
         Ok(NO_MORE_DOCS)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         debug_assert!(!self.exhausted);
         debug_assert!(_target >= 0);
         self.exhausted = true;
         Ok(NO_MORE_DOCS)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(0)
     }
 }
@@ -150,12 +150,12 @@ impl DocIdSetIterator for AllDocIdSetIterator {
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.advance(self.doc + 1)?;
         Ok(self.doc)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         self.doc = _target;
         if self.doc >= self.max_doc {
             self.doc = NO_MORE_DOCS
@@ -163,7 +163,7 @@ impl DocIdSetIterator for AllDocIdSetIterator {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(self.max_doc as i64)
     }
 }
@@ -183,7 +183,7 @@ pub struct Range {
     max_doc: i32,
 }
 impl Range {
-    pub fn new(min_doc: i32, max_doc: i32) -> Result<Range, LuceneError> {
+    pub fn new(min_doc: i32, max_doc: i32) -> Result<Range> {
         if min_doc >= max_doc {
             return Err(LuceneError::illegal_argument(format!(
                 "minDoc must be < maxDoc but got minDoc= {} maxDoc= {}",
@@ -208,11 +208,11 @@ impl DocIdSetIterator for Range {
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         if _target < self.min_doc {
             self.doc = self.min_doc;
         } else if _target >= self.max_doc {
@@ -223,7 +223,7 @@ impl DocIdSetIterator for Range {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok((self.max_doc - self.min_doc) as i64)
     }
 }
@@ -234,7 +234,7 @@ impl DocIdSetIterator for DummyDISI {
         unreachable!()
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         unreachable!()
     }
 }
@@ -246,12 +246,12 @@ pub const NO_MORE_DOCS: i32 = i32::MAX;
 #[cfg(test)]
 mod tests {
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range, NO_MORE_DOCS};
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetIterator {}
     #[test]
-    fn test_range_basic() -> Result<(), LuceneError> {
+    fn test_range_basic() -> Result<()> {
         let result = Range::new(5, 8);
         assert!(result.is_ok());
         let mut disi = result?;
@@ -282,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn test_advance() -> Result<(), LuceneError> {
+    fn test_advance() -> Result<()> {
         let disi_result = Range::new(5, 20);
         assert!(disi_result.is_ok());
         let mut disi = disi_result?;

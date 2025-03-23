@@ -19,7 +19,7 @@ use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::IOContext;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
@@ -31,23 +31,19 @@ impl Display for DummyDirectory {
 }
 
 impl Directory for DummyDirectory {
-    fn list_all(&self) -> Result<Vec<String>, LuceneError> {
+    fn list_all(&self) -> Result<Vec<String>> {
         unreachable!("DummyDirectory should not be called")
     }
 
-    fn delete_file(&mut self, _name: &str) -> Result<(), LuceneError> {
+    fn delete_file(&mut self, _name: &str) -> Result<()> {
         unreachable!("DummyDirectory should not be called")
     }
 
-    fn file_length(&self, _name: &str) -> Result<i64, LuceneError> {
+    fn file_length(&self, _name: &str) -> Result<i64> {
         unreachable!("DummyDirectory should not be called")
     }
     #[allow(refining_impl_trait)]
-    fn create_output(
-        &mut self,
-        _name: &str,
-        _context: &IOContext,
-    ) -> Result<DummyIndexOutput, LuceneError> {
+    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {
         unreachable!("DummyDirectory should not be called");
     }
 
@@ -57,37 +53,33 @@ impl Directory for DummyDirectory {
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    ) -> Result<Self::IndexOutputType> {
         unreachable!("DummyDirectory should not be called");
     }
 
-    fn sync(&mut self, _names: &[&str]) -> Result<(), LuceneError> {
+    fn sync(&mut self, _names: &[&str]) -> Result<()> {
         unreachable!("DummyDirectory should not be called")
     }
 
-    fn sync_metadata(&mut self) -> Result<(), LuceneError> {
+    fn sync_metadata(&mut self) -> Result<()> {
         unreachable!("DummyDirectory should not be called")
     }
 
-    fn rename(&mut self, _source: &str, _dest: &str) -> Result<(), LuceneError> {
+    fn rename(&mut self, _source: &str, _dest: &str) -> Result<()> {
         unreachable!("DummyDirectory should not be called")
     }
 
     type IndexInputType = DummyIndexInput;
 
-    fn open_input(
-        &self,
-        _name: &str,
-        _context: &IOContext,
-    ) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInputType> {
         unreachable!("DummyDirectory should not be called")
     }
     #[allow(refining_impl_trait)]
-    fn obtain_lock(&mut self, _name: &str) -> Result<DummyLock, LuceneError> {
+    fn obtain_lock(&mut self, _name: &str) -> Result<DummyLock> {
         unreachable!("DummyDirectory should not be called");
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError> {
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         unreachable!("DummyDirectory should not be called")
     }
 }

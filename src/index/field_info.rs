@@ -20,7 +20,7 @@ use crate::index::index_options::IndexOptions;
 use crate::index::point_values::PointValues;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -122,7 +122,7 @@ impl FieldInfo {
     /// # Errors
     ///
     /// Returns `IllegalArgumentException` if some options are incorrect
-    pub fn check_consistency(&self) -> Result<(), LuceneError> {
+    pub fn check_consistency(&self) -> Result<()> {
         {
             let properties = self
                 .properties
@@ -238,7 +238,7 @@ impl FieldInfo {
     /// # Errors
     ///
     /// Returns `IllegalArgumentException` if the field schemas are not the same
-    pub fn verify_same_schema(&self, other: &FieldInfo) -> Result<(), LuceneError> {
+    pub fn verify_same_schema(&self, other: &FieldInfo) -> Result<()> {
         let field_name = &self.name;
 
         Self::verify_same_index_options(field_name, &self.index_options, &other.index_options)?;
@@ -289,7 +289,7 @@ impl FieldInfo {
         field_name: &str,
         index_options1: &IndexOptions,
         index_options2: &IndexOptions,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if index_options1 != index_options2 {
             return Err(LuceneError::illegal_argument(format!(
                 "cannot change field \"{}\" from index options={:?} to inconsistent index options={:?}",
@@ -304,7 +304,7 @@ impl FieldInfo {
         field_name: &str,
         doc_values_type1: &DocValuesType,
         doc_values_type2: &DocValuesType,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if doc_values_type1 != doc_values_type2 {
             return Err(LuceneError::illegal_argument(format!(
                 "cannot change field \"{}\" from doc values type={:?} to inconsistent doc values type={:?}",
@@ -319,7 +319,7 @@ impl FieldInfo {
         field_name: &str,
         skip_index1: &DocValuesSkipIndexType,
         skip_index2: &DocValuesSkipIndexType,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if skip_index1 != skip_index2 {
             return Err(LuceneError::illegal_argument(format!(
                 "cannot change field \"{}\" from docValuesSkipIndexType={:?} to inconsistent docValuesSkipIndexType={:?}",
@@ -334,7 +334,7 @@ impl FieldInfo {
         field_name: &str,
         store_term_vector1: bool,
         store_term_vector2: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if store_term_vector1 != store_term_vector2 {
             return Err(LuceneError::illegal_argument(format!(
                 "cannot change field \"{}\" from storeTermVector={} to inconsistent storeTermVector={}",
@@ -349,7 +349,7 @@ impl FieldInfo {
         field_name: &str,
         omit_norms1: bool,
         omit_norms2: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if omit_norms1 != omit_norms2 {
             return Err(LuceneError::illegal_argument(format!(
                 "cannot change field \"{}\" from omitNorms={} to inconsistent omitNorms={}",
@@ -368,7 +368,7 @@ impl FieldInfo {
         point_dimension_count2: i32,
         index_dimension_count2: i32,
         num_bytes2: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if point_dimension_count1 != point_dimension_count2
             || index_dimension_count1 != index_dimension_count2
             || num_bytes1 != num_bytes2
@@ -390,7 +390,7 @@ impl FieldInfo {
         vd2: i32,
         ve2: &VectorEncoding,
         vsf2: &VectorSimilarityFunction,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if vd1 != vd2 || vsf1 != vsf2 || ve1 != ve2 {
             return Err(LuceneError::illegal_argument(format!(
                 "cannot change field \"{}\" from vector dimension={}, vector encoding={:?}, vector similarity function={:?} to inconsistent vector dimension={}, vector encoding={:?}, vector similarity function={:?}",
@@ -406,7 +406,7 @@ impl FieldInfo {
         dimension_count: i32,
         index_dimension_count: i32,
         num_bytes: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if dimension_count <= 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "point dimension count must be >= 0; got {} for field=\"{}\"",
@@ -495,10 +495,7 @@ impl FieldInfo {
     }
 
     /// Record that this field is indexed with docvalues, with the specified type
-    pub fn set_doc_values_type(
-        &mut self,
-        doc_values_type: DocValuesType,
-    ) -> Result<(), LuceneError> {
+    pub fn set_doc_values_type(&mut self, doc_values_type: DocValuesType) -> Result<()> {
         if self.doc_values_type != DocValuesType::None
             && doc_values_type != DocValuesType::None
             && self.doc_values_type != doc_values_type
@@ -539,7 +536,7 @@ impl FieldInfo {
     }
 
     /// Sets the docValues generation of this field.
-    pub fn set_doc_values_gen(&mut self, dv_gen: i64) -> Result<(), LuceneError> {
+    pub fn set_doc_values_gen(&mut self, dv_gen: i64) -> Result<()> {
         self.dv_gen = dv_gen;
         self.check_consistency()?;
         Ok(())
@@ -551,14 +548,14 @@ impl FieldInfo {
     }
 
     /// Set store term vectors
-    pub fn set_store_term_vectors(&mut self) -> Result<(), LuceneError> {
+    pub fn set_store_term_vectors(&mut self) -> Result<()> {
         self.store_term_vector = true;
         self.check_consistency()?;
         Ok(())
     }
 
     /// Set store payloads
-    pub fn set_store_payloads(&self) -> Result<(), LuceneError> {
+    pub fn set_store_payloads(&self) -> Result<()> {
         {
             let mut properties = self
                 .properties
@@ -578,7 +575,7 @@ impl FieldInfo {
     }
 
     /// Omit norms for this field.
-    pub fn set_omits_norms(&mut self) -> Result<(), LuceneError> {
+    pub fn set_omits_norms(&mut self) -> Result<()> {
         if self.index_options == IndexOptions::None {
             return Err(LuceneError::illegal_argument(
                 "cannot omit norms: this field is not indexed".to_string(),
@@ -615,7 +612,7 @@ impl FieldInfo {
     }
 
     /// Get a codec attribute value, or None if it does not exist
-    pub fn get_attribute(&self, key: &str) -> Result<Option<String>, LuceneError> {
+    pub fn get_attribute(&self, key: &str) -> Result<Option<String>> {
         let properties = self
             .properties
             .lock()
@@ -638,7 +635,7 @@ impl FieldInfo {
     /// If a value already exists for the key in the field, it will be replaced with the new value.
     /// If the value of the attributes for the same field is changed between documents, the behavior
     /// after merge is undefined.
-    pub fn put_attribute(&self, key: String, value: String) -> Result<Option<String>, LuceneError> {
+    pub fn put_attribute(&self, key: String, value: String) -> Result<Option<String>> {
         let properties = self
             .properties
             .lock()
@@ -652,7 +649,7 @@ impl FieldInfo {
     }
 
     /// Returns internal codec attributes map.
-    pub fn attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>, LuceneError> {
+    pub fn attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>> {
         let properties = self
             .properties
             .lock()

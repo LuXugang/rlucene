@@ -22,7 +22,7 @@ use crate::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -51,7 +51,7 @@ where
         temp_file_name_prefix: &str,
         desc: &str,
         expected_count: i64,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let out = temp_dir.borrow_mut().create_temp_output(
             temp_file_name_prefix,
             &format!("bkd_{}", desc),
@@ -74,7 +74,7 @@ where
         start: i64,
         length: i64,
         reusable_buffer: Rc<RefCell<Vec<u8>>>,
-    ) -> Result<PointReaderEnum<D>, LuceneError> {
+    ) -> Result<PointReaderEnum<D>> {
         debug_assert!(
             self.closed && self.out.is_none(),
             "point writer is still open and trying to get a reader"
@@ -129,7 +129,7 @@ impl<D> PointWriter for OfflinePointWriter<D>
 where
     D: Directory,
 {
-    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<(), LuceneError> {
+    fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         debug_assert!(!self.closed, "Point writer is already closed");
         assert_eq!(
             packed_value.len(),
@@ -152,7 +152,7 @@ where
         Ok(())
     }
 
-    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<(), LuceneError> {
+    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
         debug_assert!(!self.closed, "Point writer is already closed");
         let (value, offset, length) = point_value.packed_value_doc_id_bytes();
         assert_eq!(
@@ -178,11 +178,7 @@ where
 
     type Dir = D;
 
-    fn get_reader(
-        &self,
-        start: i64,
-        length: i64,
-    ) -> Result<PointReaderEnum<Self::Dir>, LuceneError> {
+    fn get_reader(&self, start: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>> {
         let buffer = Rc::new(RefCell::new(vec![
             0u8;
             self.config.bytes_per_doc() as usize
@@ -193,7 +189,7 @@ where
         self.count
     }
 
-    fn destroy(&mut self) -> Result<(), LuceneError> {
+    fn destroy(&mut self) -> Result<()> {
         self.temp_dir.borrow_mut().delete_file(&self.name)
     }
 

@@ -16,14 +16,14 @@
  */
 use crate::index::BytesRef;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::{BytesRefComparator, Comparator};
 
 pub trait SortableBytesRefArray<'a> {
     /// Append a new value
-    fn append(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError>;
+    fn append(&mut self, bytes: &BytesRef) -> Result<i32>;
     /// Clear all previously stored values
-    fn clear(&mut self) -> Result<(), LuceneError>;
+    fn clear(&mut self) -> Result<()>;
     /// Returns the number of values appended so far
     fn size(&self) -> i32;
     /// Sort all values by the provided comparator and return an iterator over the sorted values */
@@ -31,5 +31,5 @@ pub trait SortableBytesRefArray<'a> {
     fn iterator(
         &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<Self::Iter, LuceneError>;
+    ) -> Result<Self::Iter>;
 }

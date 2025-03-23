@@ -16,7 +16,7 @@
  */
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::{Builder, FieldInfos, FieldNumbers};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 pub(crate) trait IndexPackageAccess {
@@ -28,12 +28,12 @@ pub(crate) trait IndexPackageAccess {
         &self,
         soft_deletes_field_name: Option<String>,
         parent_field_name: Option<String>,
-    ) -> Result<Self::FieldInfosBuilder, LuceneError>;
+    ) -> Result<Self::FieldInfosBuilder>;
     // fn check_impacts(&self, impacts: Impacts, max: i32);
 }
 pub(crate) trait FieldInfosBuilder {
-    fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self, LuceneError>;
-    fn finish(&mut self) -> Result<FieldInfos, LuceneError>;
+    fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self>;
+    fn finish(&mut self) -> Result<FieldInfos>;
 }
 
 pub(crate) struct IndexPackageAccessImpl;
@@ -44,7 +44,7 @@ impl IndexPackageAccess for IndexPackageAccessImpl {
         &self,
         soft_deletes_field_name: Option<String>,
         parent_field_name: Option<String>,
-    ) -> Result<Self::FieldInfosBuilder, LuceneError> {
+    ) -> Result<Self::FieldInfosBuilder> {
         FieldInfosBuilderImpl::new(soft_deletes_field_name, parent_field_name)
     }
 }
@@ -56,7 +56,7 @@ impl FieldInfosBuilderImpl {
     pub fn new(
         soft_deletes_field_name: Option<String>,
         parent_field_name: Option<String>,
-    ) -> Result<Self, LuceneError> {
+    ) -> Result<Self> {
         let field_number = FieldNumbers::new(soft_deletes_field_name, parent_field_name)?;
         Ok(FieldInfosBuilderImpl {
             builder: Builder::new(Arc::new(field_number)),
@@ -64,12 +64,12 @@ impl FieldInfosBuilderImpl {
     }
 }
 impl FieldInfosBuilder for FieldInfosBuilderImpl {
-    fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self, LuceneError> {
+    fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self> {
         self.builder.add(fi)?;
         Ok(self)
     }
 
-    fn finish(&mut self) -> Result<FieldInfos, LuceneError> {
+    fn finish(&mut self) -> Result<FieldInfos> {
         self.builder.finish()
     }
 }

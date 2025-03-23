@@ -19,7 +19,7 @@ use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, SliceCopyOps};
 use byteorder::{ByteOrder, LE};
@@ -63,7 +63,7 @@ where
         sub_index_input: T,
         resource_desc: &str,
         buffer_size: i32,
-    ) -> Result<BufferedIndexInput<T>, LuceneError> {
+    ) -> Result<BufferedIndexInput<T>> {
         let buffer = Cursor::new(vec![0u8; buffer_size as usize]);
         Self::check_buffer_size(buffer_size)?;
         Ok(BufferedIndexInput {
@@ -79,7 +79,7 @@ where
     pub fn with_resource_desc(
         sub_index_input: T,
         resource_desc: &str,
-    ) -> Result<BufferedIndexInput<T>, LuceneError> {
+    ) -> Result<BufferedIndexInput<T>> {
         Self::with_buffer_size(
             sub_index_input,
             resource_desc,
@@ -91,7 +91,7 @@ where
         sub_index_input: T,
         resource_desc: &str,
         context: &IOContext,
-    ) -> Result<BufferedIndexInput<T>, LuceneError> {
+    ) -> Result<BufferedIndexInput<T>> {
         Self::with_buffer_size(sub_index_input, resource_desc, Self::buffer_size(context))
     }
 
@@ -103,7 +103,7 @@ where
         }
     }
 
-    fn check_buffer_size(buffer_size: i32) -> Result<(), LuceneError> {
+    fn check_buffer_size(buffer_size: i32) -> Result<()> {
         if buffer_size < BufferedIndexInput::MIN_BUFFER_SIZE {
             return Err(LuceneError::illegal_argument(format!(
                 "bufferSize must be at least MIN_BUFFER_SIZE (got {})",
@@ -139,7 +139,7 @@ where
     ///
     /// # Errors
     /// * Returns `LuceneError::eof` if no new data can be read from the underlying input.
-    fn refill(&mut self, remain_unaligned_bytes: i32, start: i64) -> Result<(), LuceneError> {
+    fn refill(&mut self, remain_unaligned_bytes: i32, start: i64) -> Result<()> {
         // After the last read, some unaligned bytes remain in the buffer.
         let mut end = start + (self.buffer_size - remain_unaligned_bytes) as i64;
 
@@ -172,7 +172,7 @@ where
         len: i32,
         output: &mut [i64],
         use_buffer: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.read_buffer(
             pos,
             len,
@@ -188,7 +188,7 @@ where
         len: i32,
         output: &mut [u8],
         use_buffer: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!(), use_buffer)
     }
@@ -198,7 +198,7 @@ where
         len: i32,
         output: &mut [i32],
         use_buffer: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.read_buffer(
             pos,
             len,
@@ -214,7 +214,7 @@ where
         len: i32,
         output: &mut [i16],
         use_buffer: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.read_buffer(
             pos,
             len,
@@ -230,7 +230,7 @@ where
         len: i32,
         output: &mut [f32],
         use_buffer: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.read_buffer(
             pos,
             len,
@@ -289,7 +289,7 @@ where
         type_size: i32,
         converter: F,
         use_buffer: bool,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: Copy,
         F: Fn(&[u8]) -> D,
@@ -503,7 +503,7 @@ where
     /// # Efficiency
     /// This method is particularly efficient for scenarios involving frequent backward random reads,
     /// as it reduces redundant I/O operations by aligning the buffer with anticipated access patterns.
-    fn resolve_position_in_buffer(&mut self, pos: i64, width: i32) -> Result<(), LuceneError> {
+    fn resolve_position_in_buffer(&mut self, pos: i64, width: i32) -> Result<()> {
         let index: i64 = pos - self.buffer_start;
         if index >= 0 && index <= (self.length as i64 - width as i64) {
             return Ok(());
@@ -537,14 +537,14 @@ impl<T> DataInput for BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self) -> Result<u8> {
         let mut bytes = [0; 1];
         self.read_bytes(self.pos, 1, &mut bytes, true)?;
         self.pos += 1;
         Ok(bytes[0])
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         self.read_bytes_with_buffer(b, offset, len, true)
     }
 
@@ -554,7 +554,7 @@ where
         offset: i32,
         len: i32,
         use_buffer: bool,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.read_bytes(
             self.pos,
             len,
@@ -565,21 +565,21 @@ where
         Ok(())
     }
 
-    fn read_short(&mut self) -> Result<i16, LuceneError> {
+    fn read_short(&mut self) -> Result<i16> {
         let mut output = [0; 1];
         self.read_shorts(self.pos, 1, &mut output, true)?;
         self.pos += BitUtil::SHORT_BYTES as i64;
         Ok(output[0])
     }
 
-    fn read_int(&mut self) -> Result<i32, LuceneError> {
+    fn read_int(&mut self) -> Result<i32> {
         let mut output = [0; 1];
         self.read_ints(self.pos, 1, &mut output, true)?;
         self.pos += BitUtil::INT_BYTES as i64;
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<(), LuceneError> {
+    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<()> {
         let remain =
             self.buffer
                 .remain_between(self.buffer.position(), self.length as u64) as usize;
@@ -595,13 +595,13 @@ where
         Ok(())
     }
 
-    fn read_long(&mut self) -> Result<i64, LuceneError> {
+    fn read_long(&mut self) -> Result<i64> {
         let mut output = [0; 1];
         self.read_longs(self.pos, 1, &mut output, true)?;
         self.pos += BitUtil::LONG_BYTES as i64;
         Ok(output[0])
     }
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
         self.read_longs(
             self.pos,
             len,
@@ -611,7 +611,7 @@ where
         self.pos += len as i64 * BitUtil::LONG_BYTES as i64;
         Ok(())
     }
-    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
         self.read_ints(
             self.pos,
             len,
@@ -622,7 +622,7 @@ where
         self.pos += len as i64 * BitUtil::INT_BYTES as i64;
         Ok(())
     }
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
         self.read_floats(
             self.pos,
             len,
@@ -633,7 +633,7 @@ where
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         IndexInput::skip_bytes(self, num_bytes)
     }
 
@@ -641,7 +641,7 @@ where
         true
     }
 
-    fn seek_in_data_input(&mut self, pos: i64) -> Result<(), LuceneError> {
+    fn seek_in_data_input(&mut self, pos: i64) -> Result<()> {
         debug_assert!(self.is_index_input());
         IndexInput::seek(self, pos)
     }
@@ -686,7 +686,7 @@ where
         self.pos
     }
 
-    fn seek(&mut self, pos: i64) -> Result<(), LuceneError> {
+    fn seek(&mut self, pos: i64) -> Result<()> {
         if pos >= self.buffer_start && pos < (self.buffer_start + self.length as i64) {
             self.pos = pos;
         } else {
@@ -704,17 +704,12 @@ where
 
     type Slice = BufferedIndexInput<T>;
 
-    fn slice(
-        &self,
-        slice_description: &str,
-        offset: i64,
-        length: i64,
-    ) -> Result<Self::Slice, LuceneError> {
+    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
         self.sub_index_input
             .slice(slice_description, offset, length)
     }
 
-    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice, LuceneError> {
+    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice> {
         self.slice("random_access_slice", offset, length)
     }
 }
@@ -727,20 +722,14 @@ where
         self.sub_index_input.length()
     }
 
-    fn read_byte(&mut self, pos: i64) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self, pos: i64) -> Result<u8> {
         let mut bytes = [0; 1];
         self.resolve_position_in_buffer(pos, 1)?;
         self.read_bytes(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
-    fn read_bytes(
-        &mut self,
-        pos: i64,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, pos: i64, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         self.resolve_position_in_buffer(pos, len)?;
         self.read_bytes(
             pos,
@@ -751,28 +740,28 @@ where
         Ok(())
     }
 
-    fn read_short(&mut self, pos: i64) -> Result<i16, LuceneError> {
+    fn read_short(&mut self, pos: i64) -> Result<i16> {
         let mut bytes = [0; BitUtil::SHORT_BYTES];
         self.resolve_position_in_buffer(pos, BitUtil::SHORT_BYTES as i32)?;
         self.read_shorts(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
-    fn read_int(&mut self, pos: i64) -> Result<i32, LuceneError> {
+    fn read_int(&mut self, pos: i64) -> Result<i32> {
         let mut bytes = [0; BitUtil::INT_BYTES];
         self.resolve_position_in_buffer(pos, BitUtil::INT_BYTES as i32)?;
         self.read_ints(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
-    fn read_long(&mut self, pos: i64) -> Result<i64, LuceneError> {
+    fn read_long(&mut self, pos: i64) -> Result<i64> {
         let mut bytes = [0; BitUtil::LONG_BYTES];
         self.resolve_position_in_buffer(pos, BitUtil::LONG_BYTES as i32)?;
         self.read_longs(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<(), LuceneError> {
+    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
         Ok(())
     }
 }
@@ -788,7 +777,7 @@ mod tests {
     use crate::test::util::lucene_test_case::random;
 
     use crate::util::bit_util::BitUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::ReadableCursorExt;
     use byteorder::WriteBytesExt;
     use rand::Rng;
@@ -804,7 +793,7 @@ mod tests {
     // is working as expected.
     // Our input comes from a dynamically generated/ "file" - see
     // MyBufferedIndexInput below.
-    fn test_read_byte() -> Result<(), LuceneError> {
+    fn test_read_byte() -> Result<()> {
         let sub_index_input = MyBufferedIndexInput::new();
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
@@ -820,7 +809,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_bytes() -> Result<(), LuceneError> {
+    fn test_read_bytes() -> Result<()> {
         let mut random = random();
         let sub_index_input = MyBufferedIndexInput::new();
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -879,7 +868,7 @@ mod tests {
         size: i32,
         pos: i32,
         buffer: &mut Vec<u8>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         // Just to see that "offset" is treated properly in read_bytes(), we
         // add an arbitrary offset at the beginning of the array
         let offset = size % 10; // arbitrary offset
@@ -931,7 +920,7 @@ mod tests {
     }
 
     #[test]
-    fn test_eof() -> Result<(), LuceneError> {
+    fn test_eof() -> Result<()> {
         let sub_index_input = MyBufferedIndexInput::with_len(1024);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
@@ -975,7 +964,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backwards_byte_reads() -> Result<(), LuceneError> {
+    fn test_backwards_byte_reads() -> Result<()> {
         let mut random = random();
         let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -997,7 +986,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backwards_int_reads() -> Result<(), LuceneError> {
+    fn test_backwards_int_reads() -> Result<()> {
         let mut random = random();
         let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -1034,7 +1023,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backwards_long_reads() -> Result<(), LuceneError> {
+    fn test_backwards_long_reads() -> Result<()> {
         let mut random = random();
         let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
@@ -1075,7 +1064,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_read_floats() -> Result<(), LuceneError> {
+    fn test_read_floats() -> Result<()> {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.random_range(128..length / 8);
@@ -1137,7 +1126,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_read_ints() -> Result<(), LuceneError> {
+    fn test_read_ints() -> Result<()> {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.random_range(128..length / 8);
@@ -1197,7 +1186,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_read_longs() -> Result<(), LuceneError> {
+    fn test_read_longs() -> Result<()> {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.random_range(128..length / 8);
@@ -1296,7 +1285,7 @@ mod tests {
     }
 
     impl BufferedIndexInputBase for MyBufferedIndexInput {
-        fn seek_internal(&mut self, pos: i64) -> Result<(), LuceneError> {
+        fn seek_internal(&mut self, pos: i64) -> Result<()> {
             self.pos = pos;
             Ok(())
         }
@@ -1306,7 +1295,7 @@ mod tests {
             b: &mut Cursor<Vec<u8>>,
             len: i64,
             _file_pointer: i64,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let mut i = 0;
             self.read_count += 1;
             while b.remain() > 0 && i < len {
@@ -1324,7 +1313,7 @@ mod tests {
             _slice_description: &str,
             _offset: i64,
             _length: i64,
-        ) -> Result<Self::Slice, LuceneError> {
+        ) -> Result<Self::Slice> {
             Err(LuceneError::unsupported_operation(
                 "MyBufferedIndexInput method is not supported".to_string(),
             ))

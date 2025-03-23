@@ -16,7 +16,7 @@
  */
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::delta_packed_long_values::{
     DeltaPackedLongValues, DeltaPackedLongValuesBuilder,
@@ -45,13 +45,13 @@ impl PackedLongValues {
     pub fn packed_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder, LuceneError> {
+    ) -> Result<PackedLongValuesBuilder> {
         PackedLongValuesBuilder::new(page_size, acceptable_overhead_ratio)
     }
     /// See [`PackedLongValuesBuilder`].
     pub fn packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder, LuceneError> {
+    ) -> Result<PackedLongValuesBuilder> {
         Self::packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
@@ -59,7 +59,7 @@ impl PackedLongValues {
     pub fn delta_packed_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder, LuceneError> {
+    ) -> Result<PackedLongValuesBuilder> {
         let sub_builder = DeltaPackedLongValuesBuilder::new();
         PackedLongValuesBuilder::with_sub_builder(
             page_size,
@@ -71,7 +71,7 @@ impl PackedLongValues {
     /// See [`delta_packed_long_values_builder`](DeltaPackedLongValuesBuilder).
     pub fn delta_packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder, LuceneError> {
+    ) -> Result<PackedLongValuesBuilder> {
         Self::delta_packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
@@ -79,7 +79,7 @@ impl PackedLongValues {
     pub fn monotonic_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder, LuceneError> {
+    ) -> Result<PackedLongValuesBuilder> {
         let sub_builder = MonotonicLongValuesBuilder::new();
         let sub_delta_builder = DeltaPackedLongValuesBuilder::with_sub_builder(Some(sub_builder));
         PackedLongValuesBuilder::with_sub_builder(
@@ -92,7 +92,7 @@ impl PackedLongValues {
     /// See [`monotonic_long_values_builder`](MonotonicLongValuesBuilder).
     pub fn monotonic_long_values_builder_default(
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder, LuceneError> {
+    ) -> Result<PackedLongValuesBuilder> {
         PackedLongValues::monotonic_long_values_builder(
             Self::DEFAULT_PAGE_SIZE,
             acceptable_overhead_ratio,
@@ -119,12 +119,7 @@ impl PackedLongValues {
         self.size
     }
 
-    fn decode_block(
-        &mut self,
-        block: i32,
-        dest: &mut [i64],
-        _count: i32,
-    ) -> Result<i32, LuceneError> {
+    fn decode_block(&mut self, block: i32, dest: &mut [i64], _count: i32) -> Result<i32> {
         let vals = &mut self.values[block as usize];
         let size = vals.size();
         let mut k = 0;
@@ -137,7 +132,7 @@ impl PackedLongValues {
         }
     }
 
-    fn get_value(&mut self, block: i32, element: i32, _value: i64) -> Result<i64, LuceneError> {
+    fn get_value(&mut self, block: i32, element: i32, _value: i64) -> Result<i64> {
         let value = if self.sub_long_values.is_some() {
             self.sub_long_values
                 .as_mut()
@@ -148,7 +143,7 @@ impl PackedLongValues {
         };
         Ok(self.values[block as usize].get(element)? + value)
     }
-    pub fn iterator(&mut self) -> Result<PackedLongValuesIterator, LuceneError> {
+    pub fn iterator(&mut self) -> Result<PackedLongValuesIterator> {
         PackedLongValuesIterator::new(self)
     }
 }
@@ -159,7 +154,7 @@ impl Accountable for PackedLongValues {
     }
 }
 impl LongValues for PackedLongValues {
-    fn get(&mut self, index: i64) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         debug_assert!(index < self.size());
         let block = (index >> self.page_shift) as i32;
@@ -190,17 +185,14 @@ impl PackedLongValuesBuilder {
     // TODO
     #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: i64 = 0;
-    pub fn new(
-        page_size: i32,
-        acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder, LuceneError> {
+    pub fn new(page_size: i32, acceptable_overhead_ratio: f32) -> Result<PackedLongValuesBuilder> {
         Self::with_sub_builder(page_size, acceptable_overhead_ratio, None)
     }
     pub(crate) fn with_sub_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
         sub_packed_long_values_builder: Option<DeltaPackedLongValuesBuilder>,
-    ) -> Result<PackedLongValuesBuilder, LuceneError> {
+    ) -> Result<PackedLongValuesBuilder> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_PAGE_SIZE, MAX_PAGE_SIZE)?;
         let page_mask = page_size - 1;
         let pending = Some(vec![0; page_size as usize]);
@@ -225,7 +217,7 @@ impl PackedLongValuesBuilder {
     }
     /// Build a [`PackedLongValues`] instance that contains values that have been added to this
     /// builder. This operation is destructive.
-    pub fn build(mut self) -> Result<PackedLongValues, LuceneError> {
+    pub fn build(mut self) -> Result<PackedLongValues> {
         self.finish()?;
         // TODO
         let ram_bytes_used = 0;
@@ -251,7 +243,7 @@ impl PackedLongValuesBuilder {
             None,
         ))
     }
-    pub fn add(&mut self, l: i64) -> Result<&mut Self, LuceneError> {
+    pub fn add(&mut self, l: i64) -> Result<&mut Self> {
         if self.pending.is_none() {
             return Err(LuceneError::illegal_state("Cannot be reused after build()"));
         }
@@ -277,7 +269,7 @@ impl PackedLongValuesBuilder {
         self.size += 1;
         Ok(self)
     }
-    pub(crate) fn finish(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn finish(&mut self) -> Result<()> {
         if self.pending_off > 0 {
             if self.values.len() == self.values_off as usize {
                 self.grow(self.values_off + 1)?;
@@ -286,7 +278,7 @@ impl PackedLongValuesBuilder {
         }
         Ok(())
     }
-    fn pack_impl(&mut self) -> Result<(), LuceneError> {
+    fn pack_impl(&mut self) -> Result<()> {
         let mut pending = self.pending.take().unwrap();
         if self.sub_builder.is_some() {
             self.sub_builder.as_mut().unwrap().pack(
@@ -321,7 +313,7 @@ impl PackedLongValuesBuilder {
         num_values: i32,
         block: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut min_value = values[0];
         let mut max_value = values[0];
 
@@ -354,7 +346,7 @@ impl PackedLongValuesBuilder {
         }
     }
 
-    fn grow(&mut self, new_block_count: i32) -> Result<(), LuceneError> {
+    fn grow(&mut self, new_block_count: i32) -> Result<()> {
         if let Some(ref mut sub) = self.sub_builder {
             sub.grow(new_block_count)?;
         }
@@ -377,7 +369,7 @@ pub struct PackedLongValuesIterator<'a> {
 }
 
 impl<'a> PackedLongValuesIterator<'a> {
-    pub fn new(packed_long_values: &'a mut PackedLongValues) -> Result<Self, LuceneError> {
+    pub fn new(packed_long_values: &'a mut PackedLongValues) -> Result<Self> {
         let current_values = vec![
             0;
             packed_long_values
@@ -396,7 +388,7 @@ impl<'a> PackedLongValuesIterator<'a> {
         Ok(iterator)
     }
 
-    fn fill_block(&mut self) -> Result<(), LuceneError> {
+    fn fill_block(&mut self) -> Result<()> {
         if (self.v_off as usize) >= self.packed_long_values.values.len() {
             self.current_count = 0;
         } else {
@@ -412,7 +404,7 @@ impl<'a> PackedLongValuesIterator<'a> {
         self.p_off < self.current_count
     }
 
-    pub fn next_value(&mut self) -> Result<i64, LuceneError> {
+    pub fn next_value(&mut self) -> Result<i64> {
         debug_assert!(self.has_next(), "No more values available");
         let result = self.current_values[self.p_off as usize];
         self.p_off += 1;

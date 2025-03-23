@@ -97,7 +97,7 @@ mod tests {
 
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
     use crate::util::{
         Comparator, MSBRadixSorterBase, NaturalOrder, SliceCopyOps, Sorter, StringSorter,
@@ -107,7 +107,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestStringSorter;
 
-    fn test(refs: Vec<BytesRef>, len: usize) -> Result<(), LuceneError> {
+    fn test(refs: Vec<BytesRef>, len: usize) -> Result<()> {
         test_impl(refs.clone(), len, Natural::default())?;
         test_impl(refs.clone(), len, NaturalOrder::default())?;
         test_stable(refs.clone(), len, Natural::default())?;
@@ -119,7 +119,7 @@ mod tests {
         refs: Vec<BytesRef>,
         len: usize,
         comparator: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut expected: Vec<BytesRef> = refs.clone();
         expected.sort();
         let delegate_sorter = StringSorterTestImpl::new(refs.clone());
@@ -134,7 +134,7 @@ mod tests {
         refs: Vec<BytesRef>,
         len: usize,
         comparator: impl BytesRefComparator + Comparator<BytesRef>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut expected: Vec<BytesRef> = refs[..len].to_vec();
         let mut actual = refs[..len].to_vec();
         expected.sort();
@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty() -> Result<(), LuceneError> {
+    fn test_empty() -> Result<()> {
         let mut random = random();
         let len = random.random_range(0..5);
         let refs: Vec<BytesRef> = (0..len).map(|_| BytesRef::default()).collect();
@@ -181,14 +181,14 @@ mod tests {
     }
 
     #[test]
-    fn test_one_value() -> Result<(), LuceneError> {
+    fn test_one_value() -> Result<()> {
         let mut random = random();
         let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         test(vec![bytes], 1)
     }
 
     #[test]
-    fn test_two_values() -> Result<(), LuceneError> {
+    fn test_two_values() -> Result<()> {
         let mut random = random();
         let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
@@ -199,7 +199,7 @@ mod tests {
         common_prefix_len: usize,
         max_len: usize,
         random: &mut StdRng,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.random_range(0..100000);
@@ -215,7 +215,7 @@ mod tests {
         test(bytes, len)
     }
     #[test]
-    fn test_random() -> Result<(), LuceneError> {
+    fn test_random() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
@@ -224,7 +224,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_with_lots_of_duplicates() -> Result<(), LuceneError> {
+    fn test_random_with_lots_of_duplicates() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
@@ -233,7 +233,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_with_shared_prefix() -> Result<(), LuceneError> {
+    fn test_random_with_shared_prefix() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
@@ -243,7 +243,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), LuceneError> {
+    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
@@ -263,7 +263,7 @@ mod tests {
         }
     }
     impl Sorter for StringSorterTestImpl {
-        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
             self.refs.swap(i as usize, j as usize);
             Ok(())
         }
@@ -274,7 +274,7 @@ mod tests {
             _builder: &mut BytesRefBuilder,
             result: &mut BytesRef,
             i: i32,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let ref_item = &self.refs[i as usize];
             result.offset = ref_item.offset;
             result.length = ref_item.length;
@@ -295,7 +295,7 @@ mod tests {
             _builder: &mut BytesRefBuilder,
             result: &mut BytesRef,
             i: i32,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let ref_item = &self.refs[self.ord[i as usize] as usize];
             result.offset = ref_item.offset;
             result.length = ref_item.length;
@@ -315,7 +315,7 @@ mod tests {
         }
     }
     impl Sorter for StableStringSorterTestImpl<'_> {
-        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
             self.ord.swap(i as usize, j as usize);
             Ok(())
         }

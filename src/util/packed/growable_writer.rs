@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::{Mutable, PackedInts, Reader};
 use std::cmp::min;
@@ -40,7 +40,7 @@ impl GrowableWriter {
         start_bits_per_value: i32,
         value_count: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<GrowableWriter, LuceneError> {
+    ) -> Result<GrowableWriter> {
         let current =
             PackedInts::get_mutable(value_count, start_bits_per_value, acceptable_overhead_ratio)?;
         let current_mask = Self::mask(current.get_bits_per_value());
@@ -61,7 +61,7 @@ impl GrowableWriter {
     pub fn get_mutable(&self) -> &MutablePacked64Enum {
         &self.current
     }
-    fn ensure_capacity(&mut self, value: i64) -> Result<(), LuceneError> {
+    fn ensure_capacity(&mut self, value: i64) -> Result<()> {
         if (value & self.current_mask) == value {
             return Ok(());
         }
@@ -85,7 +85,7 @@ impl GrowableWriter {
         Ok(())
     }
     #[allow(unused)]
-    pub fn resize(&mut self, new_size: i32) -> Result<GrowableWriter, LuceneError> {
+    pub fn resize(&mut self, new_size: i32) -> Result<GrowableWriter> {
         let mut next = GrowableWriter::new(
             self.current.get_bits_per_value(),
             new_size,
@@ -105,17 +105,11 @@ impl GrowableWriter {
 }
 
 impl Reader for GrowableWriter {
-    fn get(&mut self, index: i32) -> Result<i64, LuceneError> {
+    fn get(&mut self, index: i32) -> Result<i64> {
         self.current.get(index)
     }
 
-    fn get_bulk(
-        &mut self,
-        index: i32,
-        arr: &mut [i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         self.current.get_bulk(index, arr, off, len)
     }
 
@@ -141,19 +135,13 @@ impl Mutable for GrowableWriter {
         self.current.get_bits_per_value()
     }
 
-    fn set(&mut self, index: i32, value: i64) -> Result<(), LuceneError> {
+    fn set(&mut self, index: i32, value: i64) -> Result<()> {
         self.ensure_capacity(value)?;
         self.current.set(index, value)?;
         Ok(())
     }
 
-    fn set_bulk(
-        &mut self,
-        index: i32,
-        arr: &[i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32, LuceneError> {
+    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
         let mut max = 0i64;
         max |= arr
             .iter()
@@ -164,13 +152,13 @@ impl Mutable for GrowableWriter {
         self.current.set_bulk(index, arr, off, len)
     }
 
-    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<(), LuceneError> {
+    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
         self.ensure_capacity(val)?;
         self.current.fill(from_index, to_index, val)?;
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         self.current.clear()
     }
 }

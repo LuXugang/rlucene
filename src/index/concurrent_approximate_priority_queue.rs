@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::approximate_priority_queue::ApproximatePriorityQueue;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -49,11 +49,11 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         concurrency
     }
 
-    pub fn new() -> Result<Self, LuceneError> {
+    pub fn new() -> Result<Self> {
         Self::with_concurrency(Self::get_concurrency())
     }
 
-    pub fn with_concurrency(concurrency: i32) -> Result<Self, LuceneError> {
+    pub fn with_concurrency(concurrency: i32) -> Result<Self> {
         if !(MIN_CONCURRENCY..=MAX_CONCURRENCY).contains(&concurrency) {
             return Err(LuceneError::illegal_argument(format!(
                 "concurrency must be in [{}, {}], got {}",
@@ -77,7 +77,7 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         ((hasher.finish() as usize) & 0xFFFF) as i32
     }
 
-    pub fn add(&self, entry: T, weight: i64) -> Result<(), LuceneError> {
+    pub fn add(&self, entry: T, weight: i64) -> Result<()> {
         let thread_hash = Self::thread_hash();
         for i in 0..self.concurrency {
             let index = ((thread_hash + i) % self.concurrency) as usize;
@@ -130,7 +130,7 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         false
     }
 
-    pub fn remove(&self, o: &T) -> Result<bool, LuceneError>
+    pub fn remove(&self, o: &T) -> Result<bool>
     where
         T: PartialEq,
     {
@@ -151,12 +151,12 @@ mod tests {
     };
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use std::sync::{mpsc, Arc};
     use std::thread;
 
     #[test]
-    fn test_poll_from_same_thread() -> Result<(), LuceneError> {
+    fn test_poll_from_same_thread() -> Result<()> {
         let mut random = random();
         let concurrency = TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
         let pq = ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(concurrency)?;
@@ -172,7 +172,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_poll_from_different_thread() -> Result<(), LuceneError> {
+    fn test_poll_from_different_thread() -> Result<()> {
         let mut random = random();
         let concurrency = TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
         let pq = Arc::new(ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(
@@ -195,7 +195,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_current_lock_is_busy() -> Result<(), LuceneError> {
+    fn test_current_lock_is_busy() -> Result<()> {
         let mut random = random();
         let concurrency = TestUtil::next_int(&mut random, 2, MAX_CONCURRENCY);
         let pq = Arc::new(ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(

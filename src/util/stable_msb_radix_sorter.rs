@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::{check_range, MSBRadixSorterBase, SliceCopyOps, Sorter, HISTOGRAM_SIZE};
 
 pub struct StableMSBRadixSorter<T>
@@ -46,7 +46,7 @@ impl<T> MSBRadixSorterBase for StableMSBRadixSorter<T>
 where
     T: StableMSBRadixSorterBase,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         self.delegate_sorter.byte_at(i, k)
     }
 
@@ -65,7 +65,7 @@ where
         start_offsets: &mut [i32],
         end_offsets: &mut [i32],
         k: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         // Copy start_offsets to fixed_start_offsets
         self.fixed_start_offsets.copy_from(start_offsets, 0);
 
@@ -104,7 +104,7 @@ impl<T> MergeSorter<T>
 where
     T: Sorter + StableMSBRadixSorterBase,
 {
-    fn merge_sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn merge_sort(&mut self, from: i32, to: i32) -> Result<()> {
         if to - from < Self::BINARY_SORT_THRESHOLD {
             self.binary_sort(from, to)
         } else {
@@ -121,7 +121,7 @@ where
             self.delegate_sorter.save(from + i, tmp_from + i);
         }
     }
-    fn merge(&mut self, from: i32, to: i32, mid: i32) -> Result<(), LuceneError> {
+    fn merge(&mut self, from: i32, to: i32, mid: i32) -> Result<()> {
         debug_assert!(
             to > mid && mid > from,
             "Invalid indices: to={}, mid={}, from={}",
@@ -179,24 +179,24 @@ impl<T> Sorter for MergeSorter<T>
 where
     T: Sorter + StableMSBRadixSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.delegate_sorter.compare(i, j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<(), LuceneError> {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot_index = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32, LuceneError> {
+    fn compare_pivot(&mut self, i: i32) -> Result<i32> {
         self.compare(self.pivot_index, i)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<(), LuceneError> {
+    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
         check_range(from, to)?;
         self.merge_sort(from, to)?;
         Ok(())
@@ -230,7 +230,7 @@ impl<T> Sorter for MergeSorterImpl<'_, T>
 where
     T: Sorter + MSBRadixSorterBase + StableMSBRadixSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32, LuceneError> {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.k..self.max_length {
             let b1 = self.delegate_sorter.byte_at(i, o)?;
             let b2 = self.delegate_sorter.byte_at(j, o)?;
@@ -242,7 +242,7 @@ where
         }
         Ok(0)
     }
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 }
@@ -275,7 +275,7 @@ mod tests {
     use crate::test::util::common_method::assert_vecs_equal;
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::stable_msb_radix_sorter::{StableMSBRadixSorter, StableMSBRadixSorterBase};
     use crate::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
     use std::collections::HashSet;
@@ -283,7 +283,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestStableMSBRadixSorter;
 
-    fn test(refs: &[BytesRef], len: usize, random: &mut StdRng) -> Result<(), LuceneError> {
+    fn test(refs: &[BytesRef], len: usize, random: &mut StdRng) -> Result<()> {
         let mut expected: Vec<BytesRef> = refs[..len].to_vec();
         expected.sort();
 
@@ -309,13 +309,13 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_empty() -> Result<(), LuceneError> {
+    fn test_empty() -> Result<()> {
         let mut random = random();
         let refs: Vec<BytesRef> = vec![BytesRef::default(); random.random_range(0..5)];
         test(&refs, 0, &mut random)
     }
     #[test]
-    fn test_one_value() -> Result<(), LuceneError> {
+    fn test_one_value() -> Result<()> {
         let mut random = random();
         let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         let refs = vec![bytes];
@@ -323,7 +323,7 @@ mod tests {
     }
 
     #[test]
-    fn test_two_values() -> Result<(), LuceneError> {
+    fn test_two_values() -> Result<()> {
         let mut random = random();
         let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
@@ -335,7 +335,7 @@ mod tests {
         common_prefix_len: usize,
         max_len: usize,
         random: &mut StdRng,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.random_range(0..100_000);
@@ -350,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random() -> Result<(), LuceneError> {
+    fn test_random() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             test_random_impl(0, 10, &mut random)?;
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_lots_of_duplicates() -> Result<(), LuceneError> {
+    fn test_random_with_lots_of_duplicates() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             test_random_impl(0, 2, &mut random)?;
@@ -368,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_shared_prefix() -> Result<(), LuceneError> {
+    fn test_random_with_shared_prefix() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             let common_prefix_len = TestUtil::next_int(&mut random, 1, 30);
@@ -378,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<(), LuceneError> {
+    fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
             let common_prefix_len = TestUtil::next_int(&mut random, 1, 30);
@@ -388,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn test_random2() -> Result<(), LuceneError> {
+    fn test_random2() -> Result<()> {
         let mut random = random();
         // how large our alphabet is
         let letter_count = TestUtil::next_int(&mut random, 2, 10);
@@ -472,14 +472,14 @@ mod tests {
     }
 
     impl Sorter for StableMSBRadixSorterTestImpl<'_> {
-        fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
             self.refs.swap(i as usize, j as usize);
             Ok(())
         }
     }
 
     impl MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
-        fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+        fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
             assert!(k < self.final_max_length, "k is out of bounds");
             let ref_item = &self.refs[i as usize];
 

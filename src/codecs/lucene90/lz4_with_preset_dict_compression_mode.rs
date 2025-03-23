@@ -25,7 +25,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::SliceCopyOps;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -73,7 +73,7 @@ impl LZ4WithPresetDictDecompressor {
         original_length: i32,
         dict_length: i32,
         block_length: i32,
-    ) -> Result<i32, LuceneError>
+    ) -> Result<i32>
     where
         I: DataInput,
     {
@@ -108,7 +108,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
         offset: i32,
         length: i32,
         bytes: &mut BytesRef,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         I: DataInput,
     {
@@ -215,7 +215,7 @@ impl LZ4WithPresetDictCompressor {
         dict_len: i32,
         len: i32,
         out: &mut D,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: DataOutput,
     {
@@ -243,11 +243,7 @@ impl LZ4WithPresetDictCompressor {
     }
 }
 impl Compressor for LZ4WithPresetDictCompressor {
-    fn compress<D>(
-        &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
-        out: &mut D,
-    ) -> Result<(), LuceneError>
+    fn compress<D>(&mut self, buffers_input: &mut ByteBuffersDataInput, out: &mut D) -> Result<()>
     where
         D: DataOutput,
     {

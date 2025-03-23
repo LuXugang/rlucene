@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::random_access_input::RandomAccessInput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyRandomAccessInput;
 impl RandomAccessInput for DummyRandomAccessInput {
@@ -23,23 +23,23 @@ impl RandomAccessInput for DummyRandomAccessInput {
         unreachable!("DummyRandomAccessInput should not be called")
     }
 
-    fn read_byte(&mut self, _pos: i64) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self, _pos: i64) -> Result<u8> {
         unreachable!("DummyRandomAccessInput should not be called")
     }
 
-    fn read_short(&mut self, _pos: i64) -> Result<i16, LuceneError> {
+    fn read_short(&mut self, _pos: i64) -> Result<i16> {
         unreachable!("DummyRandomAccessInput should not be called")
     }
 
-    fn read_int(&mut self, _pos: i64) -> Result<i32, LuceneError> {
+    fn read_int(&mut self, _pos: i64) -> Result<i32> {
         unreachable!("DummyRandomAccessInput should not be called")
     }
 
-    fn read_long(&mut self, _pos: i64) -> Result<i64, LuceneError> {
+    fn read_long(&mut self, _pos: i64) -> Result<i64> {
         unreachable!("DummyRandomAccessInput should not be called")
     }
 
-    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<(), LuceneError> {
+    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
         unreachable!("DummyRandomAccessInput should not be called")
     }
 }

@@ -16,7 +16,7 @@
  */
 use crate::search::field_comparator::FieldComparator;
 use crate::search::pruning::Pruning;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 
@@ -45,7 +45,7 @@ pub trait FieldComparatorSource: Display + Clone {
         num_hits: usize,
         pruning: Pruning,
         reversed: bool,
-    ) -> Result<F, LuceneError>;
+    ) -> Result<F>;
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]

@@ -19,7 +19,7 @@ use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::accountable::Accountable;
 use crate::util::bits::MatchNoBits;
 
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::min;
 use std::rc::Rc;
 
@@ -43,7 +43,7 @@ pub struct IntArrayDocIdSet {
 ///   [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS).
 /// * `len` - The valid docs length in the array.
 impl IntArrayDocIdSet {
-    pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet, LuceneError> {
+    pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet> {
         if docs[length as usize] != NO_MORE_DOCS {
             return Err(LuceneError::illegal_argument(format!(
                 "last value must be {}",
@@ -106,13 +106,13 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.doc = self.docs[self.i as usize];
         self.i += 1;
         Ok(self.doc)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         let mut bound = 1;
         // given that we use this for small arrays only, this is very unlikely to overflow
         while (self.i + bound < self.length)
@@ -131,7 +131,7 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(self.length as i64)
     }
 }
@@ -145,7 +145,7 @@ mod tests {
     };
     use crate::test::util::lucene_test_case::random;
 
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use rand::rngs::StdRng;
 
@@ -170,31 +170,31 @@ mod tests {
             num_bits: i32,
             ds1: &bit_set::BitSet,
             ds2: T,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }
     }
     #[test]
-    fn test_bit_0() -> Result<(), LuceneError> {
+    fn test_bit_0() -> Result<()> {
         let test_case = TestIntArrayDocIdSet;
         let mut random = random();
         test_case.test_bit_0(&mut random)
     }
 
     #[test]
-    fn test_bit_1() -> Result<(), LuceneError> {
+    fn test_bit_1() -> Result<()> {
         let test_case = TestIntArrayDocIdSet;
         let mut random = random();
         test_case.test_bit_1(&mut random)
     }
     #[test]
-    fn test_bit_2() -> Result<(), LuceneError> {
+    fn test_bit_2() -> Result<()> {
         let test_case = TestIntArrayDocIdSet;
         let mut random = random();
         test_case.test_bit_2(&mut random)
     }
     #[test]
-    fn test_against_bit_set() -> Result<(), LuceneError> {
+    fn test_against_bit_set() -> Result<()> {
         let test_case = TestIntArrayDocIdSet;
         let mut random = random();
         test_case.test_against_bit_set(&mut random)

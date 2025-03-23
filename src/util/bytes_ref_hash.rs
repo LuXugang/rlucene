@@ -24,7 +24,7 @@ use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, BytesRefComparator, Comparator, Counter,
     CounterEnum, CounterEnumBorrow, CounterEnumLock, MSBRadixSorter, MSBRadixSorterBase, Natural,
@@ -65,12 +65,12 @@ where
 }
 impl MTBytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;
-    pub fn new_sync() -> Result<Self, LuceneError> {
+    pub fn new_sync() -> Result<Self> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)));
         BytesRefHash::from_pool_sync(pool)
     }
-    pub fn from_pool_sync(pool: ByteBlockPoolLock) -> Result<Self, LuceneError> {
+    pub fn from_pool_sync(pool: ByteBlockPoolLock) -> Result<Self> {
         let bytes_start_array = Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
             DirectBytesStartArray::new_sync(BytesRefHash::DEFAULT_CAPACITY),
         )));
@@ -78,12 +78,12 @@ impl MTBytesRefHash {
     }
 }
 impl STBytesRefHash {
-    pub fn new() -> Result<Self, LuceneError> {
+    pub fn new() -> Result<Self> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         BytesRefHash::from_pool(pool)
     }
-    pub fn from_pool(pool: ByteBlockPoolBorrow) -> Result<Self, LuceneError> {
+    pub fn from_pool(pool: ByteBlockPoolBorrow) -> Result<Self> {
         let bytes_start_array = Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
             DirectBytesStartArray::new(BytesRefHash::DEFAULT_CAPACITY),
         )));
@@ -101,11 +101,7 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    pub fn from_bytes_start_array(
-        pool: B,
-        capacity: i32,
-        bytes_start_array: A,
-    ) -> Result<Self, LuceneError> {
+    pub fn from_bytes_start_array(pool: B, capacity: i32, bytes_start_array: A) -> Result<Self> {
         let bytes_used = bytes_start_array.with_exclusive(|bytes_start_array| {
             bytes_start_array.init()?;
             Ok(bytes_start_array.bytes_used())
@@ -143,7 +139,7 @@ where
     ///
     /// # Returns
     /// The given [`BytesRef`] instance populated with the bytes for the given `bytesID`.
-    pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) -> Result<(), LuceneError> {
+    pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) -> Result<()> {
         self.bytes_start_array.with_exclusive(|bytes_start_array| {
             debug_assert!(
                 bytes_start_array.len()? > 0,
@@ -186,7 +182,7 @@ where
         &self.ids
     }
     /// Returns the values array sorted by the referenced byte values.
-    pub fn sort(&mut self) -> Result<(), LuceneError> {
+    pub fn sort(&mut self) -> Result<()> {
         let compact = self.compact();
         let mut length = compact.len();
         let tmp_offset = self.count;
@@ -208,7 +204,7 @@ where
         }
         Ok(())
     }
-    fn shrink(&mut self, target_size: i32) -> Result<bool, LuceneError> {
+    fn shrink(&mut self, target_size: i32) -> Result<bool> {
         // Cannot use ArrayUtil.shrink because we require power of 2:
         let mut new_size = self.hash_size;
 
@@ -230,7 +226,7 @@ where
         }
     }
     /// Clears the [`BytesRef`] which maps to the given [`BytesRef`].
-    pub fn clear_with_reset_pool(&mut self, reset_pool: bool) -> Result<(), LuceneError> {
+    pub fn clear_with_reset_pool(&mut self, reset_pool: bool) -> Result<()> {
         self.last_count = self.count;
         self.count = 0;
 
@@ -250,12 +246,12 @@ where
         self.ids.fill(-1);
         Ok(())
     }
-    pub fn clear(&mut self) -> Result<(), LuceneError> {
+    pub fn clear(&mut self) -> Result<()> {
         self.clear_with_reset_pool(true)
     }
 
     /// Closes the `BytesRefHash` and releases all internally used memory.
-    pub fn close(&mut self) -> Result<(), LuceneError> {
+    pub fn close(&mut self) -> Result<()> {
         self.clear_with_reset_pool(true)?;
         self.ids.clear();
         // TODO: memory calculation not implemented
@@ -277,7 +273,7 @@ where
     ///
     /// # Errors
     /// Returns `MaxBytesLengthExceededException` if the given bytes are greater than 2 + [`SingleThreadedByteBlockPool::BYTE_BLOCK_SIZE`](ByteBlockPoolBorrow::BYTE_BLOCK_SIZE).
-    pub fn add(&mut self, bytes: &BytesRef) -> Result<i32, LuceneError> {
+    pub fn add(&mut self, bytes: &BytesRef) -> Result<i32> {
         debug_assert!(
             self.bytes_start_array
                 .with_shared(|bytes_start_array| Ok(bytes_start_array.len()? > 0))?,
@@ -327,11 +323,11 @@ where
     ///
     /// # Returns
     /// The id of the given bytes, or `-1` if there is no mapping for the given bytes.
-    pub fn find(&self, bytes: &BytesRef) -> Result<i32, LuceneError> {
+    pub fn find(&self, bytes: &BytesRef) -> Result<i32> {
         let hash_pos = self.find_hash(bytes)?;
         Ok(self.ids[hash_pos as usize])
     }
-    fn find_hash(&self, bytes: &BytesRef) -> Result<i32, LuceneError> {
+    fn find_hash(&self, bytes: &BytesRef) -> Result<i32> {
         self.bytes_start_array.with_exclusive(|bytes_start_array| {
             debug_assert!(
                 bytes_start_array.len()? > 0,
@@ -373,7 +369,7 @@ where
     /// This is used in the indexer to hold the hash for term vectors, because they do not
     /// redundantly store the byte[] term directly and instead reference the byte[] term already
     /// stored by the postings `BytesRefHash`.
-    pub fn add_by_pool_offset(&mut self, offset: i32) -> Result<i32, LuceneError> {
+    pub fn add_by_pool_offset(&mut self, offset: i32) -> Result<i32> {
         debug_assert!(
             self.bytes_start_array
                 .with_shared(|bytes_start_array| Ok(bytes_start_array.len()? > 0))?,
@@ -427,7 +423,7 @@ where
         Ok(-(e + 1))
     }
     /// Called when hash is too small (> 50% occupied) or too large (< 20% occupied).
-    fn rehash(&mut self, new_size: i32, hash_on_data: bool) -> Result<(), LuceneError> {
+    fn rehash(&mut self, new_size: i32, hash_on_data: bool) -> Result<()> {
         let new_mask = new_size - 1;
         // TODO: memory calculation not implemented
         self.bytes_used.with_exclusive(|bytes_used| {
@@ -478,7 +474,7 @@ where
 
     /// Reinitializes the [`BytesRefHash`] after a previous `clear()` call.
     /// If `clear()` has not been called previously, this method has no effect.
-    pub fn reinit(&mut self) -> Result<(), LuceneError> {
+    pub fn reinit(&mut self) -> Result<()> {
         self.bytes_start_array.with_exclusive(|bytes_start_array| {
             if bytes_start_array.len()? == 0 {
                 let _ = bytes_start_array.init();
@@ -507,7 +503,7 @@ where
     /// # Returns
     /// The `bytesStart` offset into the internally used `SingleThreadedByteBlockPool` for the given ID.
     #[cfg(feature = "test_only")]
-    pub fn byte_start(&self, bytes_id: i32) -> Result<i32, LuceneError> {
+    pub fn byte_start(&self, bytes_id: i32) -> Result<i32> {
         self.bytes_start_array.with_shared(|bytes_start_array| {
             debug_assert!(
                 bytes_start_array.len()? > 0,
@@ -583,7 +579,7 @@ where
             _phantom1: Default::default(),
         }
     }
-    fn swap_bucket_cache(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap_bucket_cache(&mut self, i: i32, j: i32) -> Result<()> {
         self.swap(i, j)?;
         self.compact.swap(
             (self.tmp_offset + i) as usize,
@@ -599,7 +595,7 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         let mut scratch = BytesRefBuilder::new();
         let mut scratch_bytes = BytesRef::new();
         self.get(&mut scratch, &mut scratch_bytes, i)?;
@@ -613,7 +609,7 @@ where
         start_offsets: &mut [i32],
         end_offsets: &mut [i32],
         k: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         debug_assert_eq!(self.k, k);
         for i in 0..HISTOGRAM_SIZE {
             let limit = end_offsets[i];
@@ -636,7 +632,7 @@ where
         to: i32,
         k: i32,
         histogram: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.k = k;
         histogram[prefix_common_bucket as usize] = prefix_common_len;
         self.compact[(self.tmp_offset + from - prefix_common_len) as usize
@@ -662,7 +658,7 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.compact.swap(i as usize, j as usize);
         Ok(())
     }
@@ -674,12 +670,7 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn get(
-        &mut self,
-        _builder: &mut BytesRefBuilder,
-        result: &mut BytesRef,
-        i: i32,
-    ) -> Result<(), LuceneError> {
+    fn get(&mut self, _builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
         self.bytes_start_array.with_shared(|bytes_start_array| {
             let start = bytes_start_array.get_value(self.compact[i as usize] as usize)?;
             self.pool.fill_bytes_ref(result, start)?;
@@ -706,19 +697,19 @@ pub trait BytesStartArray {
     ///
     /// # Returns
     /// The initialized bytes start array.
-    fn init(&mut self) -> Result<(), LuceneError>;
+    fn init(&mut self) -> Result<()>;
 
     /// Grows the [`BytesStartArray`].
     ///
     /// # Returns
     /// The grown array.
-    fn grow(&mut self) -> Result<(), LuceneError>;
+    fn grow(&mut self) -> Result<()>;
 
     /// Clears the [`BytesStartArray`] and returns the cleared instance.
     ///
     /// # Returns
     /// The cleared instance, this might be `None`.
-    fn clear(&mut self) -> Result<(), LuceneError>;
+    fn clear(&mut self) -> Result<()>;
 
     /// A reference holding the number of bytes used by this `BytesStartArray`.
     /// The [`BytesRefHash`] uses this reference to track its memory usage.
@@ -727,9 +718,9 @@ pub trait BytesStartArray {
     /// A reference holding the number of bytes used by this `BytesStartArray`.
     type Counter: Access<CounterEnum>;
     fn bytes_used(&mut self) -> Self::Counter;
-    fn get_value(&self, index: usize) -> Result<i32, LuceneError>;
-    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError>;
-    fn len(&self) -> Result<usize, LuceneError>;
+    fn get_value(&self, index: usize) -> Result<i32>;
+    fn set_value(&mut self, index: usize, value: i32) -> Result<()>;
+    fn len(&self) -> Result<usize>;
 }
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private `Counter` instance.
 pub struct DirectBytesStartArray<C>
@@ -775,20 +766,20 @@ impl<C> BytesStartArray for DirectBytesStartArray<C>
 where
     C: Access<CounterEnum>,
 {
-    fn init(&mut self) -> Result<(), LuceneError> {
+    fn init(&mut self) -> Result<()> {
         self.bytes_start =
             vec![0; ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES as i32) as usize];
         Ok(())
     }
 
-    fn grow(&mut self) -> Result<(), LuceneError> {
+    fn grow(&mut self) -> Result<()> {
         debug_assert!(!self.bytes_start.is_empty());
         let length = self.bytes_start.len() as i32;
         ArrayUtil::grow_i32(&mut self.bytes_start, length + 1)?;
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         self.bytes_start.clear();
         Ok(())
     }
@@ -799,16 +790,16 @@ where
         self.bytes_used.clone()
     }
 
-    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
+    fn get_value(&self, index: usize) -> Result<i32> {
         Ok(self.bytes_start[index])
     }
 
-    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
+    fn set_value(&mut self, index: usize, value: i32) -> Result<()> {
         self.bytes_start[index] = value;
         Ok(())
     }
 
-    fn len(&self) -> Result<usize, LuceneError> {
+    fn len(&self) -> Result<usize> {
         Ok(self.bytes_start.len())
     }
 }
@@ -826,21 +817,21 @@ where
     C: Access<CounterEnum>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn init(&mut self) -> Result<(), LuceneError> {
+    fn init(&mut self) -> Result<()> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.init(),
             BytesStartArrayEnum::Postings(p) => p.init(),
         }
     }
 
-    fn grow(&mut self) -> Result<(), LuceneError> {
+    fn grow(&mut self) -> Result<()> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.grow(),
             BytesStartArrayEnum::Postings(p) => p.grow(),
         }
     }
 
-    fn clear(&mut self) -> Result<(), LuceneError> {
+    fn clear(&mut self) -> Result<()> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.clear(),
             BytesStartArrayEnum::Postings(p) => p.clear(),
@@ -856,21 +847,21 @@ where
         }
     }
 
-    fn get_value(&self, index: usize) -> Result<i32, LuceneError> {
+    fn get_value(&self, index: usize) -> Result<i32> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.get_value(index),
             BytesStartArrayEnum::Postings(p) => p.get_value(index),
         }
     }
 
-    fn set_value(&mut self, index: usize, value: i32) -> Result<(), LuceneError> {
+    fn set_value(&mut self, index: usize, value: i32) -> Result<()> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.set_value(index, value),
             BytesStartArrayEnum::Postings(p) => p.set_value(index, value),
         }
     }
 
-    fn len(&self) -> Result<usize, LuceneError> {
+    fn len(&self) -> Result<usize> {
         match self {
             BytesStartArrayEnum::Direct(d) => d.len(),
             BytesStartArrayEnum::Postings(p) => p.len(),
@@ -911,7 +902,7 @@ where
     T: Sorter + StringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<(), LuceneError> {
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
     }
 }
@@ -921,7 +912,7 @@ where
     T: Sorter + StringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef>,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32, LuceneError> {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         self.delegate_sorter.byte_at(i, k)
     }
 
@@ -937,7 +928,7 @@ where
         start_offsets: &mut [i32],
         end_offsets: &mut [i32],
         k: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.delegate_sorter
             .reorder(from, to, start_offsets, end_offsets, k)
     }
@@ -950,7 +941,7 @@ where
         to: i32,
         k: i32,
         histogram: &mut [i32],
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         self.delegate_sorter.build_histogram(
             prefix_common_bucket,
             prefix_common_len,
@@ -976,7 +967,7 @@ mod tests {
     use crate::util::bytes_ref_hash::{
         BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesRefHash,
     };
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{ByteBlockPool, ByteBlockPoolLock};
     use rand::rngs::StdRng;
     use rand::Rng;
@@ -993,10 +984,7 @@ mod tests {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)))
     }
-    fn new_hash(
-        random: &mut StdRng,
-        block_pool: ByteBlockPoolLock,
-    ) -> Result<MTBytesRefHash, LuceneError> {
+    fn new_hash(random: &mut StdRng, block_pool: ByteBlockPoolLock) -> Result<MTBytesRefHash> {
         let init_size = 2 << (1 + random.random_range(0..5));
         if random.random_bool(0.5) {
             BytesRefHash::from_pool_sync(block_pool)
@@ -1011,7 +999,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_size() -> Result<(), LuceneError> {
+    fn test_size() -> Result<()> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1048,7 +1036,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_get() -> Result<(), LuceneError> {
+    fn test_get() -> Result<()> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1097,7 +1085,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_compact() -> Result<(), LuceneError> {
+    fn test_compact() -> Result<()> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1149,7 +1137,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_sort() -> Result<(), LuceneError> {
+    fn test_sort() -> Result<()> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1200,7 +1188,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add() -> Result<(), LuceneError> {
+    fn test_add() -> Result<()> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1247,7 +1235,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_find() -> Result<(), LuceneError> {
+    fn test_find() -> Result<()> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
         let mut ref_builder = BytesRefBuilder::new();
@@ -1295,7 +1283,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_concurrent_access_to_bytes_ref_hash() -> Result<(), LuceneError> {
+    fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
         let mut random = random();
         let num = at_least(&mut random, 2);
 
@@ -1394,7 +1382,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_large_value() -> Result<(), LuceneError> {
+    fn test_large_value() -> Result<()> {
         let mut random = random();
         let mut hash = new_hash(&mut random, new_pool())?;
 
@@ -1426,7 +1414,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_add_by_pool_offset() -> Result<(), LuceneError> {
+    fn test_add_by_pool_offset() -> Result<()> {
         let mut random = random();
         let pool = new_pool();
         let mut hash = new_hash(&mut random, pool.clone())?;
@@ -1506,10 +1494,7 @@ mod tests {
         Ok(())
     }
 
-    fn assert_all_in(
-        strings: &HashSet<String>,
-        hash: &mut MTBytesRefHash,
-    ) -> Result<(), LuceneError> {
+    fn assert_all_in(strings: &HashSet<String>, hash: &mut MTBytesRefHash) -> Result<()> {
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();
         let count = hash.size();

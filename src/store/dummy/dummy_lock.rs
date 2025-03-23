@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::lock::Lock;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 pub struct DummyLock;
@@ -27,7 +27,7 @@ impl Display for DummyLock {
 }
 
 impl Lock for DummyLock {
-    fn ensure_valid(&self) -> Result<(), LuceneError> {
+    fn ensure_valid(&self) -> Result<()> {
         unreachable!("DummyLock should not be called")
     }
 }

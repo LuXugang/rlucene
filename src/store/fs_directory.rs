@@ -20,7 +20,7 @@ use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::lock::Lock;
 use crate::store::lock_factory::LockFactory;
 use crate::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::IOUtils;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -80,7 +80,7 @@ where
         directory: PathBuf,
         lock_factory: D,
         sub_fs_directory: T,
-    ) -> Result<FSDirectory<D, T>, LuceneError> {
+    ) -> Result<FSDirectory<D, T>> {
         if !directory.is_dir() {
             fs::create_dir(&directory)?;
         }
@@ -94,10 +94,7 @@ where
         })
     }
 
-    fn list_all(
-        dir: &Path,
-        skip_names: Option<&HashSet<String>>,
-    ) -> Result<Vec<String>, LuceneError> {
+    fn list_all(dir: &Path, skip_names: Option<&HashSet<String>>) -> Result<Vec<String>> {
         let mut entries = Vec::new();
 
         for entry in dir.read_dir()? {
@@ -120,7 +117,7 @@ where
         directory: &Path,
         pending_deletes: &mut HashSet<String>,
         ops_since_last_delete: &mut AtomicU32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if !pending_deletes.is_empty() {
             let count = ops_since_last_delete.fetch_add(1, SeqCst) + 1;
 
@@ -141,7 +138,7 @@ where
     /// # Errors
     ///
     /// Returns a `LuceneError` if the file cannot be found or synchronized.
-    pub fn fsync(&self, name: &str) -> Result<(), LuceneError> {
+    pub fn fsync(&self, name: &str) -> Result<()> {
         IOUtils::fsync(&self.directory.join(name), false)
     }
 
@@ -150,7 +147,7 @@ where
     pub fn delete_pending_files(
         directory: &Path,
         pending_deletes: &mut HashSet<String>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         if !pending_deletes.is_empty() {
             // TODO: we could fix IndexInputs from FSDirectory subclasses to call this when they are
             // closed?
@@ -170,7 +167,7 @@ where
         name: &str,
         is_pending_delete: bool,
         pending_deletes: &mut HashSet<String>,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let file_path = directory.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         match fs::remove_file(file_path) {
@@ -214,7 +211,7 @@ where
             }
         }
     }
-    fn ensure_can_read(&self, name: &str) -> Result<(), LuceneError> {
+    fn ensure_can_read(&self, name: &str) -> Result<()> {
         let pending_deletes = self
             .pending_deletes
             .lock()
@@ -235,7 +232,7 @@ where
     pub fn new(
         directory: PathBuf,
         sub_fs_directory: T,
-    ) -> Result<FSDirectory<NativeFSLockFactory, T>, LuceneError> {
+    ) -> Result<FSDirectory<NativeFSLockFactory, T>> {
         Self::with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
     }
 }
@@ -246,7 +243,7 @@ where
 
     T: FSDirectoryBase,
 {
-    fn list_all(&self) -> Result<Vec<String>, LuceneError> {
+    fn list_all(&self) -> Result<Vec<String>> {
         let pending_deletes = self
             .pending_deletes
             .lock()
@@ -254,7 +251,7 @@ where
         Self::list_all(&self.directory, Some(&pending_deletes))
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<(), LuceneError> {
+    fn delete_file(&mut self, name: &str) -> Result<()> {
         let mut pending_deletes = self
             .pending_deletes
             .lock()
@@ -277,7 +274,7 @@ where
         Ok(())
     }
 
-    fn file_length(&self, name: &str) -> Result<i64, LuceneError> {
+    fn file_length(&self, name: &str) -> Result<i64> {
         if self.pending_deletes.lock().unwrap().contains(name) {
             return Err(LuceneError::not_found(format!(
                 "file \"{}\" is pending delete",
@@ -293,11 +290,7 @@ where
         debug_assert!(length <= i64::MAX as u64);
         Ok(length as i64)
     }
-    fn create_output(
-        &mut self,
-        name: &str,
-        _context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    fn create_output(&mut self, name: &str, _context: &IOContext) -> Result<Self::IndexOutputType> {
         let mut pending_deletes = self
             .pending_deletes
             .lock()
@@ -336,7 +329,7 @@ where
         prefix: &str,
         suffix: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType, LuceneError> {
+    ) -> Result<Self::IndexOutputType> {
         let mut pending_deletes = self
             .pending_deletes
             .lock()
@@ -382,7 +375,7 @@ where
         }
     }
 
-    fn sync(&mut self, names: &[&str]) -> Result<(), LuceneError> {
+    fn sync(&mut self, names: &[&str]) -> Result<()> {
         for &name in names {
             self.fsync(name)?;
         }
@@ -394,7 +387,7 @@ where
         Ok(())
     }
 
-    fn sync_metadata(&mut self) -> Result<(), LuceneError> {
+    fn sync_metadata(&mut self) -> Result<()> {
         // TODO: to improve listCommits(), IndexFileDeleter could call this after deleting segments_Ns
         IOUtils::fsync(&self.directory, true)?;
         Self::maybe_delete_pending_files(
@@ -405,7 +398,7 @@ where
         Ok(())
     }
 
-    fn rename(&mut self, source: &str, dest: &str) -> Result<(), LuceneError> {
+    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
         let mut pending_deletes = self
             .pending_deletes
             .lock()
@@ -436,21 +429,17 @@ where
     }
 
     type IndexInputType = T::Output;
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType, LuceneError> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)
     }
 
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, LuceneError> {
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
         self.lock_factory.obtain_lock(&self.directory, name)
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>, LuceneError> {
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         let mut pending_deletes = self
             .pending_deletes
             .lock()
@@ -492,7 +481,7 @@ where
 
     T: FSDirectoryBase,
 {
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock, LuceneError> {
+    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
         Directory::obtain_lock(self, name)
     }
 }

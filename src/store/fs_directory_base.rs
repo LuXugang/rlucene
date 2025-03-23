@@ -17,16 +17,11 @@
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IOContext;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt::Display;
 use std::path::Path;
 
 pub trait FSDirectoryBase: Display {
     type Output: IndexInput + RandomAccessInput;
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-        path: &Path,
-    ) -> Result<Self::Output, LuceneError>;
+    fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output>;
 }

@@ -16,7 +16,7 @@
  */
 use crate::store::DataInput;
 use crate::util::access::Access;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::fst::fst::BytesReader;
 use crate::util::ByteBlockPoolBorrow;
 use std::fmt::{Display, Formatter};
@@ -43,13 +43,13 @@ impl ByteBlockPoolReverseBytesReader {
 }
 
 impl DataInput for ByteBlockPoolReverseBytesReader {
-    fn read_byte(&mut self) -> Result<u8, LuceneError> {
+    fn read_byte(&mut self) -> Result<u8> {
         let b = self.buf.with_exclusive(|buf| Ok(buf.read_byte(self.pos)))?;
         self.pos -= 1;
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<(), LuceneError> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let offset = offset as usize;
         let len = len as usize;
         self.buf.with_exclusive(|buf| {
@@ -62,7 +62,7 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
         Ok(())
     }
 
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         self.pos -= num_bytes;
         Ok(())
     }

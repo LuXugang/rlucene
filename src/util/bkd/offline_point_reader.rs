@@ -22,7 +22,7 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::point_reader::PointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -56,7 +56,7 @@ where
         start: i64,
         length: i64,
         reusable_buffer: Rc<RefCell<Vec<u8>>>,
-    ) -> Result<Self, LuceneError>
+    ) -> Result<Self>
     where
         D: Directory,
     {
@@ -123,7 +123,7 @@ impl<D> PointReader for OfflinePointReader<D>
 where
     D: Directory,
 {
-    fn next(&mut self) -> Result<bool, LuceneError> {
+    fn next(&mut self) -> Result<bool> {
         let bytes_per_doc = self.config.bytes_per_doc();
         if self.points_in_buffer == 0 {
             if self.count_left == 0 {

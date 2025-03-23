@@ -31,7 +31,7 @@ use crate::util::bytes_ref_hash::{
     BytesRefHash, BytesStartArrayEnum, BytesStartArrayEnumBorrow, BytesStartArrayEnumLock,
     DirectBytesStartArray,
 };
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumBorrow,
     CounterEnumLock,
@@ -117,7 +117,7 @@ where
         &mut self,
         update: &DocValuesUpdate,
         doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let buffer = match self.field_updates.entry(update.field.clone()) {
             Occupied(entry) => entry.into_mut(),
             Vacant(entry) => {
@@ -150,7 +150,7 @@ where
         &mut self,
         update: &DocValuesUpdate,
         doc_id_upto: i32,
-    ) -> Result<(), LuceneError> {
+    ) -> Result<()> {
         let buffer = match self.field_updates.entry(update.field.clone()) {
             Occupied(entry) => entry.into_mut(),
             Vacant(entry) => {
@@ -179,7 +179,7 @@ where
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
-    pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<(), LuceneError> {
+    pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<()> {
         let current = self.delete_terms.get(term)?;
         if current != -1 && doc_id_upto < current {
             // Only record the new number if it's greater than the
@@ -227,7 +227,7 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) -> Result<(), LuceneError> {
+    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) -> Result<()> {
         if self
             .delete_queries
             .insert(query.clone(), doc_id_upto)
@@ -239,10 +239,10 @@ where
         }
         Ok(())
     }
-    pub(crate) fn clear_delete_terms(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn clear_delete_terms(&mut self) -> Result<()> {
         self.delete_terms.clear()
     }
-    pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn clear(&mut self) -> Result<()> {
         self.delete_terms.clear()?;
         self.delete_queries.clear();
         self.num_field_updates
@@ -384,7 +384,7 @@ impl MTDeletedTerms {
     /// Puts the newest document ID of the deleted term.
     ///
     /// Inserts the term and its corresponding document ID. If the term is new, increments the `terms_size`.
-    pub(crate) fn put_sync(&mut self, term: &Term, value: i32) -> Result<(), LuceneError> {
+    pub(crate) fn put_sync(&mut self, term: &Term, value: i32) -> Result<()> {
         let hash = match self.delete_terms.entry(term.field.clone()) {
             Vacant(vacant) => {
                 // TODO: memory calculation not implemented
@@ -415,7 +415,7 @@ impl STDeletedTerms {
     ///
     /// Inserts the term and its corresponding document ID. If the term is new, increments the `terms_size`.
     #[allow(unused)]
-    pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<(), LuceneError> {
+    pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<()> {
         let hash = match self.delete_terms.entry(term.field.clone()) {
             Vacant(vacant) => {
                 // TODO: memory calculation not implemented
@@ -468,14 +468,14 @@ where
     /// Gets the newest document ID of the deleted term.
     ///
     /// Returns the newest document ID if the term exists, otherwise returns `-1`.
-    pub(crate) fn get(&self, term: &Term) -> Result<i32, LuceneError> {
+    pub(crate) fn get(&self, term: &Term) -> Result<i32> {
         if let Some(hash) = self.delete_terms.get(&term.field) {
             hash.get(&term.bytes)
         } else {
             Ok(-1)
         }
     }
-    pub(crate) fn clear(&mut self) -> Result<(), LuceneError> {
+    pub(crate) fn clear(&mut self) -> Result<()> {
         let mut pool = self.pool.with_exclusive(|p| Ok(p.reset(false, false)))?;
 
         self.bytes_used.with_exclusive(|bytes_used| {
@@ -496,7 +496,7 @@ where
         self.terms_size == 0
     }
     /// Just for test, not efficient.
-    pub(crate) fn key_set(&self) -> Result<HashSet<Term>, LuceneError> {
+    pub(crate) fn key_set(&self) -> Result<HashSet<Term>> {
         let mut set = HashSet::new();
         for (field, hash) in &self.delete_terms {
             for bytes in hash.key_set()? {
@@ -509,9 +509,9 @@ where
     /// Consume all terms in a sorted order.
     ///
     /// Note: This is a destructive operation as it calls `BytesRefHash::sort()`.
-    pub(crate) fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<(), LuceneError>
+    pub(crate) fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<()>
     where
-        F: FnMut(&Term, i32) -> Result<(), LuceneError>,
+        F: FnMut(&Term, i32) -> Result<()>,
     {
         let mut delete_fields: Vec<(&String, &mut BytesRefIntMap<C, B, A, P>)> =
             self.delete_terms.iter_mut().collect();
@@ -537,7 +537,7 @@ where
 }
 #[allow(unused)]
 pub trait DeletedTermConsumer {
-    fn accept(&mut self, term: &Term, doc_id: i32) -> Result<(), LuceneError>;
+    fn accept(&mut self, term: &Term, doc_id: i32) -> Result<()>;
 }
 impl<C, B, A, P> Accountable for DeletedTerms<C, B, A, P>
 where
@@ -609,7 +609,7 @@ impl
         MTPostingsArrayWrapper,
     >
 {
-    fn new_sync(pool: ByteBlockPoolLock, counter: CounterEnumLock) -> Result<Self, LuceneError> {
+    fn new_sync(pool: ByteBlockPoolLock, counter: CounterEnumLock) -> Result<Self> {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
@@ -631,7 +631,7 @@ impl
         STPostingsArrayWrapper,
     >
 {
-    fn new(pool: ByteBlockPoolBorrow, counter: CounterEnumBorrow) -> Result<Self, LuceneError> {
+    fn new(pool: ByteBlockPoolBorrow, counter: CounterEnumBorrow) -> Result<Self> {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
@@ -654,7 +654,7 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, A, P>) -> Result<Self, LuceneError> {
+    fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, A, P>) -> Result<Self> {
         let values = vec![0; BytesRefHash::DEFAULT_CAPACITY as usize];
 
         counter.with_exclusive(|c| Ok(c.add_and_get(BytesRefIntMap::INIT_RAM_BYTES)))?;
@@ -665,7 +665,7 @@ where
             values,
         })
     }
-    fn key_set(&self) -> Result<HashSet<BytesRef>, LuceneError> {
+    fn key_set(&self) -> Result<HashSet<BytesRef>> {
         let mut scratch = BytesRef::new();
         let mut set = HashSet::new();
 
@@ -675,7 +675,7 @@ where
         }
         Ok(set)
     }
-    fn put(&mut self, key: &BytesRef, value: i32) -> Result<bool, LuceneError> {
+    fn put(&mut self, key: &BytesRef, value: i32) -> Result<bool> {
         debug_assert!(value >= 0, "Value must be non-negative.");
         let e = self.bytes_ref_hash.add(key)?;
         if e < 0 {
@@ -693,7 +693,7 @@ where
             Ok(true)
         }
     }
-    fn get(&self, key: &BytesRef) -> Result<i32, LuceneError> {
+    fn get(&self, key: &BytesRef) -> Result<i32> {
         let e = self.bytes_ref_hash.find(key)?;
         if e == -1 {
             Ok(-1)
@@ -711,7 +711,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
 
     use crate::util::accountable::Accountable;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use rand::{Rng, RngCore};
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -720,7 +720,7 @@ mod tests {
     pub struct TestBufferedUpdates;
 
     #[test]
-    fn test_ram_bytes_used() -> Result<(), LuceneError> {
+    fn test_ram_bytes_used() -> Result<()> {
         let mut random = random();
         let mut bu = BufferedUpdates::new_sync("seg1".to_string());
 
@@ -780,7 +780,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_deleted_terms() -> Result<(), LuceneError> {
+    fn test_deleted_terms() -> Result<()> {
         let mut random = random();
         let iters = at_least(&mut random, 10);
         let fields = ["a".to_string(), "b".to_string(), "c".to_string()];

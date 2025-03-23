@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::index_input::IndexInput;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 const SKIP_BUFFER_SIZE: i32 = 1024;
 /// An extension of [`IndexInput`] that computes a checksum as it reads data.
@@ -28,7 +28,7 @@ pub trait ChecksumIndexInput: IndexInput {
     /// # Note
     /// [`ChecksumIndexInput`] can only seek forward, and seeks are expensive because they require
     /// reading the bytes between the current position and the target position to update the checksum.
-    fn seek(&mut self, pos: i64) -> Result<(), LuceneError> {
+    fn seek(&mut self, pos: i64) -> Result<()> {
         let cur_fp = self.get_file_pointer();
         if pos < cur_fp {
             return Err(LuceneError::illegal_state(format!(
@@ -42,7 +42,7 @@ pub trait ChecksumIndexInput: IndexInput {
     /// The behavior of this method is equivalent to reading the same number of bytes into a buffer
     /// and discarding its content.
     ///
-    fn skip_by_reading(&mut self, num_bytes: i64) -> Result<(), LuceneError> {
+    fn skip_by_reading(&mut self, num_bytes: i64) -> Result<()> {
         let mut skip_buffer = [0u8; SKIP_BUFFER_SIZE as usize];
         let mut skipped = 0;
         while skipped < num_bytes {

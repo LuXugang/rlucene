@@ -18,7 +18,7 @@ use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 #[allow(unused)]
@@ -120,11 +120,11 @@ impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
         self.doc
     }
 
-    fn next_doc(&mut self) -> Result<i32, LuceneError> {
+    fn next_doc(&mut self) -> Result<i32> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32, LuceneError> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         self.doc = _target;
         if self.doc > self.next_skipped_doc {
             self.next_skipped_doc = self.in_iterator.advance(self.doc)?;
@@ -144,7 +144,7 @@ impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
         Ok(self.doc)
     }
 
-    fn cost(&self) -> Result<i64, LuceneError> {
+    fn cost(&self) -> Result<i64> {
         Ok(self.max_doc as i64)
     }
 }
@@ -159,7 +159,7 @@ mod tests {
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
     use crate::util::bits::Bits;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::not_doc_id_set::NotDocIdSet;
     use rand::rngs::StdRng;
@@ -185,7 +185,7 @@ mod tests {
             num_bits: i32,
             ds1: &bit_set::BitSet,
             ds2: T,
-        ) -> Result<(), LuceneError> {
+        ) -> Result<()> {
             let bits2_wrap = ds2.bits();
             assert!(bits2_wrap.is_some());
             let bits = bits2_wrap.unwrap();
@@ -198,25 +198,25 @@ mod tests {
     }
 
     #[test]
-    fn test_bit_0() -> Result<(), LuceneError> {
+    fn test_bit_0() -> Result<()> {
         let test_case = TestNotDocIdSet;
         let mut random = random();
         test_case.test_bit_0(&mut random)
     }
     #[test]
-    fn test_bit_1() -> Result<(), LuceneError> {
+    fn test_bit_1() -> Result<()> {
         let test_case = TestNotDocIdSet;
         let mut random = random();
         test_case.test_bit_1(&mut random)
     }
     #[test]
-    fn test_bit_2() -> Result<(), LuceneError> {
+    fn test_bit_2() -> Result<()> {
         let test_case = TestNotDocIdSet;
         let mut random = random();
         test_case.test_bit_2(&mut random)
     }
     #[test]
-    fn test_against_bit_set() -> Result<(), LuceneError> {
+    fn test_against_bit_set() -> Result<()> {
         let test_case = TestNotDocIdSet;
         let mut random = random();
         test_case.test_against_bit_set(&mut random)

@@ -16,41 +16,41 @@
  */
 use crate::index::dummy::dummy_point_tree::DummyPointTree;
 use crate::index::point_values::PointValuesBase;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyPointValuesBase;
 impl PointValuesBase for DummyPointValuesBase {
-    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>> {
         unreachable!("should not be called")
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>, LuceneError> {
+    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>> {
         unreachable!("should not be called")
     }
 
-    fn get_num_dimensions(&self) -> Result<i32, LuceneError> {
+    fn get_num_dimensions(&self) -> Result<i32> {
         unreachable!("should not be called")
     }
 
-    fn get_num_index_dimensions(&self) -> Result<i32, LuceneError> {
+    fn get_num_index_dimensions(&self) -> Result<i32> {
         unreachable!("should not be called")
     }
 
-    fn get_bytes_per_dimension(&self) -> Result<i32, LuceneError> {
+    fn get_bytes_per_dimension(&self) -> Result<i32> {
         unreachable!("should not be called")
     }
 
-    fn size(&self) -> Result<i64, LuceneError> {
+    fn size(&self) -> Result<i64> {
         unreachable!("should not be called")
     }
 
-    fn get_doc_count(&self) -> Result<i32, LuceneError> {
+    fn get_doc_count(&self) -> Result<i32> {
         unreachable!("should not be called")
     }
 
     type PointTreeType = DummyPointTree;
 
-    fn get_point_tree(&self) -> Result<Self::PointTreeType, LuceneError> {
+    fn get_point_tree(&self) -> Result<Self::PointTreeType> {
         Ok(DummyPointTree)
     }
 }

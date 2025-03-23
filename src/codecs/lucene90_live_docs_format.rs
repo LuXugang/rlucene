@@ -24,7 +24,7 @@ use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use num_bigint::BigInt;
 use std::collections::HashSet;
@@ -66,16 +66,13 @@ impl Lucene90LiveDocsFormat {
     pub fn new() -> Lucene90LiveDocsFormat {
         Lucene90LiveDocsFormat {}
     }
-    fn read_fixed_bit_set<T: IndexInput>(
-        input: &mut T,
-        length: i32,
-    ) -> Result<FixedBitSet, LuceneError> {
+    fn read_fixed_bit_set<T: IndexInput>(input: &mut T, length: i32) -> Result<FixedBitSet> {
         let num_words = FixedBitSet::bits2words(length);
         let mut data = vec![0i64; num_words as usize];
         input.read_longs(&mut data, 0, num_words)?;
         FixedBitSet::with_capacity(data, length)
     }
-    fn write_bits<I, B>(output: &mut I, bits: &B) -> Result<i32, LuceneError>
+    fn write_bits<I, B>(output: &mut I, bits: &B) -> Result<i32>
     where
         I: IndexOutput,
         B: Bits,
@@ -107,7 +104,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         dir: Arc<Mutex<D>>,
         info: &SegmentCommitInfo<D>,
         _context: &IOContext,
-    ) -> Result<impl Bits, LuceneError>
+    ) -> Result<impl Bits>
     where
         D: Directory,
     {
@@ -164,7 +161,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,
-    ) -> Result<(), LuceneError>
+    ) -> Result<()>
     where
         D: Directory,
         B: Bits,
@@ -208,11 +205,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         Ok(())
     }
 
-    fn files<D>(
-        &self,
-        info: &SegmentCommitInfo<D>,
-        files: &mut HashSet<String>,
-    ) -> Result<(), LuceneError>
+    fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
     where
         D: Directory,
     {
@@ -234,31 +227,31 @@ mod tests {
     use crate::test::index::base_live_docs_format_test_case::BaseLiveDocsFormatTestCase;
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::random;
-    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search
     pub struct TestLucene90LiveDocsFormat;
     impl BaseLiveDocsFormatTestCase for TestLucene90LiveDocsFormat {}
     #[test]
-    fn test_dense_live_docs() -> Result<(), LuceneError> {
+    fn test_dense_live_docs() -> Result<()> {
         let mut random = random();
         let test = TestLucene90LiveDocsFormat;
         test.test_dense_live_docs(&mut random)
     }
     #[test]
-    fn test_empty_live_docs() -> Result<(), LuceneError> {
+    fn test_empty_live_docs() -> Result<()> {
         let mut random = random();
         let test = TestLucene90LiveDocsFormat;
         test.test_empty_live_docs(&mut random)
     }
     #[test]
-    fn test_sparse_live_docs() -> Result<(), LuceneError> {
+    fn test_sparse_live_docs() -> Result<()> {
         let mut random = random();
         let test = TestLucene90LiveDocsFormat;
         test.test_sparse_live_docs(&mut random)
     }
     #[test]
-    fn test_over_flow_live_docs() -> Result<(), LuceneError> {
+    fn test_over_flow_live_docs() -> Result<()> {
         let mut random = random();
         let test = TestLucene90LiveDocsFormat;
         if is_night_mode() {

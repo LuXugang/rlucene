@@ -16,7 +16,7 @@
  */
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, DummyDISI};
 use crate::search::scorable::Scorable;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 /// Expert: comparator that gets instantiated on each leaf from a top-level [`FieldComparator`](crate::search::field_comparator::FieldComparator)
 /// instance.
@@ -50,7 +50,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn set_bottom(&mut self, slot: usize) -> Result<(), LuceneError>;
+    fn set_bottom(&mut self, slot: usize) -> Result<()>;
 
     /// Compare the bottom of the queue with this document.
     ///
@@ -69,7 +69,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_bottom(&self, doc: i32) -> Result<i32, LuceneError>;
+    fn compare_bottom(&self, doc: i32) -> Result<i32>;
 
     /// Compare the top value with this document.
     ///
@@ -88,7 +88,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_top(&self, doc: i32) -> Result<i32, LuceneError>;
+    fn compare_top(&self, doc: i32) -> Result<i32>;
 
     /// Called when a new hit is competitive.
     ///
@@ -101,7 +101,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn copy(&mut self, slot: usize, doc: i32) -> Result<(), LuceneError>;
+    fn copy(&mut self, slot: usize, doc: i32) -> Result<()>;
 
     /// Sets the scorer to use in case a document's score is needed.
     ///
@@ -110,7 +110,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn set_scorer<S: Scorable>(&mut self, scorer: S) -> Result<(), LuceneError>;
+    fn set_scorer<S: Scorable>(&mut self, scorer: S) -> Result<()>;
 
     /// Returns a competitive iterator over documents stronger than already collected docs, or `None`
     /// if such an iterator is not available for the current comparator or segment.
@@ -124,7 +124,7 @@ pub trait LeafFieldComparator {
     /// Informs this leaf comparator that the hit's threshold is reached.
     ///
     /// This method is called from a collector when the hit's threshold is reached.
-    fn set_hits_threshold_reached(&mut self) -> Result<(), LuceneError> {
+    fn set_hits_threshold_reached(&mut self) -> Result<()> {
         Ok(())
     }
 }

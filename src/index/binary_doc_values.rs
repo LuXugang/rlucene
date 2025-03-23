@@ -16,12 +16,12 @@
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 pub trait BinaryDocValues: DocValuesIterator {
     /// Returns the binary value for the current document ID.
     ///
     /// # Returns
     /// The binary value for the current document ID.
-    fn binary_value(&mut self) -> Result<BytesRef, LuceneError>;
+    fn binary_value(&mut self) -> Result<BytesRef>;
 }
