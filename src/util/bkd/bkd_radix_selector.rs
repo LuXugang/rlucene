@@ -1849,7 +1849,7 @@ mod tests {
             let mut data_dimension_values = vec![0u8; data_dim_length as usize];
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
             random.fill(&mut value[..]);
-            for i in 0..num_points {
+            for _ in 0..num_points {
                 random.fill(&mut data_dimension_values[..]);
                 let start = config.packed_index_bytes_length() as usize;
                 let end = start + data_dimension_values.len();

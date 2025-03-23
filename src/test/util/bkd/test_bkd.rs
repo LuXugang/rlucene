@@ -863,7 +863,7 @@ pub mod tests {
     fn verify_with_max_mb<D: Directory>(
         random: &mut StdRng,
         dir: Rc<RefCell<D>>,
-        doc_values: &Vec<Vec<Vec<u8>>>,
+        doc_values: &[Vec<Vec<u8>>],
         doc_ids: Option<Vec<i32>>,
         num_data_dims: i32,
         num_index_dims: i32,
@@ -1248,7 +1248,7 @@ pub mod tests {
 
     fn random_big_int(num_bytes: usize, random: &mut StdRng) -> BigInt {
         let num_bits = num_bytes * 8 - 1;
-        let mut bytes = vec![0u8; (num_bits + 7) / 8];
+        let mut bytes = vec![0u8; num_bits.div_ceil(8)];
 
         random.fill_bytes(&mut bytes);
 
@@ -1843,8 +1843,8 @@ pub mod tests {
 
         fn visit_with_packed_value(
             &mut self,
-            doc_id: i32,
-            packed_value: &[u8],
+            _doc_id: i32,
+            _packed_value: &[u8],
         ) -> Result<(), LuceneError> {
             Ok(())
         }
@@ -1989,7 +1989,7 @@ pub mod tests {
     }
 
     impl MutablePointTree for MutablePointTreeMock1 {
-        fn get_value(&self, i: i32, packed_value: &mut BytesRef) {
+        fn get_value(&self, _i: i32, packed_value: &mut BytesRef) {
             packed_value.bytes = self.point_values.clone();
         }
 
@@ -1999,15 +1999,15 @@ pub mod tests {
             b.bytes[(b.offset + k) as usize]
         }
 
-        fn get_doc_id(&self, i: i32) -> i32 {
+        fn get_doc_id(&self, _i: i32) -> i32 {
             0
         }
 
-        fn swap(&mut self, i: i32, j: i32) {}
+        fn swap(&mut self, _i: i32, _j: i32) {}
 
-        fn save(&mut self, i: i32, j: i32) {}
+        fn save(&mut self, _i: i32, _j: i32) {}
 
-        fn restore(&mut self, i: i32, j: i32) {}
+        fn restore(&mut self, _i: i32, _j: i32) {}
     }
     #[test]
     fn test_total_point_count_validation() -> Result<(), LuceneError> {

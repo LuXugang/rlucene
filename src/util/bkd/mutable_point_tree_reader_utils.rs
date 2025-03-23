@@ -750,13 +750,13 @@ pub(crate) mod tests {
     }
 
     #[derive(Clone)]
-    pub struct DummyPointsReader {
+    pub(crate) struct DummyPointsReader {
         points: Vec<Point>,
         temp: Vec<Point>,
     }
 
     impl DummyPointsReader {
-        pub fn new(points: &[Point]) -> Self {
+        fn new(points: &[Point]) -> Self {
             Self {
                 points: points.to_vec(),
                 temp: vec![Point::default(); points.len()],

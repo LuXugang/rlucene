@@ -948,7 +948,7 @@ mod tests {
         // Attempt to read more than the available bytes for small and large overflows
         length = IndexInput::length(&input);
         let pos = length - 10;
-        input.seek(pos as i64)?;
+        input.seek(pos)?;
 
         // Small overflow: read exactly remaining bytes
         check_read_bytes(&mut input, 10, pos as i32, &mut buffer)?;
@@ -959,13 +959,13 @@ mod tests {
         let mut result = check_read_bytes(&mut input, 11, pos as i32, &mut buffer);
         assert!(matches!(result, Err(LuceneError::Eof(_))));
 
-        input.seek(pos as i64)?;
+        input.seek(pos)?;
 
         result = check_read_bytes(&mut input, 50, pos as i32, &mut buffer);
         // Test large block read past end of file
         assert!(matches!(result, Err(LuceneError::Eof(_))));
 
-        input.seek(pos as i64)?;
+        input.seek(pos)?;
 
         result = check_read_bytes(&mut input, 100000, pos as i32, &mut buffer);
         // Test massive block read past end of file

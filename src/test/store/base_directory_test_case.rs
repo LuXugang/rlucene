@@ -802,7 +802,7 @@ pub trait BaseDirectoryTestCase {
                             Err(e) => {
                                 return Err(LuceneError::IoWithPath {
                                     path: file.to_string(),
-                                    source: Error::new(ErrorKind::Other, format!("{:?}", e)),
+                                    source: Error::other(format!("{:?}", e)),
                                 });
                             }
                         }

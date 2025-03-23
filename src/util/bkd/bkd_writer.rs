@@ -1793,7 +1793,7 @@ where
                                     .set(bucket as i32);
                             }
                             let cardinality =
-                                used_bytes[dim as usize].as_ref().unwrap().cardinality() as i32;
+                                used_bytes[dim as usize].as_ref().unwrap().cardinality();
                             if cardinality < sorted_dim_cardinality {
                                 sorted_dim = dim;
                                 sorted_dim_cardinality = cardinality;
@@ -2605,7 +2605,7 @@ where
     S: PointValuesBase,
 {
     fn less_than(&self, a: &MergeReader<S>, b: &MergeReader<S>) -> bool {
-        debug_assert!(a as *const _ != b as *const _);
+        debug_assert!(!std::ptr::eq(a, b));
         let cmp = self
             .comparator
             .compare(&a.packed_value, 0, &b.packed_value, 0);
