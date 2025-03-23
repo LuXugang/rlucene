@@ -104,5 +104,5 @@ pub use stable_msb_radix_sorter::*;
 pub use stable_string_sorter::*;
 pub use string_helper::*;
 pub use string_sorter::*;
-pub use vec_copy_ops::*;
+pub(crate) use vec_copy_ops::*;
 pub use version::*;

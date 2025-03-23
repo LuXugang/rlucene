@@ -79,6 +79,7 @@ where
     common_prefix_comparator: ByteArrayComparatorEnum,
     temp_dir: Rc<RefCell<D>>,
     temp_file_name_prefix: String,
+    #[allow(unused)]
     max_mb_sort_in_heap: f64,
     scratch_diff: Vec<u8>,
     scratch: Vec<u8>,

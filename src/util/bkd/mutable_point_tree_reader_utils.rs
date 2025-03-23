@@ -92,7 +92,6 @@ impl MutablePointTreeReaderUtils {
         let mut intro_sorter = IntroSorterImpl {
             reader,
             config: Rc::new(config.clone()),
-            bits_per_doc_id: 0,
             pivot: BytesRef::new(),
             scratch2: BytesRef::new(),
             pivot_doc: 0,
@@ -176,7 +175,6 @@ impl StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
 struct IntroSorterImpl<'a> {
     reader: &'a mut MutablePointTreeEnum,
     config: Rc<BKDConfig>,
-    bits_per_doc_id: i32,
     pivot: BytesRef,
     scratch2: BytesRef,
     pivot_doc: i32,
@@ -288,8 +286,6 @@ impl RadixSelectorBase for RadixSelectorImpl {
         let dim_comparator = ArrayUtil::get_unsigned_comparator(self.config.bytes_per_dim as usize);
 
         let sub_selector = IntroSelectorImpl {
-            split_dim: self.split_dim,
-            config: self.config.clone(),
             dim_cmp_bytes: self.dim_cmp_bytes,
             data_cmp_bytes: self.data_cmp_bytes,
             pivot: BytesRef::new(),
@@ -307,8 +303,6 @@ impl RadixSelectorBase for RadixSelectorImpl {
 }
 
 struct IntroSelectorImpl {
-    split_dim: i32,
-    config: Rc<BKDConfig>,
     dim_cmp_bytes: i32,
     data_cmp_bytes: i32,
     pivot: BytesRef,

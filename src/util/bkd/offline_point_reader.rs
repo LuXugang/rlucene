@@ -41,6 +41,7 @@ where
     points_in_buffer: i32,
     max_point_on_heap: i32,
     // File name we are reading
+    #[allow(unused)]
     name: String,
     point_value: Rc<RefCell<PointValueEnum>>,
 }

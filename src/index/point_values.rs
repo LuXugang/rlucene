@@ -86,11 +86,6 @@ where
                     point_tree.visit_doc_values(visitor)?;
                 }
             }
-            _ => {
-                return Err(LuceneError::illegal_argument(
-                    "Unreachable code".to_string(),
-                ))
-            }
         }
 
         Ok(())
