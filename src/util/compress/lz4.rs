@@ -770,6 +770,7 @@ mod tests {
     use crate::util::compress::lz4::{FastCompressionHashTable, HighCompressionHashTable, LZ4};
     use crate::util::compress::lz4::{HashTable, HashTableEnum};
     use crate::util::error::lucene_error::LuceneError;
+    use crate::util::SliceCopyOps;
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
     use std::cmp::min;
@@ -918,7 +919,7 @@ mod tests {
             };
 
             let mut copy = vec![0; data.len() + offset as usize + random.random_range(0..10)];
-            copy[offset as usize..offset as usize + data.len()].copy_from_slice(&data);
+            copy.copy_from(&data, offset as usize);
             Self::do_test_with_offset(
                 random,
                 Arc::new(copy),
@@ -1107,8 +1108,10 @@ mod tests {
             let restore_offset = TestUtil::next_int(random, 1, 10);
             let mut restored =
                 vec![0; (restore_offset + dict_len + length + random.random_range(0..10)) as usize];
-            restored[restore_offset as usize..(restore_offset + dict_len) as usize]
-                .copy_from_slice(&data[dict_off as usize..(dict_off + dict_len) as usize]);
+            restored.copy_from(
+                &data[dict_off as usize..(dict_off + dict_len) as usize],
+                restore_offset as usize,
+            );
 
             let mut input = ByteArrayDataInput::with_bytes(compressed);
             LZ4::decompress(&mut input, length, &mut restored, dict_len + restore_offset)?;

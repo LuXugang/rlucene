@@ -462,7 +462,7 @@ where
         if type_size == 1 {
             unsafe {
                 let dst_u8 = std::slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u8, len);
-                dst_u8.copy_from_slice(src);
+                dst_u8.copy_from(src, 0);
             }
         } else {
             for (i, dst_item) in dst.iter_mut().enumerate().take(len) {

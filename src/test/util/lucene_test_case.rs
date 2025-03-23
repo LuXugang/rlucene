@@ -26,6 +26,7 @@ use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, Test
 
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::SliceCopyOps;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::fmt;
@@ -235,8 +236,10 @@ pub(crate) fn new_bytes_ref(
 
     let mut bytes = vec![0u8; (start_offset + length + end_padding) as usize];
 
-    bytes[start_offset as usize..(start_offset + length) as usize]
-        .copy_from_slice(&bytes_in[offset as usize..(offset + length) as usize]);
+    bytes.copy_from(
+        &bytes_in[offset as usize..(offset + length) as usize],
+        start_offset as usize,
+    );
     // Create a BytesRef and return it
     let it = BytesRef {
         bytes,

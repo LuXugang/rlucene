@@ -18,7 +18,7 @@ use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, SliceCopyOps};
 use std::fmt::{Display, Formatter};
 
 pub(crate) struct ByteSliceReader {
@@ -131,8 +131,9 @@ impl DataInput for ByteSliceReader {
                 {
                     let mut pool = self.pool.as_ref().unwrap().borrow_mut();
                     let buffer = pool.get_buffer(self.buffer_upto);
-                    b[offset..offset + num_left as usize].copy_from_slice(
+                    b.copy_from(
                         &buffer[self.upto as usize..self.upto as usize + num_left as usize],
+                        offset,
                     );
                 }
                 offset += num_left as usize;
@@ -142,8 +143,10 @@ impl DataInput for ByteSliceReader {
                 let mut pool = self.pool.as_ref().unwrap().borrow_mut();
                 // This slice is the last one
                 let buffer = pool.get_buffer(self.buffer_upto);
-                b[offset..offset + len as usize]
-                    .copy_from_slice(&buffer[self.upto as usize..(self.upto + len) as usize]);
+                b.copy_from(
+                    &buffer[self.upto as usize..(self.upto + len) as usize],
+                    offset,
+                );
                 self.upto += len;
                 break;
             }

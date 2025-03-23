@@ -32,6 +32,7 @@ use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::packed::PackedInts;
+use crate::util::SliceCopyOps;
 use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use std::collections::{HashMap, HashSet};
@@ -1139,7 +1140,7 @@ pub trait BaseDirectoryTestCase {
             let mut data_copy = vec![0u8; data_len];
             let mut input_copy = new_dir.open_input(&file_name, &io_context)?;
 
-            data_copy[..header_len].copy_from_slice(&data_clone[..header_len]);
+            data_copy.copy_from(&data_clone[..header_len], 0);
 
             DataInput::read_bytes(
                 &mut input_copy,
@@ -1544,7 +1545,7 @@ pub trait BaseDirectoryTestCase {
                 assert_eq!((num - i) as i64 - j, RandomAccessInput::length(&slice2));
 
                 let mut data = vec![0u8; num];
-                data[..i + j as usize].copy_from_slice(&bytes[..i + j as usize]);
+                data.copy_from(&bytes[..i + j as usize], 0);
 
                 if random.random_bool(0.5) {
                     // Read the bytes for this slice-of-slice

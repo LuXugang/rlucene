@@ -36,6 +36,7 @@ pub(crate) trait SliceCopyOps<T: Copy> {
 }
 
 impl<T: Copy> SliceCopyOps<T> for Vec<T> {
+    #[inline]
     fn copy_from(&mut self, src: &[T], offset: usize) {
         self.as_mut_slice().copy_from(src, offset)
     }

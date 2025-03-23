@@ -1105,6 +1105,7 @@ mod tests {
         PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
         MAX_SUPPORTED_BITS_PER_VALUE,
     };
+    use crate::util::SliceCopyOps;
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
@@ -2116,7 +2117,7 @@ mod tests {
                 byte_blocks
                     .chunks_exact_mut(8)
                     .zip(blocks.iter())
-                    .for_each(|(chunk, &block)| chunk.copy_from_slice(&block.to_be_bytes()));
+                    .for_each(|(chunk, &block)| chunk.copy_from(&block.to_be_bytes(), 0));
 
                 decoder.decode_u8_to_i64(
                     &byte_blocks,

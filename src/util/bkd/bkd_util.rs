@@ -137,7 +137,9 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_util::BitUtil;
     use crate::util::bkd::bkd_util::BKDUtil;
+    use crate::util::SliceCopyOps;
     use rand::Rng;
+
     #[allow(dead_code)] // for quick search
     struct TestBKDUtil;
 
@@ -153,7 +155,7 @@ mod tests {
         for i in 0..BitUtil::INT_BYTES {
             a[a_offset + i] = random.random();
         }
-        b[b_offset..b_offset + 4].copy_from_slice(&a[a_offset..a_offset + 4]);
+        b.copy_from(&a[a_offset..a_offset + 4], b_offset);
 
         assert!(BKDUtil::equals4(&a, a_offset, &b, b_offset));
 
@@ -180,7 +182,7 @@ mod tests {
         for i in 0..BitUtil::LONG_BYTES {
             a[a_offset + i] = random.random();
         }
-        b[b_offset..b_offset + 8].copy_from_slice(&a[a_offset..a_offset + 8]);
+        b.copy_from(&a[a_offset..a_offset + 8], b_offset);
 
         assert!(BKDUtil::equals8(&a, a_offset, &b, b_offset));
 

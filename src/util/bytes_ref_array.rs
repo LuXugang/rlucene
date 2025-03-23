@@ -24,8 +24,8 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
     ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, CounterEnumBorrow,
-    CounterEnumLock, MSBRadixSorterBase, Sorter, StableStringSorter, StableStringSorterBase,
-    StringSorter, StringSorterBase,
+    CounterEnumLock, MSBRadixSorterBase, SliceCopyOps, Sorter, StableStringSorter,
+    StableStringSorterBase, StringSorter, StringSorterBase,
 };
 use std::sync::Arc;
 
@@ -401,8 +401,8 @@ where
         self.tmp[j as usize] = self.ordered_entries[i as usize];
     }
     fn restore(&mut self, i: i32, j: i32) {
-        self.ordered_entries[i as usize..j as usize]
-            .copy_from_slice(&self.tmp[i as usize..j as usize]);
+        self.ordered_entries
+            .copy_from(&self.tmp[i as usize..j as usize], i as usize);
     }
 }
 impl<A> MSBRadixSorterBase for StableStringSorterImpl<'_, A> where A: Access<CounterEnum> {}

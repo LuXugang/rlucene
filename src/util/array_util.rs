@@ -648,7 +648,7 @@ mod tests {
     };
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{NaturalOrder, ReverseOrder, ToInt};
+    use crate::util::{NaturalOrder, ReverseOrder, SliceCopyOps, ToInt};
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cmp::Ordering;
@@ -720,7 +720,7 @@ mod tests {
         let extra_length = random.random_range(0..4);
         let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
         let s_chars: Vec<char> = s.chars().collect();
-        chars[start..start + s.len()].copy_from_slice(&s_chars);
+        chars.copy_from(&s_chars, start);
         ArrayUtil::parse_int_default(&chars, start as i32, s.len() as i32)
     }
     #[test]

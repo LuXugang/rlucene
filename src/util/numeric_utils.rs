@@ -258,7 +258,7 @@ impl NumericUtils {
                 "Index out of bounds in result array".to_string(),
             ));
         }
-        result[offset..offset + big_int_size].copy_from_slice(&full_big_int_bytes);
+        result.copy_from(&full_big_int_bytes, offset);
 
         debug_assert!(
             {

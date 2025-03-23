@@ -28,7 +28,7 @@ use crate::util::bytes_ref_hash::{
 };
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::int_block_pool::IntBlockPool;
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, SliceCopyOps};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -253,8 +253,7 @@ impl TermsHashPerField {
                 block_index = buffer_upto;
                 let slice = byte_pool.get_buffer(buffer_upto);
                 let write_length = std::cmp::min(slice_length as usize - 1, end - offset);
-                slice[slice_offset..slice_offset + write_length]
-                    .copy_from_slice(&b[offset..offset + write_length]);
+                slice.copy_from(&b[offset..offset + write_length], slice_offset);
                 slice_offset += write_length;
                 offset += write_length;
                 debug_assert!(slice_offset <= i32::MAX as usize);

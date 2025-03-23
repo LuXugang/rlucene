@@ -491,7 +491,7 @@ mod tests {
 
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
+    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
     use std::collections::{BTreeSet, HashSet};
 
     #[allow(dead_code)] // for quick search
@@ -559,7 +559,7 @@ mod tests {
             let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len) as usize];
             random.fill_bytes(&mut b[common_prefix_len..]);
 
-            b[..common_prefix_len].copy_from_slice(&common_prefix);
+            b.copy_from(&common_prefix, 0);
 
             bytes.push(BytesRef::from_bytes(b));
         }

@@ -114,7 +114,7 @@ where
     pub fn copy_dim(&self, i: i32, dim: i32, bytes: &mut [u8], offset: usize) {
         let start = (i * self.config.bytes_per_doc() + dim) as usize;
         let len = self.config.bytes_per_dim as usize;
-        bytes[offset..offset + len].copy_from_slice(&self.block.borrow()[start..start + len]);
+        bytes.copy_from(&self.block.borrow()[start..start + len], offset);
     }
 
     /// Copy the data dimensions and doc value of the point at position `i` in the provided
@@ -123,7 +123,7 @@ where
         let start =
             (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
         let len = self.data_dims_and_doc_length as usize;
-        bytes[offset..offset + len].copy_from_slice(&self.block.borrow()[start..start + len]);
+        bytes.copy_from(&self.block.borrow()[start..start + len], offset);
     }
 
     /// Compares the dimension `dim` value of the point at position `i` with the point at

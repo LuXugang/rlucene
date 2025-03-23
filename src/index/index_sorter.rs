@@ -208,7 +208,7 @@ mod tests {
         for _ in 0..len {
             let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
             random.fill_bytes(&mut b[common_prefix_len..]);
-            b[..common_prefix_len].copy_from_slice(&common_prefix);
+            b.copy_from(&common_prefix, 0);
             bytes.push(BytesRef::from_bytes(b));
         }
 

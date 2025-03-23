@@ -33,7 +33,7 @@ pub mod tests {
     use crate::util::bkd::bkd_writer::BKDWriter;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::numeric_utils::NumericUtils;
-    use crate::util::ToInt;
+    use crate::util::{SliceCopyOps, ToInt};
     use bit_set::BitSet;
     use num_bigint::{BigInt, Sign};
     use num_traits::Zero;
@@ -942,9 +942,10 @@ pub mod tests {
                         BytesRef::from_bytes(doc_values[ord][dim as usize].to_vec())
                     );
                 }
-                scratch[(dim * num_bytes_per_dim) as usize
-                    ..(dim * num_bytes_per_dim + num_bytes_per_dim) as usize]
-                    .copy_from_slice(&doc_values[ord][dim as usize][0..num_bytes_per_dim as usize]);
+                scratch.copy_from(
+                    &doc_values[ord][dim as usize][0..num_bytes_per_dim as usize],
+                    (dim * num_bytes_per_dim) as usize,
+                );
             }
 
             writer.add(&scratch, doc_id - last_doc_id_base)?;
@@ -1500,14 +1501,14 @@ pub mod tests {
             let len = (self.num_data_dims * self.num_bytes_per_dim) as usize;
             if self.previous.is_none() {
                 let mut value = vec![0u8; len];
-                value[0..len].copy_from_slice(&packed_value[..len]);
+                value.copy_from(&packed_value[..len], 0);
                 self.previous = Some(value);
             } else if let Some(prev) = &mut self.previous {
                 let mismatch = packed_value.eq(prev.as_slice());
                 if !mismatch {
                     if !self.has_changed {
                         self.has_changed = true;
-                        prev[0..len].copy_from_slice(&packed_value[..len]);
+                        prev.copy_from(&packed_value[..len], 0);
                     } else {
                         return Err(LuceneError::illegal_state(
                             "Points are not in optimal order".to_string(),
@@ -1545,8 +1546,10 @@ pub mod tests {
         // Equal index dimensions but different data dimensions
         for i in 0..num_index_dims {
             let offset = (i * num_bytes_per_dim) as usize;
-            point_value2[offset..offset + num_bytes_per_dim as usize]
-                .copy_from_slice(&point_value1[offset..offset + num_bytes_per_dim as usize]);
+            point_value2.copy_from(
+                &point_value1[offset..offset + num_bytes_per_dim as usize],
+                offset,
+            );
         }
 
         let config = Rc::new(BKDConfig::new(
@@ -1753,7 +1756,7 @@ pub mod tests {
             for dim in 0..num_dims {
                 random.fill_bytes(&mut tmp);
                 let offset = (dim * bytes_per_dim + (bytes_per_dim - bytes_used)) as usize;
-                buffer[offset..offset + bytes_used as usize].copy_from_slice(&tmp);
+                buffer.copy_from(&tmp, offset);
             }
             writer.add(&buffer, doc_id)?;
         }
