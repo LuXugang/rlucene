@@ -28,7 +28,7 @@ use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::util::selector::Selector;
 use crate::util::{
     CommonUtil, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorter,
-    MSBRadixSorterBase, Sorter, VecCopyOps,
+    MSBRadixSorterBase, SliceCopyOps, Sorter,
 };
 use std::cell::RefCell;
 use std::cmp::min;
@@ -1068,7 +1068,7 @@ mod tests {
         use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
         use crate::util::error::lucene_error::LuceneError;
         use crate::util::numeric_utils::NumericUtils;
-        use crate::util::{CommonUtil, ToInt, VecCopyOps};
+        use crate::util::{CommonUtil, SliceCopyOps, ToInt};
         use rand::rngs::StdRng;
         use rand::Rng;
         use std::cell::RefCell;
@@ -1748,7 +1748,7 @@ mod tests {
         use crate::util::bkd::point_value::PointValue;
         use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
         use crate::util::error::lucene_error::LuceneError;
-        use crate::util::{CommonUtil, ToInt, VecCopyOps};
+        use crate::util::{CommonUtil, SliceCopyOps, ToInt};
         use rand::prelude::StdRng;
         use rand::Rng;
         use std::cell::RefCell;

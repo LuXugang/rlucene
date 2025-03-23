@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::Checksum;
-use crate::util::VecCopyOps;
+use crate::util::SliceCopyOps;
 
 /// Wraps another [`Checksum`] with an internal buffer to speed up checksum calculations.
 pub struct BufferedChecksum<T: Checksum> {

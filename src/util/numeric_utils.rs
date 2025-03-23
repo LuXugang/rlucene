@@ -16,7 +16,7 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::VecCopyOps;
+use crate::util::SliceCopyOps;
 use num_bigint::{BigInt, Sign};
 
 pub struct NumericUtils;
@@ -305,7 +305,7 @@ mod tests {
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::numeric_utils::NumericUtils;
-    use crate::util::VecCopyOps;
+    use crate::util::SliceCopyOps;
     use num_bigint::{BigInt, Sign};
     use num_traits::{Float, FromPrimitive};
     use rand::Rng;

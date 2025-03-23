@@ -20,7 +20,7 @@ use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::VecCopyOps;
+use crate::util::SliceCopyOps;
 use std::cmp::min;
 
 // TODO

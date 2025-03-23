@@ -26,7 +26,7 @@ use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::VecCopyOps;
+use crate::util::SliceCopyOps;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 

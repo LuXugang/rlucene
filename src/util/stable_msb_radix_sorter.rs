@@ -16,7 +16,7 @@
  */
 
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{check_range, MSBRadixSorterBase, Sorter, VecCopyOps, HISTOGRAM_SIZE};
+use crate::util::{check_range, MSBRadixSorterBase, SliceCopyOps, Sorter, HISTOGRAM_SIZE};
 
 pub struct StableMSBRadixSorter<T>
 where
@@ -277,7 +277,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::stable_msb_radix_sorter::{StableMSBRadixSorter, StableMSBRadixSorterBase};
-    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter, VecCopyOps};
+    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
     use std::collections::HashSet;
 
     #[allow(dead_code)] // for quick search

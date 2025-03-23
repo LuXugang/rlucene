@@ -23,7 +23,7 @@ use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum, CounterEnumBorrow,
-    CounterEnumLock, VecCopyOps,
+    CounterEnumLock, SliceCopyOps,
 };
 use std::cell::RefCell;
 use std::marker::PhantomData;

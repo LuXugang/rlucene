@@ -21,7 +21,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::selector::Selector;
 use crate::util::{
     ArrayIntroSorter, Comparator, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault,
-    NaturalOrder, Sorter, TimSorter, ToInt, VecCopyOps,
+    NaturalOrder, SliceCopyOps, Sorter, TimSorter, ToInt,
 };
 use std::cmp::Ordering;
 use std::mem;

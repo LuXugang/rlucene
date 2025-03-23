@@ -17,7 +17,7 @@
 use crate::index::bytes_ref::BytesRef;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::VecCopyOps;
+use crate::util::SliceCopyOps;
 
 /// A builder for {@link BytesRef} instances.
 pub struct BytesRefBuilder {

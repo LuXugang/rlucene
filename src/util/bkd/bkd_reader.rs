@@ -25,7 +25,7 @@ use crate::util::bkd::bkd_writer::BKDWriter;
 use crate::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::math_util::MathUtil;
-use crate::util::VecCopyOps;
+use crate::util::SliceCopyOps;
 use std::cell::RefCell;
 use std::rc::Rc;
 

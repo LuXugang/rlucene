@@ -20,7 +20,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::group_vint_util::GroupVIntUtil;
-use crate::util::{ReadableCursorExt, VecCopyOps};
+use crate::util::{ReadableCursorExt, SliceCopyOps};
 use byteorder::{ByteOrder, LE};
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -125,7 +125,7 @@ impl<'a> ByteBuffersDataInput<'a> {
             let output_bytes = unsafe {
                 std::slice::from_raw_parts_mut(output.as_mut_ptr() as *mut u8, output.len())
             };
-            bytes.copy_to(output_bytes, 0);
+            output_bytes.copy_from(&bytes, 0);
         } else {
             output
                 .iter_mut()

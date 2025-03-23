@@ -379,7 +379,7 @@ pub(crate) mod tests {
     use crate::util::bkd::bkd_config::BKDConfig;
     use crate::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{ToInt, VecCopyOps};
+    use crate::util::{SliceCopyOps, ToInt};
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
     use std::cell::RefCell;

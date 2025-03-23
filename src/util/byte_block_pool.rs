@@ -19,7 +19,7 @@ use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum};
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, VecCopyOps};
+use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;
 use std::cmp::min;
 use std::rc::Rc;
@@ -317,9 +317,9 @@ where
                 let mut pos = (offset & ByteBlockPool::BYTE_BLOCK_MASK as i64) as i32;
                 while bytes_left > 0 {
                     let chunk = min(ByteBlockPool::BYTE_BLOCK_SIZE - pos, bytes_left);
-                    self.buffers[buffer_index].copy_to(
-                        &mut bytes[bytes_offset as usize..(bytes_offset + chunk) as usize],
-                        pos as usize,
+                    bytes.copy_from(
+                        &self.buffers[buffer_index][pos as usize..(pos + chunk) as usize],
+                        bytes_offset as usize,
                     );
 
                     bytes_offset += chunk;
@@ -382,7 +382,7 @@ mod tests {
     };
 
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::{ByteBlockPool, CounterEnum, VecCopyOps};
+    use crate::util::{ByteBlockPool, CounterEnum, SliceCopyOps};
     use rand::distr::Alphanumeric;
     use rand::{Rng, RngCore};
     use std::cell::RefCell;

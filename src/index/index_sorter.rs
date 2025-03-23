@@ -100,8 +100,8 @@ mod tests {
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
     use crate::util::{
-        Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
-        VecCopyOps,
+        Comparator, MSBRadixSorterBase, NaturalOrder, SliceCopyOps, Sorter, StringSorter,
+        StringSorterBase,
     };
 
     #[allow(dead_code)] // for quick search

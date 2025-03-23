@@ -42,7 +42,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::numeric_utils::NumericUtils;
 use crate::util::priority_queue::{Compare, PriorityQueue};
-use crate::util::{ToInt, VecCopyOps};
+use crate::util::{SliceCopyOps, ToInt};
 use std::cell::RefCell;
 use std::cmp::max;
 use std::rc::Rc;

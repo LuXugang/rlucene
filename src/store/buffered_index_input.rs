@@ -21,7 +21,7 @@ use crate::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::group_vint_util::GroupVIntUtil;
-use crate::util::{ReadableCursorExt, VecCopyOps};
+use crate::util::{ReadableCursorExt, SliceCopyOps};
 use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;

@@ -23,7 +23,7 @@ use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{CommonUtil, ToInt, VecCopyOps};
+use crate::util::{CommonUtil, SliceCopyOps, ToInt};
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::{Display, Formatter};
