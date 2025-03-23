@@ -24,7 +24,7 @@ use crate::util::bits::{Bits, MatchNoBits};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
-use std::cmp::min;
+
 use std::rc::Rc;
 
 // Number of documents in a block
@@ -138,7 +138,7 @@ impl RoaringDocIdSetBuilder {
         } else {
             if self.dense_buffer.length() == 0 {
                 // the buffer is full, let's move to a fixed bit set
-                let num_bits = min(1 << 16, self.max_doc - (block << 16));
+                let num_bits = std::cmp::min(1 << 16, self.max_doc - (block << 16));
                 self.dense_buffer = FixedBitSet::new(num_bits);
                 for i in 0..self.buffer.len() {
                     self.dense_buffer.set(self.buffer[i] as i32 & 0xFFFF);

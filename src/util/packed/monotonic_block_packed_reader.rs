@@ -21,7 +21,7 @@ use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};
 use crate::util::ram_usage_estimator::RamUsageEstimator;
-use std::cmp::min;
+
 use std::fmt::Display;
 
 const BLOCK_SIZE: i32 = u8::BITS as i32; // #bits in a block
@@ -80,7 +80,7 @@ impl MonotonicBlockPackedReader {
                 // Zero-filled reader
                 sub_readers.push(LongValuesEnum::ZeroesLongValues(Zeroes));
             } else {
-                let size = min(
+                let size = std::cmp::min(
                     block_size,
                     (value_count - i as i64 * block_size as i64) as i32,
                 );

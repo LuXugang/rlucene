@@ -21,7 +21,6 @@ use crate::util::allocator_byte::{AllocatorByteEnum, MTAllocatorByteEnum, STAllo
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;
-use std::cmp::min;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
@@ -237,7 +236,8 @@ where
         debug_assert!(length <= ByteBlockPool::BYTE_BLOCK_SIZE - self.byte_upto);
         while length > 0 {
             let src_pos = src_offset & ByteBlockPool::BYTE_BLOCK_MASK as i64;
-            let bytes_to_copy = min(ByteBlockPool::BYTE_BLOCK_SIZE - src_pos as i32, length);
+            let bytes_to_copy =
+                std::cmp::min(ByteBlockPool::BYTE_BLOCK_SIZE - src_pos as i32, length);
             self.buffers[self.buffer_upto as usize].copy_from(
                 &src_pool.buffers[(src_offset >> ByteBlockPool::BYTE_BLOCK_SHIFT) as usize]
                     [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
@@ -311,7 +311,7 @@ where
                 let mut buffer_index = buffer_index as usize;
                 let mut pos = (offset & ByteBlockPool::BYTE_BLOCK_MASK as i64) as i32;
                 while bytes_left > 0 {
-                    let chunk = min(ByteBlockPool::BYTE_BLOCK_SIZE - pos, bytes_left);
+                    let chunk = std::cmp::min(ByteBlockPool::BYTE_BLOCK_SIZE - pos, bytes_left);
                     bytes.copy_from(
                         &self.buffers[buffer_index][pos as usize..(pos + chunk) as usize],
                         bytes_offset as usize,

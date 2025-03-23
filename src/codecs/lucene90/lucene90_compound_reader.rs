@@ -273,7 +273,7 @@ where
     }
 
     fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock> {
-        Err::<DummyLock,LuceneError>(LuceneError::illegal_state(
+        Err::<DummyLock, LuceneError>(LuceneError::illegal_state(
             "obtain_lock() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))

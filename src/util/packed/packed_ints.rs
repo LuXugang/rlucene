@@ -27,7 +27,7 @@ use crate::util::packed::packed64::Packed64;
 use crate::util::packed::packed64_single_block::create;
 use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
-use std::cmp::min;
+
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::string::ToString;
@@ -718,7 +718,7 @@ pub trait Reader: Accountable {
             "offset + len exceeds array length"
         );
 
-        let gets = min(self.size() - index, len);
+        let gets = std::cmp::min(self.size() - index, len);
         for (i, o) in (index..index + gets).zip(off..off + gets) {
             arr[o as usize] = self.get(i)?;
         }

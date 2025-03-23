@@ -21,7 +21,6 @@ use crate::util::bits::Bits;
 
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::SliceCopyOps;
-use std::cmp::min;
 
 // TODO
 #[allow(unused)]
@@ -525,7 +524,7 @@ impl BitSet for SparseFixedBitSet {
                                                                  // expected
         let estimate =
             (total_longs as f64 * (total_longs as f64 / zero_longs as f64).ln()).round() as i64;
-        min(self.length as i64, estimate) as i32
+        std::cmp::min(self.length as i64, estimate) as i32
     }
 
     fn prev_set_bit(&self, i: i32) -> i32 {

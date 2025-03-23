@@ -44,7 +44,6 @@ use crate::util::numeric_utils::NumericUtils;
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::{SliceCopyOps, ToInt};
 use std::cell::RefCell;
-use std::cmp::max;
 use std::rc::Rc;
 // TODO
 //   - allow variable length `byte[]` (across docs and dims), but this is quite a bit more complex
@@ -1322,7 +1321,7 @@ where
         // does not only have equal values. This helps ensure all dimensions are indexed.
         let mut max_num_splits = 0;
         for num_splits in parent_splits {
-            max_num_splits = max(max_num_splits, *num_splits);
+            max_num_splits = std::cmp::max(max_num_splits, *num_splits);
         }
 
         for (dim, &split_count) in parent_splits

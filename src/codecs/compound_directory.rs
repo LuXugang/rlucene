@@ -120,7 +120,7 @@ where
     }
 
     fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock> {
-        Err::<DummyLock,LuceneError>(LuceneError::unsupported_operation(
+        Err::<DummyLock, LuceneError>(LuceneError::unsupported_operation(
             "obtain_lock".to_string(),
         ))
     }

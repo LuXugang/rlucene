@@ -44,7 +44,6 @@ where
     pub data_dims_and_doc_length: i32,
     pub next_write: i32,
     pub closed: bool,
-    // todo: 在closed为true了以后 我们移动point_value的所有权到reader？
     pub point_value: Option<Rc<RefCell<PointValueEnum>>>,
     _phantom: std::marker::PhantomData<D>,
 }

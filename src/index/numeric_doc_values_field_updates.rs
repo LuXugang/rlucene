@@ -57,7 +57,8 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
     ) -> Result<
         NumericDocValuesFieldUpdates<
             impl AbstractPagedMutableBase<PagedMutableBase = PagedMutable>,
-        >> {
+        >,
+    > {
         let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
         let sub_reader =
             PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);

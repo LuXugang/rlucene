@@ -411,7 +411,7 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use rand::rngs::StdRng;
     use rand::Rng;
-    use std::cmp::min;
+
     use std::io::Cursor;
 
     trait AbstractTestCompressionMode {
@@ -554,11 +554,11 @@ mod tests {
                 let compressed = self.compress(
                     &decompressed,
                     0,
-                    min(decompressed.len(), limit as usize) as i32,
+                    std::cmp::min(decompressed.len(), limit as usize) as i32,
                     limit,
                 )?;
                 assert!(decompressed.len() <= i32::MAX as usize);
-                let valid_len = min(decompressed.len(), limit as usize) as i32;
+                let valid_len = std::cmp::min(decompressed.len(), limit as usize) as i32;
                 let (offset, length) = if valid_len == 0 {
                     (0, 0)
                 } else {
@@ -590,12 +590,12 @@ mod tests {
         ) -> Result<Vec<u8>> {
             assert!(off <= limit);
             assert!(limit <= len);
-            let compressed = self.compress(decompressed, off, min(len, limit), limit)?;
+            let compressed = self.compress(decompressed, off, std::cmp::min(len, limit), limit)?;
             let compressed_copy = compressed.clone();
             let restored = self.decompress(compressed, limit)?;
             assert_eq!(limit as usize, restored.len());
             assert_eq!(
-                ArrayUtil::copy_of_sub_array(decompressed, off, off + min(len, limit)),
+                ArrayUtil::copy_of_sub_array(decompressed, off, off + std::cmp::min(len, limit)),
                 restored
             );
             Ok(compressed_copy)

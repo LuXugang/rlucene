@@ -22,7 +22,7 @@ use crate::util::bits::Bits;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bits::FixedBits;
-use std::cmp::min;
+
 use std::hash::{Hash, Hasher};
 
 // todo
@@ -104,7 +104,7 @@ impl FixedBitSet {
     pub fn intersection_count(a: FixedBitSet, b: FixedBitSet) -> i64 {
         // Depends on the ghost bits being clear!
         let mut tot = 0;
-        let num_common_words = min(a.num_words, b.num_words) as usize;
+        let num_common_words = std::cmp::min(a.num_words, b.num_words) as usize;
         for i in 0..num_common_words {
             tot += (a.bits[i] & b.bits[i]).count_ones();
         }
@@ -115,7 +115,7 @@ impl FixedBitSet {
     pub fn union_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         // Depends on the ghost bits being clear!
         let mut tot = 0;
-        let num_common_words = min(a.num_words, b.num_words) as usize;
+        let num_common_words = std::cmp::min(a.num_words, b.num_words) as usize;
         for i in 0..num_common_words {
             tot += (a.bits[i] | b.bits[i]).count_ones();
         }
@@ -132,7 +132,7 @@ impl FixedBitSet {
     /// is modified.
     pub fn and_not_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         let mut tot = 0;
-        let num_common_words = min(a.num_words, b.num_words) as usize;
+        let num_common_words = std::cmp::min(a.num_words, b.num_words) as usize;
         for i in 0..num_common_words {
             tot += (a.bits[i] & !b.bits[i]).count_ones();
         }
@@ -237,7 +237,7 @@ impl FixedBitSet {
             self.num_words,
             other_num_words
         );
-        let pos = min(self.num_words - other_offset_words, other_num_words) as usize;
+        let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words) as usize;
         let offset = other_offset_words as usize;
         for i in (0..pos).rev() {
             self.bits[i + offset] |= other_arr[i];
@@ -260,7 +260,7 @@ impl FixedBitSet {
             self.num_words,
             other_num_words
         );
-        let pos = min(self.num_words, other_num_words) as usize;
+        let pos = std::cmp::min(self.num_words, other_num_words) as usize;
         for i in (0..pos).rev() {
             self.bits[i] ^= other_bits[i];
         }
@@ -268,7 +268,7 @@ impl FixedBitSet {
 
     pub fn intersects(&self, other: &FixedBitSet) -> bool {
         // Depends on the ghost bits being clear!
-        let pos = min(self.num_words, other.num_words) as usize;
+        let pos = std::cmp::min(self.num_words, other.num_words) as usize;
         for i in (0..pos).rev() {
             if self.bits[i] != other.bits[i] {
                 return true;
@@ -283,7 +283,7 @@ impl FixedBitSet {
     }
 
     pub fn and_self(&mut self, other_arr: &[i64], other_num_words: i32) {
-        let pos = min(self.num_words, other_num_words) as usize;
+        let pos = std::cmp::min(self.num_words, other_num_words) as usize;
         for i in (0..pos).rev() {
             self.bits[i] &= other_arr[i];
         }
@@ -315,7 +315,7 @@ impl FixedBitSet {
     }
 
     fn and_not_impl(&mut self, other_offset_words: i32, other_arr: &[i64], other_num_words: i32) {
-        let pos = min(self.num_words - other_offset_words, other_num_words) as usize;
+        let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words) as usize;
         let offset = other_offset_words as usize;
         for i in (0..pos).rev() {
             self.bits[i + offset] &= !other_arr[i];

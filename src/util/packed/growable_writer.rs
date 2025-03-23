@@ -18,7 +18,7 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::{Mutable, PackedInts, Reader};
-use std::cmp::min;
+
 use std::fmt::{Display, Formatter};
 
 /// Implements [`Mutable`], but grows the bit count of the underlying packed ints
@@ -91,7 +91,7 @@ impl GrowableWriter {
             new_size,
             self.acceptable_overhead_ratio,
         )?;
-        let limit = min(self.size(), new_size);
+        let limit = std::cmp::min(self.size(), new_size);
         PackedInts::copy(
             &mut self.current,
             0,

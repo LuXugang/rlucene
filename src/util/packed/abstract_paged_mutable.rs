@@ -19,7 +19,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 use crate::util::packed::mutable_enum::MutableEnum;
 use crate::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
-use std::cmp::min;
+
 use std::fmt::Display;
 
 const MIN_BLOCK_SIZE: i32 = 1 << 6;
@@ -129,7 +129,7 @@ where
         let mut copy = self
             .sub_reader
             .new_unfilled_copy(new_size, self.page_size())?;
-        let num_common_pages = min(copy.sub_mutables.len(), self.sub_mutables.len());
+        let num_common_pages = std::cmp::min(copy.sub_mutables.len(), self.sub_mutables.len());
         let mut copy_buffer = vec![0i64; 1024];
         for i in 0..copy.sub_mutables.len() {
             // Determine the number of values in the current page
@@ -146,7 +146,7 @@ where
             copy.sub_mutables[i] = self.sub_reader.new_mutable(value_count, bpv)?;
 
             if i < num_common_pages {
-                let copy_length = min(value_count, self.sub_mutables[i].size());
+                let copy_length = std::cmp::min(value_count, self.sub_mutables[i].size());
                 PackedInts::copy_with_buffer(
                     &mut self.sub_mutables[i],
                     0,

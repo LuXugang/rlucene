@@ -19,7 +19,6 @@ use crate::index::BytesRefBuilder;
 use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{check_range, Sorter};
-use std::cmp::min;
 
 /// After this many levels of recursion, we fall back to introsort.
 /// This protects against poor performance when there are long common prefixes,
@@ -77,7 +76,8 @@ where
     ///
     fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> Result<i32> {
         let common_prefix = &mut self.common_prefix;
-        let mut common_prefix_length = min(common_prefix.len(), (self.max_length - k) as usize);
+        let mut common_prefix_length =
+            std::cmp::min(common_prefix.len(), (self.max_length - k) as usize);
 
         for (j, slot) in common_prefix
             .iter_mut()

@@ -24,7 +24,6 @@ use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use rand::prelude::StdRng;
 use rand::Rng;
-use std::cmp::max;
 
 pub trait BaseDocIdSetTestCase {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet;
@@ -155,7 +154,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                     let skip_length = if random.random_bool(0.5) {
                         64
                     } else {
-                        max(num_bits / 8, 1)
+                        std::cmp::max(num_bits / 8, 1)
                     };
                     let target = docs[index] + 1 + random.random_range(0..=skip_length) as usize;
                     if let Some(i) = docs.iter().position(|&doc| doc == target) {

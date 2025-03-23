@@ -20,7 +20,6 @@ use crate::util::accountable::Accountable;
 use crate::util::bits::MatchNoBits;
 
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::cmp::min;
 use std::rc::Rc;
 
 // TODO
@@ -121,7 +120,7 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
             bound *= 2;
         }
         let mut start = self.i as usize + (bound / 2) as usize;
-        let end = min(self.i + bound + 1, self.length - 1) as usize;
+        let end = std::cmp::min(self.i + bound + 1, self.length - 1) as usize;
         let index = self.docs[start..end]
             .binary_search(&_target)
             .unwrap_or_else(|index| index);

@@ -20,7 +20,6 @@ use crate::util::bits::Bits;
 
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
-use std::cmp::max;
 
 /// A [`DocIdSetIterator`] like
 /// [`BitSetIterator`](crate::util::bit_set_iterator::BitSetIterator) but has a doc base in order to avoid
@@ -91,7 +90,9 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
         }
-        let next = self.bits.next_set_bit(max(0, target - self.doc_base));
+        let next = self
+            .bits
+            .next_set_bit(std::cmp::max(0, target - self.doc_base));
         if next == NO_MORE_DOCS {
             self.doc = NO_MORE_DOCS
         } else {

@@ -773,7 +773,7 @@ mod tests {
     use crate::util::SliceCopyOps;
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
-    use std::cmp::min;
+
     use std::sync::Arc;
 
     struct TestFastLZ4;
@@ -1045,11 +1045,11 @@ mod tests {
             let mut dict_len = 0;
             let mut i = TestUtil::next_int(random, 0, data.len() as i32);
             while i < data.len() as i32 && dict_len < LZ4::MAX_DISTANCE {
-                let l = min(
+                let l = std::cmp::min(
                     data.len() - i as usize,
                     TestUtil::next_int(random, 1, 32) as usize,
                 );
-                let l = min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
+                let l = std::cmp::min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
                 debug_assert!(l <= i32::MAX as usize);
                 copy.write_bytes_range(&data, i, l as i32)?;
                 dict_len += l as i32;

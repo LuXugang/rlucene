@@ -24,7 +24,7 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
-use std::cmp::min;
+
 use std::rc::Rc;
 
 /// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather documents,
@@ -81,7 +81,7 @@ impl DocIdSetBuilder {
         }
     }
     pub fn add_disi<D: DocIdSetIterator>(&mut self, mut iter: impl DocIdSetIterator) -> Result<()> {
-        let cost = min(iter.cost()?, i32::MAX as i64);
+        let cost = std::cmp::min(iter.cost()?, i32::MAX as i64);
         self.grow(cost as i32);
         if self.bit_set.is_some() {
             let _ = BitSet::or(self.bit_set.as_mut().unwrap(), iter);

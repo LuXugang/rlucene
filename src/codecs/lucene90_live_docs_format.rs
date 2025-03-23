@@ -16,7 +16,6 @@
  */
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::index::segment_commit_info::SegmentCommitInfo;
-use std::cmp::min;
 
 use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
@@ -82,7 +81,7 @@ impl Lucene90LiveDocsFormat {
         for i in 0..long_count {
             let mut current_bits = 0i64;
             let start = i << 6;
-            let end = min(start + 63, bits.length() - 1);
+            let end = std::cmp::min(start + 63, bits.length() - 1);
 
             for j in start..=end {
                 if bits.get(j) {

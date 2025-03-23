@@ -28,7 +28,6 @@ use crate::util::{
     Sorter, StableMSBRadixSorter, StableMSBRadixSorterBase, ToInt,
 };
 use std::cell::RefCell;
-use std::cmp::max;
 use std::rc::Rc;
 
 /// Utility APIs for sorting and partitioning buffered points.
@@ -151,7 +150,7 @@ impl MSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
             Ok(self.reader.get_byte_at(i, k) as i32)
         } else {
             let shift = self.bits_per_doc_id - ((k - self.config.packed_bytes_length() + 1) << 3);
-            let effective_shift = max(0, shift) as u32;
+            let effective_shift = std::cmp::max(0, shift) as u32;
             Ok(((self.reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32)
         }
     }

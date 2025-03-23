@@ -31,7 +31,7 @@ use crate::util::{
     MSBRadixSorterBase, SliceCopyOps, Sorter,
 };
 use std::cell::RefCell;
-use std::cmp::min;
+
 use std::rc::Rc;
 
 /// Offline Radix selector for BKD tree.
@@ -261,9 +261,9 @@ where
                 let point_value = point_value_ref.borrow();
                 // Check common prefix and adjust histogram
                 let scratch_start_index =
-                    min(dim_common_prefix, self.config.bytes_per_dim) as usize;
+                    std::cmp::min(dim_common_prefix, self.config.bytes_per_dim) as usize;
                 let scratch_end_index =
-                    min(common_prefix_position, self.config.bytes_per_dim) as usize;
+                    std::cmp::min(common_prefix_position, self.config.bytes_per_dim) as usize;
                 let (value, packed_value_offset, _length) = point_value.packed_value_doc_id_bytes();
                 let packed_value_start_index =
                     (packed_value_offset + offset) as usize + scratch_start_index;

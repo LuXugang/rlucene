@@ -18,7 +18,6 @@ use crate::index::BytesRefBuilder;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::selector::Selector;
 use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault};
-use std::cmp::{max, min};
 
 pub struct RadixSelector<T>
 where
@@ -47,7 +46,7 @@ where
     pub fn new(max_length: i32, sub_selector: T) -> Self {
         RadixSelector {
             max_length,
-            common_prefix: vec![0; max(24, max_length) as usize],
+            common_prefix: vec![0; std::cmp::max(24, max_length) as usize],
             histogram: vec![0; Self::HISTOGRAM_SIZE],
             sub_selector,
         }
@@ -139,7 +138,8 @@ where
 
     fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> i32 {
         let common_prefix = &mut self.common_prefix;
-        let mut common_prefix_length = min(common_prefix.len() as i32, self.max_length - k);
+        let mut common_prefix_length =
+            std::cmp::min(common_prefix.len() as i32, self.max_length - k);
         for j in 0..common_prefix_length {
             let b = self.sub_selector.byte_at(from, k + j);
             common_prefix[j as usize] = b;

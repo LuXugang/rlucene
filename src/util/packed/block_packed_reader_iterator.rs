@@ -22,7 +22,7 @@ use crate::util::packed::abstract_block_packed_writer::{
     BPV_SHIFT, MAX_BLOCK_SIZE, MIN_BLOCK_SIZE, MIN_VALUE_EQUALS_0,
 };
 use crate::util::packed::{Decoder, Format, FormatBehavior, PackedImpl, PackedInts};
-use std::cmp::min;
+
 /// Reader for sequences of longs written with [`BlockPackedWriter`](crate::util::packed::block_packed_writer::BlockPackedWriter).
 ///
 /// # See Also
@@ -119,7 +119,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         }
 
         // 1. Skip buffered values
-        let skip_buffer = min(count, (self.block_size - self.off) as i64);
+        let skip_buffer = std::cmp::min(count, (self.block_size - self.off) as i64);
         self.off += skip_buffer as i32;
         self.ord += skip_buffer;
         count -= skip_buffer;
@@ -174,7 +174,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
 
             let mut skipped = 0;
             while skipped < count {
-                let to_skip = min(self.blocks.len() as i64, count - skipped);
+                let to_skip = std::cmp::min(self.blocks.len() as i64, count - skipped);
                 debug_assert!(to_skip <= i32::MAX as i64);
                 self.data_input
                     .read_bytes(&mut self.blocks, 0, to_skip as i32)?;
@@ -269,7 +269,8 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
                 self.blocks = vec![0; blocks_size as usize];
             }
 
-            let value_count = min(self.value_count - self.ord, self.block_size as i64) as i32;
+            let value_count =
+                std::cmp::min(self.value_count - self.ord, self.block_size as i64) as i32;
 
             let blocks_count = Format::Packed(PackedImpl::new(0)).byte_count(
                 self.packed_ints_version,
