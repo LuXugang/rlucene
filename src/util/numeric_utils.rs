@@ -16,6 +16,7 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::VecCopyOps;
 use num_bigint::{BigInt, Sign};
 
 pub struct NumericUtils;
@@ -247,7 +248,7 @@ impl NumericUtils {
         }
         let mut full_big_int_bytes = vec![0u8; big_int_size];
         let padding_size = big_int_size - big_int_bytes.len();
-        full_big_int_bytes[padding_size..].copy_from_slice(&big_int_bytes);
+        full_big_int_bytes.copy_from(&big_int_bytes, padding_size);
         if big_int.sign() == Sign::Minus {
             full_big_int_bytes[..padding_size].fill(0xFF);
         }
@@ -304,6 +305,7 @@ mod tests {
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::numeric_utils::NumericUtils;
+    use crate::util::VecCopyOps;
     use num_bigint::{BigInt, Sign};
     use num_traits::{Float, FromPrimitive};
     use rand::Rng;
@@ -743,13 +745,13 @@ mod tests {
             let v1_raw_bytes = v1.to_signed_bytes_be();
             assert!(v1_raw_bytes.len() <= num_bytes);
             let start_pos = num_bytes.saturating_sub(v1_raw_bytes.len());
-            v1_bytes[start_pos..].copy_from_slice(&v1_raw_bytes);
+            v1_bytes.copy_from(&v1_raw_bytes, start_pos);
 
             let mut v2_bytes = vec![0u8; num_bytes];
             let v2_raw_bytes = v2.to_signed_bytes_be();
             assert!(v2_raw_bytes.len() <= num_bytes);
             let start_pos = num_bytes.saturating_sub(v2_raw_bytes.len());
-            v2_bytes[start_pos..].copy_from_slice(&v2_raw_bytes);
+            v2_bytes.copy_from(&v2_raw_bytes, start_pos);
 
             let mut result = vec![0u8; num_bytes];
 
@@ -807,12 +809,12 @@ mod tests {
             let mut v1_bytes = vec![0u8; num_bytes];
             let v1_raw_bytes = v1.to_signed_bytes_be();
             let start_pos = num_bytes.saturating_sub(v1_raw_bytes.len());
-            v1_bytes[start_pos..].copy_from_slice(&v1_raw_bytes);
+            v1_bytes.copy_from(&v1_raw_bytes, start_pos);
 
             let mut v2_bytes = vec![0u8; num_bytes];
             let v2_raw_bytes = v2.to_signed_bytes_be();
             let start_pos = num_bytes.saturating_sub(v2_raw_bytes.len());
-            v2_bytes[start_pos..].copy_from_slice(&v2_raw_bytes);
+            v2_bytes.copy_from(&v2_raw_bytes, start_pos);
 
             let mut result = vec![0u8; num_bytes];
 

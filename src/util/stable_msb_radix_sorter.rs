@@ -16,7 +16,7 @@
  */
 
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::{check_range, MSBRadixSorterBase, Sorter, HISTOGRAM_SIZE};
+use crate::util::{check_range, MSBRadixSorterBase, Sorter, VecCopyOps, HISTOGRAM_SIZE};
 
 pub struct StableMSBRadixSorter<T>
 where
@@ -67,7 +67,7 @@ where
         k: i32,
     ) -> Result<(), LuceneError> {
         // Copy start_offsets to fixed_start_offsets
-        self.fixed_start_offsets[..start_offsets.len()].copy_from_slice(start_offsets);
+        self.fixed_start_offsets.copy_from(start_offsets, 0);
 
         for (i, &limit) in end_offsets.iter().enumerate().take(HISTOGRAM_SIZE) {
             let mut h1 = self.fixed_start_offsets[i];
@@ -277,7 +277,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::stable_msb_radix_sorter::{StableMSBRadixSorter, StableMSBRadixSorterBase};
-    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
+    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter, VecCopyOps};
     use std::collections::HashSet;
 
     #[allow(dead_code)] // for quick search
@@ -343,7 +343,7 @@ mod tests {
         for _ in 0..len {
             let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
             random.fill_bytes(&mut b[common_prefix_len..]);
-            b[..common_prefix_len].copy_from_slice(&common_prefix);
+            b.copy_from(&common_prefix, 0);
             bytes.push(BytesRef::from_bytes(b));
         }
         test(&bytes, len, random)

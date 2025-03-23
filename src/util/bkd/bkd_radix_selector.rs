@@ -1068,7 +1068,7 @@ mod tests {
         use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
         use crate::util::error::lucene_error::LuceneError;
         use crate::util::numeric_utils::NumericUtils;
-        use crate::util::{CommonUtil, ToInt};
+        use crate::util::{CommonUtil, ToInt, VecCopyOps};
         use rand::rngs::StdRng;
         use rand::Rng;
         use std::cell::RefCell;
@@ -1332,8 +1332,7 @@ mod tests {
             for i in 0..values {
                 random.fill(&mut data_value[..]);
                 let start = (config.num_index_dims * config.bytes_per_dim) as usize;
-                let end = start + data_value_len;
-                value[start..end].copy_from_slice(&data_value);
+                value.copy_from(&data_value, start);
                 points.append_bytes(&value, i)?;
             }
             points.close();
@@ -1546,9 +1545,9 @@ mod tests {
                 let (value_ref, packed_value_offset, _) = point_value.borrow().packed_value();
                 let start_idx = (packed_value_offset + dimension * config.bytes_per_dim) as usize;
                 let end_idx = start_idx + size;
-                value.copy_from_slice(&value_ref.borrow()[start_idx..end_idx]);
+                value.copy_from(&value_ref.borrow()[start_idx..end_idx], 0);
                 if min.cmp(&value) == Greater {
-                    min.copy_from_slice(&value);
+                    min.copy_from(&value, 0);
                 }
             }
             Ok(min)
@@ -1620,9 +1619,9 @@ mod tests {
                         + config.num_index_dims * config.bytes_per_dim)
                         as usize;
                     let copy_end = copy_start + size;
-                    value.copy_from_slice(&value_vec.borrow()[copy_start..copy_end]);
+                    value.copy_from(&value_vec.borrow()[copy_start..copy_end], 0);
                     if min_dim_slice.cmp(&value) == Greater {
-                        min.copy_from_slice(&value);
+                        min.copy_from(&value, 0);
                     }
                 }
             }
@@ -1644,9 +1643,9 @@ mod tests {
                 let (bytes_ref, packed_value_offset, _) = point_value.packed_value();
                 let start_idx = (packed_value_offset + dimension * config.bytes_per_dim) as usize;
                 let end_idx = start_idx + size;
-                value.copy_from_slice(&bytes_ref.borrow()[start_idx..end_idx]);
+                value.copy_from(&bytes_ref.borrow()[start_idx..end_idx], 0);
                 if max.cmp(&value) == std::cmp::Ordering::Less {
-                    max.copy_from_slice(&value);
+                    max.copy_from(&value, 0);
                 }
             }
             Ok(max)
@@ -1677,9 +1676,9 @@ mod tests {
                     let copy_start =
                         (packed_value_offset + config.packed_index_bytes_length()) as usize;
                     let copy_end = copy_start + size;
-                    value.copy_from_slice(&value_vec.borrow()[copy_start..copy_end]);
+                    value.copy_from(&value_vec.borrow()[copy_start..copy_end], 0);
                     if max.cmp(&value) == std::cmp::Ordering::Less {
-                        max.copy_from_slice(&value);
+                        max.copy_from(&value, 0);
                     }
                 }
             }
@@ -1749,7 +1748,7 @@ mod tests {
         use crate::util::bkd::point_value::PointValue;
         use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
         use crate::util::error::lucene_error::LuceneError;
-        use crate::util::{CommonUtil, ToInt};
+        use crate::util::{CommonUtil, ToInt, VecCopyOps};
         use rand::prelude::StdRng;
         use rand::Rng;
         use std::cell::RefCell;
@@ -1853,7 +1852,7 @@ mod tests {
                 random.fill(&mut data_dimension_values[..]);
                 let start = config.packed_index_bytes_length() as usize;
                 let end = start + data_dimension_values.len();
-                value[start..end].copy_from_slice(&data_dimension_values);
+                value.copy_from(&data_dimension_values, start);
                 let doc_id = random.random_range(0..num_points);
                 heap_points.append_bytes(&value, doc_id)?;
             }
@@ -1953,10 +1952,11 @@ mod tests {
 
                             {
                                 let value = bytes_ref.borrow();
-                                previous.copy_from_slice(
+                                previous.copy_from(
                                     &value[packed_value_offset as usize
                                         ..packed_value_offset as usize
                                             + config.packed_bytes_length() as usize],
+                                    0,
                                 );
                             }
                             previous_doc_id = point_value.borrow().doc_id();
@@ -1987,11 +1987,12 @@ mod tests {
                         point_value.borrow().packed_value();
                     let mut first_value = vec![0u8; config.bytes_per_dim as usize];
                     let offset = (sort_dim * config.bytes_per_dim) as usize;
-                    first_value.copy_from_slice(
+                    first_value.copy_from(
                         &bytes_ref.borrow()[packed_value_offset as usize + offset
                             ..packed_value_offset as usize
                                 + offset
                                 + config.bytes_per_dim as usize],
+                        0,
                     );
                     for i in (start + 1)..end {
                         let point_value = heap_writer.get_packed_value_slice(i);

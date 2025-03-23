@@ -250,8 +250,8 @@ where
         if self.point_count == 0 {
             self.init_point_writer()?;
             let length = self.config.packed_index_bytes_length() as usize;
-            self.min_packed_value[..length].copy_from_slice(&packed_value[..length]);
-            self.max_packed_value[..length].copy_from_slice(&packed_value[..length]);
+            self.min_packed_value.copy_from(&packed_value[..length], 0);
+            self.max_packed_value.copy_from(&packed_value[..length], 0);
         } else {
             let bytes_per_dim = self.config.bytes_per_dim as usize;
             for dim in 0..self.config.num_index_dims as usize {
@@ -261,8 +261,8 @@ where
                     .compare(packed_value, offset, &self.min_packed_value, offset)
                     < 0
                 {
-                    self.min_packed_value[offset..offset + bytes_per_dim]
-                        .copy_from_slice(&packed_value[offset..offset + bytes_per_dim]);
+                    self.min_packed_value
+                        .copy_from(&packed_value[offset..offset + bytes_per_dim], offset);
                 } else if self.comparator.compare(
                     packed_value,
                     offset,
@@ -270,8 +270,8 @@ where
                     offset,
                 ) > 0
                 {
-                    self.max_packed_value[offset..offset + bytes_per_dim]
-                        .copy_from_slice(&packed_value[offset..offset + bytes_per_dim]);
+                    self.max_packed_value
+                        .copy_from(&packed_value[offset..offset + bytes_per_dim], offset);
                 }
             }
         }
@@ -842,9 +842,10 @@ where
 
             let cmp = last_split_values.to_vec();
             let last_split_values_start = (split_dim * self.config.bytes_per_dim + prefix) as usize;
-            sav_split_value[..suffix as usize].copy_from_slice(
+            sav_split_value.copy_from(
                 &last_split_values
                     [last_split_values_start..last_split_values_start + suffix as usize],
+                0,
             );
             // copy our split value into lastSplitValues for our children to prefix-code against
             let split_bytes_start = (address + prefix) as usize;
@@ -1511,10 +1512,11 @@ where
 
                 // Write the common prefixes:
                 reader_ref.get_value(from, &mut self.scratch_bytes_ref1);
-                self.scratch[..self.config.packed_bytes_length() as usize].copy_from_slice(
+                self.scratch.copy_from(
                     &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset as usize
                         ..self.scratch_bytes_ref1.offset as usize
                             + self.config.packed_bytes_length() as usize],
+                    0,
                 );
                 self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
             }
@@ -1978,11 +1980,10 @@ where
             for dim in 0..self.config.num_dims {
                 let src_offset = (offset + dim * self.config.bytes_per_dim) as usize;
                 let dst_offset = (dim * self.config.bytes_per_dim) as usize;
-                self.scratch[dst_offset..dst_offset + self.config.bytes_per_dim as usize]
-                    .copy_from_slice(
-                        &bytes.borrow()
-                            [src_offset..src_offset + self.config.bytes_per_dim as usize],
-                    );
+                self.scratch.copy_from(
+                    &bytes.borrow()[src_offset..src_offset + self.config.bytes_per_dim as usize],
+                    dst_offset,
+                );
             }
         }
 
@@ -2114,7 +2115,7 @@ where
 
         let offset = (self.leaf_count * self.bkd_writer.config.packed_bytes_length()) as usize;
         let length = self.bkd_writer.config.packed_bytes_length() as usize;
-        self.leaf_values[offset..offset + length].copy_from_slice(&packed_value[0..length]);
+        self.leaf_values.copy_from(&packed_value[0..length], offset);
 
         self.leaf_docs[self.leaf_count as usize] = doc_id;
         // docsSeen.set(doc_id);
@@ -2171,21 +2172,18 @@ where
         debug_assert!(self.leaf_count != 0);
 
         if self.value_count == 0 {
-            self.bkd_writer.min_packed_value
-                [0..(self.bkd_writer.config.packed_index_bytes_length() as usize)]
-                .copy_from_slice(
-                    &self.leaf_values
-                        [0..(self.bkd_writer.config.packed_index_bytes_length() as usize)],
-                );
+            self.bkd_writer.min_packed_value.copy_from(
+                &self.leaf_values[0..(self.bkd_writer.config.packed_index_bytes_length() as usize)],
+                0,
+            );
         }
         let start =
             ((self.leaf_count - 1) * self.bkd_writer.config.packed_index_bytes_length()) as usize;
-        self.bkd_writer.max_packed_value
-            [0..(self.bkd_writer.config.packed_index_bytes_length() as usize)]
-            .copy_from_slice(
-                &self.leaf_values
-                    [start..start + self.bkd_writer.config.packed_index_bytes_length() as usize],
-            );
+        self.bkd_writer.max_packed_value.copy_from(
+            &self.leaf_values
+                [start..start + self.bkd_writer.config.packed_index_bytes_length() as usize],
+            0,
+        );
         self.value_count += self.leaf_count as i64;
 
         if !self.leaf_block_fps.is_empty() {

@@ -259,7 +259,6 @@ pub struct BKDPointTree<I: IndexInput> {
     /// Holds the packed per-level split values.
     split_values_stack: Vec<Vec<u8>>,
     /// Holds the min / max value of the current node.
-    // TODO: 复制操作使用copy_from
     min_packed_value: Vec<u8>,
     max_packed_value: Vec<u8>,
     /// Holds the previous value of the split dimension.
@@ -413,8 +412,10 @@ where
             self.split_dim_value_stack[level] = vec![0; bytes_per_dim];
         }
         // save the dimension we are going to change
-        self.split_dim_value_stack[level][..bytes_per_dim]
-            .copy_from_slice(&self.max_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim]);
+        self.split_dim_value_stack[level].copy_from(
+            &self.max_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim],
+            0,
+        );
 
         debug_assert!(
             ArrayUtil::get_unsigned_comparator(bytes_per_dim).compare(
@@ -431,8 +432,9 @@ where
         );
 
         // add the split dim value:
-        self.max_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim].copy_from_slice(
+        self.max_packed_value.copy_from(
             &self.split_values_stack[level][split_dim_pos..split_dim_pos + bytes_per_dim],
+            split_dim_pos,
         );
     }
     fn push_left(&mut self) -> Result<(), LuceneError> {
@@ -447,8 +449,10 @@ where
         // we should have already visited the left node
         debug_assert!(!self.split_dim_value_stack[level].is_empty());
         // save the dimension we are going to change
-        self.split_dim_value_stack[level][..bytes_per_dim]
-            .copy_from_slice(&self.min_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim]);
+        self.split_dim_value_stack[level].copy_from(
+            &self.min_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim],
+            0,
+        );
 
         debug_assert!(
             ArrayUtil::get_unsigned_comparator(bytes_per_dim).compare(
@@ -464,8 +468,9 @@ where
             self.config.num_dims
         );
         // add the split dim value:
-        self.min_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim].copy_from_slice(
+        self.min_packed_value.copy_from(
             &self.split_values_stack[level][split_dim_pos..split_dim_pos + bytes_per_dim],
+            split_dim_pos,
         );
     }
     fn push_right(&mut self) -> Result<(), LuceneError> {
@@ -494,11 +499,15 @@ where
         let bytes_per_dim = self.config.bytes_per_dim as usize;
 
         if is_left {
-            self.max_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim]
-                .copy_from_slice(&self.split_dim_value_stack[level][..bytes_per_dim]);
+            self.max_packed_value.copy_from(
+                &self.split_dim_value_stack[level][..bytes_per_dim],
+                split_dim_pos,
+            );
         } else {
-            self.min_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim]
-                .copy_from_slice(&self.split_dim_value_stack[level][..bytes_per_dim]);
+            self.min_packed_value.copy_from(
+                &self.split_dim_value_stack[level][..bytes_per_dim],
+                split_dim_pos,
+            );
         }
     }
     fn is_root_node(&self) -> bool {
@@ -769,11 +778,14 @@ where
         self.read_common_prefixes()?;
 
         if self.config.num_index_dims > 1 && self.version >= BKDWriter::VERSION_LEAF_STORES_BOUNDS {
-            self.scratch_max_index_packed_value[..packed_index_bytes_length]
-                .copy_from_slice(&self.scratch_data_packed_value[..packed_index_bytes_length]);
-            self.scratch_max_index_packed_value[..packed_index_bytes_length]
-                .copy_from_slice(&self.scratch_min_index_packed_value[..packed_index_bytes_length]);
-
+            self.scratch_max_index_packed_value.copy_from(
+                &self.scratch_data_packed_value[..packed_index_bytes_length],
+                0,
+            );
+            self.scratch_max_index_packed_value.copy_from(
+                &self.scratch_min_index_packed_value[..packed_index_bytes_length],
+                0,
+            );
             self.read_min_max()?;
 
             // The index gives us range of values for each dimension, but the actual range of values
@@ -825,13 +837,14 @@ where
             self.visit_unique_raw_doc_values(count, visitor)?;
         } else {
             if self.config.num_index_dims != 1 {
-                self.scratch_min_index_packed_value[..packed_index_bytes_length]
-                    .copy_from_slice(&self.scratch_data_packed_value[..packed_index_bytes_length]);
-
-                self.scratch_max_index_packed_value[..packed_index_bytes_length].copy_from_slice(
-                    &self.scratch_min_index_packed_value[..packed_index_bytes_length],
+                self.scratch_min_index_packed_value.copy_from(
+                    &self.scratch_data_packed_value[..packed_index_bytes_length],
+                    0,
                 );
-
+                self.scratch_max_index_packed_value.copy_from(
+                    &self.scratch_min_index_packed_value[..packed_index_bytes_length],
+                    0,
+                );
                 self.read_min_max()?;
 
                 // The index gives us range of values for each dimension, but the actual range of values

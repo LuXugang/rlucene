@@ -379,7 +379,7 @@ pub(crate) mod tests {
     use crate::util::bkd::bkd_config::BKDConfig;
     use crate::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
     use crate::util::error::lucene_error::LuceneError;
-    use crate::util::ToInt;
+    use crate::util::{ToInt, VecCopyOps};
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
     use std::cell::RefCell;
@@ -673,8 +673,10 @@ pub(crate) mod tests {
                     let prefix_len = common_prefix_lengths[dim as usize] as usize;
                     let src_start = (first_value.offset as usize) + offset;
                     let dst_start = (point.packed_value.offset as usize) + offset;
-                    point.packed_value.bytes[dst_start..dst_start + prefix_len]
-                        .copy_from_slice(&first_value.bytes[src_start..src_start + prefix_len]);
+                    point.packed_value.bytes.copy_from(
+                        &first_value.bytes[src_start..src_start + prefix_len],
+                        dst_start,
+                    );
                 }
             }
         } else {
@@ -686,10 +688,10 @@ pub(crate) mod tests {
 
             for i in 0..num_points {
                 let mut value = vec![0u8; config.packed_bytes_length() as usize];
-                value[0..config.packed_index_bytes_length() as usize].copy_from_slice(&index_dims);
+                value.copy_from(&index_dims, 0);
                 random.fill_bytes(&mut data_dims);
                 let start = config.packed_index_bytes_length() as usize;
-                value[start..start + data_dims_len].copy_from_slice(&data_dims);
+                value.copy_from(&data_dims, start);
                 let doc = if is_doc_id_incremental {
                     i.min(max_doc - 1)
                 } else {
@@ -713,8 +715,10 @@ pub(crate) mod tests {
                     let prefix_len = common_prefix_lengths[dim as usize] as usize;
                     let src_start = (first_value.offset as usize) + offset;
                     let dst_start = (point.packed_value.offset as usize) + offset;
-                    point.packed_value.bytes[dst_start..dst_start + prefix_len]
-                        .copy_from_slice(&first_value.bytes[src_start..src_start + prefix_len]);
+                    point.packed_value.bytes.copy_from(
+                        &first_value.bytes[src_start..src_start + prefix_len],
+                        dst_start,
+                    );
                 }
             }
         }
@@ -730,7 +734,7 @@ pub(crate) mod tests {
         fn new(random: &mut StdRng, packed_value: &[u8], doc: i32) -> Self {
             let mut vec = vec![0u8; packed_value.len() + 1];
             vec[0] = random.random_range(0..255u8);
-            vec[1..].copy_from_slice(packed_value);
+            vec.copy_from(packed_value, 1);
             Self {
                 packed_value: BytesRef {
                     bytes: vec,

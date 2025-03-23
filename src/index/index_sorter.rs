@@ -101,6 +101,7 @@ mod tests {
     use crate::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
     use crate::util::{
         Comparator, MSBRadixSorterBase, NaturalOrder, Sorter, StringSorter, StringSorterBase,
+        VecCopyOps,
     };
 
     #[allow(dead_code)] // for quick search
@@ -309,7 +310,8 @@ mod tests {
         }
 
         fn restore(&mut self, i: i32, j: i32) {
-            self.ord[i as usize..j as usize].copy_from_slice(&self.tmp[i as usize..j as usize]);
+            self.ord
+                .copy_from(&self.tmp[i as usize..j as usize], i as usize);
         }
     }
     impl Sorter for StableStringSorterTestImpl<'_> {
