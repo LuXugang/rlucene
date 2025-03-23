@@ -16,7 +16,7 @@
  */
 use crate::index::index_writer::DocMapIndexWriter;
 #[cfg(test)]
-use crate::test::util::bkd::test_bkd::tests::DocMapImpl;
+use crate::test::util::bkd::test_bkd::DocMapImpl;
 
 /// A map of doc IDs.
 pub trait DocMap {

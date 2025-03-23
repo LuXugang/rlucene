@@ -2168,18 +2168,15 @@ where
     }
     fn write_leaf_block(&mut self, leaf_cardinality: i32) -> Result<(), LuceneError> {
         debug_assert!(self.leaf_count != 0);
-
+        let packed_index_bytes_length = self.bkd_writer.config.packed_index_bytes_length() as usize;
         if self.value_count == 0 {
-            self.bkd_writer.min_packed_value.copy_from(
-                &self.leaf_values[0..(self.bkd_writer.config.packed_index_bytes_length() as usize)],
-                0,
-            );
+            self.bkd_writer
+                .min_packed_value
+                .copy_from(&self.leaf_values[0..(packed_index_bytes_length)], 0);
         }
-        let start =
-            ((self.leaf_count - 1) * self.bkd_writer.config.packed_index_bytes_length()) as usize;
+        let start = (self.leaf_count - 1) as usize * packed_index_bytes_length;
         self.bkd_writer.max_packed_value.copy_from(
-            &self.leaf_values
-                [start..start + self.bkd_writer.config.packed_index_bytes_length() as usize],
+            &self.leaf_values[start..start + packed_index_bytes_length],
             0,
         );
         self.value_count += self.leaf_count as i64;
@@ -2187,10 +2184,8 @@ where
         if !self.leaf_block_fps.is_empty() {
             // Save the first (minimum) value in each leaf block except the first, to build the split
             // value index in the end:
-            self.leaf_block_start_values.push(
-                self.leaf_values[0..(self.bkd_writer.config.packed_index_bytes_length() as usize)]
-                    .to_vec(),
-            );
+            self.leaf_block_start_values
+                .push(self.leaf_values[0..(packed_index_bytes_length)].to_vec());
         }
         self.leaf_block_fps
             .push(self.data_out.borrow().get_file_pointer());
@@ -2203,8 +2198,7 @@ where
                 &self.leaf_values,
                 0,
                 &self.leaf_values,
-                ((self.leaf_count - 1) * self.bkd_writer.config.packed_index_bytes_length())
-                    as usize,
+                (self.leaf_count - 1) as usize * packed_index_bytes_length,
             );
 
         self.bkd_writer.write_leaf_block_docs(
@@ -2235,7 +2229,7 @@ where
             self.bkd_writer.config.clone(),
             self.leaf_count,
             0,
-            &self.leaf_values[0..(self.bkd_writer.config.packed_index_bytes_length() as usize)],
+            &self.leaf_values[0..(packed_index_bytes_length)],
             &self.leaf_values[((self.leaf_count - 1)
                 * self.bkd_writer.config.packed_index_bytes_length())
                 as usize
