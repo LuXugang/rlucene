@@ -204,6 +204,7 @@ where
 }
 
 /// Reusable implementation for a point value offline.
+#[allow(unused)]
 pub(crate) struct OfflinePointValue {
     pub(crate) offset: i32,
     pub(crate) value: Rc<RefCell<Vec<u8>>>,

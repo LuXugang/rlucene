@@ -1281,13 +1281,9 @@ where
         packed_value: &[u8],
     ) -> Result<(), LuceneError> {
         let num_dims = self.config.num_dims as usize;
-        for dim in 0..num_dims {
-            out.write_vint(common_prefixes[dim])?;
-            out.write_bytes_range(
-                packed_value,
-                dim as i32 * self.config.bytes_per_dim,
-                common_prefixes[dim],
-            )?;
+        for (dim, &prefix) in common_prefixes.iter().enumerate().take(num_dims) {
+            out.write_vint(prefix)?;
+            out.write_bytes_range(packed_value, dim as i32 * self.config.bytes_per_dim, prefix)?;
         }
         Ok(())
     }
@@ -1325,9 +1321,13 @@ where
             max_num_splits = max(max_num_splits, *num_splits);
         }
 
-        for dim in 0..self.config.num_index_dims as usize {
+        for (dim, &split_count) in parent_splits
+            .iter()
+            .enumerate()
+            .take(self.config.num_index_dims as usize)
+        {
             let offset = dim * self.config.bytes_per_dim as usize;
-            if parent_splits[dim] < max_num_splits / 2
+            if split_count < max_num_splits / 2
                 && self
                     .comparator
                     .compare(min_packed_value, offset, max_packed_value, offset)
@@ -2817,7 +2817,7 @@ where
         }
     }
 }
-
+#[allow(unused)]
 struct IntersectVisitorImpl<'a, D>
 where
     D: Directory,

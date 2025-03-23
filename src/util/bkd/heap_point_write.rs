@@ -30,6 +30,7 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 /// Utility class to write new points into in-heap arrays.
+#[allow(unused)]
 pub struct HeapPointWriter<D>
 where
     D: Directory,
@@ -47,6 +48,7 @@ where
     pub point_value: Option<Rc<RefCell<PointValueEnum>>>,
     _phantom: std::marker::PhantomData<D>,
 }
+#[allow(unused)]
 impl<D> HeapPointWriter<D>
 where
     D: Directory,
@@ -375,6 +377,7 @@ pub(crate) struct HeapPointValue {
     pub(crate) packed_value_length: i32,
     pub(crate) packed_value_doc_id_length: i32,
 }
+#[allow(unused)]
 impl HeapPointValue {
     pub fn new(config: &BKDConfig, value: Rc<RefCell<Vec<u8>>>) -> Self {
         Self {

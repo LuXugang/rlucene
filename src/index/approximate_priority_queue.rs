@@ -26,7 +26,7 @@ pub(crate) struct ApproximatePriorityQueue<T> {
     /// A bitset where ones indicate that the corresponding index in `slots` is taken.
     used_slots: i64,
 }
-
+#[allow(unused)]
 impl<T: PartialEq> ApproximatePriorityQueue<T> {
     pub(crate) fn new() -> Self {
         let mut slots = Vec::with_capacity(i64::BITS as usize);

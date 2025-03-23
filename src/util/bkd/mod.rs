@@ -18,7 +18,7 @@ pub(crate) mod bkd_config;
 mod bkd_radix_selector;
 pub mod bkd_reader;
 pub mod bkd_util;
-mod bkd_writer;
+pub(crate) mod bkd_writer;
 mod doc_ids_writer;
 mod heap_point_reader;
 mod heap_point_write;

@@ -33,7 +33,7 @@ where
     concurrency: i32,
     queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
 }
-
+#[allow(unused)]
 impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
     fn get_concurrency() -> i32 {
         let core_count = std::thread::available_parallelism()

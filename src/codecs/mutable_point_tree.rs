@@ -18,9 +18,7 @@ use crate::index::point_values::{IntersectVisitor, PointTree};
 use crate::index::point_values_writer::MutableSortingPointValues;
 use crate::index::BytesRef;
 #[cfg(test)]
-use crate::util::bkd::bkd_reader::tests::MutablePointTreeMock1;
-#[cfg(test)]
-use crate::util::bkd::bkd_reader::tests::MutablePointTreeMock2;
+use crate::test::util::bkd::test_bkd::tests::{MutablePointTreeMock1, MutablePointTreeMock2};
 #[cfg(test)]
 use crate::util::bkd::mutable_point_tree_reader_utils::tests::DummyPointsReader;
 use crate::util::error::lucene_error::LuceneError;

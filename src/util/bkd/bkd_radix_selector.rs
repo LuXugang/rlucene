@@ -55,6 +55,7 @@ pub struct BKDRadixSelector<D> {
     // BKD tree configuration
     config: Rc<BKDConfig>,
 }
+#[allow(unused)]
 impl<D> BKDRadixSelector<D>
 where
     D: Directory,

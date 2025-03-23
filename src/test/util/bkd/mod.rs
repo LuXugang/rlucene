@@ -14,13 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod base_bit_set_test_case;
-pub(crate) mod base_doc_id_set_test_case;
-pub(crate) mod base_sort_test_case;
-pub(crate) mod bkd;
-pub(crate) mod common_method;
-pub(crate) mod id_set_common;
-pub(crate) mod index_package_access;
-pub(crate) mod lucene_test_case;
-mod packed;
-pub mod test_util;
+pub mod test_bkd;
