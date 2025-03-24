@@ -19,7 +19,6 @@ use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::store::data_output::DataOutput;
 use crate::store::index_input::IndexInput;
 use crate::store::lock::Lock;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;

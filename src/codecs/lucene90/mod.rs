@@ -17,6 +17,7 @@
 mod fields_index;
 mod fields_index_reader;
 mod fields_index_writer;
+mod indexed_disi;
 pub mod lucene90_compound_format;
 pub mod lucene90_compound_reader;
 pub mod lz4_with_preset_dict_compression_mode;

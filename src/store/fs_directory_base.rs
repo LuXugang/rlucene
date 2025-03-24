@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::store::index_input::IndexInput;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
 use std::fmt::Display;

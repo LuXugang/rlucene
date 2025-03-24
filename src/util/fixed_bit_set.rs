@@ -200,8 +200,7 @@ impl FixedBitSet {
         (fixed_bit_set.bits[(fixed_bit_set.num_words as usize) - 1] & mask) == 0
     }
 
-    #[allow(unused)]
-    fn get_bits(&self) -> &[i64] {
+    pub fn get_bits(&self) -> &[i64] {
         &self.bits
     }
 

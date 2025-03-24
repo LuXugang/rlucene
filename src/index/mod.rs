@@ -53,6 +53,7 @@ pub mod index_writer;
 pub mod indexable_field;
 pub mod indexable_field_type;
 mod indexing_chain;
+pub mod knn_vector_values;
 pub mod leaf_metadata;
 pub mod leaf_reader_context;
 mod live_index_writer_config;
