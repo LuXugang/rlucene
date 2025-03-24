@@ -1527,19 +1527,15 @@ pub trait BaseDirectoryTestCase {
         for i in (0..num).step_by(16) {
             let mut slice1 = input.slice("slice1", i as i64, (num - i) as i64)?;
             assert_eq!(0, slice1.get_file_pointer());
-            assert_eq!((num - i) as i64, RandomAccessInput::length(&slice1));
+            assert_eq!((num - i) as i64, slice1.length());
 
             // seek to a random spot shouldn't impact slicing.
-            slice1.seek(TestUtil::next_long(
-                random,
-                0,
-                RandomAccessInput::length(&slice1),
-            ))?;
+            slice1.seek(TestUtil::next_long(random, 0, slice1.length()))?;
 
-            for j in (0..RandomAccessInput::length(&slice1)).step_by(16) {
+            for j in (0..slice1.length()).step_by(16) {
                 let mut slice2 = slice1.slice("slice2", j, (num - i) as i64 - j)?;
                 assert_eq!(0, slice2.get_file_pointer());
-                assert_eq!((num - i) as i64 - j, RandomAccessInput::length(&slice2));
+                assert_eq!((num - i) as i64 - j, slice2.length());
 
                 let mut data = vec![0u8; num];
                 data.copy_from(&bytes[..i + j as usize], 0);

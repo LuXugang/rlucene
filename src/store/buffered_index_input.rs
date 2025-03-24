@@ -709,6 +709,8 @@ where
             .slice(slice_description, offset, length)
     }
 
+    type RandomAccessSlice = Self::Slice;
+
     fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice> {
         self.slice("random_access_slice", offset, length)
     }

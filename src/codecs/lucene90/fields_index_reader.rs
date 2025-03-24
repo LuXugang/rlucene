@@ -41,8 +41,8 @@ where
     docs_end_pointer: i64,
     start_pointers_start_pointer: i64,
     start_pointers_end_pointer: i64,
-    docs: DirectMonotonicReader<I::Slice>,
-    start_pointers: DirectMonotonicReader<I::Slice>,
+    docs: DirectMonotonicReader<I::RandomAccessSlice>,
+    start_pointers: DirectMonotonicReader<I::RandomAccessSlice>,
     max_pointer: i64,
 }
 #[allow(unused)]

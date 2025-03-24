@@ -71,6 +71,8 @@ impl IndexInput for DummyIndexInput {
         unreachable!("DummyIndexInput should not be called");
     }
 
+    type RandomAccessSlice = DummyIndexInput;
+
     fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
         unreachable!("DummyIndexInput should not be called");
     }

@@ -188,6 +188,8 @@ impl<'a> IndexInput for ByteBuffersIndexInput<'a> {
         ))
     }
 
+    type RandomAccessSlice = Self::Slice;
+
     fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice> {
         self.slice("", offset, length)
     }

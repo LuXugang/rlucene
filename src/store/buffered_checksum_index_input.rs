@@ -59,6 +59,9 @@ where
             "BufferedChecksumIndexInput does not support slicing",
         ))
     }
+
+    type RandomAccessSlice = DummyIndexInput;
+
     fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",
