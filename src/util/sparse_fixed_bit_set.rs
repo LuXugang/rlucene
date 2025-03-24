@@ -202,9 +202,9 @@ impl SparseFixedBitSet {
         let index = self.indices[i4096 as usize];
         let bit_array = self.bits[i4096 as usize].as_ref();
         let mut i64 = start >> 6;
-        let i64bit = 1_u64 << (i64 % 64);
-        let mut o = (index as u64 & (i64bit - 1)).count_ones() as usize;
-        if index as u64 & i64bit != 0 {
+        let i64bit = 1_i64 << (i64 % 64);
+        let mut o = (index & (i64bit - 1)).count_ones() as usize;
+        if index & i64bit != 0 {
             // There is at least one bit that is set in the current long, check if
             // one of them is after i
             debug_assert!(bit_array.is_some());
@@ -214,7 +214,7 @@ impl SparseFixedBitSet {
             }
             o += 1;
         }
-        let index_bits = (index >> i64) >> 1;
+        let index_bits = ((index as u64 >> i64) >> 1) as i64;
         if index_bits == 0 {
             // no more bits are set in the current block of 4096 bits, go to the next one
             let i4096_upper = if upper_bound == self.length {
