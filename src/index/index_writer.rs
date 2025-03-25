@@ -34,6 +34,7 @@ impl IndexWriter {
     }
 }
 
+#[derive(Default)]
 pub struct DocMapIndexWriter;
 impl DocMap for DocMapIndexWriter {
     fn get(&self, _doc_id: i32) -> i32 {

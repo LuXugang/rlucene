@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_indexable_field_type;
-pub mod dummy_point_tree;
-pub mod dummy_point_value_base;
-pub mod dummy_sub_base;
+use crate::index::doc_id_merger::SubBase;
+use crate::util::error::lucene_error::{LuceneError, Result};
+pub struct DummySubBase;
+impl SubBase for DummySubBase {
+    fn next_doc(&mut self) -> Result<i32> {
+        Err(LuceneError::not_implemented(
+            "DummySubBase should not be called",
+        ))
+    }
+}

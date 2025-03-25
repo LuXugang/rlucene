@@ -29,6 +29,13 @@ pub enum DocMapEnum {
     DocMapMock(DocMapImpl),
     DocMapImpl(DocMapIndexWriter),
 }
+/// # Note:
+/// Default value used for padding
+impl Default for DocMapEnum {
+    fn default() -> Self {
+        DocMapEnum::DocMapImpl(DocMapIndexWriter)
+    }
+}
 impl DocMap for DocMapEnum {
     fn get(&self, doc_id: i32) -> i32 {
         match self {
