@@ -60,6 +60,7 @@ pub mod intro_sorter;
 pub mod ints_ref;
 pub mod io_utils;
 pub mod long_bit_set;
+mod long_heap;
 pub mod long_values;
 pub mod longs_ref;
 pub mod math_util;

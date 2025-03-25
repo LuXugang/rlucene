@@ -167,6 +167,7 @@ impl ArrayUtil {
             min_size
         );
         let current_length = vec.len();
+        let min_size = Self::oversize(min_size, BitUtil::LONG_BYTES as i32);
         if min_size as usize > current_length {
             let additional = min_size as usize - current_length;
             vec.reserve(additional);
