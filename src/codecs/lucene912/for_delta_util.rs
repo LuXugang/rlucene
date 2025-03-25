@@ -682,6 +682,8 @@ mod tests {
     use rand::Rng;
     use std::cell::RefCell;
     use std::rc::Rc;
+    #[allow(dead_code)]
+    struct TestForDeltaUtil;
     #[test]
     fn test_encode_decode() -> Result<()> {
         let mut random = random();
