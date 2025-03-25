@@ -193,7 +193,8 @@ mod tests {
 
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::long_heap::LongHeap;
-
+    #[allow(dead_code)]
+    struct TestLongHeap;
     /// Checks that the heap property is maintained.
     fn check_validity(heap: &LongHeap) {
         let heap_array = heap.get_heap_array();
