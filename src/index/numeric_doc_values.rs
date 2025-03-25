@@ -16,7 +16,7 @@
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::util::error::lucene_error::Result;
-
+/// A per-document numeric value.
 pub trait NumericDocValues: DocValuesIterator {
     /// Returns the numeric value for the current document ID.
     ///
