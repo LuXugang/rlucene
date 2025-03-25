@@ -20,26 +20,26 @@ use crate::store::{DataInput, DataOutput, IndexInput};
 use crate::util::error::lucene_error::Result;
 use crate::util::long_heap::LongHeap;
 use crate::util::packed::PackedInts;
-
-pub struct PForUtil {
+/// Utility class to encode sequences of 128 small positive integers.
+pub(crate) struct PForUtil {
     for_util: ForUtil,
 }
 
 impl PForUtil {
-    pub const MAX_EXCEPTIONS: usize = 7;
+    pub(crate) const MAX_EXCEPTIONS: usize = 7;
 
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         assert!(ForUtil::BLOCK_SIZE <= 256);
         Self {
             for_util: ForUtil::new(),
         }
     }
 
-    pub fn all_equal(arr: &[i64]) -> bool {
+    pub(crate) fn all_equal(arr: &[i64]) -> bool {
         arr.iter().skip(1).all(|&v| v == arr[0])
     }
-
-    pub fn encode<O: DataOutput>(&mut self, longs: &mut [i64], out: &mut O) -> Result<()> {
+    /// Encode 128 integers from `longs` into `out`.
+    pub(crate) fn encode<O: DataOutput>(&mut self, longs: &mut [i64], out: &mut O) -> Result<()> {
         let mut top = LongHeap::new(Self::MAX_EXCEPTIONS as i32 + 1)?;
         for &v in &longs[..=Self::MAX_EXCEPTIONS] {
             top.push(v)?;
@@ -104,7 +104,8 @@ impl PForUtil {
         Ok(())
     }
 
-    pub fn decode<I: IndexInput>(
+    /// Decode 128 integers into `ints`.
+    pub(crate) fn decode<I: IndexInput>(
         &mut self,
         pdu: &mut PostingDecodingUtil<I>,
         longs: &mut [i64],
@@ -129,7 +130,8 @@ impl PForUtil {
         Ok(())
     }
 
-    pub fn skip<I: DataInput>(input: &mut I) -> Result<()> {
+    /// Skip 128 integers.
+    pub(crate) fn skip<I: DataInput>(input: &mut I) -> Result<()> {
         let token = input.read_byte()? as i32;
         let bits_per_value = token & 0x1f;
         let num_exceptions = (token as u32 >> 5) as i64;
