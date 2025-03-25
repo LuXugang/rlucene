@@ -36,7 +36,7 @@ impl IndexWriter {
 
 pub struct DocMapIndexWriter;
 impl DocMap for DocMapIndexWriter {
-    fn get(&self, doc_id: i32) -> i32 {
+    fn get(&self, _doc_id: i32) -> i32 {
         todo!()
     }
 }

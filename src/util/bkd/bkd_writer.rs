@@ -23,7 +23,7 @@ use crate::index::point_values::{
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
-use crate::store::{ByteBuffersDataOutput, DataOutput, IndexInput, IndexOutput};
+use crate::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bit_set::BitSet;
 use crate::util::bit_util::BitUtil;

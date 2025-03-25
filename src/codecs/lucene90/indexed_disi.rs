@@ -941,7 +941,7 @@ impl MethodBehavior for DenseMethod {
             IndexedDISI::rank_skip(disi, target_in_block)?;
         }
 
-        for i in disi.word_index + 1..=target_word_index {
+        for _ in disi.word_index + 1..=target_word_index {
             disi.word = disi.slice.read_long()?;
             disi.number_of_ones += disi.word.count_ones() as i32;
         }
@@ -987,7 +987,7 @@ impl MethodBehavior for DenseMethod {
             IndexedDISI::rank_skip(disi, target_in_block)?;
         }
 
-        for i in (disi.word_index + 1)..=target_word_index {
+        for _ in (disi.word_index + 1)..=target_word_index {
             disi.word = disi.slice.read_long()?;
             disi.number_of_ones += disi.word.count_ones() as i32;
         }
