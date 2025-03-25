@@ -60,7 +60,7 @@ impl ForUtil {
     const fn mask8(bits_per_value: i32) -> i64 {
         Self::expand_mask8((1i64 << bits_per_value) - 1)
     }
-    fn expand8(arr: &mut [i64]) {
+    pub(crate) fn expand8(arr: &mut [i64]) {
         for i in 0..16 {
             let l = arr[i] as usize;
             arr[i] = ((l >> 56) & 0xFF) as i64;
@@ -73,7 +73,7 @@ impl ForUtil {
             arr[112 + i] = (l & 0xFF) as i64;
         }
     }
-    fn collapse8(arr: &mut [i64]) {
+    pub(crate) fn collapse8(arr: &mut [i64]) {
         for i in 0..16 {
             arr[i] = (arr[i] << 56)
                 | (arr[16 + i] << 48)
@@ -86,7 +86,7 @@ impl ForUtil {
         }
     }
 
-    fn expand16(arr: &mut [i64]) {
+    pub(crate) fn expand16(arr: &mut [i64]) {
         for i in 0..32 {
             let l = arr[i] as usize;
             arr[i] = ((l >> 48) & 0xFFFF) as i64;
@@ -96,13 +96,13 @@ impl ForUtil {
         }
     }
 
-    fn collapse16(arr: &mut [i64]) {
+    pub(crate) fn collapse16(arr: &mut [i64]) {
         for i in 0..32 {
             arr[i] = (arr[i] << 48) | (arr[32 + i] << 32) | (arr[64 + i] << 16) | arr[96 + i];
         }
     }
 
-    fn expand32(arr: &mut [i64]) {
+    pub(crate) fn expand32(arr: &mut [i64]) {
         for i in 0..64 {
             let l = arr[i] as u64;
             arr[i] = (l >> 32) as i64;
@@ -110,7 +110,7 @@ impl ForUtil {
         }
     }
 
-    fn collapse32(arr: &mut [i64]) {
+    pub(crate) fn collapse32(arr: &mut [i64]) {
         for i in 0..64 {
             arr[i] = (arr[i] << 32) | arr[64 + i];
         }
@@ -136,7 +136,7 @@ impl ForUtil {
         Self::encode_with_tmp(longs, bits_per_value, next_primitive, out, &mut self.tmp)
     }
 
-    fn encode_with_tmp(
+    pub(crate) fn encode_with_tmp(
         longs: &[i64],
         bits_per_value: i32,
         primitive_size: i32,
@@ -221,7 +221,7 @@ impl ForUtil {
         bits_per_value << (Self::BLOCK_SIZE_LOG2 - 3)
     }
 
-    fn decode_slow<I: IndexInput>(
+    pub(crate) fn decode_slow<I: IndexInput>(
         bits_per_value: i32,
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
@@ -450,14 +450,20 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode1<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, longs: &mut [i64]) -> Result<()> {
+    pub(crate) fn decode1<I: IndexInput>(
+        pdu: &mut PostingDecodingUtil<I>,
+        longs: &mut [i64],
+    ) -> Result<()> {
         pdu.split_longs_same(2, longs, 7, 1, Self::MASK8_1, 14, Self::MASK8_1)
     }
-    fn decode2<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, longs: &mut [i64]) -> Result<()> {
+    pub(crate) fn decode2<I: IndexInput>(
+        pdu: &mut PostingDecodingUtil<I>,
+        longs: &mut [i64],
+    ) -> Result<()> {
         pdu.split_longs_same(4, longs, 6, 2, Self::MASK8_2, 12, Self::MASK8_2)
     }
 
-    fn decode3<I: IndexInput>(
+    pub(crate) fn decode3<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -481,7 +487,10 @@ impl ForUtil {
         }
         Ok(())
     }
-    fn decode4<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, longs: &mut [i64]) -> Result<()> {
+    pub(crate) fn decode4<I: IndexInput>(
+        pdu: &mut PostingDecodingUtil<I>,
+        longs: &mut [i64],
+    ) -> Result<()> {
         pdu.split_longs_same(8, longs, 4, 4, Self::MASK8_4, 8, Self::MASK8_4)
     }
     fn decode5<I: IndexInput>(
@@ -558,7 +567,7 @@ impl ForUtil {
         pdu.input.borrow_mut().read_longs(longs, 0, 16)
     }
 
-    fn decode9<I: IndexInput>(
+    pub(crate) fn decode9<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -602,7 +611,7 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode10<I: IndexInput>(
+    pub(crate) fn decode10<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -630,7 +639,7 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode11<I: IndexInput>(
+    pub(crate) fn decode11<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -779,7 +788,7 @@ impl ForUtil {
     fn decode16<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, longs: &mut [i64]) -> Result<()> {
         pdu.input.borrow_mut().read_longs(longs, 0, 32)
     }
-    fn decode17<I: IndexInput>(
+    pub(crate) fn decode17<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -855,7 +864,7 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode18<I: IndexInput>(
+    pub(crate) fn decode18<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -898,7 +907,7 @@ impl ForUtil {
         }
         Ok(())
     }
-    fn decode19<I: IndexInput>(
+    pub(crate) fn decode19<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -969,7 +978,7 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode20<I: IndexInput>(
+    pub(crate) fn decode20<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -996,7 +1005,7 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode21<I: IndexInput>(
+    pub(crate) fn decode21<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -1062,7 +1071,7 @@ impl ForUtil {
         }
         Ok(())
     }
-    fn decode22<I: IndexInput>(
+    pub(crate) fn decode22<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -1102,7 +1111,7 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode23<I: IndexInput>(
+    pub(crate) fn decode23<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],
@@ -1166,7 +1175,7 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode24<I: IndexInput>(
+    pub(crate) fn decode24<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
         tmp: &mut [i64],
         longs: &mut [i64],

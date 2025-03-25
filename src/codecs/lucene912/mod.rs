@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod for_delta_util;
 pub mod for_util;
 mod pfor_util;
 mod postings_util;
