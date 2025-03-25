@@ -147,17 +147,17 @@ impl ForUtil {
 
         let mut idx = 0;
         let mut shift = primitive_size - bits_per_value;
-        for i in 0..num_longs_per_shift {
-            tmp[i] = longs[idx] << shift;
-            idx += 1;
+        for (t, l) in tmp.iter_mut().take(num_longs_per_shift).zip(&longs[idx..]) {
+            *t = *l << shift;
         }
+        idx += num_longs_per_shift;
 
         shift -= bits_per_value;
         while shift >= 0 {
-            for i in 0..num_longs_per_shift {
-                tmp[i] |= longs[idx] << shift;
-                idx += 1;
+            for (t, l) in tmp.iter_mut().take(num_longs_per_shift).zip(&longs[idx..]) {
+                *t |= *l << shift;
             }
+            idx += num_longs_per_shift;
             shift -= bits_per_value;
         }
 
@@ -209,9 +209,8 @@ impl ForUtil {
                 tmp_idx += 1;
             }
         }
-
-        for i in 0..num_longs_per_shift {
-            out.write_long(tmp[i])?;
+        for &val in tmp.iter().take(num_longs_per_shift) {
+            out.write_long(val)?;
         }
 
         Ok(())
@@ -236,6 +235,7 @@ impl ForUtil {
 
         let mut tmp_idx = 0;
         let mut remaining_bits = remaining_bits_per_long;
+        #[allow(clippy::needless_range_loop)]
         for longs_idx in num_longs as usize..(Self::BLOCK_SIZE / 2) {
             let mut b = bits_per_value as usize - remaining_bits;
             let mut l = (tmp[tmp_idx] & Self::MASKS32[remaining_bits]) << b;
