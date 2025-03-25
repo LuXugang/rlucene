@@ -27,7 +27,7 @@ mod buffered_updates_stream;
 mod byte_slice_pool;
 mod byte_slice_reader;
 pub(crate) mod concurrent_approximate_priority_queue;
-mod doc_id_merger;
+pub mod doc_id_merger;
 pub(crate) mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_skip_index_type;
@@ -81,4 +81,5 @@ pub(crate) mod terms_hash_per_field_enum;
 pub mod vector_encoding;
 pub mod vector_similarity_function;
 
+pub use doc_id_merger::*;
 pub use index_file_names::*;

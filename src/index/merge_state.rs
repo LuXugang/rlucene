@@ -14,10 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(test)]
+use crate::index::doc_id_merger::tests::DocMapMock1;
 use crate::index::dummy::dummy_doc_map::DummyDocMap;
 use crate::index::index_writer::DocMapIndexWriter;
 #[cfg(test)]
-use crate::test::util::bkd::test_bkd::DocMapImpl;
+use crate::index::tests::DocMapMock2;
+#[cfg(test)]
+use crate::test::util::bkd::test_bkd::DocMapMock;
 
 /// A map of doc IDs.
 pub trait DocMap {
@@ -27,7 +31,11 @@ pub trait DocMap {
 
 pub enum DocMapEnum {
     #[cfg(test)]
-    DocMapMock(DocMapImpl),
+    Mock(DocMapMock),
+    #[cfg(test)]
+    MocK1(DocMapMock1),
+    #[cfg(test)]
+    MocK2(DocMapMock2),
     DocMapImpl(DocMapIndexWriter),
     Dummy(DummyDocMap),
 }
@@ -42,7 +50,11 @@ impl DocMap for DocMapEnum {
     fn get(&self, doc_id: i32) -> i32 {
         match self {
             #[cfg(test)]
-            DocMapEnum::DocMapMock(doc_map) => doc_map.get(doc_id),
+            DocMapEnum::Mock(doc_map) => doc_map.get(doc_id),
+            #[cfg(test)]
+            DocMapEnum::MocK1(doc_map) => doc_map.get(doc_id),
+            #[cfg(test)]
+            DocMapEnum::MocK2(doc_map) => doc_map.get(doc_id),
             DocMapEnum::DocMapImpl(doc_map) => doc_map.get(doc_id),
             DocMapEnum::Dummy(doc_map) => doc_map.get(doc_id),
         }

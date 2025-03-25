@@ -31,6 +31,7 @@ use std::mem;
 ///
 /// # Note
 /// This is an internal API.
+// TODO: should we use Option<T>, then we can remove the Default bound on T
 pub struct PriorityQueue<T, C>
 where
     C: Compare<T>,
@@ -277,7 +278,9 @@ where
 
     /// Removes all entries from the PriorityQueue.
     pub fn clear(&mut self) {
-        self.heap.clear();
+        for i in 0..=self.size {
+            self.heap[i] = T::default();
+        }
         self.size = 0;
     }
 

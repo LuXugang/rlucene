@@ -34,27 +34,30 @@ where
     /// after the iterator has exhausted you should not call this method,
     /// as it may result in unpredicted behavior.
     fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>>;
-    /// Construct this from the provided subs, specifying the maximum sub count.
-    fn of_with_max_count(
-        subs: Vec<Rc<RefCell<Sub<S>>>>,
-        max_count: i32,
-        index_is_sorted: bool,
-    ) -> Result<DocIDMergerEnum<S>> {
-        if index_is_sorted && max_count > 1 {
-            Ok(DocIDMergerEnum::Sorted(SortedDocIDMerger::new(
-                subs, max_count,
-            )?))
-        } else {
-            Ok(DocIDMergerEnum::Sequential(SequentialDocIDMerger::new(
-                subs,
-            )?))
-        }
+}
+/// Construct this from the provided subs, specifying the maximum sub count.
+fn of_with_max_count<S: SubBase + Default>(
+    subs: Vec<Rc<RefCell<Sub<S>>>>,
+    max_count: i32,
+    index_is_sorted: bool,
+) -> Result<DocIDMergerEnum<S>> {
+    if index_is_sorted && max_count > 1 {
+        Ok(DocIDMergerEnum::Sorted(SortedDocIDMerger::new(
+            subs, max_count,
+        )?))
+    } else {
+        Ok(DocIDMergerEnum::Sequential(SequentialDocIDMerger::new(
+            subs,
+        )?))
     }
-    /// Construct this from the provided subs.
-    fn of(subs: Vec<Rc<RefCell<Sub<S>>>>, index_is_sorted: bool) -> Result<DocIDMergerEnum<S>> {
-        let max_count = subs.len() as i32;
-        Self::of_with_max_count(subs, max_count, index_is_sorted)
-    }
+}
+/// Construct this from the provided subs.
+fn of<S: SubBase + Default>(
+    subs: Vec<Rc<RefCell<Sub<S>>>>,
+    index_is_sorted: bool,
+) -> Result<DocIDMergerEnum<S>> {
+    let max_count = subs.len() as i32;
+    of_with_max_count(subs, max_count, index_is_sorted)
 }
 pub(crate) struct SequentialDocIDMerger<S>
 where
@@ -101,7 +104,6 @@ where
                     return Ok(Some(Rc::clone(current_sub)));
                 }
             }
-
             if self.next_index as usize == self.subs.len() {
                 self.current = None;
                 return Ok(None);
@@ -158,14 +160,19 @@ where
         self.current = None;
         let mut first = true;
         for sub in &self.subs {
-            let mut sub_mut = sub.borrow_mut();
             if first {
+                let mut sub_mut = sub.borrow_mut();
                 // by setting mappedDocID = -1, this entry is guaranteed to be the top of the queue
                 // so the first call to next() will advance it
                 sub_mut.mapped_doc_id = -1;
                 self.current = Some(Rc::clone(sub));
                 first = false;
-            } else if sub_mut.next_mapped_doc()? != NO_MORE_DOCS {
+            } else {
+                let next_mapped_doc;
+                {
+                    let mut sub_mut = sub.borrow_mut();
+                    next_mapped_doc = sub_mut.next_mapped_doc()?;
+                }
                 self.queue.add(sub.clone());
             } // else all docs in this sub were deleted; do not add it to the queue!
         }
@@ -196,7 +203,7 @@ where
                 self.current = self.queue.pop();
             }
         } else if self.queue.size() > 0 {
-            debug_assert!(!self.queue_min_doc_id == self.queue.top().borrow().mapped_doc_id);
+            debug_assert!(self.queue_min_doc_id == self.queue.top().borrow().mapped_doc_id);
             debug_assert!(next_doc > self.queue_min_doc_id);
             let new_current = self.queue.top().clone();
             self.queue
@@ -243,17 +250,15 @@ where
     /// Mapped doc ID
     sub: S,
     mapped_doc_id: i32,
-    doc_map: Rc<DocMapEnum>,
 }
 impl<S> Sub<S>
 where
     S: SubBase + Default,
 {
-    pub fn new(sub: S, doc_map: Rc<DocMapEnum>) -> Self {
+    pub fn new(sub: S) -> Self {
         Self {
             sub,
             mapped_doc_id: 0,
-            doc_map,
         }
     }
     /// Like `next_doc()` but skips over unmapped docs and returns the next mapped doc ID,
@@ -266,7 +271,7 @@ where
                 self.mapped_doc_id = NO_MORE_DOCS;
                 return Ok(NO_MORE_DOCS);
             }
-            let mapped_doc = self.doc_map.get(doc);
+            let mapped_doc = self.sub.get_doc_map()?.get(doc);
             if mapped_doc != -1 {
                 self.mapped_doc_id = mapped_doc;
                 return Ok(mapped_doc);
@@ -278,6 +283,7 @@ pub trait SubBase {
     /// Returns the next document ID from this sub reader,
     /// and `DocIdSetIterator::NO_MORE_DOCS` when done
     fn next_doc(&mut self) -> Result<i32>;
+    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>>;
 }
 
 struct SubCompare;
@@ -288,5 +294,250 @@ where
     fn less_than(&self, a: &Rc<RefCell<Sub<S>>>, b: &Rc<RefCell<Sub<S>>>) -> bool {
         debug_assert!(a.borrow().mapped_doc_id != b.borrow().mapped_doc_id);
         a.borrow().mapped_doc_id < b.borrow().mapped_doc_id
+    }
+}
+#[cfg(test)]
+pub mod tests {
+    use crate::index::doc_id_merger::{of, DocIDMerger, Sub, SubBase};
+    use crate::index::merge_state::{DocMap, DocMapEnum};
+    use crate::search::doc_id_set_iterator::NO_MORE_DOCS;
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::bit_set::BitSet;
+    use crate::util::bits::Bits;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::fixed_bit_set::FixedBitSet;
+    use rand::Rng;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestDocIDMerger;
+    #[derive(Default)]
+    pub struct TestSubUnsorted {
+        doc_id: i32,
+        value_start: i32,
+        max_doc: i32,
+        doc_map: Rc<DocMapEnum>,
+    }
+
+    impl TestSubUnsorted {
+        pub fn new(doc_map: Rc<DocMapEnum>, max_doc: i32, value_start: i32) -> Self {
+            Self {
+                doc_id: -1,
+                value_start,
+                max_doc,
+                doc_map,
+            }
+        }
+
+        pub fn get_value(&self) -> i32 {
+            self.value_start + self.doc_id
+        }
+    }
+
+    impl SubBase for TestSubUnsorted {
+        fn next_doc(&mut self) -> Result<i32> {
+            self.doc_id += 1;
+            if self.doc_id == self.max_doc {
+                Ok(NO_MORE_DOCS)
+            } else {
+                Ok(self.doc_id)
+            }
+        }
+
+        fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+            Ok(&self.doc_map)
+        }
+    }
+    pub struct DocMapMock1 {
+        doc_base: i32,
+    }
+    impl DocMap for DocMapMock1 {
+        fn get(&self, doc_id: i32) -> i32 {
+            self.doc_base + doc_id
+        }
+    }
+
+    #[test]
+    fn test_no_sort() -> Result<()> {
+        let mut random = random();
+        let sub_count = TestUtil::next_int(&mut random, 1, 200);
+        let mut subs = vec![];
+        let mut value_start = 0;
+
+        for _ in 0..sub_count {
+            let max_doc = TestUtil::next_int(&mut random, 1, 1000);
+            let doc_base = value_start;
+            let doc_map = Rc::new(DocMapEnum::MocK1(DocMapMock1 { doc_base }));
+            let sub = Rc::new(RefCell::new(Sub::new(TestSubUnsorted::new(
+                doc_map.clone(),
+                max_doc,
+                value_start,
+            ))));
+            subs.push(sub);
+            value_start += max_doc;
+        }
+
+        let mut merger = of(subs, false)?;
+
+        let mut count = 0;
+        while let Some(sub_rc) = merger.next()? {
+            let sub = sub_rc.borrow();
+            assert_eq!(count, sub.mapped_doc_id);
+            assert_eq!(count, sub.sub.get_value());
+            count += 1;
+        }
+
+        assert_eq!(value_start, count);
+        Ok(())
+    }
+
+    #[derive(Default)]
+    pub struct TestSubSorted {
+        doc_id: i32,
+        max_doc: i32,
+        index: i32,
+        pub(crate) doc_map: Rc<DocMapEnum>,
+    }
+
+    impl TestSubSorted {
+        pub fn new(doc_map: Rc<DocMapEnum>, max_doc: i32, index: i32) -> Self {
+            Self {
+                doc_id: -1,
+                max_doc,
+                index,
+                doc_map,
+            }
+        }
+    }
+
+    impl SubBase for TestSubSorted {
+        fn next_doc(&mut self) -> Result<i32> {
+            self.doc_id += 1;
+            if self.doc_id == self.max_doc {
+                Ok(NO_MORE_DOCS)
+            } else {
+                Ok(self.doc_id)
+            }
+        }
+
+        fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+            Ok(&self.doc_map)
+        }
+    }
+
+    pub struct DocMapMock2 {
+        doc_map: Vec<i32>,
+        live_docs: Option<Rc<FixedBitSet>>,
+    }
+    impl DocMapMock2 {
+        fn new(doc_map: Vec<i32>, live_docs: &Option<Rc<FixedBitSet>>) -> Self {
+            let live_docs = if live_docs.is_none() {
+                None
+            } else {
+                Some(live_docs.as_ref().unwrap().clone())
+            };
+            Self { doc_map, live_docs }
+        }
+    }
+    impl DocMap for DocMapMock2 {
+        fn get(&self, doc_id: i32) -> i32 {
+            let mapped = self.doc_map[doc_id as usize];
+            if self.live_docs.is_none() || self.live_docs.as_ref().unwrap().get(mapped) {
+                mapped
+            } else {
+                -1
+            }
+        }
+    }
+    #[test]
+    fn test_with_sort() -> Result<()> {
+        let mut random = random();
+        let sub_count = TestUtil::next_int(&mut random, 1, 20);
+        let mut old_to_new: Vec<Vec<i32>> = Vec::new();
+        // how many docs we've written to each sub:
+        let mut uptos: Vec<usize> = Vec::new();
+        let mut tot_doc_count = 0;
+
+        for _ in 0..sub_count {
+            let max_doc = TestUtil::next_int(&mut random, 1, 1000);
+            uptos.push(0);
+            old_to_new.push(vec![0; max_doc as usize]);
+            tot_doc_count += max_doc;
+        }
+
+        let mut completed_subs: Vec<Vec<i32>> = vec![];
+
+        // Randomly assign global docIDs to subs
+        for doc_id in 0..tot_doc_count {
+            let sub = random.random_range(0..old_to_new.len());
+            let mut upto = uptos[sub];
+            old_to_new[sub][upto] = doc_id;
+            upto += 1;
+            if upto == old_to_new[sub].len() {
+                completed_subs.push(old_to_new[sub].clone());
+                old_to_new.remove(sub);
+                uptos.remove(sub);
+            } else {
+                uptos[sub] = upto;
+            }
+        }
+
+        assert_eq!(old_to_new.len(), 0);
+
+        // Optional deletions
+        let mut live_docs: Option<Rc<FixedBitSet>> = None;
+        if random.random_bool(0.5) {
+            let mut bitset = FixedBitSet::new(tot_doc_count);
+            bitset.set_with_range(0, tot_doc_count);
+            let delete_attempts = TestUtil::next_int(&mut random, 1, tot_doc_count);
+            for _ in 0..delete_attempts {
+                bitset.clear_with_index(random.random_range(0..tot_doc_count));
+            }
+            live_docs = Some(Rc::new(bitset));
+        }
+
+        let mut subs: Vec<Rc<RefCell<Sub<TestSubSorted>>>> = Vec::new();
+
+        for i in 0..sub_count as usize {
+            let doc_map = completed_subs[i].clone();
+            let len = doc_map.len();
+            let doc_map_enum = Rc::new(DocMapEnum::MocK2(DocMapMock2::new(
+                doc_map.clone(),
+                &live_docs,
+            )));
+
+            let sub = Rc::new(RefCell::new(Sub::new(TestSubSorted::new(
+                doc_map_enum,
+                len as i32,
+                i as i32,
+            ))));
+            subs.push(sub);
+        }
+
+        let mut merger = of(subs, true)?;
+
+        let mut count = 0;
+        while let Some(sub_rc) = merger.next()? {
+            let sub = sub_rc.borrow();
+            if let Some(ref live) = live_docs {
+                count = live.next_set_bit(count);
+            }
+            assert_eq!(count, sub.mapped_doc_id, "doc mismatch at count {}", count);
+            count += 1;
+        }
+
+        if let Some(ref live) = live_docs {
+            if count < tot_doc_count {
+                assert_eq!(live.next_set_bit(count), NO_MORE_DOCS);
+            } else {
+                assert_eq!(count, tot_doc_count);
+            }
+        } else {
+            assert_eq!(count, tot_doc_count);
+        }
+
+        Ok(())
     }
 }

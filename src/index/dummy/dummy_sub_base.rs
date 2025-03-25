@@ -15,10 +15,18 @@
  * limitations under the License.
  */
 use crate::index::doc_id_merger::SubBase;
+use crate::index::merge_state::DocMapEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::rc::Rc;
 pub struct DummySubBase;
 impl SubBase for DummySubBase {
     fn next_doc(&mut self) -> Result<i32> {
+        Err(LuceneError::not_implemented(
+            "DummySubBase should not be called",
+        ))
+    }
+
+    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
         Err(LuceneError::not_implemented(
             "DummySubBase should not be called",
         ))

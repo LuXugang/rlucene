@@ -733,10 +733,10 @@ fn test_random_few_different_values() -> Result<()> {
     )
 }
 
-pub struct DocMapImpl {
+pub struct DocMapMock {
     cur_doc_id_base: i32,
 }
-impl DocMap for DocMapImpl {
+impl DocMap for DocMapMock {
     fn get(&self, doc_id: i32) -> i32 {
         self.cur_doc_id_base + doc_id
     }
@@ -933,9 +933,7 @@ fn verify_with_max_mb<D: Directory>(
             doc_maps
                 .as_mut()
                 .unwrap()
-                .push(Rc::new(DocMapEnum::DocMapMock(DocMapImpl {
-                    cur_doc_id_base,
-                })));
+                .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
 
             let finalizer = writer.finish(out.clone())?.unwrap();
             to_merge
@@ -980,9 +978,7 @@ fn verify_with_max_mb<D: Directory>(
             doc_maps
                 .as_mut()
                 .unwrap()
-                .push(Rc::new(DocMapEnum::DocMapMock(DocMapImpl {
-                    cur_doc_id_base,
-                })));
+                .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
         }
         drop(out);
         input = Rc::new(RefCell::new(
