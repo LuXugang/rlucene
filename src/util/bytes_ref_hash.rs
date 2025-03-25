@@ -272,7 +272,7 @@ where
     /// if the given bytes haven't been hashed before.
     ///
     /// # Errors
-    /// Returns `MaxBytesLengthExceededException` if the given bytes are greater than 2 + [`SingleThreadedByteBlockPool::BYTE_BLOCK_SIZE`](ByteBlockPoolBorrow::BYTE_BLOCK_SIZE).
+    /// Returns `MaxBytesLengthExceededException` if the given bytes are greater than 2 + [`ByteBlockPool::BYTE_BLOCK_SIZE`].
     pub fn add(&mut self, bytes: &BytesRef) -> Result<i32> {
         debug_assert!(
             self.bytes_start_array

@@ -24,7 +24,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// This struct can be used to add limitations on top of an existing
 /// [`Directory`] implementation such as
-/// [`NRTCachingDirectory`], or to add additional
+/// [`NRTCachingDirectory`](crate::store::nrt_caching_directory::NRTCachingDirectory), or to add additional
 /// sanity checks for tests.
 ///
 /// However, if you plan to write your own [`Directory`] implementation,

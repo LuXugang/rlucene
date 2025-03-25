@@ -25,7 +25,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 /// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
-/// Allocation is done through the use of an [`AllocatorByte`] which can be customized,
+/// Allocation is done through the use of an [`AllocatorByte`](crate::util::allocator_byte::AllocatorByte) which can be customized,
 /// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
 /// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.
 ///
@@ -97,7 +97,7 @@ where
     A: Access<CounterEnum>,
 {
     /// Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
-    /// Buffers that are not reused are reclaimed by [`AllocatorByte::recycle_byte_blocks`].
+    /// Buffers that are not reused are reclaimed by [`AllocatorByte::recycle_byte_blocks`](crate::util::allocator_byte::AllocatorByte::recycle_byte_blocks).
     /// Buffers can be filled with zeros before recycling them. This is useful if a slice pool works on top
     /// of this byte pool and relies on the buffers being filled with zeros to find the non-zero end of slices.
     ///

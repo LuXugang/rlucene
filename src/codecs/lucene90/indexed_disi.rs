@@ -25,10 +25,64 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
-use byteorder::ReadBytesExt;
 use std::cell::RefCell;
 use std::rc::Rc;
-
+/// Disk-based implementation of a [`DocIdSetIterator`] which can return the index of the current
+/// document, i.e. the ordinal of the current document among the list of documents that this iterator
+/// can return. This is useful to implement sparse doc values by only having to encode values for
+/// documents that actually have a value.
+///
+/// Implementation-wise, this [`DocIdSetIterator`] is inspired by [`RoaringDocIdSet`](crate::util::roaring_doc_id_set::RoaringDocIdSet) (roaring bitmaps)
+/// and encodes ranges of `65536` documents independently, picking between 3 encodings depending on
+/// the density of the range:
+///
+/// - `ALL`: if the range contains exactly 65536 documents,
+/// - `DENSE`: if the range contains 4096 documents or more; in that case documents are stored
+///   in a bit set,
+/// - `SPARSE`: otherwise, and the lower 16 bits of the doc IDs are stored as [`DataInput::read_short`].
+///
+/// Only ranges that contain at least one value are encoded.
+///
+/// This implementation uses 6 bytes per document in the worst-case scenario, which happens when
+/// all ranges contain exactly one document.
+///
+/// To avoid O(n) lookup time complexity (where n is the number of documents), two lookup tables
+/// are used: a lookup table for block offset and index, and a rank structure for DENSE block
+/// index lookups.
+///
+/// The lookup table is an array of `int` pairs, one pair per block. It allows for direct
+/// jumping to the block, rather than iterating forward from the current position block-by-block.
+///
+/// Each `int` pair entry consists of two logical parts:
+///
+/// - The first 32-bit `int` holds the index (number of set bits in the blocks) up to just before
+///   the wanted block. The maximum number of set bits is the maximum number of documents,
+///   which is less than 2^31.
+/// - The second `int` holds the byte offset into the underlying slice. Since there is a maximum
+///   of 2^16 blocks, the maximum size of any block must not exceed 2^15 bytes to avoid overflow
+///   (2^16 if treated as unsigned). This is currently safe, with the largest block being DENSE
+///   and using 2^13 + 36 bytes.
+///
+/// The cache overhead is `num_docs / 1024` bytes.
+///
+/// Note: There are 4 types of blocks: `ALL`, `DENSE`, `SPARSE`, and non-existing (0 set bits).
+/// In the case of non-existing blocks, the entry in the lookup table has the same index as
+/// the previous entry and the offset points to the next non-empty block.
+///
+/// The block lookup table is stored at the end of the total block structure.
+///
+/// The rank structure for `DENSE` blocks is an array of byte pairs with one entry per sub-block
+/// (default 512 bits) out of the 65536 bits in the outer `DENSE` block.
+///
+/// Each rank entry states the number of set bits within the block up to the bit before the bit
+/// positioned at the start of the sub-block. Note that the rank entry of the first sub-block is
+/// always 0, and the last entry can at most be 65536 - 2 = 65534, so it will always fit into a
+/// byte pair (16 bits).
+///
+/// The rank structure for a given `DENSE` block is stored at the beginning of the block itself,
+/// ensuring locality and simplifying block logistics.
+///
+/// # Lucene Internal
 pub struct IndexedDISI<I>
 where
     I: IndexInput,
@@ -61,6 +115,12 @@ where
     gap: i32,
 }
 impl IndexedDISI<DummyIndexInput> {
+    // jump-table time/space trade-offs to consider:
+    // The block offsets and the block indexes could be stored in more compressed form with
+    // two PackedInts or two MonotonicDirectReaders.
+    // The DENSE ranks (default 128 shorts = 256 bytes) could likewise be compressed. But as there is
+    // at least 4096 set bits in DENSE blocks, there will be at least one rank with 2^12 bits, so it
+    // is doubtful if there is much to gain here.
     // The number of docIDs that a single block represents
     const BLOCK_SIZE: i32 = 65536;
     // Long.SIZE = 64 bits
@@ -68,12 +128,54 @@ impl IndexedDISI<DummyIndexInput> {
     // Every 512 docIDs / 8 longs
     pub const DEFAULT_DENSE_RANK_POWER: i8 = 9;
     const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
-    pub fn write_bitset<O>(it: &mut impl DocIdSetIterator, out: &mut O) -> Result<i16>
+    /// Writes the doc IDs from the iterator into the output in logical blocks,
+    /// with one block for every 65,536 doc IDs, in monotonically increasing and gap-less order.
+    ///
+    /// DENSE blocks use [`DEFAULT_DENSE_RANK_POWER`](Self::DEFAULT_DENSE_RANK_POWER) of 9, meaning a rank is written every 512 doc IDs (8 longs).
+    ///
+    /// The caller must keep track of:
+    /// - The number of jump-table entries (returned by this method),
+    /// - The `dense_rank_power` (9 in this method),
+    /// and provide them when constructing an `IndexedDISI` for reading.
+    ///
+    /// # Parameters
+    /// - `it`: the document ID iterator (monotonically increasing, no gaps).
+    /// - `out`: the output target for writing the encoded blocks.
+    ///
+    /// # Returns
+    /// The number of jump-table entries that follow the blocks, or `-1` if there are no entries.
+    /// This value should be stored in metadata and used when creating an `IndexedDISI` instance.
+    ///
+    /// # Errors
+    /// Returns an error if writing to the output fails.
+    pub(crate) fn write_bitset<O>(it: &mut impl DocIdSetIterator, out: &mut O) -> Result<i16>
     where
         O: IndexOutput,
     {
         Self::write_bitset_with_dense_rank_power(it, out, IndexedDISI::DEFAULT_DENSE_RANK_POWER)
     }
+    /// Writes the doc IDs from the iterator into the output in logical blocks,
+    /// with one block for every 65,536 doc IDs, in monotonically increasing and gap-less order.
+    ///
+    /// The caller must keep track of:
+    /// - The number of jump-table entries (returned by this method),
+    /// - The `dense_rank_power`,
+    /// and provide them when constructing an `IndexedDISI` for reading.
+    ///
+    /// # Parameters
+    /// - `it`: The iterator over document IDs (must be sorted, gap-less, increasing).
+    /// - `out`: The destination where blocks will be written.
+    /// - `dense_rank_power`: For `DENSE` blocks, a rank will be written every `2^dense_rank_power` doc IDs.
+    ///     - Values `< 7` (every 128 doc IDs) or `> 15` (every 32,768 doc IDs) disable DENSE rank.
+    ///     - Recommended values: 8–12 (every 256–4096 doc IDs, or 4–64 longs).
+    ///     - The default value is `DEFAULT_DENSE_RANK_POWER = 9`, which means every 512 doc IDs.
+    ///
+    /// # Returns
+    /// The number of jump-table entries that follow the blocks, or `-1` if there are no entries.
+    /// This value should be stored in metadata and used when creating an instance of `IndexedDISI`.
+    ///
+    /// # Errors
+    /// Returns an error if writing to the output fails.
     pub fn write_bitset_with_dense_rank_power<O>(
         it: &mut impl DocIdSetIterator,
         out: &mut O,
@@ -178,6 +280,21 @@ impl<I> IndexedDISI<I>
 where
     I: IndexInput,
 {
+    /// Constructs a new `IndexedDISI` instance by reading from the backing input data.
+    ///
+    /// This constructor always creates a new `block_slice` and a new `jump_table` from the input,
+    /// to ensure that operations are independent from the caller.
+    /// For re-using existing slices and tables, see [`IndexedDISI::from_components`] (if implemented).
+    ///
+    /// # Parameters
+    /// - `input`: The backing input data.
+    /// - `offset`: The starting byte offset of the blocks in the input.
+    /// - `length`: The number of bytes that hold both blocks and the jump table.
+    /// - `jump_table_entry_count`: The number of blocks covered by the jump table. This must match the
+    ///   number returned by [`write_bit_set`].
+    /// - `dense_rank_power`: The number of doc IDs covered by each rank entry in DENSE blocks,
+    ///   expressed as `2^dense_rank_power`. This must match the value passed to [`write_bit_set`] when writing.
+    /// - `cost`: Typically the number of logical doc IDs.
     pub fn new(
         index_input: &mut I,
         offset: i64,
@@ -203,7 +320,20 @@ where
             cost,
         )
     }
-
+    /// Constructs an `IndexedDISI` using the provided block slice and jump table,
+    /// allowing reuse of existing data structures.  
+    ///
+    /// This is useful in cases like Lucene80 norms producer's merge instance,
+    /// where reuse improves performance and avoids unnecessary allocations.
+    ///
+    /// # Parameters
+    /// - `block_slice`: The data blocks, typically created using [`create_block_slice`](Self::create_block_slice).
+    /// - `jump_table`: The table holding jump data for block skips, typically created using [`create_jump_table`](Self::create_jump_table).
+    /// - `jump_table_entry_count`: The number of blocks covered by the jump table. This must match the
+    ///   number returned by [`write_bit_set`]
+    /// - `dense_rank_power`: The number of doc IDs covered by each rank entry in DENSE blocks,
+    ///   expressed as `2^dense_rank_power`. This must match the value used in [`write_bit_set`].
+    /// - `cost`: Typically the number of logical doc IDs.
     pub fn from_components(
         mut index_input: I::Slice,
         jump_table: Rc<RefCell<Option<I::RandomAccessSlice>>>,
@@ -371,7 +501,22 @@ where
         // The jumpTableOffset will be at lastPos - (blockCount * Long.BYTES)
         Ok(block_count as i16)
     }
-    fn create_block_slice(
+    /// Helper method for using [`IndexedDISI::from_components`].  
+    /// Creates a `disi_slice` for the `IndexedDISI` data blocks, excluding the jump table.
+    ///
+    /// # Parameters
+    /// - `slice`: Backing data containing both blocks and the jump table.
+    /// - `slice_description`: Human-readable description of the slice.
+    /// - `offset`: Offset relative to the backing data.
+    /// - `length`: Total length of the `IndexedDISI`, including blocks and jump-table data.
+    /// - `jump_table_entry_count`: Number of blocks covered by the jump table.
+    ///
+    /// # Returns
+    /// A jump table containing the block skip data, or `None` if no such table exists.
+    ///
+    /// # Errors
+    /// Returns an error if a `RandomAccessInput` could not be created from the slice.
+    pub fn create_block_slice(
         slice: &mut I,
         slice_description: &str,
         offset: i64,
@@ -385,7 +530,21 @@ where
         };
         slice.slice(slice_description, offset, length - jump_table_bytes)
     }
-    fn create_jump_table(
+    /// Helper method for using [`IndexedDISI::from_components`].  
+    /// Creates a `RandomAccessInput` covering only the jump-table data, or returns `None` if no such table exists.
+    ///
+    /// # Parameters
+    /// - `slice`: Backing data containing both blocks and the jump table.
+    /// - `offset`: Offset relative to the backing data.
+    /// - `length`: Total length of the `IndexedDISI`, including blocks and jump-table data.
+    /// - `jump_table_entry_count`: Number of blocks covered by the jump table.
+    ///
+    /// # Returns
+    /// A `RandomAccessInput` covering the jump-table section, or `None` if the table doesn't exist.
+    ///
+    /// # Errors
+    /// Returns an error if a `RandomAccessInput` could not be created from the slice.
+    pub fn create_jump_table(
         slice: &mut I,
         offset: i64,
         length: i64,
@@ -509,7 +668,19 @@ where
     fn index(&self) -> i32 {
         self.index
     }
-
+    /// If the distance between the current position and the target is greater than 8 words,
+    /// the rank cache will be used to guarantee a worst-case of one rank lookup and up to
+    /// seven word-read-and-bit-count operations.
+    ///
+    /// **Note**: This does *not* guarantee a skip up to the target, only up to the nearest rank boundary.
+    /// It is the caller’s responsibility to continue iterating to reach the actual target.
+    ///
+    /// # Parameters
+    /// - `disi`: The standard `DISI` instance.
+    /// - `target_in_block`: The lower 16 bits of the target document ID.
+    ///
+    /// # Errors
+    /// Returns an error if seeking in the `DISI` failed.
     fn rank_skip(disi: &mut IndexedDISI<I>, target_in_block: i32) -> Result<()> {
         debug_assert!(
             disi.dense_rank_power >= 0,
@@ -546,6 +717,8 @@ where
         Ok(())
     }
 
+    ///  Returns an iterator that delegates to the IndexedDISI. Advancing this iterator will advance the
+    /// underlying IndexedDISI, and vice-versa.
     pub fn get_doc_index_iterator<D>(disi: &mut IndexedDISI<I>) -> DocIndexIteratorImpl<I>
     where
         D: DocIdSetIterator + DocIndexIteratorBase,
@@ -679,11 +852,15 @@ impl MethodBehavior for Method {
     }
 }
 trait MethodBehavior {
+    /// Advance to the first doc from the block that is equal to or greater than `target`.
+    /// Return true if there is such a doc and false otherwise.
     fn advance_within_block<I: IndexInput>(
         &self,
         disi: &mut IndexedDISI<I>,
         target: i32,
     ) -> Result<bool>;
+    /// Advance the iterator exactly to the position corresponding to the given `target` and
+    /// return whether this document exists.
     fn advance_exact_within_block<I: IndexInput>(
         &self,
         disi: &mut IndexedDISI<I>,

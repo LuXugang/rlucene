@@ -40,8 +40,8 @@ use std::sync::{Arc, Mutex};
 /// - `SegmentHeader` -> [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
 /// - `Bits` -> <[`Int64`](crate::store::data_output::DataOutput::write_long)> <sup>LongCount</sup>
 ///
-/// [`CodecUtil::write_index_header`]: crate::codec_util::write_index_header
-/// [`DataOutput::write_long`]: crate::data_output::write_long
+/// [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
+/// [`DataOutput::write_long`](crate::store::data_output::DataOutput::write_long)
 pub struct Lucene90LiveDocsFormat;
 
 impl Default for Lucene90LiveDocsFormat {
