@@ -29,7 +29,7 @@ pub struct ForUtil {
     tmp: Vec<i64>,
 }
 impl ForUtil {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             tmp: vec![0i64; Self::BLOCK_SIZE],
         }
@@ -116,7 +116,7 @@ impl ForUtil {
         }
     }
     /// Encode 128 integers from `longs` into out`.
-    fn encode(
+    pub(crate) fn encode(
         &mut self,
         longs: &mut [i64],
         bits_per_value: i32,
@@ -217,7 +217,7 @@ impl ForUtil {
         Ok(())
     }
     /// Number of bytes required to encode 128 integers of `bitsPerValue` bits per value.
-    fn num_bytes(bits_per_value: i32) -> i32 {
+    pub(crate) fn num_bytes(bits_per_value: i32) -> i32 {
         bits_per_value << (Self::BLOCK_SIZE_LOG2 - 3)
     }
 
@@ -339,7 +339,7 @@ impl ForUtil {
     pub const MASK32_22: i64 = Self::MASKS32[22];
     pub const MASK32_23: i64 = Self::MASKS32[23];
     pub const MASK32_24: i64 = Self::MASKS32[24];
-    fn decode<I: IndexInput>(
+    pub(crate) fn decode<I: IndexInput>(
         &mut self,
         bits_per_value: i32,
         pdu: &mut PostingDecodingUtil<I>,
@@ -1197,6 +1197,8 @@ mod tests {
     use rand::Rng;
     use std::cell::RefCell;
     use std::rc::Rc;
+    #[allow(dead_code)] // for quick search
+    struct TestForUtil;
 
     #[test]
     fn test_encode_decode() -> Result<()> {
@@ -1212,7 +1214,7 @@ mod tests {
             }
         }
 
-        // TODO: should be repplace with ByteBuffersDirectory
+        // TODO:  ByteBuffersDirectory not Implemented
         let mut dir = new_directory(&mut random)?;
         let end_pointer;
 
