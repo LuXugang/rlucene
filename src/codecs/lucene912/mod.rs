@@ -142,7 +142,7 @@ impl ForUtil {
         out: &mut impl DataOutput,
         tmp: &mut [i64],
     ) -> Result<()> {
-        let num_longs = Self::BLOCK_SIZE * (primitive_size as usize) / 64;
+        let num_longs = Self::BLOCK_SIZE * (primitive_size as usize) / i64::BITS as usize;
         let num_longs_per_shift = (bits_per_value * 2) as usize;
 
         let mut idx = 0;
@@ -152,27 +152,24 @@ impl ForUtil {
             idx += 1;
         }
 
-        shift = shift - bits_per_value;
+        shift -= bits_per_value;
         while shift >= 0 {
             for i in 0..num_longs_per_shift {
                 tmp[i] |= longs[idx] << shift;
                 idx += 1;
             }
-            if shift < bits_per_value {
-                break;
-            }
             shift -= bits_per_value;
         }
 
-        let remaining_bits_per_long = (shift + bits_per_value) as usize;
+        let remaining_bits_per_long = shift + bits_per_value;
         let mask_remaining_bits_per_long = match primitive_size {
-            8 => Self::MASKS8[remaining_bits_per_long],
-            16 => Self::MASKS16[remaining_bits_per_long],
-            _ => Self::MASKS32[remaining_bits_per_long],
+            8 => Self::MASKS8[remaining_bits_per_long as usize],
+            16 => Self::MASKS16[remaining_bits_per_long as usize],
+            _ => Self::MASKS32[remaining_bits_per_long as usize],
         };
 
         let mut tmp_idx = 0;
-        let mut remaining_bits_per_value = bits_per_value as usize;
+        let mut remaining_bits_per_value = bits_per_value;
         while idx < num_longs {
             if remaining_bits_per_value >= remaining_bits_per_long {
                 remaining_bits_per_value -= remaining_bits_per_long;
@@ -180,29 +177,34 @@ impl ForUtil {
                     & mask_remaining_bits_per_long;
                 if remaining_bits_per_value == 0 {
                     idx += 1;
-                    remaining_bits_per_value = bits_per_value as usize;
+                    remaining_bits_per_value = bits_per_value;
                 }
                 tmp_idx += 1;
             } else {
+                let remaining_bits_per_value_index = remaining_bits_per_value as usize;
+                let remaining_bits_per_long_index = remaining_bits_per_long as usize;
                 let (mask1, mask2) = match primitive_size {
                     8 => (
-                        Self::MASKS8[remaining_bits_per_value],
-                        Self::MASKS8[remaining_bits_per_long - remaining_bits_per_value],
+                        Self::MASKS8[remaining_bits_per_value_index],
+                        Self::MASKS8
+                            [remaining_bits_per_long_index - remaining_bits_per_value_index],
                     ),
                     16 => (
-                        Self::MASKS16[remaining_bits_per_value],
-                        Self::MASKS16[remaining_bits_per_long - remaining_bits_per_value],
+                        Self::MASKS16[remaining_bits_per_value_index],
+                        Self::MASKS16
+                            [remaining_bits_per_long_index - remaining_bits_per_value_index],
                     ),
                     _ => (
-                        Self::MASKS32[remaining_bits_per_value],
-                        Self::MASKS32[remaining_bits_per_long - remaining_bits_per_value],
+                        Self::MASKS32[remaining_bits_per_value_index],
+                        Self::MASKS32
+                            [remaining_bits_per_long_index - remaining_bits_per_value_index],
                     ),
                 };
 
                 tmp[tmp_idx] |=
                     (longs[idx] & mask1) << (remaining_bits_per_long - remaining_bits_per_value);
                 idx += 1;
-                remaining_bits_per_value += bits_per_value as usize - remaining_bits_per_long;
+                remaining_bits_per_value += bits_per_value - remaining_bits_per_long;
                 tmp[tmp_idx] |= (longs[idx] as u64 >> remaining_bits_per_value) as i64 & mask2;
                 tmp_idx += 1;
             }
@@ -337,10 +339,9 @@ impl ForUtil {
     pub const MASK32_23: i64 = Self::MASKS32[23];
     pub const MASK32_24: i64 = Self::MASKS32[24];
     fn decode<I: IndexInput>(
-        &self,
+        &mut self,
         bits_per_value: i32,
         pdu: &mut PostingDecodingUtil<I>,
-        tmp: &mut [i64],
         longs: &mut [i64],
     ) -> Result<()> {
         match bits_per_value {
@@ -353,7 +354,7 @@ impl ForUtil {
                 Self::expand8(longs);
             }
             3 => {
-                Self::decode3(pdu, tmp, longs)?;
+                Self::decode3(pdu, &mut self.tmp, longs)?;
                 Self::expand8(longs);
             }
             4 => {
@@ -361,15 +362,15 @@ impl ForUtil {
                 Self::expand8(longs);
             }
             5 => {
-                Self::decode5(pdu, tmp, longs)?;
+                Self::decode5(pdu, &mut self.tmp, longs)?;
                 Self::expand8(longs);
             }
             6 => {
-                Self::decode6(pdu, tmp, longs)?;
+                Self::decode6(pdu, &mut self.tmp, longs)?;
                 Self::expand8(longs);
             }
             7 => {
-                Self::decode7(pdu, tmp, longs)?;
+                Self::decode7(pdu, &mut self.tmp, longs)?;
                 Self::expand8(longs);
             }
             8 => {
@@ -377,31 +378,31 @@ impl ForUtil {
                 Self::expand8(longs);
             }
             9 => {
-                Self::decode9(pdu, tmp, longs)?;
+                Self::decode9(pdu, &mut self.tmp, longs)?;
                 Self::expand16(longs);
             }
             10 => {
-                Self::decode10(pdu, tmp, longs)?;
+                Self::decode10(pdu, &mut self.tmp, longs)?;
                 Self::expand16(longs);
             }
             11 => {
-                Self::decode11(pdu, tmp, longs)?;
+                Self::decode11(pdu, &mut self.tmp, longs)?;
                 Self::expand16(longs);
             }
             12 => {
-                Self::decode12(pdu, tmp, longs)?;
+                Self::decode12(pdu, &mut self.tmp, longs)?;
                 Self::expand16(longs);
             }
             13 => {
-                Self::decode13(pdu, tmp, longs)?;
+                Self::decode13(pdu, &mut self.tmp, longs)?;
                 Self::expand16(longs);
             }
             14 => {
-                Self::decode14(pdu, tmp, longs)?;
+                Self::decode14(pdu, &mut self.tmp, longs)?;
                 Self::expand16(longs);
             }
             15 => {
-                Self::decode15(pdu, tmp, longs)?;
+                Self::decode15(pdu, &mut self.tmp, longs)?;
                 Self::expand16(longs);
             }
             16 => {
@@ -409,39 +410,39 @@ impl ForUtil {
                 Self::expand16(longs);
             }
             17 => {
-                Self::decode17(pdu, tmp, longs)?;
+                Self::decode17(pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
             18 => {
-                Self::decode18(pdu, tmp, longs)?;
+                Self::decode18(pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
             19 => {
-                Self::decode19(pdu, tmp, longs)?;
+                Self::decode19(pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
             20 => {
-                Self::decode20(pdu, tmp, longs)?;
+                Self::decode20(pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
             21 => {
-                Self::decode21(pdu, tmp, longs)?;
+                Self::decode21(pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
             22 => {
-                Self::decode22(pdu, tmp, longs)?;
+                Self::decode22(pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
             23 => {
-                Self::decode23(pdu, tmp, longs)?;
+                Self::decode23(pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
             24 => {
-                Self::decode24(pdu, tmp, longs)?;
+                Self::decode24(pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
             _ => {
-                Self::decode_slow(bits_per_value, pdu, tmp, longs)?;
+                Self::decode_slow(bits_per_value, pdu, &mut self.tmp, longs)?;
                 Self::expand32(longs);
             }
         }
@@ -1177,6 +1178,110 @@ impl ForUtil {
             longs[longs_idx] = l0;
             tmp_idx += 3;
             longs_idx += 1;
+        }
+        Ok(())
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::codecs::lucene912::ForUtil;
+    use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
+    use crate::store::directory::Directory;
+    use crate::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
+    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::array_util::ArrayUtil;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::packed::PackedInts;
+    use rand::Rng;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    #[test]
+    fn test11() -> Result<()> {
+        for i in 0..1000 {
+            test_encode_decode()?;
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_encode_decode() -> Result<()> {
+        let mut random = random();
+        let iterations = random.random_range(50..=1000);
+        let mut values = vec![0i32; iterations * ForUtil::BLOCK_SIZE];
+
+        for i in 0..iterations {
+            let bpv = TestUtil::next_int(&mut random, 1, 31);
+            for j in 0..ForUtil::BLOCK_SIZE {
+                let idx = i * ForUtil::BLOCK_SIZE + j;
+                values[idx] = random.random_range(0..PackedInts::max_value(bpv) as i32);
+            }
+        }
+
+        // TODO: should be repplace with ByteBuffersDirectory
+        let mut dir = new_directory(&mut random)?;
+        let end_pointer;
+
+        // encode
+        {
+            let mut out = dir.create_output("test.bin", &IOContext::default_io_context()?)?;
+            let mut for_util = ForUtil::new();
+
+            for i in 0..iterations {
+                let mut source = [0i64; ForUtil::BLOCK_SIZE];
+                let mut or = 0;
+                for j in 0..ForUtil::BLOCK_SIZE {
+                    let v = values[i * ForUtil::BLOCK_SIZE + j] as i64;
+                    source[j] = v;
+                    or |= v;
+                }
+                let bpv = PackedInts::bits_required(or)?;
+                out.write_byte(bpv as u8)?;
+                for_util.encode(&mut source, bpv, &mut out)?;
+            }
+            end_pointer = out.get_file_pointer();
+        }
+
+        // decode
+        {
+            let input = Rc::new(RefCell::new(
+                dir.open_input("test.bin", &IOContext::read_once_io_context()?)?,
+            ));
+            let mut pdu = PostingDecodingUtil::new(input.clone());
+            let mut for_util = ForUtil::new();
+
+            for i in 0..iterations {
+                let bits_per_value = input.borrow_mut().read_byte()? as i32;
+                let current_fp = input.borrow().get_file_pointer();
+                let mut restored = [0i64; ForUtil::BLOCK_SIZE];
+                for_util.decode(bits_per_value, &mut pdu, &mut restored)?;
+
+                let ints: Vec<i32> = restored.iter().map(|&v| v as i32).collect();
+                let expected = ArrayUtil::copy_of_sub_array(
+                    &values,
+                    (i * ForUtil::BLOCK_SIZE) as i32,
+                    ((i + 1) * ForUtil::BLOCK_SIZE) as i32,
+                );
+                assert_eq!(
+                    ints, expected,
+                    "Mismatch at iteration {}: {:?} vs {:?}",
+                    i, ints, expected
+                );
+
+                let expected_fp = current_fp + ForUtil::num_bytes(bits_per_value) as i64;
+                assert_eq!(
+                    input.borrow().get_file_pointer(),
+                    expected_fp,
+                    "Unexpected file pointer after decode at iteration {}",
+                    i
+                );
+            }
+
+            assert_eq!(
+                input.borrow().get_file_pointer(),
+                end_pointer,
+                "Final file pointer mismatch"
+            );
         }
         Ok(())
     }
