@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::dummy::dummy_doc_map::DummyDocMap;
 use crate::index::index_writer::DocMapIndexWriter;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::DocMapImpl;
@@ -28,12 +29,13 @@ pub enum DocMapEnum {
     #[cfg(test)]
     DocMapMock(DocMapImpl),
     DocMapImpl(DocMapIndexWriter),
+    Dummy(DummyDocMap),
 }
 /// # Note:
 /// Default value used for padding
 impl Default for DocMapEnum {
     fn default() -> Self {
-        DocMapEnum::DocMapImpl(DocMapIndexWriter)
+        DocMapEnum::Dummy(DummyDocMap)
     }
 }
 impl DocMap for DocMapEnum {
@@ -42,6 +44,7 @@ impl DocMap for DocMapEnum {
             #[cfg(test)]
             DocMapEnum::DocMapMock(doc_map) => doc_map.get(doc_id),
             DocMapEnum::DocMapImpl(doc_map) => doc_map.get(doc_id),
+            DocMapEnum::Dummy(doc_map) => doc_map.get(doc_id),
         }
     }
 }

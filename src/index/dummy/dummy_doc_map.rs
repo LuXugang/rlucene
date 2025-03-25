@@ -14,8 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod dummy_doc_map;
-pub mod dummy_indexable_field_type;
-pub mod dummy_point_tree;
-pub mod dummy_point_value_base;
-pub mod dummy_sub_base;
+use crate::index::merge_state::DocMap;
+
+pub struct DummyDocMap;
+impl DocMap for DummyDocMap {
+    fn get(&self, _doc_id: i32) -> i32 {
+        debug_assert!(false, "DummyDocMap should not be called");
+        0
+    }
+}
