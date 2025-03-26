@@ -23,6 +23,7 @@ use crate::store::directory::Directory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 pub struct SegmentCommitInfo<D>
@@ -30,7 +31,7 @@ where
     D: Directory,
 {
     /// The SegmentInfo that we wrap.
-    pub info: SegmentInfo<D>,
+    pub info: Rc<SegmentInfo<D>>,
 
     /// Id that uniquely identifies this segment commit.
     pub id: Option<Vec<u8>>,
@@ -86,7 +87,7 @@ where
     /// - `Doc_values_gen`: DocValues generation number (used to name doc-values updates files).
     /// - `ID`: ID that uniquely identifies this segment commit.
     pub fn new(
-        info: SegmentInfo<D>,
+        info: Rc<SegmentInfo<D>>,
         del_count: i32,
         soft_del_count: i32,
         del_gen: i64,
@@ -251,7 +252,8 @@ where
     /// Returns all files in use by this segment.
     pub fn files(&self) -> Result<HashSet<String>> {
         // Start from the wrapped info's files (deep copy):
-        let mut files: HashSet<String> = self.info.files()?.clone();
+        let files = self.info.files()?;
+        let mut files: HashSet<String> = files.borrow().clone();
         // TODO we could rely on TrackingDir.getCreatedFiles() (like we do for
         // updates) and then maybe even be able to remove LiveDocsFormat.files().
         // Must separately add any live docs files:

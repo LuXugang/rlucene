@@ -16,6 +16,7 @@
  */
 use crate::index::sort::Sort;
 use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
+use std::cell::RefCell;
 
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
@@ -25,6 +26,7 @@ use crate::util::StringHelper;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 /// Information about a segment such as its name, directory, and files related to the segment.
@@ -61,7 +63,7 @@ where
     /// into this segment.
     pub(crate) min_version: Option<Version>,
     has_blocks: bool,
-    set_files: Option<HashSet<String>>,
+    set_files: Option<Rc<RefCell<HashSet<String>>>>,
 }
 
 impl SegmentInfo<DummyDirectory> {
@@ -224,7 +226,7 @@ where
     }
 
     /// Returns all files referenced by this SegmentInfo
-    pub fn files(&self) -> Result<&HashSet<String>> {
+    pub fn files(&self) -> Result<Rc<RefCell<HashSet<String>>>> {
         if self.set_files.is_none() {
             debug_assert!(self.max_doc.is_some());
             return Err(LuceneError::illegal_argument(format!(
@@ -233,12 +235,12 @@ where
                 self.max_doc.unwrap()
             )));
         }
-        Ok(self.set_files.as_ref().unwrap())
+        Ok(self.set_files.as_ref().unwrap().clone())
     }
 
     /// Sets the files for this segment
     pub fn set_files(&mut self, files: HashSet<String>) {
-        self.set_files = Some(files);
+        self.set_files = Some(Rc::new(RefCell::new(files)));
     }
     /// Converts this segment information into a formatted string with deletions count.
     ///
@@ -330,6 +332,7 @@ where
             .map(|file| self.named_for_this_segment(file))
             .collect();
         if let Some(set_files) = &mut self.set_files {
+            let set_files = &mut *set_files.borrow_mut();
             for file in transformed_files {
                 set_files.insert(file);
             }

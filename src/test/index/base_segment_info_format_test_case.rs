@@ -127,7 +127,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         LATEST_CODEC
             .segment_info_format()
             .write(dir.clone(), &mut info, &io_context)?;
-        let modified_files = info.files()?;
+        let files = info.files()?;
+        let modified_files = files.borrow();
         assert!(modified_files.is_superset(&original_files));
         assert!(
             modified_files.len() > original_files.len(),

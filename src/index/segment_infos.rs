@@ -33,6 +33,7 @@ use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::Write;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
@@ -478,7 +479,7 @@ where
             }
 
             let mut si_per_commit = SegmentCommitInfo::new(
-                info,
+                Rc::new(info),
                 del_count,
                 soft_del_count,
                 del_gen,
@@ -1405,6 +1406,7 @@ mod tests {
     use crate::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
     use rand::Rng;
     use std::collections::{HashMap, HashSet};
+    use std::rc::Rc;
     use std::sync::{Arc, Mutex};
 
     #[allow(dead_code)] // for quick search
@@ -1476,7 +1478,7 @@ mod tests {
             .write(directory.clone(), &mut info, &io_context)?;
 
         let commit_info = SegmentCommitInfo::new(
-            info,
+            Rc::new(info),
             0,
             0,
             -1,
@@ -1529,7 +1531,7 @@ mod tests {
             .write(directory.clone(), &mut info_0, &io_context)?;
 
         let commit_info_0 = SegmentCommitInfo::new(
-            info_0,
+            Rc::new(info_0),
             0,
             0,
             -1,
@@ -1559,7 +1561,7 @@ mod tests {
             .write(directory.clone(), &mut info_1, &io_context)?;
 
         let commit_info_1 = SegmentCommitInfo::new(
-            info_1,
+            Rc::new(info_1),
             0,
             0,
             -1,
@@ -1725,7 +1727,8 @@ mod tests {
             Some(Sort::get_index_order()?),
         )?;
 
-        let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
+        let mut commit_info =
+            SegmentCommitInfo::new(Rc::new(info), 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
         assert_eq!(
             StringHelper::id_to_string(Some(id.as_slice())),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
@@ -1801,7 +1804,7 @@ mod tests {
             .segment_info_format()
             .write(dir.clone(), &mut info_0, &io_context)?;
         let commit_info_0 = SegmentCommitInfo::new(
-            info_0,
+            Rc::new(info_0),
             0,
             0,
             -1,
@@ -1830,7 +1833,7 @@ mod tests {
             .segment_info_format()
             .write(dir.clone(), &mut info_1, &io_context)?;
         let commit_info_1 = SegmentCommitInfo::new(
-            info_1,
+            Rc::new(info_1),
             0,
             0,
             -1,

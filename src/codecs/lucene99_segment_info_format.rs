@@ -202,16 +202,19 @@ impl Lucene99SegmentInfoFormat {
         })?;
         output.write_map_of_strings(si.get_diagnostics())?;
 
-        let files = si.files()?;
-        for file in files {
-            if IndexFileNames::parse_segment_name(file) != si.name {
-                return Err(LuceneError::illegal_argument(format!(
-                    "invalid files: expected segment={}, got file={}",
-                    si.name, file
-                )));
+        {
+            let files_ref = si.files()?;
+            let files = &*files_ref.borrow();
+            for file in files {
+                if IndexFileNames::parse_segment_name(file) != si.name {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "invalid files: expected segment={}, got file={}",
+                        si.name, file
+                    )));
+                }
             }
+            output.write_set_of_strings(files)?;
         }
-        output.write_set_of_strings(files)?;
         {
             let attributes = si.get_attributes()?;
             let values = attributes

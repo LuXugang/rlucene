@@ -31,6 +31,7 @@ use crate::util::{StringHelper, LATEST};
 use rand::rngs::StdRng;
 use rand::Rng;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 pub trait BaseLiveDocsFormatTestCase {
@@ -117,7 +118,7 @@ pub trait BaseLiveDocsFormatTestCase {
         let io_context = IOContext::default_io_context()?;
         let si1 = si.clone();
         let mut sci = SegmentCommitInfo::new(
-            si,
+            Rc::new(si),
             0,
             0,
             0,
@@ -134,7 +135,7 @@ pub trait BaseLiveDocsFormatTestCase {
         )?;
 
         sci = SegmentCommitInfo::new(
-            si1,
+            Rc::new(si1),
             max_doc - num_live_docs,
             0,
             1,

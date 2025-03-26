@@ -83,18 +83,24 @@ impl Lucene90CompoundFormat {
         dir: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
     ) -> Result<()> {
-        // write number of files
-        let num_files = si.files()?.len();
-        debug_assert!(num_files <= i32::MAX as usize);
-        entries.write_vint(num_files as i32)?;
-        let directory = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        let mut pq = PriorityQueue::new(num_files as i32, SizedFileQueueCmp)?;
+        let mut pq;
+        let directory;
         {
-            for filename in si.files()? {
-                let file_length = directory.file_length(filename)?;
-                pq.add(SizedFile::new(filename.to_string(), file_length));
+            // write number of files
+            let files_ref = si.files()?;
+            let files = &*files_ref.borrow();
+            let num_files = files.len();
+            debug_assert!(num_files <= i32::MAX as usize);
+            entries.write_vint(num_files as i32)?;
+            directory = dir
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            pq = PriorityQueue::new(num_files as i32, SizedFileQueueCmp)?;
+            {
+                for filename in files {
+                    let file_length = directory.file_length(filename)?;
+                    pq.add(SizedFile::new(filename.to_string(), file_length));
+                }
             }
         }
         while pq.size() > 0 {
