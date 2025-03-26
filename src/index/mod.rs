@@ -71,7 +71,7 @@ pub mod segment_commit_info;
 pub mod segment_info;
 pub mod segment_infos;
 pub mod segment_read_state;
-mod segment_write_state;
+pub mod segment_write_state;
 pub mod sort;
 pub mod sort_field_provider;
 pub mod stored_fields;
