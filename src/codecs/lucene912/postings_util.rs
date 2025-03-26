@@ -66,8 +66,8 @@ impl PostingsUtil {
         let num = num as usize;
 
         if write_freqs {
-            for i in 0..num {
-                let freq = freq_buffer[i] as i32;
+            for &freq in freq_buffer.iter().take(num) {
+                let freq = freq as i32;
                 if freq != 1 {
                     doc_out.write_vint(freq)?;
                 }

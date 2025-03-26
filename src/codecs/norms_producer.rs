@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene90_norms_producer::Lucene90NormsProducer;
+use crate::codecs::lucene90_norms_producer::{IndexInputImpl, Lucene90NormsProducer};
 use crate::codecs::numeric_doc_values_enum::NumericDocValuesEnum;
 use crate::index::field_info::FieldInfo;
 use crate::store::IndexInput;
@@ -59,13 +59,17 @@ where
 }
 impl<I> NormsProducer<I> for NormsProducerEnum<I>
 where
-    I: IndexInput,
+    I: IndexInput<Slice = IndexInputImpl<I>>,
 {
-    fn get_norms(&mut self, field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
-        unimplemented!()
+    fn get_norms(&mut self, _field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+        match self {
+            NormsProducerEnum::Lucene90(producer) => producer.get_norms(_field),
+        }
     }
 
     fn check_integrity(&mut self) -> Result<()> {
-        unimplemented!()
+        match self {
+            NormsProducerEnum::Lucene90(producer) => producer.check_integrity(),
+        }
     }
 }
