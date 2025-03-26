@@ -17,6 +17,7 @@
 use crate::codecs::lucene90::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
+use crate::codecs::numeric_doc_values_enum::NumericDocValuesEnum;
 use crate::codecs::CodecUtil;
 use crate::index::doc_values::EmptyNumeric;
 use crate::index::doc_values_iterator::DocValuesIterator;
@@ -39,6 +40,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use std::rc::Rc;
+
 /// Reader for [`Lucene90NormsFormat`]
 pub struct Lucene90NormsProducer<I>
 where
@@ -907,13 +909,4 @@ where
             SparseNormsIteratorBaseEnum::Impl8(inner) => inner.long_value(disi),
         }
     }
-}
-
-pub enum NumericDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    Dense(DenseNormsIterator<I>),
-    Sparse(SparseNormsIterator<I>),
-    Empty(EmptyNumeric),
 }

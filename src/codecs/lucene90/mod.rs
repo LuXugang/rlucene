@@ -18,11 +18,12 @@ pub mod compressing;
 mod fields_index;
 mod fields_index_reader;
 mod fields_index_writer;
-mod indexed_disi;
+pub mod indexed_disi;
 pub mod lucene90_compound_format;
 pub mod lucene90_compound_reader;
 pub mod lucene90_norms_format;
 pub mod lucene90_norms_producer;
 pub mod lz4_with_preset_dict_compression_mode;
+pub mod numeric_doc_values_enum;
 
 pub use lucene90_compound_format::*;

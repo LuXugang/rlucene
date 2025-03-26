@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene90_norms_producer::{Lucene90NormsProducer, NumericDocValuesEnum};
+use crate::codecs::lucene90_norms_producer::Lucene90NormsProducer;
+use crate::codecs::numeric_doc_values_enum::NumericDocValuesEnum;
 use crate::index::field_info::FieldInfo;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
