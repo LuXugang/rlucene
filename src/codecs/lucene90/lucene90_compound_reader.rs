@@ -74,7 +74,7 @@ where
             .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         let mut handle = dir.open_input(
             &data_file_name,
-            &IO_CONTEXT_DEFAULT.read_advice(ReadAdvice::Normal)?,
+            &IO_CONTEXT_DEFAULT.with_read_advice(ReadAdvice::Normal)?,
         )?;
 
         let expected_length = entries
@@ -145,10 +145,10 @@ where
                 CodecUtil::check_footer(&mut entries_stream)?;
                 Ok((version, mapping))
             }
-            Err(mut e) => {
-                CodecUtil::check_footer_with_error(&mut entries_stream, &mut e)?;
-                Err(e)
-            }
+            Err(mut e) => Err(CodecUtil::check_footer_with_error(
+                &mut entries_stream,
+                &mut e,
+            )),
         }
     }
     fn read_mapping(entries_stream: &mut impl IndexInput) -> Result<HashMap<String, FileEntry>> {

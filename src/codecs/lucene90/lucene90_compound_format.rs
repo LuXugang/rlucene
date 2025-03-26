@@ -438,7 +438,10 @@ mod tests {
         }
 
         if prior_e.is_some() {
-            CodecUtil::check_footer_with_error(&mut entries_stream, &mut prior_e.unwrap())?;
+            return Err(CodecUtil::check_footer_with_error(
+                &mut entries_stream,
+                &mut prior_e.unwrap(),
+            ));
         } else {
             CodecUtil::check_footer(&mut entries_stream)?;
         }

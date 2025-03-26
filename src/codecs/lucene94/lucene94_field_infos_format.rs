@@ -340,17 +340,12 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             }
             Ok(infos)
         })();
-        let mut prior_e;
         match result {
             Ok(infos) => {
                 CodecUtil::check_footer(&mut input)?;
                 Ok(FieldInfos::new(infos)?)
             }
-            Err(e) => {
-                prior_e = Some(e);
-                CodecUtil::check_footer_with_error(&mut input, prior_e.as_mut().unwrap())?;
-                Err(prior_e.unwrap())
-            }
+            Err(mut e) => Err(CodecUtil::check_footer_with_error(&mut input, &mut e)),
         }
     }
 

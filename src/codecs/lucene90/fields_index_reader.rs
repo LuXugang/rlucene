@@ -81,7 +81,7 @@ where
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
             .open_input(
                 &IndexFileNames::segment_file_name(&name, &suffix, &extension),
-                &context.read_advice(ReadAdvice::RandomPreload)?,
+                &context.with_read_advice(ReadAdvice::RandomPreload)?,
             )?;
 
         CodecUtil::check_index_header(

@@ -337,7 +337,10 @@ where
             if prior_error.is_none() {
                 CodecUtil::check_footer(input)?;
             } else {
-                CodecUtil::check_footer_with_error(input, &mut prior_error.unwrap())?;
+                return Err(CodecUtil::check_footer_with_error(
+                    input,
+                    &mut prior_error.unwrap(),
+                ));
             }
         } else if let Some(e) = prior_error {
             return Err(e);

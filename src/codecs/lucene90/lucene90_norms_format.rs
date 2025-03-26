@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod compressing;
-mod fields_index;
-mod fields_index_reader;
-mod fields_index_writer;
-mod indexed_disi;
-pub mod lucene90_compound_format;
-pub mod lucene90_compound_reader;
-pub mod lucene90_norms_format;
-pub mod lucene90_norms_producer;
-pub mod lz4_with_preset_dict_compression_mode;
-
-pub use lucene90_compound_format::*;
+pub struct Lucene90NormsFormat;
+impl Lucene90NormsFormat {
+    const DATA_CODEC: &'static str = "Lucene90NormsData";
+    const DATA_EXTENSION: &'static str = "nvd";
+    const METADATA_CODEC: &'static str = "Lucene90NormsMetadata";
+    const METADATA_EXTENSION: &'static str = "nvm";
+    pub(crate) const VERSION_START: i32 = 0;
+    pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
+}

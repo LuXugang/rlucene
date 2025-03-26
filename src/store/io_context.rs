@@ -91,7 +91,7 @@ impl IOContext {
         })
     }
 
-    fn with_read_advice(read_advice: ReadAdvice) -> Result<IOContext> {
+    pub fn new_with_read_advice(read_advice: ReadAdvice) -> Result<IOContext> {
         Self::new(Some(Context::Default), Some(read_advice), None, None)
     }
 
@@ -114,19 +114,19 @@ impl IOContext {
         )
     }
 
-    pub fn read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext> {
+    pub fn with_read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext> {
         if matches!(self.context, Context::Default) {
             // TODO: maybe should statically define all types of context
-            Self::with_read_advice(read_advice)
+            Self::new_with_read_advice(read_advice)
         } else {
             Ok(self.clone())
         }
     }
     pub fn default_io_context() -> Result<IOContext> {
-        Self::with_read_advice(ReadAdvice::default_read_advice())
+        Self::new_with_read_advice(ReadAdvice::default_read_advice())
     }
     pub fn read_once_io_context() -> Result<IOContext> {
-        Self::with_read_advice(ReadAdvice::Sequential)
+        Self::new_with_read_advice(ReadAdvice::Sequential)
     }
 }
 

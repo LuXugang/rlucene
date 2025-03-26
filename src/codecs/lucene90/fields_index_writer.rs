@@ -207,7 +207,10 @@ where
             }
 
             if prior_e.is_some() {
-                CodecUtil::check_footer_with_error(&mut docs_in, &mut prior_e.unwrap())?;
+                return Err(CodecUtil::check_footer_with_error(
+                    &mut docs_in,
+                    &mut prior_e.unwrap(),
+                ));
             } else {
                 CodecUtil::check_footer(&mut docs_in)?;
             }
@@ -256,7 +259,10 @@ where
                 prior_e = Some(e);
             }
             if prior_e.is_some() {
-                CodecUtil::check_footer_with_error(&mut file_pointers_in, &mut prior_e.unwrap())?;
+                return Err(CodecUtil::check_footer_with_error(
+                    &mut file_pointers_in,
+                    &mut prior_e.unwrap(),
+                ));
             } else {
                 CodecUtil::check_footer(&mut file_pointers_in)?;
             }

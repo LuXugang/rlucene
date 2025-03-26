@@ -296,7 +296,10 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
             }
         }
         if prior_e.is_some() {
-            CodecUtil::check_footer_with_error(&mut input, &mut prior_e.unwrap())?;
+            return Err(CodecUtil::check_footer_with_error(
+                &mut input,
+                &mut prior_e.unwrap(),
+            ));
         } else {
             CodecUtil::check_footer(&mut input)?;
         }

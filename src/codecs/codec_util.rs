@@ -498,7 +498,7 @@ impl CodecUtil {
     pub fn check_footer_with_error(
         checksum_in: &mut impl ChecksumIndexInput,
         prior_error: &mut LuceneError,
-    ) -> Result<()> {
+    ) -> LuceneError {
         // If we have evidence of corruption, then we return the corruption as the
         // main exception and the prior exception gets suppressed. Otherwise, we
         // return the prior exception with a suppressed exception that notifies
@@ -535,7 +535,7 @@ impl CodecUtil {
                         result.unwrap_err(),
                     );
                 } else {
-                    let checksum = result?;
+                    let checksum = result.unwrap();
                     // If the index format is too old and no corruption, do not add a checksum
                     // matching message since this may tend to unnecessarily alarm people who
                     // see "JVM bug" in their logs
@@ -550,7 +550,7 @@ impl CodecUtil {
                 }
             }
         }
-        Err(LuceneError::corrupt_index(error_message))
+        LuceneError::corrupt_index(error_message)
     }
 
     /// Returns (but does not validate) the checksum previously written by [`check_footer`](CodecUtil::check_footer).
@@ -862,8 +862,7 @@ mod tests {
         ));
         let mut mine = LuceneError::illegal_argument("fake exception");
         let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("checksum passed"));
+        assert!(result.to_string().contains("checksum passed"));
         Ok(())
     }
 
@@ -887,8 +886,7 @@ mod tests {
         assert_eq!(read_data, "this is the data");
         let mut mine = LuceneError::illegal_argument("fake exception");
         let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
-        assert!(result.is_err());
-        let err_message = result.unwrap_err().to_string();
+        let err_message = result.to_string();
         assert!(err_message.contains("fake exception"));
         assert!(err_message.contains("checksum passed"));
         Ok(())
@@ -918,9 +916,7 @@ mod tests {
 
         let mut mine = LuceneError::illegal_argument("fake exception");
         let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
-
-        assert!(result.is_err());
-        let err_message = result.unwrap_err().to_string();
+        let err_message = result.to_string();
         assert!(err_message.contains("checksum status indeterminate"));
         assert!(err_message.contains("fake exception"));
 
@@ -947,8 +943,7 @@ mod tests {
         assert_eq!(read_data, "this is the data");
         let mut mine = LuceneError::illegal_argument("fake exception");
         let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
-        assert!(result.is_err());
-        let err_message = result.unwrap_err().to_string();
+        let err_message = result.to_string();
         assert!(err_message.contains("checksum failed"));
         assert!(err_message.contains("fake exception"));
         Ok(())

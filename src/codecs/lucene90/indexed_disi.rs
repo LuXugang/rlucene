@@ -25,8 +25,10 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
+use byteorder::ReadBytesExt;
 use std::cell::RefCell;
 use std::rc::Rc;
+
 /// Disk-based implementation of a [`DocIdSetIterator`] which can return the index of the current
 /// document, i.e. the ordinal of the current document among the list of documents that this iterator
 /// can return. This is useful to implement sparse doc values by only having to encode values for
@@ -87,8 +89,8 @@ pub struct IndexedDISI<I>
 where
     I: IndexInput,
 {
-    slice: I::Slice,
-    jump_table: Rc<RefCell<Option<I::RandomAccessSlice>>>,
+    slice: Rc<RefCell<I::Slice>>,
+    jump_table: Option<Rc<RefCell<I::RandomAccessSlice>>>,
     jump_table_entry_count: i32,
     dense_rank_power: i8,
     dense_rank_table: Option<Vec<u8>>,
@@ -305,15 +307,12 @@ where
     ) -> Result<Self> {
         let block_slice =
             Self::create_block_slice(index_input, "docs", offset, length, jump_table_entry_count)?;
-        let jump_table = Rc::new(RefCell::new(Self::create_jump_table(
-            index_input,
-            offset,
-            length,
-            jump_table_entry_count,
-        )?));
+        let jump_table_option =
+            Self::create_jump_table(index_input, offset, length, jump_table_entry_count)?;
+        let jump_table = jump_table_option.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
 
         Self::from_components(
-            block_slice,
+            Rc::new(RefCell::new(block_slice)),
             jump_table,
             jump_table_entry_count,
             dense_rank_power,
@@ -335,8 +334,8 @@ where
     ///   expressed as `2^dense_rank_power`. This must match the value used in [`write_bit_set`].
     /// - `cost`: Typically the number of logical doc IDs.
     pub fn from_components(
-        mut index_input: I::Slice,
-        jump_table: Rc<RefCell<Option<I::RandomAccessSlice>>>,
+        index_input: Rc<RefCell<I::Slice>>,
+        mut jump_table: Option<Rc<RefCell<I::RandomAccessSlice>>>,
         jump_table_entry_count: i32,
         dense_rank_power: i8,
         cost: i64,
@@ -350,13 +349,17 @@ where
             )));
         }
 
-        if index_input.length() > 0 {
-            index_input.prefetch(0, 1)?;
+        {
+            let mut index_input = index_input.borrow_mut();
+            if index_input.length() > 0 {
+                index_input.prefetch(0, 1)?;
+            }
         }
 
-        if let Some(jump) = &mut *jump_table.borrow_mut() {
-            if jump.length() > 0 {
-                jump.prefetch(0, 1)?;
+        if let Some(jump_table_rc) = &mut jump_table {
+            let mut jump_table = jump_table_rc.borrow_mut();
+            if jump_table.length() > 0 {
+                jump_table.prefetch(0, 1)?;
             }
         }
 
@@ -579,37 +582,34 @@ where
     fn advance_block(&mut self, target_block: i32) -> Result<()> {
         let block_index = target_block >> 16;
         // If the destination block is 2 blocks or more ahead, we use the jump-table.
-        let is_some = {
-            let writer = self.jump_table.borrow();
-            writer.is_some()
-        };
-        if is_some && block_index >= (self.block >> 16) + 2 {
-            // If the jumpTableEntryCount is exceeded, there are no further bits. Last entry is always
-            // NO_MORE_DOCS
-            let in_range_block_index = if block_index < self.jump_table_entry_count {
-                block_index
-            } else {
-                self.jump_table_entry_count - 1
-            };
+        if let Some(jump_table_rc) = &mut self.jump_table {
+            if block_index >= (self.block >> 16) + 2 {
+                // If the jumpTableEntryCount is exceeded, there are no further bits. Last entry is always
+                // NO_MORE_DOCS
+                let in_range_block_index = if block_index < self.jump_table_entry_count {
+                    block_index
+                } else {
+                    self.jump_table_entry_count - 1
+                };
 
-            let jump_pos = in_range_block_index as i64 * BitUtil::INT_BYTES as i64 * 2;
-            let index;
-            let offset;
-            {
-                let mut jump_table_borrow = self.jump_table.borrow_mut();
-                let jump_table = jump_table_borrow.as_mut().unwrap();
-                index = jump_table.read_int(jump_pos)?;
-                offset = jump_table.read_int(jump_pos + BitUtil::INT_BYTES as i64)?;
+                let jump_pos = in_range_block_index as i64 * BitUtil::INT_BYTES as i64 * 2;
+                let index;
+                let offset;
+                {
+                    let mut jump_table = jump_table_rc.borrow_mut();
+                    index = jump_table.read_int(jump_pos)?;
+                    offset = jump_table.read_int(jump_pos + BitUtil::INT_BYTES as i64)?;
+                }
+                // -1 to compensate for the always-added 1 in readBlockHeader
+                self.next_block_index = index - 1;
+                self.slice.borrow_mut().seek(offset as i64)?;
+                self.read_block_header()?;
+                return Ok(());
             }
-            // -1 to compensate for the always-added 1 in readBlockHeader
-            self.next_block_index = index - 1;
-            self.slice.seek(offset as i64)?;
-            self.read_block_header()?;
-            return Ok(());
         }
         // Fallback to iteration of blocks
         while self.block < target_block {
-            self.slice.seek(self.block_end)?;
+            self.slice.borrow_mut().seek(self.block_end)?;
             self.read_block_header()?;
         }
 
@@ -617,24 +617,25 @@ where
     }
 
     fn read_block_header(&mut self) -> Result<()> {
-        self.block = (self.slice.read_short()? as u16 as i32) << 16;
+        let mut slice = self.slice.borrow_mut();
+        self.block = (slice.read_short()? as u16 as i32) << 16;
         debug_assert!(self.block >= 0);
-        let num_values = 1 + self.slice.read_short()? as u16 as i32;
+        let num_values = 1 + slice.read_short()? as u16 as i32;
 
         self.index = self.next_block_index;
         self.next_block_index = self.index + num_values;
 
         if num_values <= IndexedDISI::MAX_ARRAY_LENGTH {
             self.method = Method::Sparse;
-            self.block_end = self.slice.get_file_pointer() + (num_values << 1) as i64;
+            self.block_end = slice.get_file_pointer() + (num_values << 1) as i64;
             self.next_exist_doc_in_block = -1;
         } else if num_values == IndexedDISI::BLOCK_SIZE {
             self.method = Method::ALL;
-            self.block_end = self.slice.get_file_pointer();
+            self.block_end = slice.get_file_pointer();
             self.gap = self.block - self.index - 1;
         } else {
             self.method = Method::Dense;
-            self.dense_bitmap_offset = self.slice.get_file_pointer()
+            self.dense_bitmap_offset = slice.get_file_pointer()
                 + self.dense_rank_table.as_ref().map(|v| v.len()).unwrap_or(0) as i64;
             self.block_end = self.dense_bitmap_offset + (1 << 13);
             // Performance consideration: All rank (default 128 * 16 bits) are loaded up front. This
@@ -653,8 +654,7 @@ where
                 let rank_table_len = self.dense_rank_table.as_ref().unwrap().len();
                 debug_assert!(rank_table_len <= i32::MAX as usize);
                 if let Some(rank_table) = self.dense_rank_table.as_mut() {
-                    self.slice
-                        .read_bytes(rank_table, 0, rank_table_len as i32)?;
+                    slice.read_bytes(rank_table, 0, rank_table_len as i32)?;
                 }
             }
 
@@ -706,8 +706,9 @@ where
         let rank_aligned_word_index = (rank_index << disi.dense_rank_power) >> 6;
         let offset = disi.dense_bitmap_offset
             + (rank_aligned_word_index as i64) * BitUtil::LONG_BYTES as i64;
-        disi.slice.seek(offset)?;
-        let rank_word = disi.slice.read_long()?;
+        let mut slice = disi.slice.borrow_mut();
+        slice.seek(offset)?;
+        let rank_word = slice.read_long()?;
         let dense_noo = rank + rank_word.count_ones() as i32;
 
         disi.word_index = rank_aligned_word_index;
@@ -877,8 +878,9 @@ impl MethodBehavior for SparseMethod {
     ) -> Result<bool> {
         let target_in_block = target & 0xFFFF;
         // TODO: binary search
+        let mut slice = disi.slice.borrow_mut();
         while disi.index < disi.next_block_index {
-            let doc = disi.slice.read_short()? as u16 as i32;
+            let doc = slice.read_short()? as u16 as i32;
             disi.index += 1;
             if doc >= target_in_block {
                 disi.doc = disi.block | doc;
@@ -905,14 +907,16 @@ impl MethodBehavior for SparseMethod {
         if disi.doc == target {
             return Ok(disi.exists);
         }
+        let mut slice = disi.slice.borrow_mut();
         while disi.index < disi.next_block_index {
-            let doc = disi.slice.read_short()? as u16 as i32;
+            let doc = slice.read_short()? as u16 as i32;
             disi.index += 1;
             if doc >= target_in_block {
                 disi.next_exist_doc_in_block = doc;
                 if doc != target_in_block {
                     disi.index -= 1;
-                    disi.slice.seek(disi.slice.get_file_pointer() - 2)?;
+                    let file_pointer = slice.get_file_pointer();
+                    slice.seek(file_pointer - 2)?;
                     break;
                 }
                 disi.exists = true;
@@ -941,8 +945,9 @@ impl MethodBehavior for DenseMethod {
             IndexedDISI::rank_skip(disi, target_in_block)?;
         }
 
+        let mut slice = disi.slice.borrow_mut();
         for _ in disi.word_index + 1..=target_word_index {
-            disi.word = disi.slice.read_long()?;
+            disi.word = slice.read_long()?;
             disi.number_of_ones += disi.word.count_ones() as i32;
         }
         disi.word_index = target_word_index;
@@ -958,7 +963,7 @@ impl MethodBehavior for DenseMethod {
             disi.word_index += 1;
             disi.word_index < 1024
         } {
-            disi.word = disi.slice.read_long()?;
+            disi.word = slice.read_long()?;
             if disi.word != 0 {
                 disi.index = disi.number_of_ones;
                 disi.number_of_ones += disi.word.count_ones() as i32;
@@ -987,8 +992,9 @@ impl MethodBehavior for DenseMethod {
             IndexedDISI::rank_skip(disi, target_in_block)?;
         }
 
+        let mut slice = disi.slice.borrow_mut();
         for _ in (disi.word_index + 1)..=target_word_index {
-            disi.word = disi.slice.read_long()?;
+            disi.word = slice.read_long()?;
             disi.number_of_ones += disi.word.count_ones() as i32;
         }
         disi.word_index = target_word_index;
@@ -1200,10 +1206,10 @@ mod tests {
         block_data.seek(random.random_range(0..block_data.length()))?;
         let jump_table =
             IndexedDISI::create_jump_table(full_input, 0, length, jump_table_entry_count)?;
-        assert!(jump_table.is_some());
+        let jump_table = jump_table.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
         let mut disi: IndexedDISI<I> = IndexedDISI::from_components(
-            block_data,
-            Rc::new(RefCell::new(jump_table)),
+            Rc::new(RefCell::new(block_data)),
+            jump_table,
             jump_table_entry_count,
             dense_rank_power,
             cardinality,

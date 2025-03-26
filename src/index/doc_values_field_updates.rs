@@ -470,7 +470,7 @@ impl<T> DocValuesIterator for BinaryDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn advance_exact(&self, target: i32) -> bool {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.iterator.advance_exact(target)
     }
 }
@@ -526,7 +526,7 @@ impl<T> DocValuesIterator for NumericDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn advance_exact(&self, target: i32) -> bool {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.iterator.advance_exact(target)
     }
 }
