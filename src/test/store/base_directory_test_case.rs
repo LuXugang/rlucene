@@ -2025,7 +2025,7 @@ pub trait BaseDirectoryTestCase {
             if random.random_bool(0.5) {
                 let prefetch_length =
                     random.random_range(1..=(IndexInput::length(&input) - offset));
-                input.prefetch(offset, prefetch_length)?;
+                IndexInput::prefetch(&mut input, offset, prefetch_length)?;
             }
 
             input.seek(offset)?;
