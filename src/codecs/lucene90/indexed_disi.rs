@@ -309,7 +309,8 @@ where
             Self::create_block_slice(index_input, "docs", offset, length, jump_table_entry_count)?;
         let jump_table_option =
             Self::create_jump_table(index_input, offset, length, jump_table_entry_count)?;
-        let jump_table = jump_table_option.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
+        let jump_table =
+            jump_table_option.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
 
         Self::from_components(
             Rc::new(RefCell::new(block_slice)),

@@ -43,8 +43,8 @@ impl PostingsUtil {
                 }
             }
         } else if index_has_freq {
-            for i in 0..num {
-                doc_buffer[i] >>= 1;
+            for val in doc_buffer.iter_mut().take(num) {
+                *val >>= 1;
             }
         }
         Ok(())

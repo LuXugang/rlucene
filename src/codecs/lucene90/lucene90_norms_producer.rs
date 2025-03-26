@@ -39,7 +39,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use std::rc::Rc;
-
+/// Reader for [`Lucene90NormsFormat`]
 pub struct Lucene90NormsProducer<I>
 where
     I: IndexInput,
@@ -317,6 +317,10 @@ where
         )?;
         let in_f = Rc::new(RefCell::new(input));
         self.disi_inputs.insert(field.number, Rc::clone(&in_f));
+        // Wrap so that reads can be interleaved from the same thread if two
+        // norms instances are pulled and consumed in parallel. Merging usually
+        // doesn't need this feature but CheckIndex might, plus we need merge
+        // instances to behave well and not be trappy.
         let index_input = IndexInputImpl {
             inf: Rc::clone(&in_f),
             offset: 0,
@@ -429,6 +433,7 @@ where
     I: IndexInput<Slice = IndexInputImpl<I>>,
 {
     fn get_norms(&mut self, field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+        // copy on stack is acceptable, of course we could have a better way
         let entry = self.norms.get(&field.number).unwrap().clone();
         if entry.docs_with_field_offset == -2 {
             // empty
@@ -538,7 +543,7 @@ where
 
     fn get_merge_instance(&self) -> Option<NormsProducerEnum<I>> {
         let result = Self {
-            norms: self.norms.clone(), 
+            norms: self.norms.clone(),
             max_doc: self.max_doc,
             data: self.data.clone(),
             merging: true,
