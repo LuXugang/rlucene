@@ -109,8 +109,8 @@ impl ForDeltaUtil {
         Self::inner_prefix_sum32(arr);
         ForUtil::expand32(arr);
         let l = arr[Self::BLOCK_SIZE / 2 - 1];
-        for i in Self::BLOCK_SIZE / 2..Self::BLOCK_SIZE {
-            arr[i] += l;
+        for elem in &mut arr[Self::BLOCK_SIZE / 2..Self::BLOCK_SIZE] {
+            *elem += l;
         }
     }
     // For some reason unrolling seems to help

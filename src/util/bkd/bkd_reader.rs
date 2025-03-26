@@ -558,7 +558,7 @@ where
 
         for node in left_most_leaf_node..=right_most_leaf_node {
             // offsetPosition provides which extra point will be added to this node
-            if self.balance_tree_node_position(
+            if Self::balance_tree_node_position(
                 0,
                 self.leaf_node_offset,
                 node - self.leaf_node_offset,
@@ -574,7 +574,6 @@ where
         Ok(count)
     }
     fn balance_tree_node_position(
-        &self,
         min_node: i32,
         max_node: i32,
         node: i32,
@@ -586,9 +585,15 @@ where
         }
         let mid = (min_node + max_node + 1) / 2;
         if mid > node {
-            self.balance_tree_node_position(min_node, mid, node, position, level + 1)
+            Self::balance_tree_node_position(min_node, mid, node, position, level + 1)
         } else {
-            self.balance_tree_node_position(mid, max_node, node, position + (1 << level), level + 1)
+            Self::balance_tree_node_position(
+                mid,
+                max_node,
+                node,
+                position + (1 << level),
+                level + 1,
+            )
         }
     }
     fn add_all(&mut self, visitor: &mut impl IntersectVisitor, mut grown: bool) -> Result<()> {
