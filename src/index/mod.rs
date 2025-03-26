@@ -69,6 +69,7 @@ pub mod prefix_coded_terms;
 pub mod segment_commit_info;
 pub mod segment_info;
 pub mod segment_infos;
+mod segment_read_state;
 mod segment_write_state;
 pub mod sort;
 pub mod sort_field_provider;
