@@ -39,7 +39,7 @@ impl RandomAccessInput for DummyRandomAccessInput {
         unreachable!("DummyRandomAccessInput should not be called")
     }
 
-    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+    fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
         unreachable!("DummyRandomAccessInput should not be called")
     }
 }

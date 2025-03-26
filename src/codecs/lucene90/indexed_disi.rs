@@ -356,7 +356,7 @@ where
 
         if let Some(jump) = &mut *jump_table.borrow_mut() {
             if jump.length() > 0 {
-                jump.pre_fetch(0, 1)?;
+                jump.prefetch(0, 1)?;
             }
         }
 

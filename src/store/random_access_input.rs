@@ -37,5 +37,5 @@ pub trait RandomAccessInput {
     /// Reads a long (LE byte order) at the given position in the file.
     fn read_long(&mut self, pos: i64) -> Result<i64>;
     ///  Prefetch data in the background.
-    fn pre_fetch(&mut self, pos: i64, len: i64) -> Result<()>;
+    fn prefetch(&mut self, pos: i64, len: i64) -> Result<()>;
 }

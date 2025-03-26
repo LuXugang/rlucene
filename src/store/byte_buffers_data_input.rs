@@ -306,7 +306,7 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
         Ok(bytes[0])
     }
 
-    fn pre_fetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+    fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
         Ok(())
     }
 }
