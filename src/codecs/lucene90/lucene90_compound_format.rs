@@ -143,7 +143,6 @@ impl CompoundFormat for Lucene90CompoundFormat {
     ) -> Result<CompoundDirectory<D>>
     where
         D: Directory,
-        D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
     {
         Ok(CompoundDirectory::new(CompoundDirectoryEnum::Lucene90(
             Lucene90CompoundReader::new(dir, si)?,

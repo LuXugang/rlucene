@@ -19,7 +19,6 @@ use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
@@ -34,7 +33,6 @@ use std::fmt::{Display, Formatter};
 pub struct CompoundDirectory<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     sub_compound_dir: CompoundDirectoryEnum<D>,
 }
@@ -42,7 +40,6 @@ where
 impl<D> CompoundDirectory<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     pub fn new(sub_compound_dir: CompoundDirectoryEnum<D>) -> Self {
         CompoundDirectory { sub_compound_dir }
@@ -52,7 +49,6 @@ where
 impl<D> Display for CompoundDirectory<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.sub_compound_dir.fmt(f)
@@ -62,7 +58,7 @@ where
 impl<D> Directory for CompoundDirectory<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
+
     CompoundDirectory<D>: Display,
 {
     fn list_all(&self) -> Result<Vec<String>> {
@@ -113,7 +109,7 @@ where
         Err(LuceneError::unsupported_operation("rename".to_string()))
     }
 
-    type IndexInputType = D::IndexInputType;
+    type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         self.sub_compound_dir.open_input(name, context)

@@ -842,7 +842,6 @@ fn assert_equal_arrays(msg: &str, expected: &[u8], test: &[u8], start: usize, le
 fn create_large_cfs<D>(random: &mut StdRng, dir: Arc<Mutex<D>>) -> Result<CompoundDirectory<D>>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     let mut files = HashSet::new();
     let mut si = new_segment_info(random, dir.clone(), "_123")?;

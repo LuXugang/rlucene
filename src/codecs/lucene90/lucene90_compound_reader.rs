@@ -173,7 +173,6 @@ where
 impl<D> Directory for Lucene90CompoundReader<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     /// Returns an array of strings, one for each file in the directory.
     fn list_all(&self) -> Result<Vec<String>> {
@@ -245,7 +244,7 @@ where
         ))
     }
 
-    type IndexInputType = D::IndexInputType;
+    type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         let id = IndexFileNames::strip_segment_name(name);

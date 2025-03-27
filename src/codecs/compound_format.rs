@@ -17,8 +17,7 @@
 use crate::codecs::compound_directory::CompoundDirectory;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
-use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{IOContext, IndexInput};
+use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
 use std::sync::{Arc, Mutex};
 
@@ -31,8 +30,7 @@ pub trait CompoundFormat {
         si: &SegmentInfo<D>,
     ) -> Result<CompoundDirectory<D>>
     where
-        D: Directory,
-        D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput;
+        D: Directory;
 
     /// Packs the provided segment's files into a compound format.
     ///

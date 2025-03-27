@@ -18,7 +18,6 @@ use crate::codecs::compound_directory::CompoundDirectoryBase;
 use crate::codecs::lucene90::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::store::directory::Directory;
 use crate::store::lock::Lock;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;
@@ -27,7 +26,6 @@ use std::fmt::{Display, Formatter};
 pub enum CompoundDirectoryEnum<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     Lucene90(Lucene90CompoundReader<D>),
 }
@@ -35,7 +33,6 @@ where
 impl<D> Display for CompoundDirectoryEnum<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -47,7 +44,7 @@ where
 impl<D> Directory for CompoundDirectoryEnum<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
+
     CompoundDirectoryEnum<D>: Display,
 {
     fn list_all(&self) -> Result<Vec<String>> {
@@ -107,7 +104,7 @@ where
         }
     }
 
-    type IndexInputType = D::IndexInputType;
+    type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         match self {
@@ -130,7 +127,6 @@ where
 impl<D> CompoundDirectoryBase for CompoundDirectoryEnum<D>
 where
     D: Directory,
-    D::IndexInputType: IndexInput<Slice = D::IndexInputType> + RandomAccessInput,
 {
     fn check_integrity(&mut self) -> Result<()> {
         match self {
