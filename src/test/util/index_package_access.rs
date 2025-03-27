@@ -18,7 +18,6 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::{Builder, FieldInfos, FieldNumbers};
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
-use std::sync::Arc;
 
 pub(crate) trait IndexPackageAccess {
     // type CacheKey;

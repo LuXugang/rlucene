@@ -52,7 +52,7 @@ fn of_with_max_count<S: SubBase + Default>(
     }
 }
 /// Construct this from the provided subs.
-fn of<S: SubBase + Default>(
+pub(crate) fn of<S: SubBase + Default>(
     subs: Vec<Rc<RefCell<Sub<S>>>>,
     index_is_sorted: bool,
 ) -> Result<DocIDMergerEnum<S>> {
@@ -248,8 +248,8 @@ where
     S: SubBase + Default,
 {
     /// Mapped doc ID
-    sub: S,
-    mapped_doc_id: i32,
+    pub sub: S,
+    pub mapped_doc_id: i32,
 }
 impl<S> Sub<S>
 where

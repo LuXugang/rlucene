@@ -409,7 +409,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             ))?;
 
             output.write_long(fi.get_doc_values_gen())?;
-            output.write_map_of_strings(&*fi.attributes().borrow())?;
+            output.write_map_of_strings(&fi.attributes().borrow())?;
 
             output.write_vint(fi.get_point_dimension_count())?;
             if fi.get_point_dimension_count() != 0 {

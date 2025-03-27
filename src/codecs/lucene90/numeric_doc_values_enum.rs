@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::lucene90_norms_producer::{DenseNormsIterator, SparseNormsIterator};
+use crate::codecs::norms_consumer::NumericDocValuesMerge;
 use crate::index::doc_values::EmptyNumeric;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::numeric_doc_values::NumericDocValues;
@@ -29,6 +30,7 @@ where
     Dense(DenseNormsIterator<I>),
     Sparse(SparseNormsIterator<I>),
     Empty(EmptyNumeric),
+    Merge(NumericDocValuesMerge<I>),
 }
 
 impl<I> DocValuesIterator for NumericDocValuesEnum<I>
@@ -40,6 +42,7 @@ where
             NumericDocValuesEnum::Dense(dense) => dense.advance_exact(_target),
             NumericDocValuesEnum::Sparse(sparse) => sparse.advance_exact(_target),
             NumericDocValuesEnum::Empty(empty) => empty.advance_exact(_target),
+            NumericDocValuesEnum::Merge(merge) => merge.advance_exact(_target),
         }
     }
 }
@@ -53,6 +56,7 @@ where
             NumericDocValuesEnum::Dense(dense) => dense.doc_id(),
             NumericDocValuesEnum::Sparse(sparse) => sparse.doc_id(),
             NumericDocValuesEnum::Empty(empty) => empty.doc_id(),
+            NumericDocValuesEnum::Merge(merge) => merge.doc_id(),
         }
     }
 
@@ -61,6 +65,7 @@ where
             NumericDocValuesEnum::Dense(dense) => dense.next_doc(),
             NumericDocValuesEnum::Sparse(sparse) => sparse.next_doc(),
             NumericDocValuesEnum::Empty(empty) => empty.next_doc(),
+            NumericDocValuesEnum::Merge(merge) => merge.next_doc(),
         }
     }
 
@@ -69,6 +74,7 @@ where
             NumericDocValuesEnum::Dense(dense) => dense.advance(_target),
             NumericDocValuesEnum::Sparse(sparse) => sparse.advance(_target),
             NumericDocValuesEnum::Empty(empty) => empty.advance(_target),
+            NumericDocValuesEnum::Merge(merge) => merge.advance(_target),
         }
     }
 
@@ -77,6 +83,7 @@ where
             NumericDocValuesEnum::Dense(dense) => dense.slow_advance(target),
             NumericDocValuesEnum::Sparse(sparse) => sparse.slow_advance(target),
             NumericDocValuesEnum::Empty(empty) => empty.slow_advance(target),
+            NumericDocValuesEnum::Merge(merge) => merge.slow_advance(target),
         }
     }
 
@@ -85,6 +92,7 @@ where
             NumericDocValuesEnum::Dense(dense) => dense.cost(),
             NumericDocValuesEnum::Sparse(sparse) => sparse.cost(),
             NumericDocValuesEnum::Empty(empty) => empty.cost(),
+            NumericDocValuesEnum::Merge(merge) => merge.cost(),
         }
     }
 }
@@ -98,6 +106,7 @@ where
             NumericDocValuesEnum::Dense(dense) => dense.long_value(),
             NumericDocValuesEnum::Sparse(sparse) => sparse.long_value(),
             NumericDocValuesEnum::Empty(empty) => empty.long_value(),
+            NumericDocValuesEnum::Merge(merge) => merge.long_value(),
         }
     }
 }

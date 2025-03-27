@@ -16,7 +16,6 @@
  */
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
-use crate::codecs::lucene90_norms_producer::NumericDocValuesEnum;
 use crate::codecs::norms_consumer::NormsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::CodecUtil;
@@ -115,8 +114,8 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             8
         }
     }
-    fn write_values<I: IndexInput>(
-        values: &mut NumericDocValuesEnum<I>,
+    fn write_values(
+        values: &mut impl NumericDocValues,
         num_bytes_per_value: u8,
         out: &mut O,
     ) -> Result<()> {
@@ -157,16 +156,18 @@ where
     where
         I: IndexInput,
     {
-        let mut values = norms_producer.get_norms(field)?;
         let mut num_docs_with_value = 0;
         let mut min = i64::MAX;
         let mut max = i64::MIN;
+        {
+            let mut values = norms_producer.get_norms(field)?;
 
-        while values.next_doc()? != NO_MORE_DOCS {
-            num_docs_with_value += 1;
-            let v = values.long_value()?;
-            min = min.min(v);
-            max = max.max(v);
+            while values.next_doc()? != NO_MORE_DOCS {
+                num_docs_with_value += 1;
+                let v = values.long_value()?;
+                min = min.min(v);
+                max = max.max(v);
+            }
         }
 
         debug_assert!(num_docs_with_value <= self.max_doc);
@@ -187,12 +188,15 @@ where
             let offset = self.data.get_file_pointer();
             self.meta.write_long(offset)?; // docsWithFieldOffset
 
-            let mut values = norms_producer.get_norms(field)?;
-            let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
-                &mut values,
-                &mut self.data,
-                IndexedDISI::DEFAULT_DENSE_RANK_POWER,
-            )?;
+            let jump_table_entry_count;
+            {
+                let mut values = norms_producer.get_norms(field)?;
+                jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+                    &mut values,
+                    &mut self.data,
+                    IndexedDISI::DEFAULT_DENSE_RANK_POWER,
+                )?;
+            }
             self.meta
                 .write_long(self.data.get_file_pointer() - offset)?; // docsWithFieldLength
             self.meta.write_short(jump_table_entry_count)?;

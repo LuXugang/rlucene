@@ -235,7 +235,7 @@ where
     }
     fn get_data_input(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
         if self.merging {
@@ -260,7 +260,7 @@ where
     }
     fn get_disi_jump_table(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
         if self.merging {
@@ -288,28 +288,14 @@ where
 }
 impl<I> Lucene90NormsProducer<I>
 where
-    I: IndexInput<Slice = IndexInputImpl<I>>,
+    I: IndexInput,
 {
     fn get_disi_input(
         &mut self,
-        field: &FieldInfo,
+        _field: &Rc<FieldInfo>,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::Slice>>> {
-        if !self.merging {
-            let input = IndexedDISI::create_block_slice(
-                &mut self.data,
-                "docs",
-                entry.docs_with_field_offset,
-                entry.docs_with_field_length,
-                entry.jump_table_entry_count as i32,
-            )?;
-            return Ok(Rc::new(RefCell::new(input)));
-        }
-
-        if let Some(existing) = self.disi_inputs.get(&field.number) {
-            return Ok(Rc::clone(existing));
-        }
-
+        // TODO: Due to the generic constraints, following the Java Lucene implementation currently makes it impossible to cache the Slice.
         let input = IndexedDISI::create_block_slice(
             &mut self.data,
             "docs",
@@ -317,17 +303,41 @@ where
             entry.docs_with_field_length,
             entry.jump_table_entry_count as i32,
         )?;
-        let in_f = Rc::new(RefCell::new(input));
-        self.disi_inputs.insert(field.number, Rc::clone(&in_f));
+        Ok(Rc::new(RefCell::new(input)))
+
+        // if !self.merging {
+        //     let input = IndexedDISI::create_block_slice(
+        //         &mut self.data,
+        //         "docs",
+        //         entry.docs_with_field_offset,
+        //         entry.docs_with_field_length,
+        //         entry.jump_table_entry_count as i32,
+        //     )?;
+        //     return Ok(Rc::new(RefCell::new(input)));
+        // }
+        //
+        // if let Some(existing) = self.disi_inputs.get(&field.number) {
+        //     return Ok(Rc::clone(existing));
+        // }
+        //
+        // let input = IndexedDISI::create_block_slice(
+        //     &mut self.data,
+        //     "docs",
+        //     entry.docs_with_field_offset,
+        //     entry.docs_with_field_length,
+        //     entry.jump_table_entry_count as i32,
+        // )?;
+        // let input = Rc::new(RefCell::new(input));
+        // self.disi_inputs.insert(field.number, input.clone());
         // Wrap so that reads can be interleaved from the same thread if two
         // norms instances are pulled and consumed in parallel. Merging usually
         // doesn't need this feature but CheckIndex might, plus we need merge
         // instances to behave well and not be trappy.
-        let index_input = IndexInputImpl {
-            inf: Rc::clone(&in_f),
-            offset: 0,
-        };
-        Ok(Rc::new(RefCell::new(index_input)))
+        // let index_input = IndexInputImpl {
+        //     inf: Rc::clone(&in_f),
+        //     offset: 0,
+        // };
+        // Ok(Rc::new(RefCell::new(index_input)))
     }
 }
 impl<I> Display for Lucene90NormsProducer<I>
@@ -338,6 +348,7 @@ where
         write!(f, "Lucene90NormsProducer(fields={})", self.norms.len())
     }
 }
+#[allow(unused)]
 pub struct IndexInputImpl<I>
 where
     I: IndexInput,
@@ -345,7 +356,7 @@ where
     inf: Rc<RefCell<I::Slice>>,
     offset: i64,
 }
-
+#[allow(unused)]
 impl<I> DataInput for IndexInputImpl<I>
 where
     I: IndexInput,
@@ -414,7 +425,7 @@ where
 
     type Slice = DummyIndexInput;
 
-    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
+    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
         Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
     }
 
@@ -432,14 +443,14 @@ where
 
 impl<I> NormsProducer<I> for Lucene90NormsProducer<I>
 where
-    I: IndexInput<Slice = IndexInputImpl<I>>,
+    I: IndexInput,
 {
-    fn get_norms(&mut self, field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
         // copy on stack is acceptable, of course we could have a better way
         let entry = self.norms.get(&field.number).unwrap().clone();
         if entry.docs_with_field_offset == -2 {
             // empty
-            return Ok(NumericDocValuesEnum::Empty(EmptyNumeric::new()));
+            return Ok(NumericDocValuesEnum::<I>::Empty(EmptyNumeric::new()));
         }
 
         if entry.docs_with_field_offset == -1 {

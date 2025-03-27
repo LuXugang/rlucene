@@ -16,6 +16,7 @@
  */
 use crate::index::merge_state::DocMap;
 
+#[derive(Default)]
 pub struct DummyDocMap;
 impl DocMap for DummyDocMap {
     fn get(&self, _doc_id: i32) -> i32 {

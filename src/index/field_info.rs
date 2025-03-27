@@ -25,7 +25,6 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
 
 ///  Access to the Field Info file that describes document fields and whether or not they are indexed.
 ///  Each segment has a separate Field Info file. Objects of this class are thread-safe for multiple
@@ -607,7 +606,7 @@ impl FieldInfo {
     pub fn get_attribute(&self, key: &str) -> Option<String> {
         let properties = self.properties.borrow();
         let attributes = properties.attributes.borrow();
-        attributes.get(key).map(|value| value.clone())
+        attributes.get(key).cloned()
     }
 
     /// Puts a codec attribute value.

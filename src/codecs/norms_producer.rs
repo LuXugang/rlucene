@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene90_norms_producer::{IndexInputImpl, Lucene90NormsProducer};
+use crate::codecs::lucene90_norms_producer::Lucene90NormsProducer;
 use crate::codecs::numeric_doc_values_enum::NumericDocValuesEnum;
 use crate::index::field_info::FieldInfo;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
+use std::rc::Rc;
 
 /// A trait that produces field normalization values.
 pub trait NormsProducer<I>
@@ -31,7 +32,7 @@ where
     /// it will only be used by a single thread.
     ///
     /// Behavior is undefined if the given field does not have norms enabled.
-    fn get_norms(&mut self, field: &FieldInfo) -> Result<NumericDocValuesEnum<I>>;
+    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>>;
 
     /// Checks consistency of this producer.
     ///
@@ -59,11 +60,11 @@ where
 }
 impl<I> NormsProducer<I> for NormsProducerEnum<I>
 where
-    I: IndexInput<Slice = IndexInputImpl<I>>,
+    I: IndexInput,
 {
-    fn get_norms(&mut self, _field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
         match self {
-            NormsProducerEnum::Lucene90(producer) => producer.get_norms(_field),
+            NormsProducerEnum::Lucene90(producer) => producer.get_norms(field),
         }
     }
 
