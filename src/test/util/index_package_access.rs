@@ -17,6 +17,7 @@
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::{Builder, FieldInfos, FieldNumbers};
 use crate::util::error::lucene_error::Result;
+use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) trait IndexPackageAccess {
@@ -32,7 +33,7 @@ pub(crate) trait IndexPackageAccess {
     // fn check_impacts(&self, impacts: Impacts, max: i32);
 }
 pub(crate) trait FieldInfosBuilder {
-    fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self>;
+    fn add(&mut self, fi: Rc<FieldInfo>) -> Result<&mut Self>;
     fn finish(&mut self) -> Result<FieldInfos>;
 }
 
@@ -59,12 +60,12 @@ impl FieldInfosBuilderImpl {
     ) -> Result<Self> {
         let field_number = FieldNumbers::new(soft_deletes_field_name, parent_field_name)?;
         Ok(FieldInfosBuilderImpl {
-            builder: Builder::new(Arc::new(field_number)),
+            builder: Builder::new(Rc::new(field_number)),
         })
     }
 }
 impl FieldInfosBuilder for FieldInfosBuilderImpl {
-    fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self> {
+    fn add(&mut self, fi: Rc<FieldInfo>) -> Result<&mut Self> {
         self.builder.add(fi)?;
         Ok(self)
     }

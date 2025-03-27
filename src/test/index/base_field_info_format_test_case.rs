@@ -33,6 +33,7 @@ use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
 use crate::test::util::lucene_test_case::{at_least, new_directory};
+use std::cell::RefCell;
 
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
@@ -40,6 +41,7 @@ use crate::util::{StringHelper, LATEST};
 use rand::rngs::StdRng;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use strum::EnumCount;
 
@@ -52,7 +54,7 @@ pub trait BaseFieldInfoFormatTestCase {
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
 
-        let fi = Arc::new(Self::create_field_info());
+        let fi = Rc::new(Self::create_field_info());
         Self::add_attributes(&fi);
 
         let infos = IndexPackageAccessImpl
@@ -199,7 +201,7 @@ pub trait BaseFieldInfoFormatTestCase {
                 *field_type.doc_values_type(),
                 *doc_values_skip_index_type,
                 -1,
-                Arc::new(Mutex::new(HashMap::new())),
+                Rc::new(RefCell::new(HashMap::new())),
                 field_type.point_dimension_count(),
                 field_type.point_index_dimension_count(),
                 field_type.point_num_bytes(),
@@ -210,7 +212,7 @@ pub trait BaseFieldInfoFormatTestCase {
                 parent_field,
             );
             Self::add_attributes(&fi);
-            builder.add(Arc::new(fi))?;
+            builder.add(Rc::new(fi))?;
         }
 
         let infos = builder.finish()?;
@@ -386,7 +388,7 @@ pub trait BaseFieldInfoFormatTestCase {
             DocValuesType::None,
             DocValuesSkipIndexType::None,
             -1,
-            Arc::new(Mutex::new(HashMap::new())),
+            Rc::new(RefCell::new(HashMap::new())),
             0,
             0,
             0,

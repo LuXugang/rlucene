@@ -28,8 +28,12 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use rand::distr::uniform::SampleBorrow;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+
 /// Lucene 9.0 Field Infos format.
 ///
 /// Field names are stored in the field info file with the suffix `.fnm`.
@@ -241,7 +245,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             let mut infos = Vec::with_capacity(size as usize);
 
             // previous field's attribute map, we share when possible:
-            let mut last_attributes = Arc::new(Mutex::new(HashMap::new()));
+            let mut last_attributes = Rc::new(RefCell::new(HashMap::new()));
 
             for _ in 0..size {
                 let name = input.read_string()?;
@@ -293,13 +297,9 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                     DocValuesSkipIndexType::None
                 };
                 let dv_gen = input.read_long()?;
-                let mut attributes = Arc::new(Mutex::new(input.read_map_of_strings()?));
+                let mut attributes = Rc::new(RefCell::new(input.read_map_of_strings()?));
                 // just use the last field's map if it's the same:
-                if *attributes.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })? == *last_attributes.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock.".to_string())
-                })? {
+                if *attributes.borrow_mut() == *last_attributes.borrow() {
                     attributes = last_attributes.clone();
                 }
                 last_attributes = attributes.clone();
@@ -336,7 +336,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                     is_parent_field,
                 );
                 field_info.check_consistency()?;
-                infos.push(Arc::new(field_info));
+                infos.push(Rc::new(field_info));
             }
             Ok(infos)
         })();
@@ -409,9 +409,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             ))?;
 
             output.write_long(fi.get_doc_values_gen())?;
-            output.write_map_of_strings(&*fi.attributes()?.lock().map_err(|_| {
-                LuceneError::illegal_state("Failed to acquire lock.".to_string())
-            })?)?;
+            output.write_map_of_strings(&*fi.attributes().borrow())?;
 
             output.write_vint(fi.get_point_dimension_count())?;
             if fi.get_point_dimension_count() != 0 {
