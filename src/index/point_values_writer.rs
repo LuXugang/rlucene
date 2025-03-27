@@ -20,7 +20,7 @@ use crate::index::BytesRef;
 
 pub struct PointValuesWriter;
 
-pub(crate) struct MutableSortingPointValues;
+pub struct MutableSortingPointValues;
 impl MutablePointTree for MutableSortingPointValues {
     fn get_value(&self, i: i32, packed_value: &mut BytesRef) {
         todo!()

@@ -747,7 +747,7 @@ pub(crate) mod tests {
     }
 
     #[derive(Clone)]
-    pub(crate) struct DummyPointsReader {
+    pub struct DummyPointsReader {
         points: Vec<Point>,
         temp: Vec<Point>,
     }

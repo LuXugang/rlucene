@@ -66,10 +66,8 @@ pub trait NormsConsumer {
     where
         I: IndexInput,
     {
-        for norms_producer in &mut merge_state.norms_producers {
-            if let Some(producer) = norms_producer {
-                producer.check_integrity()?;
-            }
+        for producer in merge_state.norms_producers.iter_mut().flatten() {
+            producer.check_integrity()?;
         }
 
         for field_info in &*merge_state.merge_field_infos.clone() {

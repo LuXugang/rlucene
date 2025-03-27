@@ -51,6 +51,7 @@ where
     max_doc: i32,
     data: I,
     merging: bool,
+    #[allow(unused)]
     disi_inputs: HashMap<i32, Rc<RefCell<I::Slice>>>,
     disi_jump_tables: HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>,
     data_inputs: HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>,
@@ -590,7 +591,7 @@ impl<I> DenseNormsIterator<I>
 where
     I: IndexInput,
 {
-    pub fn new(max_doc: i32, sub_dense_norms: DenseNormsIteratorBaseEnum<I>) -> Self {
+    fn new(max_doc: i32, sub_dense_norms: DenseNormsIteratorBaseEnum<I>) -> Self {
         Self {
             max_doc,
             doc: -1,
@@ -750,7 +751,7 @@ impl<I> SparseNormsIterator<I>
 where
     I: IndexInput,
 {
-    pub fn new(sub_sparse_norms: SparseNormsIteratorBaseEnum<I>, disi: IndexedDISI<I>) -> Self {
+    fn new(sub_sparse_norms: SparseNormsIteratorBaseEnum<I>, disi: IndexedDISI<I>) -> Self {
         Self {
             sub_sparse_norms,
             disi,
