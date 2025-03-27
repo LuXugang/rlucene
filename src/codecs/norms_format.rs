@@ -19,7 +19,7 @@ use crate::codecs::norms_producer::NormsProducerEnum;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
-use std::io::Result;
+use crate::util::error::lucene_error::Result;
 
 /// Encodes/decodes per-document score normalization values.
 pub trait NormsFormat {
@@ -27,7 +27,10 @@ pub trait NormsFormat {
     ///
     /// # Arguments
     /// * `state` - The write state containing segment info, directory, etc.
-    fn norms_consumer<D>(&self, state: &SegmentWriteState<D>) -> Result<NormsConsumerEnum>
+    fn norms_consumer<D>(
+        &self,
+        state: &SegmentWriteState<D>,
+    ) -> Result<NormsConsumerEnum<D::IndexOutputType>>
     where
         D: Directory;
 

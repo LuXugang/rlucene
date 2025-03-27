@@ -18,6 +18,7 @@ use crate::codecs::compound_format::CompoundFormat;
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::lucene101_codec::Lucene101Codec;
+use crate::codecs::norms_format::NormsFormat;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use once_cell::sync::Lazy;
 
@@ -29,7 +30,7 @@ pub trait Codec {
     // type TermVectorsFormat;
     type FieldInfosFormat: FieldInfosFormat;
     type SegmentInfoFormat: SegmentInfoFormat;
-    // type NormsFormat;
+    type NormsFormat: NormsFormat;
     type LiveDocsFormat: LiveDocsFormat;
     type CompoundFormat: CompoundFormat;
     // type PointsFormat;
@@ -53,7 +54,7 @@ pub trait Codec {
     fn segment_info_format(&self) -> Self::SegmentInfoFormat;
 
     // /// Encodes/decodes document normalization values
-    // fn norms_format(&self) -> &Self::NormsFormat;
+    fn norms_format(&self) -> Self::NormsFormat;
 
     /// Encodes/decodes live docs
     fn live_docs_format(&self) -> Self::LiveDocsFormat;

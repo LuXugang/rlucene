@@ -14,15 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::codecs::lucene90_norms_producer::NumericDocValuesEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::DocMapEnum;
 use crate::index::SubBase;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::IndexInput;
+use crate::store::{IndexInput, IndexOutput};
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
+
 /// Consumes normalization values.
 ///
 /// Concrete implementations actually do *something* with the norms,
@@ -79,8 +81,32 @@ where
     }
 
     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-        todo!()
+        Ok(&self.doc_map)
     }
 }
 
-pub enum NormsConsumerEnum {}
+pub enum NormsConsumerEnum<O>
+where
+    O: IndexOutput,
+{
+    Lucene90(Lucene90NormsConsumer<O>),
+}
+impl<O> NormsConsumer for NormsConsumerEnum<O>
+where
+    O: IndexOutput,
+{
+    fn add_norms_field<I>(
+        &mut self,
+        field: &Rc<FieldInfo>,
+        norms_producer: &mut impl NormsProducer<I>,
+    ) -> Result<()>
+    where
+        I: IndexInput,
+    {
+        match self {
+            NormsConsumerEnum::Lucene90(consumer) => {
+                consumer.add_norms_field(field, norms_producer)
+            }
+        }
+    }
+}
