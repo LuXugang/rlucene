@@ -32,6 +32,7 @@ pub mod doc_values;
 pub(crate) mod doc_values_field_updates;
 pub mod doc_values_iterator;
 pub mod doc_values_skip_index_type;
+pub mod doc_values_skipper;
 pub mod doc_values_type;
 pub mod doc_values_update;
 pub mod docs_with_field_set;

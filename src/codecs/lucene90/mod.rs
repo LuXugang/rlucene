@@ -21,6 +21,8 @@ mod fields_index_writer;
 pub mod indexed_disi;
 pub mod lucene90_compound_format;
 pub mod lucene90_compound_reader;
+pub mod lucene90_doc_values_format;
+mod lucene90_doc_values_producer;
 pub(crate) mod lucene90_norms_consumer;
 pub mod lucene90_norms_format;
 pub mod lucene90_norms_producer;
