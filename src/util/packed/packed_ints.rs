@@ -937,7 +937,7 @@ impl<T> Accountable for MutableImpl<T>
 where
     T: Display + Mutable,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
@@ -980,7 +980,7 @@ impl NullReader {
     }
 }
 impl Accountable for NullReader {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
@@ -1029,7 +1029,7 @@ pub trait Writer {
 pub struct DummyMutable;
 impl Reader for DummyMutable {}
 impl Accountable for DummyMutable {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         unreachable!("DummyMutable should not be used")
     }
 }

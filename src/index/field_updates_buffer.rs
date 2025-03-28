@@ -84,7 +84,7 @@ impl FieldUpdatesBuffer {
         bytes_used.access_mut(|bytes_used_guard| {
             bytes_used_guard.add_and_get(Self::size_of_string(&initial_value.term.field));
             if !initial_value.has_value {
-                bytes_used_guard.add_and_get(has_values.as_ref().unwrap().ram_bytes_used());
+                bytes_used_guard.add_and_get(has_values.as_ref().unwrap().ram_bytes_used()?);
             }
             Ok(())
         })?;
@@ -245,7 +245,7 @@ impl FieldUpdatesBuffer {
             if self.has_values.is_none() {
                 let mut new_bitset = FixedBitSet::new(ord + 1);
                 new_bitset.set_with_range(0, ord);
-                bytes_used.add_and_get(new_bitset.ram_bytes_used());
+                bytes_used.add_and_get(new_bitset.ram_bytes_used()?);
                 self.has_values = Some(new_bitset);
             } else if self.has_values.as_ref().unwrap().length() <= ord {
                 let bitset = self.has_values.as_mut().unwrap();

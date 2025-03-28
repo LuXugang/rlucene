@@ -81,7 +81,7 @@ impl DocIdSet for RoaringDocIdSet {
 }
 
 impl Accountable for RoaringDocIdSet {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
@@ -238,7 +238,7 @@ impl ShortArrayDocIdSet {
 }
 
 impl Accountable for ShortArrayDocIdSet {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
@@ -406,7 +406,7 @@ enum DocIdSetEnum {
     Dense(NotDocIdSet<ShortArrayDocIdSet>),
 }
 impl Accountable for DocIdSetEnum {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }

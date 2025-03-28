@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+use crate::util::error::lucene_error::Result;
 /// An object whose RAM usage can be computed.
 ///
 /// # Note
 /// This is an internal API.
 pub trait Accountable {
     /// Return the memory usage of this object in bytes. Negative values are illegal.
-    fn ram_bytes_used(&self) -> i64;
+    fn ram_bytes_used(&self) -> Result<i64>;
 
     /// Returns nested resources of this class. The result should be a point-in-time snapshot (to avoid
     /// race conditions).
@@ -39,7 +39,7 @@ impl EmptyAccountable {
     }
 }
 impl Accountable for EmptyAccountable {
-    fn ram_bytes_used(&self) -> i64 {
-        0
+    fn ram_bytes_used(&self) -> Result<i64> {
+        Ok(0)
     }
 }

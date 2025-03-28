@@ -36,7 +36,7 @@ impl Display for MutableEnum {
     }
 }
 impl Accountable for MutableEnum {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         match self {
             MutableEnum::Packed(op) => op.ram_bytes_used(),
             MutableEnum::GrowableW(op) => op.ram_bytes_used(),

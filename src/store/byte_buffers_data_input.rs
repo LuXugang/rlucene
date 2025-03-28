@@ -312,8 +312,8 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
 }
 
 impl Accountable for ByteBuffersDataInput<'_> {
-    fn ram_bytes_used(&self) -> i64 {
-        unimplemented!()
+    fn ram_bytes_used(&self) -> Result<i64> {
+        Ok(0)
     }
 }
 

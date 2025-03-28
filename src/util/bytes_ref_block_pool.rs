@@ -211,15 +211,15 @@ where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         let result = self
             .byte_block_pool
             .access(|pool| Ok(pool.ram_bytes_used()));
         if result.is_err() {
             // TODO:
-            0
+            Ok(0)
         } else {
-            result.unwrap()
+            result?
         }
     }
 }

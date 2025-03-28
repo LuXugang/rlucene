@@ -358,7 +358,7 @@ impl<A> Accountable for ByteBlockPool<A>
 where
     A: Access<CounterEnum>,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }

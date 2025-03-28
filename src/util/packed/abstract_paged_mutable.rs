@@ -190,12 +190,12 @@ impl<T> Accountable for AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         let mut byte_used = self.base_ram_bytes_used();
         for sub_mutable in &self.sub_mutables {
-            byte_used += sub_mutable.ram_bytes_used();
+            byte_used += sub_mutable.ram_bytes_used()?;
         }
-        byte_used
+        Ok(byte_used)
     }
 }
 impl<T> Display for AbstractPagedMutable<T>

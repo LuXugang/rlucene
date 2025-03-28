@@ -188,12 +188,12 @@ impl Display for MonotonicBlockPackedReader {
     }
 }
 impl Accountable for MonotonicBlockPackedReader {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         let mut size_in_bytes = 0;
         size_in_bytes += RamUsageEstimator::size_of_vec(&self.min_values);
         size_in_bytes += RamUsageEstimator::size_of_vec(&self.averages);
         size_in_bytes += self.total_byte_count;
-        size_in_bytes
+        Ok(size_in_bytes)
     }
 }
 #[derive(Clone)]

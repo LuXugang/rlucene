@@ -17,6 +17,7 @@
 use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, EmptyDISI};
 use crate::util::accountable::Accountable;
 use crate::util::bits::{Bits, MatchAllBits, MatchNoBits};
+use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 /// A `DocIdSet` contains a set of document IDs.
@@ -79,15 +80,15 @@ impl DocIdSet for All {
 }
 
 impl Accountable for All {
-    fn ram_bytes_used(&self) -> i64 {
-        0
+    fn ram_bytes_used(&self) -> Result<i64> {
+        Ok(0)
     }
 }
 
 pub struct EmptyDocIdSet;
 impl Accountable for EmptyDocIdSet {
-    fn ram_bytes_used(&self) -> i64 {
-        0
+    fn ram_bytes_used(&self) -> Result<i64> {
+        Ok(0)
     }
 }
 impl DocIdSet for EmptyDocIdSet {

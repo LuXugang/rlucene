@@ -23,7 +23,7 @@ use crate::util::fst::fst_reader::FstReader;
 struct NullFSTReader;
 #[allow(unused)]
 impl Accountable for NullFSTReader {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }

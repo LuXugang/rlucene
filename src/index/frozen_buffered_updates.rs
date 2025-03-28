@@ -123,9 +123,9 @@ where
                     "BD",
                     &format!(
                         "compressed {} to {} bytes ({:.2}%) for deletes/updates; private segment {}",
-                        updates.ram_bytes_used(),
+                        updates.ram_bytes_used()?,
                         bytes_used,
-                        100.0 * bytes_used as f64 / updates.ram_bytes_used() as f64,
+                        100.0 * bytes_used as f64 / updates.ram_bytes_used()? as f64,
                         private_segment_msg
                     ),
                 );

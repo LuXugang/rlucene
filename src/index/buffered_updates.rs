@@ -279,9 +279,9 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
-        0
+        Ok(0)
     }
 }
 impl<Q, C, B, A, P> fmt::Display for BufferedUpdates<Q, C, B, A, P>
@@ -548,9 +548,9 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
-        0
+        Ok(0)
     }
 }
 impl<C, B, A, P> fmt::Display for DeletedTerms<C, B, A, P>
@@ -831,7 +831,7 @@ mod tests {
 
             actual.clear()?;
             assert_eq!(actual.size(), 0);
-            assert_eq!(actual.ram_bytes_used(), 0);
+            assert_eq!(actual.ram_bytes_used()?, 0);
             let pool_guard = actual.get_pool();
             let pool = pool_guard.borrow();
             assert_eq!(pool.buffer_upto, -1);

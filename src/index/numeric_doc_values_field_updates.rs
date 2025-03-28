@@ -75,7 +75,7 @@ impl<T> Accountable for NumericDocValuesFieldUpdates<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }

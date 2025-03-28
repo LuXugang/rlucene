@@ -66,7 +66,7 @@ impl Display for MutablePacked64Enum {
 }
 
 impl Accountable for MutablePacked64Enum {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.ram_bytes_used(),
             MutablePacked64Enum::P64SingleBlock2(op) => op.ram_bytes_used(),

@@ -524,9 +524,9 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn ram_bytes_used(&self) -> i64 {
+    fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
-        0
+        Ok(0)
     }
 }
 /// for single-threaded scenarios
