@@ -23,7 +23,7 @@ pub struct PostingDecodingUtil<I: IndexInput> {
     /// The wrapper {@link IndexInput}.
     pub input: Rc<RefCell<I>>,
 }
-
+#[allow(unused)]
 impl<I: IndexInput> PostingDecodingUtil<I> {
     /// Sole constructor, called by sub-classes.
     pub fn new(input: Rc<RefCell<I>>) -> Self {
@@ -37,6 +37,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
     ///   - Apply shift `b_shift - i * dec` to each value in `c`
     ///   - Store the result in `b` at offset `count * i`
     /// - Apply mask `c_mask` to each value in `c` starting at `c_index`
+    #[allow(clippy::too_many_arguments)]
     pub fn split_longs_same(
         &mut self,
         count: i32,
@@ -68,6 +69,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn split_longs_diff(
         &mut self,
         count: i32,

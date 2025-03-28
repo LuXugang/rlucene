@@ -30,9 +30,11 @@ static IDENTITY_PLUS_ONE: Lazy<Vec<i64>> = Lazy::new(|| (1..=ForUtil::BLOCK_SIZE
 /// If `bits_per_value <= 4` then we pack 8 ints per long,
 /// else if `bits_per_value <= 11` we pack 4 ints per long,
 /// else we pack 2 ints per long.
+#[allow(unused)]
 pub struct ForDeltaUtil {
     tmp: Vec<i64>,
 }
+#[allow(unused)]
 impl ForDeltaUtil {
     pub(crate) fn new() -> Self {
         Self {
@@ -40,6 +42,7 @@ impl ForDeltaUtil {
         }
     }
 }
+#[allow(unused)]
 impl ForDeltaUtil {
     const BLOCK_SIZE: usize = ForUtil::BLOCK_SIZE;
     const ONE_BLOCK_SIZE_FOURTH: usize = Self::BLOCK_SIZE / 4;

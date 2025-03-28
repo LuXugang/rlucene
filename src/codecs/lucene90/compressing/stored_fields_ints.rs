@@ -17,7 +17,9 @@
 use crate::store::{DataOutput, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
+#[allow(unused)]
 pub(crate) struct StoredFieldsInts;
+#[allow(unused)]
 impl StoredFieldsInts {
     const BLOCK_SIZE: usize = 128;
     const BLOCK_SIZE_MINUS_ONE: usize = Self::BLOCK_SIZE - 1;
@@ -270,8 +272,8 @@ mod tests {
             let len = random.random_range(1..=5000);
             let bpv = TestUtil::next_int(&mut random, 1, 31);
             let mut values = vec![0; len];
-            for i in 0..len {
-                values[i] = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
+            for v in values.iter_mut().take(len) {
+                *v = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
             }
             test(&mut random, &mut dir, &values)?;
         }

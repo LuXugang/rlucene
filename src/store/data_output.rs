@@ -107,7 +107,7 @@ pub trait DataOutput: Sized {
     ///
     /// # Arguments
     /// * `i` - The integer to write. Smaller values take fewer bytes. Negative numbers are supported
-    ///         but should be avoided.
+    ///   but should be avoided.
     ///
     /// # Errors
     /// Returns an `IOError` if there is an error writing to the underlying medium.

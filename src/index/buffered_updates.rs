@@ -350,6 +350,8 @@ pub type MTBufferedUpdates<Q> = BufferedUpdates<
     BytesStartArrayEnumLock,
     MTPostingsArrayWrapper,
 >;
+
+#[allow(unused)]
 pub type BufferedUpdatesLock<Q> = Arc<Mutex<MTBufferedUpdates<Q>>>;
 /// for single-threaded scenarios
 pub type STBufferedUpdates<Q> = BufferedUpdates<
@@ -359,6 +361,7 @@ pub type STBufferedUpdates<Q> = BufferedUpdates<
     BytesStartArrayEnumBorrow,
     STPostingsArrayWrapper,
 >;
+#[allow(unused)]
 pub type BufferedUpdatesBorrow<Q> = Rc<RefCell<STBufferedUpdates<Q>>>;
 pub(crate) struct DeletedTerms<C, B, A, P>
 where
@@ -509,6 +512,7 @@ where
     /// Consume all terms in a sorted order.
     ///
     /// Note: This is a destructive operation as it calls `BytesRefHash::sort()`.
+    #[allow(clippy::type_complexity)]
     pub(crate) fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<()>
     where
         F: FnMut(&Term, i32) -> Result<()>,

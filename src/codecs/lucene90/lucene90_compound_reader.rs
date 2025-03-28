@@ -22,7 +22,6 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput, ReadAdvice, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};

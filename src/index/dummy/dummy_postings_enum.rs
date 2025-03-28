@@ -23,7 +23,7 @@ pub struct DummyPostingsEnum;
 
 impl DocIdSetIterator for DummyPostingsEnum {
     fn doc_id(&self) -> i32 {
-        unreachable!("this method should not be called")
+        unreachable!("this method should never be called")
     }
 
     fn next_doc(&mut self) -> Result<i32> {

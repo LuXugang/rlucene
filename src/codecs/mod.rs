@@ -31,7 +31,7 @@ pub mod lucene912;
 pub mod lucene94;
 pub mod lucene99_segment_info_format;
 pub mod mutable_point_tree;
-mod norms_consumer;
+pub mod norms_consumer;
 pub mod norms_format;
 pub mod norms_producer;
 pub mod points_format;

@@ -20,14 +20,14 @@ use crate::index::impacts::Impacts;
 pub struct DummyImpacts;
 impl Impacts for DummyImpacts {
     fn num_levels(&self) -> i32 {
-        unreachable!("this method should not be called")
+        unreachable!("this method should never be called")
     }
 
-    fn get_doc_id_up_to(&self, level: i32) -> i32 {
-        unreachable!("this method should not be called")
+    fn get_doc_id_up_to(&self, _level: i32) -> i32 {
+        unreachable!("this method should never be called")
     }
 
-    fn get_impacts(&self, level: i32) -> &[Impact] {
-        unreachable!("this method should not be called")
+    fn get_impacts(&self, _level: i32) -> &[Impact] {
+        unreachable!("this method should never be called")
     }
 }

@@ -19,14 +19,13 @@ use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{DataInput, DataOutput, IndexInput, IndexOutput};
+use crate::store::{DataInput, IndexInput, IndexOutput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
-use byteorder::ReadBytesExt;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -139,7 +138,7 @@ impl IndexedDISI<DummyIndexInput> {
     /// The caller must keep track of:
     /// - The number of jump-table entries (returned by this method),
     /// - The `dense_rank_power` (9 in this method),
-    /// and provide them when constructing an `IndexedDISI` for reading.
+    ///   and provide them when constructing an `IndexedDISI` for reading.
     ///
     /// # Parameters
     /// - `it`: the document ID iterator (monotonically increasing, no gaps).
@@ -151,6 +150,7 @@ impl IndexedDISI<DummyIndexInput> {
     ///
     /// # Errors
     /// Returns an error if writing to the output fails.
+    #[allow(unused)]
     pub(crate) fn write_bitset<O>(it: &mut impl DocIdSetIterator, out: &mut O) -> Result<i16>
     where
         O: IndexOutput,
@@ -163,7 +163,7 @@ impl IndexedDISI<DummyIndexInput> {
     /// The caller must keep track of:
     /// - The number of jump-table entries (returned by this method),
     /// - The `dense_rank_power`,
-    /// and provide them when constructing an `IndexedDISI` for reading.
+    ///   and provide them when constructing an `IndexedDISI` for reading.
     ///
     /// # Parameters
     /// - `it`: The iterator over document IDs (must be sorted, gap-less, increasing).

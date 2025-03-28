@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// Utility class to encode/decode postings block.
 use crate::store::{DataOutput, IndexInput};
 use crate::util::error::lucene_error::Result;
 use crate::util::group_vint_util::GroupVIntUtil;
-
+/// Utility class to encode/decode postings block.
+#[allow(unused)]
 pub(crate) struct PostingsUtil;
-
+#[allow(unused)]
 impl PostingsUtil {
     /// Read values that have been written using variable-length encoding and group-varint encoding
     /// instead of bit-packing.
@@ -99,7 +99,7 @@ mod tests {
         let delta = 1 << 30;
         doc_delta_buffer[0] = delta;
 
-        /// TODO: ByteBuffersDirectory not Implemented
+        // TODO: ByteBuffersDirectory not Implemented
         let mut dir = new_directory(&mut random)?;
         {
             let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;

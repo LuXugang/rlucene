@@ -19,6 +19,6 @@ mod byte_block_pool_reverse_bytes_reader;
 pub mod fst;
 mod fst_compiler;
 mod fst_reader;
-mod offheap_fst_store;
+mod off_heap_fst_store;
 mod reverse_bytes_reader;
 mod reverse_random_access_reader;

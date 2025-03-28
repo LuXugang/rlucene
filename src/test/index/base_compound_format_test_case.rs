@@ -18,7 +18,6 @@ use crate::codecs::compound_directory::CompoundDirectory;
 use crate::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
 use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IndexOutput;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::store::{IndexInput, IO_CONTEXT_DEFAULT};

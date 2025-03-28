@@ -25,9 +25,11 @@ use crate::util::error::lucene_error::Result;
 /// - If `bits_per_value <= 8`, then 8 integers are packed into each `long`.
 /// - If `bits_per_value <= 16`, then 4 integers per `long`.
 /// - Otherwise, 2 integers per `long`.
+#[allow(unused)]
 pub struct ForUtil {
     tmp: Vec<i64>,
 }
+#[allow(unused)]
 impl ForUtil {
     pub(crate) fn new() -> Self {
         Self {

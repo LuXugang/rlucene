@@ -36,6 +36,7 @@ where
     /// as it may result in unpredicted behavior.
     fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>>;
 }
+#[allow(unused)]
 pub mod doc_id_merger_static {
     use crate::index::{DocIDMergerEnum, SequentialDocIDMerger, SortedDocIDMerger, Sub, SubBase};
     use std::cell::RefCell;
@@ -181,7 +182,9 @@ where
                     let mut sub_mut = sub.borrow_mut();
                     next_mapped_doc = sub_mut.next_mapped_doc()?;
                 }
-                self.queue.add(sub.clone());
+                if next_mapped_doc != NO_MORE_DOCS {
+                    self.queue.add(sub.clone());
+                }
             } // else all docs in this sub were deleted; do not add it to the queue!
         }
 
@@ -407,6 +410,7 @@ pub mod tests {
     pub struct TestSubSorted {
         doc_id: i32,
         max_doc: i32,
+        #[allow(dead_code)]
         index: i32,
         pub(crate) doc_map: Rc<DocMapEnum>,
     }
@@ -510,8 +514,7 @@ pub mod tests {
 
         let mut subs: Vec<Rc<RefCell<Sub<TestSubSorted>>>> = Vec::new();
 
-        for i in 0..sub_count as usize {
-            let doc_map = completed_subs[i].clone();
+        for (i, doc_map) in completed_subs.iter().enumerate() {
             let len = doc_map.len();
             let doc_map_enum = Rc::new(DocMapEnum::MocK2(DocMapMock2::new(
                 doc_map.clone(),
@@ -523,6 +526,7 @@ pub mod tests {
                 len as i32,
                 i as i32,
             ))));
+
             subs.push(sub);
         }
 

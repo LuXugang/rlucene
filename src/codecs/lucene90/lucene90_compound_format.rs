@@ -22,7 +22,6 @@ use crate::codecs::CodecUtil;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -436,14 +435,15 @@ mod tests {
             prior_e = Some(e);
         }
 
-        if prior_e.is_some() {
+        if let Some(mut e) = prior_e {
             return Err(CodecUtil::check_footer_with_error(
                 &mut entries_stream,
-                &mut prior_e.unwrap(),
+                &mut e,
             ));
         } else {
             CodecUtil::check_footer(&mut entries_stream)?;
         }
+
         Ok(())
     }
 }

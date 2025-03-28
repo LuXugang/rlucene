@@ -32,7 +32,7 @@ use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 /// Writer for [`Lucene90NormsFormat`](crate::codecs::lucene90::lucene90_norms_format).
-pub(crate) struct Lucene90NormsConsumer<O>
+pub struct Lucene90NormsConsumer<O>
 where
     O: IndexOutput,
 {

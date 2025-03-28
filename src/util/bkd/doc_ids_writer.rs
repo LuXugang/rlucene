@@ -617,11 +617,6 @@ mod tests {
         i: usize,
         read: &'a mut Vec<i32>,
     }
-    impl<'a> IntersectVisitorMock<'a> {
-        fn new(read: &'a mut Vec<i32>) -> Self {
-            Self { i: 0, read }
-        }
-    }
     impl IntersectVisitor for IntersectVisitorMock<'_> {
         fn visit(&mut self, doc_id: i32) -> Result<()> {
             self.read[self.i] = doc_id;

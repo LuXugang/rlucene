@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::base_terms_enum::TermStateImpl1;
-use crate::index::dummy::term_state_type::DummyTermState;
+use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::util::error::lucene_error::Result;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -34,13 +34,13 @@ pub enum TermStateEnum {
 }
 
 impl Debug for TermStateEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
 
 impl Display for TermStateEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -52,7 +52,7 @@ impl Clone for TermStateEnum {
 }
 
 impl TermState for TermStateEnum {
-    fn copy_from(&mut self, other: &impl TermState) -> Result<()> {
+    fn copy_from(&mut self, _other: &impl TermState) -> Result<()> {
         todo!()
     }
 

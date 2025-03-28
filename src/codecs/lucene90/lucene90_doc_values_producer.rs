@@ -22,7 +22,7 @@ use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS
 use crate::store::{DataInput, IndexInput};
 
 #[derive(Debug, Clone, Copy)]
-struct DocValuesSkipperEntry {
+pub(crate) struct DocValuesSkipperEntry {
     pub offset: i64,
     pub length: i64,
     pub min_value: i64,
@@ -48,7 +48,7 @@ impl<I> DocValuesSkipperImpl<I>
 where
     I: IndexInput,
 {
-    pub fn new(input: I::Slice, entry: DocValuesSkipperEntry) -> Self {
+    pub(crate) fn new(input: I::Slice, entry: DocValuesSkipperEntry) -> Self {
         Self {
             min_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
             max_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],

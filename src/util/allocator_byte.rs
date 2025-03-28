@@ -137,7 +137,7 @@ where
 pub type STAllocatorByteEnum = AllocatorByteEnum<Rc<RefCell<CounterEnum>>>;
 /// for multi-threaded scenarios
 pub type MTAllocatorByteEnum = AllocatorByteEnum<Arc<Mutex<CounterEnum>>>;
-
+#[allow(unused)]
 pub(crate) trait Allocator<C>
 where
     C: Access<CounterEnum>,

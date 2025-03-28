@@ -342,6 +342,7 @@ mod tests {
     struct SliceReader {
         has_started: bool,
         block_pool: ByteBlockPoolBorrow,
+        #[allow(dead_code)]
         slice_pool: Rc<RefCell<ByteSlicePool>>,
 
         size: i32,

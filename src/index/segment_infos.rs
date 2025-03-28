@@ -334,13 +334,10 @@ where
         }
 
         if format >= SegmentInfos::VERSION_74 {
-            if prior_error.is_none() {
-                CodecUtil::check_footer(input)?;
+            if let Some(mut e) = prior_error {
+                return Err(CodecUtil::check_footer_with_error(input, &mut e));
             } else {
-                return Err(CodecUtil::check_footer_with_error(
-                    input,
-                    &mut prior_error.unwrap(),
-                ));
+                CodecUtil::check_footer(input)?;
             }
         } else if let Some(e) = prior_error {
             return Err(e);

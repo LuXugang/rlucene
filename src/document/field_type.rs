@@ -651,10 +651,6 @@ mod tests {
         random.random_bool(0.5)
     }
 
-    fn random_value_int(random: &mut StdRng) -> i32 {
-        random.random_range(1..=100)
-    }
-
     // Generates a random FieldType.
     fn random_field_type(random: &mut StdRng) -> Result<FieldType> {
         let mut ft = FieldType::new();

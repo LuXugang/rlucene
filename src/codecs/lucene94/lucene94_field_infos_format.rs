@@ -28,7 +28,6 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use rand::distr::uniform::SampleBorrow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

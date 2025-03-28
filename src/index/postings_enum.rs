@@ -42,6 +42,7 @@ pub trait PostingsEnum: DocIdSetIterator {
     /// Do not modify the returned bytes.
     fn get_payload(&self) -> Result<Option<BytesRef>>;
 }
+#[allow(unused)]
 pub mod postings_enum_static {
     pub const NONE: i16 = 0;
     pub const FREQS: i16 = 1 << 3;

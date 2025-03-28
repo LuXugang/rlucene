@@ -117,8 +117,7 @@ where
     /// Estimate the number of documents that would be matched by `intersect`
     /// with the given `IntersectVisitor`. The estimation will terminate when
     /// the point count gets greater than or equal to the upper bound.
-    ///
-    /// TODO: will broad-first help estimation terminate earlier?
+    // TODO: will broad-first help estimation terminate earlier?
     fn estimate_point_count_with_point_tree(
         visitor: &mut impl IntersectVisitor,
         point_tree: &mut impl PointTree,
@@ -166,7 +165,7 @@ where
     /// `intersect(IntersectVisitor)`.
     ///
     /// See also: `DocIdSetIterator::cost`
-
+    #[allow(unused)]
     fn estimate_doc_count(&self, visitor: &mut impl IntersectVisitor) -> Result<i64> {
         let estimated_point_count = self.estimate_point_count(visitor)?;
         let doc_count = self.get_doc_count()?;

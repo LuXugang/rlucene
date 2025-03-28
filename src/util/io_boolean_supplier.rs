@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::base_terms_enum::IOBooleanSupplierImpl;
-use crate::index::dummy::io_boolean_supplier::DummyIOBooleanSupplier;
+use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::terms_enum::TermsEnum;
 use crate::util::error::lucene_error::Result;
 pub trait IOBooleanSupplier {

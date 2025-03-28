@@ -773,9 +773,7 @@ fn test_multi_valued() -> Result<()> {
 
     let doc_values_array: Vec<Vec<Vec<u8>>> = doc_values.clone();
     let mut doc_ids_array = vec![0i32; doc_ids.len()];
-    for i in 0..doc_ids_array.len() {
-        doc_ids_array[i] = doc_ids[i];
-    }
+    doc_ids_array.copy_from_slice(&doc_ids[..doc_ids.len()]);
 
     verify(
         &mut random,
@@ -790,7 +788,7 @@ fn test_multi_valued() -> Result<()> {
 /// `doc_ids` can be `None` for the single-valued case; otherwise, it maps value to `doc_id`.
 fn verify(
     random: &mut StdRng,
-    doc_values: &Vec<Vec<Vec<u8>>>,
+    doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
     num_data_dims: i32,
     num_index_dims: i32,
@@ -810,7 +808,7 @@ fn verify(
 #[allow(clippy::too_many_arguments)]
 fn verify_full(
     random: &mut StdRng,
-    doc_values: &Vec<Vec<Vec<u8>>>,
+    doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
     num_data_dims: i32,
     num_index_dims: i32,
@@ -1156,17 +1154,17 @@ struct IntersectVisitorMock1<'a> {
     visit_doc_values_size: &'a mut [i64],
 }
 impl IntersectVisitor for IntersectVisitorMock1<'_> {
-    fn visit(&mut self, doc_id: i32) -> Result<()> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         self.visit_doc_id_size[0] += 1;
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
         self.visit_doc_values_size[0] += 1;
         Ok(())
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
@@ -1369,7 +1367,7 @@ impl IntersectVisitor for IntersectVisitorMock2 {
         self.visit(doc_id)
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
@@ -1534,6 +1532,7 @@ struct IntersectVisitorMock4<'a> {
     count: &'a mut [i32],
     random: &'a mut StdRng,
 }
+#[allow(unused)]
 impl<'a> IntersectVisitorMock4<'a> {
     fn new(count: &'a mut [i32], random: &'a mut StdRng) -> Self {
         Self { count, random }
@@ -1615,7 +1614,7 @@ struct IntersectVisitorMock5<'a> {
     num_dims: i32,
 }
 impl IntersectVisitor for IntersectVisitorMock5<'_> {
-    fn visit(&mut self, doc_id: i32) -> Result<()> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         self.count[0] += 1;
         Ok(())
     }
@@ -1709,29 +1708,29 @@ fn test_wasted_leading_bytes() -> Result<()> {
 }
 struct IntersectVisitorMock6;
 impl IntersectVisitor for IntersectVisitorMock6 {
-    fn visit(&mut self, doc_id: i32) -> Result<()> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
         Ok(())
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellInsideQuery)
     }
 }
 struct IntersectVisitorMock7;
 impl IntersectVisitor for IntersectVisitorMock7 {
-    fn visit(&mut self, doc_id: i32) -> Result<()> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
         Ok(())
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellOutsideQuery)
     }
 }
@@ -1740,7 +1739,7 @@ struct IntersectVisitorMock8<'a> {
     num_bytes_per_dim: i32,
 }
 impl IntersectVisitor for IntersectVisitorMock8<'_> {
-    fn visit(&mut self, doc_id: i32) -> Result<()> {
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
         Ok(())
     }
 

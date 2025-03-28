@@ -107,13 +107,10 @@ where
                     prior_error = Some(e);
                 }
             }
-            if prior_error.is_none() {
-                CodecUtil::check_footer(&mut input)?;
+            if let Some(e) = prior_error.as_mut() {
+                return Err(CodecUtil::check_footer_with_error(&mut input, e));
             } else {
-                return Err(CodecUtil::check_footer_with_error(
-                    &mut input,
-                    &mut prior_error.unwrap(),
-                ));
+                CodecUtil::check_footer(&mut input)?;
             }
         }
 
@@ -812,6 +809,7 @@ where
     norms_offset: i64,
     _phantom: PhantomData<I>,
 }
+#[allow(unused)]
 impl<I> SparseNormsIteratorBaseImpl<I>
 where
     I: IndexInput,

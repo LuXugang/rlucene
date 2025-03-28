@@ -17,32 +17,32 @@
 use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::index::point_values::PointTree;
 use crate::index::BytesRef;
-
+#[allow(unused)]
 pub struct PointValuesWriter;
-
+#[allow(unused)]
 pub struct MutableSortingPointValues;
 impl MutablePointTree for MutableSortingPointValues {
-    fn get_value(&self, i: i32, packed_value: &mut BytesRef) {
+    fn get_value(&self, _i: i32, _packed_value: &mut BytesRef) {
         todo!()
     }
 
-    fn get_byte_at(&self, i: i32, k: i32) -> u8 {
+    fn get_byte_at(&self, _i: i32, _k: i32) -> u8 {
         todo!()
     }
 
-    fn get_doc_id(&self, i: i32) -> i32 {
+    fn get_doc_id(&self, _i: i32) -> i32 {
         todo!()
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, _i: i32, _j: i32) {
         todo!()
     }
 
-    fn save(&mut self, i: i32, j: i32) {
+    fn save(&mut self, _i: i32, _j: i32) {
         todo!()
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
+    fn restore(&mut self, _i: i32, _j: i32) {
         todo!()
     }
 }

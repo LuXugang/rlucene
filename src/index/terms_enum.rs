@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
+use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
-use crate::index::dummy::io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
 use crate::index::term_state::{TermState, TermStateEnum};
@@ -125,7 +125,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// This is equivalent to [`postings(reuse, PostingsEnum::FREQS)`](TermsEnum::postings_with_flags).
     ///
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse
-    /// See also: `postings_with_flags`.
+    ///   See also: `postings_with_flags`.
     fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnumType> {
         self.postings_with_flags(&reuse, postings_enum_static::FREQS as i32)
     }

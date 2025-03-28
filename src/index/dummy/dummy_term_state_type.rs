@@ -21,7 +21,7 @@ use std::fmt::{Debug, Display, Formatter};
 pub struct DummyTermState;
 impl Display for DummyTermState {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("this method should not be called")
+        unreachable!("this method should never be called")
     }
 }
 
@@ -33,6 +33,6 @@ impl TermState for DummyTermState {
     }
 
     fn to_string(&self) -> String {
-        unreachable!("this method should not be called")
+        unreachable!("this method should never be called")
     }
 }

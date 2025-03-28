@@ -343,7 +343,7 @@ mod tests {
         let mut count = 0;
 
         for _ in 0..num {
-            let value = random.gen::<i64>();
+            let value: i64 = random.random();
             if random.random_bool(0.5) {
                 pq.push(value)?;
                 count += 1;

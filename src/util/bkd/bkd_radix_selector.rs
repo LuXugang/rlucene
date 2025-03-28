@@ -1524,6 +1524,7 @@ mod tests {
                 )?))
             }
         }
+        #[allow(dead_code)]
         fn get_directory(_num_points: i32) {
             // TODO
         }
@@ -1851,7 +1852,6 @@ mod tests {
             for _ in 0..num_points {
                 random.fill(&mut data_dimension_values[..]);
                 let start = config.packed_index_bytes_length() as usize;
-                let end = start + data_dimension_values.len();
                 value.copy_from(&data_dimension_values, start);
                 let doc_id = random.random_range(0..num_points);
                 heap_points.append_bytes(&value, doc_id)?;

@@ -44,7 +44,7 @@ use std::sync::{Arc, Mutex};
 /// - The internal storage is limited to 2GB total byte storage.
 ///
 /// [`ByteBlockPool::BYTE_BLOCK_SIZE`]: ByteBlockPool::BYTE_BLOCK_SIZE
-pub struct BytesRefHash<C, B, A, P>
+pub(crate) struct BytesRefHash<C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
@@ -63,6 +63,7 @@ where
     _phantom1: PhantomData<B>,
     _phantom2: PhantomData<P>,
 }
+#[allow(unused)]
 impl MTBytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;
     pub fn new_sync() -> Result<Self> {
@@ -77,6 +78,7 @@ impl MTBytesRefHash {
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
 }
+#[allow(unused)]
 impl STBytesRefHash {
     pub fn new() -> Result<Self> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -251,6 +253,7 @@ where
     }
 
     /// Closes the `BytesRefHash` and releases all internally used memory.
+    #[allow(unused)]
     pub fn close(&mut self) -> Result<()> {
         self.clear_with_reset_pool(true)?;
         self.ids.clear();
@@ -527,21 +530,22 @@ where
     }
 }
 /// for single-threaded scenarios
-pub type STBytesRefHash = BytesRefHash<
+pub(crate) type STBytesRefHash = BytesRefHash<
     CounterEnumBorrow,
     ByteBlockPoolBorrow,
     BytesStartArrayEnumBorrow,
     STPostingsArrayWrapper,
 >;
 /// for multi-threaded scenarios
-pub type MTBytesRefHash = BytesRefHash<
+#[allow(unused)]
+pub(crate) type MTBytesRefHash = BytesRefHash<
     CounterEnumLock,
     ByteBlockPoolLock,
     BytesStartArrayEnumLock,
     MTPostingsArrayWrapper,
 >;
 
-pub struct StringSorterImpl<'a, C, B, A, P>
+pub(crate) struct StringSorterImpl<'a, C, B, A, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
@@ -868,9 +872,9 @@ where
         }
     }
 }
-pub type BytesStartArrayEnumBorrow =
+pub(crate) type BytesStartArrayEnumBorrow =
     Rc<RefCell<BytesStartArrayEnum<CounterEnumBorrow, STPostingsArrayWrapper>>>;
-pub type BytesStartArrayEnumLock =
+pub(crate) type BytesStartArrayEnumLock =
     Arc<Mutex<BytesStartArrayEnum<CounterEnumLock, MTPostingsArrayWrapper>>>;
 
 /// # Note

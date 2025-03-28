@@ -44,6 +44,7 @@ where
     point_count: i64,
     doc_count: i32,
     version: i32,
+    #[allow(dead_code)]
     min_leaf_block_fp: i64,
     index_start_pointer: i64,
     num_index_bytes: i32,

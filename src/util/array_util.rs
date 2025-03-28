@@ -358,7 +358,7 @@ impl ArrayUtil {
     /// - `from`: The starting index for re-organization. Elements before this index will be left as is.
     /// - `to`: The ending index. Elements after this index will be left as is.
     /// - `k`: The index of the element to sort from. Value must be less than `to` and greater than or
-    ///     equal to `from`.
+    ///   equal to `from`.
     /// - `comparator`: A comparator to use for sorting.
     pub fn select<T, C>(
         arr: &mut Vec<T>,

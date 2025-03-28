@@ -69,6 +69,7 @@ use std::rc::Rc;
 ///
 /// **NOTE**: This can write at most `i32::MAX * config.max_points_in_leaf_node / config.bytes_per_dim`
 /// total points.
+#[allow(unused)]
 pub struct BKDWriter<D>
 where
     D: Directory,
@@ -100,6 +101,7 @@ where
     max_doc: i32,
     doc_ids_writer: DocIdsWriter,
 }
+#[allow(unused)]
 impl BKDWriter<DummyDirectory> {
     pub const CODEC_NAME: &'static str = "BKD";
     pub const VERSION_START: i32 = 4; // version used by Lucene 7.0
@@ -114,6 +116,7 @@ impl BKDWriter<DummyDirectory> {
     /// Default maximum heap to use, before spilling to (slower) disk.
     pub const DEFAULT_MAX_MB_SORT_IN_HEAP: f32 = 16.0;
 }
+#[allow(unused)]
 impl<D> BKDWriter<D>
 where
     D: Directory,
@@ -1008,7 +1011,7 @@ where
         leaf_cardinality: i32,
     ) -> Result<()>
     where
-        F: FnMut(i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>,
+        F: FnMut(i32) -> PackedValueResult,
     {
         let prefix_len_sum: i32 = self.common_prefix_lengths.iter().sum();
         if prefix_len_sum == self.config.packed_bytes_length() {
@@ -1079,7 +1082,7 @@ where
         packed_values: &mut F,
     ) -> Result<()>
     where
-        F: FnMut(i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>,
+        F: FnMut(i32) -> PackedValueResult,
     {
         if self.config.num_index_dims != 1 {
             self.write_actual_bounds(out, count, packed_values)?;
@@ -1144,7 +1147,7 @@ where
         compressed_byte_offset: usize,
     ) -> Result<()>
     where
-        F: FnMut(i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>,
+        F: FnMut(i32) -> PackedValueResult,
     {
         if self.config.num_index_dims != 1 {
             self.write_actual_bounds(out, count, packed_values)?;
@@ -1183,7 +1186,7 @@ where
         packed_values: &mut F,
     ) -> Result<()>
     where
-        F: FnMut(i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>,
+        F: FnMut(i32) -> PackedValueResult,
     {
         for dim in 0..self.config.num_index_dims {
             let common_prefix_length = self.common_prefix_lengths[dim as usize];
@@ -1213,7 +1216,7 @@ where
         length: i32,
     ) -> Result<(BytesRef, BytesRef)>
     where
-        F: FnMut(i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>,
+        F: FnMut(i32) -> PackedValueResult,
     {
         debug_assert!(length > 0);
         let (bytes_ref, first_offset, _first_length) = packed_values(0)?;
@@ -1259,7 +1262,7 @@ where
         packed_values: &mut F,
     ) -> Result<()>
     where
-        F: FnMut(i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>,
+        F: FnMut(i32) -> PackedValueResult,
     {
         for i in start..end {
             let (bytes_ref, offset, length) = packed_values(i)?;
@@ -1279,7 +1282,7 @@ where
 
     fn run_len<F>(packed_values: &mut F, start: i32, end: i32, byte_offset: usize) -> Result<i32>
     where
-        F: FnMut(i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>,
+        F: FnMut(i32) -> PackedValueResult,
     {
         let (bytes_ref, offset, _) = packed_values(start)?;
         let b = bytes_ref.borrow()[offset as usize + byte_offset];
@@ -1311,8 +1314,8 @@ where
     /// information (checksum matched or didn't) as a suppressed exception.
     fn verify_checksum(
         &self,
-        prior_exception: &LuceneError,
-        writer: &PointWriterEnum<D>,
+        _prior_exception: &LuceneError,
+        _writer: &PointWriterEnum<D>,
     ) -> Result<()> {
         //TODO: TrackingDirectoryWrapper实现后来修改这里
         Ok(())
@@ -1537,7 +1540,7 @@ where
             }
             // Write the full values:
             let reader = reader.clone();
-            let mut packed_values = move |i: i32| -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)> {
+            let mut packed_values = move |i: i32| -> PackedValueResult {
                 let mut scratch = BytesRef::default();
                 reader.borrow().get_value(i + from, &mut scratch);
 
@@ -1850,9 +1853,8 @@ where
 
             self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
 
-            let from = from;
             let heap_source = heap_source.clone();
-            let mut packed_values = move |i: i32| -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)> {
+            let mut packed_values = move |i: i32| -> PackedValueResult {
                 let mut point_writer = heap_source.borrow_mut();
                 match &mut *point_writer {
                     PointWriterEnum::Heap(heap) => {
@@ -2032,17 +2034,16 @@ where
     }
     pub fn close(&mut self) -> Result<()> {
         self.finished = true;
-        if let Some(ref mut point_writer) = self.point_writer {
-            if let PointWriterEnum::Offline(ref mut offline_point_writer) = point_writer {
-                self.temp_dir
-                    .borrow_mut()
-                    .delete_file(offline_point_writer.out.as_mut().unwrap().get_name())?;
-                let _ = offline_point_writer.out.take();
+        if let Some(PointWriterEnum::Offline(ref mut offline_point_writer)) = self.point_writer {
+            if let Some(out) = offline_point_writer.out.take() {
+                self.temp_dir.borrow_mut().delete_file(out.get_name())?;
             }
         }
         Ok(())
     }
 }
+
+#[allow(unused)]
 pub struct OneDimensionBKDWriter<'a, D>
 where
     D: Directory,
@@ -2062,6 +2063,7 @@ where
     bkd_writer: &'a mut BKDWriter<D>,
 }
 
+#[allow(unused)]
 impl<'a, D> OneDimensionBKDWriter<'a, D>
 where
     D: Directory,
@@ -2250,7 +2252,7 @@ where
         let length = self.bkd_writer.scratch_bytes_ref1.length;
         let packed_bytes_length = self.bkd_writer.config.packed_bytes_length();
 
-        let mut packed_values = move |i: i32| -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)> {
+        let mut packed_values = move |i: i32| -> PackedValueResult {
             Ok((
                 scratch_bytes_ref_byte.clone(),
                 packed_bytes_length * i,
@@ -2295,7 +2297,7 @@ fn values_in_order_and_bounds<F>(
     docs_offset: usize,
 ) -> Result<bool>
 where
-    F: FnMut(i32) -> Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>,
+    F: FnMut(i32) -> PackedValueResult,
 {
     let mut last_packed_value = vec![0u8; config.packed_bytes_length() as usize];
     let mut last_doc = -1;
@@ -2544,7 +2546,7 @@ struct MergeIntersectsVisitor {
     doc_ids: Vec<i32>,
     packed_bytes_length: i32,
 }
-
+#[allow(unused)]
 impl MergeIntersectsVisitor {
     fn new(packed_bytes_length: i32) -> Self {
         Self {
@@ -2766,7 +2768,8 @@ where
         self.one_dim_writer.add(packed_value, doc_id)
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
+type PackedValueResult = Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>;

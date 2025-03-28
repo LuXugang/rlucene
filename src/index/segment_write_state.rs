@@ -53,7 +53,7 @@ where
     /// A Term is enrolled here if it was deleted/updated at one point,
     /// and it's mapped to the docIDUpto, meaning any docID < docIDUpto
     /// containing this term should be deleted/updated.
-    pub seg_updates: Option<Rc<STBufferedUpdates<DummyQuery>>>,
+    pub(crate) seg_updates: Option<Rc<STBufferedUpdates<DummyQuery>>>,
 
     /// FixedBitSet recording live documents; this is only set if there
     /// is one or more deleted documents.
@@ -71,13 +71,13 @@ where
     /// IOContext for all writes; you should pass this to Directory::create_output.
     pub context: Rc<IOContext>,
 }
-
+#[allow(unused)]
 impl<D> SegmentWriteState<D>
 where
     D: Directory,
 {
     /// Constructor without suffix.
-    pub fn new(
+    pub(crate) fn new(
         info_stream: InfoStreamLock,
         directory: Arc<Mutex<D>>,
         segment_info: Rc<SegmentInfo<D>>,
@@ -97,7 +97,7 @@ where
     }
 
     /// Constructor with segment suffix.
-    pub fn with_suffix(
+    pub(crate) fn with_suffix(
         info_stream: InfoStreamLock,
         directory: Arc<Mutex<D>>,
         segment_info: Rc<SegmentInfo<D>>,

@@ -66,7 +66,7 @@ pub(crate) trait PostingsArrayBase {
     fn copy_to(&mut self, new_size: i32) -> Result<()>;
 }
 #[allow(unused)]
-pub enum PostingsArrayEnum {
+pub(crate) enum PostingsArrayEnum {
     Parallel(ParallelPostingsArray),
     FreqProx(FreqProxPostingsArray),
     TermVectors(TermVectorsPostingsArray),

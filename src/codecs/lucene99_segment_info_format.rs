@@ -295,14 +295,12 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
                 prior_e = Some(exception);
             }
         }
-        if prior_e.is_some() {
-            return Err(CodecUtil::check_footer_with_error(
-                &mut input,
-                &mut prior_e.unwrap(),
-            ));
+        if let Some(e) = prior_e.as_mut() {
+            return Err(CodecUtil::check_footer_with_error(&mut input, e));
         } else {
             CodecUtil::check_footer(&mut input)?;
         }
+
         si.ok_or_else(|| {
             LuceneError::corrupt_index(format!("Failed to parse segment info for {}", segment))
         })

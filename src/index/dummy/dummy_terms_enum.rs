@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
+use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::index::dummy::io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
@@ -59,7 +59,7 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
-    fn seek_exact_by_ord(&mut self, ord: i64) -> Result<()> {
+    fn seek_exact_by_ord(&mut self, _ord: i64) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -107,7 +107,7 @@ impl TermsEnum for DummyTermsEnum {
 
     type PostingsEnumType = DummyPostingsEnum;
 
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType> {
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
