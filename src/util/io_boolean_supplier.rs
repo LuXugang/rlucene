@@ -14,21 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_id_merger::SubBase;
-use crate::index::merge_state::DocMapEnum;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
-pub struct DummySubBase;
-impl SubBase for DummySubBase {
-    fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
-    }
-
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+use crate::index::base_terms_enum::IOBooleanSupplierImpl;
+use crate::index::dummy::io_boolean_supplier::DummyIOBooleanSupplier;
+use crate::index::terms_enum::TermsEnum;
+use crate::util::error::lucene_error::Result;
+pub trait IOBooleanSupplier {
+    fn get(&mut self) -> Result<bool>;
+}
+pub enum IOBooleanSupplierEnum<T>
+where
+    T: TermsEnum,
+{
+    Dummy(DummyIOBooleanSupplier),
+    Impl1(IOBooleanSupplierImpl<T>),
+}
+impl<T> IOBooleanSupplier for IOBooleanSupplierEnum<T>
+where
+    T: TermsEnum,
+{
+    fn get(&mut self) -> Result<bool> {
+        todo!()
     }
 }

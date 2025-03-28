@@ -14,21 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_id_merger::SubBase;
-use crate::index::merge_state::DocMapEnum;
+use crate::index::term_state::TermState;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
-pub struct DummySubBase;
-impl SubBase for DummySubBase {
-    fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::not_implemented(
+use std::fmt::{Debug, Display, Formatter};
+#[derive(Debug, Clone)]
+pub struct DummyTermState;
+impl Display for DummyTermState {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        unreachable!("this method should not be called")
+    }
+}
+
+impl TermState for DummyTermState {
+    fn copy_from(&mut self, _other: &impl TermState) -> Result<()> {
+        Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+    fn to_string(&self) -> String {
+        unreachable!("this method should not be called")
     }
 }

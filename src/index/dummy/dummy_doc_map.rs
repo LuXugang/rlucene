@@ -20,7 +20,7 @@ use crate::index::merge_state::DocMap;
 pub struct DummyDocMap;
 impl DocMap for DummyDocMap {
     fn get(&self, _doc_id: i32) -> i32 {
-        debug_assert!(false, "DummyDocMap should not be called");
+        debug_assert!(false, "this method should never be called");
         0
     }
 }

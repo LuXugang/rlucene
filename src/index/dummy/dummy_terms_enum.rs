@@ -14,94 +14,112 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::directory::Directory;
-use crate::store::dummy::dummy_index_input::DummyIndexInput;
-use crate::store::dummy::dummy_index_output::DummyIndexOutput;
-use crate::store::dummy::dummy_lock::DummyLock;
-use crate::store::IOContext;
+use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
+use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
+use crate::index::dummy::io_boolean_supplier::DummyIOBooleanSupplier;
+use crate::index::postings_enum::PostingsEnum;
+use crate::index::term_state::{TermState, TermStateEnum};
+use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::index::BytesRef;
+use crate::util::attribute_source::AttributeSource;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
-
-pub struct DummyDirectory;
-impl Display for DummyDirectory {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("this method should never be called")
+use std::rc::Rc;
+pub struct DummyTermsEnum {
+    atts: AttributeSource,
+}
+impl BytesRefIterator for DummyTermsEnum {
+    fn next(&mut self) -> Result<Option<BytesRef>> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
     }
 }
 
-impl Directory for DummyDirectory {
-    fn list_all(&self) -> Result<Vec<String>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+impl TermsEnum for DummyTermsEnum {
+    fn attributes(&self) -> &AttributeSource {
+        debug_assert!(false, "should never be called");
+        &self.atts
     }
 
-    fn delete_file(&mut self, _name: &str) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
-    }
-
-    fn file_length(&self, _name: &str) -> Result<i64> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
-    }
-    #[allow(refining_impl_trait)]
-    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
-    }
-
-    type IndexOutputType = DummyIndexOutput;
-    fn create_temp_output(
+    fn prepare_seek_exact(
         &mut self,
-        _prefix: &str,
-        _suffix: &str,
-        _context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+        _term: Rc<BytesRef>,
+    ) -> Result<Option<Self::IOBooleanSupplierType>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn sync(&mut self, _names: &[&str]) -> Result<()> {
+    type IOBooleanSupplierType = DummyIOBooleanSupplier;
+
+    fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn sync_metadata(&mut self) -> Result<()> {
+    fn seek_exact_by_ord(&mut self, ord: i64) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn rename(&mut self, _source: &str, _dest: &str) -> Result<()> {
+    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &impl TermState) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    type IndexInputType = DummyIndexInput;
-
-    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInputType> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
-    }
-    #[allow(refining_impl_trait)]
-    fn obtain_lock(&mut self, _name: &str) -> Result<DummyLock> {
+    fn term(&self) -> Result<BytesRef> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+    fn ord(&self) -> Result<i64> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
+
+    fn doc_freq(&self) -> Result<i32> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    fn total_term_freq(&self) -> Result<i64> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    fn postings_with_flags(
+        &mut self,
+        _reuse: &Option<impl PostingsEnum>,
+        _flags: i32,
+    ) -> Result<Self::PostingsEnumType> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    type PostingsEnumType = DummyPostingsEnum;
+
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    type ImpactsEnumType = DummyImpactsEnum;
+
+    fn term_state(&self) -> Result<Self::TermStateType> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    type TermStateType = TermStateEnum;
 }

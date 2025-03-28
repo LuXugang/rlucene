@@ -22,30 +22,30 @@ pub struct DummyIndexOutput;
 
 impl DataOutput for DummyIndexOutput {
     fn write_byte(&mut self, _b: u8) -> Result<()> {
-        unreachable!("DummyIndexOutput should not be called")
+        unreachable!(" this method should never be called")
     }
 
     fn write_bytes_range(&mut self, _b: &[u8], _offset: i32, _length: i32) -> Result<()> {
-        unreachable!("DummyIndexOutput should not be called")
+        unreachable!(" this method should never be called")
     }
 }
 
 impl Display for DummyIndexOutput {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("DummyIndexOutput should not be called")
+        unreachable!(" this method should never be called")
     }
 }
 
 impl IndexOutput for DummyIndexOutput {
     fn get_file_pointer(&self) -> i64 {
-        unreachable!("DummyIndexOutput should not be called")
+        unreachable!(" this method should never be called")
     }
 
     fn get_checksum(&mut self) -> u64 {
-        unreachable!("DummyIndexOutput should not be called")
+        unreachable!(" this method should never be called")
     }
 
     fn get_name(&self) -> &str {
-        unreachable!("DummyIndexOutput should not be called")
+        unreachable!(" this method should never be called")
     }
 }

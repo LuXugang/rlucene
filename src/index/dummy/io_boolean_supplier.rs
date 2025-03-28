@@ -14,20 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_id_merger::SubBase;
-use crate::index::merge_state::DocMapEnum;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
-pub struct DummySubBase;
-impl SubBase for DummySubBase {
-    fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
-    }
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::io_boolean_supplier::IOBooleanSupplier;
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-        Err(LuceneError::not_implemented(
+pub struct DummyIOBooleanSupplier;
+impl IOBooleanSupplier for DummyIOBooleanSupplier {
+    fn get(&mut self) -> crate::util::error::lucene_error::Result<bool> {
+        Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }

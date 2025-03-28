@@ -14,45 +14,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::{BufferedIndexInput, BufferedIndexInputBase};
+use crate::index::postings_enum::PostingsEnum;
+use crate::index::BytesRef;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::io::Cursor;
 
-pub struct DummyBufferedIndexInputBase;
+pub struct DummyPostingsEnum;
 
-impl Clone for DummyBufferedIndexInputBase {
-    fn clone(&self) -> Self {
-        unreachable!("this method should never be called")
+impl DocIdSetIterator for DummyPostingsEnum {
+    fn doc_id(&self) -> i32 {
+        unreachable!("this method should not be called")
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
     }
 }
 
-impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
-    fn seek_internal(&mut self, _pos: i64) -> Result<()> {
+impl PostingsEnum for DummyPostingsEnum {
+    fn freq(&mut self) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn read_internal(
-        &mut self,
-        _b: &mut Cursor<Vec<u8>>,
-        _len: i64,
-        _file_pointer: i64,
-    ) -> Result<()> {
+    fn next_position(&mut self) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
-
-    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
+    fn start_offset(&self) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn length(&self) -> i64 {
-        unreachable!("this method should never be called")
+    fn end_offset(&self) -> Result<i32> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    fn get_payload(&self) -> Result<Option<BytesRef>> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
     }
 }

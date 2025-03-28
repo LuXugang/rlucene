@@ -14,57 +14,74 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::dummy::dummy_point_tree::DummyPointTree;
-use crate::index::point_values::PointValuesBase;
+use crate::index::dummy::dummy_impacts::DummyImpacts;
+use crate::index::impacts_enum::ImpactsEnum;
+use crate::index::impacts_source::ImpactsSource;
+use crate::index::postings_enum::PostingsEnum;
+use crate::index::BytesRef;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-pub struct DummyPointValuesBase;
-impl PointValuesBase for DummyPointValuesBase {
-    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>> {
+pub struct DummyImpactsEnum;
+
+impl PostingsEnum for DummyImpactsEnum {
+    fn freq(&mut self) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>> {
+    fn next_position(&mut self) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn get_num_dimensions(&self) -> Result<i32> {
+    fn start_offset(&self) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn get_num_index_dimensions(&self) -> Result<i32> {
+    fn end_offset(&self) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn get_bytes_per_dimension(&self) -> Result<i32> {
+    fn get_payload(&self) -> Result<Option<BytesRef>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
-    }
-
-    fn size(&self) -> Result<i64> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
-    }
-
-    fn get_doc_count(&self) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
-    }
-
-    type PointTreeType = DummyPointTree;
-
-    fn get_point_tree(&self) -> Result<Self::PointTreeType> {
-        Ok(DummyPointTree)
     }
 }
+
+impl DocIdSetIterator for DummyImpactsEnum {
+    fn doc_id(&self) -> i32 {
+        unreachable!("this method should not be called")
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+}
+
+impl ImpactsSource for DummyImpactsEnum {
+    fn advance_shallow(&mut self, _target: i32) -> Result<()> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    fn get_impacts(&self) -> Result<&Self::ImpactsType> {
+        Err(LuceneError::illegal_state(
+            "this method should never be called",
+        ))
+    }
+
+    type ImpactsType = DummyImpacts;
+}
+
+impl ImpactsEnum for DummyImpactsEnum {}

@@ -44,7 +44,7 @@ impl InfoStream for NoOutput {
     fn message(&self, _component: &str, _message: &str) {
         debug_assert!(
             false,
-            "message() should not be called when is_enabled returns false"
+            "this method should never be called when is_enabled returns false"
         );
     }
 

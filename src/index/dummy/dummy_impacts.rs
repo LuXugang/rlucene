@@ -14,21 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_id_merger::SubBase;
-use crate::index::merge_state::DocMapEnum;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
-pub struct DummySubBase;
-impl SubBase for DummySubBase {
-    fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+use crate::index::impact::Impact;
+use crate::index::impacts::Impacts;
+
+pub struct DummyImpacts;
+impl Impacts for DummyImpacts {
+    fn num_levels(&self) -> i32 {
+        unreachable!("this method should not be called")
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+    fn get_doc_id_up_to(&self, level: i32) -> i32 {
+        unreachable!("this method should not be called")
+    }
+
+    fn get_impacts(&self, level: i32) -> &[Impact] {
+        unreachable!("this method should not be called")
     }
 }

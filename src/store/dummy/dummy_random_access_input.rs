@@ -20,26 +20,26 @@ use crate::util::error::lucene_error::Result;
 pub struct DummyRandomAccessInput;
 impl RandomAccessInput for DummyRandomAccessInput {
     fn length(&self) -> i64 {
-        unreachable!("DummyRandomAccessInput should not be called")
+        unreachable!(" this method should never be called")
     }
 
     fn read_byte(&mut self, _pos: i64) -> Result<u8> {
-        unreachable!("DummyRandomAccessInput should not be called")
+        unreachable!(" this method should never be called")
     }
 
     fn read_short(&mut self, _pos: i64) -> Result<i16> {
-        unreachable!("DummyRandomAccessInput should not be called")
+        unreachable!(" this method should never be called")
     }
 
     fn read_int(&mut self, _pos: i64) -> Result<i32> {
-        unreachable!("DummyRandomAccessInput should not be called")
+        unreachable!(" this method should never be called")
     }
 
     fn read_long(&mut self, _pos: i64) -> Result<i64> {
-        unreachable!("DummyRandomAccessInput should not be called")
+        unreachable!(" this method should never be called")
     }
 
     fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
-        unreachable!("DummyRandomAccessInput should not be called")
+        unreachable!(" this method should never be called")
     }
 }

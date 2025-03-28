@@ -41,5 +41,6 @@ pub trait ImpactsSource {
     /// #Note :
     ///  advancing this iterator may
     ///   invalidate the returned impacts, so they should not be used after the iterator has been advanced.
-    fn get_impacts(&self) -> Result<&impl Impacts>;
+    fn get_impacts(&self) -> Result<&Self::ImpactsType>;
+    type ImpactsType: Impacts;
 }
