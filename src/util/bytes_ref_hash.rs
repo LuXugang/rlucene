@@ -104,7 +104,7 @@ where
     P: Access<PostingsArrayWrapper>,
 {
     pub fn from_bytes_start_array(pool: B, capacity: i32, bytes_start_array: A) -> Result<Self> {
-        let bytes_used = bytes_start_array.with_exclusive(|bytes_start_array| {
+        let bytes_used = bytes_start_array.access_mut(|bytes_start_array| {
             bytes_start_array.init()?;
             Ok(bytes_start_array.bytes_used())
         })?;
@@ -142,7 +142,7 @@ where
     /// # Returns
     /// The given [`BytesRef`] instance populated with the bytes for the given `bytesID`.
     pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) -> Result<()> {
-        self.bytes_start_array.with_exclusive(|bytes_start_array| {
+        self.bytes_start_array.access_mut(|bytes_start_array| {
             debug_assert!(
                 bytes_start_array.len()? > 0,
                 "bytes_start is null - not initialized"
@@ -163,7 +163,7 @@ where
     pub fn compact(&mut self) -> &Vec<i32> {
         debug_assert!(
             self.bytes_start_array
-                .with_shared(|bytes_start_array| Ok(bytes_start_array.len().unwrap() > 0))
+                .access(|bytes_start_array| Ok(bytes_start_array.len().unwrap() > 0))
                 .unwrap(),
             "bytes_start is null - not initialized"
         );
@@ -217,7 +217,7 @@ where
         if new_size != self.hash_size {
             // TODO: memory calculation not implemented
             self.bytes_used
-                .with_exclusive(|bytes_used| Ok(bytes_used.add_and_get(0)))?;
+                .access_mut(|bytes_used| Ok(bytes_used.add_and_get(0)))?;
             self.hash_size = new_size;
             self.ids = vec![-1; self.hash_size as usize];
             self.hash_half_size = new_size / 2;
@@ -236,7 +236,7 @@ where
             self.pool.reset()?;
         }
 
-        self.bytes_start_array.with_exclusive(|bytes_start_array| {
+        self.bytes_start_array.access_mut(|bytes_start_array| {
             let _ = bytes_start_array.clear();
             Ok(())
         })?;
@@ -258,7 +258,7 @@ where
         self.clear_with_reset_pool(true)?;
         self.ids.clear();
         // TODO: memory calculation not implemented
-        self.bytes_used.with_exclusive(|bytes_used| {
+        self.bytes_used.access_mut(|bytes_used| {
             bytes_used.add_and_get(0);
             Ok(())
         })?;
@@ -279,7 +279,7 @@ where
     pub fn add(&mut self, bytes: &BytesRef) -> Result<i32> {
         debug_assert!(
             self.bytes_start_array
-                .with_shared(|bytes_start_array| Ok(bytes_start_array.len()? > 0))?,
+                .access(|bytes_start_array| Ok(bytes_start_array.len()? > 0))?,
             "Bytesstart is null - not initialized"
         );
 
@@ -288,7 +288,7 @@ where
         let mut e = self.ids[hash_pos as usize];
         if e == -1 {
             {
-                self.bytes_start_array.with_exclusive(|bytes_start_array| {
+                self.bytes_start_array.access_mut(|bytes_start_array| {
                     let length = bytes_start_array.len()?;
                     // new entry
                     if self.count as usize >= length {
@@ -331,7 +331,7 @@ where
         Ok(self.ids[hash_pos as usize])
     }
     fn find_hash(&self, bytes: &BytesRef) -> Result<i32> {
-        self.bytes_start_array.with_exclusive(|bytes_start_array| {
+        self.bytes_start_array.access_mut(|bytes_start_array| {
             debug_assert!(
                 bytes_start_array.len()? > 0,
                 "bytesStart is null - not initialized"
@@ -375,7 +375,7 @@ where
     pub fn add_by_pool_offset(&mut self, offset: i32) -> Result<i32> {
         debug_assert!(
             self.bytes_start_array
-                .with_shared(|bytes_start_array| Ok(bytes_start_array.len()? > 0))?,
+                .access(|bytes_start_array| Ok(bytes_start_array.len()? > 0))?,
             "Bytesstart is null - not initialized"
         );
 
@@ -383,7 +383,7 @@ where
         let mut code = offset;
         let mut hash_pos = offset & self.hash_mask;
         let mut e = self.ids[hash_pos as usize];
-        let length = self.bytes_start_array.with_exclusive(|bytes_start_array| {
+        let length = self.bytes_start_array.access_mut(|bytes_start_array| {
             let length = bytes_start_array.len()?;
             // Resolve hash conflicts
             while e != -1 && bytes_start_array.get_value(e as usize)? != offset {
@@ -396,7 +396,7 @@ where
 
         if e == -1 {
             // New entry
-            self.bytes_start_array.with_exclusive(|bytes_start_array| {
+            self.bytes_start_array.access_mut(|bytes_start_array| {
                 if self.count as usize >= length {
                     bytes_start_array.grow()?;
                     debug_assert!(
@@ -429,12 +429,12 @@ where
     fn rehash(&mut self, new_size: i32, hash_on_data: bool) -> Result<()> {
         let new_mask = new_size - 1;
         // TODO: memory calculation not implemented
-        self.bytes_used.with_exclusive(|bytes_used| {
+        self.bytes_used.access_mut(|bytes_used| {
             bytes_used.add_and_get(0);
             Ok(())
         })?;
         let mut new_hash = vec![-1; new_size as usize];
-        self.bytes_start_array.with_exclusive(|bytes_start_array| {
+        self.bytes_start_array.access_mut(|bytes_start_array| {
             for i in 0..self.hash_size {
                 let e0 = self.ids[i as usize];
                 if e0 != -1 {
@@ -465,7 +465,7 @@ where
         })?;
         self.hash_mask = new_mask;
         // TODO: memory calculation not implemented
-        self.bytes_used.with_exclusive(|bytes_used| {
+        self.bytes_used.access_mut(|bytes_used| {
             bytes_used.add_and_get(0);
             Ok(())
         })?;
@@ -478,7 +478,7 @@ where
     /// Reinitializes the [`BytesRefHash`] after a previous `clear()` call.
     /// If `clear()` has not been called previously, this method has no effect.
     pub fn reinit(&mut self) -> Result<()> {
-        self.bytes_start_array.with_exclusive(|bytes_start_array| {
+        self.bytes_start_array.access_mut(|bytes_start_array| {
             if bytes_start_array.len()? == 0 {
                 let _ = bytes_start_array.init();
             }
@@ -488,7 +488,7 @@ where
         if self.ids.is_empty() {
             self.ids = vec![-1; self.hash_size as usize];
             // TODO: memory calculation not implemented
-            self.bytes_used.with_exclusive(|bytes_used| {
+            self.bytes_used.access_mut(|bytes_used| {
                 bytes_used.add_and_get(0);
                 Ok(())
             })?;
@@ -507,7 +507,7 @@ where
     /// The `bytesStart` offset into the internally used `SingleThreadedByteBlockPool` for the given ID.
     #[cfg(feature = "test_only")]
     pub fn byte_start(&self, bytes_id: i32) -> Result<i32> {
-        self.bytes_start_array.with_shared(|bytes_start_array| {
+        self.bytes_start_array.access(|bytes_start_array| {
             debug_assert!(
                 bytes_start_array.len()? > 0,
                 "bytes_start is null - not initialized"
@@ -675,7 +675,7 @@ where
     P: Access<PostingsArrayWrapper>,
 {
     fn get(&mut self, _builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
-        self.bytes_start_array.with_shared(|bytes_start_array| {
+        self.bytes_start_array.access(|bytes_start_array| {
             let start = bytes_start_array.get_value(self.compact[i as usize] as usize)?;
             self.pool.fill_bytes_ref(result, start)?;
             Ok(())

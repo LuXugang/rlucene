@@ -20,17 +20,17 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 pub trait Access<T>: Clone {
-    fn with_shared<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&T) -> Result<R>;
 
-    fn with_exclusive<F, R>(&self, f: F) -> Result<R>
+    fn access_mut<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&mut T) -> Result<R>;
 }
 
 impl<T> Access<T> for Rc<RefCell<T>> {
-    fn with_shared<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&T) -> Result<R>,
     {
@@ -38,7 +38,7 @@ impl<T> Access<T> for Rc<RefCell<T>> {
         f(&*borrow)
     }
 
-    fn with_exclusive<F, R>(&self, f: F) -> Result<R>
+    fn access_mut<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&mut T) -> Result<R>,
     {
@@ -48,7 +48,7 @@ impl<T> Access<T> for Rc<RefCell<T>> {
 }
 
 impl<T> Access<T> for Arc<Mutex<T>> {
-    fn with_shared<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&T) -> Result<R>,
     {
@@ -58,7 +58,7 @@ impl<T> Access<T> for Arc<Mutex<T>> {
         f(&*guard)
     }
 
-    fn with_exclusive<F, R>(&self, f: F) -> Result<R>
+    fn access_mut<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&mut T) -> Result<R>,
     {

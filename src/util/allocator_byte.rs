@@ -40,13 +40,13 @@ impl<C: Access<CounterEnum>> AllocatorByte for DirectTrackingAllocatorByte<C> {
     fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: i32, end: i32) -> Result<()> {
         let delta = -(end - start) as i64 * self.block_size as i64;
         self.byte_used
-            .with_exclusive(|byte_used| Ok(byte_used.add_and_get(delta)))?;
+            .access_mut(|byte_used| Ok(byte_used.add_and_get(delta)))?;
         Ok(())
     }
 
     fn get_byte_block(&mut self) -> Result<Vec<u8>> {
         self.byte_used
-            .with_exclusive(|byte_used| Ok(byte_used.add_and_get(self.block_size as i64)))?;
+            .access_mut(|byte_used| Ok(byte_used.add_and_get(self.block_size as i64)))?;
         Ok(vec![0; self.block_size as usize])
     }
 
@@ -109,9 +109,9 @@ where
     pub fn get_used(&self) -> Result<i64> {
         match self {
             AllocatorByteEnum::DA(_da) => Ok(0),
-            AllocatorByteEnum::DTA(dta) => dta
-                .byte_used
-                .with_exclusive(|byte_used| Ok(byte_used.get())),
+            AllocatorByteEnum::DTA(dta) => {
+                dta.byte_used.access_mut(|byte_used| Ok(byte_used.get()))
+            }
         }
     }
     pub fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) -> Result<()> {

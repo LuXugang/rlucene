@@ -112,7 +112,7 @@ where
         // TODO: memory calculation not implemented
         let bytes_used = 0;
 
-        info_stream.with_exclusive(|info_stream_guard| {
+        info_stream.access_mut(|info_stream_guard| {
             if info_stream_guard.is_enabled("BD") {
                 let private_segment_msg = if private_segment.is_none() {
                     "None".to_string()
