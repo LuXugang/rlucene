@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::doc_id_set_iterator::{DocIdSetIterator, DummyDISI};
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::dummy::dummy_disi::DummyDISI;
 use crate::search::scorable::Scorable;
 use crate::util::error::lucene_error::Result;
 

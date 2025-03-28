@@ -14,5 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_disi;
-pub mod dummy_query;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::util::error::lucene_error;
+
+pub struct DummyDISI;
+
+impl DocIdSetIterator for DummyDISI {
+    fn doc_id(&self) -> i32 {
+        unreachable!()
+    }
+
+    fn next_doc(&mut self) -> lucene_error::Result<i32> {
+        unreachable!()
+    }
+}
