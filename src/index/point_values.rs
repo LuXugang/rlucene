@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::index::dummy::dummy_point_value_base::DummyPointValuesBase;
-use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_reader::BKDPointTree;

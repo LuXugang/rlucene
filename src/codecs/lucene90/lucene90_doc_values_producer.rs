@@ -17,9 +17,8 @@
 use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
-use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_skipper::DocValuesSkipper;
-use crate::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::store::{DataInput, IndexInput};
 
 #[derive(Debug, Clone, Copy)]

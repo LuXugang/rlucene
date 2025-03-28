@@ -42,7 +42,7 @@ use crate::util::packed::bulk_operation_packed9::BulkOperationPacked9;
 use crate::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
-use crate::util::packed::{Decoder, Encoder, Format};
+use crate::util::packed::{Decoder, Encoder};
 /// Padding Value to make compiler happy
 #[allow(unused)]
 pub(crate) const PACKED_DUMMY: BulkOperationPackedEnum =
@@ -189,28 +189,34 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
         }
     }
 }
-pub(crate) fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
-    match format {
-        Format::Packed(..) => {
-            debug_assert!(
-                bits_per_value > 0 && bits_per_value <= 64,
-                "bits_per_value must be between 1 and 64"
-            );
-            &PACKED_BULK_OPS[bits_per_value as usize - 1]
-        }
-        Format::PackedSingleBlock(..) => {
-            debug_assert!(
-                bits_per_value > 0 && bits_per_value <= 32,
-                "bits_per_value must be between 1 and 32"
-            );
+pub mod bulkoperation_static {
+    use crate::util::packed::bulk_operation::{PACKED_BULK_OPS, PACKED_SINGLE_BLOCK_BULK_OPS};
+    use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
+    use crate::util::packed::Format;
 
-            let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value as usize - 1];
+    pub(crate) fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
+        match format {
+            Format::Packed(..) => {
+                debug_assert!(
+                    bits_per_value > 0 && bits_per_value <= 64,
+                    "bits_per_value must be between 1 and 64"
+                );
+                &PACKED_BULK_OPS[bits_per_value as usize - 1]
+            }
+            Format::PackedSingleBlock(..) => {
+                debug_assert!(
+                    bits_per_value > 0 && bits_per_value <= 32,
+                    "bits_per_value must be between 1 and 32"
+                );
 
-            debug_assert!(
-                !matches!(operation, BulkOperationPackedEnum::Dummy(_)),
-                "BulkOperationPackedDummy is not a valid operation"
-            );
-            operation
+                let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value as usize - 1];
+
+                debug_assert!(
+                    !matches!(operation, BulkOperationPackedEnum::Dummy(_)),
+                    "BulkOperationPackedDummy is not a valid operation"
+                );
+                operation
+            }
         }
     }
 }

@@ -17,7 +17,8 @@
 use crate::codecs::CodecUtil;
 use crate::index::point_values::{IntersectVisitor, PointTree, PointValuesBase, Relation};
 use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::{DataInput, IndexInput};
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::util::bkd::bkd_config::BKDConfig;

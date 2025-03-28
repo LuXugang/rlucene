@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;

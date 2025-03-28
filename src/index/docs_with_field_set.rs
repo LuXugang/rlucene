@@ -150,9 +150,10 @@ impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
 mod tests {
     use crate::index::docs_with_field_set::DocsWithFieldSet;
     use crate::search::doc_id_set::DocIdSet;
-    use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+    use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::test::util::lucene_test_case::random;
 
+    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use rand::Rng;

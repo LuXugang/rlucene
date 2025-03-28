@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::index::merge_state::{DocMap, DocMapEnum};
-use crate::search::doc_id_set_iterator::NO_MORE_DOCS;
+
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use std::cell::RefCell;
@@ -35,30 +36,37 @@ where
     /// as it may result in unpredicted behavior.
     fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>>;
 }
-/// Construct this from the provided subs, specifying the maximum sub count.
-fn of_with_max_count<S: SubBase + Default>(
-    subs: Vec<Rc<RefCell<Sub<S>>>>,
-    max_count: i32,
-    index_is_sorted: bool,
-) -> Result<DocIDMergerEnum<S>> {
-    if index_is_sorted && max_count > 1 {
-        Ok(DocIDMergerEnum::Sorted(SortedDocIDMerger::new(
-            subs, max_count,
-        )?))
-    } else {
-        Ok(DocIDMergerEnum::Sequential(SequentialDocIDMerger::new(
-            subs,
-        )?))
+pub mod doc_id_merger_static {
+    use crate::index::{DocIDMergerEnum, SequentialDocIDMerger, SortedDocIDMerger, Sub, SubBase};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    /// Construct this from the provided subs, specifying the maximum sub count.
+    fn of_with_max_count<S: SubBase + Default>(
+        subs: Vec<Rc<RefCell<Sub<S>>>>,
+        max_count: i32,
+        index_is_sorted: bool,
+    ) -> crate::util::error::lucene_error::Result<DocIDMergerEnum<S>> {
+        if index_is_sorted && max_count > 1 {
+            Ok(DocIDMergerEnum::Sorted(SortedDocIDMerger::new(
+                subs, max_count,
+            )?))
+        } else {
+            Ok(DocIDMergerEnum::Sequential(SequentialDocIDMerger::new(
+                subs,
+            )?))
+        }
+    }
+    /// Construct this from the provided subs.
+    pub(crate) fn of<S: SubBase + Default>(
+        subs: Vec<Rc<RefCell<Sub<S>>>>,
+        index_is_sorted: bool,
+    ) -> crate::util::error::lucene_error::Result<DocIDMergerEnum<S>> {
+        let max_count = subs.len() as i32;
+        of_with_max_count(subs, max_count, index_is_sorted)
     }
 }
-/// Construct this from the provided subs.
-pub(crate) fn of<S: SubBase + Default>(
-    subs: Vec<Rc<RefCell<Sub<S>>>>,
-    index_is_sorted: bool,
-) -> Result<DocIDMergerEnum<S>> {
-    let max_count = subs.len() as i32;
-    of_with_max_count(subs, max_count, index_is_sorted)
-}
+
 pub(crate) struct SequentialDocIDMerger<S>
 where
     S: SubBase + Default,
@@ -298,9 +306,11 @@ where
 }
 #[cfg(test)]
 pub mod tests {
-    use crate::index::doc_id_merger::{of, DocIDMerger, Sub, SubBase};
+    use crate::index::doc_id_merger::{DocIDMerger, Sub, SubBase};
+    use crate::index::doc_id_merger_static::of;
     use crate::index::merge_state::{DocMap, DocMapEnum};
-    use crate::search::doc_id_set_iterator::NO_MORE_DOCS;
+
+    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_set::BitSet;

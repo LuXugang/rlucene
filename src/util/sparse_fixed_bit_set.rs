@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
@@ -588,7 +589,8 @@ impl BitSet for SparseFixedBitSet {
 }
 #[cfg(test)]
 mod tests {
-    use crate::search::doc_id_set_iterator::NO_MORE_DOCS;
+
+    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
     use crate::test::util::base_bit_set_test_case::{
         BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
     };

@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::index::point_values::IntersectVisitor;
-use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::{DataOutput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;

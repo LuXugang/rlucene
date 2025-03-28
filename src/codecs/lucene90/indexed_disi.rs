@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::index::knn_vector_values::DocIndexIteratorBase;
-use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, DataOutput, IndexInput, IndexOutput};
@@ -1031,7 +1032,9 @@ impl MethodBehavior for All {
 #[cfg(test)]
 mod tests {
     use crate::codecs::lucene90::indexed_disi::{IndexedDISI, Method};
-    use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+
+    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::directory::Directory;
     use crate::store::{IOContext, IndexInput, IndexOutput};
     use crate::test::util::lucene_test_case::{at_least, new_directory, random, rarely};

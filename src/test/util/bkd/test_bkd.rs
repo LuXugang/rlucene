@@ -20,7 +20,8 @@ use crate::index::point_values::{
     IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
 };
 use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::test::util::lucene_test_case::{at_least, new_directory, random};

@@ -19,7 +19,6 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 use crate::util::longs_ref::LongsRef;
-use crate::util::packed::bulk_operation::of;
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::{PackedImpl, PackedSingleBlockImpl};
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
@@ -28,6 +27,7 @@ use crate::util::packed::packed64_single_block::create;
 use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
 
+use crate::util::packed::bulk_operation::bulkoperation_static;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::string::ToString;
@@ -72,7 +72,7 @@ impl PackedInts {
         bits_per_value: i32,
     ) -> Result<&'static BulkOperationPackedEnum> {
         check_version(version)?;
-        Ok(of(format, bits_per_value))
+        Ok(bulkoperation_static::of(format, bits_per_value))
     }
     /// Get an [`Encoder`].
     ///
