@@ -139,7 +139,7 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
 #[cfg(test)]
 mod tests {
     use crate::search::doc_id_set::DocIdSet;
-    
+
     use crate::test::util::base_doc_id_set_test_case::{
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
     };

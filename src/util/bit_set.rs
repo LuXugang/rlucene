@@ -77,13 +77,13 @@ pub trait BitSet: Bits + Accountable {
     fn prev_set_bit(&self, index: i32) -> i32;
 
     /// Returns the index of the first set bit starting at the index specified.
-    /// [`DocIdSetIterator::NO_MORE_DOCS`](crate::search::doc_id_set_iterator::NO_MORE_DOCS) is returned if there are no more set bits.
+    /// [`DocIdSetIterator::NO_MORE_DOCS`](crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS) is returned if there are no more set bits.
     fn next_set_bit(&self, index: i32) -> i32 {
         self.next_set_bit_range(index, self.length())
     }
 
     /// Returns the index of the first set bit from start (inclusive) until end (exclusive).
-    /// [`DocIdSetIterator::NO_MORE_DOCS`](crate::search::doc_id_set_iterator::NO_MORE_DOCS) is returned if there are no more set bits.
+    /// [`DocIdSetIterator::NO_MORE_DOCS`](crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS) is returned if there are no more set bits.
     fn next_set_bit_range(&self, start: i32, end: i32) -> i32;
 
     ///Assert that the current doc is -1.
