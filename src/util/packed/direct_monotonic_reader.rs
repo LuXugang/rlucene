@@ -45,10 +45,11 @@ impl DirectMonotonicReader<DummyRandomAccessInput> {
     ///
     /// # See also
     /// `DirectMonotonicReader::getInstance(Meta, RandomAccessInput)`
-    pub fn load_meta<I>(meta_in: &mut I, num_values: i64, block_shift: i32) -> Result<Meta>
-    where
-        I: IndexInput,
-    {
+    pub fn load_meta(
+        meta_in: &mut impl IndexInput,
+        num_values: i64,
+        block_shift: i32,
+    ) -> Result<Meta> {
         let mut all_values_zero = true;
         let mut meta = Meta::new(num_values, block_shift);
         for i in 0..meta.num_blocks {
