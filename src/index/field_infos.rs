@@ -773,88 +773,103 @@ impl FieldNumbers {
         Ok(())
     }
 }
-pub struct Builder {
-    by_name: HashMap<String, Rc<FieldInfo>>,
-    global_field_numbers: Rc<FieldNumbers>,
-    finished: bool,
-}
-#[allow(unused)]
-impl Builder {
-    pub(crate) fn new(global_field_numbers: Rc<FieldNumbers>) -> Self {
-        Self {
-            by_name: HashMap::new(),
-            global_field_numbers,
-            finished: false,
-        }
+pub mod build {
+    use crate::index::field_info::FieldInfo;
+    use crate::index::field_infos::{FieldInfos, FieldNumbers};
+    use std::collections::HashMap;
+    use std::rc::Rc;
+
+    pub struct Builder {
+        by_name: HashMap<String, Rc<FieldInfo>>,
+        global_field_numbers: Rc<FieldNumbers>,
+        finished: bool,
     }
-
-    pub fn get_soft_deletes_field_name(&self) -> &Option<String> {
-        &self.global_field_numbers.soft_deletes_field_name
-    }
-
-    pub fn get_parent_field_name(&self) -> &Option<String> {
-        &self.global_field_numbers.parent_field_name
-    }
-
-    pub fn add(&mut self, fi: Rc<FieldInfo>) -> Result<Rc<FieldInfo>> {
-        self.add_with_dv_gen(fi, -1)
-    }
-
-    pub fn add_with_dv_gen(&mut self, fi: Rc<FieldInfo>, dv_gen: i64) -> Result<Rc<FieldInfo>> {
-        if let Some(cur_fi) = self.field_info(&fi.name) {
-            cur_fi.verify_same_schema(&fi)?;
-
-            let properties = fi.properties.borrow();
-            let attributes_guard = properties.attributes.borrow_mut();
-            for (k, v) in attributes_guard.iter() {
-                cur_fi.put_attribute(k.clone(), v.clone());
+    #[allow(unused)]
+    impl Builder {
+        pub(crate) fn new(global_field_numbers: Rc<FieldNumbers>) -> Self {
+            Self {
+                by_name: HashMap::new(),
+                global_field_numbers,
+                finished: false,
             }
-            if fi.has_payloads() {
-                cur_fi.set_store_payloads()?;
+        }
+
+        pub fn get_soft_deletes_field_name(&self) -> &Option<String> {
+            &self.global_field_numbers.soft_deletes_field_name
+        }
+
+        pub fn get_parent_field_name(&self) -> &Option<String> {
+            &self.global_field_numbers.parent_field_name
+        }
+
+        pub fn add(
+            &mut self,
+            fi: Rc<FieldInfo>,
+        ) -> crate::util::error::lucene_error::Result<Rc<FieldInfo>> {
+            self.add_with_dv_gen(fi, -1)
+        }
+
+        pub fn add_with_dv_gen(
+            &mut self,
+            fi: Rc<FieldInfo>,
+            dv_gen: i64,
+        ) -> crate::util::error::lucene_error::Result<Rc<FieldInfo>> {
+            if let Some(cur_fi) = self.field_info(&fi.name) {
+                cur_fi.verify_same_schema(&fi)?;
+
+                let properties = fi.properties.borrow();
+                let attributes_guard = properties.attributes.borrow_mut();
+                for (k, v) in attributes_guard.iter() {
+                    cur_fi.put_attribute(k.clone(), v.clone());
+                }
+                if fi.has_payloads() {
+                    cur_fi.set_store_payloads()?;
+                }
+                return Ok(cur_fi.clone());
             }
-            return Ok(cur_fi.clone());
-        }
 
-        self.assert_not_finished();
+            self.assert_not_finished();
 
-        let field_number = self.global_field_numbers.add_or_get(fi.clone())?;
-        let attributes = fi.properties.borrow().attributes.clone();
-        let fi_new = Rc::new(FieldInfo::new(
-            fi.name.clone(),
-            field_number,
-            fi.has_term_vectors(),
-            fi.omits_norms(),
-            fi.has_payloads(),
-            fi.get_index_options(),
-            fi.get_doc_values_type(),
-            fi.doc_values_skip_index_type(),
-            dv_gen,
-            attributes.clone(),
-            fi.get_point_dimension_count(),
-            fi.get_point_index_dimension_count(),
-            fi.get_point_num_bytes(),
-            fi.get_vector_dimension(),
-            *fi.get_vector_encoding(),
-            *fi.get_vector_similarity_function(),
-            fi.is_soft_deletes_field(),
-            fi.is_parent_field(),
-        ));
-        self.by_name.insert(fi_new.name.clone(), fi_new.clone());
-        Ok(fi_new)
-    }
-    pub fn field_info(&self, field_name: &str) -> Option<Rc<FieldInfo>> {
-        self.by_name.get(field_name).cloned()
-    }
-    fn assert_not_finished(&self) {
-        if self.finished {
-            panic!("FieldInfos.Builder was already finished; cannot add new fields");
+            let field_number = self.global_field_numbers.add_or_get(fi.clone())?;
+            let attributes = fi.properties.borrow().attributes.clone();
+            let fi_new = Rc::new(FieldInfo::new(
+                fi.name.clone(),
+                field_number,
+                fi.has_term_vectors(),
+                fi.omits_norms(),
+                fi.has_payloads(),
+                fi.get_index_options(),
+                fi.get_doc_values_type(),
+                fi.doc_values_skip_index_type(),
+                dv_gen,
+                attributes.clone(),
+                fi.get_point_dimension_count(),
+                fi.get_point_index_dimension_count(),
+                fi.get_point_num_bytes(),
+                fi.get_vector_dimension(),
+                *fi.get_vector_encoding(),
+                *fi.get_vector_similarity_function(),
+                fi.is_soft_deletes_field(),
+                fi.is_parent_field(),
+            ));
+            self.by_name.insert(fi_new.name.clone(), fi_new.clone());
+            Ok(fi_new)
         }
-    }
-    pub fn finish(&mut self) -> Result<FieldInfos> {
-        self.finished = true;
-        FieldInfos::new(self.by_name.values().cloned().collect())
+        pub fn field_info(&self, field_name: &str) -> Option<Rc<FieldInfo>> {
+            self.by_name.get(field_name).cloned()
+        }
+        fn assert_not_finished(&self) {
+            if self.finished {
+                panic!("FieldInfos.Builder was already finished; cannot add new fields");
+            }
+        }
+        pub fn finish(&mut self) -> crate::util::error::lucene_error::Result<FieldInfos> {
+            self.finished = true;
+            FieldInfos::new(self.by_name.values().cloned().collect())
+        }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;

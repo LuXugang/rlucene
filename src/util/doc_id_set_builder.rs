@@ -248,7 +248,7 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
-    use crate::util::roaring_doc_id_set::RoaringDocIdSetBuilder;
+    use crate::util::roaring_doc_id_set::builder::Builder;
     use rand::Rng;
 
     #[allow(dead_code)] // for quick search
@@ -313,7 +313,7 @@ mod tests {
         let mut fixed_set_bit = FixedBitSet::new(max_doc);
         for _i in 0..num_iterators {
             let base_inc = 200000 + random.random_range(0..10000);
-            let mut b = RoaringDocIdSetBuilder::new(max_doc);
+            let mut b = Builder::new(max_doc);
             let mut doc = random.random_range(0..100);
             while doc < max_doc {
                 let _ = b.add(doc);
@@ -344,7 +344,7 @@ mod tests {
         let num_iterators = 1 + random.random_range(0..10);
         let mut fixed_set_bit = FixedBitSet::new(max_doc);
         for _i in 0..num_iterators {
-            let mut b = RoaringDocIdSetBuilder::new(max_doc);
+            let mut b = Builder::new(max_doc);
             let mut doc = random.random_range(0..1000);
             while doc < max_doc {
                 let _ = b.add(doc);

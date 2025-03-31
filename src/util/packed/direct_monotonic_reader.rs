@@ -19,9 +19,11 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::{LongValues, Zeroes};
+use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use std::cell::RefCell;
 use std::rc::Rc;
+
 /// Retrieves an instance previously written by [`DirectMonotonicWriter`](crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
 ///
 /// # See also
@@ -200,36 +202,40 @@ where
         Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)
     }
 }
-/// In-memory metadata that needs to be kept around for [`DirectMonotonicReader`] to read data
-/// from disk.
-pub struct Meta {
-    pub block_shift: i32,
-    pub num_blocks: usize,
-    pub mins: Vec<i64>,
-    pub avgs: Vec<f32>,
-    pub bpvs: Vec<u8>,
-    pub offsets: Vec<i64>,
-}
+pub mod direct_monotonic {
+    use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 
-impl Meta {
-    pub fn new(num_values: i64, block_shift: i32) -> Self {
-        let mut num_blocks = (num_values as u64) >> (block_shift as u32);
-        if (num_blocks << block_shift) < num_values as u64 {
-            num_blocks += 1;
-        }
-        let num_blocks_usize = num_blocks as usize;
-        Meta {
-            block_shift,
-            num_blocks: num_blocks_usize,
-            mins: vec![0; num_blocks_usize],
-            avgs: vec![0.0; num_blocks_usize],
-            bpvs: vec![0; num_blocks_usize],
-            offsets: vec![0; num_blocks_usize],
-        }
+    /// In-memory metadata that needs to be kept around for [`DirectMonotonicReader`] to read data
+    /// from disk.
+    pub struct Meta {
+        pub block_shift: i32,
+        pub num_blocks: usize,
+        pub mins: Vec<i64>,
+        pub avgs: Vec<f32>,
+        pub bpvs: Vec<u8>,
+        pub offsets: Vec<i64>,
     }
 
-    /// Unlike Java Lucene, here we return a new object with identical properties.
-    pub fn single_zero_block() -> Self {
-        Meta::new(1, 63)
+    impl Meta {
+        pub fn new(num_values: i64, block_shift: i32) -> Self {
+            let mut num_blocks = (num_values as u64) >> (block_shift as u32);
+            if (num_blocks << block_shift) < num_values as u64 {
+                num_blocks += 1;
+            }
+            let num_blocks_usize = num_blocks as usize;
+            Meta {
+                block_shift,
+                num_blocks: num_blocks_usize,
+                mins: vec![0; num_blocks_usize],
+                avgs: vec![0.0; num_blocks_usize],
+                bpvs: vec![0; num_blocks_usize],
+                offsets: vec![0; num_blocks_usize],
+            }
+        }
+
+        /// Unlike Java Lucene, here we return a new object with identical properties.
+        pub fn single_zero_block() -> Self {
+            Meta::new(1, 63)
+        }
     }
 }

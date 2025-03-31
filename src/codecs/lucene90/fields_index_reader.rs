@@ -22,10 +22,12 @@ use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, ReadAdvice};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
-use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, Meta};
+use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
+use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+
 #[allow(unused)]
 pub(crate) struct FieldsIndexReader<I>
 where
