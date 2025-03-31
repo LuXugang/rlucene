@@ -14,20 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_enum::doc_values::{BinaryDocValuesEnum, NumericDocValuesEnum};
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
-use crate::codecs::numeric_doc_values_enum::doc_values::NumericDocValuesEnum;
 use crate::codecs::CodecUtil;
-use crate::index::doc_values::EmptyNumeric;
+use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_skipper::DocValuesSkipper;
+use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_read_state::SegmentReadState;
-use crate::index::IndexFileNames;
+use crate::index::{BytesRef, IndexFileNames};
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
@@ -620,6 +622,132 @@ where
             )))
         }
     }
+    fn get_numeric_values(&mut self, entry: &Rc<NumericEntry>) -> Result<LongValuesEnum<I>>
+    where
+        I: IndexInput,
+    {
+        let long_values = if entry.bits_per_value == 0 {
+            LongValuesEnum::Impl(LongValuesImpl {
+                min_values: entry.min_value,
+            })
+        } else {
+            let mut slice = self
+                .data
+                .random_access_slice(entry.values_offset, entry.values_length)?;
+            if slice.length() > 0 {
+                slice.prefetch(0, 1)?
+            }
+            if entry.block_shift >= 0 {
+                LongValuesEnum::Impl1(LongValuesImpl1 {
+                    vbpv_reader: VaryingBPVReader::new(
+                        entry.clone(),
+                        slice,
+                        &mut self.data,
+                        self.merging,
+                    )?,
+                })
+            } else {
+                let values = Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+                    self.merging,
+                    Rc::new(RefCell::new(slice)),
+                    entry.bits_per_value as i32,
+                    9,
+                    entry.num_values,
+                )?;
+                match entry.table {
+                    Some(ref table) => LongValuesEnum::Impl2(LongValuesImpl2 {
+                        table: table.clone(),
+                        values,
+                    }),
+                    None => {
+                        if entry.gcd == 1 && entry.min_value == 0 {
+                            LongValuesEnum::Impl3(LongValuesImpl3 {
+                                values,
+                                gcd: entry.gcd,
+                                min_value: entry.min_value,
+                            })
+                        } else {
+                            LongValuesEnum::Impl4(LongValuesImpl4 {
+                                values,
+                                min_value: entry.min_value,
+                            })
+                        }
+                    }
+                }
+            }
+        };
+        Ok(long_values)
+    }
+    fn get_binary(&self, field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>>
+    where
+        I: IndexInput,
+    {
+        debug_assert!(self.binaries.contains_key(&field.number));
+        let entry = self.binaries.get(&field.number).unwrap();
+        if entry.docs_with_field_offset == -1 {
+            return Ok(BinaryDocValuesEnum::Empty(EmptyBinary::new()));
+        }
+        let mut bytes_slice = self
+            .data
+            .random_access_slice(entry.data_offset, entry.data_length)?;
+        // Prefetch the first page of data. Following pages are expected to get prefetched through
+        // read-ahead.
+        if bytes_slice.length() > 0 {
+            bytes_slice.prefetch(0, 1)?;
+        }
+        if entry.docs_with_field_offset == -1 {
+            let dense = if entry.min_length == entry.max_length {
+                // fixed length
+                let vec = vec![0u8; entry.max_length as usize];
+                let base = DenseBinaryDocValuesBaseImpl {
+                    bytes_slice,
+                    length: entry.max_length,
+                    bytes: Rc::new(RefCell::new(BytesRef::from_vec(vec, 0, entry.max_length))),
+                };
+                DenseBinaryDocValuesBaseEnum::Dense(base)
+            } else {
+                let mut addresses_data = self
+                    .data
+                    .random_access_slice(entry.data_offset, entry.data_length)?;
+                // Prefetch the first page of data. Following pages are expected to get prefetched through
+                // read-ahead.
+                if addresses_data.length() > 0 {
+                    addresses_data.prefetch(0, 1)?;
+                }
+                match entry.addresses_meta {
+                    Some(ref meta) => {
+                        let addresses = DirectMonotonicReader::get_instance_with_merging(
+                            meta,
+                            Rc::new(RefCell::new(addresses_data)),
+                            self.merging,
+                        )?;
+                        let vec = vec![0u8; entry.max_length as usize];
+                        let base = DenseBinaryDocValuesBaseImpl1 {
+                            bytes_slice,
+                            bytes: Rc::new(RefCell::new(BytesRef::from_vec(
+                                vec,
+                                0,
+                                entry.max_length,
+                            ))),
+                            addresses,
+                        };
+                        DenseBinaryDocValuesBaseEnum::Dense1(base)
+                    }
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "addresses_meta is None".to_string(),
+                        ))?;
+                    }
+                }
+            };
+            Ok(BinaryDocValuesEnum::Dense(DenseBinaryDocValues::new(
+                dense,
+                self.max_doc,
+            )))
+        } else {
+            todo!()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -765,100 +893,6 @@ where
         self.sub.long_value(self.doc)
     }
 }
-trait DenseNumericDocValuesBase {
-    fn long_value(&mut self, doc: i32) -> Result<i64>;
-}
-struct DenseNumericDocValuesBaseImpl {
-    min_values: i64,
-}
-impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
-    fn long_value(&mut self, _doc: i32) -> Result<i64> {
-        Ok(self.min_values)
-    }
-}
-struct DenseNumericDocValuesBaseImpl1<I>
-where
-    I: IndexInput,
-{
-    vbpv_reader: VaryingBPVReader<I>,
-}
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl1<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, doc: i32) -> Result<i64> {
-        self.vbpv_reader.get_long_value(doc as i64)
-    }
-}
-struct DenseNumericDocValuesBaseImpl2<I>
-where
-    I: IndexInput,
-{
-    table: Rc<Vec<i64>>,
-    values: DirectPackedEnum<I::RandomAccessSlice>,
-}
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl2<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.table[self.values.get(doc as i64)? as usize])
-    }
-}
-struct DenseNumericDocValuesBaseImpl3<I>
-where
-    I: IndexInput,
-{
-    values: DirectPackedEnum<I::RandomAccessSlice>,
-}
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl3<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, doc: i32) -> Result<i64> {
-        self.values.get(doc as i64)
-    }
-}
-struct DenseNumericDocValuesBaseImpl4<I>
-where
-    I: IndexInput,
-{
-    values: DirectPackedEnum<I::RandomAccessSlice>,
-    mul: i64,
-    delta: i64,
-}
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl4<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.mul * self.values.get(doc as i64)? + self.delta)
-    }
-}
-enum DenseNumericDocValuesSubEnum<I>
-where
-    I: IndexInput,
-{
-    Dense(DenseNumericDocValuesBaseImpl),
-    Dense1(DenseNumericDocValuesBaseImpl1<I>),
-    Dense2(DenseNumericDocValuesBaseImpl2<I>),
-    Dense3(DenseNumericDocValuesBaseImpl3<I>),
-    Dense4(DenseNumericDocValuesBaseImpl4<I>),
-}
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesSubEnum<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, doc: i32) -> Result<i64> {
-        match self {
-            DenseNumericDocValuesSubEnum::Dense(sub) => sub.long_value(doc),
-            DenseNumericDocValuesSubEnum::Dense1(sub) => sub.long_value(doc),
-            DenseNumericDocValuesSubEnum::Dense2(sub) => sub.long_value(doc),
-            DenseNumericDocValuesSubEnum::Dense3(sub) => sub.long_value(doc),
-            DenseNumericDocValuesSubEnum::Dense4(sub) => sub.long_value(doc),
-        }
-    }
-}
 
 pub struct SparseNumericDocValues<I>
 where
@@ -915,126 +949,124 @@ where
     }
 }
 
-trait SparseNumericDocValuesBase<I> {
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
-    where
-        I: IndexInput;
-}
-struct SparseNumericDocValuesBaseImpl<I>
+pub struct DenseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    min_values: i64,
-    _phantom: PhantomData<I>,
+    sub: DenseBinaryDocValuesBaseEnum<I>,
+    max_doc: i32,
+    doc: i32,
 }
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl<I>
+impl<I> DenseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn long_value(&mut self, _disi: &mut IndexedDISI<I>) -> Result<i64>
-    where
-        I: IndexInput,
-    {
-        Ok(self.min_values)
-    }
-}
-struct SparseNumericDocValuesBaseImpl1<I>
-where
-    I: IndexInput,
-{
-    vbpv_reader: VaryingBPVReader<I>,
-}
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl1<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
-    where
-        I: IndexInput,
-    {
-        let index = disi.index();
-        self.vbpv_reader.get_long_value(index as i64)
-    }
-}
-struct SparseNumericDocValuesBaseImpl2<I>
-where
-    I: IndexInput,
-{
-    table: Rc<Vec<i64>>,
-    values: DirectPackedEnum<I::RandomAccessSlice>,
-}
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl2<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
-    where
-        I: IndexInput,
-    {
-        Ok(self.table[self.values.get(disi.index() as i64)? as usize])
-    }
-}
-struct SparseNumericDocValuesBaseImpl3<I>
-where
-    I: IndexInput,
-{
-    values: DirectPackedEnum<I::RandomAccessSlice>,
-}
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl3<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
-    where
-        I: IndexInput,
-    {
-        self.values.get(disi.index() as i64)
-    }
-}
-struct SparseNumericDocValuesBaseImpl4<I>
-where
-    I: IndexInput,
-{
-    values: DirectPackedEnum<I::RandomAccessSlice>,
-    mul: i64,
-    delta: i64,
-}
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl4<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
-    where
-        I: IndexInput,
-    {
-        Ok(self.mul * self.values.get(disi.index() as i64)? + self.delta)
-    }
-}
-enum SparseNumericDocValuesSubEnum<I>
-where
-    I: IndexInput,
-{
-    Sparse(SparseNumericDocValuesBaseImpl<I>),
-    Sparse1(SparseNumericDocValuesBaseImpl1<I>),
-    Sparse2(SparseNumericDocValuesBaseImpl2<I>),
-    Sparse3(SparseNumericDocValuesBaseImpl3<I>),
-    Sparse4(SparseNumericDocValuesBaseImpl4<I>),
-}
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesSubEnum<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
-    where
-        I: IndexInput,
-    {
-        match self {
-            SparseNumericDocValuesSubEnum::Sparse(sub) => sub.long_value(disi),
-            SparseNumericDocValuesSubEnum::Sparse1(sub) => sub.long_value(disi),
-            SparseNumericDocValuesSubEnum::Sparse2(sub) => sub.long_value(disi),
-            SparseNumericDocValuesSubEnum::Sparse3(sub) => sub.long_value(disi),
-            SparseNumericDocValuesSubEnum::Sparse4(sub) => sub.long_value(disi),
+    fn new(sub: DenseBinaryDocValuesBaseEnum<I>, max_doc: i32) -> Self {
+        Self {
+            sub,
+            max_doc,
+            doc: -1,
         }
+    }
+}
+
+impl<I> DocValuesIterator for DenseBinaryDocValues<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.doc = target;
+        Ok(true)
+    }
+}
+
+impl<I> DocIdSetIterator for DenseBinaryDocValues<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.advance(self.doc + 1)
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        if self.doc >= self.max_doc {
+            self.doc = NO_MORE_DOCS;
+        } else {
+            self.doc = target;
+        }
+        Ok(self.doc)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.max_doc as i64)
+    }
+}
+
+impl<I> BinaryDocValues for DenseBinaryDocValues<I>
+where
+    I: IndexInput,
+{
+    fn binary_value_mut(&mut self) -> Result<Rc<RefCell<BytesRef>>> {
+        self.sub.binary_value(self.doc)
+    }
+}
+
+pub struct SparseBinaryDocValues<I>
+where
+    I: IndexInput,
+{
+    sub: SparseBinaryDocValuesBaseEnum<I>,
+    disi: IndexedDISI<I>,
+}
+impl<I> SparseBinaryDocValues<I>
+where
+    I: IndexInput,
+{
+    fn new(sub: SparseBinaryDocValuesBaseEnum<I>, disi: IndexedDISI<I>) -> Self {
+        Self { sub, disi }
+    }
+}
+
+impl<I> DocValuesIterator for SparseBinaryDocValues<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.disi.advance_exact(target)
+    }
+}
+
+impl<I> DocIdSetIterator for SparseBinaryDocValues<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.disi.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.disi.next_doc()
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.disi.advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.disi.cost()
+    }
+}
+
+impl<I> BinaryDocValues for SparseBinaryDocValues<I>
+where
+    I: IndexInput,
+{
+    fn binary_value_mut(&mut self) -> Result<Rc<RefCell<BytesRef>>> {
+        self.sub.binary_value(&mut self.disi)
     }
 }
 
@@ -1304,5 +1336,450 @@ where
 
     fn global_doc_count(&self) -> i32 {
         self.entry.doc_count
+    }
+}
+
+trait DenseNumericDocValuesBase {
+    fn long_value(&mut self, doc: i32) -> Result<i64>;
+}
+struct DenseNumericDocValuesBaseImpl {
+    min_values: i64,
+}
+impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
+    fn long_value(&mut self, _doc: i32) -> Result<i64> {
+        Ok(self.min_values)
+    }
+}
+struct DenseNumericDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    vbpv_reader: VaryingBPVReader<I>,
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        self.vbpv_reader.get_long_value(doc as i64)
+    }
+}
+struct DenseNumericDocValuesBaseImpl2<I>
+where
+    I: IndexInput,
+{
+    table: Rc<Vec<i64>>,
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl2<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        Ok(self.table[self.values.get(doc as i64)? as usize])
+    }
+}
+struct DenseNumericDocValuesBaseImpl3<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl3<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        self.values.get(doc as i64)
+    }
+}
+struct DenseNumericDocValuesBaseImpl4<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+    mul: i64,
+    delta: i64,
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl4<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        Ok(self.mul * self.values.get(doc as i64)? + self.delta)
+    }
+}
+enum DenseNumericDocValuesSubEnum<I>
+where
+    I: IndexInput,
+{
+    Dense(DenseNumericDocValuesBaseImpl),
+    Dense1(DenseNumericDocValuesBaseImpl1<I>),
+    Dense2(DenseNumericDocValuesBaseImpl2<I>),
+    Dense3(DenseNumericDocValuesBaseImpl3<I>),
+    Dense4(DenseNumericDocValuesBaseImpl4<I>),
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesSubEnum<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        match self {
+            DenseNumericDocValuesSubEnum::Dense(sub) => sub.long_value(doc),
+            DenseNumericDocValuesSubEnum::Dense1(sub) => sub.long_value(doc),
+            DenseNumericDocValuesSubEnum::Dense2(sub) => sub.long_value(doc),
+            DenseNumericDocValuesSubEnum::Dense3(sub) => sub.long_value(doc),
+            DenseNumericDocValuesSubEnum::Dense4(sub) => sub.long_value(doc),
+        }
+    }
+}
+
+trait SparseNumericDocValuesBase<I> {
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput;
+}
+struct SparseNumericDocValuesBaseImpl<I>
+where
+    I: IndexInput,
+{
+    min_values: i64,
+    _phantom: PhantomData<I>,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, _disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        Ok(self.min_values)
+    }
+}
+struct SparseNumericDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    vbpv_reader: VaryingBPVReader<I>,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        let index = disi.index();
+        self.vbpv_reader.get_long_value(index as i64)
+    }
+}
+struct SparseNumericDocValuesBaseImpl2<I>
+where
+    I: IndexInput,
+{
+    table: Rc<Vec<i64>>,
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl2<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        Ok(self.table[self.values.get(disi.index() as i64)? as usize])
+    }
+}
+struct SparseNumericDocValuesBaseImpl3<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl3<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        self.values.get(disi.index() as i64)
+    }
+}
+struct SparseNumericDocValuesBaseImpl4<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+    mul: i64,
+    delta: i64,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl4<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        Ok(self.mul * self.values.get(disi.index() as i64)? + self.delta)
+    }
+}
+enum SparseNumericDocValuesSubEnum<I>
+where
+    I: IndexInput,
+{
+    Sparse(SparseNumericDocValuesBaseImpl<I>),
+    Sparse1(SparseNumericDocValuesBaseImpl1<I>),
+    Sparse2(SparseNumericDocValuesBaseImpl2<I>),
+    Sparse3(SparseNumericDocValuesBaseImpl3<I>),
+    Sparse4(SparseNumericDocValuesBaseImpl4<I>),
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesSubEnum<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        match self {
+            SparseNumericDocValuesSubEnum::Sparse(sub) => sub.long_value(disi),
+            SparseNumericDocValuesSubEnum::Sparse1(sub) => sub.long_value(disi),
+            SparseNumericDocValuesSubEnum::Sparse2(sub) => sub.long_value(disi),
+            SparseNumericDocValuesSubEnum::Sparse3(sub) => sub.long_value(disi),
+            SparseNumericDocValuesSubEnum::Sparse4(sub) => sub.long_value(disi),
+        }
+    }
+}
+
+struct LongValuesImpl {
+    min_values: i64,
+}
+impl LongValues for LongValuesImpl {
+    fn get(&mut self, _index: i64) -> Result<i64> {
+        Ok(self.min_values)
+    }
+}
+struct LongValuesImpl1<I>
+where
+    I: IndexInput,
+{
+    vbpv_reader: VaryingBPVReader<I>,
+}
+impl<I> LongValues for LongValuesImpl1<I>
+where
+    I: IndexInput,
+{
+    fn get(&mut self, index: i64) -> Result<i64> {
+        self.vbpv_reader.get_long_value(index)
+    }
+}
+struct LongValuesImpl2<I>
+where
+    I: IndexInput,
+{
+    table: Rc<Vec<i64>>,
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> LongValues for LongValuesImpl2<I>
+where
+    I: IndexInput,
+{
+    fn get(&mut self, index: i64) -> Result<i64> {
+        Ok(self.table[self.values.get(index)? as usize])
+    }
+}
+struct LongValuesImpl3<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+    gcd: i64,
+    min_value: i64,
+}
+impl<I> LongValues for LongValuesImpl3<I>
+where
+    I: IndexInput,
+{
+    fn get(&mut self, index: i64) -> Result<i64> {
+        Ok(self.gcd * self.values.get(index)? + self.min_value)
+    }
+}
+struct LongValuesImpl4<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+    min_value: i64,
+}
+impl<I> LongValues for LongValuesImpl4<I>
+where
+    I: IndexInput,
+{
+    fn get(&mut self, index: i64) -> Result<i64> {
+        Ok(self.values.get(index)? + self.min_value)
+    }
+}
+enum LongValuesEnum<I>
+where
+    I: IndexInput,
+{
+    Impl(LongValuesImpl),
+    Impl1(LongValuesImpl1<I>),
+    Impl2(LongValuesImpl2<I>),
+    Impl3(LongValuesImpl3<I>),
+    Impl4(LongValuesImpl4<I>),
+}
+impl<I> LongValues for LongValuesEnum<I>
+where
+    I: IndexInput,
+{
+    fn get(&mut self, index: i64) -> Result<i64> {
+        match self {
+            LongValuesEnum::Impl(sub) => sub.get(index),
+            LongValuesEnum::Impl1(sub) => sub.get(index),
+            LongValuesEnum::Impl2(sub) => sub.get(index),
+            LongValuesEnum::Impl3(sub) => sub.get(index),
+            LongValuesEnum::Impl4(sub) => sub.get(index),
+        }
+    }
+}
+
+trait DenseBinaryDocValuesBase {
+    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>>;
+}
+
+struct DenseBinaryDocValuesBaseImpl<I>
+where
+    I: IndexInput,
+{
+    bytes_slice: I::RandomAccessSlice,
+    length: i32,
+    bytes: Rc<RefCell<BytesRef>>,
+}
+impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<I>
+where
+    I: IndexInput,
+{
+    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>> {
+        let bytes = &mut *self.bytes.borrow_mut();
+        self.bytes_slice.read_bytes(
+            (doc * self.length) as i64,
+            &mut bytes.bytes,
+            0,
+            self.length,
+        )?;
+        Ok(self.bytes.clone())
+    }
+}
+struct DenseBinaryDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    bytes_slice: I::RandomAccessSlice,
+    bytes: Rc<RefCell<BytesRef>>,
+    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+}
+impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>> {
+        let mut bytes = &mut *self.bytes.borrow_mut();
+        let start_offset = self.addresses.get(doc as i64)?;
+        bytes.length = (self.addresses.get((doc + 1) as i64)? - start_offset) as i32;
+        self.bytes_slice
+            .read_bytes(start_offset, &mut bytes.bytes, 0, bytes.length)?;
+        Ok(self.bytes.clone())
+    }
+}
+enum DenseBinaryDocValuesBaseEnum<I>
+where
+    I: IndexInput,
+{
+    Dense(DenseBinaryDocValuesBaseImpl<I>),
+    Dense1(DenseBinaryDocValuesBaseImpl1<I>),
+}
+impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseEnum<I>
+where
+    I: IndexInput,
+{
+    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>> {
+        match self {
+            DenseBinaryDocValuesBaseEnum::Dense(sub) => sub.binary_value(doc),
+            DenseBinaryDocValuesBaseEnum::Dense1(sub) => sub.binary_value(doc),
+        }
+    }
+}
+
+trait SparseBinaryDocValuesBase<I>
+where
+    I: IndexInput,
+{
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>>;
+}
+struct SparseBinaryDocValuesBaseImpl<I>
+where
+    I: IndexInput,
+{
+    bytes_slice: I::RandomAccessSlice,
+    bytes: Rc<RefCell<BytesRef>>,
+    length: i32,
+}
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I>
+where
+    I: IndexInput,
+{
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>> {
+        let bytes = &mut *self.bytes.borrow_mut();
+        let pos = (disi.index() * self.length) as i64;
+        self.bytes_slice
+            .read_bytes(pos, &mut bytes.bytes, 0, self.length)?;
+        Ok(self.bytes.clone())
+    }
+}
+struct SparseBinaryDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    bytes_slice: I::RandomAccessSlice,
+    bytes: Rc<RefCell<BytesRef>>,
+    addresses: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>> {
+        let bytes = &mut *self.bytes.borrow_mut();
+        let index = disi.index() as i64;
+        let start_offset = self.addresses.get(index)?;
+        bytes.length = (self.addresses.get(index + 1)? - start_offset) as i32;
+        self.bytes_slice
+            .read_bytes(start_offset, &mut bytes.bytes, 0, bytes.length)?;
+        Ok(self.bytes.clone())
+    }
+}
+enum SparseBinaryDocValuesBaseEnum<I>
+where
+    I: IndexInput,
+{
+    Sparse(SparseBinaryDocValuesBaseImpl<I>),
+    Sparse1(SparseBinaryDocValuesBaseImpl1<I>),
+}
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I>
+where
+    I: IndexInput,
+{
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>> {
+        match self {
+            SparseBinaryDocValuesBaseEnum::Sparse(sub) => sub.binary_value(disi),
+            SparseBinaryDocValuesBaseEnum::Sparse1(sub) => sub.binary_value(disi),
+        }
     }
 }

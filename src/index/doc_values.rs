@@ -14,13 +14,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub struct DocValues;
+
+pub struct EmptyBinary {
+    doc: i32,
+}
+impl Default for EmptyBinary {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl EmptyBinary {
+    pub fn new() -> Self {
+        Self { doc: -1 }
+    }
+}
+
+impl DocIdSetIterator for EmptyBinary {
+    fn doc_id(&self) -> i32 {
+        self.doc
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.doc = NO_MORE_DOCS;
+        Ok(self.doc)
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        self.doc = NO_MORE_DOCS;
+        Ok(self.doc)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(0)
+    }
+}
+
+impl DocValuesIterator for EmptyBinary {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.doc = target;
+        Ok(false)
+    }
+}
+impl BinaryDocValues for EmptyBinary {}
 
 pub struct EmptyNumeric {
     doc: i32,

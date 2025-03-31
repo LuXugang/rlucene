@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_enum::norms::NumericDocValuesEnum;
 use crate::codecs::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
-use crate::codecs::numeric_doc_values_enum::norms::NumericDocValuesEnum;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};

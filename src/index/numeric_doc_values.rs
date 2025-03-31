@@ -19,6 +19,8 @@ use crate::util::error::lucene_error::Result;
 /// A per-document numeric value.
 pub trait NumericDocValues: DocValuesIterator {
     /// Returns the numeric value for the current document ID.
+    /// /// It is illegal to call this method after
+    /// [`advanceExact`](DocValuesIterator::advance_exact) returned `false`.
     ///
     /// # Returns
     /// The numeric value for the current document ID.

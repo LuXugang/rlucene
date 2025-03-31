@@ -16,12 +16,25 @@
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub trait BinaryDocValues: DocValuesIterator {
     /// Returns the binary value for the current document ID.
+    /// It is illegal to call this method after
+    /// [`advanceExact`](DocValuesIterator::advance_exact) returned `false`.
     ///
     /// # Returns
     /// The binary value for the current document ID.
-    fn binary_value(&mut self) -> Result<&BytesRef>;
+    fn binary_value(&mut self) -> Result<&BytesRef> {
+        Err(LuceneError::not_implemented(
+            "this method should never be called",
+        ))
+    }
+    fn binary_value_mut(&mut self) -> Result<Rc<RefCell<BytesRef>>> {
+        Err(LuceneError::not_implemented(
+            "this method should never be called",
+        ))
+    }
 }
