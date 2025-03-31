@@ -184,7 +184,7 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn index_options_byte(index_options: IndexOptions) -> u8 {
+    fn index_options_byte(index_options: &IndexOptions) -> u8 {
         match index_options {
             IndexOptions::None => 0,
             IndexOptions::DOCS => 1,
@@ -402,9 +402,9 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 
             output.write_byte(Self::index_options_byte(fi.get_index_options()))?;
 
-            output.write_byte(Self::doc_values_byte(&fi.get_doc_values_type()))?;
+            output.write_byte(Self::doc_values_byte(fi.get_doc_values_type()))?;
             output.write_byte(Self::doc_values_skip_index_byte(
-                &fi.doc_values_skip_index_type(),
+                fi.doc_values_skip_index_type(),
             ))?;
 
             output.write_long(fi.get_doc_values_gen())?;

@@ -82,8 +82,8 @@ pub trait BaseFieldInfoFormatTestCase {
                 unreachable!("field not found");
             }
             Some(field) => {
-                assert_ne!(field.get_index_options(), IndexOptions::None);
-                assert_eq!(DocValuesType::None, field.get_doc_values_type());
+                assert_ne!(field.get_index_options(), &IndexOptions::None);
+                assert_eq!(DocValuesType::None, *field.get_doc_values_type());
                 assert!(!field.omits_norms());
                 assert!(!field.has_payloads());
                 assert!(!field.has_term_vectors());

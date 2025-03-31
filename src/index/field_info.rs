@@ -509,8 +509,8 @@ impl FieldInfo {
     }
 
     /// Returns IndexOptions for the field, or IndexOptions.None if the field is not indexed
-    pub fn get_index_options(&self) -> IndexOptions {
-        self.index_options
+    pub fn get_index_options(&self) -> &IndexOptions {
+        &self.index_options
     }
 
     /// Returns name of this field
@@ -524,13 +524,13 @@ impl FieldInfo {
     }
 
     /// Returns DocValuesType of the docValues; this is DocValuesType.None if the field has no docvalues.
-    pub fn get_doc_values_type(&self) -> DocValuesType {
-        self.doc_values_type
+    pub fn get_doc_values_type(&self) -> &DocValuesType {
+        &self.doc_values_type
     }
 
     /// Returns true if this field has a skip index
-    pub fn doc_values_skip_index_type(&self) -> DocValuesSkipIndexType {
-        self.doc_values_skip_index
+    pub fn doc_values_skip_index_type(&self) -> &DocValuesSkipIndexType {
+        &self.doc_values_skip_index
     }
 
     /// Sets the docValues generation of this field.

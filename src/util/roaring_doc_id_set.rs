@@ -20,8 +20,8 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_doc_id_set::BitDocIdSet;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
-use crate::util::bits::{Bits, MatchNoBits};
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::bits::MatchNoBits;
+use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 

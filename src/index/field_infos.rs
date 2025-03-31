@@ -90,13 +90,13 @@ impl FieldInfos {
             }
 
             has_term_vectors |= info.has_term_vectors();
-            has_postings |= info.get_index_options() != IndexOptions::None;
-            has_prox |= info.get_index_options() >= IndexOptions::DocsAndFreqsAndPositions;
-            has_freq |= info.get_index_options() != IndexOptions::DOCS;
+            has_postings |= info.get_index_options() != &IndexOptions::None;
+            has_prox |= info.get_index_options() >= &IndexOptions::DocsAndFreqsAndPositions;
+            has_freq |= info.get_index_options() != &IndexOptions::DOCS;
             has_offsets |=
-                info.get_index_options() >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
+                info.get_index_options() >= &IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
             has_norms |= info.has_norms();
-            has_doc_values |= info.get_doc_values_type() != DocValuesType::None;
+            has_doc_values |= info.get_doc_values_type() != &DocValuesType::None;
             has_payloads |= info.has_payloads();
             has_point_values |= info.get_point_dimension_count() != 0;
             has_vector_values |= info.get_vector_dimension() != 0;
@@ -459,7 +459,7 @@ impl FieldNumbers {
                 field_properties
                     .number_to_name
                     .insert(field_number, field_name.to_string());
-                let index_options_props = if fi.get_index_options() != IndexOptions::None {
+                let index_options_props = if fi.get_index_options() != &IndexOptions::None {
                     Some(IndexOptionsProperties {
                         store_term_vectors: fi.has_term_vectors(),
                         omit_norms: fi.omits_norms(),
@@ -469,10 +469,10 @@ impl FieldNumbers {
                 };
                 let new_props = FieldProperties {
                     number: field_number,
-                    index_options: fi.get_index_options(),
+                    index_options: *fi.get_index_options(),
                     index_options_properties: index_options_props,
-                    doc_values_type: fi.get_doc_values_type(),
-                    doc_values_skip_index: fi.doc_values_skip_index_type(),
+                    doc_values_type: *fi.get_doc_values_type(),
+                    doc_values_skip_index: *fi.doc_values_skip_index_type(),
                     field_dimensions: FieldDimensions {
                         dimension_count: fi.get_point_dimension_count(),
                         index_dimension_count: fi.get_point_index_dimension_count(),
@@ -560,7 +560,7 @@ impl FieldNumbers {
         FieldInfo::verify_same_index_options(
             field_name,
             &field_properties.index_options,
-            &fi.get_index_options(),
+            fi.get_index_options(),
         )?;
         if field_properties.index_options != IndexOptions::None {
             debug_assert!(field_properties.index_options_properties.is_some());
@@ -584,12 +584,12 @@ impl FieldNumbers {
         FieldInfo::verify_same_doc_values_type(
             field_name,
             &field_properties.doc_values_type,
-            &fi.get_doc_values_type(),
+            fi.get_doc_values_type(),
         )?;
         FieldInfo::verify_same_doc_values_skip_index(
             field_name,
             &field_properties.doc_values_skip_index,
-            &fi.doc_values_skip_index_type(),
+            fi.doc_values_skip_index_type(),
         )?;
         let dims = &field_properties.field_dimensions;
         FieldInfo::verify_same_points_options(
@@ -838,9 +838,10 @@ pub mod build {
                 fi.has_term_vectors(),
                 fi.omits_norms(),
                 fi.has_payloads(),
-                fi.get_index_options(),
-                fi.get_doc_values_type(),
-                fi.doc_values_skip_index_type(),
+                // copy
+                *fi.get_index_options(),
+                *fi.get_doc_values_type(),
+                *fi.doc_values_skip_index_type(),
                 dv_gen,
                 attributes.clone(),
                 fi.get_point_dimension_count(),

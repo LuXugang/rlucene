@@ -203,7 +203,6 @@ where
     }
 }
 pub mod direct_monotonic {
-    use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 
     /// In-memory metadata that needs to be kept around for [`DirectMonotonicReader`] to read data
     /// from disk.
