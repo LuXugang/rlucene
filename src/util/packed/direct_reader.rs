@@ -82,6 +82,7 @@ impl DirectReader {
         slice: Rc<RefCell<R>>,
         bits_per_value: i32,
         base_offset: i64,
+
         num_values: i64,
     ) -> DirectPackedEnum<R>
     where

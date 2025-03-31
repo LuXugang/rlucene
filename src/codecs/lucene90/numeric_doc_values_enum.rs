@@ -14,6 +14,71 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod doc_values {
+    use crate::codecs::lucene90_doc_values_producer::{
+        DenseNumericDocValues, SparseNumericDocValues,
+    };
+    use crate::index::doc_values::EmptyNumeric;
+    use crate::index::doc_values_iterator::DocValuesIterator;
+    use crate::index::numeric_doc_values::NumericDocValues;
+    use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::store::IndexInput;
+
+    pub enum NumericDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        Dense(DenseNumericDocValues<I>),
+        Sparse(SparseNumericDocValues<I>),
+        Empty(EmptyNumeric),
+    }
+
+    impl<I> DocValuesIterator for NumericDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn advance_exact(
+            &mut self,
+            _target: i32,
+        ) -> crate::util::error::lucene_error::Result<bool> {
+            todo!()
+        }
+    }
+
+    impl<I> DocIdSetIterator for NumericDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn doc_id(&self) -> i32 {
+            todo!()
+        }
+
+        fn next_doc(&mut self) -> crate::util::error::lucene_error::Result<i32> {
+            todo!()
+        }
+
+        fn advance(&mut self, _target: i32) -> crate::util::error::lucene_error::Result<i32> {
+            todo!()
+        }
+
+        fn slow_advance(&mut self, target: i32) -> crate::util::error::lucene_error::Result<i32> {
+            todo!()
+        }
+
+        fn cost(&self) -> crate::util::error::lucene_error::Result<i64> {
+            todo!()
+        }
+    }
+
+    impl<I> NumericDocValues for NumericDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn long_value(&mut self) -> crate::util::error::lucene_error::Result<i64> {
+            todo!()
+        }
+    }
+}
 
 pub mod norms {
     use crate::codecs::lucene90_norms_producer::{DenseNormsIterator, SparseNormsIterator};

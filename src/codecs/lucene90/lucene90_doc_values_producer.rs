@@ -14,12 +14,613 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
+use crate::codecs::numeric_doc_values_enum::doc_values::NumericDocValuesEnum;
+use crate::codecs::CodecUtil;
+use crate::index::doc_values::EmptyNumeric;
+use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_skipper::DocValuesSkipper;
+use crate::index::field_infos::FieldInfos;
+use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::segment_read_state::SegmentReadState;
+use crate::index::IndexFileNames;
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
-use crate::store::{DataInput, IndexInput};
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::store::directory::Directory;
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{DataInput, IndexInput, ReadAdvice};
+use crate::util::bit_util::BitUtil;
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
+use crate::util::long_values::{LongValues, Zeroes};
+use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
+use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
+use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
+use byteorder::ReadBytesExt;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::rc::Rc;
+
+pub struct Lucene90DocValuesProducer<I>
+where
+    I: IndexInput,
+{
+    numerics: HashMap<i32, NumericEntry>,
+    binaries: HashMap<i32, BinaryEntry>,
+    sorted: HashMap<i32, SortedEntry>,
+    sorted_sets: HashMap<i32, SortedSetEntry>,
+    sorted_numerics: HashMap<i32, SortedNumericEntry>,
+    skippers: HashMap<i32, DocValuesSkipperEntry>,
+    data: I,
+    max_doc: i32,
+    version: i32,
+    merging: bool,
+}
+
+impl<I> Lucene90DocValuesProducer<I>
+where
+    I: IndexInput,
+{
+    pub fn new<D>(
+        state: &SegmentReadState<D>,
+        data_codec: &str,
+        data_extension: &str,
+        meta_codec: &str,
+        meta_extension: &str,
+    ) -> Result<Self>
+    where
+        D: Directory<IndexInputType = I>,
+    {
+        let meta_name = IndexFileNames::segment_file_name(
+            &state.segment_info.name,
+            &state.segment_suffix,
+            meta_extension,
+        );
+
+        let max_doc = state.segment_info.max_doc()?;
+        let mut version = -1;
+
+        let mut numerics = HashMap::new();
+        let mut binaries = HashMap::new();
+        let mut sorted = HashMap::new();
+        let mut sorted_sets = HashMap::new();
+        let mut sorted_numerics = HashMap::new();
+        let mut skippers = HashMap::new();
+
+        {
+            let dir = state
+                .directory
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let mut input = dir.open_checksum_input(&meta_name)?;
+
+            let mut prior_error = None;
+
+            match CodecUtil::check_index_header(
+                &mut input,
+                meta_codec,
+                Lucene90DocValuesFormat::VERSION_START,
+                Lucene90DocValuesFormat::VERSION_CURRENT,
+                &state.segment_info.get_id(),
+                &state.segment_suffix,
+            ) {
+                Ok(v) => {
+                    version = v;
+                    Self::read_fields(
+                        &mut input,
+                        &state.field_infos,
+                        &mut numerics,
+                        &mut binaries,
+                        &mut sorted,
+                        &mut sorted_sets,
+                        &mut sorted_numerics,
+                        &mut skippers,
+                    )?;
+                }
+                Err(e) => {
+                    prior_error = Some(e);
+                }
+            }
+
+            if let Some(e) = prior_error.as_mut() {
+                return Err(CodecUtil::check_footer_with_error(&mut input, e));
+            } else {
+                CodecUtil::check_footer(&mut input)?;
+            }
+        }
+
+        let data_name = IndexFileNames::segment_file_name(
+            &state.segment_info.name,
+            &state.segment_suffix,
+            data_extension,
+        );
+        // Doc-values have a forward-only access pattern, so pass ReadAdvice.NORMAL to perform
+        // readahead.
+        let mut data;
+        {
+            let dir = state
+                .directory
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            data = dir.open_input(
+                &data_name,
+                &state.context.with_read_advice(ReadAdvice::Normal)?,
+            )?;
+        }
+
+        let version2 = CodecUtil::check_index_header(
+            &mut data,
+            data_codec,
+            Lucene90DocValuesFormat::VERSION_START,
+            Lucene90DocValuesFormat::VERSION_CURRENT,
+            &state.segment_info.get_id(),
+            &state.segment_suffix,
+        )?;
+
+        if version != version2 {
+            return Err(LuceneError::corrupt_index(format!(
+                "Format versions mismatch: meta={}, data={} (resource={})",
+                version, version2, data
+            )));
+        }
+        // NOTE: data file is too costly to verify checksum against all the bytes on open,
+        // but for now we at least verify proper structure of the checksum footer: which looks
+        // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
+        // such as file truncation.
+        CodecUtil::retrieve_checksum(&mut data)?;
+
+        Ok(Self {
+            numerics,
+            binaries,
+            sorted,
+            sorted_sets,
+            sorted_numerics,
+            skippers,
+            data,
+            max_doc,
+            version,
+            merging: false,
+        })
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn read_fields(
+        meta: &mut impl IndexInput,
+        infos: &Rc<FieldInfos>,
+        numerics: &mut HashMap<i32, NumericEntry>,
+        binaries: &mut HashMap<i32, BinaryEntry>,
+        sorted: &mut HashMap<i32, SortedEntry>,
+        sorted_sets: &mut HashMap<i32, SortedSetEntry>,
+        sorted_numerics: &mut HashMap<i32, SortedNumericEntry>,
+        skippers: &mut HashMap<i32, DocValuesSkipperEntry>,
+    ) -> Result<()> {
+        loop {
+            let field_number = meta.read_int()?;
+            if field_number == -1 {
+                break;
+            }
+            let info = infos.field_info_by_number(field_number)?;
+            match info {
+                Some(info) => {
+                    let type_byte = meta.read_byte()?;
+
+                    if info.doc_values_skip_index_type() != &DocValuesSkipIndexType::None {
+                        let skipper = Self::read_doc_value_skipper_meta(meta)?;
+                        skippers.insert(info.number, skipper);
+                    }
+
+                    match type_byte {
+                        t if t == Lucene90DocValuesFormat::NUMERIC => {
+                            let entry = Self::read_numeric(meta)?;
+                            numerics.insert(info.number, entry);
+                        }
+                        t if t == Lucene90DocValuesFormat::BINARY => {
+                            let entry = Self::read_binary(meta)?;
+                            binaries.insert(info.number, entry);
+                        }
+                        t if t == Lucene90DocValuesFormat::SORTED => {
+                            let entry = Self::read_sorted(meta)?;
+                            sorted.insert(info.number, entry);
+                        }
+                        t if t == Lucene90DocValuesFormat::SORTED_SET => {
+                            let entry = Self::read_sorted_set(meta)?;
+                            sorted_sets.insert(info.number, entry);
+                        }
+                        t if t == Lucene90DocValuesFormat::SORTED_NUMERIC => {
+                            let entry = Self::read_sorted_numeric(meta)?;
+                            sorted_numerics.insert(info.number, entry);
+                        }
+                        _ => {
+                            return Err(LuceneError::corrupt_index(format!(
+                                "Invalid doc values type: {}",
+                                type_byte
+                            )));
+                        }
+                    }
+                }
+                None => {
+                    return Err(LuceneError::corrupt_index(format!(
+                        "Field number {} not found in field infos, resource {}",
+                        field_number, meta
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+    fn read_numeric(meta: &mut impl IndexInput) -> Result<NumericEntry> {
+        let mut entry = NumericEntry::default();
+        Self::read_numeric_with_entry(meta, &mut entry)?;
+        Ok(entry)
+    }
+    fn read_doc_value_skipper_meta(meta: &mut impl IndexInput) -> Result<DocValuesSkipperEntry> {
+        let offset = meta.read_long()?;
+        let length = meta.read_long()?;
+        let max_value = meta.read_long()?;
+        let min_value = meta.read_long()?;
+        let doc_count = meta.read_int()?;
+        let max_doc_id = meta.read_int()?;
+
+        Ok(DocValuesSkipperEntry {
+            offset,
+            length,
+            min_value,
+            max_value,
+            doc_count,
+            max_doc_id,
+        })
+    }
+    fn read_numeric_with_entry(meta: &mut impl IndexInput, entry: &mut NumericEntry) -> Result<()> {
+        entry.docs_with_field_offset = meta.read_long()?;
+        entry.docs_with_field_length = meta.read_long()?;
+        entry.jump_table_entry_count = meta.read_short()?;
+        entry.dense_rank_power = meta.read_byte()? as i8;
+        entry.num_values = meta.read_long()?;
+
+        let table_size = meta.read_int()?;
+        if table_size > 256 {
+            return Err(LuceneError::corrupt_index(format!(
+                "invalid table size: {} resource {}",
+                table_size, meta
+            )));
+        }
+
+        entry.table = if table_size >= 0 {
+            let mut table = Vec::with_capacity(table_size as usize);
+            for _ in 0..table_size {
+                table.push(meta.read_long()?);
+            }
+            Option::from(Rc::new(table))
+        } else {
+            Some(Rc::new(Vec::new()))
+        };
+
+        entry.block_shift = if table_size < -1 { -2 - table_size } else { -1 };
+
+        entry.bits_per_value = meta.read_byte()?;
+        entry.min_value = meta.read_long()?;
+        entry.gcd = meta.read_long()?;
+        entry.values_offset = meta.read_long()?;
+        entry.values_length = meta.read_long()?;
+        entry.value_jump_table_offset = meta.read_long()?;
+        Ok(())
+    }
+    fn read_binary(meta: &mut impl IndexInput) -> Result<BinaryEntry> {
+        let data_offset = meta.read_long()?;
+        let data_length = meta.read_long()?;
+        let docs_with_field_offset = meta.read_long()?;
+        let docs_with_field_length = meta.read_long()?;
+        let jump_table_entry_count = meta.read_short()?;
+        let dense_rank_power = meta.read_byte()?;
+        let num_docs_with_field = meta.read_int()?;
+        let min_length = meta.read_int()?;
+        let max_length = meta.read_int()?;
+
+        let mut addresses_offset = 0;
+        let mut addresses_meta = None;
+        let mut addresses_length = 0;
+
+        if min_length < max_length {
+            addresses_offset = meta.read_long()?;
+            // Old count of uncompressed addresses
+            let num_addresses = num_docs_with_field as i64 + 1;
+            let block_shift = meta.read_vint()?; // 注意这里是 VInt
+            addresses_meta = Some(DirectMonotonicReader::load_meta(
+                meta,
+                num_addresses,
+                block_shift,
+            )?);
+            addresses_length = meta.read_long()?;
+        }
+
+        Ok(BinaryEntry {
+            data_offset,
+            data_length,
+            docs_with_field_offset,
+            docs_with_field_length,
+            jump_table_entry_count,
+            dense_rank_power,
+            num_docs_with_field,
+            min_length,
+            max_length,
+            addresses_offset,
+            addresses_length,
+            addresses_meta,
+        })
+    }
+    fn read_sorted(meta: &mut impl IndexInput) -> Result<SortedEntry> {
+        let mut ords_entry = NumericEntry::default();
+        Self::read_numeric_with_entry(meta, &mut ords_entry)?;
+        let mut terms_dict_entry = TermsDictEntry::default();
+        Self::read_term_dict_with_entry(meta, &mut terms_dict_entry)?;
+        Ok(SortedEntry {
+            ords_entry,
+            terms_dict_entry,
+        })
+    }
+    fn read_sorted_set(meta: &mut impl IndexInput) -> Result<SortedSetEntry> {
+        let multi_valued = meta.read_byte()?;
+        let mut entry = match multi_valued {
+            0 => {
+                let single_value_entry = Self::read_sorted(meta)?;
+                SortedSetEntry {
+                    single_value_entry: Some(single_value_entry),
+                    ords_entry: None,
+                    terms_dict_entry: None,
+                }
+            }
+            1 => SortedSetEntry::default(),
+            _ => {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Invalid multiValued flag: {} resource {}",
+                    multi_valued, meta
+                )))
+            }
+        };
+        let mut ords_entry = SortedNumericEntry::default();
+        Self::read_sorted_numeric_with_entry(meta, &mut ords_entry)?;
+        let mut terms_dict_entry = TermsDictEntry::default();
+        // The definitions of terms_addresses_meta and terms_index_addresses_meta are set as Option for ease of initialization.
+        // However, in the current implementation, these two values are guaranteed not to be None, so we add an assert here.
+        debug_assert!(terms_dict_entry.terms_addresses_meta.is_some());
+        debug_assert!(terms_dict_entry.terms_index_addresses_meta.is_some());
+        Self::read_term_dict_with_entry(meta, &mut terms_dict_entry)?;
+
+        entry.ords_entry = Some(ords_entry);
+        entry.terms_dict_entry = Some(terms_dict_entry);
+        Ok(entry)
+    }
+    fn read_term_dict_with_entry(
+        meta: &mut impl IndexInput,
+        entry: &mut TermsDictEntry,
+    ) -> Result<()> {
+        entry.terms_dict_size = meta.read_vlong()?;
+        let block_shift = meta.read_int()?;
+
+        let addresses_size = (entry.terms_dict_size
+            + (1 << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT)
+            - 1)
+            >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
+
+        entry.terms_addresses_meta = Some(DirectMonotonicReader::load_meta(
+            meta,
+            addresses_size,
+            block_shift,
+        )?);
+
+        entry.max_term_length = meta.read_int()?;
+        entry.max_block_length = meta.read_int()?;
+        entry.terms_data_offset = meta.read_long()?;
+        entry.terms_data_length = meta.read_long()?;
+        entry.terms_addresses_offset = meta.read_long()?;
+        entry.terms_addresses_length = meta.read_long()?;
+        entry.terms_dict_index_shift = meta.read_int()?;
+
+        let index_size = (entry.terms_dict_size + (1 << entry.terms_dict_index_shift) - 1)
+            >> entry.terms_dict_index_shift;
+
+        entry.terms_index_addresses_meta = Some(DirectMonotonicReader::load_meta(
+            meta,
+            1 + index_size,
+            block_shift,
+        )?);
+        entry.terms_index_offset = meta.read_long()?;
+        entry.terms_index_length = meta.read_long()?;
+        entry.terms_index_addresses_offset = meta.read_long()?;
+        entry.terms_index_addresses_length = meta.read_long()?;
+
+        Ok(())
+    }
+    fn read_sorted_numeric(meta: &mut impl IndexInput) -> Result<SortedNumericEntry> {
+        let mut entry = SortedNumericEntry::default();
+        Self::read_sorted_numeric_with_entry(meta, &mut entry)?;
+        Ok(entry)
+    }
+    fn read_sorted_numeric_with_entry(
+        meta: &mut impl IndexInput,
+        entry: &mut SortedNumericEntry,
+    ) -> Result<()> {
+        Self::read_numeric_with_entry(meta, &mut entry.base)?;
+        entry.num_docs_with_field = meta.read_int()?;
+        entry.addresses_offset = 0;
+        entry.addresses_meta = None;
+        entry.addresses_length = 0;
+
+        if entry.num_docs_with_field as i64 != entry.base.num_values {
+            entry.addresses_offset = meta.read_long()?;
+            let block_shift = meta.read_vint()?;
+            entry.addresses_meta = Some(DirectMonotonicReader::load_meta(
+                meta,
+                entry.num_docs_with_field as i64 + 1,
+                block_shift,
+            )?);
+            entry.addresses_length = meta.read_long()?;
+        }
+        Ok(())
+    }
+    fn get_direct_reader_instance(
+        merging: bool,
+        slice: Rc<RefCell<I::RandomAccessSlice>>,
+        bits_per_value: i32,
+        offset: i64,
+        num_values: i64,
+    ) -> Result<DirectPackedEnum<I::RandomAccessSlice>>
+    where
+        I: IndexInput,
+    {
+        if merging {
+            Ok(DirectReader::get_merge_instance_with_base_offset(
+                slice,
+                bits_per_value,
+                offset,
+                num_values,
+            ))
+        } else {
+            Ok(DirectReader::get_instance_with_offset(
+                slice,
+                bits_per_value,
+                offset,
+            ))
+        }
+    }
+    fn get_numeric(&mut self, entry: &Rc<NumericEntry>) -> Result<NumericDocValuesEnum<I>> {
+        if entry.docs_with_field_offset == -2 {
+            // empty
+            Ok(NumericDocValuesEnum::Empty(EmptyNumeric::new()))
+        } else if entry.docs_with_field_offset == -1 {
+            // dense
+            let dense_numeric_doc_values_base_enum = if entry.bits_per_value == 0 {
+                DenseNumericDocValuesSubEnum::Dense(DenseNumericDocValuesBaseImpl {
+                    min_values: entry.min_value,
+                })
+            } else {
+                let mut slice = self
+                    .data
+                    .random_access_slice(entry.values_offset, entry.values_length)?;
+                // Prefetch the first page of data. Following pages are expected to get prefetched through
+                // read-ahead.
+                if slice.length() > 0 {
+                    slice.prefetch(0, 1)?
+                }
+                if entry.block_shift >= 0 {
+                    let vbpv_reader =
+                        VaryingBPVReader::new(entry.clone(), slice, &mut self.data, self.merging)?;
+                    DenseNumericDocValuesSubEnum::Dense1(DenseNumericDocValuesBaseImpl1 {
+                        vbpv_reader,
+                    })
+                } else {
+                    let values = Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+                        self.merging,
+                        Rc::new(RefCell::new(slice)),
+                        entry.bits_per_value as i32,
+                        9,
+                        entry.num_values,
+                    )?;
+                    match entry.table {
+                        Some(ref table) => {
+                            DenseNumericDocValuesSubEnum::Dense2(DenseNumericDocValuesBaseImpl2 {
+                                table: table.clone(),
+                                values,
+                            })
+                        }
+                        None => {
+                            if entry.gcd == 1 && entry.min_value == 0 {
+                                DenseNumericDocValuesSubEnum::Dense3(
+                                    DenseNumericDocValuesBaseImpl3 { values },
+                                )
+                            } else {
+                                DenseNumericDocValuesSubEnum::Dense4(
+                                    DenseNumericDocValuesBaseImpl4 {
+                                        values,
+                                        mul: entry.gcd,
+                                        delta: entry.min_value,
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            };
+            return Ok(NumericDocValuesEnum::Dense(DenseNumericDocValues::new(
+                dense_numeric_doc_values_base_enum,
+                self.max_doc,
+            )));
+        } else {
+            let disi = IndexedDISI::new(
+                &mut self.data,
+                entry.docs_with_field_offset,
+                entry.docs_with_field_length,
+                entry.jump_table_entry_count as i32,
+                entry.dense_rank_power,
+                entry.num_values,
+            )?;
+            let sparse_numeric_doc_values_base_enum = if entry.bits_per_value == 0 {
+                SparseNumericDocValuesSubEnum::Sparse(SparseNumericDocValuesBaseImpl {
+                    min_values: entry.min_value,
+                    _phantom: Default::default(),
+                })
+            } else {
+                let mut slice = self
+                    .data
+                    .random_access_slice(entry.values_offset, entry.values_length)?;
+                // Prefetch the first page of data. Following pages are expected to get prefetched through
+                // read-ahead.
+                if slice.length() > 0 {
+                    slice.prefetch(0, 1)?
+                }
+                if entry.block_shift >= 0 {
+                    SparseNumericDocValuesSubEnum::Sparse1(SparseNumericDocValuesBaseImpl1 {
+                        vbpv_reader: VaryingBPVReader::new(
+                            entry.clone(),
+                            slice,
+                            &mut self.data,
+                            self.merging,
+                        )?,
+                    })
+                } else {
+                    let values = Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+                        self.merging,
+                        Rc::new(RefCell::new(slice)),
+                        entry.bits_per_value as i32,
+                        9,
+                        entry.num_values,
+                    )?;
+                    match entry.table {
+                        Some(ref table) => SparseNumericDocValuesSubEnum::Sparse2(
+                            SparseNumericDocValuesBaseImpl2 {
+                                table: table.clone(),
+                                values,
+                            },
+                        ),
+                        None => {
+                            if entry.gcd == 1 && entry.min_value == 0 {
+                                SparseNumericDocValuesSubEnum::Sparse3(
+                                    SparseNumericDocValuesBaseImpl3 { values },
+                                )
+                            } else {
+                                SparseNumericDocValuesSubEnum::Sparse4(
+                                    SparseNumericDocValuesBaseImpl4 {
+                                        values,
+                                        mul: entry.gcd,
+                                        delta: entry.min_value,
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            };
+            Ok(NumericDocValuesEnum::Sparse(SparseNumericDocValues::new(
+                sparse_numeric_doc_values_base_enum,
+                disi,
+            )))
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct DocValuesSkipperEntry {
@@ -29,6 +630,552 @@ pub(crate) struct DocValuesSkipperEntry {
     pub max_value: i64,
     pub doc_count: i32,
     pub max_doc_id: i32,
+}
+#[derive(Debug, Clone, Default)]
+pub struct NumericEntry {
+    pub table: Option<Rc<Vec<i64>>>,
+    pub block_shift: i32,
+    pub bits_per_value: u8,
+    pub docs_with_field_offset: i64,
+    pub docs_with_field_length: i64,
+    pub jump_table_entry_count: i16,
+    pub dense_rank_power: i8,
+    pub num_values: i64,
+    pub min_value: i64,
+    pub gcd: i64,
+    pub values_offset: i64,
+    pub values_length: i64,
+    pub value_jump_table_offset: i64, // -1 if no jump-table
+}
+
+pub struct BinaryEntry {
+    pub data_offset: i64,
+    pub data_length: i64,
+    pub docs_with_field_offset: i64,
+    pub docs_with_field_length: i64,
+    pub jump_table_entry_count: i16,
+    pub dense_rank_power: u8,
+    pub num_docs_with_field: i32,
+    pub min_length: i32,
+    pub max_length: i32,
+    pub addresses_offset: i64,
+    pub addresses_length: i64,
+    pub addresses_meta: Option<Meta>,
+}
+
+#[derive(Default)]
+pub struct TermsDictEntry {
+    pub terms_dict_size: i64,
+    pub terms_addresses_meta: Option<Meta>,
+    pub max_term_length: i32,
+    pub terms_data_offset: i64,
+    pub terms_data_length: i64,
+    pub terms_addresses_offset: i64,
+    pub terms_addresses_length: i64,
+    pub terms_dict_index_shift: i32,
+    pub terms_index_addresses_meta: Option<Meta>,
+    pub terms_index_offset: i64,
+    pub terms_index_length: i64,
+    pub terms_index_addresses_offset: i64,
+    pub terms_index_addresses_length: i64,
+    pub max_block_length: i32,
+}
+
+pub struct SortedEntry {
+    pub ords_entry: NumericEntry,
+    pub terms_dict_entry: TermsDictEntry,
+}
+
+#[derive(Default)]
+pub struct SortedSetEntry {
+    pub single_value_entry: Option<SortedEntry>,
+    pub ords_entry: Option<SortedNumericEntry>,
+    pub terms_dict_entry: Option<TermsDictEntry>,
+}
+#[derive(Default)]
+pub struct SortedNumericEntry {
+    pub base: NumericEntry,
+    pub num_docs_with_field: i32,
+    pub addresses_meta: Option<Meta>,
+    pub addresses_offset: i64,
+    pub addresses_length: i64,
+}
+pub struct DenseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    sub: DenseNumericDocValuesSubEnum<I>,
+    max_doc: i32,
+    doc: i32,
+}
+impl<I> DenseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn new(base: DenseNumericDocValuesSubEnum<I>, max_doc: i32) -> Self {
+        Self {
+            sub: base,
+            max_doc,
+            doc: -1,
+        }
+    }
+}
+
+impl<I> DocValuesIterator for DenseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.doc = target;
+        Ok(true)
+    }
+}
+
+impl<I> DocIdSetIterator for DenseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.advance(self.doc + 1)
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        if target >= self.max_doc {
+            self.doc = NO_MORE_DOCS;
+        } else {
+            self.doc = target;
+        }
+        Ok(self.doc)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.max_doc as i64)
+    }
+}
+
+impl<I> NumericDocValues for DenseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self) -> Result<i64> {
+        self.sub.long_value(self.doc)
+    }
+}
+trait DenseNumericDocValuesBase {
+    fn long_value(&mut self, doc: i32) -> Result<i64>;
+}
+struct DenseNumericDocValuesBaseImpl {
+    min_values: i64,
+}
+impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
+    fn long_value(&mut self, _doc: i32) -> Result<i64> {
+        Ok(self.min_values)
+    }
+}
+struct DenseNumericDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    vbpv_reader: VaryingBPVReader<I>,
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        self.vbpv_reader.get_long_value(doc as i64)
+    }
+}
+struct DenseNumericDocValuesBaseImpl2<I>
+where
+    I: IndexInput,
+{
+    table: Rc<Vec<i64>>,
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl2<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        Ok(self.table[self.values.get(doc as i64)? as usize])
+    }
+}
+struct DenseNumericDocValuesBaseImpl3<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl3<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        self.values.get(doc as i64)
+    }
+}
+struct DenseNumericDocValuesBaseImpl4<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+    mul: i64,
+    delta: i64,
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl4<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        Ok(self.mul * self.values.get(doc as i64)? + self.delta)
+    }
+}
+enum DenseNumericDocValuesSubEnum<I>
+where
+    I: IndexInput,
+{
+    Dense(DenseNumericDocValuesBaseImpl),
+    Dense1(DenseNumericDocValuesBaseImpl1<I>),
+    Dense2(DenseNumericDocValuesBaseImpl2<I>),
+    Dense3(DenseNumericDocValuesBaseImpl3<I>),
+    Dense4(DenseNumericDocValuesBaseImpl4<I>),
+}
+impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesSubEnum<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, doc: i32) -> Result<i64> {
+        match self {
+            DenseNumericDocValuesSubEnum::Dense(sub) => sub.long_value(doc),
+            DenseNumericDocValuesSubEnum::Dense1(sub) => sub.long_value(doc),
+            DenseNumericDocValuesSubEnum::Dense2(sub) => sub.long_value(doc),
+            DenseNumericDocValuesSubEnum::Dense3(sub) => sub.long_value(doc),
+            DenseNumericDocValuesSubEnum::Dense4(sub) => sub.long_value(doc),
+        }
+    }
+}
+
+pub struct SparseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    sub: SparseNumericDocValuesSubEnum<I>,
+    disi: IndexedDISI<I>,
+}
+impl<I> SparseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn new(sub: SparseNumericDocValuesSubEnum<I>, disi: IndexedDISI<I>) -> Self {
+        Self { sub, disi }
+    }
+}
+
+impl<I> DocValuesIterator for SparseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.disi.advance_exact(target)
+    }
+}
+
+impl<I> DocIdSetIterator for SparseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.disi.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.disi.next_doc()
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.disi.advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.disi.cost()
+    }
+}
+
+impl<I> NumericDocValues for SparseNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self) -> Result<i64> {
+        self.sub.long_value(&mut self.disi)
+    }
+}
+
+trait SparseNumericDocValuesBase<I> {
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput;
+}
+struct SparseNumericDocValuesBaseImpl<I>
+where
+    I: IndexInput,
+{
+    min_values: i64,
+    _phantom: PhantomData<I>,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, _disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        Ok(self.min_values)
+    }
+}
+struct SparseNumericDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    vbpv_reader: VaryingBPVReader<I>,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl1<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        let index = disi.index();
+        self.vbpv_reader.get_long_value(index as i64)
+    }
+}
+struct SparseNumericDocValuesBaseImpl2<I>
+where
+    I: IndexInput,
+{
+    table: Rc<Vec<i64>>,
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl2<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        Ok(self.table[self.values.get(disi.index() as i64)? as usize])
+    }
+}
+struct SparseNumericDocValuesBaseImpl3<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl3<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        self.values.get(disi.index() as i64)
+    }
+}
+struct SparseNumericDocValuesBaseImpl4<I>
+where
+    I: IndexInput,
+{
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+    mul: i64,
+    delta: i64,
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl4<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        Ok(self.mul * self.values.get(disi.index() as i64)? + self.delta)
+    }
+}
+enum SparseNumericDocValuesSubEnum<I>
+where
+    I: IndexInput,
+{
+    Sparse(SparseNumericDocValuesBaseImpl<I>),
+    Sparse1(SparseNumericDocValuesBaseImpl1<I>),
+    Sparse2(SparseNumericDocValuesBaseImpl2<I>),
+    Sparse3(SparseNumericDocValuesBaseImpl3<I>),
+    Sparse4(SparseNumericDocValuesBaseImpl4<I>),
+}
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesSubEnum<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    where
+        I: IndexInput,
+    {
+        match self {
+            SparseNumericDocValuesSubEnum::Sparse(sub) => sub.long_value(disi),
+            SparseNumericDocValuesSubEnum::Sparse1(sub) => sub.long_value(disi),
+            SparseNumericDocValuesSubEnum::Sparse2(sub) => sub.long_value(disi),
+            SparseNumericDocValuesSubEnum::Sparse3(sub) => sub.long_value(disi),
+            SparseNumericDocValuesSubEnum::Sparse4(sub) => sub.long_value(disi),
+        }
+    }
+}
+
+/// Reader for longs split into blocks of different bits per value.
+/// The longs are requested by index and must be accessed in monotonically increasing order.
+///
+/// Note: The order requirement could be removed as the jump tables allow for backwards iteration.
+///
+/// Note 2: The `rank_slice` is only used if an advance of more than one block is called.
+/// Its construction could be lazy.
+struct VaryingBPVReader<I>
+where
+    I: IndexInput,
+{
+    // 2 slices to avoid cache thrashing when using rank
+    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    rank_slice: Option<I::RandomAccessSlice>,
+    entry: Rc<NumericEntry>,
+
+    shift: i32,
+    mul: i64,
+    mask: i64,
+
+    block: i64,
+    delta: i64,
+    offset: i64,
+    block_end_offset: i64,
+
+    values: Option<DirectPackedEnum<I::RandomAccessSlice>>,
+    merging: bool,
+}
+
+impl<I> VaryingBPVReader<I>
+where
+    I: IndexInput,
+{
+    fn new(
+        entry: Rc<NumericEntry>,
+        slice: I::RandomAccessSlice,
+        data: &mut I,
+        merging: bool,
+    ) -> Result<Self> {
+        let rank_slice = if entry.value_jump_table_offset == -1 {
+            None
+        } else {
+            let mut slice = data.random_access_slice(
+                entry.value_jump_table_offset,
+                data.length() - entry.value_jump_table_offset,
+            )?;
+            if slice.length() > 0 {
+                slice.prefetch(0, 1)?;
+            }
+            Some(slice)
+        };
+
+        let shift = entry.block_shift;
+        let mul = entry.gcd;
+        let mask = (1 << shift) - 1;
+
+        Ok(Self {
+            slice: Rc::new(RefCell::new(slice)),
+            rank_slice,
+            entry,
+            shift,
+            mul,
+            mask: mask as i64,
+            block: -1,
+            delta: 0,
+            offset: 0,
+            block_end_offset: 0,
+            values: None,
+            merging,
+        })
+    }
+
+    fn get_long_value(&mut self, index: i64) -> Result<i64> {
+        let block = ((index as u64) >> self.shift) as i64;
+
+        if self.block != block {
+            loop {
+                let bits_per_value;
+                if let Some(ref mut rank_slice) = self.rank_slice {
+                    if block != self.block + 1 {
+                        self.block_end_offset = rank_slice
+                            .read_long(block * BitUtil::LONG_BYTES as i64)?
+                            - self.entry.values_offset;
+                        self.block = block - 1;
+                    }
+                }
+
+                {
+                    let mut slice = self.slice.borrow_mut();
+                    self.offset = self.block_end_offset;
+                    bits_per_value = slice.read_byte(self.offset)? as i32;
+                    self.offset += 1;
+
+                    self.delta = slice.read_long(self.offset)?;
+                    self.offset += BitUtil::LONG_BYTES as i64;
+
+                    if bits_per_value == 0 {
+                        self.block_end_offset = self.offset;
+                    } else {
+                        let length = slice.read_int(self.offset)? as i64;
+                        self.offset += BitUtil::INT_BYTES as i64;
+                        self.block_end_offset = self.offset + length;
+                    }
+                }
+
+                self.block += 1;
+
+                if self.block == block {
+                    let num_values = std::cmp::min(
+                        1 << self.shift,
+                        self.entry.num_values - (block << self.shift),
+                    );
+                    let num_values = i32::try_from(num_values).map_err(|_| {
+                        LuceneError::integer_overflow(format!("too large: {}", num_values))
+                    })?;
+                    self.values = if bits_per_value == 0 {
+                        Some(DirectPackedEnum::Zeroes(Zeroes))
+                    } else {
+                        Some(Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+                            self.merging,
+                            Rc::clone(&self.slice),
+                            bits_per_value,
+                            self.offset,
+                            num_values as i64,
+                        )?)
+                    };
+
+                    break;
+                }
+            }
+        }
+        match self.values {
+            Some(ref mut values) => Ok(self.mul * values.get(index & self.mask)? + self.delta),
+            None => Err(LuceneError::illegal_state(
+                "values should not be None".to_string(),
+            )),
+        }
+    }
 }
 
 pub struct DocValuesSkipperImpl<I>
