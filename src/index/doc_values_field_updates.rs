@@ -55,6 +55,7 @@ where
     pub doc_values_type: DocValuesType,
     pub del_gen: i64,
     max_doc: i32,
+    // TODO: if DocValuesFieldUpdates is not for multi-thread, should use Rc<RefCell>
     inner: Arc<Mutex<DocValuesFieldInner>>,
     pub sub_update: D,
 }
@@ -139,7 +140,7 @@ where
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
     #[allow(unused)]
-    fn add_byte_ref(&mut self, doc: i32, value: BytesRef) -> Result<()> {
+    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef) -> Result<()> {
         let index = self.add(doc)?;
         self.sub_update.add_byte_ref(doc, value, index)
     }
@@ -330,7 +331,7 @@ where
 #[allow(unused)]
 pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<()>;
-    fn add_byte_ref(&mut self, doc: i32, value: BytesRef, index: i32) -> Result<()>;
+    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef, index: i32) -> Result<()>;
     fn add_iterator<T: DocValuesFieldIterator>(&mut self, doc_id: i32, iterator: T) -> Result<()>;
     /// Returns an iterator for updated documents and their values.
     fn iterator(
@@ -339,22 +340,30 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
         del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator>;
     fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
-        unimplemented!("any must be implemented if you need to use it")
+        Err(LuceneError::not_implemented(
+            "any must be implemented if you need to use it",
+        ))
     }
     fn grow(&mut self, _size: i32) -> Result<()> {
-        unimplemented!("any must be implemented if you need to use it")
+        Err(LuceneError::not_implemented(
+            "any must be implemented if you need to use it",
+        ))
     }
     fn resize(&mut self, _size: i32) -> Result<()> {
         Ok(())
     }
     fn reset(&mut self, _doc: i32) -> Result<()> {
-        unimplemented!("any must be implemented if you need to use it")
+        Err(LuceneError::not_implemented(
+            "any must be implemented if you need to use it",
+        ))
     }
     fn need_reset(&self) -> bool {
         false
     }
     fn any(&self, _super_any: bool) -> Result<bool> {
-        unimplemented!("any must be implemented if you need to use it")
+        Err(LuceneError::not_implemented(
+            "any must be implemented if you need to use it",
+        ))
     }
     fn need_any(&self) -> bool {
         false
@@ -443,7 +452,7 @@ pub trait DocValuesFieldIterator: DocValuesIterator + Default {
     fn long_value(&mut self) -> Result<i64>;
 
     /// Returns a binary value for the current document if this iterator is a binary value iterator.
-    fn binary_value(&mut self) -> Result<BytesRef>;
+    fn binary_value(&mut self) -> Result<&BytesRef>;
 
     /// Returns the delGen for this packet.
     fn del_gen(&self) -> i64;
@@ -501,7 +510,7 @@ impl<T> BinaryDocValues for BinaryDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn binary_value(&mut self) -> Result<BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         self.iterator.binary_value()
     }
 }
@@ -630,7 +639,7 @@ where
         self.queue.top().long_value()
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         self.queue.top().binary_value()
     }
 
@@ -765,7 +774,7 @@ where
         self.sub.long_value()
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         self.sub.binary_value()
     }
 
@@ -785,7 +794,7 @@ pub trait AbstractIteratorBase {
     /// * `idx` - The internal index to set the value to.
     fn set(&mut self, idx: i64) -> Result<()>;
     fn long_value(&mut self) -> Result<i64>;
-    fn binary_value(&mut self) -> Result<BytesRef>;
+    fn binary_value(&mut self) -> Result<&BytesRef>;
 }
 
 #[allow(unused)]
@@ -819,7 +828,7 @@ where
             dov_values_type,
         })
     }
-    pub fn binary_value(&self) -> Result<BytesRef> {
+    pub fn binary_value(&self) -> Result<&BytesRef> {
         self.sub_update.binary_value()
     }
     pub fn long_value(&self) -> Result<i64> {
@@ -850,7 +859,7 @@ where
         Ok(())
     }
 
-    fn add_byte_ref(&mut self, doc: i32, value: BytesRef, _index: i32) -> Result<()> {
+    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.binary_value()? == value);
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
@@ -923,7 +932,7 @@ where
 
 #[allow(unused)]
 pub trait SingleValueDocValuesFieldUpdatesBase {
-    fn binary_value(&self) -> Result<BytesRef>;
+    fn binary_value(&self) -> Result<&BytesRef>;
     fn long_value(&self) -> Result<i64>;
     fn sub_type(&self) -> DocValuesType;
 }
@@ -991,7 +1000,7 @@ where
         self.single.as_ref().unwrap().long_value()
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         self.single.as_ref().unwrap().binary_value()
     }
 

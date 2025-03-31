@@ -23,5 +23,5 @@ pub trait BinaryDocValues: DocValuesIterator {
     ///
     /// # Returns
     /// The binary value for the current document ID.
-    fn binary_value(&mut self) -> Result<BytesRef>;
+    fn binary_value(&mut self) -> Result<&BytesRef>;
 }

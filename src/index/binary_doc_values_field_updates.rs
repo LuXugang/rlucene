@@ -36,7 +36,7 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
     offsets: AbstractPagedMutable<PagedGrowableWriter>,
     lengths: AbstractPagedMutable<PagedGrowableWriter>,
     values: BytesRefBuilder,
-    lock: Arc<Mutex<()>>,
+    lock: Mutex<()>,
 }
 impl BinaryDocValuesFieldUpdates {
     #[allow(unused)]
@@ -49,7 +49,7 @@ impl BinaryDocValuesFieldUpdates {
             offsets,
             lengths,
             values: BytesRefBuilder::new(),
-            lock: Arc::new(Mutex::new(())),
+            lock: Mutex::new(()),
         })
     }
 }
@@ -62,10 +62,12 @@ impl Accountable for BinaryDocValuesFieldUpdates {
 
 impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     fn add_value(&mut self, _doc: i32, _value: i64, _index: i32) -> Result<()> {
-        unreachable!("BinaryDocValuesFieldUpdates does not support add_value")
+        Err(LuceneError::unreachable(
+            "BinaryDocValuesFieldUpdates does not support add_value",
+        ))
     }
 
-    fn add_byte_ref(&mut self, _doc: i32, value: BytesRef, index: i32) -> Result<()> {
+    fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef, index: i32) -> Result<()> {
         let _guard = self
             .lock
             .lock()
@@ -73,7 +75,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         self.offsets
             .set(index as i64, self.values.length() as i64)?;
         self.lengths.set(index as i64, value.length as i64)?;
-        self.values.append_ref(&value);
+        self.values.append_ref(value);
         Ok(())
     }
 
@@ -90,12 +92,12 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator> {
-        let sub_iterator = BinaryDocValuesIterator::new(
+        let base = AbstractIteratorBaseImpl::new(
             Some(&mut self.offsets),
             Some(&mut self.lengths),
             Some(self.values.get_bytes_ref()),
         );
-        Ok(AbstractIterator::new(inner, del_gen, sub_iterator))
+        Ok(AbstractIterator::new(inner, del_gen, base))
     }
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let temp_offset = self.offsets.get(j as i64)?;
@@ -138,7 +140,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 ///
 /// Implementing Default is solely for enabling sorting within the PriorityQueue.
 #[derive(Default)]
-pub struct BinaryDocValuesIterator<'a> {
+pub struct AbstractIteratorBaseImpl<'a> {
     offsets: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
     offset: i32,
     lengths: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
@@ -146,13 +148,13 @@ pub struct BinaryDocValuesIterator<'a> {
     values: Option<&'a mut BytesRef>,
 }
 #[allow(unused)]
-impl<'a> BinaryDocValuesIterator<'a> {
+impl<'a> AbstractIteratorBaseImpl<'a> {
     pub fn new(
         offsets: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
         lengths: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
         values: Option<&'a mut BytesRef>,
-    ) -> BinaryDocValuesIterator<'a> {
-        BinaryDocValuesIterator {
+    ) -> AbstractIteratorBaseImpl<'a> {
+        AbstractIteratorBaseImpl {
             offsets,
             offset: 0,
             lengths,
@@ -161,7 +163,7 @@ impl<'a> BinaryDocValuesIterator<'a> {
         }
     }
 }
-impl AbstractIteratorBase for BinaryDocValuesIterator<'_> {
+impl AbstractIteratorBase for AbstractIteratorBaseImpl<'_> {
     fn set(&mut self, idx: i64) -> Result<()> {
         debug_assert!(self.offsets.is_some());
         debug_assert!(self.lengths.is_some());
@@ -173,15 +175,15 @@ impl AbstractIteratorBase for BinaryDocValuesIterator<'_> {
     }
 
     fn long_value(&mut self) -> Result<i64> {
-        unreachable!("BinaryDocValuesIterator does not support long_value")
+        Err(LuceneError::not_implemented(
+            "BinaryDocValuesIterator does not support long_value",
+        ))
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         debug_assert!(self.values.is_some());
         self.values.as_mut().unwrap().offset = self.offset;
         self.values.as_mut().unwrap().length = self.length;
-        // TODO: coule we avoid the copy here?
-        // TODO:In Java Lucene, a reference is passed here, but this functionality cannot be achieved in Rust. Therefore, we should design a method to copy only a portion of the bytes to avoid a full copy.
-        Ok(self.values.as_mut().unwrap().clone())
+        Ok(self.values.as_mut().unwrap())
     }
 }

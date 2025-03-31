@@ -92,8 +92,10 @@ where
         self.values.set(index as i64, value - self.min_value)
     }
 
-    fn add_byte_ref(&mut self, _doc: i32, _value: BytesRef, _index: i32) -> Result<()> {
-        unreachable!("NumericDocValuesFieldUpdates does not support add_byte_ref")
+    fn add_byte_ref(&mut self, _doc: i32, _value: &BytesRef, _index: i32) -> Result<()> {
+        Err(LuceneError::unreachable(
+            "umericDocValuesFieldUpdates does not support add_byte_ref",
+        ))
     }
 
     fn add_iterator<I: DocValuesFieldIterator>(
@@ -109,9 +111,8 @@ where
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator> {
-        let sub_iterator =
-            NumericDocValuesFieldUpdatesIterator::new(Some(&mut self.values), 0, self.min_value);
-        Ok(AbstractIterator::new(inner, del_gen, sub_iterator))
+        let base = AbstractIteratorBaseImpl::new(Some(&mut self.values), 0, self.min_value);
+        Ok(AbstractIterator::new(inner, del_gen, base))
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -140,7 +141,7 @@ where
     }
 }
 #[derive(Default)]
-pub(crate) struct NumericDocValuesFieldUpdatesIterator<'a, T>
+pub(crate) struct AbstractIteratorBaseImpl<'a, T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
@@ -148,7 +149,7 @@ where
     value: i64,
     min_value: i64,
 }
-impl<'a, T> NumericDocValuesFieldUpdatesIterator<'a, T>
+impl<'a, T> AbstractIteratorBaseImpl<'a, T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
@@ -158,14 +159,14 @@ where
         min_value: i64,
     ) -> Self {
         debug_assert!(values.is_some());
-        NumericDocValuesFieldUpdatesIterator {
+        AbstractIteratorBaseImpl {
             values,
             value,
             min_value,
         }
     }
 }
-impl<T> AbstractIteratorBase for NumericDocValuesFieldUpdatesIterator<'_, T>
+impl<T> AbstractIteratorBase for AbstractIteratorBaseImpl<'_, T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
@@ -178,7 +179,7 @@ where
         Ok(self.value)
     }
 
-    fn binary_value(&mut self) -> Result<BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         unreachable!("NumericDocValuesFieldUpdatesIterator does not support binary_value")
     }
 }
@@ -194,8 +195,10 @@ impl SingleValueNumericDocValuesFieldUpdates {
     }
 }
 impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUpdates {
-    fn binary_value(&self) -> Result<BytesRef> {
-        unreachable!("SingleValueNumericDocValuesFieldUpdates does not support binary_value")
+    fn binary_value(&self) -> Result<&BytesRef> {
+        Err(LuceneError::unreachable(
+            "SingleValueNumericDocValuesFieldUpdates does not support binary_value",
+        ))
     }
 
     fn long_value(&self) -> Result<i64> {
