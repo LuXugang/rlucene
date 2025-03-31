@@ -667,7 +667,7 @@ where
 
         Ok(())
     }
-    fn index(&self) -> i32 {
+    pub fn index(&self) -> i32 {
         self.index
     }
     /// If the distance between the current position and the target is greater than 8 words,

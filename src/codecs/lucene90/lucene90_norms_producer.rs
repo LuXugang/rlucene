@@ -17,13 +17,12 @@
 use crate::codecs::lucene90::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
-pub(crate) use crate::codecs::numeric_doc_values_enum::NumericDocValuesEnum;
+use crate::codecs::numeric_doc_values_enum::norms::NumericDocValuesEnum;
 use crate::codecs::CodecUtil;
 use crate::index::doc_values::EmptyNumeric;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
-use crate::index::knn_vector_values::DocIndexIteratorBase;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::IndexFileNames;
@@ -841,7 +840,7 @@ where
     I: IndexInput,
 {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64> {
-        Ok(self.slice.borrow_mut().read_byte(disi.index()? as i64)? as i64)
+        Ok(self.slice.borrow_mut().read_byte(disi.index() as i64)? as i64)
     }
 }
 // case 2
@@ -859,7 +858,7 @@ where
         Ok(self
             .slice
             .borrow_mut()
-            .read_short((disi.index()? as i64) << 1)? as i64)
+            .read_short((disi.index() as i64) << 1)? as i64)
     }
 }
 // case 4
@@ -877,7 +876,7 @@ where
         Ok(self
             .slice
             .borrow_mut()
-            .read_int((disi.index()? as i64) << 2)? as i64)
+            .read_int((disi.index() as i64) << 2)? as i64)
     }
 }
 // case 8
@@ -894,7 +893,7 @@ where
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64> {
         self.slice
             .borrow_mut()
-            .read_long((disi.index()? as i64) << 3)
+            .read_long((disi.index() as i64) << 3)
     }
 }
 enum SparseNormsIteratorBaseEnum<I>
