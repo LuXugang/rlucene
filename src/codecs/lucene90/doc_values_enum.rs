@@ -22,13 +22,41 @@ pub mod doc_values {
     use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
     use crate::index::doc_values_iterator::DocValuesIterator;
     use crate::index::numeric_doc_values::NumericDocValues;
-    use crate::index::BytesRef;
+    use crate::index::sorted_doc_values::SortedDocValues;
+    use crate::index::{BytesRef, STBytesRef};
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
     use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    pub enum SortedDocValuesEnum {}
+
+    impl DocValuesIterator for SortedDocValuesEnum {}
+
+    impl DocIdSetIterator for SortedDocValuesEnum {
+        fn doc_id(&self) -> i32 {
+            todo!()
+        }
+
+        fn next_doc(&mut self) -> Result<i32> {
+            todo!()
+        }
+    }
+
+    impl SortedDocValues for SortedDocValuesEnum {
+        fn ord_value(&self) -> Result<i32> {
+            todo!()
+        }
+
+        fn lookup_ord(&self, ord: i32) -> Result<STBytesRef> {
+            todo!()
+        }
+
+        fn get_value_count(&self) -> i32 {
+            todo!()
+        }
+    }
     pub enum BinaryDocValuesEnum<I>
     where
         I: IndexInput,

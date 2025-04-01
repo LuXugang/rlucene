@@ -20,6 +20,7 @@ use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
+use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::{BytesRef, STBytesRef};
 use crate::util::access::Shared;
@@ -42,7 +43,7 @@ where
     S: Shared<BytesRef>,
 {
     /// Returns the related attribute source.
-    fn attributes(&self) -> &AttributeSource;
+    fn attributes(&self) -> Result<&AttributeSource>;
 
     /// Attempts to seek to the exact term.
     ///
@@ -79,7 +80,7 @@ where
 
     /// Seeks to the specified term by ordinal (position) as previously returned by [`ord()`](TermsEnum::ord).
     /// The target ordinal may be before or after the current ordinal, and must be within bounds.
-    fn seek_exact_by_ord(&mut self, ord: i64) -> Result<()>;
+    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()>;
     /// Expert: Seeks a specific position by [`TermState`] previously obtained from [`term_state()`](TermsEnum::term_state).
     /// Callers should maintain the [`TermState`] to use this method.
     /// Low-level implementations may position the [`TermsEnum`] without re-seeking the term dictionary.
@@ -96,10 +97,10 @@ where
     ///
     /// - `term`: the term the [`TermState`] corresponds to
     /// - `state`: the [`TermState`]
-    fn seek_exact_with_state(&mut self, term: &BytesRef, state: &impl TermState) -> Result<()>;
+    fn seek_exact_with_state(&mut self, term: &BytesRef, state: &TermStateEnum) -> Result<()>;
 
     /// Returns current term. Do not call this when the enum is unpositioned.
-    fn term(&self) -> Result<BytesRef>;
+    fn term(&self) -> Result<STBytesRef>;
 
     /// Returns ordinal position for the current term.
     /// This is an optional method (the codec may return an error or indicate unsupported).
@@ -173,7 +174,7 @@ impl BytesRefIterator<STBytesRef> for TermsEnumEmpty {
 }
 
 impl TermsEnum<STBytesRef> for TermsEnumEmpty {
-    fn attributes(&self) -> &AttributeSource {
+    fn attributes(&self) -> Result<&AttributeSource> {
         todo!()
     }
 
@@ -190,17 +191,17 @@ impl TermsEnum<STBytesRef> for TermsEnumEmpty {
         Ok(SeekStatus::End)
     }
 
-    fn seek_exact_by_ord(&mut self, _ord: i64) -> Result<()> {
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
         Ok(())
     }
 
-    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &impl TermState) -> Result<()> {
+    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
     }
 
-    fn term(&self) -> Result<BytesRef> {
+    fn term(&self) -> Result<STBytesRef> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
@@ -261,4 +262,10 @@ pub enum SeekStatus {
     Found,
     /// A different term was found after the requested term.
     NotFound,
+}
+
+pub enum TermsEnums<'a> {
+    Dummy(DummyTermsEnum),
+    Empty(TermsEnumEmpty),
+    SortedDocValues(SortedDocValuesTermsEnum<'a>),
 }

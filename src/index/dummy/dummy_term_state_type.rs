@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::term_state::TermState;
+use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ impl Display for DummyTermState {
 }
 
 impl TermState for DummyTermState {
-    fn copy_from(&mut self, _other: &impl TermState) -> Result<()> {
+    fn copy_from(&mut self, _other: &TermStateEnum) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

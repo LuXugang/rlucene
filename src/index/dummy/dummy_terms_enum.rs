@@ -18,10 +18,9 @@ use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::postings_enum::PostingsEnum;
-use crate::index::term_state::{TermState, TermStateEnum};
+use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, STBytesRef};
-use crate::util::access::Shared;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -38,9 +37,9 @@ impl BytesRefIterator<STBytesRef> for DummyTermsEnum {
 }
 
 impl TermsEnum<STBytesRef> for DummyTermsEnum {
-    fn attributes(&self) -> &AttributeSource {
+    fn attributes(&self) -> Result<&AttributeSource> {
         debug_assert!(false, "should never be called");
-        &self.atts
+        Ok(&self.atts)
     }
 
     fn prepare_seek_exact(
@@ -60,19 +59,19 @@ impl TermsEnum<STBytesRef> for DummyTermsEnum {
         ))
     }
 
-    fn seek_exact_by_ord(&mut self, _ord: i64) -> Result<()> {
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &impl TermState) -> Result<()> {
+    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn term(&self) -> Result<BytesRef> {
+    fn term(&self) -> Result<STBytesRef> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

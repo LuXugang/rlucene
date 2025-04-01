@@ -14,45 +14,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::base_terms_enum::TermStateImpl1;
-use crate::index::dummy::dummy_term_state_type::DummyTermState;
-use crate::index::ord_term_state::OrdTermState;
+use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
-/// Encapsulates all required internal state to position the associated [`TermsEnum`] without re-seeking.
-pub trait TermState: Display + Clone {
-    /// Copies the content of the given `TermState` to this instance.
-    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()>;
-    fn to_string(&self) -> String {
-        "TermState".to_string()
+/// An ordinal-based [`TermState`](TermState)
+#[derive(Clone)]
+pub struct OrdTermState {
+    /// Term ordinal, i.e. its position in the full list of sorted terms.
+    pub ord: i64,
+}
+impl Default for OrdTermState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-pub enum TermStateEnum {
-    Dummy(DummyTermState),
-    Impl1(TermStateImpl1),
-    Ord(OrdTermState),
+impl OrdTermState {
+    pub fn new() -> Self {
+        Self { ord: 0 }
+    }
 }
-
-impl Display for TermStateEnum {
+impl Display for OrdTermState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(f, "OrdTermState ord={} ", self.ord)
     }
 }
 
-impl Clone for TermStateEnum {
-    fn clone(&self) -> Self {
-        todo!()
-    }
-}
-
-impl TermState for TermStateEnum {
+impl TermState for OrdTermState {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
-        todo!()
-    }
-
-    fn to_string(&self) -> String {
-        todo!()
+        debug_assert!(
+            { matches!(other, TermStateEnum::Ord(_)) },
+            "can not copy from {}",
+            other
+        );
+        match other {
+            TermStateEnum::Ord(other_ord_term_state) => {
+                self.ord = other_ord_term_state.ord;
+            }
+            _ => debug_assert!(false, "can not copy from {}", other),
+        }
+        Ok(())
     }
 }
