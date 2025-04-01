@@ -28,22 +28,30 @@ use crate::util::StringHelper;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
+use std::marker::PhantomData;
 
 /// Prefix codes term instances (prefixes are shared). This is expected to be faster to build than an
 /// FST and might also be more compact if there are no common suffixes.
 ///
 /// # Lucene Internal
 #[derive(Debug)]
-pub struct PrefixCodedTerms {
+pub struct PrefixCodedTerms<S>
+where
+    S: Shared<BytesRef>,
+{
     content: Vec<Cursor<Vec<u8>>>,
     content_len: i64,
     size: i64,
     del_gen: i64,
     #[allow(unused)]
     lazy_hash: i32,
+    phantom: PhantomData<S>,
 }
 
-impl PrefixCodedTerms {
+impl<S> PrefixCodedTerms<S>
+where
+    S: Shared<BytesRef>,
+{
     pub fn new(content: Vec<Cursor<Vec<u8>>>, content_len: i64, size: i64) -> Self {
         debug_assert!(!content.is_empty());
         PrefixCodedTerms {
@@ -52,6 +60,7 @@ impl PrefixCodedTerms {
             size,
             del_gen: 0,
             lazy_hash: 0,
+            phantom: Default::default(),
         }
     }
 
@@ -63,10 +72,7 @@ impl PrefixCodedTerms {
     pub fn size(&self) -> i64 {
         self.size
     }
-    pub fn iterator<S>(&self) -> TermIterator<S>
-    where
-        S: Shared<BytesRef>,
-    {
+    pub fn iterator(&self) -> TermIterator<S> {
         let content = self
             .content
             .iter()
@@ -83,7 +89,10 @@ impl PrefixCodedTerms {
         )
     }
 }
-impl Hash for PrefixCodedTerms {
+impl<S> Hash for PrefixCodedTerms<S>
+where
+    S: Shared<BytesRef>,
+{
     fn hash<H: Hasher>(&self, state: &mut H) {
         for cursor in &self.content {
             cursor.get_ref().hash(state);
@@ -92,7 +101,10 @@ impl Hash for PrefixCodedTerms {
         self.del_gen.hash(state);
     }
 }
-impl PartialEq for PrefixCodedTerms {
+impl<S> PartialEq for PrefixCodedTerms<S>
+where
+    S: Shared<BytesRef>,
+{
     fn eq(&self, other: &Self) -> bool {
         if std::ptr::eq(self, other) {
             return true;
@@ -108,8 +120,11 @@ impl PartialEq for PrefixCodedTerms {
     }
 }
 
-impl Eq for PrefixCodedTerms {}
-impl Accountable for PrefixCodedTerms {
+impl<S> Eq for PrefixCodedTerms<S> where S: Shared<BytesRef> {}
+impl<S> Accountable for PrefixCodedTerms<S>
+where
+    S: Shared<BytesRef>,
+{
     fn ram_bytes_used(&self) -> Result<i64> {
         //TODO: memory calculation not implemented
         Ok(0)
@@ -117,14 +132,21 @@ impl Accountable for PrefixCodedTerms {
 }
 
 /// Builder for `PrefixCodedTerms`: call `add` repeatedly, then `finish`.
-pub struct PrefixCodedTermsBuilder {
+pub struct PrefixCodedTermsBuilder<S>
+where
+    S: Shared<BytesRef>,
+{
     output: ByteBuffersDataOutput,
     last_term: Term,
     last_term_bytes: BytesRefBuilder,
     size: i64,
+    phantom: PhantomData<S>,
 }
 
-impl PrefixCodedTermsBuilder {
+impl<S> PrefixCodedTermsBuilder<S>
+where
+    S: Shared<BytesRef>,
+{
     /// Sole constructor.
     pub fn new() -> Result<Self> {
         Ok(Self {
@@ -132,6 +154,7 @@ impl PrefixCodedTermsBuilder {
             last_term: Term::from_empty("".to_string()),
             last_term_bytes: BytesRefBuilder::new(),
             size: 0,
+            phantom: Default::default(),
         })
     }
     /// add a term.
@@ -174,7 +197,7 @@ impl PrefixCodedTermsBuilder {
         Ok(())
     }
     /// return finalized form.
-    pub fn finish(&mut self) -> Result<PrefixCodedTerms> {
+    pub fn finish(&mut self) -> Result<PrefixCodedTerms<S>> {
         let content = self.output.get_owned_buffer_list();
         Ok(PrefixCodedTerms::new(content.1, content.0, self.size))
     }

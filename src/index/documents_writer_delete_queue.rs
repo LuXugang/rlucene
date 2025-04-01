@@ -1014,14 +1014,13 @@ mod tests {
     use crate::index::field_term_iterator::FieldTermIterator;
     use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
     use crate::index::term::Term;
-    use crate::index::{BytesRef, BytesRefBuilder, MTBytesRef};
+    use crate::index::{BytesRef, BytesRefBuilder};
     use crate::search::dummy::dummy_query::DummyQuery;
     use crate::search::query::Query;
     use crate::search::term_query::TermQuery;
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::test::util::lucene_test_case::{random, random_multiplier};
 
-    use crate::index::prefix_coded_terms::TermIterator;
     use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
     use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -1091,7 +1090,7 @@ mod tests {
 
         let frozen: FrozenBufferedUpdates<DummyDirectory, DummyQuery, InfoStreamLock> =
             queue.freeze_global_buffer(None)?.unwrap();
-        let mut iter: TermIterator<MTBytesRef> = frozen.delete_terms.iterator();
+        let mut iter = frozen.delete_terms.iterator();
         let mut frozen_set: HashSet<Term> = HashSet::new();
         let mut bytes_ref = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
@@ -1265,7 +1264,7 @@ mod tests {
         queue.try_apply_global_slice()?;
         let mut frozen_set = HashSet::new();
         let frozen = queue.freeze_global_buffer::<DummyDirectory>(None)?.unwrap();
-        let mut iter: TermIterator<MTBytesRef> = frozen.delete_terms.iterator();
+        let mut iter = frozen.delete_terms.iterator();
         let mut builder = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
             builder.copy_bytes_with_ref(&byte_ref)?;
