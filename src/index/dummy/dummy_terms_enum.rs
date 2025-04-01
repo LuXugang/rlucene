@@ -20,12 +20,11 @@ use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::BytesRef;
+use crate::index::{BytesRef, STBytesRef};
 use crate::util::access::Shared;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
 
 pub struct DummyTermsEnum {
     atts: AttributeSource,
@@ -52,7 +51,7 @@ where
 
     fn prepare_seek_exact(
         &mut self,
-        _term: Rc<BytesRef>,
+        _term: STBytesRef,
     ) -> Result<Option<Self::IOBooleanSupplierType>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",

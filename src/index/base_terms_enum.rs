@@ -78,7 +78,7 @@ where
 
     fn prepare_seek_exact(
         &mut self,
-        term: Rc<BytesRef>,
+        term: STBytesRef,
     ) -> Result<Option<Self::IOBooleanSupplierType>> {
         let sub = self
             .sub_terms_enum
@@ -192,7 +192,7 @@ pub struct IOBooleanSupplierImpl<T>
 where
     T: TermsEnum<STBytesRef>,
 {
-    pub(crate) text: Rc<BytesRef>,
+    pub(crate) text: STBytesRef,
     sub_terms_enum: Rc<RefCell<T>>,
 }
 impl<T> IOBooleanSupplier for IOBooleanSupplierImpl<T>
