@@ -21,13 +21,12 @@ use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
 use crate::index::term_state::{TermState, TermStateEnum};
-use crate::index::BytesRef;
+use crate::index::{BytesRef, STBytesRef};
 use crate::util::access::Shared;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::io_boolean_supplier::{IOBooleanSupplier, IOBooleanSupplierEnum};
-use std::rc::Rc;
 
 /// Iterator to seek [`seek_ceil(BytesRef)`](TermsEnum::seek_ceil), [`seek_exact(BytesRef)`](TermsEnum::seek_exact)
 /// or step through [`next`](BytesRefIterator::next) terms to obtain frequency information [`doc_freq`](TermsEnum::doc_freq),
@@ -67,7 +66,7 @@ where
     /// **NOTE**: The returned [`IOBooleanSupplier`](crate::util::io_boolean_supplier::IOBooleanSupplier) must be
     fn prepare_seek_exact(
         &mut self,
-        term: Rc<BytesRef>,
+        term: STBytesRef,
     ) -> Result<Option<Self::IOBooleanSupplierType>>;
     type IOBooleanSupplierType: IOBooleanSupplier;
 
@@ -167,31 +166,25 @@ where
 }
 pub struct TermsEnumEmpty;
 
-impl<S> BytesRefIterator<S> for TermsEnumEmpty
-where
-    S: Shared<BytesRef>,
-{
-    fn next(&mut self) -> Result<Option<S>> {
+impl BytesRefIterator<STBytesRef> for TermsEnumEmpty {
+    fn next(&mut self) -> Result<Option<STBytesRef>> {
         Ok(None)
     }
 }
 
-impl<S> TermsEnum<S> for TermsEnumEmpty
-where
-    S: Shared<BytesRef>,
-{
+impl TermsEnum<STBytesRef> for TermsEnumEmpty {
     fn attributes(&self) -> &AttributeSource {
         todo!()
     }
 
     fn prepare_seek_exact(
         &mut self,
-        _term: Rc<BytesRef>,
+        _term: STBytesRef,
     ) -> Result<Option<Self::IOBooleanSupplierType>> {
         Ok(Some(IOBooleanSupplierEnum::Dummy(DummyIOBooleanSupplier)))
     }
 
-    type IOBooleanSupplierType = IOBooleanSupplierEnum<DummyTermsEnum, S>;
+    type IOBooleanSupplierType = IOBooleanSupplierEnum<DummyTermsEnum>;
 
     fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
         Ok(SeekStatus::End)
