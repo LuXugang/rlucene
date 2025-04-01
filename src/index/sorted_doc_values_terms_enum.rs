@@ -30,15 +30,15 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 
 /// Implements a [`TermsEnum`](TermsEnum) wrapping a provided [`SortedDocValues`](SortedDocValues).
-pub(crate) struct SortedDocValuesTermsEnum<'a> {
-    values: &'a mut SortedDocValuesEnum,
+pub(crate) struct SortedDocValuesTermsEnum {
+    values: SortedDocValuesEnum,
     current_ord: i32,
     bytes: STBytesRef,
 }
 
-impl<'a> SortedDocValuesTermsEnum<'a> {
+impl SortedDocValuesTermsEnum {
     /// Creates a new TermsEnum over the provided values.
-    pub fn new(values: &'a mut SortedDocValuesEnum) -> Self {
+    pub fn new(values: SortedDocValuesEnum) -> Self {
         Self {
             values,
             current_ord: -1,
@@ -47,7 +47,7 @@ impl<'a> SortedDocValuesTermsEnum<'a> {
     }
 }
 
-impl BytesRefIterator<STBytesRef> for SortedDocValuesTermsEnum<'_> {
+impl BytesRefIterator<STBytesRef> for SortedDocValuesTermsEnum {
     fn next(&mut self) -> Result<Option<STBytesRef>> {
         self.current_ord += 1;
         if self.current_ord >= self.values.get_value_count() {
@@ -59,7 +59,7 @@ impl BytesRefIterator<STBytesRef> for SortedDocValuesTermsEnum<'_> {
     }
 }
 
-impl TermsEnum<STBytesRef> for SortedDocValuesTermsEnum<'_> {
+impl TermsEnum<STBytesRef> for SortedDocValuesTermsEnum {
     fn attributes(&self) -> Result<&AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }

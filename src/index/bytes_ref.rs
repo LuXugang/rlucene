@@ -74,7 +74,7 @@ impl BytesRef {
     }
     pub fn with_capacity(capacity: i32) -> BytesRef {
         BytesRef {
-            bytes: Vec::with_capacity(capacity as usize),
+            bytes: vec![0; capacity as usize],
             offset: 0,
             length: 0,
         }
@@ -201,7 +201,9 @@ impl Display for BytesRef {
         write!(f, "]")
     }
 }
+/// for single-threaded scenarios
 pub type STBytesRef = Rc<BytesRef>;
+/// for multi-threaded scenarios
 pub type MTBytesRef = Arc<BytesRef>;
 
 #[cfg(test)]

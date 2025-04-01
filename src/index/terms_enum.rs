@@ -264,8 +264,8 @@ pub enum SeekStatus {
     NotFound,
 }
 
-pub enum TermsEnums<'a> {
+pub enum TermsEnums {
     Dummy(DummyTermsEnum),
     Empty(TermsEnumEmpty),
-    SortedDocValues(SortedDocValuesTermsEnum<'a>),
+    SortedDocValues(SortedDocValuesTermsEnum),
 }
