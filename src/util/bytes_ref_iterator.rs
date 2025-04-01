@@ -15,9 +15,13 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
+use crate::util::access::Shared;
 use crate::util::error::lucene_error::Result;
 
-pub trait BytesRefIterator {
+pub trait BytesRefIterator<S>
+where
+    S: Shared<BytesRef>,
+{
     /// Increments the iteration to the next [`BytesRef`] in the iterator.
     /// Returns the resulting [`BytesRef`] or `None` if the end of the iterator is reached.
     /// The returned `BytesRef` may be re-used across calls to `next`. After this method returns `None`,
@@ -28,13 +32,16 @@ pub trait BytesRefIterator {
     ///
     /// # Errors
     /// Returns an `std::io::Error` if there is a low-level I/O error.
-    fn next(&mut self) -> Result<Option<BytesRef>>;
+    fn next(&mut self) -> Result<Option<S>>;
 }
 
 pub struct EmptyBytesRefIterator;
 
-impl BytesRefIterator for EmptyBytesRefIterator {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+impl<S> BytesRefIterator<S> for EmptyBytesRefIterator
+where
+    S: Shared<BytesRef>,
+{
+    fn next(&mut self) -> Result<Option<S>> {
         Ok(None)
     }
 }

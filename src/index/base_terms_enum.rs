@@ -18,13 +18,16 @@ use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
+use crate::util::access::Shared;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::io_boolean_supplier::{IOBooleanSupplier, IOBooleanSupplierEnum};
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
+use std::marker::PhantomData;
 use std::rc::Rc;
+
 /// A base `TermsEnum` that provides default implementations for:
 ///
 /// - [`attributes()`](BaseTermsEnum::attributes)
@@ -34,37 +37,47 @@ use std::rc::Rc;
 ///
 /// In some cases, the default implementation may be slow and consume large amounts of memory,
 /// so subclasses SHOULD provide their own implementation if possible.
-pub struct BaseTermsEnum<T>
+pub struct BaseTermsEnum<T, S>
 where
-    T: TermsEnum,
+    T: TermsEnum<S>,
+    S: Shared<BytesRef>,
 {
     atts: AttributeSource,
     sub_terms_enum: Rc<RefCell<T>>,
+    _phantom: PhantomData<S>,
 }
-impl<T> BaseTermsEnum<T>
+impl<T, S> BaseTermsEnum<T, S>
 where
-    T: TermsEnum,
+    T: TermsEnum<S>,
+    S: Shared<BytesRef>,
 {
     pub fn new(sub_terms_enum: Rc<RefCell<T>>) -> Self {
         Self {
             atts: AttributeSource::new(),
             sub_terms_enum,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<T> BytesRefIterator for BaseTermsEnum<T>
+impl<T, S> BytesRefIterator<S> for BaseTermsEnum<T, S>
 where
-    T: TermsEnum,
+    T: TermsEnum<S>,
+    S: Shared<BytesRef>,
 {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+    fn next(&mut self) -> Result<Option<S>> {
         self.sub_terms_enum.borrow_mut().next()
     }
 }
 
-impl<T> TermsEnum for BaseTermsEnum<T>
+impl<T, S> TermsEnum<S> for BaseTermsEnum<T, S>
 where
-    T: TermsEnum<IOBooleanSupplierType = IOBooleanSupplierEnum<T>, TermStateType = TermStateEnum>,
+    T: TermsEnum<
+        S,
+        IOBooleanSupplierType = IOBooleanSupplierEnum<T, S>,
+        TermStateType = TermStateEnum,
+    >,
+    S: Shared<BytesRef>,
 {
     fn attributes(&self) -> &AttributeSource {
         // TODO: 参考BaseTermsEnum中prepare_seek_exact方法 来选择使用父或子的实现
@@ -88,6 +101,7 @@ where
                     let supplier = IOBooleanSupplierImpl {
                         text: term,
                         sub_terms_enum: self.sub_terms_enum.clone(),
+                        _phantom: Default::default(),
                     };
                     if self.seek_exact(&supplier.text)? {
                         Ok(Some(IOBooleanSupplierEnum::Impl1(supplier)))
@@ -101,7 +115,7 @@ where
         }
     }
 
-    type IOBooleanSupplierType = IOBooleanSupplierEnum<T>;
+    type IOBooleanSupplierType = IOBooleanSupplierEnum<T, S>;
 
     fn seek_ceil(&mut self, term: &BytesRef) -> Result<SeekStatus> {
         self.sub_terms_enum.borrow_mut().seek_ceil(term)
@@ -183,16 +197,19 @@ impl TermState for TermStateImpl1 {
         Err(LuceneError::unsupported_operation(""))
     }
 }
-pub struct IOBooleanSupplierImpl<T>
+pub struct IOBooleanSupplierImpl<T, S>
 where
-    T: TermsEnum,
+    T: TermsEnum<S>,
+    S: Shared<BytesRef>,
 {
     pub(crate) text: Rc<BytesRef>,
     sub_terms_enum: Rc<RefCell<T>>,
+    _phantom: PhantomData<S>,
 }
-impl<T> IOBooleanSupplier for IOBooleanSupplierImpl<T>
+impl<T, S> IOBooleanSupplier for IOBooleanSupplierImpl<T, S>
 where
-    T: TermsEnum,
+    T: TermsEnum<S>,
+    S: Shared<BytesRef>,
 {
     fn get(&mut self) -> Result<bool> {
         self.sub_terms_enum.borrow_mut().seek_exact(&self.text)

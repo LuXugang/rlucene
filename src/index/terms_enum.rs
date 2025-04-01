@@ -22,6 +22,7 @@ use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
+use crate::util::access::Shared;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -37,7 +38,10 @@ use std::rc::Rc;
 ///
 /// The `TermsEnum` is unpositioned when you first obtain it, and you must first successfully call
 /// [`next()`](BytesRefIterator::next) or one of the `seek` methods.
-pub trait TermsEnum: BytesRefIterator {
+pub trait TermsEnum<S>: BytesRefIterator<S>
+where
+    S: Shared<BytesRef>,
+{
     /// Returns the related attribute source.
     fn attributes(&self) -> &AttributeSource;
 
@@ -163,13 +167,19 @@ pub trait TermsEnum: BytesRefIterator {
 }
 pub struct TermsEnumEmpty;
 
-impl BytesRefIterator for TermsEnumEmpty {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+impl<S> BytesRefIterator<S> for TermsEnumEmpty
+where
+    S: Shared<BytesRef>,
+{
+    fn next(&mut self) -> Result<Option<S>> {
         Ok(None)
     }
 }
 
-impl TermsEnum for TermsEnumEmpty {
+impl<S> TermsEnum<S> for TermsEnumEmpty
+where
+    S: Shared<BytesRef>,
+{
     fn attributes(&self) -> &AttributeSource {
         todo!()
     }
@@ -181,7 +191,7 @@ impl TermsEnum for TermsEnumEmpty {
         Ok(Some(IOBooleanSupplierEnum::Dummy(DummyIOBooleanSupplier)))
     }
 
-    type IOBooleanSupplierType = IOBooleanSupplierEnum<DummyTermsEnum>;
+    type IOBooleanSupplierType = IOBooleanSupplierEnum<DummyTermsEnum, S>;
 
     fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
         Ok(SeekStatus::End)

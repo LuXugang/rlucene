@@ -16,6 +16,7 @@
  */
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -66,5 +67,20 @@ impl<T> Access<T> for Arc<Mutex<T>> {
             .lock()
             .map_err(|e| LuceneError::LockError(format!("{:?}", e)))?;
         f(&mut *guard)
+    }
+}
+pub trait Shared<T>: Clone + Deref<Target = T> {
+    fn new(value: T) -> Self;
+}
+
+impl<T> Shared<T> for Rc<T> {
+    fn new(value: T) -> Self {
+        Rc::new(value)
+    }
+}
+
+impl<T> Shared<T> for Arc<T> {
+    fn new(value: T) -> Self {
+        Arc::new(value)
     }
 }

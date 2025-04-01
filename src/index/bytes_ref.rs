@@ -20,6 +20,8 @@ use crate::util::{StringHelper, GOOD_FAST_HASH_SEED};
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Represents a `&[u8]` as a slice (offset + length) into an existing byte array.
 /// The `bytes` member should never be `None`;
@@ -199,6 +201,8 @@ impl Display for BytesRef {
         write!(f, "]")
     }
 }
+pub type STBytesRef = Rc<BytesRef>;
+pub type MTBytesRef = Arc<BytesRef>;
 
 #[cfg(test)]
 mod tests {

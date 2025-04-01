@@ -21,22 +21,30 @@ use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
+use crate::util::access::Shared;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
+
 pub struct DummyTermsEnum {
     atts: AttributeSource,
 }
-impl BytesRefIterator for DummyTermsEnum {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+impl<S> BytesRefIterator<S> for DummyTermsEnum
+where
+    S: Shared<BytesRef>,
+{
+    fn next(&mut self) -> Result<Option<S>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 }
 
-impl TermsEnum for DummyTermsEnum {
+impl<S> TermsEnum<S> for DummyTermsEnum
+where
+    S: Shared<BytesRef>,
+{
     fn attributes(&self) -> &AttributeSource {
         debug_assert!(false, "should never be called");
         &self.atts

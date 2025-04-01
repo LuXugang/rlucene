@@ -1690,7 +1690,7 @@ where
     I: IndexInput,
 {
     fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>> {
-        let mut bytes = &mut *self.bytes.borrow_mut();
+        let bytes = &mut *self.bytes.borrow_mut();
         let start_offset = self.addresses.get(doc as i64)?;
         bytes.length = (self.addresses.get((doc + 1) as i64)? - start_offset) as i32;
         self.bytes_slice

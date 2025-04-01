@@ -14,12 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::BytesRef;
+use crate::util::access::Shared;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 
 /// Iterates over terms across multiple fields. The caller must check [`field()`](FieldTermIterator::field) after each [`next()`](BytesRefIterator::next)
 /// to see if the field changed, but `==` can be used since the iterator implementation ensures
 /// it will use the same `String` instance for a given field.
-pub trait FieldTermIterator: BytesRefIterator {
+pub trait FieldTermIterator<S>: BytesRefIterator<S>
+where
+    S: Shared<BytesRef>,
+{
     /// Returns the current field. This method should not be called after iteration is done.
     /// Note that you may use `==` to detect a change in field.
     fn field(&self) -> &str;

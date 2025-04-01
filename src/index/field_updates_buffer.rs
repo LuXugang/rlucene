@@ -16,7 +16,7 @@
  */
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::term::Term;
-use crate::index::BytesRef;
+use crate::index::{BytesRef, MTBytesRef};
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
@@ -344,7 +344,7 @@ impl FieldUpdatesBuffer {
         let mut iterator = self
             .term_values
             .iterator_with_state(self.term_sort_state.clone());
-        let mut last: Option<BytesRef> = None;
+        let mut last: Option<Arc<BytesRef>> = None;
         let mut last_ord = 0;
 
         let result: Result<()> = (|| {
@@ -415,9 +415,9 @@ impl FieldUpdatesBuffer {
 /// An iterator that iterates over all updates in insertion order.
 #[allow(unused)]
 pub struct BufferedUpdateIterator<'a> {
-    term_values_iterator: IndexedBytesRefIteratorImpl<'a, CounterEnumLock>,
-    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
-    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
+    term_values_iterator: IndexedBytesRefIteratorImpl<'a, CounterEnumLock, MTBytesRef>,
+    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock, MTBytesRef>>,
+    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock, MTBytesRef>>,
     buffered_update: BufferedUpdate,
     updates_with_value: Option<BitsEnum<'a>>,
     fields_length: i32,
@@ -526,13 +526,13 @@ impl<'a> BufferedUpdateIterator<'a> {
         }
     }
 
-    fn next_term(&mut self) -> Result<Option<BytesRef>> {
+    fn next_term(&mut self) -> Result<Option<MTBytesRef>> {
         if let Some(look_ahead_term_iterator) = &mut self.look_ahead_term_iterator {
             if self.buffered_update.term_value.is_none() {
                 look_ahead_term_iterator.next()?;
             }
-            let mut last_term: Option<BytesRef>;
-            let mut ahead_term: Option<BytesRef>;
+            let mut last_term: Option<MTBytesRef>;
+            let mut ahead_term: Option<MTBytesRef>;
             loop {
                 ahead_term = look_ahead_term_iterator.next()?;
                 last_term = self.term_values_iterator.next()?;
@@ -566,13 +566,13 @@ pub struct BufferedUpdate {
     /// a numeric value or 0 if this buffer holds binary updates.
     pub numeric_value: i64,
     /// a binary value or null if this buffer holds numeric updates.
-    pub binary_value: Option<BytesRef>,
+    pub binary_value: Option<MTBytesRef>,
     /// true if this update has a value.
     pub has_value: bool,
     /// The update terms field. This will never be null.
     pub term_field: String,
     /// The update terms value. This will never be null.
-    pub term_value: Option<BytesRef>,
+    pub term_value: Option<MTBytesRef>,
 }
 
 #[allow(unused)]
@@ -580,10 +580,10 @@ impl BufferedUpdate {
     pub fn new(
         doc_up_to: i32,
         numeric_value: i64,
-        binary_value: Option<BytesRef>,
+        binary_value: Option<MTBytesRef>,
         has_value: bool,
         term_field: String,
-        term_value: Option<BytesRef>,
+        term_value: Option<MTBytesRef>,
     ) -> Self {
         BufferedUpdate {
             doc_up_to,
@@ -819,7 +819,7 @@ mod tests {
             assert_eq!(has_value, value.has_value);
 
             if has_value {
-                assert_eq!(BytesRef::from_string(""), value.binary_value.unwrap());
+                assert_eq!(BytesRef::from_string(""), *value.binary_value.unwrap());
             } else {
                 assert!(value.binary_value.is_none());
             }
@@ -937,7 +937,7 @@ mod tests {
             if random_update.has_value {
                 assert_eq!(
                     random_update.sub_update.get_binary().unwrap().get_value(),
-                    value.binary_value.unwrap()
+                    *value.binary_value.unwrap()
                 );
             } else {
                 assert!(value.binary_value.is_none());
