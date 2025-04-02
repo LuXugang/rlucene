@@ -25,6 +25,7 @@ pub mod doc_values {
     use crate::index::doc_values_iterator::DocValuesIterator;
     use crate::index::numeric_doc_values::NumericDocValues;
     use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
+    use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
     use crate::index::sorted_doc_values::SortedDocValues;
     use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
     use crate::index::BytesRef;
@@ -292,6 +293,13 @@ pub mod doc_values {
         fn doc_value_count(&mut self) -> Result<i32> {
             todo!()
         }
+    }
+
+    pub enum SortedSetDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        Singleton(SingletonSortedSetDocValues<I>),
     }
 }
 

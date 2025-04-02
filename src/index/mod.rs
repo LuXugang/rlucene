@@ -81,7 +81,7 @@ pub mod segment_infos;
 pub mod segment_read_state;
 pub mod segment_write_state;
 pub mod singleton_sorted_numeric_doc_values;
-mod singleton_sorted_set_doc_values;
+pub mod singleton_sorted_set_doc_values;
 pub mod sort;
 pub mod sort_field_provider;
 pub mod sorted_doc_values;

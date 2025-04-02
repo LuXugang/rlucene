@@ -23,7 +23,7 @@ use crate::codecs::lucene90_doc_values_format::{
 };
 use crate::codecs::CodecUtil;
 use crate::index::binary_doc_values::BinaryDocValues;
-use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
+use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_skipper::DocValuesSkipper;
@@ -36,7 +36,6 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_read_state::SegmentReadState;
-use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
@@ -776,10 +775,7 @@ where
         I: IndexInput,
     {
         if entry.base.num_values == entry.num_docs_with_field as i64 {
-            let numeric = self.get_numeric(&entry.base)?;
-            return Ok(SortedNumericDocValuesEnum::Singleton(
-                SingletonSortedNumericDocValues::new(numeric)?,
-            ));
+            return DocValues::singleton_numeric(self.get_numeric(&entry.base)?);
         }
 
         let mut addresses_input = self
