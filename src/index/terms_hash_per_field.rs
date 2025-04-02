@@ -264,7 +264,7 @@ impl TermsHashPerField {
         debug_assert!(stream < self.stream_count);
         while (i & !0x7F) != 0 {
             self.write_byte(stream, ((i & 0x7F) | 0x80) as u8)?;
-            i = ((i as u32) >> 7) as i32 + i;
+            i = ((i as u32) >> 7) as i32;
         }
         self.write_byte(stream, i as u8)
     }
