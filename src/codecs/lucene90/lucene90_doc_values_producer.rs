@@ -25,23 +25,34 @@ use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_skipper::DocValuesSkipper;
+use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
+use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
+use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
+use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_read_state::SegmentReadState;
+use crate::index::term_state::TermStateEnum;
+use crate::index::terms_enum::{SeekStatus, TermsEnum, TermsEnums};
 use crate::index::{BytesRef, IndexFileNames};
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{DataInput, IndexInput, ReadAdvice};
+use crate::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
+use crate::util::attribute_source::AttributeSource;
 use crate::util::bit_util::BitUtil;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::compress::lz4::LZ4;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
+use crate::util::{SliceCopyOps, ToInt};
 use byteorder::ReadBytesExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -1069,6 +1080,16 @@ where
         self.sub.binary_value(&mut self.disi)
     }
 }
+struct BaseSortedDocValues {
+    pub entry: SortedEntry,
+    pub terms_enum: TermsEnums,
+}
+
+impl BaseSortedDocValues {
+    pub fn new(entry: SortedEntry) -> Self {
+        todo!()
+    }
+}
 
 /// Reader for longs split into blocks of different bits per value.
 /// The longs are requested by index and must be accessed in monotonically increasing order.
@@ -1782,4 +1803,413 @@ where
             SparseBinaryDocValuesBaseEnum::Sparse1(sub) => sub.binary_value(disi),
         }
     }
+}
+
+struct TermsDict<I>
+where
+    I: IndexInput,
+{
+    pub entry: TermsDictEntry,
+    pub block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    pub bytes: I::Slice,
+    pub block_mask: u64,
+    pub index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    pub index_bytes: I::RandomAccessSlice,
+    pub term: BytesRef,
+    pub ord: i64,
+    pub block_buffer: BytesRef,
+    pub block_input: ByteArrayDataInput,
+    pub current_compressed_block_start: i64,
+    pub current_compressed_block_end: i64,
+}
+
+impl<I> TermsDict<I>
+where
+    I: IndexInput,
+{
+    const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
+
+    pub fn new(entry: TermsDictEntry, data: &mut I, merging: bool) -> Result<Self> {
+        let addresses_slice = Rc::new(RefCell::new(
+            data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?,
+        ));
+        let block_addresses;
+        match entry.terms_addresses_meta {
+            Some(ref meta) => {
+                block_addresses = DirectMonotonicReader::get_instance_with_merging(
+                    meta,
+                    addresses_slice.clone(),
+                    merging,
+                )?;
+            }
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "TermsDictEntry's terms_addresses_meta is None".to_string(),
+                ));
+            }
+        }
+
+        let bytes = data.slice("terms", entry.terms_data_offset, entry.terms_data_length)?;
+
+        let block_mask = (1u64 << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
+
+        let index_addresses_slice = Rc::new(RefCell::new(data.random_access_slice(
+            entry.terms_index_addresses_offset,
+            entry.terms_index_addresses_length,
+        )?));
+
+        let index_addresses;
+        match entry.terms_index_addresses_meta {
+            Some(ref meta) => {
+                index_addresses = DirectMonotonicReader::get_instance_with_merging(
+                    meta,
+                    index_addresses_slice.clone(),
+                    merging,
+                )?;
+            }
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "TermsDictEntry's terms_index_addresses_meta is None".to_string(),
+                ));
+            }
+        }
+
+        let index_bytes =
+            data.random_access_slice(entry.terms_index_offset, entry.terms_index_length)?;
+
+        let term = BytesRef::with_capacity(entry.max_term_length);
+        // add the max term length for the dictionary
+        // add 7 padding bytes can help decompression run faster.
+        let buffer_size =
+            entry.max_block_length + entry.max_term_length + Self::LZ4_DECOMPRESSOR_PADDING;
+
+        let block_buffer = BytesRef::from_vec(vec![0u8; buffer_size as usize], 0, buffer_size);
+        let block_input = ByteArrayDataInput::new(); // assuming default constructor
+
+        Ok(Self {
+            entry,
+            block_addresses,
+            bytes,
+            block_mask,
+            index_addresses,
+            index_bytes,
+            term,
+            ord: -1,
+            block_buffer,
+            block_input,
+            current_compressed_block_start: -1,
+            current_compressed_block_end: -1,
+        })
+    }
+
+    fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef> {
+        debug_assert!(
+            index >= 0
+                && index
+                    <= ((self.entry.terms_dict_size - 1) as u64
+                        >> self.entry.terms_dict_index_shift) as i64,
+            "index {} out of range",
+            index
+        );
+
+        let start = self.index_addresses.get(index)?;
+        let end = self.index_addresses.get(index + 1)?;
+        let len = (end - start) as i32;
+        self.term.length = len;
+
+        self.index_bytes
+            .read_bytes(start, &mut self.term.bytes, 0, len)?;
+        Ok(&self.term)
+    }
+    fn seek_terms_index(&mut self, text: &BytesRef) -> Result<i64> {
+        let mut lo: i64 = 0;
+        let mut hi: i64 = (self.entry.terms_dict_size - 1) >> self.entry.terms_dict_index_shift;
+
+        while lo <= hi {
+            let mid = (lo + hi) >> 1;
+            let term = self.get_term_from_index(mid)?;
+            let cmp = term.cmp(text).to_int();
+            if cmp <= 0 {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+
+        debug_assert!(
+            hi < 0 || self.get_term_from_index(hi)?.cmp(text).to_int() <= 0,
+            "hi check failed"
+        );
+        debug_assert!(
+            hi == ((self.entry.terms_dict_size - 1) >> self.entry.terms_dict_index_shift)
+                || self.get_term_from_index(hi + 1)?.cmp(text).to_int() > 0,
+            "hi+1 check failed"
+        );
+        // return -1 iff empty term dict
+        debug_assert!(
+            (hi < 0) ^ (self.entry.terms_dict_size > 0),
+            "empty term dict assertion failed"
+        );
+        Ok(hi)
+    }
+    fn get_first_term_from_block(&mut self, block: i64) -> Result<&BytesRef> {
+        debug_assert!(
+            block >= 0
+                && block
+                    <= (((self.entry.terms_dict_size - 1) as u64)
+                        >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT)
+                        as i64
+        );
+
+        let block_address = self.block_addresses.get(block)?;
+        self.bytes.seek(block_address)?;
+
+        let len = self.bytes.read_vint()?;
+        self.term.length = len;
+        self.bytes.read_bytes(&mut self.term.bytes, 0, len)?;
+
+        Ok(&self.term)
+    }
+    fn seek_block(&mut self, text: &BytesRef) -> Result<i64> {
+        let index = self.seek_terms_index(text)?;
+
+        if index == -1 {
+            // Empty term dictionary
+            self.ord = 0;
+            return Ok(-2);
+        }
+
+        let ord_lo = index << self.entry.terms_dict_index_shift;
+        let ord_hi = std::cmp::min(
+            self.entry.terms_dict_size,
+            ord_lo + (1 << self.entry.terms_dict_index_shift),
+        ) - 1;
+
+        let mut block_lo =
+            (ord_lo as u64 >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) as i64;
+        let mut block_hi =
+            (ord_hi as u64 >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) as i64;
+
+        while block_lo <= block_hi {
+            let block_mid = ((block_lo + block_hi) as u64 >> 1) as i64;
+            let term = self.get_first_term_from_block(block_mid)?;
+            let cmp = term.cmp(text).to_int();
+            if cmp <= 0 {
+                block_lo = block_mid + 1;
+            } else {
+                block_hi = block_mid - 1;
+            }
+        }
+
+        debug_assert!(
+            block_hi < 0 || self.get_first_term_from_block(block_hi)?.cmp(text).to_int() <= 0
+        );
+        debug_assert!(
+            block_hi
+                == ((self.entry.terms_dict_size - 1) as u64
+                    >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT)
+                    as i64
+                || self
+                    .get_first_term_from_block(block_hi + 1)?
+                    .cmp(text)
+                    .to_int()
+                    > 0
+        );
+        // read the block only if term dict is not empty
+        debug_assert!(self.entry.terms_dict_size > 0);
+        // reset ord and bytes to the ceiling block even if
+        // text is before the first term (blockHi == -1)
+        let block = std::cmp::max(block_hi, 0);
+        let block_address = self.block_addresses.get(block)?;
+        self.ord = block << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
+        self.bytes.seek(block_address)?;
+        self.decompress_block()?;
+
+        Ok(block_hi)
+    }
+    fn decompress_block(&mut self) -> Result<()> {
+        // The first term is kept uncompressed, so no need to decompress block if only
+        // look up the first term when doing seek block.
+        self.term.length = self.bytes.read_vint()?;
+        self.bytes
+            .read_bytes(&mut self.term.bytes, 0, self.term.length)?;
+        let offset = self.bytes.get_file_pointer();
+        if offset < self.entry.terms_data_length - 1 {
+            // Avoid decompressing again if reading the same block
+            if self.current_compressed_block_start != offset {
+                let block_buffer_offset = self.term.length;
+                let block_buffer_len = self.bytes.read_vint()?;
+
+                self.block_buffer.offset = block_buffer_offset;
+                self.block_buffer.length = block_buffer_len;
+                // Decompress the remaining of current block, using the first term as a dictionary
+                self.block_buffer
+                    .bytes
+                    .copy_from(&self.term.bytes[..block_buffer_offset as usize], 0);
+                LZ4::decompress(
+                    &mut self.bytes,
+                    block_buffer_len,
+                    &mut self.block_buffer.bytes,
+                    block_buffer_offset,
+                )?;
+
+                self.current_compressed_block_start = offset;
+                self.current_compressed_block_end = self.bytes.get_file_pointer();
+            } else {
+                // Seek to block end if already decompressed
+                self.bytes.seek(self.current_compressed_block_end)?;
+            }
+
+            // Reset buffer reader
+            self.block_input = ByteArrayDataInput::with_range(
+                std::mem::take(&mut self.block_buffer.bytes),
+                self.block_buffer.offset,
+                self.block_buffer.length,
+            );
+        }
+
+        Ok(())
+    }
+}
+
+impl<I> BytesRefIterator for TermsDict<I>
+where
+    I: IndexInput,
+{
+    fn next_ref(&mut self) -> Result<Option<&BytesRef>> {
+        self.ord += 1;
+        if self.ord >= self.entry.terms_dict_size {
+            return Ok(None);
+        }
+
+        if (self.ord & self.block_mask as i64) == 0 {
+            self.decompress_block()?;
+        } else {
+            let input = &mut self.block_input;
+            let token = input.read_byte()? as i32;
+            let mut prefix_length = token & 0x0F;
+            let mut suffix_length = 1 + (token as usize >> 4) as i32;
+
+            if prefix_length == 15 {
+                prefix_length += input.read_vint()?;
+            }
+            if suffix_length == 16 {
+                suffix_length += input.read_vint()?;
+            }
+
+            self.term.length = prefix_length + suffix_length;
+            input.read_bytes(&mut self.term.bytes, prefix_length, suffix_length)?;
+        }
+        Ok(Some(&self.term))
+    }
+}
+
+impl<I> TermsEnum for TermsDict<I>
+where
+    I: IndexInput,
+{
+    fn attributes(&self) -> Result<&AttributeSource> {
+        Err(LuceneError::not_implemented(""))
+    }
+
+    fn prepare_seek_exact(
+        &mut self,
+        _term: &BytesRef,
+    ) -> Result<Option<Self::IOBooleanSupplierType>> {
+        Err(LuceneError::not_implemented(""))
+    }
+
+    type IOBooleanSupplierType = DummyIOBooleanSupplier;
+
+    fn seek_ceil(&mut self, text: &BytesRef) -> Result<SeekStatus> {
+        let block = self.seek_block(text)?;
+        if block == -2 {
+            // empty terms dict
+            debug_assert!(self.entry.terms_dict_size == 0);
+            return Ok(SeekStatus::End);
+        } else if block == -1 {
+            // before the first term
+            return Ok(SeekStatus::NotFound);
+        }
+
+        loop {
+            let cmp = self.term.cmp(text).to_int();
+            if cmp == 0 {
+                return Ok(SeekStatus::Found);
+            } else if cmp > 0 {
+                return Ok(SeekStatus::NotFound);
+            }
+
+            if self.next_ref()?.is_none() {
+                return Ok(SeekStatus::End);
+            }
+        }
+    }
+
+    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+        if ord < 0 || ord >= self.entry.terms_dict_size {
+            return Err(LuceneError::illegal_state(format!(
+                "Invalid ordinal {} (max {})",
+                ord, self.entry.terms_dict_size
+            )));
+        }
+
+        // Signed shift since ord is -1 when unpositioned
+        let current_block_index = self.ord >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
+        let block_index = ord >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
+
+        if ord < self.ord || block_index != current_block_index {
+            // The looked up ord is before the current ord or belongs to a different block, seek again
+            let block_address = self.block_addresses.get(block_index)?;
+            self.bytes.seek(block_address)?;
+            self.ord = (block_index << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
+        }
+        // Scan forward to the desired ordinal
+        while self.ord < ord {
+            self.next_ref()?;
+        }
+        Ok(())
+    }
+
+    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
+        Err(LuceneError::not_implemented(""))
+    }
+
+    fn term_ref(&self) -> Result<&BytesRef> {
+        Ok(&self.term)
+    }
+
+    fn ord(&self) -> Result<i64> {
+        Ok(self.ord)
+    }
+
+    fn doc_freq(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn total_term_freq(&self) -> Result<i64> {
+        Ok(-1)
+    }
+
+    fn postings_with_flags(
+        &mut self,
+        _reuse: &Option<impl PostingsEnum>,
+        _flags: i32,
+    ) -> Result<Self::PostingsEnumType> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type PostingsEnumType = DummyPostingsEnum;
+
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type ImpactsEnumType = DummyImpactsEnum;
+
+    fn term_state(&self) -> Result<Self::TermStateType> {
+        Err(LuceneError::not_implemented(""))
+    }
+
+    type TermStateType = DummyTermState;
 }

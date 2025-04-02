@@ -17,7 +17,7 @@
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::{BytesRef, STBytesRef};
+use crate::index::BytesRef;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -74,12 +74,9 @@ where
 
     fn prepare_seek_exact(
         &mut self,
-        term: STBytesRef,
+        term: &BytesRef,
     ) -> Result<Option<Self::IOBooleanSupplierType>> {
-        let sub = self
-            .sub_terms_enum
-            .borrow_mut()
-            .prepare_seek_exact(term.clone());
+        let sub = self.sub_terms_enum.borrow_mut().prepare_seek_exact(term);
         match sub {
             Ok(s) => Ok(s),
             Err(e) => match e {
@@ -87,7 +84,7 @@ where
                 // it means sub_terms_enum uses the return value of BaseTermsEnum's prepare_seek_exact
                 LuceneError::NotImplemented(_) => {
                     let supplier = IOBooleanSupplierImpl {
-                        text: term,
+                        text: term.clone(),
                         sub_terms_enum: self.sub_terms_enum.clone(),
                     };
                     if self.seek_exact(&supplier.text)? {
@@ -180,7 +177,7 @@ impl Display for TermStateImpl1 {
     }
 }
 impl TermState for TermStateImpl1 {
-    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
+    fn copy_from(&mut self, _other: &TermStateEnum) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
@@ -188,7 +185,7 @@ pub struct IOBooleanSupplierImpl<T>
 where
     T: TermsEnum,
 {
-    pub(crate) text: STBytesRef,
+    pub(crate) text: BytesRef,
     sub_terms_enum: Rc<RefCell<T>>,
 }
 impl<T> IOBooleanSupplier for IOBooleanSupplierImpl<T>

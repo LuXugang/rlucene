@@ -22,7 +22,7 @@ use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
 use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
-use crate::index::{BytesRef, STBytesRef};
+use crate::index::BytesRef;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -63,7 +63,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// **NOTE**: The returned [`IOBooleanSupplier`](crate::util::io_boolean_supplier::IOBooleanSupplier) must be
     fn prepare_seek_exact(
         &mut self,
-        term: STBytesRef,
+        term: &BytesRef,
     ) -> Result<Option<Self::IOBooleanSupplierType>>;
     type IOBooleanSupplierType: IOBooleanSupplier;
 
@@ -96,7 +96,12 @@ pub trait TermsEnum: BytesRefIterator {
     fn seek_exact_with_state(&mut self, term: &BytesRef, state: &TermStateEnum) -> Result<()>;
 
     /// Returns current term. Do not call this when the enum is unpositioned.
-    fn term(&self) -> Result<BytesRef>;
+    fn term(&self) -> Result<BytesRef> {
+        Err(LuceneError::need_implemented("this method need implement"))
+    }
+    fn term_ref(&self) -> Result<&BytesRef> {
+        Err(LuceneError::need_implemented("this method need implement"))
+    }
 
     /// Returns ordinal position for the current term.
     /// This is an optional method (the codec may return an error or indicate unsupported).
@@ -176,7 +181,7 @@ impl TermsEnum for TermsEnumEmpty {
 
     fn prepare_seek_exact(
         &mut self,
-        _term: STBytesRef,
+        _term: &BytesRef,
     ) -> Result<Option<Self::IOBooleanSupplierType>> {
         Ok(Some(IOBooleanSupplierEnum::Dummy(DummyIOBooleanSupplier)))
     }
