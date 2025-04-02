@@ -24,6 +24,7 @@ pub mod doc_values {
     use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
     use crate::index::doc_values_iterator::DocValuesIterator;
     use crate::index::numeric_doc_values::NumericDocValues;
+    use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
     use crate::index::sorted_doc_values::SortedDocValues;
     use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
     use crate::index::BytesRef;
@@ -244,6 +245,7 @@ pub mod doc_values {
     {
         Dense(DenseSortedNumericDocValues<I>),
         Sparse(SpareSortedNumericDocValues<I>),
+        Singleton(SingletonSortedNumericDocValues<I>),
     }
     impl<I> DocValuesIterator for SortedNumericDocValuesEnum<I>
     where

@@ -36,6 +36,7 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_read_state::SegmentReadState;
+use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
@@ -462,7 +463,10 @@ where
         meta: &mut impl IndexInput,
         entry: &mut SortedNumericEntry,
     ) -> Result<()> {
-        Self::read_numeric_with_entry(meta, &mut entry.base)?;
+        debug_assert!(*entry.base == NumericEntry::default());
+        let mut numeric_entry = NumericEntry::default();
+        Self::read_numeric_with_entry(meta, &mut numeric_entry)?;
+        entry.base = Rc::new(numeric_entry);
         entry.num_docs_with_field = meta.read_int()?;
         entry.addresses_offset = 0;
         entry.addresses_meta = None;
@@ -764,6 +768,65 @@ where
             todo!()
         }
     }
+    fn get_sorted_numeric(
+        &mut self,
+        entry: &SortedNumericEntry,
+    ) -> Result<SortedNumericDocValuesEnum<I>>
+    where
+        I: IndexInput,
+    {
+        if entry.base.num_values == entry.num_docs_with_field as i64 {
+            let numeric = self.get_numeric(&entry.base)?;
+            return Ok(SortedNumericDocValuesEnum::Singleton(
+                SingletonSortedNumericDocValues::new(numeric)?,
+            ));
+        }
+
+        let mut addresses_input = self
+            .data
+            .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
+        // Prefetch the first page of data. Following pages are expected to get prefetched through
+        // read-ahead.
+        if addresses_input.length() > 0 {
+            addresses_input.prefetch(0, 1)?;
+        }
+
+        let addresses = match entry.addresses_meta {
+            Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
+                meta,
+                Rc::new(RefCell::new(addresses_input)),
+                self.merging,
+            )?,
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "addresses_meta is None".to_string(),
+                ))?;
+            }
+        };
+
+        let values = self.get_numeric_values(&entry.base)?;
+
+        if entry.base.docs_with_field_offset == -1 {
+            // dense
+            Ok(SortedNumericDocValuesEnum::Dense(
+                DenseSortedNumericDocValues::new(self.max_doc, 0, 0, values, addresses),
+            ))
+        } else {
+            // sparse
+            let disi = IndexedDISI::new(
+                &mut self.data,
+                entry.base.docs_with_field_offset,
+                entry.base.docs_with_field_length,
+                entry.base.jump_table_entry_count as i32,
+                entry.base.dense_rank_power,
+                entry.num_docs_with_field as i64,
+            )?;
+
+            Ok(SortedNumericDocValuesEnum::Sparse(
+                SpareSortedNumericDocValues::new(disi, values, addresses),
+            ))
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -775,7 +838,7 @@ pub(crate) struct DocValuesSkipperEntry {
     pub doc_count: i32,
     pub max_doc_id: i32,
 }
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct NumericEntry {
     pub table: Option<Rc<Vec<i64>>>,
     pub block_shift: i32,
@@ -838,7 +901,7 @@ pub struct SortedSetEntry {
 }
 #[derive(Default)]
 pub struct SortedNumericEntry {
-    pub base: NumericEntry,
+    pub base: Rc<NumericEntry>,
     pub num_docs_with_field: i32,
     pub addresses_meta: Option<Meta>,
     pub addresses_offset: i64,
@@ -2938,7 +3001,7 @@ where
     end: i64,
     doc: i32,
     count: i32,
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: LongValuesEnum<I>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
 impl<I> DenseSortedNumericDocValues<I>
@@ -2949,7 +3012,7 @@ where
         max_doc: i32,
         start: i64,
         end: i64,
-        values: DirectPackedEnum<I::RandomAccessSlice>,
+        values: LongValuesEnum<I>,
         addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     ) -> Self {
         Self {
@@ -3027,7 +3090,7 @@ where
     I: IndexInput,
 {
     disi: IndexedDISI<I>,
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: LongValuesEnum<I>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     set: bool,
     start: i64,
@@ -3040,7 +3103,7 @@ where
 {
     pub fn new(
         disi: IndexedDISI<I>,
-        values: DirectPackedEnum<I::RandomAccessSlice>,
+        values: LongValuesEnum<I>,
         addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     ) -> Self {
         Self {
