@@ -28,6 +28,19 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 pub struct DummyTermsEnum {
     atts: AttributeSource,
 }
+impl Default for DummyTermsEnum {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DummyTermsEnum {
+    pub fn new() -> Self {
+        Self {
+            atts: AttributeSource::new(),
+        }
+    }
+}
 impl BytesRefIterator for DummyTermsEnum {
     fn next(&mut self) -> Result<Option<BytesRef>> {
         Err(LuceneError::illegal_state(

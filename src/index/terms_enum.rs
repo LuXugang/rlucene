@@ -17,16 +17,16 @@
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
-use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
+use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::io_boolean_supplier::{IOBooleanSupplier, IOBooleanSupplierEnum};
+use std::marker::PhantomData;
 
 /// Iterator to seek [`seek_ceil(BytesRef)`](TermsEnum::seek_ceil), [`seek_exact(BytesRef)`](TermsEnum::seek_exact)
 /// or step through [`next`](BytesRefIterator::next) terms to obtain frequency information [`doc_freq`](TermsEnum::doc_freq),
@@ -166,15 +166,26 @@ pub trait TermsEnum: BytesRefIterator {
     fn term_state(&self) -> Result<Self::TermStateType>;
     type TermStateType: TermState;
 }
-pub struct TermsEnumEmpty;
+pub struct TermsEnumEmpty<I>
+where
+    I: IndexInput,
+{
+    phantom: PhantomData<I>,
+}
 
-impl BytesRefIterator for TermsEnumEmpty {
+impl<I> BytesRefIterator for TermsEnumEmpty<I>
+where
+    I: IndexInput,
+{
     fn next(&mut self) -> Result<Option<BytesRef>> {
         Ok(None)
     }
 }
 
-impl TermsEnum for TermsEnumEmpty {
+impl<I> TermsEnum for TermsEnumEmpty<I>
+where
+    I: IndexInput,
+{
     fn attributes(&self) -> Result<&AttributeSource> {
         todo!()
     }
@@ -186,7 +197,7 @@ impl TermsEnum for TermsEnumEmpty {
         Ok(Some(IOBooleanSupplierEnum::Dummy(DummyIOBooleanSupplier)))
     }
 
-    type IOBooleanSupplierType = IOBooleanSupplierEnum<DummyTermsEnum>;
+    type IOBooleanSupplierType = IOBooleanSupplierEnum<I>;
 
     fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
         Ok(SeekStatus::End)
@@ -263,10 +274,4 @@ pub enum SeekStatus {
     Found,
     /// A different term was found after the requested term.
     NotFound,
-}
-
-pub enum TermsEnums {
-    Dummy(DummyTermsEnum),
-    Empty(TermsEnumEmpty),
-    SortedDocValues(SortedDocValuesTermsEnum),
 }

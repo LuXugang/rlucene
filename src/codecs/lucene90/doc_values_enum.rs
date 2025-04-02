@@ -16,7 +16,8 @@
  */
 pub mod doc_values {
     use crate::codecs::lucene90_doc_values_producer::{
-        DenseBinaryDocValues, DenseNumericDocValues, SparseBinaryDocValues, SparseNumericDocValues,
+        BaseSortedDocValues, DenseBinaryDocValues, DenseNumericDocValues, SparseBinaryDocValues,
+        SparseNumericDocValues,
     };
     use crate::index::binary_doc_values::BinaryDocValues;
     use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
@@ -30,11 +31,19 @@ pub mod doc_values {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    pub enum SortedDocValuesEnum {}
+    pub enum SortedDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        Base(BaseSortedDocValues<I>),
+    }
 
-    impl DocValuesIterator for SortedDocValuesEnum {}
+    impl<I> DocValuesIterator for SortedDocValuesEnum<I> where I: IndexInput {}
 
-    impl DocIdSetIterator for SortedDocValuesEnum {
+    impl<I> DocIdSetIterator for SortedDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
         fn doc_id(&self) -> i32 {
             todo!()
         }
@@ -44,16 +53,19 @@ pub mod doc_values {
         }
     }
 
-    impl SortedDocValues for SortedDocValuesEnum {
-        fn ord_value(&self) -> Result<i32> {
+    impl<I> SortedDocValues<I> for SortedDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn ord_value(&mut self) -> Result<i32> {
             todo!()
         }
 
-        fn lookup_ord(&self, ord: i32) -> Result<BytesRef> {
+        fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
             todo!()
         }
 
-        fn get_value_count(&self) -> i32 {
+        fn get_value_count(&self) -> Result<i32> {
             todo!()
         }
     }

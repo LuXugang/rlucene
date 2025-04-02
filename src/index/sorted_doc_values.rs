@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::terms_enum::TermsEnums;
+use crate::index::terms_enums::TermsEnums;
 use crate::index::BytesRef;
+use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
 
@@ -26,14 +27,17 @@ use crate::util::ToInt;
 /// Per-document values in a `SortedDocValues` are deduplicated, dereferenced, and sorted into a
 /// dictionary of unique values. A pointer to the dictionary value (ordinal) can be retrieved for
 /// each document. Ordinals are dense and in increasing sorted order.
-pub trait SortedDocValues: DocValuesIterator {
+pub trait SortedDocValues<I>: DocValuesIterator
+where
+    I: IndexInput,
+{
     /// Returns the ordinal for the current docID.
     ///
     /// This method must only be called after `advance_exact(doc_id)` returns `true`.
     ///
     /// # Returns
     /// A dense ordinal (starts at 0, then increments in sorted order).
-    fn ord_value(&self) -> Result<i32>;
+    fn ord_value(&mut self) -> Result<i32>;
 
     /// Resolves the provided ordinal to the associated dictionary value.
     ///
@@ -45,12 +49,20 @@ pub trait SortedDocValues: DocValuesIterator {
     ///
     /// # Returns
     /// The dictionary value corresponding to the ordinal.
-    fn lookup_ord(&self, ord: i32) -> Result<BytesRef>;
+    fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef> {
+        Err(LuceneError::need_implemented(
+            "this method is not implemented",
+        ))
+    }
 
     /// Returns the number of unique sorted values in this doc values set.
     ///
     /// This is equivalent to one plus the maximum ordinal.
-    fn get_value_count(&self) -> i32;
+    fn get_value_count(&self) -> Result<i32> {
+        Err(LuceneError::need_implemented(
+            "this method is not implemented",
+        ))
+    }
     /// If `key` exists, returns its ordinal, else returns `-insertion_point - 1`, like `Arrays.binarySearch`.
     ///
     /// # Arguments
@@ -60,7 +72,7 @@ pub trait SortedDocValues: DocValuesIterator {
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
     fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
         let mut low = 0;
-        let mut high = self.get_value_count() - 1;
+        let mut high = self.get_value_count()? - 1;
 
         while low <= high {
             let mid = (low + high) >> 1;
@@ -78,7 +90,7 @@ pub trait SortedDocValues: DocValuesIterator {
     }
     /// Returns a [`TermsEnum`](crate::index::terms_enum::TermsEnum) over the values.
     /// The enum supports [`TermsEnum::ord()`](crate::index::terms_enum::TermsEnum::ord) and [`TermsEnum::seek_exact_with_ord()`](crate::index::terms_enum::TermsEnum::seek_exact_with_ord).
-    fn terms_enum(&mut self) -> Result<TermsEnums> {
+    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
         Err(LuceneError::not_implemented(""))
     }
     // TODO:

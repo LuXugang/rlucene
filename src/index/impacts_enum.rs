@@ -14,8 +14,60 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::impacts::ImpactsEnums;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::postings_enum::PostingsEnum;
+use crate::index::BytesRef;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::util::error::lucene_error::Result;
 
 /// Extension of `PostingsEnum` which also provides information about upcoming impacts.
 pub trait ImpactsEnum: PostingsEnum + ImpactsSource {}
+
+pub enum ImpactsEnumEnum {}
+
+impl PostingsEnum for ImpactsEnumEnum {
+    fn freq(&mut self) -> Result<i32> {
+        todo!()
+    }
+
+    fn next_position(&mut self) -> Result<i32> {
+        todo!()
+    }
+
+    fn start_offset(&self) -> Result<i32> {
+        todo!()
+    }
+
+    fn end_offset(&self) -> Result<i32> {
+        todo!()
+    }
+
+    fn get_payload(&self) -> Result<Option<BytesRef>> {
+        todo!()
+    }
+}
+
+impl DocIdSetIterator for ImpactsEnumEnum {
+    fn doc_id(&self) -> i32 {
+        todo!()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        todo!()
+    }
+}
+
+impl ImpactsSource for ImpactsEnumEnum {
+    fn advance_shallow(&mut self, target: i32) -> Result<()> {
+        todo!()
+    }
+
+    fn get_impacts(&self) -> Result<&Self::ImpactsType> {
+        todo!()
+    }
+
+    type ImpactsType = ImpactsEnums;
+}
+
+impl ImpactsEnum for ImpactsEnumEnum {}

@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::postings_enum::PostingsEnum;
+use crate::index::impacts_enum::ImpactsEnumEnum;
+use crate::index::postings_enum::{PostingsEnum, PostingsEnums};
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::index::terms_enums::TermsEnums;
 use crate::index::BytesRef;
+use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -35,18 +38,18 @@ use std::rc::Rc;
 ///
 /// In some cases, the default implementation may be slow and consume large amounts of memory,
 /// so subclasses SHOULD provide their own implementation if possible.
-pub struct BaseTermsEnum<T>
+pub struct BaseTermsEnum<I>
 where
-    T: TermsEnum,
+    I: IndexInput,
 {
     atts: AttributeSource,
-    sub_terms_enum: Rc<RefCell<T>>,
+    sub_terms_enum: Rc<RefCell<TermsEnums<I>>>,
 }
-impl<T> BaseTermsEnum<T>
+impl<I> BaseTermsEnum<I>
 where
-    T: TermsEnum,
+    I: IndexInput,
 {
-    pub fn new(sub_terms_enum: Rc<RefCell<T>>) -> Self {
+    pub fn new(sub_terms_enum: Rc<RefCell<TermsEnums<I>>>) -> Self {
         Self {
             atts: AttributeSource::new(),
             sub_terms_enum,
@@ -54,18 +57,18 @@ where
     }
 }
 
-impl<T> BytesRefIterator for BaseTermsEnum<T>
+impl<I> BytesRefIterator for BaseTermsEnum<I>
 where
-    T: TermsEnum,
+    I: IndexInput,
 {
     fn next(&mut self) -> Result<Option<BytesRef>> {
         self.sub_terms_enum.borrow_mut().next()
     }
 }
 
-impl<T> TermsEnum for BaseTermsEnum<T>
+impl<I> TermsEnum for BaseTermsEnum<I>
 where
-    T: TermsEnum<IOBooleanSupplierType = IOBooleanSupplierEnum<T>, TermStateType = TermStateEnum>,
+    I: IndexInput,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         // TODO: 参考BaseTermsEnum中prepare_seek_exact方法 来选择使用父或子的实现
@@ -99,7 +102,7 @@ where
         }
     }
 
-    type IOBooleanSupplierType = IOBooleanSupplierEnum<T>;
+    type IOBooleanSupplierType = IOBooleanSupplierEnum<I>;
 
     fn seek_ceil(&mut self, term: &BytesRef) -> Result<SeekStatus> {
         self.sub_terms_enum.borrow_mut().seek_ceil(term)
@@ -145,13 +148,13 @@ where
             .postings_with_flags(reuse, flags)
     }
 
-    type PostingsEnumType = T::PostingsEnumType;
+    type PostingsEnumType = PostingsEnums;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType> {
         self.sub_terms_enum.borrow_mut().impacts(flags)
     }
 
-    type ImpactsEnumType = T::ImpactsEnumType;
+    type ImpactsEnumType = ImpactsEnumEnum;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
         let sub = self.sub_terms_enum.borrow_mut().term_state();
@@ -181,16 +184,16 @@ impl TermState for TermStateImpl1 {
         Err(LuceneError::unsupported_operation(""))
     }
 }
-pub struct IOBooleanSupplierImpl<T>
+pub struct IOBooleanSupplierImpl<I>
 where
-    T: TermsEnum,
+    I: IndexInput,
 {
     pub(crate) text: BytesRef,
-    sub_terms_enum: Rc<RefCell<T>>,
+    sub_terms_enum: Rc<RefCell<TermsEnums<I>>>,
 }
-impl<T> IOBooleanSupplier for IOBooleanSupplierImpl<T>
+impl<I> IOBooleanSupplier for IOBooleanSupplierImpl<I>
 where
-    T: TermsEnum,
+    I: IndexInput,
 {
     fn get(&mut self) -> Result<bool> {
         self.sub_terms_enum.borrow_mut().seek_exact(&self.text)

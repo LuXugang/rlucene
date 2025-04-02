@@ -43,3 +43,18 @@ pub trait Impacts {
     /// that actually appear in postings.
     fn get_impacts(&self, level: i32) -> &[Impact];
 }
+
+pub enum ImpactsEnums {}
+impl Impacts for ImpactsEnums {
+    fn num_levels(&self) -> i32 {
+        todo!()
+    }
+
+    fn get_doc_id_up_to(&self, level: i32) -> i32 {
+        todo!()
+    }
+
+    fn get_impacts(&self, level: i32) -> &[Impact] {
+        todo!()
+    }
+}

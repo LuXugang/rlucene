@@ -56,3 +56,36 @@ pub mod postings_enum_static {
         (flags & (feature as i32)) == (feature as i32)
     }
 }
+
+pub enum PostingsEnums {}
+impl DocIdSetIterator for PostingsEnums {
+    fn doc_id(&self) -> i32 {
+        todo!()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        todo!()
+    }
+}
+
+impl PostingsEnum for PostingsEnums {
+    fn freq(&mut self) -> Result<i32> {
+        todo!()
+    }
+
+    fn next_position(&mut self) -> Result<i32> {
+        todo!()
+    }
+
+    fn start_offset(&self) -> Result<i32> {
+        todo!()
+    }
+
+    fn end_offset(&self) -> Result<i32> {
+        todo!()
+    }
+
+    fn get_payload(&self) -> Result<Option<BytesRef>> {
+        todo!()
+    }
+}

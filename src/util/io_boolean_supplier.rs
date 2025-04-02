@@ -16,21 +16,21 @@
  */
 use crate::index::base_terms_enum::IOBooleanSupplierImpl;
 use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
-use crate::index::terms_enum::TermsEnum;
+use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 pub trait IOBooleanSupplier {
     fn get(&mut self) -> Result<bool>;
 }
-pub enum IOBooleanSupplierEnum<T>
+pub enum IOBooleanSupplierEnum<I>
 where
-    T: TermsEnum,
+    I: IndexInput,
 {
     Dummy(DummyIOBooleanSupplier),
-    Impl1(IOBooleanSupplierImpl<T>),
+    Impl1(IOBooleanSupplierImpl<I>),
 }
-impl<T> IOBooleanSupplier for IOBooleanSupplierEnum<T>
+impl<I> IOBooleanSupplier for IOBooleanSupplierEnum<I>
 where
-    T: TermsEnum,
+    I: IndexInput,
 {
     fn get(&mut self) -> Result<bool> {
         todo!()

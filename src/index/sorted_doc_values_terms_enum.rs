@@ -24,20 +24,27 @@ use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
+use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Implements a [`TermsEnum`](TermsEnum) wrapping a provided [`SortedDocValues`](SortedDocValues).
-pub(crate) struct SortedDocValuesTermsEnum {
-    values: SortedDocValuesEnum,
+pub(crate) struct SortedDocValuesTermsEnum<I>
+where
+    I: IndexInput,
+{
+    values: SortedDocValuesEnum<I>,
     current_ord: i32,
     bytes: BytesRef,
 }
 
-impl SortedDocValuesTermsEnum {
+impl<I> SortedDocValuesTermsEnum<I>
+where
+    I: IndexInput,
+{
     /// Creates a new TermsEnum over the provided values.
-    pub fn new(values: SortedDocValuesEnum) -> Self {
+    pub fn new(values: SortedDocValuesEnum<I>) -> Self {
         Self {
             values,
             current_ord: -1,
@@ -46,10 +53,13 @@ impl SortedDocValuesTermsEnum {
     }
 }
 
-impl BytesRefIterator for SortedDocValuesTermsEnum {
+impl<I> BytesRefIterator for SortedDocValuesTermsEnum<I>
+where
+    I: IndexInput,
+{
     fn next(&mut self) -> Result<Option<BytesRef>> {
         self.current_ord += 1;
-        if self.current_ord >= self.values.get_value_count() {
+        if self.current_ord >= self.values.get_value_count()? {
             Ok(None)
         } else {
             self.bytes = self.values.lookup_ord(self.current_ord)?.clone();
@@ -58,7 +68,10 @@ impl BytesRefIterator for SortedDocValuesTermsEnum {
     }
 }
 
-impl TermsEnum for SortedDocValuesTermsEnum {
+impl<I> TermsEnum for SortedDocValuesTermsEnum<I>
+where
+    I: IndexInput,
+{
     fn attributes(&self) -> Result<&AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }
@@ -91,7 +104,7 @@ impl TermsEnum for SortedDocValuesTermsEnum {
             Ok(SeekStatus::Found)
         } else {
             self.current_ord = -ord - 1;
-            if self.current_ord == self.values.get_value_count() {
+            if self.current_ord == self.values.get_value_count()? {
                 Ok(SeekStatus::End)
             } else {
                 // TODO: hmm, can we avoid this extra lookup?
@@ -102,7 +115,7 @@ impl TermsEnum for SortedDocValuesTermsEnum {
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        debug_assert!(ord >= 0 && ord < self.values.get_value_count() as i64);
+        debug_assert!(ord >= 0 && ord < self.values.get_value_count()? as i64);
         self.current_ord = ord as i32;
         self.bytes = self.values.lookup_ord(self.current_ord)?.clone();
         Ok(())
