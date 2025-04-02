@@ -2928,3 +2928,188 @@ where
 
     type TermStateType = DummyTermState;
 }
+
+pub struct DenseSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    max_doc: i32,
+    start: i64,
+    end: i64,
+    doc: i32,
+    count: i32,
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+}
+impl<I> DenseSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn new(
+        max_doc: i32,
+        start: i64,
+        end: i64,
+        values: DirectPackedEnum<I::RandomAccessSlice>,
+        addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    ) -> Self {
+        Self {
+            max_doc,
+            start,
+            end,
+            doc: -1,
+            count: 0,
+            values,
+            addresses,
+        }
+    }
+}
+
+impl<I> DocValuesIterator for DenseSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.start = self.addresses.get(target as i64)?;
+        self.end = self.addresses.get((target as i64) + 1)?;
+        self.count = (self.end - self.start) as i32;
+        self.doc = target;
+        Ok(true)
+    }
+}
+
+impl<I> DocIdSetIterator for DenseSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.advance(self.doc + 1)
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        if self.doc >= self.max_doc {
+            self.doc = NO_MORE_DOCS;
+            return Ok(NO_MORE_DOCS);
+        }
+
+        self.start = self.addresses.get(target as i64)?;
+        self.end = self.addresses.get((target + 1) as i64)?;
+        self.count = (self.end - self.start) as i32;
+        self.doc = target;
+
+        Ok(self.doc)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.max_doc as i64)
+    }
+}
+
+impl<I> SortedNumericDocValues for DenseSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn next_value(&mut self) -> Result<i64> {
+        let value = self.values.get(self.start)?;
+        self.start += 1;
+        Ok(value)
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        Ok(self.count)
+    }
+}
+pub struct SpareSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    disi: IndexedDISI<I>,
+    values: DirectPackedEnum<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    set: bool,
+    start: i64,
+    end: i64,
+    count: i32,
+}
+impl<I> SpareSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    pub fn new(
+        disi: IndexedDISI<I>,
+        values: DirectPackedEnum<I::RandomAccessSlice>,
+        addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    ) -> Self {
+        Self {
+            disi,
+            values,
+            addresses,
+            set: false,
+            start: 0,
+            end: 0,
+            count: 0,
+        }
+    }
+
+    fn set(&mut self) -> Result<()> {
+        if !self.set {
+            let index = self.disi.index();
+            self.start = self.addresses.get(index as i64)?;
+            self.end = self.addresses.get((index as i64) + 1)?;
+            self.count = (self.end - self.start) as i32;
+            self.set = true;
+        }
+        Ok(())
+    }
+}
+impl<I> DocIdSetIterator for SpareSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.disi.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.set = false;
+        self.disi.next_doc()
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.set = false;
+        self.disi.advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.disi.cost()
+    }
+}
+
+impl<I> DocValuesIterator for SpareSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.set = false;
+        self.disi.advance_exact(target)
+    }
+}
+impl<I> SortedNumericDocValues for SpareSortedNumericDocValues<I>
+where
+    I: IndexInput,
+{
+    fn next_value(&mut self) -> Result<i64> {
+        self.set()?;
+        let value = self.values.get(self.start)?;
+        self.start += 1;
+        Ok(value)
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        self.set()?;
+        Ok(self.count)
+    }
+}

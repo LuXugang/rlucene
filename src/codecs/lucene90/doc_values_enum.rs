@@ -16,7 +16,8 @@
  */
 pub mod doc_values {
     use crate::codecs::lucene90_doc_values_producer::{
-        BaseSortedDocValues, DenseBinaryDocValues, DenseNumericDocValues, SparseBinaryDocValues,
+        BaseSortedDocValues, DenseBinaryDocValues, DenseNumericDocValues,
+        DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBinaryDocValues,
         SparseNumericDocValues,
     };
     use crate::index::binary_doc_values::BinaryDocValues;
@@ -241,8 +242,8 @@ pub mod doc_values {
     where
         I: IndexInput,
     {
-        // todo 这里是错误的
-        Dense(DenseNumericDocValues<I>),
+        Dense(DenseSortedNumericDocValues<I>),
+        Sparse(SpareSortedNumericDocValues<I>),
     }
     impl<I> DocValuesIterator for SortedNumericDocValuesEnum<I>
     where
@@ -286,7 +287,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn doc_value_count(&self) -> Result<i32> {
+        fn doc_value_count(&mut self) -> Result<i32> {
             todo!()
         }
     }
