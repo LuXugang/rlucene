@@ -24,6 +24,7 @@ pub mod doc_values {
     use crate::index::doc_values_iterator::DocValuesIterator;
     use crate::index::numeric_doc_values::NumericDocValues;
     use crate::index::sorted_doc_values::SortedDocValues;
+    use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
     use crate::index::BytesRef;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
@@ -234,6 +235,59 @@ pub mod doc_values {
                 NumericDocValuesEnum::Sparse(sparse) => sparse.long_value(),
                 NumericDocValuesEnum::Empty(empty) => empty.long_value(),
             }
+        }
+    }
+    pub enum SortedNumericDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        // todo 这里是错误的
+        Dense(DenseNumericDocValues<I>),
+    }
+    impl<I> DocValuesIterator for SortedNumericDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+            todo!()
+        }
+    }
+
+    impl<I> DocIdSetIterator for SortedNumericDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn doc_id(&self) -> i32 {
+            todo!()
+        }
+
+        fn next_doc(&mut self) -> Result<i32> {
+            todo!()
+        }
+
+        fn advance(&mut self, _target: i32) -> Result<i32> {
+            todo!()
+        }
+
+        fn slow_advance(&mut self, target: i32) -> Result<i32> {
+            todo!()
+        }
+
+        fn cost(&self) -> Result<i64> {
+            todo!()
+        }
+    }
+
+    impl<I> SortedNumericDocValues for SortedNumericDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn next_value(&mut self) -> Result<i64> {
+            todo!()
+        }
+
+        fn doc_value_count(&self) -> Result<i32> {
+            todo!()
         }
     }
 }

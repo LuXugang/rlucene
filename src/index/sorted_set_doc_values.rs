@@ -37,11 +37,11 @@ where
     /// # Returns
     /// Next ordinal for the document. Ordinals are dense, start at 0, then increment by 1 for
     /// the next value in sorted order.
-    fn next_ord(&mut self) -> Result<i32>;
+    fn next_ord(&mut self) -> Result<i64>;
 
     /// Retrieves the number of unique ords for the current document. This must always be greater than
     /// zero. It is illegal to call this method after [`advance_exact(int)`](DocValuesIterator::advance_exact) returned `false`.
-    fn doc_value_count(&mut self) -> Result<i32>;
+    fn doc_value_count(&mut self) -> Result<i64>;
 
     /// Retrieves the value for the specified ordinal. The returned [`BytesRef`] may be re-used
     /// across calls to `lookup_ord`, so make sure to [`BytesRef::deep_copy_of`] it if you
@@ -51,7 +51,7 @@ where
     /// * `ord` - Ordinal to lookup
     ///
     /// See also: [`next_ord`](SortedSetDocValues::next_ord)
-    fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -61,7 +61,7 @@ where
     /// # Returns
     /// Number of unique values in this `SortedDocValues`. This is also equivalent to one plus
     /// the maximum ordinal.
-    fn get_value_count(&self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i64> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -73,7 +73,7 @@ where
     ///
     /// # Returns
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
         let mut low = 0;
         let mut high = self.get_value_count()? - 1;
 

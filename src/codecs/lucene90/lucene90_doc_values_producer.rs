@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::doc_values::{BinaryDocValuesEnum, NumericDocValuesEnum};
+use crate::codecs::doc_values_enum::doc_values::{
+    BinaryDocValuesEnum, NumericDocValuesEnum, SortedNumericDocValuesEnum,
+};
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
@@ -35,6 +37,8 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::sorted_doc_values::SortedDocValues;
+use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::terms_enums::TermsEnums;
@@ -2114,6 +2118,405 @@ where
 
     fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
         Err(LuceneError::unreachable("should no be called "))
+    }
+}
+struct BaseSortedSetDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    max_doc: i32,
+    doc: i32,
+    curr: i64,
+    count: i32,
+    value: DirectPackedEnum<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+}
+impl<I> BaseSortedSetDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn new(
+        max_doc: i32,
+        value: DirectPackedEnum<I::RandomAccessSlice>,
+        addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    ) -> Self {
+        Self {
+            max_doc,
+            doc: -1,
+            curr: 0,
+            count: 0,
+            value,
+            addresses,
+        }
+    }
+}
+
+impl<I> DocValuesIterator for BaseSortedSetDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.curr = self.addresses.get(target as i64)?;
+        let end = self.addresses.get((target as i64) + 1)?;
+        self.count = (end - self.curr) as i32;
+        self.doc = target;
+        Ok(true)
+    }
+}
+
+impl<I> DocIdSetIterator for BaseSortedSetDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.advance(self.doc + 1)
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        if target >= self.max_doc {
+            self.doc = NO_MORE_DOCS;
+            return Ok(NO_MORE_DOCS);
+        }
+
+        self.curr = self.addresses.get(target as i64)?;
+        let end = self.addresses.get((target as i64) + 1)?;
+        self.count = (end - self.curr) as i32;
+        self.doc = target;
+
+        Ok(self.doc)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.max_doc as i64)
+    }
+}
+
+impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        let ord = self.value.get(self.curr)?;
+        self.count += 1;
+        Ok(ord)
+    }
+
+    fn doc_value_count(&mut self) -> Result<i64> {
+        Ok(self.count as i64)
+    }
+}
+
+struct BaseSortedSetDocValuesImpl1<I>
+where
+    I: IndexInput,
+{
+    disi: IndexedDISI<I>,
+    set: bool,
+    curr: i64,
+    count: i32,
+    value: DirectPackedEnum<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+}
+impl<I> BaseSortedSetDocValuesImpl1<I>
+where
+    I: IndexInput,
+{
+    fn new(
+        disi: IndexedDISI<I>,
+        value: DirectPackedEnum<I::RandomAccessSlice>,
+        addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    ) -> Self {
+        Self {
+            disi,
+            set: false,
+            curr: 0,
+            count: 0,
+            value,
+            addresses,
+        }
+    }
+    fn set(&mut self) -> Result<()> {
+        if !self.set {
+            let index = self.disi.index();
+            self.curr = self.addresses.get(index as i64)?;
+            let end = self.addresses.get((index as i64) + 1)?;
+            self.count = (end - self.curr) as i32;
+            self.set = true;
+        }
+        Ok(())
+    }
+}
+
+impl<I> DocValuesIterator for BaseSortedSetDocValuesImpl1<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.set = false;
+        self.disi.advance_exact(target)
+    }
+}
+
+impl<I> DocIdSetIterator for BaseSortedSetDocValuesImpl1<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.disi.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.set = false;
+        self.disi.next_doc()
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.set = false;
+        self.disi.advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.disi.cost()
+    }
+}
+
+impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesImpl1<I>
+where
+    I: IndexInput,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        self.set()?;
+        let ord = self.value.get(self.curr)?;
+        self.curr += 1;
+        Ok(ord)
+    }
+
+    fn doc_value_count(&mut self) -> Result<i64> {
+        self.set()?;
+        Ok(self.count as i64)
+    }
+}
+
+struct BaseSortedSetDocValuesImpl2<I>
+where
+    I: IndexInput,
+{
+    ords: SortedNumericDocValuesEnum<I>,
+}
+impl<I> BaseSortedSetDocValuesImpl2<I>
+where
+    I: IndexInput,
+{
+    fn new(ords: SortedNumericDocValuesEnum<I>) -> Self {
+        Self { ords }
+    }
+}
+
+impl<I> DocValuesIterator for BaseSortedSetDocValuesImpl2<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.ords.advance_exact(target)
+    }
+}
+
+impl<I> DocIdSetIterator for BaseSortedSetDocValuesImpl2<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.ords.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.ords.next_doc()
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.ords.advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.ords.cost()
+    }
+}
+
+impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesImpl2<I>
+where
+    I: IndexInput,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        self.ords.next_value()
+    }
+
+    fn doc_value_count(&mut self) -> Result<i64> {
+        Ok(self.ords.doc_value_count()? as i64)
+    }
+}
+enum SortedSetDocValuesEnum<I>
+where
+    I: IndexInput,
+{
+    Impl(BaseSortedSetDocValuesImpl<I>),
+    Impl1(BaseSortedSetDocValuesImpl1<I>),
+    Impl2(BaseSortedSetDocValuesImpl2<I>),
+}
+
+impl<I> DocValuesIterator for SortedSetDocValuesEnum<I> where I: IndexInput {}
+
+impl<I> DocIdSetIterator for SortedSetDocValuesEnum<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        todo!()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        todo!()
+    }
+}
+
+impl<I> SortedSetDocValues<I> for SortedSetDocValuesEnum<I>
+where
+    I: IndexInput,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        todo!()
+    }
+
+    fn doc_value_count(&mut self) -> Result<i64> {
+        todo!()
+    }
+
+    fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef> {
+        todo!()
+    }
+
+    fn get_value_count(&self) -> Result<i64> {
+        todo!()
+    }
+
+    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+        todo!()
+    }
+
+    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+        todo!()
+    }
+}
+
+pub(crate) struct BaseSortedSetDocValues<I>
+where
+    I: IndexInput,
+{
+    entry: SortedSetEntry,
+    terms_enum: TermsDict<I>,
+    sub: SortedSetDocValuesEnum<I>,
+}
+
+impl<I> BaseSortedSetDocValues<I>
+where
+    I: IndexInput,
+{
+    fn new(
+        entry: SortedSetEntry,
+        data: &mut I,
+        sub: SortedSetDocValuesEnum<I>,
+        merging: bool,
+    ) -> Result<Self> {
+        let terms_dict_entry = match entry.terms_dict_entry {
+            Some(ref entry) => entry.clone(),
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "TermsDictEntry's terms_dict_entry is None".to_string(),
+                ));
+            }
+        };
+        let terms_enum = TermsDict::new(terms_dict_entry, data, merging)?;
+        Ok(Self {
+            entry,
+            terms_enum,
+            sub,
+        })
+    }
+}
+
+impl<I> DocValuesIterator for BaseSortedSetDocValues<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.sub.advance_exact(target)
+    }
+}
+
+impl<I> DocIdSetIterator for BaseSortedSetDocValues<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.sub.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.sub.next_doc()
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.sub.advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.sub.cost()
+    }
+}
+
+impl<I> SortedSetDocValues<I> for BaseSortedSetDocValues<I>
+where
+    I: IndexInput,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        self.sub.next_ord()
+    }
+
+    fn doc_value_count(&mut self) -> Result<i64> {
+        self.sub.doc_value_count()
+    }
+
+    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef> {
+        self.terms_enum.seek_exact_with_ord(ord)?;
+        self.terms_enum.term()
+    }
+
+    fn get_value_count(&self) -> Result<i64> {
+        match self.entry.terms_dict_entry {
+            Some(ref entry) => Ok(entry.terms_dict_size),
+            None => Err(LuceneError::illegal_state(
+                "TermsDictEntry's terms_dict_entry is None".to_string(),
+            )),
+        }
+    }
+
+    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+        match self.terms_enum.seek_ceil(key)? {
+            SeekStatus::Found => Ok(self.terms_enum.ord()?),
+            SeekStatus::NotFound | SeekStatus::End => {
+                let ord = self.terms_enum.ord()?;
+                Ok(-1 - ord)
+            }
+        }
+    }
+
+    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+        Err(LuceneError::unreachable(
+            "terms_enum() should not be called on BaseSortedSetDocValues",
+        ))
     }
 }
 
