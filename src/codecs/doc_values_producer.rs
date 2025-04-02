@@ -18,6 +18,7 @@ use crate::codecs::doc_values_enum::doc_values::{
     BinaryDocValuesEnum, DocValuesSkipperEnum, NumericDocValuesEnum, SortedDocValuesEnum,
     SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
 };
+use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::index::field_info::FieldInfo;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
@@ -67,6 +68,11 @@ where
     /// The default implementation returns `self`.
     /// # Note
     /// Returning None means returning itself.
-    fn get_merge_instance(&mut self) -> Option<DocValuesProducerEnum>;
+    fn get_merge_instance(&mut self) -> Option<DocValuesProducerEnum<I>>;
 }
-pub enum DocValuesProducerEnum {}
+pub enum DocValuesProducerEnum<I>
+where
+    I: IndexInput,
+{
+    Lucene90(Lucene90DocValuesProducer<I>),
+}

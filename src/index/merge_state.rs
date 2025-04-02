@@ -35,7 +35,7 @@ where
     pub doc_maps: Vec<Rc<DocMapEnum>>,
     pub merge_field_infos: Rc<FieldInfos>,
     pub norms_producers: Vec<Option<NormsProducerEnum<I>>>,
-    pub doc_values_producers: Vec<DocValuesProducerEnum>,
+    pub doc_values_producers: Vec<DocValuesProducerEnum<I>>,
     pub field_infos: Vec<Rc<FieldInfos>>,
     pub needs_index_sort: bool,
 }
