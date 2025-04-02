@@ -72,7 +72,7 @@ where
     numerics: HashMap<i32, NumericEntry>,
     binaries: HashMap<i32, BinaryEntry>,
     sorted: HashMap<i32, SortedEntry>,
-    sorted_sets: HashMap<i32, SortedSetEntry>,
+    sorted_sets: HashMap<i32, Rc<SortedSetEntry>>,
     sorted_numerics: HashMap<i32, SortedNumericEntry>,
     skippers: HashMap<i32, DocValuesSkipperEntry>,
     data: I,
@@ -213,7 +213,7 @@ where
         numerics: &mut HashMap<i32, NumericEntry>,
         binaries: &mut HashMap<i32, BinaryEntry>,
         sorted: &mut HashMap<i32, SortedEntry>,
-        sorted_sets: &mut HashMap<i32, SortedSetEntry>,
+        sorted_sets: &mut HashMap<i32, Rc<SortedSetEntry>>,
         sorted_numerics: &mut HashMap<i32, SortedNumericEntry>,
         skippers: &mut HashMap<i32, DocValuesSkipperEntry>,
     ) -> Result<()> {
@@ -246,7 +246,7 @@ where
                             sorted.insert(info.number, entry);
                         }
                         t if t == Lucene90DocValuesFormat::SORTED_SET => {
-                            let entry = Self::read_sorted_set(meta)?;
+                            let entry = Rc::new(Self::read_sorted_set(meta)?);
                             sorted_sets.insert(info.number, entry);
                         }
                         t if t == Lucene90DocValuesFormat::SORTED_NUMERIC => {
@@ -385,7 +385,7 @@ where
         let multi_valued = meta.read_byte()?;
         let mut entry = match multi_valued {
             0 => {
-                let single_value_entry = Self::read_sorted(meta)?;
+                let single_value_entry = Rc::new(Self::read_sorted(meta)?);
                 SortedSetEntry {
                     single_value_entry: Some(single_value_entry),
                     ords_entry: None,
@@ -769,7 +769,7 @@ where
         }
     }
 
-    fn get_sorted(&mut self, entry: &Rc<SortedEntry>) -> Result<SortedDocValuesEnum<I>>
+    fn get_sorted(&mut self, entry: Rc<SortedEntry>) -> Result<SortedDocValuesEnum<I>>
     where
         I: IndexInput,
     {
@@ -885,6 +885,112 @@ where
             ))
         }
     }
+    fn get_sorted_set(&mut self, field_number: Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>>
+    where
+        I: IndexInput,
+    {
+        let field_number = field_number.number;
+        let entry = self
+            .sorted_sets
+            .get(&field_number)
+            .ok_or_else(|| {
+                LuceneError::corrupt_index(format!(
+                    "Missing sorted set entry for field {}",
+                    field_number
+                ))
+            })?
+            .clone();
+        match entry.single_value_entry {
+            Some(ref single_value_entry) => {
+                return DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?)
+            }
+            None => {}
+        }
+        // Specialize the common case for ordinals: single block of packed integers.
+        match entry.ords_entry {
+            Some(ref ords_entry) => {
+                if ords_entry.base.block_shift < 0 && ords_entry.base.bits_per_value > 0 {
+                    if ords_entry.base.gcd != 1
+                        || ords_entry.base.min_value != 0
+                        || ords_entry.base.table.is_some()
+                    {
+                        return Err(LuceneError::illegal_state(
+                            "Ordinals shouldn't use GCD, offset or table compression",
+                        ));
+                    }
+
+                    let mut addresses_input = self.data.random_access_slice(
+                        ords_entry.addresses_offset,
+                        ords_entry.addresses_length,
+                    )?;
+                    if addresses_input.length() > 0 {
+                        addresses_input.prefetch(0, 1)?;
+                    }
+                    let addresses = match ords_entry.addresses_meta {
+                        Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
+                            meta,
+                            Rc::new(RefCell::new(addresses_input)),
+                            self.merging,
+                        )?,
+                        None => {
+                            return Err(LuceneError::illegal_state(
+                                "addresses_meta is None".to_string(),
+                            ))?;
+                        }
+                    };
+
+                    let mut slice = self.data.random_access_slice(
+                        ords_entry.base.values_offset,
+                        ords_entry.base.values_length,
+                    )?;
+                    if slice.length() > 0 {
+                        slice.prefetch(0, 1)?;
+                    }
+                    let values = DirectReader::get_instance(
+                        Rc::new(RefCell::new(slice)),
+                        ords_entry.base.bits_per_value as i32,
+                    );
+
+                    let sbu = if ords_entry.base.docs_with_field_offset == -1 {
+                        BaseSortedSetDocValuesEnum::Dense(DenseBaseSortedSetDocValues::new(
+                            self.max_doc,
+                            values,
+                            addresses,
+                        ))
+                    } else {
+                        //sparse
+                        let disi = IndexedDISI::new(
+                            &mut self.data,
+                            ords_entry.base.docs_with_field_offset,
+                            ords_entry.base.docs_with_field_length,
+                            ords_entry.base.jump_table_entry_count as i32,
+                            ords_entry.base.dense_rank_power,
+                            ords_entry.num_docs_with_field as i64,
+                        )?;
+                        BaseSortedSetDocValuesEnum::Sparse(SparseBaseSortedSetDocValues::new(
+                            disi, values, addresses,
+                        ))
+                    };
+                    return Ok(SortedSetDocValuesEnum::Base(BaseSortedSetDocValues::new(
+                        entry.clone(),
+                        &mut self.data,
+                        sbu,
+                        self.merging,
+                    )?));
+                }
+
+                let ords = self.get_sorted_numeric(ords_entry)?;
+                let sub = BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
+                Ok(SortedSetDocValuesEnum::Base(BaseSortedSetDocValues::new(
+                    entry.clone(),
+                    &mut self.data,
+                    sub,
+                    self.merging,
+                )?))
+            }
+            None => Err(LuceneError::illegal_state("ords_entry is None".to_string()))?,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -953,7 +1059,7 @@ pub struct SortedEntry {
 
 #[derive(Default)]
 pub struct SortedSetEntry {
-    pub single_value_entry: Option<SortedEntry>,
+    pub single_value_entry: Option<Rc<SortedEntry>>,
     pub ords_entry: Option<SortedNumericEntry>,
     pub terms_dict_entry: Option<Rc<TermsDictEntry>>,
 }
@@ -2241,7 +2347,7 @@ where
         Err(LuceneError::unreachable("should no be called "))
     }
 }
-pub struct BaseSortedSetDocValuesImpl<I>
+pub struct DenseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2252,7 +2358,7 @@ where
     value: DirectPackedEnum<I::RandomAccessSlice>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
-impl<I> BaseSortedSetDocValuesImpl<I>
+impl<I> DenseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2272,7 +2378,7 @@ where
     }
 }
 
-impl<I> DocValuesIterator for BaseSortedSetDocValuesImpl<I>
+impl<I> DocValuesIterator for DenseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2285,7 +2391,7 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedSetDocValuesImpl<I>
+impl<I> DocIdSetIterator for DenseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2316,7 +2422,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesImpl<I>
+impl<I> SortedSetDocValues<I> for DenseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2331,7 +2437,7 @@ where
     }
 }
 
-pub struct BaseSortedSetDocValuesImpl1<I>
+pub struct SparseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2342,7 +2448,7 @@ where
     value: DirectPackedEnum<I::RandomAccessSlice>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
-impl<I> BaseSortedSetDocValuesImpl1<I>
+impl<I> SparseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2372,7 +2478,7 @@ where
     }
 }
 
-impl<I> DocValuesIterator for BaseSortedSetDocValuesImpl1<I>
+impl<I> DocValuesIterator for SparseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2382,7 +2488,7 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedSetDocValuesImpl1<I>
+impl<I> DocIdSetIterator for SparseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2405,7 +2511,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesImpl1<I>
+impl<I> SortedSetDocValues<I> for SparseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2422,13 +2528,13 @@ where
     }
 }
 
-pub struct BaseSortedSetDocValuesImpl2<I>
+pub struct BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
     ords: SortedNumericDocValuesEnum<I>,
 }
-impl<I> BaseSortedSetDocValuesImpl2<I>
+impl<I> BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
@@ -2437,7 +2543,7 @@ where
     }
 }
 
-impl<I> DocValuesIterator for BaseSortedSetDocValuesImpl2<I>
+impl<I> DocValuesIterator for BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
@@ -2446,7 +2552,7 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedSetDocValuesImpl2<I>
+impl<I> DocIdSetIterator for BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
@@ -2467,7 +2573,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesImpl2<I>
+impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
@@ -2480,13 +2586,133 @@ where
     }
 }
 
+enum BaseSortedSetDocValuesEnum<I>
+where
+    I: IndexInput,
+{
+    Dense(DenseBaseSortedSetDocValues<I>),
+    Sparse(SparseBaseSortedSetDocValues<I>),
+    Impl(BaseSortedSetDocValuesImpl<I>),
+}
+
+impl<I> DocValuesIterator for BaseSortedSetDocValuesEnum<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.advance_exact(target),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.advance_exact(target),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.advance_exact(target),
+        }
+    }
+}
+
+impl<I> DocIdSetIterator for BaseSortedSetDocValuesEnum<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.doc_id(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.doc_id(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.next_doc(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.next_doc(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.advance(target),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.advance(target),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.advance(target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.advance(target),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.advance(target),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.cost(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.cost(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.cost(),
+        }
+    }
+}
+
+impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesEnum<I>
+where
+    I: IndexInput,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.next_ord(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.next_ord(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.ords.next_value(),
+        }
+    }
+
+    fn doc_value_count(&mut self) -> Result<i64> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.doc_value_count(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.doc_value_count(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
+        }
+    }
+
+    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.lookup_ord(ord),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.lookup_ord(ord),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.lookup_ord(ord),
+        }
+    }
+
+    fn get_value_count(&self) -> Result<i64> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.get_value_count(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.get_value_count(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.get_value_count(),
+        }
+    }
+
+    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.lookup_term(key),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.lookup_term(key),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.lookup_term(key),
+        }
+    }
+
+    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.terms_enum(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.terms_enum(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.terms_enum(),
+        }
+    }
+}
+
 pub(crate) struct BaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
-    entry: SortedSetEntry,
+    entry: Rc<SortedSetEntry>,
     terms_enum: TermsDict<I>,
-    sub: SortedSetDocValuesEnum<I>,
+    sub: BaseSortedSetDocValuesEnum<I>,
 }
 
 impl<I> BaseSortedSetDocValues<I>
@@ -2494,9 +2720,9 @@ where
     I: IndexInput,
 {
     fn new(
-        entry: SortedSetEntry,
+        entry: Rc<SortedSetEntry>,
         data: &mut I,
-        sub: SortedSetDocValuesEnum<I>,
+        sub: BaseSortedSetDocValuesEnum<I>,
         merging: bool,
     ) -> Result<Self> {
         let terms_dict_entry = match entry.terms_dict_entry {

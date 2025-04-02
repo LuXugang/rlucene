@@ -16,10 +16,10 @@
  */
 pub mod doc_values {
     use crate::codecs::lucene90_doc_values_producer::{
-        BaseSortedDocValues, BaseSortedSetDocValuesImpl, BaseSortedSetDocValuesImpl1,
-        BaseSortedSetDocValuesImpl2, DenseBinaryDocValues, DenseNumericDocValues,
-        DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBinaryDocValues,
-        SparseNumericDocValues,
+        BaseSortedDocValues, BaseSortedSetDocValues, BaseSortedSetDocValuesImpl,
+        DenseBaseSortedSetDocValues, DenseBinaryDocValues, DenseNumericDocValues,
+        DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBaseSortedSetDocValues,
+        SparseBinaryDocValues, SparseNumericDocValues,
     };
     use crate::index::binary_doc_values::BinaryDocValues;
     use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
@@ -303,9 +303,7 @@ pub mod doc_values {
         I: IndexInput,
     {
         Singleton(SingletonSortedSetDocValues<I>),
-        Dense(BaseSortedSetDocValuesImpl<I>),
-        Sparse(BaseSortedSetDocValuesImpl1<I>),
-        Impl(BaseSortedSetDocValuesImpl2<I>),
+        Base(BaseSortedSetDocValues<I>),
     }
 
     impl<I> DocValuesIterator for SortedSetDocValuesEnum<I> where I: IndexInput {}
