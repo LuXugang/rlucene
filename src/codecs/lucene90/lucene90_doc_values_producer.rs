@@ -703,7 +703,7 @@ where
         };
         Ok(long_values)
     }
-    fn get_binary(&self, field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>>
+    fn get_binary(&mut self, field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>>
     where
         I: IndexInput,
     {
@@ -770,14 +770,64 @@ where
                 self.max_doc,
             )))
         } else {
-            todo!()
+            let disi = IndexedDISI::new(
+                &mut self.data,
+                entry.docs_with_field_offset,
+                entry.docs_with_field_length,
+                entry.jump_table_entry_count as i32,
+                entry.dense_rank_power as i8,
+                entry.num_docs_with_field as i64,
+            )?;
+
+            let sub = if entry.min_length == entry.max_length {
+                // fixed-length
+                let length = entry.max_length;
+                SparseBinaryDocValuesBaseEnum::Sparse(SparseBinaryDocValuesBaseImpl {
+                    bytes_slice,
+                    bytes: Rc::new(RefCell::new(BytesRef::from_vec(
+                        vec![0u8; length as usize],
+                        0,
+                        length,
+                    ))),
+                    length,
+                })
+            } else {
+                // variable-length
+                let mut addresses_data = self
+                    .data
+                    .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
+                if addresses_data.length() > 0 {
+                    addresses_data.prefetch(0, 1)?;
+                }
+                let addresses = match entry.addresses_meta {
+                    Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
+                        meta,
+                        Rc::new(RefCell::new(addresses_data)),
+                        self.merging,
+                    )?,
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "addresses_meta is None".to_string(),
+                        ))?;
+                    }
+                };
+                SparseBinaryDocValuesBaseEnum::Sparse1(SparseBinaryDocValuesBaseImpl1 {
+                    bytes_slice,
+                    bytes: Rc::new(RefCell::new(BytesRef::from_vec(
+                        vec![0u8; entry.max_length as usize],
+                        0,
+                        entry.max_length,
+                    ))),
+                    addresses,
+                })
+            };
+            Ok(BinaryDocValuesEnum::Sparse(SparseBinaryDocValues::new(
+                sub, disi,
+            )))
         }
     }
 
-    fn get_sorted(&mut self, entry: Rc<SortedEntry>) -> Result<SortedDocValuesEnum<I>>
-    where
-        I: IndexInput,
-    {
+    fn get_sorted(&mut self, entry: Rc<SortedEntry>) -> Result<SortedDocValuesEnum<I>> {
         let ords_entry = &entry.ords_entry;
 
         if ords_entry.block_shift < 0 && ords_entry.bits_per_value > 0 {
@@ -994,7 +1044,6 @@ where
         }
     }
 }
-
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct DocValuesSkipperEntry {
     pub offset: i64,
@@ -1901,7 +1950,7 @@ where
 {
     bytes_slice: I::RandomAccessSlice,
     bytes: Rc<RefCell<BytesRef>>,
-    addresses: DirectPackedEnum<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
 impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I>
 where

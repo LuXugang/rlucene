@@ -16,7 +16,7 @@
  */
 pub mod compressing;
 pub mod doc_values_enum;
-mod dov_values_inner_enum;
+pub mod dov_values_inner_enum;
 mod fields_index;
 mod fields_index_reader;
 mod fields_index_writer;
