@@ -42,7 +42,7 @@ pub trait DocValuesSkipper {
 
     /// Return the maximum doc ID of the interval on the given level, inclusive.
     ///
-    /// This returns `-1` if [`advance(target)`](DocValuesSkipper::advance) has not been called yet and [`NO_MORE_DOCS`](NO_MORE_DOCS)
+    /// This returns `-1` if [`advance(target)`](DocValuesSkipper::advance) has not been called yet and [`NO_MORE_DOCS`]
     /// if the iterator is exhausted. This method is non-decreasing when `level` decreases.
     /// In other words: `max_doc_id(level+1) >= max_doc_id(level)`.
     fn max_doc_id(&self, level: i32) -> i32;

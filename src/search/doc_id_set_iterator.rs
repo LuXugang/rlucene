@@ -229,7 +229,7 @@ impl DocIdSetIterator for Range {
     }
 }
 pub mod doc_id_set_iterator_static {
-    /// When returned by [`next_doc`](DocIdSetIterator::next_doc), [`advance`](DocIdSetIterator::advance), and [`doc_id`](DocIdSetIterator::doc_id),
+    /// When returned by [`next_doc`](crate::search::doc_id_set_iterator::DocIdSetIterator::next_doc), [`advance`](crate::search::doc_id_set_iterator::DocIdSetIterator::advance), and [`doc_id`](crate::search::doc_id_set_iterator::DocIdSetIterator::doc_id),
     /// it means there are no more documents in the iterator.
     pub const NO_MORE_DOCS: i32 = i32::MAX;
 }

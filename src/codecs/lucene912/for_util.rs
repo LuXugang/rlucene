@@ -18,7 +18,7 @@
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::store::{DataOutput, IndexInput};
 use crate::util::error::lucene_error::Result;
-/// Inspired by https://fulmicoton.com/posts/bitpacking/
+/// Inspired by [bitpacking](https://fulmicoton.com/posts/bitpacking/)
 ///
 /// Encodes multiple integers into a `long` to achieve SIMD-like speedups.
 ///

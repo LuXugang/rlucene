@@ -48,19 +48,19 @@ pub trait TermsEnum: BytesRefIterator {
         Ok(self.seek_ceil(term)? == SeekStatus::Found)
     }
 
-    /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase typically calls [`IndexInput::prefetch`](crate::store::index_input::IndexInput::prefetch) on
-    /// the right range of bytes under the hood, while the second phase [`IOBooleanSupplier::get`](crate::util::io_boolean_supplier::IOBooleanSupplier::get)
+    /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase typically calls [`IndexInput::prefetch`] on
+    /// the right range of bytes under the hood, while the second phase [`IOBooleanSupplier::get`]
     /// actually seeks the term within these bytes. This can be used to parallelize I/O across multiple
     /// terms by calling [`prepare_seek_exact`](TermsEnum::prepare_seek_exact) on multiple terms enums before calling
     /// `IOBooleanSupplier::get()`.
     ///
     /// **NOTE**: It is illegal to call other methods on this [`TermsEnum`] after calling
-    /// this method until [`IOBooleanSupplier::get()`](crate::util::io_boolean_supplier::IOBooleanSupplier::get) is called.
+    /// this method until [`IOBooleanSupplier::get()`] is called.
     ///
     /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that the
     /// term may not exist without performing any I/O.
     ///
-    /// **NOTE**: The returned [`IOBooleanSupplier`](crate::util::io_boolean_supplier::IOBooleanSupplier) must be
+    /// **NOTE**: The returned [`IOBooleanSupplier`] must be
     fn prepare_seek_exact(
         &mut self,
         term: &BytesRef,
@@ -110,7 +110,7 @@ pub trait TermsEnum: BytesRefIterator {
 
     /// Returns the number of documents containing the current term.
     /// Do not call this when the enum is unpositioned.
-    /// Equivalent to [`SeekStatus::End`](SeekStatus::End) when exhausted.
+    /// Equivalent to [`SeekStatus::End`] when exhausted.
     fn doc_freq(&self) -> Result<i32>;
 
     /// Returns the total number of occurrences of this term across all documents

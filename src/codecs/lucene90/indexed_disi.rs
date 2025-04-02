@@ -294,9 +294,9 @@ where
     /// - `offset`: The starting byte offset of the blocks in the input.
     /// - `length`: The number of bytes that hold both blocks and the jump table.
     /// - `jump_table_entry_count`: The number of blocks covered by the jump table. This must match the
-    ///   number returned by [`write_bit_set`].
+    ///   number returned by `write_bit_set`
     /// - `dense_rank_power`: The number of doc IDs covered by each rank entry in DENSE blocks,
-    ///   expressed as `2^dense_rank_power`. This must match the value passed to [`write_bit_set`] when writing.
+    ///   expressed as `2^dense_rank_power`. This must match the value passed to `write_bit_set` when writing.
     /// - `cost`: Typically the number of logical doc IDs.
     pub fn new(
         index_input: &mut I,
@@ -331,9 +331,9 @@ where
     /// - `block_slice`: The data blocks, typically created using [`create_block_slice`](Self::create_block_slice).
     /// - `jump_table`: The table holding jump data for block skips, typically created using [`create_jump_table`](Self::create_jump_table).
     /// - `jump_table_entry_count`: The number of blocks covered by the jump table. This must match the
-    ///   number returned by [`write_bit_set`]
+    ///   number returned by `write_bit_set`
     /// - `dense_rank_power`: The number of doc IDs covered by each rank entry in DENSE blocks,
-    ///   expressed as `2^dense_rank_power`. This must match the value used in [`write_bit_set`].
+    ///   expressed as `2^dense_rank_power`. This must match the value used in `write_bit_set`.
     /// - `cost`: Typically the number of logical doc IDs.
     pub fn from_components(
         index_input: Rc<RefCell<I::Slice>>,

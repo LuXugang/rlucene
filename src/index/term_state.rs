@@ -20,7 +20,7 @@ use crate::index::ord_term_state::OrdTermState;
 use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
-/// Encapsulates all required internal state to position the associated [`TermsEnum`] without re-seeking.
+/// Encapsulates all required internal state to position the associated [`TermsEnum`](crate::index::terms_enum::TermsEnum) without re-seeking.
 pub trait TermState: Display + Clone {
     /// Copies the content of the given `TermState` to this instance.
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()>;

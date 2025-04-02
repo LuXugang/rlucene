@@ -50,7 +50,7 @@ pub(crate) mod freq_prox_terms_writer_per_field;
 pub(crate) mod frozen_buffered_updates;
 pub mod impact;
 pub mod impacts;
-mod impacts_enum;
+pub mod impacts_enum;
 pub mod impacts_source;
 mod index_commit;
 pub mod index_deletion_policy;
