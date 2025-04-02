@@ -23,7 +23,6 @@ use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
 use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::{BytesRef, STBytesRef};
-use crate::util::access::Shared;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -38,10 +37,7 @@ use crate::util::io_boolean_supplier::{IOBooleanSupplier, IOBooleanSupplierEnum}
 ///
 /// The `TermsEnum` is unpositioned when you first obtain it, and you must first successfully call
 /// [`next()`](BytesRefIterator::next) or one of the `seek` methods.
-pub trait TermsEnum<S>: BytesRefIterator<S>
-where
-    S: Shared<BytesRef>,
-{
+pub trait TermsEnum: BytesRefIterator {
     /// Returns the related attribute source.
     fn attributes(&self) -> Result<&AttributeSource>;
 
@@ -100,7 +96,7 @@ where
     fn seek_exact_with_state(&mut self, term: &BytesRef, state: &TermStateEnum) -> Result<()>;
 
     /// Returns current term. Do not call this when the enum is unpositioned.
-    fn term(&self) -> Result<STBytesRef>;
+    fn term(&self) -> Result<BytesRef>;
 
     /// Returns ordinal position for the current term.
     /// This is an optional method (the codec may return an error or indicate unsupported).
@@ -167,13 +163,13 @@ where
 }
 pub struct TermsEnumEmpty;
 
-impl BytesRefIterator<STBytesRef> for TermsEnumEmpty {
-    fn next(&mut self) -> Result<Option<STBytesRef>> {
+impl BytesRefIterator for TermsEnumEmpty {
+    fn next(&mut self) -> Result<Option<BytesRef>> {
         Ok(None)
     }
 }
 
-impl TermsEnum<STBytesRef> for TermsEnumEmpty {
+impl TermsEnum for TermsEnumEmpty {
     fn attributes(&self) -> Result<&AttributeSource> {
         todo!()
     }
@@ -201,7 +197,7 @@ impl TermsEnum<STBytesRef> for TermsEnumEmpty {
         ))
     }
 
-    fn term(&self) -> Result<STBytesRef> {
+    fn term(&self) -> Result<BytesRef> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))

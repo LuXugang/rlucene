@@ -20,7 +20,6 @@ use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
-use crate::index::MTBytesRef;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
@@ -43,7 +42,7 @@ where
     I: Access<InfoStreamEnum>,
 {
     info_stream: I,
-    pub delete_terms: PrefixCodedTerms<MTBytesRef>,
+    pub delete_terms: PrefixCodedTerms,
     pub delete_queries: Vec<Arc<Q>>,
     delete_query_limits: Vec<i32>,
     applied: AtomicBool,

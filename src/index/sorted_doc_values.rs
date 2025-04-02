@@ -16,7 +16,7 @@
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::terms_enum::TermsEnums;
-use crate::index::{BytesRef, STBytesRef};
+use crate::index::BytesRef;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
 
@@ -45,7 +45,7 @@ pub trait SortedDocValues: DocValuesIterator {
     ///
     /// # Returns
     /// The dictionary value corresponding to the ordinal.
-    fn lookup_ord(&self, ord: i32) -> Result<STBytesRef>;
+    fn lookup_ord(&self, ord: i32) -> Result<BytesRef>;
 
     /// Returns the number of unique sorted values in this doc values set.
     ///
@@ -64,7 +64,7 @@ pub trait SortedDocValues: DocValuesIterator {
 
         while low <= high {
             let mid = (low + high) >> 1;
-            let term = &*self.lookup_ord(mid)?;
+            let term = self.lookup_ord(mid)?;
             let cmp = term.cmp(key).to_int();
             if cmp < 0 {
                 low = mid + 1;

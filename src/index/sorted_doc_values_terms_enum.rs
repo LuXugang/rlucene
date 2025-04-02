@@ -27,13 +27,12 @@ use crate::index::{BytesRef, STBytesRef};
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
 
 /// Implements a [`TermsEnum`](TermsEnum) wrapping a provided [`SortedDocValues`](SortedDocValues).
 pub(crate) struct SortedDocValuesTermsEnum {
     values: SortedDocValuesEnum,
     current_ord: i32,
-    bytes: STBytesRef,
+    bytes: BytesRef,
 }
 
 impl SortedDocValuesTermsEnum {
@@ -42,13 +41,13 @@ impl SortedDocValuesTermsEnum {
         Self {
             values,
             current_ord: -1,
-            bytes: Rc::from(BytesRef::new()),
+            bytes: BytesRef::new(),
         }
     }
 }
 
-impl BytesRefIterator<STBytesRef> for SortedDocValuesTermsEnum {
-    fn next(&mut self) -> Result<Option<STBytesRef>> {
+impl BytesRefIterator for SortedDocValuesTermsEnum {
+    fn next(&mut self) -> Result<Option<BytesRef>> {
         self.current_ord += 1;
         if self.current_ord >= self.values.get_value_count() {
             Ok(None)
@@ -59,7 +58,7 @@ impl BytesRefIterator<STBytesRef> for SortedDocValuesTermsEnum {
     }
 }
 
-impl TermsEnum<STBytesRef> for SortedDocValuesTermsEnum {
+impl TermsEnum for SortedDocValuesTermsEnum {
     fn attributes(&self) -> Result<&AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }
@@ -68,7 +67,7 @@ impl TermsEnum<STBytesRef> for SortedDocValuesTermsEnum {
         let ord = self.values.lookup_term(text)?;
         if ord >= 0 {
             self.current_ord = ord;
-            self.bytes = Rc::from(text.clone());
+            self.bytes = text.clone();
             Ok(true)
         } else {
             Ok(false)
@@ -88,7 +87,7 @@ impl TermsEnum<STBytesRef> for SortedDocValuesTermsEnum {
         let ord = self.values.lookup_term(text)?;
         if ord >= 0 {
             self.current_ord = ord;
-            self.bytes = Rc::from(text.clone());
+            self.bytes = text.clone();
             Ok(SeekStatus::Found)
         } else {
             self.current_ord = -ord - 1;
@@ -118,7 +117,7 @@ impl TermsEnum<STBytesRef> for SortedDocValuesTermsEnum {
         Ok(())
     }
 
-    fn term(&self) -> Result<STBytesRef> {
+    fn term(&self) -> Result<BytesRef> {
         Ok(self.bytes.clone())
     }
 

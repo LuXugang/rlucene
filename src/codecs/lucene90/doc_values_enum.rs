@@ -23,7 +23,7 @@ pub mod doc_values {
     use crate::index::doc_values_iterator::DocValuesIterator;
     use crate::index::numeric_doc_values::NumericDocValues;
     use crate::index::sorted_doc_values::SortedDocValues;
-    use crate::index::{BytesRef, STBytesRef};
+    use crate::index::BytesRef;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
     use crate::util::error::lucene_error::Result;
@@ -49,7 +49,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_ord(&self, ord: i32) -> Result<STBytesRef> {
+        fn lookup_ord(&self, ord: i32) -> Result<BytesRef> {
             todo!()
         }
 

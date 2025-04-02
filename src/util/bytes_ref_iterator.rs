@@ -15,33 +15,41 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::util::access::Shared;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
-pub trait BytesRefIterator<S>
-where
-    S: Shared<BytesRef>,
-{
+pub trait BytesRefIterator {
     /// Increments the iteration to the next [`BytesRef`] in the iterator.
     /// Returns the resulting [`BytesRef`] or `None` if the end of the iterator is reached.
+    ///
+    /// # Note
+    /// Using this method requires ownership of the BytesRef.
+    /// See [`next_ref`](BytesRefIterator::next_ref) get BytesRef with reference.
+    fn next(&mut self) -> Result<Option<BytesRef>> {
+        Err(LuceneError::need_implemented("this method need implement"))
+    }
+
     /// The returned `BytesRef` may be re-used across calls to `next`. After this method returns `None`,
     /// do not call it again as the results are undefined.
     ///
     /// # Returns
     /// The next [`BytesRef`] in the iterator or `None` if the end of the iterator is reached.
     ///
+    /// # Note
+    /// In some scenarios, we need to return a reference to the BytesRef to avoid frequent copying operations.
+    /// Like in [TermsDict](crate::codecs::lucene90::lucene90_doc_values_producer::TermsDict), this method can be used.
+    ///
+    /// See [`next`](BytesRefIterator::next) for getting a new `BytesRef` instance.
     /// # Errors
     /// Returns an `std::io::Error` if there is a low-level I/O error.
-    fn next(&mut self) -> Result<Option<S>>;
+    fn next_ref(&mut self) -> Result<Option<&BytesRef>> {
+        Err(LuceneError::need_implemented("this method need implement"))
+    }
 }
 
 pub struct EmptyBytesRefIterator;
 
-impl<S> BytesRefIterator<S> for EmptyBytesRefIterator
-where
-    S: Shared<BytesRef>,
-{
-    fn next(&mut self) -> Result<Option<S>> {
+impl BytesRefIterator for EmptyBytesRefIterator {
+    fn next(&mut self) -> Result<Option<BytesRef>> {
         Ok(None)
     }
 }

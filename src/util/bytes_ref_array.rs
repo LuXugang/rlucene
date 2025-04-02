@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::{BytesRef, BytesRefBuilder, MTBytesRef, STBytesRef};
+use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::{Access, Shared};
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
@@ -27,7 +27,6 @@ use crate::util::{
     CounterEnumLock, MSBRadixSorterBase, SliceCopyOps, Sorter, StableStringSorter,
     StableStringSorterBase, StringSorter, StringSorterBase,
 };
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A simple append-only random-access array that stores full copies of the appended
@@ -38,25 +37,23 @@ use std::sync::Arc;
 ///
 /// # Internal
 /// This is an internal and experimental component.
-pub struct BytesRefArray<A, S>
+pub struct BytesRefArray<A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     pool: ByteBlockPool<A>,
     offsets: Vec<i32>,
     last_element: i32,
     current_offset: i32,
     byte_used: A,
-    phantom: PhantomData<S>,
 }
 
 /// for single-threaded scenarios
-pub type STBytesRefArray = BytesRefArray<CounterEnumBorrow, STBytesRef>;
+pub type STBytesRefArray = BytesRefArray<CounterEnumBorrow>;
 /// for multi-threaded scenarios
-pub type MTBytesRefArray = BytesRefArray<CounterEnumLock, MTBytesRef>;
+pub type MTBytesRefArray = BytesRefArray<CounterEnumLock>;
 
-impl BytesRefArray<CounterEnumBorrow, STBytesRef> {
+impl BytesRefArray<CounterEnumBorrow> {
     /// for single-threaded scenarios
     pub fn new(byte_used: CounterEnumBorrow) -> Result<STBytesRefArray> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -64,7 +61,7 @@ impl BytesRefArray<CounterEnumBorrow, STBytesRef> {
         BytesRefArray::new_impl(pool, byte_used)
     }
 }
-impl BytesRefArray<CounterEnumLock, STBytesRef> {
+impl BytesRefArray<CounterEnumLock> {
     /// for multi-threaded scenarios
     pub fn new_sync(byte_used: CounterEnumLock) -> Result<MTBytesRefArray> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -73,12 +70,11 @@ impl BytesRefArray<CounterEnumLock, STBytesRef> {
     }
 }
 
-impl<A, S> BytesRefArray<A, S>
+impl<A> BytesRefArray<A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
-    fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A, S>> {
+    fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A>> {
         pool.next_buffer()?;
         let offsets = Vec::new();
         byte_used.access_mut(|b| Ok(b.add_and_get(BitUtil::INT_BYTES as i64)))?;
@@ -88,7 +84,6 @@ where
             last_element: 0,
             current_offset: 0,
             byte_used,
-            phantom: Default::default(),
         })
     }
     /// Returns the nth element of this [`BytesRefArray`].
@@ -196,7 +191,7 @@ where
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
-    pub fn iterator(&self) -> IndexedBytesRefIteratorImpl<A, S> {
+    pub fn iterator(&self) -> IndexedBytesRefIteratorImpl<A> {
         self.iterator_with_state(Arc::from(SortState::new(None)))
     }
     /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
@@ -215,7 +210,7 @@ where
     pub fn iterator_with_state(
         &self,
         sort_state: Arc<SortState>,
-    ) -> IndexedBytesRefIteratorImpl<A, S> {
+    ) -> IndexedBytesRefIteratorImpl<A> {
         IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
@@ -230,10 +225,9 @@ where
 /// [`BytesRef`]
 ///
 /// [`BytesRefArray`]
-impl<'a, A, S> SortableBytesRefArray<'a> for BytesRefArray<A, S>
+impl<'a, A> SortableBytesRefArray<'a> for BytesRefArray<A>
 where
     A: Access<CounterEnum> + 'a,
-    S: Shared<BytesRef> + 'a,
 {
     fn append(&mut self, bytes: &BytesRef) -> Result<i32> {
         self.pool.append_bytes_ref(bytes)?;
@@ -265,7 +259,7 @@ where
     ///
     /// # Note
     /// - This is a non-destructive operation.
-    type Iter = IndexedBytesRefIteratorImpl<'a, A, S>;
+    type Iter = IndexedBytesRefIteratorImpl<'a, A>;
     fn iterator(
         &'a mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef>,
@@ -290,28 +284,25 @@ impl Accountable for SortState {
     }
 }
 
-pub struct IndexedBytesRefIteratorImpl<'a, A, S>
+pub struct IndexedBytesRefIteratorImpl<'a, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     pos: i32,
     ord: i32,
     sort_state: Arc<SortState>,
     spare: BytesRefBuilder,
     size: i32,
-    bytes_ref_array: &'a BytesRefArray<A, S>,
-    phantom: PhantomData<S>,
+    bytes_ref_array: &'a BytesRefArray<A>,
 }
-impl<'a, A, S> IndexedBytesRefIteratorImpl<'a, A, S>
+impl<'a, A> IndexedBytesRefIteratorImpl<'a, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     fn new(
         sort_state: Arc<SortState>,
-        bytes_ref_array: &'a BytesRefArray<A, S>,
-    ) -> IndexedBytesRefIteratorImpl<'a, A, S> {
+        bytes_ref_array: &'a BytesRefArray<A>,
+    ) -> IndexedBytesRefIteratorImpl<'a, A> {
         Self {
             pos: -1,
             ord: -1,
@@ -319,19 +310,17 @@ where
             spare: BytesRefBuilder::new(),
             size: bytes_ref_array.size(),
             bytes_ref_array,
-            phantom: PhantomData,
         }
     }
     pub fn ord(&self) -> i32 {
         self.ord
     }
 }
-impl<A, S> BytesRefIterator<S> for IndexedBytesRefIteratorImpl<'_, A, S>
+impl<A> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
-    fn next(&mut self) -> Result<Option<S>> {
+    fn next(&mut self) -> Result<Option<BytesRef>> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
@@ -342,26 +331,22 @@ where
             };
             self.bytes_ref_array
                 .set_bytes_ref(&mut self.spare, &mut result, self.ord)?;
-            Ok(Some(Shared::new(result)))
+            Ok(Some(result))
         } else {
             Ok(None)
         }
     }
 }
-impl<A, S> IndexedBytesRefIterator<S> for IndexedBytesRefIteratorImpl<'_, A, S>
+impl<A> IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     fn ord(&self) -> i32 {
         self.ord
     }
 }
 
-pub trait IndexedBytesRefIterator<S>: BytesRefIterator<S>
-where
-    S: Shared<BytesRef>,
-{
+pub trait IndexedBytesRefIterator: BytesRefIterator {
     /// Returns the ordinal position of the element that was returned in the latest call to [`next`](BytesRefIterator::next).
     ///
     /// # Warning
@@ -371,19 +356,17 @@ where
     fn ord(&self) -> i32;
 }
 
-struct StableStringSorterImpl<'a, A, S>
+struct StableStringSorterImpl<'a, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     tmp: Vec<i32>,
     ordered_entries: &'a mut [i32],
-    bytes_ref_array: &'a mut BytesRefArray<A, S>,
+    bytes_ref_array: &'a mut BytesRefArray<A>,
 }
-impl<A, S> Sorter for StableStringSorterImpl<'_, A, S>
+impl<A> Sorter for StableStringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.ordered_entries.swap(i as usize, j as usize);
@@ -391,10 +374,9 @@ where
     }
 }
 
-impl<A, S> StringSorterBase for StableStringSorterImpl<'_, A, S>
+impl<A> StringSorterBase for StableStringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
         self.bytes_ref_array
@@ -402,10 +384,9 @@ where
     }
 }
 
-impl<A, S> StableStringSorterBase for StableStringSorterImpl<'_, A, S>
+impl<A> StableStringSorterBase for StableStringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     fn save(&mut self, i: i32, j: i32) {
         self.tmp[j as usize] = self.ordered_entries[i as usize];
@@ -415,35 +396,27 @@ where
             .copy_from(&self.tmp[i as usize..j as usize], i as usize);
     }
 }
-impl<A, S> MSBRadixSorterBase for StableStringSorterImpl<'_, A, S>
-where
-    A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
-{
-}
+impl<A> MSBRadixSorterBase for StableStringSorterImpl<'_, A> where A: Access<CounterEnum> {}
 
-struct StringSorterImpl<'a, A, S>
+struct StringSorterImpl<'a, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     ordered_entries: &'a mut [i32],
-    bytes_ref_array: &'a mut BytesRefArray<A, S>,
+    bytes_ref_array: &'a mut BytesRefArray<A>,
 }
-impl<A, S> Sorter for StringSorterImpl<'_, A, S>
+impl<A> Sorter for StringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.ordered_entries.swap(i as usize, j as usize);
         Ok(())
     }
 }
-impl<A, S> StringSorterBase for StringSorterImpl<'_, A, S>
+impl<A> StringSorterBase for StringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    S: Shared<BytesRef>,
 {
     fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
         self.bytes_ref_array
@@ -515,7 +488,7 @@ mod tests {
             for _ in 0..2 {
                 let mut iterator = list.iterator();
                 for string in &string_list {
-                    let value: Option<Rc<BytesRef>> = iterator.next()?;
+                    let value = iterator.next()?;
                     assert!(value.is_some());
                     assert_eq!(*string, value.unwrap().utf8_to_string()?,);
                 }
@@ -644,7 +617,7 @@ mod tests {
                 );
 
                 if let Some(last_ref) = &last {
-                    if *next == *last_ref {
+                    if next == *last_ref {
                         let ord = iter.ord();
                         assert!(ord > last_ord, "sort not stable: {} <= {}", ord, last_ord);
                     }

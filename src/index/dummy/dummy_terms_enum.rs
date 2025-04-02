@@ -28,15 +28,15 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 pub struct DummyTermsEnum {
     atts: AttributeSource,
 }
-impl BytesRefIterator<STBytesRef> for DummyTermsEnum {
-    fn next(&mut self) -> Result<Option<STBytesRef>> {
+impl BytesRefIterator for DummyTermsEnum {
+    fn next(&mut self) -> Result<Option<BytesRef>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 }
 
-impl TermsEnum<STBytesRef> for DummyTermsEnum {
+impl TermsEnum for DummyTermsEnum {
     fn attributes(&self) -> Result<&AttributeSource> {
         debug_assert!(false, "should never be called");
         Ok(&self.atts)
@@ -71,7 +71,7 @@ impl TermsEnum<STBytesRef> for DummyTermsEnum {
         ))
     }
 
-    fn term(&self) -> Result<STBytesRef> {
+    fn term(&self) -> Result<BytesRef> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
