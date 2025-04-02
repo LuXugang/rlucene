@@ -17,8 +17,8 @@
 pub mod doc_values {
     use crate::codecs::lucene90_doc_values_producer::{
         BaseSortedDocValues, BaseSortedSetDocValues, DenseBinaryDocValues, DenseNumericDocValues,
-        DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBinaryDocValues,
-        SparseNumericDocValues,
+        DenseSortedNumericDocValues, DocValuesSkipperImpl, SpareSortedNumericDocValues,
+        SparseBinaryDocValues, SparseNumericDocValues,
     };
     use crate::index::binary_doc_values::BinaryDocValues;
     use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
@@ -36,6 +36,13 @@ pub mod doc_values {
     use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
     use std::rc::Rc;
+
+    pub enum DocValuesSkipperEnum<I>
+    where
+        I: IndexInput,
+    {
+        Impl(DocValuesSkipperImpl<I>),
+    }
 
     pub enum SortedDocValuesEnum<I>
     where
