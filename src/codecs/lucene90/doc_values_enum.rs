@@ -16,7 +16,8 @@
  */
 pub mod doc_values {
     use crate::codecs::lucene90_doc_values_producer::{
-        BaseSortedDocValues, DenseBinaryDocValues, DenseNumericDocValues,
+        BaseSortedDocValues, BaseSortedSetDocValuesImpl, BaseSortedSetDocValuesImpl1,
+        BaseSortedSetDocValuesImpl2, DenseBinaryDocValues, DenseNumericDocValues,
         DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBinaryDocValues,
         SparseNumericDocValues,
     };
@@ -28,6 +29,8 @@ pub mod doc_values {
     use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
     use crate::index::sorted_doc_values::SortedDocValues;
     use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+    use crate::index::sorted_set_doc_values::SortedSetDocValues;
+    use crate::index::terms_enums::TermsEnums;
     use crate::index::BytesRef;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
@@ -300,6 +303,53 @@ pub mod doc_values {
         I: IndexInput,
     {
         Singleton(SingletonSortedSetDocValues<I>),
+        Dense(BaseSortedSetDocValuesImpl<I>),
+        Sparse(BaseSortedSetDocValuesImpl1<I>),
+        Impl(BaseSortedSetDocValuesImpl2<I>),
+    }
+
+    impl<I> DocValuesIterator for SortedSetDocValuesEnum<I> where I: IndexInput {}
+
+    impl<I> DocIdSetIterator for SortedSetDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn doc_id(&self) -> i32 {
+            todo!()
+        }
+
+        fn next_doc(&mut self) -> Result<i32> {
+            todo!()
+        }
+    }
+
+    impl<I> SortedSetDocValues<I> for SortedSetDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn next_ord(&mut self) -> Result<i64> {
+            todo!()
+        }
+
+        fn doc_value_count(&mut self) -> Result<i64> {
+            todo!()
+        }
+
+        fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef> {
+            todo!()
+        }
+
+        fn get_value_count(&self) -> Result<i64> {
+            todo!()
+        }
+
+        fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+            todo!()
+        }
+
+        fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+            todo!()
+        }
     }
 }
 
