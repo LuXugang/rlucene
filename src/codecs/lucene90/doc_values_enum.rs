@@ -16,10 +16,9 @@
  */
 pub mod doc_values {
     use crate::codecs::lucene90_doc_values_producer::{
-        BaseSortedDocValues, BaseSortedSetDocValues, BaseSortedSetDocValuesImpl,
-        DenseBaseSortedSetDocValues, DenseBinaryDocValues, DenseNumericDocValues,
-        DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBaseSortedSetDocValues,
-        SparseBinaryDocValues, SparseNumericDocValues,
+        BaseSortedDocValues, BaseSortedSetDocValues, DenseBinaryDocValues, DenseNumericDocValues,
+        DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBinaryDocValues,
+        SparseNumericDocValues,
     };
     use crate::index::binary_doc_values::BinaryDocValues;
     use crate::index::doc_values::{EmptyBinary, EmptyNumeric};

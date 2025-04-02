@@ -19,6 +19,11 @@ use crate::codecs::doc_values_enum::doc_values::{
     SortedSetDocValuesEnum,
 };
 use crate::codecs::indexed_disi::IndexedDISI;
+use crate::codecs::lucene90::dov_values_inner_enum::{
+    BaseSortedDocValuesEnum, BaseSortedSetDocValuesEnum, DenseBinaryDocValuesBaseEnum,
+    DenseNumericDocValuesSubEnum, LongValuesEnum, SparseBinaryDocValuesBaseEnum,
+    SparseNumericDocValuesSubEnum,
+};
 use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
@@ -900,11 +905,8 @@ where
                 ))
             })?
             .clone();
-        match entry.single_value_entry {
-            Some(ref single_value_entry) => {
-                return DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?)
-            }
-            None => {}
+        if let Some(ref single_value_entry) = entry.single_value_entry {
+            return DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?);
         }
         // Specialize the common case for ordinals: single block of packed integers.
         match entry.ords_entry {
@@ -1582,10 +1584,10 @@ where
     }
 }
 
-trait DenseNumericDocValuesBase {
+pub(crate) trait DenseNumericDocValuesBase {
     fn long_value(&mut self, doc: i32) -> Result<i64>;
 }
-struct DenseNumericDocValuesBaseImpl {
+pub(crate) struct DenseNumericDocValuesBaseImpl {
     min_values: i64,
 }
 impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
@@ -1593,7 +1595,7 @@ impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
         Ok(self.min_values)
     }
 }
-struct DenseNumericDocValuesBaseImpl1<I>
+pub(crate) struct DenseNumericDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
@@ -1607,7 +1609,7 @@ where
         self.vbpv_reader.get_long_value(doc as i64)
     }
 }
-struct DenseNumericDocValuesBaseImpl2<I>
+pub(crate) struct DenseNumericDocValuesBaseImpl2<I>
 where
     I: IndexInput,
 {
@@ -1622,7 +1624,7 @@ where
         Ok(self.table[self.values.get(doc as i64)? as usize])
     }
 }
-struct DenseNumericDocValuesBaseImpl3<I>
+pub(crate) struct DenseNumericDocValuesBaseImpl3<I>
 where
     I: IndexInput,
 {
@@ -1636,7 +1638,7 @@ where
         self.values.get(doc as i64)
     }
 }
-struct DenseNumericDocValuesBaseImpl4<I>
+pub(crate) struct DenseNumericDocValuesBaseImpl4<I>
 where
     I: IndexInput,
 {
@@ -1652,37 +1654,13 @@ where
         Ok(self.mul * self.values.get(doc as i64)? + self.delta)
     }
 }
-enum DenseNumericDocValuesSubEnum<I>
-where
-    I: IndexInput,
-{
-    Dense(DenseNumericDocValuesBaseImpl),
-    Dense1(DenseNumericDocValuesBaseImpl1<I>),
-    Dense2(DenseNumericDocValuesBaseImpl2<I>),
-    Dense3(DenseNumericDocValuesBaseImpl3<I>),
-    Dense4(DenseNumericDocValuesBaseImpl4<I>),
-}
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesSubEnum<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, doc: i32) -> Result<i64> {
-        match self {
-            DenseNumericDocValuesSubEnum::Dense(sub) => sub.long_value(doc),
-            DenseNumericDocValuesSubEnum::Dense1(sub) => sub.long_value(doc),
-            DenseNumericDocValuesSubEnum::Dense2(sub) => sub.long_value(doc),
-            DenseNumericDocValuesSubEnum::Dense3(sub) => sub.long_value(doc),
-            DenseNumericDocValuesSubEnum::Dense4(sub) => sub.long_value(doc),
-        }
-    }
-}
 
-trait SparseNumericDocValuesBase<I> {
+pub(crate) trait SparseNumericDocValuesBase<I> {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
     where
         I: IndexInput;
 }
-struct SparseNumericDocValuesBaseImpl<I>
+pub(crate) struct SparseNumericDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
@@ -1700,7 +1678,7 @@ where
         Ok(self.min_values)
     }
 }
-struct SparseNumericDocValuesBaseImpl1<I>
+pub(crate) struct SparseNumericDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
@@ -1718,7 +1696,7 @@ where
         self.vbpv_reader.get_long_value(index as i64)
     }
 }
-struct SparseNumericDocValuesBaseImpl2<I>
+pub(crate) struct SparseNumericDocValuesBaseImpl2<I>
 where
     I: IndexInput,
 {
@@ -1736,7 +1714,7 @@ where
         Ok(self.table[self.values.get(disi.index() as i64)? as usize])
     }
 }
-struct SparseNumericDocValuesBaseImpl3<I>
+pub(crate) struct SparseNumericDocValuesBaseImpl3<I>
 where
     I: IndexInput,
 {
@@ -1753,7 +1731,7 @@ where
         self.values.get(disi.index() as i64)
     }
 }
-struct SparseNumericDocValuesBaseImpl4<I>
+pub(crate) struct SparseNumericDocValuesBaseImpl4<I>
 where
     I: IndexInput,
 {
@@ -1772,35 +1750,8 @@ where
         Ok(self.mul * self.values.get(disi.index() as i64)? + self.delta)
     }
 }
-enum SparseNumericDocValuesSubEnum<I>
-where
-    I: IndexInput,
-{
-    Sparse(SparseNumericDocValuesBaseImpl<I>),
-    Sparse1(SparseNumericDocValuesBaseImpl1<I>),
-    Sparse2(SparseNumericDocValuesBaseImpl2<I>),
-    Sparse3(SparseNumericDocValuesBaseImpl3<I>),
-    Sparse4(SparseNumericDocValuesBaseImpl4<I>),
-}
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesSubEnum<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
-    where
-        I: IndexInput,
-    {
-        match self {
-            SparseNumericDocValuesSubEnum::Sparse(sub) => sub.long_value(disi),
-            SparseNumericDocValuesSubEnum::Sparse1(sub) => sub.long_value(disi),
-            SparseNumericDocValuesSubEnum::Sparse2(sub) => sub.long_value(disi),
-            SparseNumericDocValuesSubEnum::Sparse3(sub) => sub.long_value(disi),
-            SparseNumericDocValuesSubEnum::Sparse4(sub) => sub.long_value(disi),
-        }
-    }
-}
 
-struct LongValuesImpl {
+pub(crate) struct LongValuesImpl {
     min_values: i64,
 }
 impl LongValues for LongValuesImpl {
@@ -1808,7 +1759,7 @@ impl LongValues for LongValuesImpl {
         Ok(self.min_values)
     }
 }
-struct LongValuesImpl1<I>
+pub(crate) struct LongValuesImpl1<I>
 where
     I: IndexInput,
 {
@@ -1822,7 +1773,7 @@ where
         self.vbpv_reader.get_long_value(index)
     }
 }
-struct LongValuesImpl2<I>
+pub(crate) struct LongValuesImpl2<I>
 where
     I: IndexInput,
 {
@@ -1837,7 +1788,7 @@ where
         Ok(self.table[self.values.get(index)? as usize])
     }
 }
-struct LongValuesImpl3<I>
+pub(crate) struct LongValuesImpl3<I>
 where
     I: IndexInput,
 {
@@ -1853,7 +1804,7 @@ where
         Ok(self.gcd * self.values.get(index)? + self.min_value)
     }
 }
-struct LongValuesImpl4<I>
+pub(crate) struct LongValuesImpl4<I>
 where
     I: IndexInput,
 {
@@ -1868,36 +1819,12 @@ where
         Ok(self.values.get(index)? + self.min_value)
     }
 }
-enum LongValuesEnum<I>
-where
-    I: IndexInput,
-{
-    Impl(LongValuesImpl),
-    Impl1(LongValuesImpl1<I>),
-    Impl2(LongValuesImpl2<I>),
-    Impl3(LongValuesImpl3<I>),
-    Impl4(LongValuesImpl4<I>),
-}
-impl<I> LongValues for LongValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn get(&mut self, index: i64) -> Result<i64> {
-        match self {
-            LongValuesEnum::Impl(sub) => sub.get(index),
-            LongValuesEnum::Impl1(sub) => sub.get(index),
-            LongValuesEnum::Impl2(sub) => sub.get(index),
-            LongValuesEnum::Impl3(sub) => sub.get(index),
-            LongValuesEnum::Impl4(sub) => sub.get(index),
-        }
-    }
-}
 
-trait DenseBinaryDocValuesBase {
+pub(crate) trait DenseBinaryDocValuesBase {
     fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>>;
 }
 
-struct DenseBinaryDocValuesBaseImpl<I>
+pub(crate) struct DenseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
@@ -1920,7 +1847,7 @@ where
         Ok(self.bytes.clone())
     }
 }
-struct DenseBinaryDocValuesBaseImpl1<I>
+pub(crate) struct DenseBinaryDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
@@ -1941,32 +1868,14 @@ where
         Ok(self.bytes.clone())
     }
 }
-enum DenseBinaryDocValuesBaseEnum<I>
-where
-    I: IndexInput,
-{
-    Dense(DenseBinaryDocValuesBaseImpl<I>),
-    Dense1(DenseBinaryDocValuesBaseImpl1<I>),
-}
-impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseEnum<I>
-where
-    I: IndexInput,
-{
-    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>> {
-        match self {
-            DenseBinaryDocValuesBaseEnum::Dense(sub) => sub.binary_value(doc),
-            DenseBinaryDocValuesBaseEnum::Dense1(sub) => sub.binary_value(doc),
-        }
-    }
-}
 
-trait SparseBinaryDocValuesBase<I>
+pub(crate) trait SparseBinaryDocValuesBase<I>
 where
     I: IndexInput,
 {
     fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>>;
 }
-struct SparseBinaryDocValuesBaseImpl<I>
+pub(crate) struct SparseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
@@ -1986,7 +1895,7 @@ where
         Ok(self.bytes.clone())
     }
 }
-struct SparseBinaryDocValuesBaseImpl1<I>
+pub(crate) struct SparseBinaryDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
@@ -2008,26 +1917,8 @@ where
         Ok(self.bytes.clone())
     }
 }
-enum SparseBinaryDocValuesBaseEnum<I>
-where
-    I: IndexInput,
-{
-    Sparse(SparseBinaryDocValuesBaseImpl<I>),
-    Sparse1(SparseBinaryDocValuesBaseImpl1<I>),
-}
-impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I>
-where
-    I: IndexInput,
-{
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>> {
-        match self {
-            SparseBinaryDocValuesBaseEnum::Sparse(sub) => sub.binary_value(disi),
-            SparseBinaryDocValuesBaseEnum::Sparse1(sub) => sub.binary_value(disi),
-        }
-    }
-}
 
-struct DenseBaseSortedDocValues<I>
+pub(crate) struct DenseBaseSortedDocValues<I>
 where
     I: IndexInput,
 {
@@ -2093,7 +1984,7 @@ where
     }
 }
 
-struct SparseBaseSortedDocValues<I>
+pub(crate) struct SparseBaseSortedDocValues<I>
 where
     I: IndexInput,
 {
@@ -2147,7 +2038,7 @@ where
         Ok(self.value.get(self.disi.index() as i64)? as i32)
     }
 }
-struct BaseSortedDocValuesImpl<I>
+pub(crate) struct BaseSortedDocValuesImpl<I>
 where
     I: IndexInput,
 {
@@ -2198,54 +2089,6 @@ where
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ords.long_value()? as i32)
-    }
-}
-enum BaseSortedDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    Dense(DenseBaseSortedDocValues<I>),
-    Sparse(SparseBaseSortedDocValues<I>),
-    Impl(BaseSortedDocValuesImpl<I>),
-}
-
-impl<I> DocValuesIterator for BaseSortedDocValuesEnum<I> where I: IndexInput {}
-
-impl<I> DocIdSetIterator for BaseSortedDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn doc_id(&self) -> i32 {
-        todo!()
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        todo!()
-    }
-}
-
-impl<I> SortedDocValues<I> for BaseSortedDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn ord_value(&mut self) -> Result<i32> {
-        todo!()
-    }
-
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
-        todo!()
-    }
-
-    fn get_value_count(&self) -> Result<i32> {
-        todo!()
-    }
-
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
-        todo!()
-    }
-
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
-        todo!()
     }
 }
 
@@ -2583,126 +2426,6 @@ where
 
     fn doc_value_count(&mut self) -> Result<i64> {
         Ok(self.ords.doc_value_count()? as i64)
-    }
-}
-
-enum BaseSortedSetDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    Dense(DenseBaseSortedSetDocValues<I>),
-    Sparse(SparseBaseSortedSetDocValues<I>),
-    Impl(BaseSortedSetDocValuesImpl<I>),
-}
-
-impl<I> DocValuesIterator for BaseSortedSetDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.advance_exact(target),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.advance_exact(target),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.advance_exact(target),
-        }
-    }
-}
-
-impl<I> DocIdSetIterator for BaseSortedSetDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.doc_id(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.doc_id(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.next_doc(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.next_doc(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.advance(target),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.advance(target),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.advance(target),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.advance(target),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.cost(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.cost(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.cost(),
-        }
-    }
-}
-
-impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn next_ord(&mut self) -> Result<i64> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.next_ord(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.next_ord(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.ords.next_value(),
-        }
-    }
-
-    fn doc_value_count(&mut self) -> Result<i64> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.doc_value_count(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.doc_value_count(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
-        }
-    }
-
-    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.lookup_ord(ord),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.lookup_ord(ord),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.lookup_ord(ord),
-        }
-    }
-
-    fn get_value_count(&self) -> Result<i64> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.get_value_count(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.get_value_count(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.get_value_count(),
-        }
-    }
-
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.lookup_term(key),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.lookup_term(key),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.lookup_term(key),
-        }
-    }
-
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.terms_enum(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.terms_enum(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.terms_enum(),
-        }
     }
 }
 
