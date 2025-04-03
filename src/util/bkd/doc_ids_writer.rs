@@ -24,6 +24,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::ints_ref::IntsRef;
 use crate::util::longs_ref::LongsRef;
+use crate::util::CommonUtil;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -420,8 +421,11 @@ impl DocIdsWriter {
         visitor: &mut impl IntersectVisitor,
     ) -> Result<()> {
         Self::read_delta16(input, count, &mut self.scratch)?;
-        self.scratch_ints_ref.ints = Rc::new(RefCell::new(std::mem::take(&mut self.scratch)));
-        self.scratch = vec![0; self.max_points_in_leaf];
+        self.scratch_ints_ref.ints = Rc::new(RefCell::new(CommonUtil::take_and_reset(
+            &mut self.scratch,
+            |_| vec![0; self.max_points_in_leaf],
+        )));
+
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
         Ok(())
@@ -462,8 +466,11 @@ impl DocIdsWriter {
         visitor: &mut impl IntersectVisitor,
     ) -> Result<()> {
         input.read_ints(&mut self.scratch, 0, count)?;
-        self.scratch_ints_ref.ints = Rc::new(RefCell::new(std::mem::take(&mut self.scratch)));
-        self.scratch = vec![0; self.max_points_in_leaf];
+        self.scratch_ints_ref.ints = Rc::new(RefCell::new(CommonUtil::take_and_reset(
+            &mut self.scratch,
+            |old| vec![0; old.len()],
+        )));
+
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
         Ok(())

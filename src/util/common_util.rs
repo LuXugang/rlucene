@@ -49,6 +49,16 @@ impl CommonUtil {
             },
         }
     }
+
+    pub fn take_and_reset<T, F>(target: &mut T, reset_fn: F) -> T
+    where
+        T: Default,
+        F: FnOnce(&T) -> T,
+    {
+        let old = std::mem::take(target);
+        *target = reset_fn(&old);
+        old
+    }
 }
 
 pub trait ToInt {
