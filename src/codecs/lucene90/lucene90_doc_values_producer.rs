@@ -1147,8 +1147,8 @@ where
         Ok(())
     }
 
-    fn get_merge_instance(&mut self) -> Option<DocValuesProducerEnum<I>> {
-        Some(DocValuesProducerEnum::Lucene90(
+    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
+        Ok(Some(DocValuesProducerEnum::Lucene90(
             Lucene90DocValuesProducer::new_with_merging(
                 self.numerics.clone(),
                 self.binaries.clone(),
@@ -1160,7 +1160,7 @@ where
                 self.max_doc,
                 self.version,
             ),
-        ))
+        )))
     }
 }
 #[derive(Debug, Clone, Copy)]
