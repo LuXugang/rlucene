@@ -204,7 +204,7 @@ impl LZ4WithPresetDictCompressor {
     pub fn new() -> Self {
         LZ4WithPresetDictCompressor {
             compressed: ByteBuffersDataOutput::with_resettable_instance(),
-            hash_table: HashTableEnum::FastCompressionHashTable(FastCompressionHashTable::new()),
+            hash_table: HashTableEnum::Fast(FastCompressionHashTable::new()),
             buffer: Vec::new(),
         }
     }

@@ -718,44 +718,43 @@ impl HashTable for HighCompressionHashTable {
     }
 }
 
-#[allow(unused)]
 pub enum HashTableEnum {
-    FastCompressionHashTable(FastCompressionHashTable),
-    HighCompressionHashTable(HighCompressionHashTable),
+    Fast(FastCompressionHashTable),
+    High(HighCompressionHashTable),
 }
 impl HashTable for HashTableEnum {
     fn reset(&mut self, b: Vec<u8>, off: i32, len: i32) -> Result<()> {
         match self {
-            HashTableEnum::FastCompressionHashTable(table) => table.reset(b, off, len),
-            HashTableEnum::HighCompressionHashTable(table) => table.reset(b, off, len),
+            HashTableEnum::Fast(table) => table.reset(b, off, len),
+            HashTableEnum::High(table) => table.reset(b, off, len),
         }
     }
 
     fn init_dictionary(&mut self, dict_len: i32) {
         match self {
-            HashTableEnum::FastCompressionHashTable(table) => table.init_dictionary(dict_len),
-            HashTableEnum::HighCompressionHashTable(table) => table.init_dictionary(dict_len),
+            HashTableEnum::Fast(table) => table.init_dictionary(dict_len),
+            HashTableEnum::High(table) => table.init_dictionary(dict_len),
         }
     }
 
     fn get(&mut self, off: i32) -> i32 {
         match self {
-            HashTableEnum::FastCompressionHashTable(table) => table.get(off),
-            HashTableEnum::HighCompressionHashTable(table) => table.get(off),
+            HashTableEnum::Fast(table) => table.get(off),
+            HashTableEnum::High(table) => table.get(off),
         }
     }
 
     fn previous(&mut self, off: i32) -> i32 {
         match self {
-            HashTableEnum::FastCompressionHashTable(table) => table.previous(off),
-            HashTableEnum::HighCompressionHashTable(table) => table.previous(off),
+            HashTableEnum::Fast(table) => table.previous(off),
+            HashTableEnum::High(table) => table.previous(off),
         }
     }
 
     fn assert_reset(&self) -> bool {
         match self {
-            HashTableEnum::FastCompressionHashTable(table) => table.assert_reset(),
-            HashTableEnum::HighCompressionHashTable(table) => table.assert_reset(),
+            HashTableEnum::Fast(table) => table.assert_reset(),
+            HashTableEnum::High(table) => table.assert_reset(),
         }
     }
 }
@@ -773,14 +772,10 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
 
-    
-
     struct TestFastLZ4;
     impl LZ4TestCase for TestFastLZ4 {
         fn new_hash_table(&self) -> AssertingHashTable {
-            AssertingHashTable::new(HashTableEnum::FastCompressionHashTable(
-                FastCompressionHashTable::new(),
-            ))
+            AssertingHashTable::new(HashTableEnum::Fast(FastCompressionHashTable::new()))
         }
     }
     #[test]
@@ -842,9 +837,7 @@ mod tests {
     struct TestHighLZ4;
     impl LZ4TestCase for TestHighLZ4 {
         fn new_hash_table(&self) -> AssertingHashTable {
-            AssertingHashTable::new(HashTableEnum::HighCompressionHashTable(
-                HighCompressionHashTable::new(),
-            ))
+            AssertingHashTable::new(HashTableEnum::High(HighCompressionHashTable::new()))
         }
     }
     #[test]

@@ -254,7 +254,7 @@ impl LZ4FastCompressor {
     #[allow(unused)]
     pub fn new() -> Self {
         LZ4FastCompressor {
-            ht: HashTableEnum::FastCompressionHashTable(FastCompressionHashTable::new()),
+            ht: HashTableEnum::Fast(FastCompressionHashTable::new()),
         }
     }
 }
@@ -278,7 +278,7 @@ impl LZ4HighCompressor {
     #[allow(unused)]
     pub fn new(ht: HighCompressionHashTable) -> Self {
         LZ4HighCompressor {
-            ht: HashTableEnum::HighCompressionHashTable(ht),
+            ht: HashTableEnum::High(ht),
         }
     }
 }
