@@ -27,12 +27,13 @@ use crate::util::packed::direct_writer::DirectWriter;
 /// `DirectMonotonicReader`
 ///
 /// # Internal
-pub struct DirectMonotonicWriter<'a, I>
+pub struct DirectMonotonicWriter<'a, I1, I2>
 where
-    I: IndexOutput,
+    I1: IndexOutput,
+    I2: IndexOutput,
 {
-    meta: &'a mut I,
-    data: &'a mut I,
+    meta: &'a mut I1,
+    data: &'a mut I2,
     num_values: i64,
     base_data_pointer: i64,
     buffer: Vec<i64>,
@@ -41,18 +42,19 @@ where
     finished: bool,
     previous: i64,
 }
-impl DirectMonotonicWriter<'_, DummyIndexOutput> {
+impl DirectMonotonicWriter<'_, DummyIndexOutput, DummyIndexOutput> {
     pub const MIN_BLOCK_SHIFT: i32 = 2;
     pub const MAX_BLOCK_SHIFT: i32 = 22;
 }
 
-impl<'a, I> DirectMonotonicWriter<'a, I>
+impl<'a, I1, I2> DirectMonotonicWriter<'a, I1, I2>
 where
-    I: IndexOutput,
+    I1: IndexOutput,
+    I2: IndexOutput,
 {
     fn new(
-        meta_out: &'a mut I,
-        data_out: &'a mut I,
+        meta_out: &'a mut I1,
+        data_out: &'a mut I2,
         num_values: i64,
         block_shift: i32,
     ) -> Result<Self> {
@@ -193,8 +195,8 @@ where
     /// 2<sup>`block_shift`</sup> values. Metadata will be written to `meta_out` and actual
     /// data to `data_out`.
     pub fn get_instance(
-        meta_out: &'a mut I,
-        data_out: &'a mut I,
+        meta_out: &'a mut I1,
+        data_out: &'a mut I2,
         num_values: i64,
         block_shift: i32,
     ) -> Result<Self> {
