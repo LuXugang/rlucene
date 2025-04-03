@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use crate::store::data_output::DataOutput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -54,7 +53,12 @@ impl ByteArrayDataOutput {
             limit: offset + length,
         }
     }
-    fn reset(&mut self, offset: i32, length: i32) -> Result<()> {
+    pub fn reset(&mut self) -> Result<()> {
+        let len = self.bytes.len();
+        let offset = 0;
+        self.reset_with_range(offset, len as i32)
+    }
+    pub fn reset_with_range(&mut self, offset: i32, length: i32) -> Result<()> {
         if (offset + length) > self.bytes.len() as i32 {
             return Err(LuceneError::array_index_out_of_bounds(format!(
                 "offset: {}, length: {} exceeds bytes length: {}",
