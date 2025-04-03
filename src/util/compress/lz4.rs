@@ -18,7 +18,6 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::CommonUtil;
-use std::sync::Arc;
 
 /// LZ4 compression and decompression routines.
 ///
@@ -228,7 +227,7 @@ impl LZ4 {
     /// Compress `bytes[off:off+len]` into `out` using at most 16kB of memory.
     /// `ht` shouldn't be shared across threads but can safely be reused.
     pub fn compress<D>(
-        bytes: Arc<Vec<u8>>,
+        bytes: Vec<u8>,
         off: i32,
         len: i32,
         out: &mut D,
@@ -244,7 +243,7 @@ impl LZ4 {
     /// must not be greater than `MAX_DISTANCE 64kB`, the maximum window size.
     /// `ht` shouldn't be shared across threads but can safely be reused.
     pub fn compress_with_dictionary<D>(
-        bytes: Arc<Vec<u8>>,
+        bytes: Vec<u8>,
         dict_off: i32,
         dict_len: i32,
         len: i32,
@@ -338,7 +337,7 @@ impl LZ4 {
 /// A record of previous occurrences of sequences of 4 bytes.
 pub trait HashTable {
     /// Reset this hash table in order to compress the given content.
-    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()>;
+    fn reset(&mut self, b: Vec<u8>, off: i32, len: i32) -> Result<()>;
 
     /// Init `dict_len` bytes to be used as a dictionary.
     fn init_dictionary(&mut self, dict_len: i32);
@@ -464,7 +463,7 @@ impl Table for TableEnum {
 
 /// Simple lossy `HashTable` that only stores the last occurrence for each hash on `2^14` bytes of memory.
 pub struct FastCompressionHashTable {
-    bytes: Arc<Vec<u8>>,
+    bytes: Vec<u8>,
     base: i32,
     last_off: i32,
     end: i32,
@@ -482,7 +481,7 @@ impl FastCompressionHashTable {
     /// Sole constructor
     pub fn new() -> Self {
         FastCompressionHashTable {
-            bytes: Arc::new(vec![]),
+            bytes: vec![],
             base: 0,
             last_off: 0,
             end: 0,
@@ -492,7 +491,7 @@ impl FastCompressionHashTable {
     }
 }
 impl HashTable for FastCompressionHashTable {
-    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
+    fn reset(&mut self, bytes: Vec<u8>, off: i32, len: i32) -> Result<()> {
         CommonUtil::check_from_index_size(off, len, bytes.len() as i32)?;
         self.bytes = bytes;
         self.base = off;
@@ -579,7 +578,7 @@ impl HashTable for FastCompressionHashTable {
 /// A higher-precision `HashTable`. It stores up to 256 occurrences of 4-bytes sequences in
 /// the last 2^16 bytes, which makes it much more likely to find matches than FastCompressionHashTable.
 pub struct HighCompressionHashTable {
-    bytes: Arc<Vec<u8>>,
+    bytes: Vec<u8>,
     base: i32,
     next: i32,
     end: i32,
@@ -600,7 +599,7 @@ impl HighCompressionHashTable {
     /// Sole constructor
     pub fn new() -> Self {
         HighCompressionHashTable {
-            bytes: Arc::new(vec![]),
+            bytes: vec![],
             base: 0,
             next: 0,
             end: 0,
@@ -621,7 +620,7 @@ impl HighCompressionHashTable {
     }
 }
 impl HashTable for HighCompressionHashTable {
-    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
+    fn reset(&mut self, bytes: Vec<u8>, off: i32, len: i32) -> Result<()> {
         CommonUtil::check_from_index_size(off, len, bytes.len() as i32)?;
 
         if self.end - self.base < self.chain_table.len() as i32 {
@@ -725,7 +724,7 @@ pub enum HashTableEnum {
     HighCompressionHashTable(HighCompressionHashTable),
 }
 impl HashTable for HashTableEnum {
-    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
+    fn reset(&mut self, b: Vec<u8>, off: i32, len: i32) -> Result<()> {
         match self {
             HashTableEnum::FastCompressionHashTable(table) => table.reset(b, off, len),
             HashTableEnum::HighCompressionHashTable(table) => table.reset(b, off, len),
@@ -774,7 +773,7 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
 
-    use std::sync::Arc;
+    
 
     struct TestFastLZ4;
     impl LZ4TestCase for TestFastLZ4 {
@@ -920,18 +919,12 @@ mod tests {
 
             let mut copy = vec![0; data.len() + offset as usize + random.random_range(0..10)];
             copy.copy_from(&data, offset as usize);
-            Self::do_test_with_offset(
-                random,
-                Arc::new(copy),
-                offset,
-                data.len() as i32,
-                hash_table,
-            )
+            Self::do_test_with_offset(random, copy, offset, data.len() as i32, hash_table)
         }
 
         fn do_test_with_offset(
             random: &mut StdRng,
-            data: Arc<Vec<u8>>,
+            data: Vec<u8>,
             offset: i32,
             length: i32,
             hash_table: &mut AssertingHashTable,
@@ -1062,7 +1055,7 @@ mod tests {
             copy.write_bytes(data)?;
             copy.write_bytes(vec![0u8; random.random_range(0..10)])?;
 
-            let copy_bytes = Arc::new(copy.get_array_copy());
+            let copy_bytes = copy.get_array_copy();
             Self::do_test_with_dictionary_inner(
                 random,
                 copy_bytes,
@@ -1075,7 +1068,7 @@ mod tests {
 
         fn do_test_with_dictionary_inner(
             random: &mut StdRng,
-            data: Arc<Vec<u8>>,
+            data: Vec<u8>,
             dict_off: i32,
             dict_len: i32,
             length: i32,
@@ -1226,13 +1219,7 @@ mod tests {
             ];
             let len = data.len() as i32;
             let data_u8: Vec<u8> = data.iter().map(|&x| x as u8).collect();
-            Self::do_test_with_offset(
-                random,
-                Arc::new(data_u8),
-                9,
-                len - 9,
-                &mut self.new_hash_table(),
-            )
+            Self::do_test_with_offset(random, data_u8, 9, len - 9, &mut self.new_hash_table())
         }
 
         fn test_use_dictionary(&self, random: &mut StdRng) -> Result<()> {
@@ -1240,7 +1227,7 @@ mod tests {
             let dict_off = 0;
             let dict_len = 6;
             let len = (b.len() - dict_len) as i32;
-            let byte: Arc<Vec<u8>> = Arc::new(b.iter().map(|&x| x as u8).collect());
+            let byte: Vec<u8> = b.iter().map(|&x| x as u8).collect();
 
             Self::do_test_with_dictionary_inner(
                 random,
@@ -1276,7 +1263,7 @@ mod tests {
         }
     }
     impl HashTable for AssertingHashTable {
-        fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
+        fn reset(&mut self, b: Vec<u8>, off: i32, len: i32) -> Result<()> {
             self.ht.reset(b, off, len)?;
             assert!(self.ht.assert_reset());
             Ok(())

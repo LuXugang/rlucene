@@ -28,7 +28,6 @@ use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::SliceCopyOps;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 pub struct LZ4WithPresetDictCompressionMode;
 impl LZ4WithPresetDictCompressionMode {
@@ -209,13 +208,7 @@ impl LZ4WithPresetDictCompressor {
             buffer: Vec::new(),
         }
     }
-    fn do_compress<D>(
-        &mut self,
-        bytes: Arc<Vec<u8>>,
-        dict_len: i32,
-        len: i32,
-        out: &mut D,
-    ) -> Result<()>
+    fn do_compress<D>(&mut self, bytes: Vec<u8>, dict_len: i32, len: i32, out: &mut D) -> Result<()>
     where
         D: DataOutput,
     {
@@ -268,7 +261,7 @@ impl Compressor for LZ4WithPresetDictCompressor {
         // Compress the dictionary first
         DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length)?;
         let moved_data = std::mem::take(&mut self.buffer);
-        self.do_compress(Arc::new(moved_data), 0, dict_length, out)?;
+        self.do_compress(moved_data, 0, dict_length, out)?;
 
         // And then sub blocks
         let mut start = dict_length;
@@ -278,7 +271,7 @@ impl Compressor for LZ4WithPresetDictCompressor {
             self.buffer = vec![0; (dict_length + block_length) as usize];
             DataInput::read_bytes(buffers_input, &mut self.buffer, dict_length, l)?;
             let moved_data = std::mem::take(&mut self.buffer);
-            self.do_compress(Arc::new(moved_data), dict_length, l, out)?;
+            self.do_compress(moved_data, dict_length, l, out)?;
             start += block_length;
         }
         // We only wrote lengths so far, now write compressed data

@@ -32,7 +32,6 @@ use flate2::write::DeflateEncoder;
 use flate2::Compression;
 use std::fmt::{Display, Formatter};
 use std::io::{Read, Write};
-use std::sync::Arc;
 
 /// A compression mode. Tells how much effort should be spent on compression and decompression of
 /// stored fields.
@@ -268,7 +267,7 @@ impl Compressor for LZ4FastCompressor {
         let len = buffers_input.length() as i32;
         let mut bytes = vec![0u8; len as usize];
         DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-        LZ4::compress(Arc::new(bytes), 0, len, out, &mut self.ht)
+        LZ4::compress(bytes, 0, len, out, &mut self.ht)
     }
 }
 
@@ -291,7 +290,7 @@ impl Compressor for LZ4HighCompressor {
         let len = buffers_input.length() as i32;
         let mut bytes = vec![0u8; len as usize];
         DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-        LZ4::compress(Arc::new(bytes), 0, len, out, &mut self.ht)
+        LZ4::compress(bytes, 0, len, out, &mut self.ht)
     }
 }
 
