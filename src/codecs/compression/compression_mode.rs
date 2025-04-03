@@ -466,7 +466,7 @@ mod tests {
             limit: i32,
         ) -> Result<Vec<u8>> {
             let compressed_len = len * 3 + 16;
-            let mut compressed = vec![0; compressed_len as usize]; // should be enough
+            let compressed = vec![0; compressed_len as usize]; // should be enough
             let mut cursor_vec = Vec::new();
             let chunk_size = 1024;
             let decompressed_len = decompressed.len() as i64;
@@ -482,11 +482,11 @@ mod tests {
 
             let mut input = ByteBuffersDataInput::new(cursor_vec, limit as i64)
                 .slice(off as i64, len as i64)?;
-            let mut out = ByteArrayDataOutput::with_bytes(&mut compressed);
+            let mut out = ByteArrayDataOutput::with_bytes(compressed);
 
             compressor.compress(&mut input, &mut out)?;
             let compressed_len = out.get_position();
-            let result = ArrayUtil::copy_of_sub_array(&compressed, 0, compressed_len);
+            let result = ArrayUtil::copy_of_sub_array(&out.bytes, 0, compressed_len);
             Ok(result)
         }
 

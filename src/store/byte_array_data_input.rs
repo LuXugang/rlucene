@@ -164,8 +164,8 @@ mod tests {
     #[test]
     fn test_data_types() -> Result<()> {
         // write some primitives using ByteArrayDataOutput:
-        let mut bytes = vec![0u8; 32];
-        let mut out = ByteArrayDataOutput::with_bytes(&mut bytes);
+        let bytes = vec![0u8; 32];
+        let mut out = ByteArrayDataOutput::with_bytes(bytes);
 
         out.write_byte(43)?;
         out.write_short(12345)?;
@@ -174,7 +174,7 @@ mod tests {
         let size = out.get_position();
         assert_eq!(size, 15);
 
-        let mut buf: Cursor<&[u8]> = Cursor::new(&bytes[..size as usize]);
+        let mut buf: Cursor<&[u8]> = Cursor::new(&out.bytes[..size as usize]);
 
         assert_eq!(buf.read_u8()?, 43);
         assert_eq!(buf.read_i16::<LittleEndian>()?, 12345);
@@ -184,7 +184,7 @@ mod tests {
         assert_eq!(buf.get_ref().len() - buf.position() as usize, 0);
 
         // read the primitives using ByteArrayDataInput:
-        let mut data_input = ByteArrayDataInput::with_range(bytes, 0, size);
+        let mut data_input = ByteArrayDataInput::with_range(out.bytes, 0, size);
         assert_eq!(data_input.read_byte()?, 43);
         assert_eq!(data_input.read_short()?, 12345);
         assert_eq!(data_input.read_int()?, 1234567890);
