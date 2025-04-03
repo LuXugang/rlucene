@@ -777,7 +777,7 @@ mod tests {
 
     #[test]
     fn test_header_length() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
@@ -794,7 +794,7 @@ mod tests {
     fn test_write_too_long_header() -> Result<()> {
         let too_long: String = "a".repeat(128);
 
-        let mut output = ByteBuffersDataOutput::with_resettable_instance();
+        let mut output = ByteBuffersDataOutput::new();
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
 
         let result = CodecUtil::write_header(&mut output, &too_long, 5);
@@ -806,7 +806,7 @@ mod tests {
     fn test_write_non_ascii_header() -> Result<()> {
         let non_ascii_header = "\u{1234}".to_string();
 
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 
         let result = CodecUtil::write_header(&mut output, &non_ascii_header, 5);
@@ -816,7 +816,7 @@ mod tests {
 
     #[test]
     fn test_read_header_wrong_magic() -> Result<()> {
-        let mut output = ByteBuffersDataOutput::with_resettable_instance();
+        let mut output = ByteBuffersDataOutput::new();
         {
             let mut index_output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
             index_output.write_int(1234)?;
@@ -833,7 +833,7 @@ mod tests {
 
     #[test]
     fn test_checksum_entire_file() -> Result<()> {
-        let mut output = ByteBuffersDataOutput::with_resettable_instance();
+        let mut output = ByteBuffersDataOutput::new();
         {
             let mut index_output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
             CodecUtil::write_header(&mut index_output, "FooBar", 5)?;
@@ -848,7 +848,7 @@ mod tests {
     #[test]
     // TODO:This test does not reflect the nested error; it needs to be improved.
     fn test_check_footer_valid() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
@@ -869,7 +869,7 @@ mod tests {
     #[test]
     // TODO:This test does not reflect the nested error; it needs to be improved.
     fn test_check_footer_valid_at_footer() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
@@ -894,7 +894,7 @@ mod tests {
     #[test]
     // TODO: This test does not fully reflect the nested error; it needs to be improved.
     fn test_check_footer_valid_past_footer() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
@@ -925,7 +925,7 @@ mod tests {
     #[test]
     // TODO: This test does not fully reflect the nested error; it needs to be improved.
     fn test_check_footer_invalid() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
@@ -950,7 +950,7 @@ mod tests {
     }
     #[test]
     fn test_segment_header_length() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
             let id = StringHelper::random_id();
@@ -969,7 +969,7 @@ mod tests {
     #[test]
     fn test_write_too_long_suffix() {
         let too_long: String = "a".repeat(256);
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 
         let result = CodecUtil::write_index_header(
@@ -985,7 +985,7 @@ mod tests {
     fn test_write_very_long_suffix() -> Result<()> {
         let just_long_enough: String = "a".repeat(255);
 
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         let id = StringHelper::random_id();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
@@ -1005,7 +1005,7 @@ mod tests {
     }
     #[test]
     fn test_write_non_ascii_suffix() {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 
         let non_ascii_suffix = "\u{1234}";
@@ -1021,7 +1021,7 @@ mod tests {
     }
     #[test]
     fn test_read_bogus_crc() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         {
             let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 
@@ -1049,7 +1049,7 @@ mod tests {
 
     #[test]
     fn test_write_bogus_crc() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         let output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
         let fake_checksum = AtomicI64::new(0);
         let mut fake_output = FakeOutput::new(output, &fake_checksum);
@@ -1078,7 +1078,7 @@ mod tests {
     #[test]
     // TODO: This test does not fully reflect the nested error; it needs to be improved.
     fn test_truncated_file_throws_corrupt_index_exception() -> Result<()> {
-        let mut out = ByteBuffersDataOutput::with_resettable_instance();
+        let mut out = ByteBuffersDataOutput::new();
         let _output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
 
         let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
