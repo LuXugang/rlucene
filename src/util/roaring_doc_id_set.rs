@@ -18,14 +18,13 @@ use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::util::accountable::Accountable;
 use crate::util::bit_doc_id_set::BitDocIdSet;
-use crate::util::bit_set::BitSet;
-use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::MatchNoBits;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::util::bit_set_iterator::BitSetIterator;
 use std::rc::Rc;
 
 // Number of documents in a block

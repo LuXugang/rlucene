@@ -20,7 +20,6 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
-use crate::util::access::Shared;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;

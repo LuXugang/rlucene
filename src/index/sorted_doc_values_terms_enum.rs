@@ -30,7 +30,7 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Implements a [`TermsEnum`](TermsEnum) wrapping a provided [`SortedDocValues`](SortedDocValues).
-pub(crate) struct SortedDocValuesTermsEnum<I>
+pub struct SortedDocValuesTermsEnum<I>
 where
     I: IndexInput,
 {

@@ -34,8 +34,8 @@ where
 {
     Dummy(DummyTermsEnum),
     Empty(TermsEnumEmpty<I>),
-    SortedDocValues(SortedDocValuesTermsEnum<I>),
-    TermsDict(TermsDict<I>),
+    SortedDocValues(Box<SortedDocValuesTermsEnum<I>>),
+    TermsDict(Box<TermsDict<I>>),
 }
 
 impl<I> BytesRefIterator for TermsEnums<I>

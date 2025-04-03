@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::{Access, Shared};
+use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bit_util::BitUtil;

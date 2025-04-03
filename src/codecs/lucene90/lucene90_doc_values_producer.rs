@@ -1164,7 +1164,7 @@ where
     }
 }
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct DocValuesSkipperEntry {
+pub struct DocValuesSkipperEntry {
     pub offset: i64,
     pub length: i64,
     pub min_value: i64,
@@ -1640,7 +1640,7 @@ impl<I> DocValuesSkipperImpl<I>
 where
     I: IndexInput,
 {
-    pub(crate) fn new(input: I::Slice, entry: Rc<DocValuesSkipperEntry>) -> Self {
+    pub fn new(input: I::Slice, entry: Rc<DocValuesSkipperEntry>) -> Self {
         Self {
             min_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
             max_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
@@ -1752,10 +1752,10 @@ where
     }
 }
 
-pub(crate) trait DenseNumericDocValuesBase {
+pub trait DenseNumericDocValuesBase {
     fn long_value(&mut self, doc: i32) -> Result<i64>;
 }
-pub(crate) struct DenseNumericDocValuesBaseImpl {
+pub struct DenseNumericDocValuesBaseImpl {
     min_values: i64,
 }
 impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
@@ -1763,7 +1763,7 @@ impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
         Ok(self.min_values)
     }
 }
-pub(crate) struct DenseNumericDocValuesBaseImpl1<I>
+pub struct DenseNumericDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
@@ -1777,7 +1777,7 @@ where
         self.vbpv_reader.get_long_value(doc as i64)
     }
 }
-pub(crate) struct DenseNumericDocValuesBaseImpl2<I>
+pub struct DenseNumericDocValuesBaseImpl2<I>
 where
     I: IndexInput,
 {
@@ -1792,7 +1792,7 @@ where
         Ok(self.table[self.values.get(doc as i64)? as usize])
     }
 }
-pub(crate) struct DenseNumericDocValuesBaseImpl3<I>
+pub struct DenseNumericDocValuesBaseImpl3<I>
 where
     I: IndexInput,
 {
@@ -1806,7 +1806,7 @@ where
         self.values.get(doc as i64)
     }
 }
-pub(crate) struct DenseNumericDocValuesBaseImpl4<I>
+pub struct DenseNumericDocValuesBaseImpl4<I>
 where
     I: IndexInput,
 {
@@ -1823,12 +1823,12 @@ where
     }
 }
 
-pub(crate) trait SparseNumericDocValuesBase<I> {
+pub trait SparseNumericDocValuesBase<I> {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
     where
         I: IndexInput;
 }
-pub(crate) struct SparseNumericDocValuesBaseImpl<I>
+pub struct SparseNumericDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
@@ -1846,7 +1846,7 @@ where
         Ok(self.min_values)
     }
 }
-pub(crate) struct SparseNumericDocValuesBaseImpl1<I>
+pub struct SparseNumericDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
@@ -1864,7 +1864,7 @@ where
         self.vbpv_reader.get_long_value(index as i64)
     }
 }
-pub(crate) struct SparseNumericDocValuesBaseImpl2<I>
+pub struct SparseNumericDocValuesBaseImpl2<I>
 where
     I: IndexInput,
 {
@@ -1882,7 +1882,7 @@ where
         Ok(self.table[self.values.get(disi.index() as i64)? as usize])
     }
 }
-pub(crate) struct SparseNumericDocValuesBaseImpl3<I>
+pub struct SparseNumericDocValuesBaseImpl3<I>
 where
     I: IndexInput,
 {
@@ -1899,7 +1899,7 @@ where
         self.values.get(disi.index() as i64)
     }
 }
-pub(crate) struct SparseNumericDocValuesBaseImpl4<I>
+pub struct SparseNumericDocValuesBaseImpl4<I>
 where
     I: IndexInput,
 {
@@ -1919,7 +1919,7 @@ where
     }
 }
 
-pub(crate) struct LongValuesImpl {
+pub struct LongValuesImpl {
     min_values: i64,
 }
 impl LongValues for LongValuesImpl {
@@ -1927,7 +1927,7 @@ impl LongValues for LongValuesImpl {
         Ok(self.min_values)
     }
 }
-pub(crate) struct LongValuesImpl1<I>
+pub struct LongValuesImpl1<I>
 where
     I: IndexInput,
 {
@@ -1941,7 +1941,7 @@ where
         self.vbpv_reader.get_long_value(index)
     }
 }
-pub(crate) struct LongValuesImpl2<I>
+pub struct LongValuesImpl2<I>
 where
     I: IndexInput,
 {
@@ -1956,7 +1956,7 @@ where
         Ok(self.table[self.values.get(index)? as usize])
     }
 }
-pub(crate) struct LongValuesImpl3<I>
+pub struct LongValuesImpl3<I>
 where
     I: IndexInput,
 {
@@ -1972,7 +1972,7 @@ where
         Ok(self.gcd * self.values.get(index)? + self.min_value)
     }
 }
-pub(crate) struct LongValuesImpl4<I>
+pub struct LongValuesImpl4<I>
 where
     I: IndexInput,
 {
@@ -1988,11 +1988,11 @@ where
     }
 }
 
-pub(crate) trait DenseBinaryDocValuesBase {
+pub trait DenseBinaryDocValuesBase {
     fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>>;
 }
 
-pub(crate) struct DenseBinaryDocValuesBaseImpl<I>
+pub struct DenseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
@@ -2015,7 +2015,7 @@ where
         Ok(self.bytes.clone())
     }
 }
-pub(crate) struct DenseBinaryDocValuesBaseImpl1<I>
+pub struct DenseBinaryDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
@@ -2037,13 +2037,13 @@ where
     }
 }
 
-pub(crate) trait SparseBinaryDocValuesBase<I>
+pub trait SparseBinaryDocValuesBase<I>
 where
     I: IndexInput,
 {
     fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>>;
 }
-pub(crate) struct SparseBinaryDocValuesBaseImpl<I>
+pub struct SparseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
@@ -2063,7 +2063,7 @@ where
         Ok(self.bytes.clone())
     }
 }
-pub(crate) struct SparseBinaryDocValuesBaseImpl1<I>
+pub struct SparseBinaryDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
@@ -2086,7 +2086,7 @@ where
     }
 }
 
-pub(crate) struct DenseBaseSortedDocValues<I>
+pub struct DenseBaseSortedDocValues<I>
 where
     I: IndexInput,
 {
@@ -2152,7 +2152,7 @@ where
     }
 }
 
-pub(crate) struct SparseBaseSortedDocValues<I>
+pub struct SparseBaseSortedDocValues<I>
 where
     I: IndexInput,
 {
@@ -2206,7 +2206,7 @@ where
         Ok(self.value.get(self.disi.index() as i64)? as i32)
     }
 }
-pub(crate) struct BaseSortedDocValuesImpl<I>
+pub struct BaseSortedDocValuesImpl<I>
 where
     I: IndexInput,
 {
@@ -2260,7 +2260,7 @@ where
     }
 }
 
-pub(crate) struct BaseSortedDocValues<I>
+pub struct BaseSortedDocValues<I>
 where
     I: IndexInput,
 {
@@ -2597,7 +2597,7 @@ where
     }
 }
 
-pub(crate) struct BaseSortedSetDocValues<I>
+pub struct BaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2734,21 +2734,18 @@ where
         let addresses_slice = Rc::new(RefCell::new(
             data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?,
         ));
-        let block_addresses;
-        match entry.terms_addresses_meta {
-            Some(ref meta) => {
-                block_addresses = DirectMonotonicReader::get_instance_with_merging(
-                    meta,
-                    addresses_slice.clone(),
-                    merging,
-                )?;
-            }
+        let block_addresses = match entry.terms_addresses_meta {
+            Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
+                meta,
+                addresses_slice.clone(),
+                merging,
+            )?,
             None => {
                 return Err(LuceneError::illegal_state(
                     "TermsDictEntry's terms_addresses_meta is None".to_string(),
                 ));
             }
-        }
+        };
 
         let bytes = data.slice("terms", entry.terms_data_offset, entry.terms_data_length)?;
 
@@ -2759,21 +2756,18 @@ where
             entry.terms_index_addresses_length,
         )?));
 
-        let index_addresses;
-        match entry.terms_index_addresses_meta {
-            Some(ref meta) => {
-                index_addresses = DirectMonotonicReader::get_instance_with_merging(
-                    meta,
-                    index_addresses_slice.clone(),
-                    merging,
-                )?;
-            }
+        let index_addresses = match entry.terms_index_addresses_meta {
+            Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
+                meta,
+                index_addresses_slice.clone(),
+                merging,
+            )?,
             None => {
                 return Err(LuceneError::illegal_state(
                     "TermsDictEntry's terms_index_addresses_meta is None".to_string(),
                 ));
             }
-        }
+        };
 
         let index_bytes =
             data.random_access_slice(entry.terms_index_offset, entry.terms_index_length)?;
