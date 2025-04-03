@@ -47,9 +47,9 @@ impl<'a> ByteBuffersIndexOutput<'a> {
         }
     }
     pub fn new(
+        delegate: &'a mut ByteBuffersDataOutput,
         name: &str,
         resource_description: &str,
-        delegate: &'a mut ByteBuffersDataOutput,
     ) -> Self {
         Self::with_checksum(name, resource_description, delegate, Hasher::new())
     }

@@ -779,7 +779,7 @@ mod tests {
     fn test_header_length() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
         }
@@ -795,7 +795,7 @@ mod tests {
         let too_long: String = "a".repeat(128);
 
         let mut output = ByteBuffersDataOutput::new();
-        let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
+        let mut output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
 
         let result = CodecUtil::write_header(&mut output, &too_long, 5);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
@@ -807,7 +807,7 @@ mod tests {
         let non_ascii_header = "\u{1234}".to_string();
 
         let mut out = ByteBuffersDataOutput::new();
-        let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+        let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
         let result = CodecUtil::write_header(&mut output, &non_ascii_header, 5);
         assert!(result.is_ok());
@@ -818,7 +818,7 @@ mod tests {
     fn test_read_header_wrong_magic() -> Result<()> {
         let mut output = ByteBuffersDataOutput::new();
         {
-            let mut index_output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
+            let mut index_output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
             index_output.write_int(1234)?;
         }
 
@@ -835,7 +835,7 @@ mod tests {
     fn test_checksum_entire_file() -> Result<()> {
         let mut output = ByteBuffersDataOutput::new();
         {
-            let mut index_output = ByteBuffersIndexOutput::new("temp", "temp", &mut output);
+            let mut index_output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
             CodecUtil::write_header(&mut index_output, "FooBar", 5)?;
             index_output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut index_output)?;
@@ -850,7 +850,7 @@ mod tests {
     fn test_check_footer_valid() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
@@ -871,7 +871,7 @@ mod tests {
     fn test_check_footer_valid_at_footer() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
@@ -896,7 +896,7 @@ mod tests {
     fn test_check_footer_valid_past_footer() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
@@ -927,7 +927,7 @@ mod tests {
     fn test_check_footer_invalid() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_be_int(&mut output, CodecUtil::FOOTER_MAGIC)?;
@@ -952,7 +952,7 @@ mod tests {
     fn test_segment_header_length() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             let id = StringHelper::random_id();
             CodecUtil::write_index_header(&mut output, "FooBar", 5, &id, "xyz")?;
             output.write_string("this is the data")?;
@@ -970,7 +970,7 @@ mod tests {
     fn test_write_too_long_suffix() {
         let too_long: String = "a".repeat(256);
         let mut out = ByteBuffersDataOutput::new();
-        let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+        let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
         let result = CodecUtil::write_index_header(
             &mut output,
@@ -988,7 +988,7 @@ mod tests {
         let mut out = ByteBuffersDataOutput::new();
         let id = StringHelper::random_id();
         {
-            let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_index_header(&mut output, "foobar", 5, &id, &just_long_enough)?;
         }
 
@@ -1006,7 +1006,7 @@ mod tests {
     #[test]
     fn test_write_non_ascii_suffix() {
         let mut out = ByteBuffersDataOutput::new();
-        let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+        let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
         let non_ascii_suffix = "\u{1234}";
 
@@ -1023,7 +1023,7 @@ mod tests {
     fn test_read_bogus_crc() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
             CodecUtil::write_be_long(&mut output, -1_i64)?; // bad
             CodecUtil::write_be_long(&mut output, 1_i64 << 32)?; // bad
@@ -1050,7 +1050,7 @@ mod tests {
     #[test]
     fn test_write_bogus_crc() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
-        let output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+        let output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
         let fake_checksum = AtomicI64::new(0);
         let mut fake_output = FakeOutput::new(output, &fake_checksum);
 
@@ -1079,7 +1079,7 @@ mod tests {
     // TODO: This test does not fully reflect the nested error; it needs to be improved.
     fn test_truncated_file_throws_corrupt_index_exception() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
-        let _output = ByteBuffersIndexOutput::new("temp", "temp", &mut out);
+        let _output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
         let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
 
