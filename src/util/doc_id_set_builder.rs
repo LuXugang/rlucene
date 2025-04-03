@@ -137,7 +137,7 @@ impl DocIdSetBuilder {
             debug_assert!(self.counter >= 0);
             let cost = (self.counter as f64 / self.num_values_per_doc).round();
             let result = BitDocIdSet::with_cost(self.bit_set.take(), cost as i64)?;
-            Ok(DocIdSetBuilderEnum::B(result))
+            Ok(DocIdSetBuilderEnum::BitDoc(result))
         } else {
             self.buffer.sort();
             if self.multi_valued {
@@ -148,7 +148,7 @@ impl DocIdSetBuilder {
             self.buffer.push(NO_MORE_DOCS);
             let l = self.buffer.len() - 1;
             let result = IntArrayDocIdSet::new(std::mem::take(&mut self.buffer), l as i32)?;
-            Ok(DocIdSetBuilderEnum::I(result))
+            Ok(DocIdSetBuilderEnum::IntArray(result))
         }
     }
     fn no_dups(&self) -> bool {
@@ -168,8 +168,8 @@ impl DocIdSetBuilder {
 }
 
 pub enum DocIdSetBuilderEnum {
-    B(BitDocIdSet<FixedBitSet>),
-    I(IntArrayDocIdSet),
+    BitDoc(BitDocIdSet<FixedBitSet>),
+    IntArray(IntArrayDocIdSet),
 }
 impl Accountable for DocIdSetBuilderEnum {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -182,8 +182,10 @@ impl DocIdSet for DocIdSetBuilderEnum {
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
         match self {
-            DocIdSetBuilderEnum::B(m) => Some(DocIdSetBuilderIterator::F(m.iterator()?)),
-            DocIdSetBuilderEnum::I(m) => Some(DocIdSetBuilderIterator::I(m.iterator()?)),
+            DocIdSetBuilderEnum::BitDoc(m) => Some(DocIdSetBuilderIterator::BitSet(m.iterator()?)),
+            DocIdSetBuilderEnum::IntArray(m) => {
+                Some(DocIdSetBuilderIterator::IntArray(m.iterator()?))
+            }
         }
     }
 
@@ -191,41 +193,41 @@ impl DocIdSet for DocIdSetBuilderEnum {
 
     fn bits(&self) -> Option<Rc<Self::BitType>> {
         match self {
-            DocIdSetBuilderEnum::B(bit_doc_id_set) => Some(bit_doc_id_set.bits().unwrap()),
-            DocIdSetBuilderEnum::I(_) => None,
+            DocIdSetBuilderEnum::BitDoc(bit_doc_id_set) => Some(bit_doc_id_set.bits().unwrap()),
+            DocIdSetBuilderEnum::IntArray(_) => None,
         }
     }
 }
 pub enum DocIdSetBuilderIterator<'a> {
-    F(BitSetIterator<'a, FixedBitSet>),
-    I(IntArrayDocIdSetIterator<'a>),
+    BitSet(BitSetIterator<'a, FixedBitSet>),
+    IntArray(IntArrayDocIdSetIterator<'a>),
 }
 impl DocIdSetIterator for DocIdSetBuilderIterator<'_> {
     fn doc_id(&self) -> i32 {
         match self {
-            DocIdSetBuilderIterator::F(bit_set) => bit_set.doc_id(),
-            DocIdSetBuilderIterator::I(int_array) => int_array.doc_id(),
+            DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.doc_id(),
+            DocIdSetBuilderIterator::IntArray(int_array) => int_array.doc_id(),
         }
     }
 
     fn next_doc(&mut self) -> Result<i32> {
         match self {
-            DocIdSetBuilderIterator::F(bit_set) => bit_set.next_doc(),
-            DocIdSetBuilderIterator::I(int_array) => int_array.next_doc(),
+            DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.next_doc(),
+            DocIdSetBuilderIterator::IntArray(int_array) => int_array.next_doc(),
         }
     }
 
     fn advance(&mut self, _target: i32) -> Result<i32> {
         match self {
-            DocIdSetBuilderIterator::F(bit_set) => bit_set.advance(_target),
-            DocIdSetBuilderIterator::I(int_array) => int_array.advance(_target),
+            DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.advance(_target),
+            DocIdSetBuilderIterator::IntArray(int_array) => int_array.advance(_target),
         }
     }
 
     fn cost(&self) -> Result<i64> {
         match self {
-            DocIdSetBuilderIterator::F(bit_set) => bit_set.cost(),
-            DocIdSetBuilderIterator::I(int_array) => int_array.cost(),
+            DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.cost(),
+            DocIdSetBuilderIterator::IntArray(int_array) => int_array.cost(),
         }
     }
 }
@@ -328,8 +330,8 @@ mod tests {
         let enum_type1 = "BitDocIdSet<FixedBitSet>";
         let enum_type2 = "IntArrayDocIdSet";
         let doc_id_set_type = match result {
-            DocIdSetBuilderEnum::B(_) => enum_type1,
-            DocIdSetBuilderEnum::I(_) => enum_type2,
+            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
+            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type2);
         let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit))?;
@@ -359,8 +361,8 @@ mod tests {
         let enum_type1 = "BitDocIdSet<FixedBitSet>";
         let enum_type2 = "IntArrayDocIdSet";
         let doc_id_set_type = match result {
-            DocIdSetBuilderEnum::B(_) => enum_type1,
-            DocIdSetBuilderEnum::I(_) => enum_type2,
+            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
+            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
         let bit_doc_id_set = BitDocIdSet::new(Some(fixed_set_bit))?;
@@ -479,8 +481,8 @@ mod tests {
         let enum_type1 = "BitDocIdSet<FixedBitSet>";
         let enum_type2 = "IntArrayDocIdSet";
         let doc_id_set_type = match set {
-            DocIdSetBuilderEnum::B(_) => enum_type1,
-            DocIdSetBuilderEnum::I(_) => enum_type2,
+            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
+            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
         assert_eq!(set.iterator().unwrap().cost()?, 2);
@@ -496,8 +498,8 @@ mod tests {
         builder.add_doc(7);
         set = builder.build().unwrap();
         let doc_id_set_type = match set {
-            DocIdSetBuilderEnum::B(_) => enum_type1,
-            DocIdSetBuilderEnum::I(_) => enum_type2,
+            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
+            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
         assert_eq!(set.iterator().unwrap().cost()?, 1);
@@ -528,8 +530,8 @@ mod tests {
         let enum_type1 = "BitDocIdSet<FixedBitSet>";
         let enum_type2 = "IntArrayDocIdSet";
         let doc_id_set_type = match set {
-            DocIdSetBuilderEnum::B(_) => enum_type1,
-            DocIdSetBuilderEnum::I(_) => enum_type2,
+            DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
+            DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
         assert_eq!(set.iterator().unwrap().cost()?, 1000000 >> 6);
