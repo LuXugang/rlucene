@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::doc_values::{SortedDocValuesEnum, SortedSetDocValuesEnum};
+use crate::codecs::doc_values_enum::doc_values::SortedDocValuesEnum;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::terms_enums::TermsEnums;
 use crate::index::BytesRef;

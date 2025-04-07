@@ -16,7 +16,7 @@
  */
 use crate::codecs::doc_values_enum::doc_values::{
     BinaryDocValuesEnum, DocValuesSkipperEnum, NumericDocValuesEnum, SortedDocValuesEnum,
-    SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
+    SortedNumericDocValuesEnum, SortedSetDocValuesEnum, SortedSetDocValuesWrapper,
 };
 use crate::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum};
 use crate::codecs::indexed_disi::IndexedDISI;
@@ -770,22 +770,16 @@ where
                 )?;
                 BaseSortedDocValuesEnum::Sparse(SparseBaseSortedDocValues::new(disi, values))
             };
-            return Ok(SortedDocValuesEnum::Base(BaseSortedDocValues::new(
-                entry.clone(),
-                &mut self.data,
-                sub,
-                self.merging,
-            )?));
+            return Ok(SortedDocValuesEnum::Base(Box::new(
+                BaseSortedDocValues::new(entry.clone(), &mut self.data, sub, self.merging)?,
+            )));
         }
 
         let ords = self.get_numeric(ords_entry.clone())?;
         let sub = BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesImpl::new(ords));
-        Ok(SortedDocValuesEnum::Base(BaseSortedDocValues::new(
-            entry.clone(),
-            &mut self.data,
-            sub,
-            self.merging,
-        )?))
+        Ok(SortedDocValuesEnum::Base(Box::new(
+            BaseSortedDocValues::new(entry.clone(), &mut self.data, sub, self.merging)?,
+        )))
     }
 
     fn get_sorted_numeric(
@@ -1091,23 +1085,27 @@ where
                                     SparseBaseSortedSetDocValues::new(disi, values, addresses),
                                 )
                             };
-                            return Ok(SortedSetDocValuesEnum::Base(BaseSortedSetDocValues::new(
-                                entry_clone.clone(),
-                                &mut self.data,
-                                sbu,
-                                self.merging,
-                            )?));
+                            return Ok(SortedSetDocValuesEnum::Other(Box::new(
+                                SortedSetDocValuesWrapper::Base(BaseSortedSetDocValues::new(
+                                    entry_clone.clone(),
+                                    &mut self.data,
+                                    sbu,
+                                    self.merging,
+                                )?),
+                            )));
                         }
 
                         let ords = self.get_sorted_numeric(&ords_entry_clone)?;
                         let sub =
                             BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
-                        Ok(SortedSetDocValuesEnum::Base(BaseSortedSetDocValues::new(
-                            entry_clone,
-                            &mut self.data,
-                            sub,
-                            self.merging,
-                        )?))
+                        Ok(SortedSetDocValuesEnum::Other(Box::new(
+                            SortedSetDocValuesWrapper::Base(BaseSortedSetDocValues::new(
+                                entry_clone,
+                                &mut self.data,
+                                sub,
+                                self.merging,
+                            )?),
+                        )))
                     }
                     None => Err(LuceneError::illegal_state("ords_entry is None".to_string()))?,
                 }

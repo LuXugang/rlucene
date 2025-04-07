@@ -47,7 +47,6 @@ use crate::util::packed::direct_writer::DirectWriter;
 use crate::util::{CommonUtil, StringHelper};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 use std::rc::Rc;
 
 /// writer for [`Lucene90DocValuesFormat`](Lucene90DocValuesFormat).
@@ -280,7 +279,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                 let v = values.next_value()?;
 
                 if gcd != 1 {
-                    if v < i64::MIN / 2 || v > i64::MAX / 2 {
+                    if !(i64::MIN / 2..=i64::MAX / 2).contains(&v) {
                         // in that case v - minValue might overflow and make the GCD computation return
                         // wrong results. Since these extreme values are unlikely, we just discard
                         // GCD computation for them
@@ -515,7 +514,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         }
         // All blocks has been written. Flush the offset jump-table
         let offsets_origo = self.data.get_file_pointer();
-        for i in 0..offsets_index as usize {
+        for i in 0..offsets_index {
             self.data.write_long(offsets[i])?;
         }
         self.data.write_long(offsets_origo)?;

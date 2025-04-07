@@ -32,6 +32,7 @@ pub mod doc_values {
     use crate::index::terms_enums::TermsEnums;
     use crate::index::BytesRef;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::search::sorted_set_selector::SortedDocValuesEnum1;
     use crate::store::IndexInput;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use std::cell::RefCell;
@@ -48,10 +49,18 @@ pub mod doc_values {
     where
         I: IndexInput,
     {
-        Base(BaseSortedDocValues<I>),
+        Base(Box<BaseSortedDocValues<I>>),
+        Impl(SortedDocValuesEnum1<I>),
     }
 
-    impl<I> DocValuesIterator for SortedDocValuesEnum<I> where I: IndexInput {}
+    impl<I> DocValuesIterator for SortedDocValuesEnum<I>
+    where
+        I: IndexInput,
+    {
+        fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+            todo!()
+        }
+    }
 
     impl<I> DocIdSetIterator for SortedDocValuesEnum<I>
     where
@@ -62,6 +71,18 @@ pub mod doc_values {
         }
 
         fn next_doc(&mut self) -> Result<i32> {
+            todo!()
+        }
+
+        fn advance(&mut self, _target: i32) -> Result<i32> {
+            todo!()
+        }
+
+        fn slow_advance(&mut self, target: i32) -> Result<i32> {
+            todo!()
+        }
+
+        fn cost(&self) -> Result<i64> {
             todo!()
         }
     }
@@ -79,6 +100,14 @@ pub mod doc_values {
         }
 
         fn get_value_count(&self) -> Result<i32> {
+            todo!()
+        }
+
+        fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+            todo!()
+        }
+
+        fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
             todo!()
         }
     }
@@ -308,8 +337,11 @@ pub mod doc_values {
     where
         I: IndexInput,
     {
+        // SingletonSortedSetDocValues wraps a SortedDocValuesEnum.
+        // To prevent mutual inclusion between variants of SortedSetDocValuesEnum and SortedDocValuesEnum,
+        // the other variants are encapsulated using SortedSetDocValuesWrapper.
         Singleton(SingletonSortedSetDocValues<I>),
-        Base(BaseSortedSetDocValues<I>),
+        Other(Box<SortedSetDocValuesWrapper<I>>),
     }
 
     impl<I> DocValuesIterator for SortedSetDocValuesEnum<I> where I: IndexInput {}
@@ -362,10 +394,88 @@ pub mod doc_values {
         fn unwrap_singleton(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
             match self {
                 SortedSetDocValuesEnum::Singleton(singleton) => singleton.get_numeric_doc_values(),
-                SortedSetDocValuesEnum::Base(base) => Err(LuceneError::illegal_state(
+                SortedSetDocValuesEnum::Other(base) => Err(LuceneError::illegal_state(
                     "this is not a singleton SortedSetDocValues",
                 )),
             }
+        }
+    }
+
+    pub enum SortedSetDocValuesWrapper<I>
+    where
+        I: IndexInput,
+    {
+        Base(BaseSortedSetDocValues<I>),
+    }
+
+    impl<I> DocValuesIterator for SortedSetDocValuesWrapper<I>
+    where
+        I: IndexInput,
+    {
+        fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+            todo!()
+        }
+    }
+
+    impl<I> DocIdSetIterator for SortedSetDocValuesWrapper<I>
+    where
+        I: IndexInput,
+    {
+        fn doc_id(&self) -> i32 {
+            todo!()
+        }
+
+        fn next_doc(&mut self) -> Result<i32> {
+            todo!()
+        }
+
+        fn advance(&mut self, _target: i32) -> Result<i32> {
+            todo!()
+        }
+
+        fn slow_advance(&mut self, target: i32) -> Result<i32> {
+            todo!()
+        }
+
+        fn cost(&self) -> Result<i64> {
+            todo!()
+        }
+    }
+
+    impl<I> SortedSetDocValues<I> for SortedSetDocValuesWrapper<I>
+    where
+        I: IndexInput,
+    {
+        fn next_ord(&mut self) -> Result<i64> {
+            todo!()
+        }
+
+        fn doc_value_count(&mut self) -> Result<i64> {
+            todo!()
+        }
+
+        fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef> {
+            todo!()
+        }
+
+        fn get_value_count(&self) -> Result<i64> {
+            todo!()
+        }
+
+        fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+            todo!()
+        }
+
+        fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+            todo!()
+        }
+
+        fn is_singleton(&self) -> bool {
+            todo!()
+        }
+
+        fn unwrap_singleton(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+            todo!()
         }
     }
 }
