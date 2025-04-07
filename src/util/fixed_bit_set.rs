@@ -682,7 +682,7 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
-    use crate::util::long_bit_set::LongBitSet;
+
     use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
     use std::hash::{DefaultHasher, Hash, Hasher};
 
