@@ -900,7 +900,7 @@ mod tests {
 
     fn do_iterate1(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<()> {
         assert_eq!(a.len(), b.cardinality() as usize);
-        let mut iterator = BitSetIterator::new(b, 0).unwrap();
+        let mut iterator = BitSetIterator::new(b, 0)?;
         let iter = a.iter();
         for index in iter {
             let bb = if random.random_bool(0.5) {
@@ -916,7 +916,7 @@ mod tests {
 
     fn do_iterate2(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<()> {
         assert_eq!(a.len(), b.cardinality() as usize);
-        let mut iterator = BitSetIterator::new(b, 0).unwrap();
+        let mut iterator = BitSetIterator::new(b, 0)?;
         let iter = a.iter();
         for index in iter {
             let bb = if random.random_bool(0.5) {
@@ -1324,7 +1324,7 @@ mod tests {
 
     // Demonstrates that the presence of ghost bits in the last used word can cause spurious failures
     #[test]
-    fn test_union_count() {
+    fn test_union_count() -> Result<()> {
         let mut random = random();
         let num_bits1 = random.random_range(1000..=2000);
         let num_bits2 = random.random_range(1000..=2000);
@@ -1335,8 +1335,8 @@ mod tests {
         let bits1 = make_int_array(&mut random, count1, 0, num_bits1 - 1);
         let bits2 = make_int_array(&mut random, count2, 0, num_bits2 - 1);
 
-        let fixed_bit_set1 = make_fixed_bitset(&mut random, &bits1, num_bits1).unwrap();
-        let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
+        let fixed_bit_set1 = make_fixed_bitset(&mut random, &bits1, num_bits1)?;
+        let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
 
         let union_count = FixedBitSet::union_count(&fixed_bit_set1, &fixed_bit_set2);
 
@@ -1345,10 +1345,11 @@ mod tests {
         bit_set1.union_with(&bit_set2);
 
         assert_eq!(bit_set1.len(), union_count as usize);
+        Ok(())
     }
 
     #[test]
-    fn test_and_not_count() {
+    fn test_and_not_count() -> Result<()> {
         let mut random = random();
 
         let num_bits1 = random.random_range(1000..=2000);
@@ -1360,8 +1361,8 @@ mod tests {
         let bits1 = make_int_array(&mut random, count1, 0, num_bits1 - 1);
         let bits2 = make_int_array(&mut random, count2, 0, num_bits2 - 1);
 
-        let fixed_bit_set1 = make_fixed_bitset(&mut random, &bits1, num_bits1).unwrap();
-        let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2).unwrap();
+        let fixed_bit_set1 = make_fixed_bitset(&mut random, &bits1, num_bits1)?;
+        let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
 
         let and_not_count = FixedBitSet::and_not_count(&fixed_bit_set1, &fixed_bit_set2);
 
@@ -1371,6 +1372,7 @@ mod tests {
         bit_set1.difference_with(&bit_set2);
 
         assert_eq!(bit_set1.len(), and_not_count as usize);
+        Ok(())
     }
 
     #[test]
