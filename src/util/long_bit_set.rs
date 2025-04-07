@@ -144,7 +144,7 @@ impl LongBitSet {
             .sum()
     }
 
-    pub fn get(&self, index: i64) -> Result<bool> {
+    pub fn get(&self, index: i64) -> bool {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
@@ -155,10 +155,10 @@ impl LongBitSet {
         // signed shift will keep a negative index and force an
         // array-index-out-of-bounds-exception, removing the need for an explicit check.
         let bitmask = 1i64 << index;
-        Ok((self.bits[i] & bitmask) != 0)
+        (self.bits[i] & bitmask) != 0
     }
 
-    pub fn set(&mut self, index: i64) -> Result<()> {
+    pub fn set(&mut self, index: i64) {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
@@ -168,11 +168,10 @@ impl LongBitSet {
         let word_num = (index >> 6) as usize;
         let bitmask = 1i64 << index;
         self.bits[word_num] |= bitmask;
-        Ok(())
     }
 
     /// Returns the previous value of the bit at `index`, and sets it.
-    pub fn get_and_set(&mut self, index: i64) -> Result<bool> {
+    pub fn get_and_set(&mut self, index: i64) -> bool {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
@@ -183,9 +182,9 @@ impl LongBitSet {
         let bitmask = 1i64 << index;
         let val = (self.bits[word_num] & bitmask) != 0;
         self.bits[word_num] |= bitmask;
-        Ok(val)
+        val
     }
-    pub fn clear(&mut self, index: i64) -> Result<()> {
+    pub fn clear(&mut self, index: i64) {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
@@ -195,12 +194,11 @@ impl LongBitSet {
         let word_num = (index >> 6) as usize;
         let bitmask = 1i64 << index;
         self.bits[word_num] &= !bitmask;
-        Ok(())
     }
 
     /// Returns the previous value of the bit at `index`, and clears it.
     #[allow(unused)]
-    pub fn get_and_clear(&mut self, index: i64) -> Result<bool> {
+    pub fn get_and_clear(&mut self, index: i64) -> bool {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
@@ -211,14 +209,14 @@ impl LongBitSet {
         let bitmask = 1i64 << index;
         let val = (self.bits[word_num] & bitmask) != 0;
         self.bits[word_num] &= !bitmask;
-        Ok(val)
+        val
     }
 
     /// Returns the index of the first set bit starting at the given `index`.
     /// Returns -1 if no such bit is found.
     ///
     /// Depends on ghost bits being clear!
-    pub fn next_set_bit(&self, index: i64) -> Result<i64> {
+    pub fn next_set_bit(&self, index: i64) -> i64 {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
@@ -231,22 +229,22 @@ impl LongBitSet {
         let mut word = self.bits[i] >> sub_index;
 
         if word != 0 {
-            return Ok(index + word.trailing_zeros() as i64);
+            return index + word.trailing_zeros() as i64;
         }
 
         i += 1;
         while i < self.num_words as usize {
             word = self.bits[i];
             if word != 0 {
-                return Ok((i as i64) << 6 | word.trailing_zeros() as i64);
+                return (i as i64) << 6 | word.trailing_zeros() as i64;
             }
             i += 1;
         }
-        Ok(-1)
+        -1
     }
     /// Returns the index of the last set bit before or on the given `index`.
     /// Returns -1 if there are no more set bits.
-    pub fn prev_set_bit(&self, index: i64) -> Result<i64> {
+    pub fn prev_set_bit(&self, index: i64) -> i64 {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
@@ -259,23 +257,23 @@ impl LongBitSet {
         let mut word = self.bits[i as usize] << (63 - sub_index);
 
         if word != 0 {
-            return Ok((i << 6) as i64 + sub_index as i64 - word.leading_zeros() as i64);
+            return (i << 6) as i64 + sub_index as i64 - word.leading_zeros() as i64;
         }
 
         i -= 1;
         while i >= 0 {
             word = self.bits[i as usize];
             if word != 0 {
-                return Ok((i << 6) as i64 + 63 - word.leading_zeros() as i64);
+                return (i << 6) as i64 + 63 - word.leading_zeros() as i64;
             }
             i -= 1;
         }
 
-        Ok(-1)
+        -1
     }
 
     /// Performs bitwise OR: this = this OR other
-    pub fn or(&mut self, other: &LongBitSet) -> Result<()> {
+    pub fn or(&mut self, other: &LongBitSet) {
         debug_assert!(
             other.num_words <= self.num_words,
             "num_words = {}, other.num_words = {}",
@@ -287,10 +285,9 @@ impl LongBitSet {
         for i in 0..pos as usize {
             self.bits[i] |= other.bits[i];
         }
-        Ok(())
     }
     /// Performs bitwise XOR: this = this XOR other
-    pub fn xor(&mut self, other: &LongBitSet) -> Result<()> {
+    pub fn xor(&mut self, other: &LongBitSet) {
         debug_assert!(
             other.num_words <= self.num_words,
             "num_words = {}, other.num_words = {}",
@@ -302,24 +299,23 @@ impl LongBitSet {
         for i in 0..pos as usize {
             self.bits[i] ^= other.bits[i];
         }
-        Ok(())
     }
 
     /// Returns true if the sets have any elements in common.
     ///
     /// Depends on the ghost bits being clear!
-    pub fn intersects(&self, other: &LongBitSet) -> Result<bool> {
+    pub fn intersects(&self, other: &LongBitSet) -> bool {
         let pos = std::cmp::min(self.num_words, other.num_words);
         for i in 0..pos as usize {
             if (self.bits[i] & other.bits[i]) != 0 {
-                return Ok(true);
+                return true;
             }
         }
-        Ok(false)
+        false
     }
 
     /// Performs bitwise AND: this = this AND other
-    pub fn and(&mut self, other: &LongBitSet) -> Result<()> {
+    pub fn and(&mut self, other: &LongBitSet) {
         let pos = std::cmp::min(self.num_words, other.num_words);
         for i in 0..pos as usize {
             self.bits[i] &= other.bits[i];
@@ -329,16 +325,14 @@ impl LongBitSet {
                 self.bits[i] = 0;
             }
         }
-        Ok(())
     }
 
     /// Performs bitwise AND NOT: this = this AND NOT other
-    pub fn and_not(&mut self, other: &LongBitSet) -> Result<()> {
+    pub fn and_not(&mut self, other: &LongBitSet) {
         let pos = std::cmp::min(self.num_words, other.num_words);
         for i in 0..pos as usize {
             self.bits[i] &= !other.bits[i];
         }
-        Ok(())
     }
     /// Scans the backing store to check if all bits are clear.
     ///
@@ -359,7 +353,7 @@ impl LongBitSet {
     ///
     /// - `start_index`: lower bound (inclusive)
     /// - `end_index`: upper bound (exclusive)
-    pub fn flip(&mut self, start_index: i64, end_index: i64) -> Result<()> {
+    pub fn flip(&mut self, start_index: i64, end_index: i64) {
         debug_assert!(
             start_index >= 0 && start_index < self.num_bits,
             "start_index = {}, num_bits = {}",
@@ -374,7 +368,7 @@ impl LongBitSet {
         );
 
         if end_index <= start_index {
-            return Ok(());
+            return;
         }
 
         let start_word = (start_index >> 6) as usize;
@@ -388,7 +382,7 @@ impl LongBitSet {
 
         if start_word == end_word {
             self.bits[start_word] ^= start_mask & end_mask;
-            return Ok(());
+            return;
         }
 
         self.bits[start_word] ^= start_mask;
@@ -398,10 +392,9 @@ impl LongBitSet {
         }
 
         self.bits[end_word] ^= end_mask;
-        Ok(())
     }
     /// Flip the bit at the provided index.
-    pub fn flip_one(&mut self, index: i64) -> Result<()> {
+    pub fn flip_one(&mut self, index: i64) {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",
@@ -411,14 +404,13 @@ impl LongBitSet {
         let word_num = (index >> 6) as usize;
         let bitmask = 1i64 << index; // mod 64 is implicit
         self.bits[word_num] ^= bitmask;
-        Ok(())
     }
 
     /// Sets a range of bits in [start_index, end_index)
     ///
     /// - `start_index`: lower index (inclusive)
     /// - `end_index`: one-past the last bit to set
-    pub fn set_range(&mut self, start_index: i64, end_index: i64) -> Result<()> {
+    pub fn set_range(&mut self, start_index: i64, end_index: i64) {
         debug_assert!(
             start_index >= 0 && start_index < self.num_bits,
             "start_index = {}, num_bits = {}",
@@ -433,7 +425,7 @@ impl LongBitSet {
         );
 
         if end_index <= start_index {
-            return Ok(());
+            return;
         }
 
         let start_word = (start_index >> 6) as usize;
@@ -444,7 +436,7 @@ impl LongBitSet {
 
         if start_word == end_word {
             self.bits[start_word] |= start_mask & end_mask;
-            return Ok(());
+            return;
         }
 
         self.bits[start_word] |= start_mask;
@@ -452,14 +444,12 @@ impl LongBitSet {
             self.bits[i] = -1;
         }
         self.bits[end_word] |= end_mask;
-
-        Ok(())
     }
     /// Clears a range of bits in [start_index, end_index)
     ///
     /// - `start_index`: lower index (inclusive)
     /// - `end_index`: one-past the last bit to clear
-    pub fn clear_range(&mut self, start_index: i64, end_index: i64) -> Result<()> {
+    pub fn clear_range(&mut self, start_index: i64, end_index: i64) {
         debug_assert!(
             start_index >= 0 && start_index < self.num_bits,
             "start_index = {}, num_bits = {}",
@@ -474,7 +464,7 @@ impl LongBitSet {
         );
 
         if end_index <= start_index {
-            return Ok(());
+            return;
         }
 
         let start_word = (start_index >> 6) as usize;
@@ -489,7 +479,7 @@ impl LongBitSet {
 
         if start_word == end_word {
             self.bits[start_word] &= start_mask | end_mask;
-            return Ok(());
+            return;
         }
 
         self.bits[start_word] &= start_mask;
@@ -497,8 +487,6 @@ impl LongBitSet {
             self.bits[i] = 0;
         }
         self.bits[end_word] &= end_mask;
-
-        Ok(())
     }
 }
 impl Accountable for LongBitSet {
@@ -524,5 +512,211 @@ impl Hash for LongBitSet {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.bits.hash(state);
         self.num_bits.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
+    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::long_bit_set::LongBitSet;
+    use bit_set::BitSet;
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
+    #[allow(dead_code)] // for quick search
+    struct TestLongBitSet;
+
+    fn do_get(a: &BitSet, b: &LongBitSet) {
+        assert_eq!(a.len(), b.cardinality() as usize);
+        let max = b.length();
+        for i in 0..max {
+            let abit = a.contains(i as usize);
+            let bbit = b.get(i);
+            if abit != bbit {
+                unreachable!("mismatch: BitSet[{}] = {}", i, abit);
+            }
+        }
+    }
+    fn do_next_set_bit(a: &BitSet, b: &LongBitSet) {
+        assert_eq!(a.len(), b.cardinality() as usize);
+        let mut aa: i64 = -1;
+        let mut bb: i64 = -1;
+        loop {
+            aa += 1;
+            while aa < a.len() as i64 && !a.contains(aa as usize) {
+                aa += 1;
+            }
+            if aa >= a.len() as i64 {
+                aa = -1;
+            }
+
+            // b.next_set_bit
+            if bb < b.length() - 1 {
+                bb = b.next_set_bit(bb + 1);
+            } else {
+                bb = -1;
+            }
+
+            assert_eq!(aa, bb);
+            if aa < 0 {
+                break;
+            }
+        }
+    }
+
+    fn do_prev_set_bit(random: &mut StdRng, a: &BitSet, b: &LongBitSet) {
+        assert_eq!(a.len(), b.cardinality() as usize);
+
+        let mut aa = a.get_ref().len() as i64 + random.random_range(0..100);
+        let mut bb = aa;
+
+        loop {
+            // simulate a.prevSetBit
+            aa -= 1;
+            while aa >= 0 && !a.contains(aa as usize) {
+                aa -= 1;
+            }
+
+            if b.length() == 0 {
+                bb = -1;
+            } else if bb > (b.length() - 1) {
+                bb = b.prev_set_bit(b.length() - 1);
+            } else if bb < 1 {
+                bb = -1;
+            } else {
+                bb = if bb >= 1 { b.prev_set_bit(bb - 1) } else { -1 }
+            }
+
+            assert_eq!(aa, bb);
+            if aa < 0 {
+                break;
+            }
+        }
+    }
+    fn do_random_sets(max_size: i32, iter: i32, _mode: i32, random: &mut StdRng) -> Result<()> {
+        let mut a0: Option<BitSet> = None;
+        let mut b0: Option<LongBitSet> = None;
+
+        for _ in 0..iter {
+            let sz = TestUtil::next_int(random, 2, max_size as i32) as usize;
+
+            let mut a = BitSet::with_capacity(sz);
+            let mut b = LongBitSet::new(sz as i64)?;
+
+            // test the various ways of setting bits
+            if sz > 0 {
+                let n_oper = random.random_range(0..sz);
+                for _ in 0..n_oper {
+                    let mut idx = random.random_range(0..sz);
+                    a.insert(idx);
+                    b.set(idx as i64);
+
+                    idx = random.random_range(0..sz);
+                    a.remove(idx);
+                    b.clear(idx as i64);
+
+                    idx = random.random_range(0..sz);
+                    flip_bit_range(&mut a, idx, idx + 1);
+                    b.flip(idx as i64, (idx + 1) as i64);
+
+                    idx = random.random_range(0..sz);
+                    flip_bit(&mut a, idx);
+                    b.flip_one(idx as i64);
+
+                    let val2 = b.get(idx as i64);
+                    let val = b.get_and_set(idx as i64);
+                    assert_eq!(val2, val);
+                    assert!(b.get(idx as i64));
+                    if !val {
+                        b.clear(idx as i64);
+                    }
+                    assert_eq!(b.get(idx as i64), val);
+                }
+            }
+
+            do_get(&a, &b);
+
+            // Flip range
+            let from_index = random.random_range(0..(sz / 2 + 1));
+            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
+            let aa = a.clone();
+            flip_bit_range(&mut a, from_index, to_index);
+            let mut bb = b.clone();
+            bb.flip(from_index as i64, to_index as i64);
+
+            // Clear range
+            let from_index = random.random_range(0..(sz / 2 + 1));
+            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
+            let mut aa = a.clone();
+            clear_range(&mut aa, from_index as usize, to_index as usize);
+            let mut bb = b.clone();
+            bb.clear_range(from_index as i64, to_index as i64);
+
+            do_next_set_bit(&aa, &bb);
+            do_prev_set_bit(random, &aa, &bb);
+
+            // Set range
+            let from_index = random.random_range(0..(sz / 2 + 1));
+            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
+            let mut aa = a.clone();
+            set_range(&mut aa, from_index as usize, to_index as usize);
+            let mut bb = b.clone();
+            bb.set_range(from_index as i64, to_index as i64);
+
+            do_next_set_bit(&aa, &bb);
+            do_prev_set_bit(random, &aa, &bb);
+
+            // bitwise ops
+            if let (Some(ref a0), Some(ref b0)) = (&a0, &b0) {
+                if b0.length() <= b.length() {
+                    assert_eq!(a.len(), b.cardinality() as usize);
+
+                    let mut a_and = a.clone();
+                    a_and.intersect_with(a0);
+                    let mut a_or = a.clone();
+                    a_or.union_with(a0);
+                    let mut a_xor = a.clone();
+                    a_xor.symmetric_difference_with(a0);
+                    let mut a_andn = a.clone();
+                    a_andn.difference_with(a0);
+
+                    let mut b_and = b.clone();
+                    assert!(b == b_and);
+                    b_and.and(&b0);
+                    let mut b_or = b.clone();
+                    b_or.or(&b0);
+                    let mut b_xor = b.clone();
+                    b_xor.xor(&b0);
+                    let mut b_andn = b.clone();
+                    b_andn.and_not(&b0);
+
+                    assert_eq!(a0.len(), b0.cardinality() as usize);
+                    assert_eq!(a_or.len(), b_or.cardinality() as usize);
+                    assert_eq!(a_and.len(), b_and.cardinality() as usize);
+                    assert_eq!(a_xor.len(), b_xor.cardinality() as usize);
+                    assert_eq!(a_andn.len(), b_andn.cardinality() as usize);
+                }
+            }
+            a0 = Some(a);
+            b0 = Some(b);
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_small() -> Result<()> {
+        let mut random = random();
+        let iters = if is_night_mode() {
+            at_least(&mut random, 1000)
+        } else {
+            100
+        };
+
+        let size = at_least(&mut random, 1200);
+        do_random_sets(size, iters, 1, &mut random)?;
+        do_random_sets(size, iters, 2, &mut random)?;
+        Ok(())
     }
 }
