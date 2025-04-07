@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_enum::doc_values::{SortedDocValuesEnum, SortedSetDocValuesEnum};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::terms_enums::TermsEnums;
 use crate::index::BytesRef;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// A multi-valued version of [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues).
 ///
@@ -98,4 +101,13 @@ where
     }
     // TODO:
     // intersect not Implemented
+
+    fn is_singleton(&self) -> bool {
+        false
+    }
+    fn unwrap_singleton(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+        Err(LuceneError::not_implemented(
+            "this is not a singleton SortedSetDocValues",
+        ))
+    }
 }

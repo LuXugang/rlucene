@@ -92,3 +92,39 @@ where
 {
     Lucene90(Lucene90DocValuesProducer<I>),
 }
+impl<I> DocValuesProducer<I> for DocValuesProducerEnum<I>
+where
+    I: IndexInput,
+{
+    fn get_numeric(&mut self, _field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_binary(&mut self, _field: &FieldInfo) -> Result<BinaryDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<SortedDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_sorted_set(&mut self, _field: &FieldInfo) -> Result<SortedSetDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_skipper(&mut self, _field: &FieldInfo) -> Result<DocValuesSkipperEnum<I>> {
+        todo!()
+    }
+
+    fn check_integrity(&mut self) -> Result<()> {
+        todo!()
+    }
+
+    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
+        todo!()
+    }
+}

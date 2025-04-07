@@ -24,6 +24,8 @@ use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::rc::Rc;
 /// Exposes a multi-valued iterator view over a single-valued iterator.
 ///
 /// This can be used if you want to have one multi-valued implementation that works for both
@@ -32,7 +34,7 @@ pub struct SingletonSortedSetDocValues<I>
 where
     I: IndexInput,
 {
-    inner: SortedDocValuesEnum<I>,
+    inner: Rc<RefCell<SortedDocValuesEnum<I>>>,
     ord: i64,
 }
 
@@ -48,17 +50,20 @@ where
                 inner.doc_id()
             )));
         }
-        Ok(Self { inner, ord: -1 })
+        Ok(Self {
+            inner: Rc::new(RefCell::new(inner)),
+            ord: -1,
+        })
     }
 
-    pub fn get_numeric_doc_values(&self) -> Result<&SortedDocValuesEnum<I>> {
-        if self.inner.doc_id() != -1 {
+    pub fn get_numeric_doc_values(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+        if self.inner.borrow().doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
-                self.inner.doc_id()
+                self.inner.borrow().doc_id()
             )));
         }
-        Ok(&self.inner)
+        Ok(self.inner.clone())
     }
 }
 
@@ -67,27 +72,27 @@ where
     I: IndexInput,
 {
     fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
+        self.inner.borrow().doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let doc_id = self.inner.next_doc()?;
+        let doc_id = self.inner.borrow_mut().next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            self.ord = self.inner.ord_value()? as i64;
+            self.ord = self.inner.borrow_mut().ord_value()? as i64;
         }
         Ok(doc_id)
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        let doc_id = self.inner.advance(target)?;
+        let doc_id = self.inner.borrow_mut().advance(target)?;
         if doc_id != NO_MORE_DOCS {
-            self.ord = self.inner.ord_value()? as i64;
+            self.ord = self.inner.borrow_mut().ord_value()? as i64;
         }
         Ok(doc_id)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.inner.cost()
+        self.inner.borrow().cost()
     }
 }
 
@@ -96,8 +101,8 @@ where
     I: IndexInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        if self.inner.advance_exact(target)? {
-            self.ord = self.inner.ord_value()? as i64;
+        if self.inner.borrow_mut().advance_exact(target)? {
+            self.ord = self.inner.borrow_mut().ord_value()? as i64;
             Ok(true)
         } else {
             Ok(false)
@@ -118,18 +123,18 @@ where
     }
 
     fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef> {
-        self.inner.lookup_ord(ord as i32)
+        self.inner.borrow_mut().lookup_ord(ord as i32)
     }
 
     fn get_value_count(&self) -> Result<i64> {
-        Ok(self.inner.get_value_count()? as i64)
+        Ok(self.inner.borrow_mut().get_value_count()? as i64)
     }
 
     fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
-        Ok(self.inner.lookup_term(key)? as i64)
+        Ok(self.inner.borrow_mut().lookup_term(key)? as i64)
     }
 
     fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
-        self.inner.terms_enum()
+        self.inner.borrow_mut().terms_enum()
     }
 }

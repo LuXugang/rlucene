@@ -22,6 +22,8 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
+use std::cell::RefCell;
+use std::rc::Rc;
 /// Exposes a multi-valued view over a single-valued instance.
 ///
 /// This can be used if you want to have one multi-valued implementation that works for both
@@ -30,7 +32,7 @@ pub struct SingletonSortedNumericDocValues<I>
 where
     I: IndexInput,
 {
-    inner: NumericDocValuesEnum<I>,
+    inner: Rc<RefCell<NumericDocValuesEnum<I>>>,
 }
 
 impl<I> SingletonSortedNumericDocValues<I>
@@ -44,17 +46,19 @@ where
                 inner.doc_id()
             )));
         }
-        Ok(Self { inner })
+        Ok(Self {
+            inner: Rc::new(RefCell::new(inner)),
+        })
     }
 
-    pub fn get_numeric_doc_values(&self) -> Result<&NumericDocValuesEnum<I>> {
-        if self.inner.doc_id() != -1 {
+    pub fn get_numeric_doc_values(&self) -> Result<Rc<RefCell<NumericDocValuesEnum<I>>>> {
+        if self.inner.borrow().doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
-                self.inner.doc_id()
+                self.inner.borrow().doc_id()
             )));
         }
-        Ok(&self.inner)
+        Ok(self.inner.clone())
     }
 }
 
@@ -63,19 +67,19 @@ where
     I: IndexInput,
 {
     fn doc_id(&self) -> i32 {
-        self.inner.doc_id()
+        self.inner.borrow().doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        self.inner.next_doc()
+        self.inner.borrow_mut().next_doc()
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.advance(target)
+        self.inner.borrow_mut().advance(target)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.inner.cost()
+        self.inner.borrow().cost()
     }
 }
 
@@ -84,7 +88,7 @@ where
     I: IndexInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.inner.advance_exact(target)
+        self.inner.borrow_mut().advance_exact(target)
     }
 }
 
@@ -93,7 +97,7 @@ where
     I: IndexInput,
 {
     fn next_value(&mut self) -> Result<i64> {
-        self.inner.long_value()
+        self.inner.borrow_mut().long_value()
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {

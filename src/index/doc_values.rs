@@ -22,10 +22,13 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
+use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct DocValues;
 impl DocValues {
@@ -48,6 +51,15 @@ impl DocValues {
         Ok(SortedSetDocValuesEnum::Singleton(
             SingletonSortedSetDocValues::new(dv)?,
         ))
+    }
+
+    pub fn unwrap_singleton_sorted_set_doc_values<I>(
+        dv: impl SortedSetDocValues<I>,
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>>
+    where
+        I: IndexInput,
+    {
+        dv.unwrap_singleton()
     }
 }
 

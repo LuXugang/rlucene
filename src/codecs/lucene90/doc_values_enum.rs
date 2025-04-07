@@ -33,7 +33,7 @@ pub mod doc_values {
     use crate::index::BytesRef;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
-    use crate::util::error::lucene_error::Result;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -353,6 +353,19 @@ pub mod doc_values {
 
         fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
             todo!()
+        }
+
+        fn is_singleton(&self) -> bool {
+            true
+        }
+
+        fn unwrap_singleton(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+            match self {
+                SortedSetDocValuesEnum::Singleton(singleton) => singleton.get_numeric_doc_values(),
+                SortedSetDocValuesEnum::Base(base) => Err(LuceneError::illegal_state(
+                    "this is not a singleton SortedSetDocValues",
+                )),
+            }
         }
     }
 }

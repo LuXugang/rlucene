@@ -14,22 +14,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_enum::doc_values::{SortedDocValuesEnum, SortedNumericDocValuesEnum};
+use crate::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum};
+use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::CodecUtil;
+use crate::index::doc_values::DocValues;
+use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
+use crate::index::field_info::FieldInfo;
+use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorted_doc_values::SortedDocValues;
+use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::{BytesRefBuilder, IndexFileNames};
+use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::{
     ByteArrayDataOutput, ByteBuffersDataOutput, ByteBuffersIndexOutput, DataOutput, IndexInput,
     IndexOutput,
 };
 use crate::util::array_util::ArrayUtil;
+use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::math_util::MathUtil;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
+use crate::util::packed::direct_writer::DirectWriter;
 use crate::util::{CommonUtil, StringHelper};
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
+use std::rc::Rc;
 
 /// writer for [`Lucene90DocValuesFormat`](Lucene90DocValuesFormat).
 pub(crate) struct Lucene90DocValuesConsumer<O: IndexOutput> {
@@ -90,6 +109,458 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             max_doc,
             skip_index_interval_size,
         })
+    }
+    fn write_skip_index<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut impl DocValuesProducer<I>,
+    ) -> Result<()> {
+        debug_assert!(*field.doc_values_skip_index_type() != DocValuesSkipIndexType::None);
+        let start = self.data.get_file_pointer();
+        let mut values = values_producer.get_sorted_numeric(field)?;
+        let mut global_max_value = i64::MIN;
+        let mut global_min_value = i64::MAX;
+        let mut global_doc_count = 0;
+        let mut max_doc_id = -1;
+
+        let mut accumulators: Vec<SkipAccumulator> = Vec::new();
+        let max_accumulators = 1
+            << (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT
+                * (Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL as i32 - 1));
+        let mut accumulator: Option<SkipAccumulator> = None;
+        let mut doc = values.next_doc()?;
+        while doc != NO_MORE_DOCS {
+            let first_value = values.next_value()?;
+            let done = if let Some(ref acc) = accumulator {
+                acc.is_done(
+                    self.skip_index_interval_size,
+                    values.doc_value_count()?,
+                    first_value,
+                    doc,
+                )
+            } else {
+                false
+            };
+
+            if done {
+                let acc = accumulator.take().unwrap();
+                global_max_value = global_max_value.max(acc.max_value);
+                global_min_value = global_min_value.min(acc.min_value);
+                global_doc_count += acc.doc_count;
+                max_doc_id = acc.max_doc_id;
+                accumulators.push(acc);
+                if accumulators.len() == max_accumulators {
+                    self.write_levels(std::mem::take(&mut accumulators))?;
+                }
+            }
+
+            if accumulator.is_none() {
+                accumulator = Some(SkipAccumulator::new(doc));
+            }
+            if let Some(ref mut acc) = accumulator {
+                acc.next_doc(doc);
+                acc.accumulate_value(first_value);
+            }
+            for _ in 1..values.doc_value_count()? {
+                let v = values.next_value()?;
+                accumulator.as_mut().unwrap().accumulate_value(v);
+            }
+
+            doc = values.next_doc()?;
+        }
+
+        if let Some(acc) = accumulator {
+            global_max_value = global_max_value.max(acc.max_value);
+            global_min_value = global_min_value.min(acc.min_value);
+            global_doc_count += acc.doc_count;
+            max_doc_id = acc.max_doc_id;
+            accumulators.push(acc)
+        }
+
+        if !accumulators.is_empty() {
+            self.write_levels(accumulators)?;
+        }
+
+        self.meta.write_long(start)?; // record the start in meta
+        self.meta.write_long(self.data.get_file_pointer() - start)?; // record the length
+        debug_assert!(global_doc_count == 0 || global_max_value >= global_min_value);
+        self.meta.write_long(global_max_value)?;
+        self.meta.write_long(global_min_value)?;
+        debug_assert!(global_doc_count <= max_doc_id + 1);
+        self.meta.write_int(global_doc_count)?;
+        self.meta.write_int(max_doc_id)?;
+
+        Ok(())
+    }
+
+    fn write_levels(&mut self, accumulators: Vec<SkipAccumulator>) -> Result<()> {
+        let mut accumulators_levels: Vec<Vec<SkipAccumulator>> =
+            Vec::with_capacity(Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL);
+        let accumulators_len = accumulators.len();
+        accumulators_levels.push(accumulators);
+
+        for i in 0..(Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL - 1) {
+            let next_level = Self::build_level(&accumulators_levels[i]);
+            accumulators_levels.push(next_level);
+        }
+
+        let total = accumulators_len as i32;
+        for index in 0..total {
+            // compute how many levels we need to write for the current accumulator
+            let levels = Self::get_levels(index, total);
+            // write the number of levels
+            self.data.write_byte(levels as u8)?;
+            // write intervals in reverse order. This is done so we don't
+            // need to read all of them in case of slipping
+            for level in (0..levels as usize).rev() {
+                let idx =
+                    index >> (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT as usize * level);
+                let acc = &accumulators_levels[level][idx as usize];
+                self.data.write_int(acc.max_doc_id)?;
+                self.data.write_int(acc.min_doc_id)?;
+                self.data.write_long(acc.max_value)?;
+                self.data.write_long(acc.min_value)?;
+                self.data.write_int(acc.doc_count)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn build_level(accumulators: &[SkipAccumulator]) -> Vec<SkipAccumulator> {
+        let level_size = 1 << Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT;
+        let mut collector = Vec::new();
+
+        let end = accumulators.len() as i32 - level_size + 1;
+        let mut i = 0;
+        while i < end {
+            let merged = SkipAccumulator::merge(accumulators, i, level_size);
+            collector.push(merged);
+            i += level_size;
+        }
+
+        collector
+    }
+
+    fn get_levels(index: i32, size: i32) -> i32 {
+        if index.trailing_zeros() >= Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT as u32 {
+            let left = size - index;
+            for level in (1..Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL as i32).rev() {
+                let intervals = 1 << (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT * level);
+                if left >= intervals && index % intervals == 0 {
+                    return level + 1;
+                }
+            }
+        }
+        1
+    }
+    fn write_values<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut impl DocValuesProducer<I>,
+        ords: bool,
+    ) -> Result<(i32, i64)> {
+        let mut values = values_producer.get_sorted_numeric(field)?;
+        let first_value = if values.next_doc()? != NO_MORE_DOCS {
+            values.next_value()?
+        } else {
+            0
+        };
+
+        values = values_producer.get_sorted_numeric(field)?;
+        let mut num_docs_with_value = 0;
+        let mut min_max = MinMaxTracker::new();
+        let mut block_min_max = MinMaxTracker::new();
+        let mut gcd = 0i64;
+        let mut unique_values = if !ords { Some(HashSet::new()) } else { None };
+
+        let mut doc = values.next_doc()?;
+        while doc != NO_MORE_DOCS {
+            for _ in 0..values.doc_value_count()? {
+                let v = values.next_value()?;
+
+                if gcd != 1 {
+                    if v < i64::MIN / 2 || v > i64::MAX / 2 {
+                        // in that case v - minValue might overflow and make the GCD computation return
+                        // wrong results. Since these extreme values are unlikely, we just discard
+                        // GCD computation for them
+                        gcd = 1;
+                    } else {
+                        gcd = MathUtil::gcd(gcd, v - first_value);
+                    }
+                }
+
+                block_min_max.update_value(v);
+
+                if block_min_max.num_values == Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as i64 {
+                    min_max.update_from(&block_min_max);
+                    block_min_max.next_block();
+                }
+
+                if let Some(set) = unique_values.as_mut() {
+                    if set.insert(v) && set.len() > 256 {
+                        unique_values = None;
+                    }
+                }
+            }
+
+            num_docs_with_value += 1;
+            doc = values.next_doc()?;
+        }
+
+        min_max.update_from(&block_min_max);
+        min_max.finish();
+        block_min_max.finish();
+
+        if ords && min_max.num_values > 0 {
+            if min_max.min != 0 {
+                return Err(LuceneError::illegal_state(format!(
+                    "The min value for ordinals should always be 0, got {}",
+                    min_max.min
+                )));
+            }
+            if min_max.max != 0 && gcd != 1 {
+                return Err(LuceneError::illegal_state(format!(
+                    "GCD compression should never be used on ordinals, found gcd={}",
+                    gcd
+                )));
+            }
+        }
+
+        let num_values = min_max.num_values;
+        let mut min = min_max.min;
+        let max = min_max.max;
+        debug_assert!(block_min_max.space_in_bits <= min_max.space_in_bits);
+
+        if num_docs_with_value == 0 {
+            // meta[-2, 0]: No documents with values
+            self.meta.write_long(-2)?; // docsWithFieldOffset
+            self.meta.write_long(0)?; // docsWithFieldLength
+            self.meta.write_short(-1)?; // jumpTableEntryCount
+            self.meta.write_byte(-1i8 as u8)?; // denseRankPower
+        } else if num_docs_with_value == self.max_doc {
+            // meta[-1, 0]: All documents has values
+            self.meta.write_long(-1)?; // docsWithFieldOffset
+            self.meta.write_long(0)?; // docsWithFieldLength
+            self.meta.write_short(-1)?; // jumpTableEntryCount
+            self.meta.write_byte(-1i8 as u8)?; // denseRankPower
+        } else {
+            // meta[data.offset, data.length]: IndexedDISI structure
+            let offset = self.data.get_file_pointer();
+            self.meta.write_long(offset)?; // docsWithFieldOffset
+
+            let mut values = values_producer.get_sorted_numeric(field)?;
+            let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+                &mut values,
+                &mut self.data,
+                IndexedDISI::DEFAULT_DENSE_RANK_POWER,
+            )?;
+
+            self.meta
+                .write_long(self.data.get_file_pointer() - offset)?;
+            self.meta.write_short(jump_table_entry_count)?;
+            self.meta
+                .write_byte(IndexedDISI::DEFAULT_DENSE_RANK_POWER as u8)?;
+        }
+
+        self.meta.write_long(num_values)?;
+
+        let mut num_bits_per_value = 0;
+        let mut do_blocks = false;
+        let mut encode: Option<HashMap<i64, i32>> = None;
+
+        if min >= max {
+            // meta[-1]: All values are 0
+            num_bits_per_value = 0;
+            self.meta.write_int(-1)?;
+        } else if let Some(set) = unique_values.as_ref() {
+            if set.len() > 1
+                && DirectWriter::unsigned_bits_required(set.len() as i64 - 1)
+                    < DirectWriter::unsigned_bits_required((max - min) / gcd)
+            {
+                let mut sorted: Vec<i64> = set.iter().cloned().collect();
+                sorted.sort_unstable();
+                debug_assert!(sorted.len() <= i32::MAX as usize);
+                let set_len = sorted.len() as i32;
+                num_bits_per_value = DirectWriter::unsigned_bits_required(set_len as i64 - 1);
+                self.meta.write_int(set_len)?;
+                for v in &sorted {
+                    self.meta.write_long(*v)?;
+                }
+                encode = Some(
+                    sorted
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &v)| (v, i as i32))
+                        .collect::<HashMap<_, _>>(),
+                );
+                min = 0;
+                gcd = 1;
+            } else {
+                // we do blocks if that appears to save 10+% storage
+                do_blocks = min_max.space_in_bits > 0
+                    && (block_min_max.space_in_bits as f64 / min_max.space_in_bits as f64) <= 0.9;
+                if do_blocks {
+                    num_bits_per_value = 0xFF;
+                    self.meta
+                        .write_int(-2 - Lucene90DocValuesFormat::NUMERIC_BLOCK_SHIFT)?;
+                } else {
+                    num_bits_per_value = DirectWriter::unsigned_bits_required((max - min) / gcd);
+                    if gcd == 1
+                        && min > 0
+                        && DirectWriter::unsigned_bits_required(max)
+                            == DirectWriter::unsigned_bits_required(max - min)
+                    {
+                        min = 0;
+                    }
+                    self.meta.write_int(-1)?;
+                }
+            }
+        }
+
+        self.meta.write_byte(num_bits_per_value as u8)?;
+        self.meta.write_long(min)?;
+        self.meta.write_long(gcd)?;
+
+        let start_offset = self.data.get_file_pointer();
+        self.meta.write_long(start_offset)?;
+        let mut jump_table_offset = -1;
+
+        if do_blocks {
+            let mut values = values_producer.get_sorted_numeric(field)?;
+            jump_table_offset = self.write_values_multiple_blocks(&mut values, gcd)?;
+        } else if num_bits_per_value != 0 {
+            let mut values = values_producer.get_sorted_numeric(field)?;
+            self.write_values_single_block(
+                &mut values,
+                num_values,
+                num_bits_per_value,
+                min,
+                gcd,
+                encode,
+            )?;
+        }
+
+        self.meta
+            .write_long(self.data.get_file_pointer() - start_offset)?;
+        self.meta.write_long(jump_table_offset)?;
+
+        Ok((num_docs_with_value, num_values))
+    }
+
+    fn write_values_single_block(
+        &mut self,
+        values: &mut impl SortedNumericDocValues,
+        num_values: i64,
+        num_bits_per_value: i32,
+        min: i64,
+        gcd: i64,
+        encode: Option<HashMap<i64, i32>>,
+    ) -> Result<()> {
+        let mut writer =
+            DirectWriter::get_instance(&mut self.data, num_values, num_bits_per_value)?;
+
+        let mut doc = values.next_doc()?;
+        while doc != NO_MORE_DOCS {
+            for _ in 0..values.doc_value_count()? {
+                let v = values.next_value()?;
+                let encoded = if let Some(map) = &encode {
+                    *map.get(&v).unwrap_or(&0) as i64
+                } else {
+                    (v - min) / gcd
+                };
+                writer.add(encoded)?;
+            }
+            doc = values.next_doc()?;
+        }
+
+        writer.finish()?;
+        Ok(())
+    }
+
+    fn write_values_multiple_blocks(
+        &mut self,
+        values: &mut impl SortedNumericDocValues,
+        gcd: i64,
+    ) -> Result<i64> {
+        let mut offsets: Vec<i64> =
+            vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES as i32) as usize];
+        let mut offsets_index: usize = 0;
+        let mut buffer = [0i64; Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize];
+        let mut encode_buffer = ByteBuffersDataOutput::with_resettable_instance();
+        let mut up_to = 0;
+
+        let mut doc = values.next_doc()?;
+        while doc != NO_MORE_DOCS {
+            for _ in 0..values.doc_value_count()? {
+                buffer[up_to] = values.next_value()?;
+                up_to += 1;
+
+                if up_to == Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize {
+                    offsets.push(self.data.get_file_pointer());
+                    offsets_index += 1;
+                    self.write_block(&buffer, gcd, &mut encode_buffer)?;
+                    up_to = 0;
+                }
+            }
+            doc = values.next_doc()?;
+        }
+
+        debug_assert!(offsets_index <= i32::MAX as usize);
+        if up_to > 0 {
+            ArrayUtil::grow_with_len(&mut offsets, offsets_index as i32 + 1)?;
+            offsets[offsets_index] = self.data.get_file_pointer();
+            offsets_index += 1;
+            self.write_block(&buffer[..up_to], gcd, &mut encode_buffer)?;
+        }
+        // All blocks has been written. Flush the offset jump-table
+        let offsets_origo = self.data.get_file_pointer();
+        for i in 0..offsets_index as usize {
+            self.data.write_long(offsets[i])?;
+        }
+        self.data.write_long(offsets_origo)?;
+        Ok(offsets_origo)
+    }
+
+    fn write_block(
+        &mut self,
+        values: &[i64],
+        gcd: i64,
+        buffer: &mut ByteBuffersDataOutput,
+    ) -> Result<()> {
+        debug_assert!(!values.is_empty());
+
+        let mut min = values[0];
+        let mut max = values[0];
+
+        for &v in &values[1..] {
+            debug_assert!(((v - min).rem_euclid(gcd)) == 0);
+            min = min.min(v);
+            max = max.max(v);
+        }
+
+        if min == max {
+            self.data.write_byte(0)?;
+            self.data.write_long(min)?;
+        } else {
+            let bits_per_value = DirectWriter::unsigned_bits_required((max - min) / gcd);
+
+            buffer.reset();
+            assert_eq!(buffer.size(), 0);
+
+            let mut w = DirectWriter::get_instance(buffer, values.len() as i64, bits_per_value)?;
+            for &v in values {
+                w.add((v - min) / gcd)?;
+            }
+            w.finish()?;
+
+            self.data.write_byte(bits_per_value as u8)?;
+            self.data.write_long(min)?;
+            self.data.write_int(buffer.size() as i32)?;
+            buffer.copy_to(&mut self.data)?;
+        }
+
+        Ok(())
     }
     fn add_terms_dict<I: IndexInput>(
         &mut self,
@@ -297,5 +768,271 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             self.meta.write_long(self.data.get_file_pointer() - start)?;
         }
         Ok(())
+    }
+    fn do_add_sorted_numeric_field<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut impl DocValuesProducer<I>,
+        ords: bool,
+    ) -> Result<()> {
+        if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
+            self.write_skip_index(field, values_producer)?;
+        }
+
+        if ords {
+            self.meta.write_byte(1)?; // multiValued (1 = multiValued)
+        }
+
+        let (num_docs_with_field, num_values) = self.write_values(field, values_producer, ords)?;
+        debug_assert!(num_values >= num_docs_with_field as i64);
+
+        self.meta.write_int(num_docs_with_field)?;
+        if num_values > num_docs_with_field as i64 {
+            let start = self.data.get_file_pointer();
+            self.meta.write_long(start)?;
+            self.meta
+                .write_vint(Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT)?;
+
+            let count = num_docs_with_field as i64 + 1;
+            let mut addresses_writer = DirectMonotonicWriter::get_instance(
+                &mut self.meta,
+                &mut self.data,
+                count,
+                Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT,
+            )?;
+
+            let mut addr = 0i64;
+            addresses_writer.add(addr)?;
+
+            let mut values = values_producer.get_sorted_numeric(field)?;
+            let mut doc = values.next_doc()?;
+            while doc != NO_MORE_DOCS {
+                addr += values.doc_value_count()? as i64;
+                addresses_writer.add(addr)?;
+                doc = values.next_doc()?;
+            }
+
+            addresses_writer.finish()?;
+            self.meta.write_long(self.data.get_file_pointer() - start)?;
+        }
+
+        Ok(())
+    }
+    fn is_single_valued<I: IndexInput>(values: &mut impl SortedSetDocValues<I>) -> Result<bool> {
+        if values.is_singleton() {
+            return Ok(true);
+        }
+
+        debug_assert_eq!(values.doc_id(), -1);
+
+        let mut doc = values.next_doc()?;
+        while doc != NO_MORE_DOCS {
+            let count = values.doc_value_count()?;
+            debug_assert!(count > 0);
+            if count > 1 {
+                return Ok(false);
+            }
+            doc = values.next_doc()?;
+        }
+
+        Ok(true)
+    }
+}
+
+pub struct MinMaxTracker {
+    min: i64,
+    max: i64,
+    num_values: i64,
+    pub space_in_bits: i64,
+}
+
+impl MinMaxTracker {
+    pub fn new() -> Self {
+        let mut result = Self {
+            min: 0,
+            max: 0,
+            num_values: 0,
+            space_in_bits: 0,
+        };
+        result.reset();
+        result
+    }
+
+    fn reset(&mut self) {
+        self.min = i64::MAX;
+        self.max = i64::MIN;
+        self.num_values = 0;
+    }
+
+    /// Accumulate a new value
+    pub fn update_value(&mut self, v: i64) {
+        self.min = self.min.min(v);
+        self.max = self.max.max(v);
+        self.num_values += 1;
+    }
+
+    /// Accumulate state from another tracker
+    pub fn update_from(&mut self, other: &MinMaxTracker) {
+        self.min = self.min.min(other.min);
+        self.max = self.max.max(other.max);
+        self.num_values += other.num_values;
+    }
+
+    /// Update the required space
+    pub fn finish(&mut self) {
+        if self.max > self.min {
+            let bits = DirectWriter::unsigned_bits_required(self.max - self.min);
+            self.space_in_bits += bits as i64 * self.num_values;
+        }
+    }
+
+    /// Update space usage and get ready for next block
+    pub fn next_block(&mut self) {
+        self.finish();
+        self.reset();
+    }
+}
+
+pub struct SkipAccumulator {
+    min_doc_id: i32,
+    max_doc_id: i32,
+    doc_count: i32,
+    min_value: i64,
+    max_value: i64,
+}
+
+impl SkipAccumulator {
+    pub fn new(doc_id: i32) -> Self {
+        Self {
+            min_doc_id: doc_id,
+            max_doc_id: doc_id,
+            doc_count: 0,
+            min_value: i64::MAX,
+            max_value: i64::MIN,
+        }
+    }
+
+    pub fn is_done(
+        &self,
+        skip_index_interval_size: i32,
+        value_count: i32,
+        next_value: i64,
+        next_doc: i32,
+    ) -> bool {
+        if self.doc_count < skip_index_interval_size {
+            return false;
+        }
+        // Once we reach the interval size, we will keep accepting documents if
+        // - next doc value is not a multi-value
+        // - current accumulator only contains a single value and next value is the same value
+        // - the accumulator is dense and the next doc keeps the density (no gaps)
+        value_count > 1
+            || self.min_value != self.max_value
+            || self.min_value != next_value
+            || self.doc_count != next_doc - self.min_doc_id
+    }
+
+    pub fn accumulate_value(&mut self, value: i64) {
+        self.min_value = self.min_value.min(value);
+        self.max_value = self.max_value.max(value);
+    }
+
+    pub fn accumulate_other(&mut self, other: &SkipAccumulator) {
+        debug_assert!(self.min_doc_id <= other.min_doc_id && self.max_doc_id < other.max_doc_id);
+        self.max_doc_id = other.max_doc_id;
+        self.min_value = self.min_value.min(other.min_value);
+        self.max_value = self.max_value.max(other.max_value);
+        self.doc_count += other.doc_count;
+    }
+
+    pub fn next_doc(&mut self, doc_id: i32) {
+        self.max_doc_id = doc_id;
+        self.doc_count += 1;
+    }
+
+    pub fn merge(list: &[SkipAccumulator], index: i32, length: i32) -> Self {
+        let index = index as usize;
+        let mut acc = SkipAccumulator::new(list[index].min_doc_id);
+        for i in 0..length as usize {
+            acc.accumulate_other(&list[index + i]);
+        }
+        acc
+    }
+}
+struct EmptyDocValuesProducerSub1<I>
+where
+    I: IndexInput,
+{
+    values_producer: Rc<RefCell<DocValuesProducerEnum<I>>>,
+    field: Rc<FieldInfo>,
+}
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub1<I>
+where
+    I: IndexInput,
+{
+    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+        DocValues::singleton_numeric(self.values_producer.borrow_mut().get_numeric(&self.field)?)
+    }
+}
+
+pub struct EmptyDocValuesProducerSub2<I>
+where
+    I: IndexInput,
+{
+    values_producer: Rc<RefCell<DocValuesProducerEnum<I>>>,
+    field: Rc<FieldInfo>,
+}
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub2<I>
+where
+    I: IndexInput,
+{
+    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<SortedDocValuesEnum<I>> {
+        todo!()
+    }
+}
+
+pub struct NumericDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    sorted: SortedDocValuesEnum<I>,
+}
+
+impl<I> DocValuesIterator for NumericDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.sorted.advance_exact(target)
+    }
+}
+
+impl<I> DocIdSetIterator for NumericDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.sorted.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.sorted.next_doc()
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.sorted.advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.sorted.cost()
+    }
+}
+
+impl<I> NumericDocValues for NumericDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn long_value(&mut self) -> Result<i64> {
+        Ok(self.sorted.ord_value()? as i64)
     }
 }
