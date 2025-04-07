@@ -32,7 +32,7 @@ use std::rc::Rc;
 pub struct SortedSetSelector;
 impl SortedSetSelector {
     /// Wraps a multi-valued SortedSetDocValues as a single-valued view, using the specified selector.
-    pub fn wrap_sorted_doc_values<I: IndexInput>(
+    pub fn wrap<I: IndexInput>(
         sorted_set: SortedSetDocValuesEnum<I>,
         selector: SortedSetSelectorType,
     ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {

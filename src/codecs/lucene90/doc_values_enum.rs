@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 pub mod doc_values {
+    use crate::codecs::lucene90_doc_values_consumer::{
+        NumericDocValuesImpl, SortedNumericDocValuesImpl,
+    };
     use crate::codecs::lucene90_doc_values_producer::{
         BaseSortedDocValues, BaseSortedSetDocValues, DenseBinaryDocValues, DenseNumericDocValues,
         DenseSortedNumericDocValues, DocValuesSkipperImpl, SpareSortedNumericDocValues,
@@ -206,6 +209,7 @@ pub mod doc_values {
         Dense(DenseNumericDocValues<I>),
         Sparse(SparseNumericDocValues<I>),
         Empty(EmptyNumeric),
+        Impl(NumericDocValuesImpl<I>),
     }
 
     impl<I> DocValuesIterator for NumericDocValuesEnum<I>
@@ -213,11 +217,7 @@ pub mod doc_values {
         I: IndexInput,
     {
         fn advance_exact(&mut self, target: i32) -> Result<bool> {
-            match self {
-                NumericDocValuesEnum::Dense(dense) => dense.advance_exact(target),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.advance_exact(target),
-                NumericDocValuesEnum::Empty(empty) => empty.advance_exact(target),
-            }
+            todo!()
         }
     }
 
@@ -226,43 +226,23 @@ pub mod doc_values {
         I: IndexInput,
     {
         fn doc_id(&self) -> i32 {
-            match self {
-                NumericDocValuesEnum::Dense(dense) => dense.doc_id(),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.doc_id(),
-                NumericDocValuesEnum::Empty(empty) => empty.doc_id(),
-            }
+            todo!()
         }
 
         fn next_doc(&mut self) -> Result<i32> {
-            match self {
-                NumericDocValuesEnum::Dense(dense) => dense.next_doc(),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.next_doc(),
-                NumericDocValuesEnum::Empty(empty) => empty.next_doc(),
-            }
+            todo!()
         }
 
         fn advance(&mut self, target: i32) -> Result<i32> {
-            match self {
-                NumericDocValuesEnum::Dense(dense) => dense.advance(target),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.advance(target),
-                NumericDocValuesEnum::Empty(empty) => empty.advance(target),
-            }
+            todo!()
         }
 
         fn slow_advance(&mut self, target: i32) -> Result<i32> {
-            match self {
-                NumericDocValuesEnum::Dense(dense) => dense.slow_advance(target),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.slow_advance(target),
-                NumericDocValuesEnum::Empty(empty) => empty.slow_advance(target),
-            }
+            todo!()
         }
 
         fn cost(&self) -> Result<i64> {
-            match self {
-                NumericDocValuesEnum::Dense(dense) => dense.cost(),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.cost(),
-                NumericDocValuesEnum::Empty(empty) => empty.cost(),
-            }
+            todo!()
         }
     }
 
@@ -271,11 +251,7 @@ pub mod doc_values {
         I: IndexInput,
     {
         fn long_value(&mut self) -> Result<i64> {
-            match self {
-                NumericDocValuesEnum::Dense(dense) => dense.long_value(),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.long_value(),
-                NumericDocValuesEnum::Empty(empty) => empty.long_value(),
-            }
+            todo!()
         }
     }
     pub enum SortedNumericDocValuesEnum<I>
@@ -285,6 +261,7 @@ pub mod doc_values {
         Dense(DenseSortedNumericDocValues<I>),
         Sparse(SpareSortedNumericDocValues<I>),
         Singleton(SingletonSortedNumericDocValues<I>),
+        Impl(SortedNumericDocValuesImpl<I>),
     }
     impl<I> DocValuesIterator for SortedNumericDocValuesEnum<I>
     where
@@ -367,7 +344,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn doc_value_count(&mut self) -> Result<i64> {
+        fn doc_value_count(&mut self) -> Result<i32> {
             todo!()
         }
 
@@ -450,7 +427,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn doc_value_count(&mut self) -> Result<i64> {
+        fn doc_value_count(&mut self) -> Result<i32> {
             todo!()
         }
 

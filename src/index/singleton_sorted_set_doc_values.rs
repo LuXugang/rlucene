@@ -43,17 +43,14 @@ where
     I: IndexInput,
 {
     /// Creates a multi-valued view over the provided SortedDocValues.
-    pub fn new(inner: SortedDocValuesEnum<I>) -> Result<Self> {
-        if inner.doc_id() != -1 {
+    pub fn new(inner: Rc<RefCell<SortedDocValuesEnum<I>>>) -> Result<Self> {
+        if inner.borrow().doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
-                inner.doc_id()
+                inner.borrow().doc_id()
             )));
         }
-        Ok(Self {
-            inner: Rc::new(RefCell::new(inner)),
-            ord: -1,
-        })
+        Ok(Self { inner, ord: -1 })
     }
 
     pub fn get_numeric_doc_values(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
@@ -118,7 +115,7 @@ where
         Ok(self.ord)
     }
 
-    fn doc_value_count(&mut self) -> Result<i64> {
+    fn doc_value_count(&mut self) -> Result<i32> {
         Ok(1)
     }
 

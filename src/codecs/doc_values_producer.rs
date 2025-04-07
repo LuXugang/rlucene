@@ -19,9 +19,13 @@ use crate::codecs::doc_values_enum::doc_values::{
     SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
 };
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
+use crate::index::empty_doc_values_producer::EmptyDocValuesProducer;
 use crate::index::field_info::FieldInfo;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::rc::Rc;
+
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted numeric doc values.
 pub trait DocValuesProducer<I>
 where
@@ -43,7 +47,7 @@ where
     /// Returns [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues) for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::SORTED`](crate::index::doc_values_type::DocValuesType::Sorted). The return value is never `null`.
-    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<SortedDocValuesEnum<I>> {
+    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Returns [`SortedNumericDocValues`](crate::index::sorted_numeric_doc_values::SortedNumericDocValues) for this field. The returned instance need not be
@@ -90,7 +94,8 @@ pub enum DocValuesProducerEnum<I>
 where
     I: IndexInput,
 {
-    Lucene90(Lucene90DocValuesProducer<I>),
+    Lucene90(Box<Lucene90DocValuesProducer<I>>),
+    Empty(EmptyDocValuesProducer<I>),
 }
 impl<I> DocValuesProducer<I> for DocValuesProducerEnum<I>
 where
@@ -104,7 +109,7 @@ where
         todo!()
     }
 
-    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<SortedDocValuesEnum<I>> {
+    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         todo!()
     }
 

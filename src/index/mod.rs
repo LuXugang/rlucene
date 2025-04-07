@@ -41,7 +41,7 @@ mod documents_writer;
 pub(crate) mod documents_writer_delete_queue;
 pub(crate) mod documents_writer_per_thread;
 pub mod dummy;
-mod empty_doc_values_producer;
+pub mod empty_doc_values_producer;
 pub mod field_info;
 pub mod field_infos;
 pub mod field_term_iterator;

@@ -233,7 +233,7 @@ where
         }
     }
 
-    fn doc_value_count(&mut self) -> Result<i64> {
+    fn doc_value_count(&mut self) -> Result<i32> {
         match self {
             BaseSortedSetDocValuesEnum::Dense(sub) => sub.doc_value_count(),
             BaseSortedSetDocValuesEnum::Sparse(sub) => sub.doc_value_count(),

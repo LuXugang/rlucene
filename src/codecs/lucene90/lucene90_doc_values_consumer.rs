@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::doc_values::{SortedDocValuesEnum, SortedNumericDocValuesEnum};
+use crate::codecs::doc_values_enum::doc_values::{
+    NumericDocValuesEnum, SortedDocValuesEnum, SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
+};
 use crate::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum};
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::CodecUtil;
+use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
+use crate::index::empty_doc_values_producer::{EmptyDocValuesProducer, EmptyDocValuesProducerEnum};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -31,6 +35,7 @@ use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::{BytesRefBuilder, IndexFileNames};
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::sorted_set_selector::{SortedSetSelector, SortedSetSelectorType};
 use crate::store::directory::Directory;
 use crate::store::{
     ByteArrayDataOutput, ByteBuffersDataOutput, ByteBuffersIndexOutput, DataOutput, IndexInput,
@@ -50,11 +55,15 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// writer for [`Lucene90DocValuesFormat`](Lucene90DocValuesFormat).
-pub(crate) struct Lucene90DocValuesConsumer<O: IndexOutput> {
+pub(crate) struct Lucene90DocValuesConsumer<O>
+where
+    O: IndexOutput,
+{
     data: O,
     meta: O,
     max_doc: i32,
     skip_index_interval_size: i32,
+    closed: bool,
 }
 impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     /// expert: Creates a new writer
@@ -107,6 +116,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             meta,
             max_doc,
             skip_index_interval_size,
+            closed: false,
         })
     }
     fn write_skip_index<I: IndexInput>(
@@ -561,6 +571,30 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
         Ok(())
     }
+    fn do_add_sorted_field<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut DocValuesProducerEnum<I>,
+        add_type_byte: bool,
+    ) -> Result<()> {
+        let mut producer = EmptyDocValuesProducerSub2 {
+            sorted: Some(values_producer.get_sorted(field)?),
+        };
+
+        if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
+            self.write_skip_index(field, &mut producer)?;
+        }
+
+        if add_type_byte {
+            self.meta.write_byte(0)?; // multiValued (0 = singleValued)
+        }
+
+        self.write_values(field, &mut producer, true)?;
+        let mut sorted = DocValues::singleton_sorted(values_producer.get_sorted(field)?)?;
+        self.add_terms_dict(&mut sorted)?;
+        Ok(())
+    }
+
     fn add_terms_dict<I: IndexInput>(
         &mut self,
         values: &mut impl SortedSetDocValues<I>,
@@ -771,7 +805,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn do_add_sorted_numeric_field<I: IndexInput>(
         &mut self,
         field: &FieldInfo,
-        values_producer: &mut impl DocValuesProducer<I>,
+        values_producer: &mut DocValuesProducerEnum<I>,
         ords: bool,
     ) -> Result<()> {
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
@@ -836,6 +870,187 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
         Ok(true)
     }
+    pub fn close(&mut self) -> Result<()> {
+        if !self.closed {
+            self.closed = true;
+            self.meta.write_int(-1)?; // write EOF marker
+            CodecUtil::write_footer(&mut self.meta)?;
+            CodecUtil::write_footer(&mut self.data)?;
+        }
+        Ok(())
+    }
+    fn add_numeric_field<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut DocValuesProducerEnum<I>,
+    ) -> Result<()> {
+        self.meta.write_int(field.number)?;
+        self.meta.write_byte(Lucene90DocValuesFormat::NUMERIC)?;
+
+        let numeric = values_producer.get_numeric(field)?;
+        let mut producer = EmptyDocValuesProducerSub1 {
+            doc_values: Some(numeric),
+        };
+
+        if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
+            self.write_skip_index(field, &mut producer)?;
+        }
+
+        self.write_values(field, &mut producer, false)?;
+        Ok(())
+    }
+
+    fn add_binary_field<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut DocValuesProducerEnum<I>,
+    ) -> Result<()> {
+        self.meta.write_int(field.number)?;
+        self.meta.write_byte(Lucene90DocValuesFormat::BINARY)?;
+
+        let mut values = values_producer.get_binary(field)?;
+        let start = self.data.get_file_pointer();
+        self.meta.write_long(start)?; // dataOffset
+        let mut num_docs_with_field = 0;
+        let mut min_length = i32::MAX;
+        let mut max_length = 0;
+        let mut doc = values.next_doc()?;
+        while doc != NO_MORE_DOCS {
+            num_docs_with_field += 1;
+            let v = values.binary_value()?;
+            let length = v.length;
+
+            self.data.write_bytes_range(&v.bytes, v.offset, length)?;
+            min_length = min_length.min(length);
+            max_length = max_length.max(length);
+            doc = values.next_doc()?;
+        }
+
+        debug_assert!(num_docs_with_field <= self.max_doc);
+        self.meta.write_long(self.data.get_file_pointer() - start)?; // dataLength
+
+        if num_docs_with_field == 0 {
+            self.meta.write_long(-2)?; // docsWithFieldOffset
+            self.meta.write_long(0)?; // docsWithFieldLength
+            self.meta.write_short(-1)?; // jumpTableEntryCount
+            self.meta.write_byte(-1i8 as u8)?; // denseRankPower
+        } else if num_docs_with_field == self.max_doc {
+            self.meta.write_long(-1)?; // docsWithFieldOffset
+            self.meta.write_long(0)?; // docsWithFieldLength
+            self.meta.write_short(-1)?; // jumpTableEntryCount
+            self.meta.write_byte(-1i8 as u8)?; // denseRankPower
+        } else {
+            let offset = self.data.get_file_pointer();
+            self.meta.write_long(offset)?; // docsWithFieldOffset
+            let mut values = values_producer.get_binary(field)?;
+            let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+                &mut values,
+                &mut self.data,
+                IndexedDISI::DEFAULT_DENSE_RANK_POWER,
+            )?;
+            self.meta
+                .write_long(self.data.get_file_pointer() - offset)?; //docsWithFieldLength
+            self.meta.write_short(jump_table_entry_count)?;
+            self.meta
+                .write_byte(IndexedDISI::DEFAULT_DENSE_RANK_POWER as u8)?;
+        }
+
+        self.meta.write_int(num_docs_with_field)?;
+        self.meta.write_int(min_length)?;
+        self.meta.write_int(max_length)?;
+
+        if max_length > min_length {
+            let start = self.data.get_file_pointer();
+            self.meta.write_long(start)?;
+            self.meta
+                .write_vint(Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT)?;
+
+            let mut writer = DirectMonotonicWriter::get_instance(
+                &mut self.meta,
+                &mut self.data,
+                num_docs_with_field as i64 + 1,
+                Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT,
+            )?;
+
+            let mut addr = 0i64;
+            writer.add(addr)?;
+
+            let mut values = values_producer.get_binary(field)?;
+            let mut doc = values.next_doc()?;
+            while doc != NO_MORE_DOCS {
+                addr += values.binary_value()?.length as i64;
+                writer.add(addr)?;
+                doc = values.next_doc()?;
+            }
+
+            writer.finish()?;
+            self.meta.write_long(self.data.get_file_pointer() - start)?;
+        }
+
+        Ok(())
+    }
+
+    fn add_sorted_field<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut DocValuesProducerEnum<I>,
+    ) -> Result<()> {
+        self.meta.write_int(field.number)?;
+        self.meta.write_byte(Lucene90DocValuesFormat::SORTED)?;
+        self.do_add_sorted_field(field, values_producer, false)?;
+        Ok(())
+    }
+
+    fn add_sorted_numeric_field<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut DocValuesProducerEnum<I>,
+    ) -> Result<()> {
+        self.meta.write_int(field.number)?;
+        self.meta
+            .write_byte(Lucene90DocValuesFormat::SORTED_NUMERIC)?;
+        self.do_add_sorted_numeric_field(field, values_producer, false)?;
+        Ok(())
+    }
+
+    fn add_sorted_set_field<I: IndexInput>(
+        &mut self,
+        field: &FieldInfo,
+        values_producer: &mut DocValuesProducerEnum<I>,
+    ) -> Result<()> {
+        self.meta.write_int(field.number)?;
+        self.meta.write_byte(Lucene90DocValuesFormat::SORTED_SET)?;
+
+        let mut sorted_set = values_producer.get_sorted_set(field)?;
+        if Self::is_single_valued(&mut sorted_set)? {
+            let sub = EmptyDocValuesProducerEnum::Impl3(EmptyDocValuesProducerSub3 {
+                doc_values: Some(sorted_set),
+            });
+            let mut producer = DocValuesProducerEnum::Empty(EmptyDocValuesProducer::new(sub));
+            self.do_add_sorted_field(field, &mut producer, true)?;
+            return Ok(());
+        }
+
+        let sub = EmptyDocValuesProducerEnum::Impl4(EmptyDocValuesProducerSub4 {
+            doc_values: Some(values_producer.get_sorted_set(field)?),
+        });
+        let mut producer = DocValuesProducerEnum::Empty(EmptyDocValuesProducer::new(sub));
+        self.do_add_sorted_numeric_field(field, &mut producer, true)?;
+        self.add_terms_dict(&mut values_producer.get_sorted_set(field)?)?;
+        Ok(())
+    }
+}
+impl<O> Drop for Lucene90DocValuesConsumer<O>
+where
+    O: IndexOutput,
+{
+    fn drop(&mut self) {
+        let result = self.close();
+        match result {
+            Ok(_) => (),
+            Err(e) => eprintln!("Failed to close Lucene90DocValuesConsumer: {:?}", e),
+        }
+    }
 }
 
 pub struct MinMaxTracker {
@@ -843,6 +1058,12 @@ pub struct MinMaxTracker {
     max: i64,
     num_values: i64,
     pub space_in_bits: i64,
+}
+
+impl Default for MinMaxTracker {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MinMaxTracker {
@@ -962,31 +1183,67 @@ struct EmptyDocValuesProducerSub1<I>
 where
     I: IndexInput,
 {
-    values_producer: Rc<RefCell<DocValuesProducerEnum<I>>>,
-    field: Rc<FieldInfo>,
+    doc_values: Option<NumericDocValuesEnum<I>>,
 }
 impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub1<I>
 where
     I: IndexInput,
 {
     fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
-        DocValues::singleton_numeric(self.values_producer.borrow_mut().get_numeric(&self.field)?)
+        DocValues::singleton_numeric(self.doc_values.take().unwrap())
     }
 }
-
-pub struct EmptyDocValuesProducerSub2<I>
+struct EmptyDocValuesProducerSub2<I>
 where
     I: IndexInput,
 {
-    values_producer: Rc<RefCell<DocValuesProducerEnum<I>>>,
-    field: Rc<FieldInfo>,
+    sorted: Option<Rc<RefCell<SortedDocValuesEnum<I>>>>,
 }
 impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub2<I>
 where
     I: IndexInput,
 {
-    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<SortedDocValuesEnum<I>> {
-        todo!()
+    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+        let sorted_ords = NumericDocValuesEnum::Impl(NumericDocValuesImpl {
+            sorted: self.sorted.take().unwrap(),
+        });
+        DocValues::singleton_numeric(sorted_ords)
+    }
+}
+
+pub struct EmptyDocValuesProducerSub3<I>
+where
+    I: IndexInput,
+{
+    doc_values: Option<SortedSetDocValuesEnum<I>>,
+}
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub3<I>
+where
+    I: IndexInput,
+{
+    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+        SortedSetSelector::wrap(self.doc_values.take().unwrap(), SortedSetSelectorType::Min)
+    }
+}
+pub struct EmptyDocValuesProducerSub4<I>
+where
+    I: IndexInput,
+{
+    doc_values: Option<SortedSetDocValuesEnum<I>>,
+}
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub4<I>
+where
+    I: IndexInput,
+{
+    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+        Ok(SortedNumericDocValuesEnum::Impl(
+            SortedNumericDocValuesImpl {
+                ords: vec![],
+                i: 0,
+                doc_value_count: 0,
+                value: self.doc_values.take().unwrap(),
+            },
+        ))
     }
 }
 
@@ -994,7 +1251,7 @@ pub struct NumericDocValuesImpl<I>
 where
     I: IndexInput,
 {
-    sorted: SortedDocValuesEnum<I>,
+    sorted: Rc<RefCell<SortedDocValuesEnum<I>>>,
 }
 
 impl<I> DocValuesIterator for NumericDocValuesImpl<I>
@@ -1002,7 +1259,7 @@ where
     I: IndexInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.sorted.advance_exact(target)
+        self.sorted.borrow_mut().advance_exact(target)
     }
 }
 
@@ -1011,19 +1268,19 @@ where
     I: IndexInput,
 {
     fn doc_id(&self) -> i32 {
-        self.sorted.doc_id()
+        self.sorted.borrow().doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        self.sorted.next_doc()
+        self.sorted.borrow_mut().next_doc()
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        self.sorted.advance(target)
+        self.sorted.borrow_mut().advance(target)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.sorted.cost()
+        self.sorted.borrow().cost()
     }
 }
 
@@ -1032,6 +1289,69 @@ where
     I: IndexInput,
 {
     fn long_value(&mut self) -> Result<i64> {
-        Ok(self.sorted.ord_value()? as i64)
+        Ok(self.sorted.borrow_mut().ord_value()? as i64)
+    }
+}
+pub struct SortedNumericDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    ords: Vec<i64>,
+    i: i32,
+    doc_value_count: i32,
+    value: SortedSetDocValuesEnum<I>,
+}
+
+impl<I> DocValuesIterator for SortedNumericDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+impl<I> DocIdSetIterator for SortedNumericDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.value.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        let doc = self.value.next_doc()?;
+        if doc != NO_MORE_DOCS {
+            self.doc_value_count = self.value.doc_value_count()?;
+            ArrayUtil::grow_with_len(&mut self.ords, self.doc_value_count)?;
+            for i in 0..self.doc_value_count {
+                self.ords[i as usize] = self.value.next_ord()?;
+            }
+            self.i = 0;
+        }
+        Ok(doc)
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.value.cost()
+    }
+}
+
+impl<I> SortedNumericDocValues for SortedNumericDocValuesImpl<I>
+where
+    I: IndexInput,
+{
+    fn next_value(&mut self) -> Result<i64> {
+        let value = self.ords[self.i as usize];
+        self.i += 1;
+        Ok(value)
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        Ok(self.doc_value_count)
     }
 }

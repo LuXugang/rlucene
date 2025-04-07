@@ -44,7 +44,9 @@ impl DocValues {
         ))
     }
     /// Returns a multi-valued view over the provided SortedDocValues.
-    pub fn singleton_sorted<I>(dv: SortedDocValuesEnum<I>) -> Result<SortedSetDocValuesEnum<I>>
+    pub fn singleton_sorted<I>(
+        dv: Rc<RefCell<SortedDocValuesEnum<I>>>,
+    ) -> Result<SortedSetDocValuesEnum<I>>
     where
         I: IndexInput,
     {

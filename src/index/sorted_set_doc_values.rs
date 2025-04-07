@@ -44,7 +44,7 @@ where
 
     /// Retrieves the number of unique ords for the current document. This must always be greater than
     /// zero. It is illegal to call this method after [`advance_exact(int)`](DocValuesIterator::advance_exact) returned `false`.
-    fn doc_value_count(&mut self) -> Result<i64>;
+    fn doc_value_count(&mut self) -> Result<i32>;
 
     /// Retrieves the value for the specified ordinal. The returned [`BytesRef`] may be re-used
     /// across calls to `lookup_ord`, so make sure to [`BytesRef::deep_copy_of`] it if you

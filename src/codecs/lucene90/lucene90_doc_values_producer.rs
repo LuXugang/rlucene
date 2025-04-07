@@ -986,10 +986,10 @@ where
         }
     }
 
-    fn get_sorted(&mut self, field: &FieldInfo) -> Result<SortedDocValuesEnum<I>> {
+    fn get_sorted(&mut self, field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         let entry = self.sorted.get(&field.number);
         match entry {
-            Some(entry) => self.get_sorted(entry.clone()),
+            Some(entry) => Ok(Rc::new(RefCell::new(self.get_sorted(entry.clone())?))),
             None => Err(LuceneError::illegal_state(format!(
                 "Missing sorted entry for field {}",
                 field.number
@@ -1015,9 +1015,9 @@ where
             Some(entry) => {
                 let entry_clone = entry.clone();
                 if let Some(ref single_value_entry) = entry.single_value_entry {
-                    return DocValues::singleton_sorted(
+                    return DocValues::singleton_sorted(Rc::new(RefCell::new(
                         self.get_sorted(single_value_entry.clone())?,
-                    );
+                    )));
                 }
                 // Specialize the common case for ordinals: single block of packed integers.
                 match entry.ords_entry {
@@ -1146,7 +1146,7 @@ where
     }
 
     fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
-        Ok(Some(DocValuesProducerEnum::Lucene90(
+        Ok(Some(DocValuesProducerEnum::Lucene90(Box::from(
             Lucene90DocValuesProducer::new_with_merging(
                 self.numerics.clone(),
                 self.binaries.clone(),
@@ -1158,7 +1158,7 @@ where
                 self.max_doc,
                 self.version,
             ),
-        )))
+        ))))
     }
 }
 #[derive(Debug, Clone, Copy)]
@@ -2441,8 +2441,8 @@ where
         Ok(ord)
     }
 
-    fn doc_value_count(&mut self) -> Result<i64> {
-        Ok(self.count as i64)
+    fn doc_value_count(&mut self) -> Result<i32> {
+        Ok(self.count)
     }
 }
 
@@ -2531,9 +2531,9 @@ where
         Ok(ord)
     }
 
-    fn doc_value_count(&mut self) -> Result<i64> {
+    fn doc_value_count(&mut self) -> Result<i32> {
         self.set()?;
-        Ok(self.count as i64)
+        Ok(self.count)
     }
 }
 
@@ -2590,8 +2590,8 @@ where
         self.ords.next_value()
     }
 
-    fn doc_value_count(&mut self) -> Result<i64> {
-        Ok(self.ords.doc_value_count()? as i64)
+    fn doc_value_count(&mut self) -> Result<i32> {
+        self.ords.doc_value_count()
     }
 }
 
@@ -2669,7 +2669,7 @@ where
         self.sub.next_ord()
     }
 
-    fn doc_value_count(&mut self) -> Result<i64> {
+    fn doc_value_count(&mut self) -> Result<i32> {
         self.sub.doc_value_count()
     }
 

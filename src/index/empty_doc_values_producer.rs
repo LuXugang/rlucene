@@ -19,22 +19,36 @@ use crate::codecs::doc_values_enum::doc_values::{
     SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
 };
 use crate::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum};
+use crate::codecs::lucene90_doc_values_consumer::{
+    EmptyDocValuesProducerSub3, EmptyDocValuesProducerSub4,
+};
 use crate::index::field_info::FieldInfo;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
-use std::marker::PhantomData;
-pub struct EmptyDocValuesProducer<T, I>
+use std::cell::RefCell;
+use std::rc::Rc;
+
+pub struct EmptyDocValuesProducer<I>
 where
     I: IndexInput,
-    T: DocValuesProducer<I>,
 {
-    sub: T,
-    phantom: PhantomData<I>,
+    sub: EmptyDocValuesProducerEnum<I>,
+    phantom: std::marker::PhantomData<I>,
 }
-impl<T, I> DocValuesProducer<I> for EmptyDocValuesProducer<T, I>
+impl<I> EmptyDocValuesProducer<I>
 where
     I: IndexInput,
-    T: DocValuesProducer<I>,
+{
+    pub fn new(sub: EmptyDocValuesProducerEnum<I>) -> Self {
+        Self {
+            sub,
+            phantom: std::marker::PhantomData,
+        }
+    }
+}
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducer<I>
+where
+    I: IndexInput,
 {
     fn get_numeric(&mut self, field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
         self.sub.get_numeric(field)
@@ -44,7 +58,7 @@ where
         self.sub.get_binary(field)
     }
 
-    fn get_sorted(&mut self, field: &FieldInfo) -> Result<SortedDocValuesEnum<I>> {
+    fn get_sorted(&mut self, field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         self.sub.get_sorted(field)
     }
 
@@ -66,5 +80,49 @@ where
 
     fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
         self.sub.get_merge_instance()
+    }
+}
+
+pub enum EmptyDocValuesProducerEnum<I>
+where
+    I: IndexInput,
+{
+    Impl3(EmptyDocValuesProducerSub3<I>),
+    Impl4(EmptyDocValuesProducerSub4<I>),
+}
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerEnum<I>
+where
+    I: IndexInput,
+{
+    fn get_numeric(&mut self, _field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_binary(&mut self, _field: &FieldInfo) -> Result<BinaryDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+        todo!()
+    }
+
+    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_sorted_set(&mut self, _field: &FieldInfo) -> Result<SortedSetDocValuesEnum<I>> {
+        todo!()
+    }
+
+    fn get_skipper(&mut self, _field: &FieldInfo) -> Result<DocValuesSkipperEnum<I>> {
+        todo!()
+    }
+
+    fn check_integrity(&mut self) -> Result<()> {
+        todo!()
+    }
+
+    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
+        todo!()
     }
 }
