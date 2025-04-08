@@ -20,6 +20,7 @@ pub mod compound_directory;
 pub mod compound_directory_enum;
 pub mod compound_format;
 mod compression;
+pub mod doc_values_consumer;
 pub mod doc_values_format;
 pub mod doc_values_producer;
 pub mod field_infos_format;

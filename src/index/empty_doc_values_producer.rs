@@ -32,14 +32,14 @@ pub struct EmptyDocValuesProducer<I>
 where
     I: IndexInput,
 {
-    sub: EmptyDocValuesProducerEnum<I>,
+    sub: EmptyDocValuesProducerSubEnum<I>,
     phantom: std::marker::PhantomData<I>,
 }
 impl<I> EmptyDocValuesProducer<I>
 where
     I: IndexInput,
 {
-    pub fn new(sub: EmptyDocValuesProducerEnum<I>) -> Self {
+    pub fn new(sub: EmptyDocValuesProducerSubEnum<I>) -> Self {
         Self {
             sub,
             phantom: std::marker::PhantomData,
@@ -89,14 +89,14 @@ where
     }
 }
 
-pub enum EmptyDocValuesProducerEnum<I>
+pub enum EmptyDocValuesProducerSubEnum<I>
 where
     I: IndexInput,
 {
     Impl3(EmptyDocValuesProducerSub3<I>),
     Impl4(EmptyDocValuesProducerSub4<I>),
 }
-impl<I> DocValuesProducer<I> for EmptyDocValuesProducerEnum<I>
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSubEnum<I>
 where
     I: IndexInput,
 {

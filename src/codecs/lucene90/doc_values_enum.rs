@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 pub mod doc_values {
+    use crate::codecs::doc_values_consumer::{BinaryDocValuesMerge, NumericDocValuesMerge};
     use crate::codecs::lucene90_doc_values_consumer::{
         NumericDocValuesImpl, SortedNumericDocValuesImpl,
     };
@@ -24,7 +25,7 @@ pub mod doc_values {
         SparseBinaryDocValues, SparseNumericDocValues,
     };
     use crate::index::binary_doc_values::BinaryDocValues;
-    use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
+    use crate::index::doc_values::{EmptyBinary, EmptyNumeric, EmptySorted};
     use crate::index::doc_values_iterator::DocValuesIterator;
     use crate::index::numeric_doc_values::NumericDocValues;
     use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
@@ -54,6 +55,7 @@ pub mod doc_values {
     {
         Base(Box<BaseSortedDocValues<I>>),
         Impl(SortedDocValuesEnum1<I>),
+        Empty(EmptySorted<I>),
     }
 
     impl<I> DocValuesIterator for SortedDocValuesEnum<I>
@@ -121,6 +123,7 @@ pub mod doc_values {
         Dense(DenseBinaryDocValues<I>),
         Sparse(SparseBinaryDocValues<I>),
         Empty(EmptyBinary),
+        Merge(BinaryDocValuesMerge<I>),
     }
 
     impl<I> DocValuesIterator for BinaryDocValuesEnum<I>
@@ -132,6 +135,7 @@ pub mod doc_values {
                 BinaryDocValuesEnum::Dense(dense) => dense.advance_exact(target),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.advance_exact(target),
                 BinaryDocValuesEnum::Empty(empty) => empty.advance_exact(target),
+                BinaryDocValuesEnum::Merge(merge) => merge.advance_exact(target),
             }
         }
     }
@@ -145,6 +149,7 @@ pub mod doc_values {
                 BinaryDocValuesEnum::Dense(dense) => dense.doc_id(),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.doc_id(),
                 BinaryDocValuesEnum::Empty(empty) => empty.doc_id(),
+                BinaryDocValuesEnum::Merge(merge) => merge.doc_id(),
             }
         }
 
@@ -153,6 +158,7 @@ pub mod doc_values {
                 BinaryDocValuesEnum::Dense(dense) => dense.next_doc(),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.next_doc(),
                 BinaryDocValuesEnum::Empty(empty) => empty.next_doc(),
+                BinaryDocValuesEnum::Merge(merge) => merge.next_doc(),
             }
         }
 
@@ -161,6 +167,7 @@ pub mod doc_values {
                 BinaryDocValuesEnum::Dense(dense) => dense.advance(target),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.advance(target),
                 BinaryDocValuesEnum::Empty(empty) => empty.advance(target),
+                BinaryDocValuesEnum::Merge(merge) => merge.advance(target),
             }
         }
 
@@ -169,6 +176,7 @@ pub mod doc_values {
                 BinaryDocValuesEnum::Dense(dense) => dense.slow_advance(target),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.slow_advance(target),
                 BinaryDocValuesEnum::Empty(empty) => empty.slow_advance(target),
+                BinaryDocValuesEnum::Merge(merge) => merge.slow_advance(target),
             }
         }
 
@@ -177,6 +185,7 @@ pub mod doc_values {
                 BinaryDocValuesEnum::Dense(dense) => dense.cost(),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.cost(),
                 BinaryDocValuesEnum::Empty(empty) => empty.cost(),
+                BinaryDocValuesEnum::Merge(merge) => merge.cost(),
             }
         }
     }
@@ -190,6 +199,7 @@ pub mod doc_values {
                 BinaryDocValuesEnum::Dense(dense) => dense.binary_value(),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.binary_value(),
                 BinaryDocValuesEnum::Empty(empty) => empty.binary_value(),
+                BinaryDocValuesEnum::Merge(merge) => merge.binary_value(),
             }
         }
     }
@@ -202,6 +212,7 @@ pub mod doc_values {
         Sparse(SparseNumericDocValues<I>),
         Empty(EmptyNumeric),
         Impl(NumericDocValuesImpl<I>),
+        Merge(NumericDocValuesMerge<I>),
     }
 
     impl<I> DocValuesIterator for NumericDocValuesEnum<I>

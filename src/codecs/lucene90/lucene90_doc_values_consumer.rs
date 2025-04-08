@@ -25,7 +25,9 @@ use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
-use crate::index::empty_doc_values_producer::{EmptyDocValuesProducer, EmptyDocValuesProducerEnum};
+use crate::index::empty_doc_values_producer::{
+    EmptyDocValuesProducer, EmptyDocValuesProducerSubEnum,
+};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -574,7 +576,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn do_add_sorted_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut DocValuesProducerEnum<I>,
+        values_producer: &mut impl DocValuesProducer<I>,
         add_type_byte: bool,
     ) -> Result<()> {
         let mut producer = EmptyDocValuesProducerSub2 {
@@ -805,7 +807,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn do_add_sorted_numeric_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut DocValuesProducerEnum<I>,
+        values_producer: &mut impl DocValuesProducer<I>,
         ords: bool,
     ) -> Result<()> {
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
@@ -882,7 +884,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn add_numeric_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut DocValuesProducerEnum<I>,
+        values_producer: &mut impl DocValuesProducer<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::NUMERIC)?;
@@ -903,7 +905,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn add_binary_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut DocValuesProducerEnum<I>,
+        values_producer: &mut impl DocValuesProducer<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::BINARY)?;
@@ -1010,7 +1012,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn add_sorted_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut DocValuesProducerEnum<I>,
+        values_producer: &mut impl DocValuesProducer<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::SORTED)?;
@@ -1021,7 +1023,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn add_sorted_numeric_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut DocValuesProducerEnum<I>,
+        values_producer: &mut impl DocValuesProducer<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
         self.meta
@@ -1033,14 +1035,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn add_sorted_set_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut DocValuesProducerEnum<I>,
+        values_producer: &mut impl DocValuesProducer<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::SORTED_SET)?;
 
         let mut sorted_set = values_producer.get_sorted_set(field)?;
         if Self::is_single_valued(&mut sorted_set)? {
-            let sub = EmptyDocValuesProducerEnum::Impl3(EmptyDocValuesProducerSub3 {
+            let sub = EmptyDocValuesProducerSubEnum::Impl3(EmptyDocValuesProducerSub3 {
                 doc_values: Some(sorted_set),
             });
             let mut producer = DocValuesProducerEnum::Empty(EmptyDocValuesProducer::new(sub));
@@ -1048,7 +1050,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             return Ok(());
         }
 
-        let sub = EmptyDocValuesProducerEnum::Impl4(EmptyDocValuesProducerSub4 {
+        let sub = EmptyDocValuesProducerSubEnum::Impl4(EmptyDocValuesProducerSub4 {
             doc_values: Some(values_producer.get_sorted_set(field)?),
         });
         let mut producer = DocValuesProducerEnum::Empty(EmptyDocValuesProducer::new(sub));
