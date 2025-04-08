@@ -192,14 +192,6 @@ pub mod doc_values {
                 BinaryDocValuesEnum::Empty(empty) => empty.binary_value(),
             }
         }
-
-        fn binary_value_mut(&mut self) -> Result<Rc<RefCell<BytesRef>>> {
-            match self {
-                BinaryDocValuesEnum::Dense(dense) => dense.binary_value_mut(),
-                BinaryDocValuesEnum::Sparse(sparse) => sparse.binary_value_mut(),
-                BinaryDocValuesEnum::Empty(empty) => empty.binary_value_mut(),
-            }
-        }
     }
 
     pub enum NumericDocValuesEnum<I>

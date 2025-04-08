@@ -876,11 +876,7 @@ where
                         let base = DenseBinaryDocValuesBaseImpl {
                             bytes_slice,
                             length: entry.max_length,
-                            bytes: Rc::new(RefCell::new(BytesRef::from_vec(
-                                vec,
-                                0,
-                                entry.max_length,
-                            ))),
+                            bytes: BytesRef::from_vec(vec, 0, entry.max_length),
                         };
                         DenseBinaryDocValuesBaseEnum::Dense(base)
                     } else {
@@ -902,11 +898,7 @@ where
                                 let vec = vec![0u8; entry.max_length as usize];
                                 let base = DenseBinaryDocValuesBaseImpl1 {
                                     bytes_slice,
-                                    bytes: Rc::new(RefCell::new(BytesRef::from_vec(
-                                        vec,
-                                        0,
-                                        entry.max_length,
-                                    ))),
+                                    bytes: BytesRef::from_vec(vec, 0, entry.max_length),
                                     addresses,
                                 };
                                 DenseBinaryDocValuesBaseEnum::Dense1(base)
@@ -937,11 +929,7 @@ where
                         let length = entry.max_length;
                         SparseBinaryDocValuesBaseEnum::Sparse(SparseBinaryDocValuesBaseImpl {
                             bytes_slice,
-                            bytes: Rc::new(RefCell::new(BytesRef::from_vec(
-                                vec![0u8; length as usize],
-                                0,
-                                length,
-                            ))),
+                            bytes: BytesRef::from_vec(vec![0u8; length as usize], 0, length),
                             length,
                         })
                     } else {
@@ -966,11 +954,11 @@ where
                         };
                         SparseBinaryDocValuesBaseEnum::Sparse1(SparseBinaryDocValuesBaseImpl1 {
                             bytes_slice,
-                            bytes: Rc::new(RefCell::new(BytesRef::from_vec(
+                            bytes: BytesRef::from_vec(
                                 vec![0u8; entry.max_length as usize],
                                 0,
                                 entry.max_length,
-                            ))),
+                            ),
                             addresses,
                         })
                     };
@@ -1427,7 +1415,7 @@ impl<I> BinaryDocValues for DenseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn binary_value_mut(&mut self) -> Result<Rc<RefCell<BytesRef>>> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         self.sub.binary_value(self.doc)
     }
 }
@@ -1482,7 +1470,7 @@ impl<I> BinaryDocValues for SparseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn binary_value_mut(&mut self) -> Result<Rc<RefCell<BytesRef>>> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         self.sub.binary_value(&mut self.disi)
     }
 }
@@ -1993,7 +1981,7 @@ where
 }
 
 pub trait DenseBinaryDocValuesBase {
-    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>>;
+    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef>;
 }
 
 pub struct DenseBinaryDocValuesBaseImpl<I>
@@ -2002,21 +1990,20 @@ where
 {
     bytes_slice: I::RandomAccessSlice,
     length: i32,
-    bytes: Rc<RefCell<BytesRef>>,
+    bytes: BytesRef,
 }
 impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>> {
-        let bytes = &mut *self.bytes.borrow_mut();
+    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef> {
         self.bytes_slice.read_bytes(
             (doc * self.length) as i64,
-            &mut bytes.bytes,
+            &mut self.bytes.bytes,
             0,
             self.length,
         )?;
-        Ok(self.bytes.clone())
+        Ok(&self.bytes)
     }
 }
 pub struct DenseBinaryDocValuesBaseImpl1<I>
@@ -2024,20 +2011,19 @@ where
     I: IndexInput,
 {
     bytes_slice: I::RandomAccessSlice,
-    bytes: Rc<RefCell<BytesRef>>,
+    bytes: BytesRef,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
 impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>> {
-        let bytes = &mut *self.bytes.borrow_mut();
+    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef> {
         let start_offset = self.addresses.get(doc as i64)?;
-        bytes.length = (self.addresses.get((doc + 1) as i64)? - start_offset) as i32;
+        self.bytes.length = (self.addresses.get((doc + 1) as i64)? - start_offset) as i32;
         self.bytes_slice
-            .read_bytes(start_offset, &mut bytes.bytes, 0, bytes.length)?;
-        Ok(self.bytes.clone())
+            .read_bytes(start_offset, &mut self.bytes.bytes, 0, self.bytes.length)?;
+        Ok(&self.bytes)
     }
 }
 
@@ -2045,26 +2031,25 @@ pub trait SparseBinaryDocValuesBase<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>>;
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef>;
 }
 pub struct SparseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
     bytes_slice: I::RandomAccessSlice,
-    bytes: Rc<RefCell<BytesRef>>,
+    bytes: BytesRef,
     length: i32,
 }
 impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>> {
-        let bytes = &mut *self.bytes.borrow_mut();
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef> {
         let pos = (disi.index() * self.length) as i64;
         self.bytes_slice
-            .read_bytes(pos, &mut bytes.bytes, 0, self.length)?;
-        Ok(self.bytes.clone())
+            .read_bytes(pos, &mut self.bytes.bytes, 0, self.length)?;
+        Ok(&self.bytes)
     }
 }
 pub struct SparseBinaryDocValuesBaseImpl1<I>
@@ -2072,21 +2057,20 @@ where
     I: IndexInput,
 {
     bytes_slice: I::RandomAccessSlice,
-    bytes: Rc<RefCell<BytesRef>>,
+    bytes: BytesRef,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
 impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>> {
-        let bytes = &mut *self.bytes.borrow_mut();
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef> {
         let index = disi.index() as i64;
         let start_offset = self.addresses.get(index)?;
-        bytes.length = (self.addresses.get(index + 1)? - start_offset) as i32;
+        self.bytes.length = (self.addresses.get(index + 1)? - start_offset) as i32;
         self.bytes_slice
-            .read_bytes(start_offset, &mut bytes.bytes, 0, bytes.length)?;
-        Ok(self.bytes.clone())
+            .read_bytes(start_offset, &mut self.bytes.bytes, 0, self.bytes.length)?;
+        Ok(&self.bytes)
     }
 }
 

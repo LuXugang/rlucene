@@ -39,8 +39,6 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub enum BaseSortedDocValuesEnum<I>
 where
@@ -286,7 +284,7 @@ impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Rc<RefCell<BytesRef>>> {
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef> {
         match self {
             SparseBinaryDocValuesBaseEnum::Sparse(sub) => sub.binary_value(disi),
             SparseBinaryDocValuesBaseEnum::Sparse1(sub) => sub.binary_value(disi),
@@ -306,7 +304,7 @@ impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseEnum<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, doc: i32) -> Result<Rc<RefCell<BytesRef>>> {
+    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef> {
         match self {
             DenseBinaryDocValuesBaseEnum::Dense(sub) => sub.binary_value(doc),
             DenseBinaryDocValuesBaseEnum::Dense1(sub) => sub.binary_value(doc),
