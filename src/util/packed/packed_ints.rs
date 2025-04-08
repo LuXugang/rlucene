@@ -1540,7 +1540,9 @@ mod tests {
         Ok(())
     }
     #[test]
+    #[ignore]
     fn test_int_overflow() -> Result<()> {
+        // TODO:
         Ok(())
     }
     #[test]

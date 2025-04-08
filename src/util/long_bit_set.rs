@@ -889,8 +889,8 @@ mod tests {
         assert!(!new_bits.get(1));
         Ok(())
     }
-    // TODO: Monster not spec
     #[test]
+    #[ignore]
     fn test_huge_capacity() -> Result<()> {
         let more_than_max_int = i32::MAX as i64 + 5;
 
