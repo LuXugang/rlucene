@@ -510,8 +510,8 @@ impl<T> BinaryDocValues for BinaryDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn binary_value(&mut self) -> Result<&BytesRef> {
-        self.iterator.binary_value()
+    fn binary_value(&mut self) -> Result<Option<&BytesRef>> {
+        Ok(Some(self.iterator.binary_value()?))
     }
 }
 

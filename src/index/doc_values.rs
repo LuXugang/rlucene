@@ -23,6 +23,7 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
@@ -105,7 +106,15 @@ impl DocValuesIterator for EmptyBinary {
         Ok(false)
     }
 }
-impl BinaryDocValues for EmptyBinary {}
+impl BinaryDocValues for EmptyBinary {
+    fn binary_value(&mut self) -> Result<Option<&BytesRef>> {
+        debug_assert!(
+            false,
+            "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
+        );
+        Ok(None)
+    }
+}
 
 pub struct EmptyNumeric {
     doc: i32,

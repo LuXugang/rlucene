@@ -918,9 +918,17 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         while doc != NO_MORE_DOCS {
             num_docs_with_field += 1;
             let v = values.binary_value()?;
-            let length = v.length;
-
-            self.data.write_bytes_range(&v.bytes, v.offset, length)?;
+            let length = match values.binary_value()? {
+                Some(v) => {
+                    self.data.write_bytes_range(&v.bytes, v.offset, v.length)?;
+                    v.length
+                }
+                None => {
+                    return Err(LuceneError::illegal_state(
+                        "Binary value is None".to_string(),
+                    ));
+                }
+            };
             min_length = min_length.min(length);
             max_length = max_length.max(length);
             doc = values.next_doc()?;
@@ -978,7 +986,16 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             let mut values = values_producer.get_binary(field)?;
             let mut doc = values.next_doc()?;
             while doc != NO_MORE_DOCS {
-                addr += values.binary_value()?.length as i64;
+                match values.binary_value()? {
+                    Some(v) => {
+                        addr += v.length as i64;
+                    }
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "Binary value is None".to_string(),
+                        ));
+                    }
+                }
                 writer.add(addr)?;
                 doc = values.next_doc()?;
             }

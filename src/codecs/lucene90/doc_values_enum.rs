@@ -185,7 +185,7 @@ pub mod doc_values {
     where
         I: IndexInput,
     {
-        fn binary_value(&mut self) -> Result<&BytesRef> {
+        fn binary_value(&mut self) -> Result<Option<&BytesRef>> {
             match self {
                 BinaryDocValuesEnum::Dense(dense) => dense.binary_value(),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.binary_value(),
