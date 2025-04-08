@@ -92,7 +92,7 @@ where
     }
 }
 
-impl<I> SortedNumericDocValues for SingletonSortedNumericDocValues<I>
+impl<I> SortedNumericDocValues<I> for SingletonSortedNumericDocValues<I>
 where
     I: IndexInput,
 {
@@ -102,5 +102,9 @@ where
 
     fn doc_value_count(&mut self) -> Result<i32> {
         Ok(1)
+    }
+
+    fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<NumericDocValuesEnum<I>>>>> {
+        Ok(Some(self.get_numeric_doc_values()?))
     }
 }

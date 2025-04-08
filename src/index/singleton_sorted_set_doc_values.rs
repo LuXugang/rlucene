@@ -134,4 +134,8 @@ where
     fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
         self.inner.borrow_mut().terms_enum()
     }
+
+    fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>> {
+        Ok(Some(self.get_numeric_doc_values()?))
+    }
 }

@@ -21,11 +21,13 @@ use crate::codecs::doc_values_enum::doc_values::{
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dov_values_inner_enum::LongValuesEnum;
 use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::{doc_id_merger_static, BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase};
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -92,6 +94,20 @@ where
         };
         self.add_binary_field(merge_field_info, &mut producer)
     }
+    fn merge_sorted_numeric_field(
+        &mut self,
+        merge_field_info: &Rc<FieldInfo>,
+        merge_state: &mut MergeState<I>,
+    ) -> Result<()>
+    where
+        I: IndexInput,
+    {
+        let mut producer = EmptyDocValuesProducerMerge3 {
+            merge_field_info: merge_field_info.clone(),
+            merge_state,
+        };
+        self.add_sorted_numeric_field(merge_field_info, &mut producer)
+    }
 }
 mod doc_values_consumer_static {
     use crate::codecs::doc_values_consumer::{NumericDocValuesMerge, NumericDocValuesSub};
@@ -112,7 +128,7 @@ mod doc_values_consumer_static {
     {
         let mut cost = 0;
         for sub in &mut subs {
-            cost = sub.borrow().sub.values.cost()?;
+            cost = sub.borrow().sub.values.borrow().cost()?;
         }
         let doc_id_merger = doc_id_merger_static::of(subs, index_is_sorted)?;
         Ok(NumericDocValuesEnum::Merge(NumericDocValuesMerge {
@@ -130,7 +146,7 @@ struct NumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    values: NumericDocValuesEnum<I>,
+    values: Rc<RefCell<NumericDocValuesEnum<I>>>,
     doc_map: Rc<DocMapEnum>,
 }
 #[allow(unused)]
@@ -138,8 +154,8 @@ impl<I> NumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: NumericDocValuesEnum<I>) -> Self {
-        debug_assert!(values.doc_id() == -1);
+    fn new(doc_map: Rc<DocMapEnum>, values: Rc<RefCell<NumericDocValuesEnum<I>>>) -> Self {
+        debug_assert!(values.borrow().doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }
 }
@@ -148,7 +164,7 @@ where
     I: IndexInput,
 {
     fn next_doc(&mut self) -> Result<i32> {
-        self.values.next_doc()
+        self.values.borrow_mut().next_doc()
     }
 
     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
@@ -161,7 +177,9 @@ where
 {
     fn default() -> Self {
         NumericDocValuesSub {
-            values: NumericDocValuesEnum::Empty(Default::default()),
+            values: Rc::new(RefCell::new(
+                NumericDocValuesEnum::Empty(Default::default()),
+            )),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }
@@ -223,8 +241,9 @@ where
     fn long_value(&mut self) -> Result<i64> {
         match self.current {
             Some(ref current) => {
-                let mut current = current.borrow_mut();
-                current.sub.values.long_value()
+                let current = current.borrow_mut();
+                let mut values_borrow = current.sub.values.borrow_mut();
+                values_borrow.long_value()
             }
             None => Err(LuceneError::unreachable("should not be here")),
         }
@@ -266,7 +285,8 @@ where
             if let Some(values) = values {
                 let doc_map = self.merge_state.doc_maps[i].clone();
                 subs.push(Rc::new(RefCell::new(Sub::new(NumericDocValuesSub::new(
-                    doc_map, values,
+                    doc_map,
+                    Rc::new(RefCell::new(values)),
                 )))));
             }
         }
@@ -318,7 +338,7 @@ where
     }
 }
 
-pub struct BinaryDocValuesMerge<I>
+pub(crate) struct BinaryDocValuesMerge<I>
 where
     I: IndexInput,
 {
@@ -479,6 +499,181 @@ where
 
     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
         Ok(&self.doc_map)
+    }
+}
+impl<I> Default for SortedNumericDocValuesSub<I>
+where
+    I: IndexInput,
+{
+    fn default() -> Self {
+        let empty = DocValues::empty_sorted_numeric();
+        debug_assert!(empty.is_ok());
+        SortedNumericDocValuesSub {
+            values: empty.unwrap(),
+            doc_map: Rc::new(DocMapEnum::default()),
+        }
+    }
+}
+pub(crate) struct SortedNumericDocValuesMerge<I>
+where
+    I: IndexInput,
+{
+    doc_id: i32,
+    current_sub: Option<Rc<RefCell<Sub<SortedNumericDocValuesSub<I>>>>>,
+    doc_id_merger: DocIDMergerEnum<SortedNumericDocValuesSub<I>>,
+    final_cost: i64,
+}
+
+impl<I> DocValuesIterator for SortedNumericDocValuesMerge<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+impl<I> DocIdSetIterator for SortedNumericDocValuesMerge<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc_id
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.current_sub = self.doc_id_merger.next()?;
+        match &self.current_sub {
+            Some(current) => {
+                self.doc_id = current.borrow_mut().mapped_doc_id;
+                Ok(self.doc_id)
+            }
+            None => {
+                self.doc_id = NO_MORE_DOCS;
+                Ok(NO_MORE_DOCS)
+            }
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.final_cost)
+    }
+}
+
+impl<I> SortedNumericDocValues<I> for SortedNumericDocValuesMerge<I>
+where
+    I: IndexInput,
+{
+    fn next_value(&mut self) -> Result<i64> {
+        match self.current_sub {
+            Some(ref current) => {
+                let mut current = current.borrow_mut();
+                current.sub.values.next_value()
+            }
+            None => Err(LuceneError::unreachable("should not be here")),
+        }
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        match self.current_sub {
+            Some(ref current) => {
+                let mut current = current.borrow_mut();
+                current.sub.values.doc_value_count()
+            }
+            None => Err(LuceneError::unreachable("should not be here")),
+        }
+    }
+}
+pub(crate) struct EmptyDocValuesProducerMerge3<'a, I>
+where
+    I: IndexInput,
+{
+    merge_field_info: Rc<FieldInfo>,
+    merge_state: &'a mut MergeState<I>,
+}
+impl<'a, I> DocValuesProducer<I> for EmptyDocValuesProducerMerge3<'a, I>
+where
+    I: IndexInput,
+{
+    fn get_sorted_numeric(
+        &mut self,
+        field_info: &Rc<FieldInfo>,
+    ) -> Result<SortedNumericDocValuesEnum<I>> {
+        if Rc::ptr_eq(field_info, &self.merge_field_info) {
+            return Err(LuceneError::illegal_argument("wrong FieldInfo"));
+        }
+        // We must make new iterators + DocIDMerger for each iterator:
+        let mut subs = vec![];
+        let mut cost = 0;
+        let mut all_singletons = true;
+
+        for i in 0..self.merge_state.doc_values_producers.len() {
+            let mut values = None;
+            let doc_values_producer_opt = &mut self.merge_state.doc_values_producers[i];
+            if let Some(doc_values_producer) = doc_values_producer_opt {
+                let reader_field_info =
+                    self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
+                if let Some(reader_field_info) = reader_field_info {
+                    if *reader_field_info.get_doc_values_type() == DocValuesType::SortedNumeric {
+                        values = Some(doc_values_producer.get_sorted_numeric(&reader_field_info)?);
+                    }
+                }
+            }
+
+            if values.is_none() {
+                values = Some(DocValues::empty_sorted_numeric()?);
+            }
+            {
+                let values_ref = values.as_ref().unwrap();
+                cost += values_ref.cost()?;
+                if all_singletons
+                    && DocValues::unwrap_singleton_sorted_numeric_doc_values(values_ref)?.is_none()
+                {
+                    all_singletons = false;
+                }
+            }
+            if let Some(values) = values {
+                let doc_map = self.merge_state.doc_maps[i].clone();
+                subs.push(Rc::new(RefCell::new(Sub::new(
+                    SortedNumericDocValuesSub::new(doc_map, values),
+                ))));
+            }
+        }
+
+        if all_singletons {
+            // All subs are single-valued.
+            // We specialize for that case since it makes it easier for codecs to optimize
+            // for single-valued fields.
+            let mut single_valued_subs = vec![];
+            for sub in &subs {
+                let sub = sub.borrow();
+                let single_valued_values =
+                    DocValues::unwrap_singleton_sorted_numeric_doc_values(&sub.sub.values)?;
+                debug_assert!(single_valued_values.is_some());
+                single_valued_subs.push(Rc::new(RefCell::new(Sub::new(NumericDocValuesSub::new(
+                    sub.sub.doc_map.clone(),
+                    single_valued_values.unwrap(),
+                )))));
+            }
+            let dv = doc_values_consumer_static::merge_numeric_values(
+                single_valued_subs,
+                self.merge_state.needs_index_sort,
+            )?;
+            return DocValues::singleton_numeric(dv);
+        }
+        let doc_id_merger = doc_id_merger_static::of(subs, self.merge_state.needs_index_sort)?;
+        Ok(SortedNumericDocValuesEnum::Merge(
+            SortedNumericDocValuesMerge {
+                doc_id: -1,
+                current_sub: None,
+                doc_id_merger,
+                final_cost: cost,
+            },
+        ))
     }
 }
 

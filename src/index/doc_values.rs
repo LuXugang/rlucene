@@ -23,6 +23,7 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
+use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
@@ -74,9 +75,21 @@ impl DocValues {
         ))))
     }
 
+    /// Returns a single-valued view of the SortedSetDocValues, if it was previously wrapped with
+    /// [`singleton_sorted`](DocValues::singleton_sorted), or null.
     pub fn unwrap_singleton_sorted_set_doc_values<I>(
-        dv: impl SortedSetDocValues<I>,
-    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>>
+        dv: &impl SortedSetDocValues<I>,
+    ) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>>
+    where
+        I: IndexInput,
+    {
+        dv.unwrap_singleton()
+    }
+    /// Returns a single-valued view of the SortedNumericDocValues, if it was previously wrapped with
+    /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
+    pub fn unwrap_singleton_sorted_numeric_doc_values<I>(
+        dv: &impl SortedNumericDocValues<I>,
+    ) -> Result<Option<Rc<RefCell<NumericDocValuesEnum<I>>>>>
     where
         I: IndexInput,
     {

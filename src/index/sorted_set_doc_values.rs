@@ -102,12 +102,7 @@ where
     // TODO:
     // intersect not Implemented
 
-    fn is_singleton(&self) -> bool {
-        false
-    }
-    fn unwrap_singleton(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
-        Err(LuceneError::not_implemented(
-            "this is not a singleton SortedSetDocValues",
-        ))
+    fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>> {
+        Ok(None)
     }
 }

@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 pub mod doc_values {
-    use crate::codecs::doc_values_consumer::{BinaryDocValuesMerge, NumericDocValuesMerge};
+    use crate::codecs::doc_values_consumer::{
+        BinaryDocValuesMerge, NumericDocValuesMerge, SortedNumericDocValuesMerge,
+    };
     use crate::codecs::lucene90_doc_values_consumer::{
         NumericDocValuesImpl, SortedNumericDocValuesImpl,
     };
@@ -38,7 +40,7 @@ pub mod doc_values {
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::search::sorted_set_selector::SortedDocValuesEnum1;
     use crate::store::IndexInput;
-    use crate::util::error::lucene_error::{LuceneError, Result};
+    use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -265,6 +267,7 @@ pub mod doc_values {
         Sparse(SpareSortedNumericDocValues<I>),
         Singleton(SingletonSortedNumericDocValues<I>),
         Impl(SortedNumericDocValuesImpl<I>),
+        Merge(SortedNumericDocValuesMerge<I>),
     }
     impl<I> DocValuesIterator for SortedNumericDocValuesEnum<I>
     where
@@ -300,7 +303,7 @@ pub mod doc_values {
         }
     }
 
-    impl<I> SortedNumericDocValues for SortedNumericDocValuesEnum<I>
+    impl<I> SortedNumericDocValues<I> for SortedNumericDocValuesEnum<I>
     where
         I: IndexInput,
     {
@@ -310,6 +313,16 @@ pub mod doc_values {
 
         fn doc_value_count(&mut self) -> Result<i32> {
             todo!()
+        }
+
+        fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<NumericDocValuesEnum<I>>>>> {
+            match self {
+                SortedNumericDocValuesEnum::Singleton(singleton) => singleton.unwrap_singleton(),
+                SortedNumericDocValuesEnum::Dense(dense) => dense.unwrap_singleton(),
+                SortedNumericDocValuesEnum::Sparse(sparse) => sparse.unwrap_singleton(),
+                SortedNumericDocValuesEnum::Impl(impl_) => impl_.unwrap_singleton(),
+                SortedNumericDocValuesEnum::Merge(merge) => merge.unwrap_singleton(),
+            }
         }
     }
 
@@ -367,16 +380,10 @@ pub mod doc_values {
             todo!()
         }
 
-        fn is_singleton(&self) -> bool {
-            true
-        }
-
-        fn unwrap_singleton(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+        fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>> {
             match self {
-                SortedSetDocValuesEnum::Singleton(singleton) => singleton.get_numeric_doc_values(),
-                SortedSetDocValuesEnum::Other(base) => Err(LuceneError::illegal_state(
-                    "this is not a singleton SortedSetDocValues",
-                )),
+                SortedSetDocValuesEnum::Singleton(singleton) => singleton.unwrap_singleton(),
+                SortedSetDocValuesEnum::Other(other) => other.unwrap_singleton(),
             }
         }
     }
@@ -450,11 +457,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn is_singleton(&self) -> bool {
-            todo!()
-        }
-
-        fn unwrap_singleton(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+        fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>> {
             todo!()
         }
     }

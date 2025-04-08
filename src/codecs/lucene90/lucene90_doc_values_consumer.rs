@@ -459,15 +459,18 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok((num_docs_with_value, num_values))
     }
 
-    fn write_values_single_block(
+    fn write_values_single_block<I>(
         &mut self,
-        values: &mut impl SortedNumericDocValues,
+        values: &mut impl SortedNumericDocValues<I>,
         num_values: i64,
         num_bits_per_value: i32,
         min: i64,
         gcd: i64,
         encode: Option<HashMap<i64, i32>>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        I: IndexInput,
+    {
         let mut writer =
             DirectWriter::get_instance(&mut self.data, num_values, num_bits_per_value)?;
 
@@ -489,11 +492,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 
-    fn write_values_multiple_blocks(
+    fn write_values_multiple_blocks<I>(
         &mut self,
-        values: &mut impl SortedNumericDocValues,
+        values: &mut impl SortedNumericDocValues<I>,
         gcd: i64,
-    ) -> Result<i64> {
+    ) -> Result<i64>
+    where
+        I: IndexInput,
+    {
         let mut offsets: Vec<i64> =
             vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES as i32) as usize];
         let mut offsets_index: usize = 0;
@@ -854,7 +860,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
     fn is_single_valued<I: IndexInput>(values: &mut impl SortedSetDocValues<I>) -> Result<bool> {
-        if values.is_singleton() {
+        if values.unwrap_singleton()?.is_some() {
             return Ok(true);
         }
 
@@ -1372,7 +1378,7 @@ where
     }
 }
 
-impl<I> SortedNumericDocValues for SortedNumericDocValuesImpl<I>
+impl<I> SortedNumericDocValues<I> for SortedNumericDocValuesImpl<I>
 where
     I: IndexInput,
 {
