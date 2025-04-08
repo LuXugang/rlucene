@@ -233,7 +233,7 @@ where
     }
     fn get_data_input(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &FieldInfo,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
         if self.merging {
@@ -290,7 +290,7 @@ where
 {
     fn get_disi_input(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        _field: &FieldInfo,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::Slice>>> {
         // TODO: Due to the generic constraints, following the Java Lucene implementation currently makes it impossible to cache the Slice.
