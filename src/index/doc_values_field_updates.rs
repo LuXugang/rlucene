@@ -808,7 +808,7 @@ where
     max_doc: i32,
     del_gen: i64,
     has_at_least_one_value: bool,
-    lock: Arc<Mutex<()>>,
+    lock: Mutex<()>,
     dov_values_type: DocValuesType,
 }
 #[allow(unused)]
@@ -824,7 +824,7 @@ where
             max_doc,
             del_gen,
             has_at_least_one_value: false,
-            lock: Arc::new(Mutex::new(())),
+            lock: Mutex::new(()),
             dov_values_type,
         })
     }

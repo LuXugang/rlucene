@@ -35,7 +35,7 @@ where
 {
     values: AbstractPagedMutable<T>,
     min_value: i64,
-    lock: Arc<Mutex<()>>,
+    lock: Mutex<()>,
 }
 #[allow(unused)]
 impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
@@ -45,7 +45,7 @@ impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
         Ok(NumericDocValuesFieldUpdates {
             values,
             min_value: 0,
-            lock: Arc::new(Mutex::new(())),
+            lock: Mutex::new(()),
         })
     }
 }
@@ -66,7 +66,7 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
         Ok(NumericDocValuesFieldUpdates {
             values,
             min_value,
-            lock: Arc::new(Mutex::new(())),
+            lock: Mutex::new(()),
         })
     }
 }
