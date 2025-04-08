@@ -20,6 +20,7 @@ use crate::codecs::doc_values_enum::doc_values::{
 };
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dov_values_inner_enum::LongValuesEnum;
+use crate::codecs::lucene90_doc_values_consumer::Lucene90DocValuesConsumer;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
@@ -31,7 +32,7 @@ use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::{doc_id_merger_static, BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase};
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::IndexInput;
+use crate::store::{IndexInput, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -779,5 +780,77 @@ where
 
     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
         Ok(&self.doc_map)
+    }
+}
+
+pub enum DocValuesConsumerEnum<O>
+where
+    O: IndexOutput,
+{
+    Lucene90(Lucene90DocValuesConsumer<O>),
+}
+impl<I, O> DocValuesConsumer<I> for DocValuesConsumerEnum<O>
+where
+    O: IndexOutput,
+    I: IndexInput,
+{
+    fn add_numeric_field(
+        &mut self,
+        field: &Rc<FieldInfo>,
+        values_producer: &mut impl DocValuesProducer<I>,
+    ) -> Result<()> {
+        match self {
+            DocValuesConsumerEnum::Lucene90(lucene) => {
+                lucene.add_numeric_field(field, values_producer)
+            }
+        }
+    }
+
+    fn add_binary_field(
+        &mut self,
+        field: &Rc<FieldInfo>,
+        values_producer: &mut impl DocValuesProducer<I>,
+    ) -> Result<()> {
+        match self {
+            DocValuesConsumerEnum::Lucene90(lucene) => {
+                lucene.add_binary_field(field, values_producer)
+            }
+        }
+    }
+
+    fn add_sorted_field(
+        &mut self,
+        field: &Rc<FieldInfo>,
+        values_producer: &mut impl DocValuesProducer<I>,
+    ) -> Result<()> {
+        match self {
+            DocValuesConsumerEnum::Lucene90(lucene) => {
+                lucene.add_sorted_field(field, values_producer)
+            }
+        }
+    }
+
+    fn add_sorted_numeric_field(
+        &mut self,
+        field: &Rc<FieldInfo>,
+        values_producer: &mut impl DocValuesProducer<I>,
+    ) -> Result<()> {
+        match self {
+            DocValuesConsumerEnum::Lucene90(lucene) => {
+                lucene.add_sorted_numeric_field(field, values_producer)
+            }
+        }
+    }
+
+    fn add_sorted_set_field(
+        &mut self,
+        field: &Rc<FieldInfo>,
+        values_producer: &mut impl DocValuesProducer<I>,
+    ) -> Result<()> {
+        match self {
+            DocValuesConsumerEnum::Lucene90(lucene) => {
+                lucene.add_sorted_set_field(field, values_producer)
+            }
+        }
     }
 }

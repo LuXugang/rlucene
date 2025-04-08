@@ -59,6 +59,7 @@ pub mod index_file_names;
 pub mod index_options;
 pub mod index_sorter;
 pub mod index_writer;
+pub mod index_writer_config;
 pub mod indexable_field;
 pub mod indexable_field_type;
 mod indexing_chain;

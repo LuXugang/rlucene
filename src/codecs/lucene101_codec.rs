@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
+use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::lucene94::lucene94_field_infos_format::Lucene94FieldInfosFormat;
@@ -25,11 +26,16 @@ use crate::codecs::Codec;
 pub struct Lucene101Codec;
 
 impl Codec for Lucene101Codec {
+    type DocValuesFormat = Lucene90DocValuesFormat;
     type FieldInfosFormat = Lucene94FieldInfosFormat;
     type SegmentInfoFormat = Lucene99SegmentInfoFormat;
     type NormsFormat = Lucene90NormsFormat;
     type LiveDocsFormat = Lucene90LiveDocsFormat;
     type CompoundFormat = Lucene90CompoundFormat;
+
+    fn doc_values_format(&self) -> Self::DocValuesFormat {
+        Lucene90DocValuesFormat::default()
+    }
 
     fn field_infos_format(&self) -> Self::FieldInfosFormat {
         Lucene94FieldInfosFormat

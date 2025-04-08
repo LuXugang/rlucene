@@ -77,6 +77,7 @@ mod radix_selector;
 pub mod ram_usage_estimator;
 pub mod roaring_doc_id_set;
 pub mod selector;
+pub mod small_float;
 pub mod sortable_bytes_ref_array;
 pub mod sorter;
 pub mod sparse_fixed_bit_set;
