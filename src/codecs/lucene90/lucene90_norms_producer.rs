@@ -466,28 +466,28 @@ where
             return match entry.bytes_per_norm {
                 1 => {
                     let sub_dense_norms =
-                        DenseNormsIteratorBaseEnum::Impl1(DenseNormsIteratorBaseImpl1 { slice });
+                        DenseNormsIteratorBaseEnum::Dense1(DenseNormsIteratorBaseImpl1 { slice });
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                     Ok(NumericDocValuesEnum::Dense(dense_norms_iterator))
                 }
                 2 => {
                     let sub_dense_norms =
-                        DenseNormsIteratorBaseEnum::Impl2(DenseNormsIteratorBaseImpl2 { slice });
+                        DenseNormsIteratorBaseEnum::Dense2(DenseNormsIteratorBaseImpl2 { slice });
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                     Ok(NumericDocValuesEnum::Dense(dense_norms_iterator))
                 }
                 4 => {
                     let sub_dense_norms =
-                        DenseNormsIteratorBaseEnum::Impl4(DenseNormsIteratorBaseImpl4 { slice });
+                        DenseNormsIteratorBaseEnum::Dense3(DenseNormsIteratorBaseImpl4 { slice });
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                     Ok(NumericDocValuesEnum::Dense(dense_norms_iterator))
                 }
                 8 => {
                     let sub_dense_norms =
-                        DenseNormsIteratorBaseEnum::Impl8(DenseNormsIteratorBaseImpl8 { slice });
+                        DenseNormsIteratorBaseEnum::Dense4(DenseNormsIteratorBaseImpl8 { slice });
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                     Ok(NumericDocValuesEnum::Dense(dense_norms_iterator))
@@ -508,7 +508,7 @@ where
 
         if entry.bytes_per_norm == 0 {
             let sub_sparse_norms =
-                SparseNormsIteratorBaseEnum::Dense(SparseNormsIteratorBaseImpl {
+                SparseNormsIteratorBaseEnum::Sparse(SparseNormsIteratorBaseImpl {
                     norms_offset: entry.norms_offset,
                     _phantom: PhantomData,
                 });
@@ -521,25 +521,25 @@ where
         match entry.bytes_per_norm {
             1 => {
                 let sub_sparse_norms =
-                    SparseNormsIteratorBaseEnum::Impl1(SparseNormsIteratorBaseImpl1 { slice });
+                    SparseNormsIteratorBaseEnum::Sparse1(SparseNormsIteratorBaseImpl1 { slice });
                 let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
                 Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator))
             }
             2 => {
                 let sub_sparse_norms =
-                    SparseNormsIteratorBaseEnum::Impl2(SparseNormsIteratorBaseImpl2 { slice });
+                    SparseNormsIteratorBaseEnum::Sparse2(SparseNormsIteratorBaseImpl2 { slice });
                 let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
                 Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator))
             }
             4 => {
                 let sub_sparse_norms =
-                    SparseNormsIteratorBaseEnum::Impl4(SparseNormsIteratorBaseImpl4 { slice });
+                    SparseNormsIteratorBaseEnum::Sparse3(SparseNormsIteratorBaseImpl4 { slice });
                 let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
                 Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator))
             }
             8 => {
                 let sub_sparse_norms =
-                    SparseNormsIteratorBaseEnum::Impl8(SparseNormsIteratorBaseImpl8 { slice });
+                    SparseNormsIteratorBaseEnum::Sparse4(SparseNormsIteratorBaseImpl8 { slice });
                 let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
                 Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator))
             }
@@ -717,10 +717,10 @@ where
     I: IndexInput,
 {
     Dense(DenseNormsIteratorBaseImpl),
-    Impl1(DenseNormsIteratorBaseImpl1<I>),
-    Impl2(DenseNormsIteratorBaseImpl2<I>),
-    Impl4(DenseNormsIteratorBaseImpl4<I>),
-    Impl8(DenseNormsIteratorBaseImpl8<I>),
+    Dense1(DenseNormsIteratorBaseImpl1<I>),
+    Dense2(DenseNormsIteratorBaseImpl2<I>),
+    Dense3(DenseNormsIteratorBaseImpl4<I>),
+    Dense4(DenseNormsIteratorBaseImpl8<I>),
 }
 impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseEnum<I>
 where
@@ -729,10 +729,10 @@ where
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         match self {
             DenseNormsIteratorBaseEnum::Dense(inner) => inner.long_value(doc),
-            DenseNormsIteratorBaseEnum::Impl1(inner) => inner.long_value(doc),
-            DenseNormsIteratorBaseEnum::Impl2(inner) => inner.long_value(doc),
-            DenseNormsIteratorBaseEnum::Impl4(inner) => inner.long_value(doc),
-            DenseNormsIteratorBaseEnum::Impl8(inner) => inner.long_value(doc),
+            DenseNormsIteratorBaseEnum::Dense1(inner) => inner.long_value(doc),
+            DenseNormsIteratorBaseEnum::Dense2(inner) => inner.long_value(doc),
+            DenseNormsIteratorBaseEnum::Dense3(inner) => inner.long_value(doc),
+            DenseNormsIteratorBaseEnum::Dense4(inner) => inner.long_value(doc),
         }
     }
 }
@@ -900,11 +900,11 @@ enum SparseNormsIteratorBaseEnum<I>
 where
     I: IndexInput,
 {
-    Dense(SparseNormsIteratorBaseImpl<I>),
-    Impl1(SparseNormsIteratorBaseImpl1<I>),
-    Impl2(SparseNormsIteratorBaseImpl2<I>),
-    Impl4(SparseNormsIteratorBaseImpl4<I>),
-    Impl8(SparseNormsIteratorBaseImpl8<I>),
+    Sparse(SparseNormsIteratorBaseImpl<I>),
+    Sparse1(SparseNormsIteratorBaseImpl1<I>),
+    Sparse2(SparseNormsIteratorBaseImpl2<I>),
+    Sparse3(SparseNormsIteratorBaseImpl4<I>),
+    Sparse4(SparseNormsIteratorBaseImpl8<I>),
 }
 impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseEnum<I>
 where
@@ -912,11 +912,11 @@ where
 {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64> {
         match self {
-            SparseNormsIteratorBaseEnum::Dense(inner) => inner.long_value(disi),
-            SparseNormsIteratorBaseEnum::Impl1(inner) => inner.long_value(disi),
-            SparseNormsIteratorBaseEnum::Impl2(inner) => inner.long_value(disi),
-            SparseNormsIteratorBaseEnum::Impl4(inner) => inner.long_value(disi),
-            SparseNormsIteratorBaseEnum::Impl8(inner) => inner.long_value(disi),
+            SparseNormsIteratorBaseEnum::Sparse(inner) => inner.long_value(disi),
+            SparseNormsIteratorBaseEnum::Sparse1(inner) => inner.long_value(disi),
+            SparseNormsIteratorBaseEnum::Sparse2(inner) => inner.long_value(disi),
+            SparseNormsIteratorBaseEnum::Sparse3(inner) => inner.long_value(disi),
+            SparseNormsIteratorBaseEnum::Sparse4(inner) => inner.long_value(disi),
         }
     }
 }
