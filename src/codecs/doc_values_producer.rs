@@ -34,27 +34,33 @@ where
     /// Returns [`NumericDocValues`](crate::index::numeric_doc_values::NumericDocValues) for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::NUMERIC`](crate::index::doc_values_type::DocValuesType::Numeric).
-    fn get_numeric(&mut self, _field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Returns [`BinaryDocValues`](crate::index::binary_doc_values::BinaryDocValues) for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::BINARY`](crate::index::doc_values_type::DocValuesType::Binary). The return value is never `null`.
-    fn get_binary(&mut self, _field: &FieldInfo) -> Result<BinaryDocValuesEnum<I>> {
+    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
         Err(LuceneError::need_implemented(""))
     }
 
     /// Returns [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues) for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::SORTED`](crate::index::doc_values_type::DocValuesType::Sorted). The return value is never `null`.
-    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    fn get_sorted(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Returns [`SortedNumericDocValues`](crate::index::sorted_numeric_doc_values::SortedNumericDocValues) for this field. The returned instance need not be
     /// thread-safe: it will only be used by a single thread. The behavior is undefined if the doc
     /// values type of the given field is not [`DocValuesType::SORTED_NUMERIC`](crate::index::doc_values_type::DocValuesType::SortedNumeric). The return value is
     /// never `null`.
-    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+    fn get_sorted_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<SortedNumericDocValuesEnum<I>> {
         Err(LuceneError::need_implemented(""))
     }
 
@@ -62,14 +68,14 @@ where
     /// thread-safe: it will only be used by a single thread. The behavior is undefined if the doc
     /// values type of the given field is not [`DocValuesType::SORTED_SET`](crate::index::doc_values_type::DocValuesType::SortedSet). The return value is
     /// never `null`.
-    fn get_sorted_set(&mut self, _field: &FieldInfo) -> Result<SortedSetDocValuesEnum<I>> {
+    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Returns a [`DocValuesSkipper`](crate::index::doc_values_skipper::DocValuesSkipper) for this field. The returned instance need not be
     /// thread-safe: it will only be used by a single thread. The return value is undefined if
     /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
     /// [`DocValuesSkipIndexType::NONE`](crate::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
-    fn get_skipper(&mut self, _field: &FieldInfo) -> Result<DocValuesSkipperEnum<I>> {
+    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Checks consistency of this producer.
@@ -101,27 +107,33 @@ impl<I> DocValuesProducer<I> for DocValuesProducerEnum<I>
 where
     I: IndexInput,
 {
-    fn get_numeric(&mut self, _field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
         todo!()
     }
 
-    fn get_binary(&mut self, _field: &FieldInfo) -> Result<BinaryDocValuesEnum<I>> {
+    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
         todo!()
     }
 
-    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    fn get_sorted(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         todo!()
     }
 
-    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+    fn get_sorted_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<SortedNumericDocValuesEnum<I>> {
         todo!()
     }
 
-    fn get_sorted_set(&mut self, _field: &FieldInfo) -> Result<SortedSetDocValuesEnum<I>> {
+    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
         todo!()
     }
 
-    fn get_skipper(&mut self, _field: &FieldInfo) -> Result<DocValuesSkipperEnum<I>> {
+    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
         todo!()
     }
 

@@ -121,7 +121,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn write_skip_index<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
     ) -> Result<()> {
         debug_assert!(*field.doc_values_skip_index_type() != DocValuesSkipIndexType::None);
@@ -265,7 +265,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn write_values<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
         ords: bool,
     ) -> Result<(i32, i64)> {
@@ -573,7 +573,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn do_add_sorted_field<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut DocValuesProducerEnum<I>,
         add_type_byte: bool,
     ) -> Result<()> {
@@ -804,7 +804,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn do_add_sorted_numeric_field<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut DocValuesProducerEnum<I>,
         ords: bool,
     ) -> Result<()> {
@@ -881,7 +881,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn add_numeric_field<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut DocValuesProducerEnum<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
@@ -902,7 +902,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     fn add_binary_field<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut DocValuesProducerEnum<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
@@ -992,7 +992,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     fn add_sorted_field<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut DocValuesProducerEnum<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
@@ -1003,7 +1003,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     fn add_sorted_numeric_field<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut DocValuesProducerEnum<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
@@ -1015,7 +1015,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     fn add_sorted_set_field<I: IndexInput>(
         &mut self,
-        field: &FieldInfo,
+        field: &Rc<FieldInfo>,
         values_producer: &mut DocValuesProducerEnum<I>,
     ) -> Result<()> {
         self.meta.write_int(field.number)?;
@@ -1189,7 +1189,10 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub1<I>
 where
     I: IndexInput,
 {
-    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+    fn get_sorted_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<SortedNumericDocValuesEnum<I>> {
         DocValues::singleton_numeric(self.doc_values.take().unwrap())
     }
 }
@@ -1203,7 +1206,10 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub2<I>
 where
     I: IndexInput,
 {
-    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+    fn get_sorted_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<SortedNumericDocValuesEnum<I>> {
         let sorted_ords = NumericDocValuesEnum::Impl(NumericDocValuesImpl {
             sorted: self.sorted.take().unwrap(),
         });
@@ -1221,7 +1227,10 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub3<I>
 where
     I: IndexInput,
 {
-    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    fn get_sorted(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         SortedSetSelector::wrap(self.doc_values.take().unwrap(), SortedSetSelectorType::Min)
     }
 }
@@ -1235,7 +1244,10 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub4<I>
 where
     I: IndexInput,
 {
-    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+    fn get_sorted_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<SortedNumericDocValuesEnum<I>> {
         Ok(SortedNumericDocValuesEnum::Impl(
             SortedNumericDocValuesImpl {
                 ords: vec![],

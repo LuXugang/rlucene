@@ -50,28 +50,34 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducer<I>
 where
     I: IndexInput,
 {
-    fn get_numeric(&mut self, field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
-        self.sub.get_numeric(field)
+    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+        self.sub.get_numeric(_field)
     }
 
-    fn get_binary(&mut self, field: &FieldInfo) -> Result<BinaryDocValuesEnum<I>> {
-        self.sub.get_binary(field)
+    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
+        self.sub.get_binary(_field)
     }
 
-    fn get_sorted(&mut self, field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
-        self.sub.get_sorted(field)
+    fn get_sorted(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+        self.sub.get_sorted(_field)
     }
 
-    fn get_sorted_numeric(&mut self, field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
-        self.sub.get_sorted_numeric(field)
+    fn get_sorted_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<SortedNumericDocValuesEnum<I>> {
+        self.sub.get_sorted_numeric(_field)
     }
 
-    fn get_sorted_set(&mut self, field: &FieldInfo) -> Result<SortedSetDocValuesEnum<I>> {
-        self.sub.get_sorted_set(field)
+    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
+        self.sub.get_sorted_set(_field)
     }
 
-    fn get_skipper(&mut self, field: &FieldInfo) -> Result<DocValuesSkipperEnum<I>> {
-        self.sub.get_skipper(field)
+    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
+        self.sub.get_skipper(_field)
     }
 
     fn check_integrity(&mut self) -> Result<()> {
@@ -94,27 +100,33 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerEnum<I>
 where
     I: IndexInput,
 {
-    fn get_numeric(&mut self, _field: &FieldInfo) -> Result<NumericDocValuesEnum<I>> {
+    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
         todo!()
     }
 
-    fn get_binary(&mut self, _field: &FieldInfo) -> Result<BinaryDocValuesEnum<I>> {
+    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
         todo!()
     }
 
-    fn get_sorted(&mut self, _field: &FieldInfo) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    fn get_sorted(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         todo!()
     }
 
-    fn get_sorted_numeric(&mut self, _field: &FieldInfo) -> Result<SortedNumericDocValuesEnum<I>> {
+    fn get_sorted_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<SortedNumericDocValuesEnum<I>> {
         todo!()
     }
 
-    fn get_sorted_set(&mut self, _field: &FieldInfo) -> Result<SortedSetDocValuesEnum<I>> {
+    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
         todo!()
     }
 
-    fn get_skipper(&mut self, _field: &FieldInfo) -> Result<DocValuesSkipperEnum<I>> {
+    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
         todo!()
     }
 
