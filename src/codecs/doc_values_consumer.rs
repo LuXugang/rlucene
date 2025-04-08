@@ -108,6 +108,26 @@ where
         };
         self.add_sorted_numeric_field(merge_field_info, &mut producer)
     }
+    fn merge_sorted_field(
+        &mut self,
+        _merge_field_info: &Rc<FieldInfo>,
+        _merge_state: &mut MergeState<I>,
+    ) -> Result<()>
+    where
+        I: IndexInput,
+    {
+        todo!()
+    }
+    fn merge_sorted_set_field(
+        &mut self,
+        _merge_field_info: &Rc<FieldInfo>,
+        _merge_state: &mut MergeState<I>,
+    ) -> Result<()>
+    where
+        I: IndexInput,
+    {
+        todo!()
+    }
 }
 mod doc_values_consumer_static {
     use crate::codecs::doc_values_consumer::{NumericDocValuesMerge, NumericDocValuesSub};

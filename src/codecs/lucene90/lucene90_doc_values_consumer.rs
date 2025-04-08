@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::codecs::doc_values_enum::doc_values::{
     NumericDocValuesEnum, SortedDocValuesEnum, SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
 };
@@ -887,7 +888,13 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         }
         Ok(())
     }
-    fn add_numeric_field<I: IndexInput>(
+}
+impl<O, I> DocValuesConsumer<I> for Lucene90DocValuesConsumer<O>
+where
+    O: IndexOutput,
+    I: IndexInput,
+{
+    fn add_numeric_field(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
@@ -908,7 +915,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 
-    fn add_binary_field<I: IndexInput>(
+    fn add_binary_field(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
@@ -1015,7 +1022,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 
-    fn add_sorted_field<I: IndexInput>(
+    fn add_sorted_field(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
@@ -1026,7 +1033,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 
-    fn add_sorted_numeric_field<I: IndexInput>(
+    fn add_sorted_numeric_field(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
@@ -1038,7 +1045,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 
-    fn add_sorted_set_field<I: IndexInput>(
+    fn add_sorted_set_field(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,

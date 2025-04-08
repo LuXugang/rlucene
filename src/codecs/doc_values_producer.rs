@@ -107,41 +107,62 @@ impl<I> DocValuesProducer<I> for DocValuesProducerEnum<I>
 where
     I: IndexInput,
 {
-    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
-        todo!()
+    fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_numeric(field),
+            DocValuesProducerEnum::Empty(empty) => empty.get_numeric(field),
+        }
     }
 
-    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
-        todo!()
+    fn get_binary(&mut self, field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_binary(field),
+            DocValuesProducerEnum::Empty(empty) => empty.get_binary(field),
+        }
     }
 
-    fn get_sorted(
-        &mut self,
-        _field: &Rc<FieldInfo>,
-    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
-        todo!()
+    fn get_sorted(&mut self, field: &Rc<FieldInfo>) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted(field),
+            DocValuesProducerEnum::Empty(empty) => empty.get_sorted(field),
+        }
     }
 
     fn get_sorted_numeric(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        field: &Rc<FieldInfo>,
     ) -> Result<SortedNumericDocValuesEnum<I>> {
-        todo!()
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted_numeric(field),
+            DocValuesProducerEnum::Empty(empty) => empty.get_sorted_numeric(field),
+        }
     }
 
-    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
-        todo!()
+    fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted_set(field),
+            DocValuesProducerEnum::Empty(empty) => empty.get_sorted_set(field),
+        }
     }
 
-    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
-        todo!()
+    fn get_skipper(&mut self, field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_skipper(field),
+            DocValuesProducerEnum::Empty(empty) => empty.get_skipper(field),
+        }
     }
 
     fn check_integrity(&mut self) -> Result<()> {
-        todo!()
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene) => lucene.check_integrity(),
+            DocValuesProducerEnum::Empty(empty) => empty.check_integrity(),
+        }
     }
 
     fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
-        todo!()
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_merge_instance(),
+            DocValuesProducerEnum::Empty(empty) => empty.get_merge_instance(),
+        }
     }
 }
