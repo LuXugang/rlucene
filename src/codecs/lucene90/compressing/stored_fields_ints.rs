@@ -139,7 +139,7 @@ impl StoredFieldsInts {
 
         Ok(())
     }
-    fn read_ints<I: IndexInput>(
+    pub(crate) fn read_ints<I: IndexInput>(
         input: &mut I,
         count: i32,
         values: &mut [i64],
