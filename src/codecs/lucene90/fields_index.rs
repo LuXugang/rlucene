@@ -16,6 +16,7 @@
  */
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::store::IndexInput;
+use crate::util::clone::Clone;
 use crate::util::error::lucene_error::Result;
 #[allow(unused)]
 pub(crate) trait FieldsIndex: Clone {
@@ -50,9 +51,15 @@ impl<I> Clone for FieldsIndexEnum<I>
 where
     I: IndexInput,
 {
-    fn clone(&self) -> Self {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
         match self {
-            FieldsIndexEnum::Lucene90(reader) => FieldsIndexEnum::Lucene90(reader.clone()),
+            FieldsIndexEnum::Lucene90(reader) => {
+                let cloned_reader = reader.try_clone()?;
+                Ok(FieldsIndexEnum::Lucene90(cloned_reader))
+            }
         }
     }
 }

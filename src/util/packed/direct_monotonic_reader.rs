@@ -207,6 +207,7 @@ pub mod direct_monotonic {
 
     /// In-memory metadata that needs to be kept around for [`DirectMonotonicReader`] to read data
     /// from disk.
+    #[derive(Clone)]
     pub struct Meta {
         pub block_shift: i32,
         pub num_blocks: usize,

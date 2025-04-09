@@ -125,17 +125,50 @@ where
             start_pointers,
         })
     }
+    fn new_with_other(other: &FieldsIndexReader<I>) -> Result<Self> {
+        let docs_meta = other.docs_meta.clone();
+        let start_pointers_meta = other.start_pointers_meta.clone();
+        let docs_slice = Rc::new(RefCell::new(other.index_input.random_access_slice(
+            other.docs_start_pointer,
+            other.docs_end_pointer - other.docs_start_pointer,
+        )?));
+        let start_pointers_slice = Rc::new(RefCell::new(other.index_input.random_access_slice(
+            other.start_pointers_start_pointer,
+            other.start_pointers_end_pointer - other.start_pointers_start_pointer,
+        )?));
+        let docs = DirectMonotonicReader::get_instance(&docs_meta, docs_slice)?;
+        let start_pointers =
+            DirectMonotonicReader::get_instance(&start_pointers_meta, start_pointers_slice)?;
+        Ok(FieldsIndexReader {
+            max_doc: other.max_doc,
+            block_shift: other.block_shift,
+            num_chunks: other.num_chunks,
+            docs_meta,
+            start_pointers_meta,
+            index_input: other.index_input.clone(),
+            docs_start_pointer: other.docs_start_pointer,
+            docs_end_pointer: other.docs_end_pointer,
+            start_pointers_start_pointer: other.start_pointers_start_pointer,
+            start_pointers_end_pointer: other.start_pointers_end_pointer,
+            max_pointer: other.max_pointer,
+            docs,
+            start_pointers,
+        })
+    }
     pub(crate) fn get_max_pointer(&self) -> i64 {
         self.max_pointer
     }
 }
 
-impl<I> Clone for FieldsIndexReader<I>
+impl<I> crate::util::clone::Clone for FieldsIndexReader<I>
 where
     I: IndexInput,
 {
-    fn clone(&self) -> Self {
-        todo!()
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        FieldsIndexReader::new_with_other(self)
     }
 }
 
