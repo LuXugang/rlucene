@@ -27,6 +27,7 @@ use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 
 /// Implements a [`TermsEnum`](TermsEnum) wrapping a provided [`SortedDocValues`](SortedDocValues).
 pub struct SortedDocValuesTermsEnum<I>
@@ -56,13 +57,13 @@ impl<I> BytesRefIterator for SortedDocValuesTermsEnum<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         self.current_ord += 1;
         if self.current_ord >= self.values.get_value_count()? {
             Ok(None)
         } else {
-            self.bytes = self.values.lookup_ord(self.current_ord)?.clone();
-            Ok(Some(self.bytes.clone()))
+            self.bytes = self.values.lookup_ord(self.current_ord)?;
+            Ok(Some(Cow::Borrowed(&self.bytes)))
         }
     }
 }

@@ -16,18 +16,9 @@
  */
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 
 pub trait BytesRefIterator {
-    /// Increments the iteration to the next [`BytesRef`] in the iterator.
-    /// Returns the resulting [`BytesRef`] or `None` if the end of the iterator is reached.
-    ///
-    /// # Note
-    /// Using this method requires ownership of the BytesRef.
-    /// See [`next_ref`](BytesRefIterator::next_ref) get BytesRef with reference.
-    fn next(&mut self) -> Result<Option<BytesRef>> {
-        Err(LuceneError::need_implemented("this method need implement"))
-    }
-
     /// The returned `BytesRef` may be re-used across calls to `next`. After this method returns `None`,
     /// do not call it again as the results are undefined.
     ///
@@ -35,13 +26,21 @@ pub trait BytesRefIterator {
     /// The next [`BytesRef`] in the iterator or `None` if the end of the iterator is reached.
     ///
     /// # Note
-    /// In some scenarios, we need to return a reference to the BytesRef to avoid frequent copying operations.
-    /// Like in [TermsDict](crate::codecs::lucene90::lucene90_doc_values_producer::TermsDict), this method can be used.
+    /// In some scenarios, we need to return a reference to the `BytesRef` to avoid frequent copying operations.
+    /// Like in [`TermsDict`](crate::codecs::lucene90::lucene90_doc_values_producer::TermsDict), this method can be used
+    /// when reusing internal buffers to reduce allocations and improve performance.
     ///
-    /// See [`next`](BytesRefIterator::next) for getting a new `BytesRef` instance.
+    /// To simplify the interface and allow for both owned and borrowed variants in a unified way,
+    /// it is recommended to use [`Cow<BytesRef>`](std::borrow::Cow). This enables returning either:
+    ///
+    /// - `Cow::Borrowed(&BytesRef)` when the data is internally reusable, avoiding clone costs
+    /// - `Cow::Owned(BytesRef)` when a fresh copy is required
+    ///
+    /// This approach provides flexibility to the implementor and clarity to the caller,
+    /// while preserving performance by avoiding unnecessary allocations.
     /// # Errors
     /// Returns an `std::io::Error` if there is a low-level I/O error.
-    fn next_ref(&mut self) -> Result<Option<&BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         Err(LuceneError::need_implemented("this method need implement"))
     }
 }
@@ -49,7 +48,7 @@ pub trait BytesRefIterator {
 pub struct EmptyBytesRefIterator;
 
 impl BytesRefIterator for EmptyBytesRefIterator {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         Ok(None)
     }
 }

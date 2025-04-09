@@ -27,6 +27,7 @@ use crate::util::{
     CounterEnumLock, MSBRadixSorterBase, SliceCopyOps, Sorter, StableStringSorter,
     StableStringSorterBase, StringSorter, StringSorterBase,
 };
+use std::borrow::Cow;
 use std::sync::Arc;
 
 /// A simple append-only random-access array that stores full copies of the appended
@@ -289,7 +290,7 @@ where
     A: Access<CounterEnum>,
 {
     pos: i32,
-    ord: i32,
+    pub(crate) ord: i32,
     sort_state: Arc<SortState>,
     spare: BytesRefBuilder,
     size: i32,
@@ -320,7 +321,7 @@ impl<A> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
@@ -331,7 +332,7 @@ where
             };
             self.bytes_ref_array
                 .set_bytes_ref(&mut self.spare, &mut result, self.ord)?;
-            Ok(Some(result))
+            Ok(Some(Cow::Owned(result)))
         } else {
             Ok(None)
         }
@@ -609,6 +610,7 @@ mod tests {
             let mut last: Option<BytesRef> = None;
 
             while let Some(next) = iter.next()? {
+                let next = next.into_owned();
                 assert_eq!(
                     string_list[i],
                     next.utf8_to_string()?,

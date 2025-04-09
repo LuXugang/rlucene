@@ -24,6 +24,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::StringHelper;
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
@@ -215,7 +216,7 @@ impl<'a> TermIterator<'a> {
 }
 
 impl BytesRefIterator for TermIterator<'_> {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         if self.input.position() < self.end {
             let code = self.input.read_vint()?;
             let new_field = (code & 1) != 0;
@@ -225,7 +226,7 @@ impl BytesRefIterator for TermIterator<'_> {
             let prefix = code >> 1;
             let suffix = self.input.read_vint()?;
             self.read_term_bytes(prefix, suffix)?;
-            return Ok(Some(self.bytes.clone()));
+            return Ok(Some(Cow::Borrowed(&self.bytes)));
         } else {
             self.field.clear();
         }
@@ -277,8 +278,8 @@ mod tests {
         let prefix_coded_terms = builder.finish()?;
         let mut iter = prefix_coded_terms.iterator();
         let first_term = iter.next()?.expect("Expected a term, but got None");
-        assert_eq!(iter.field(), "foo");
         assert_eq!(first_term.utf8_to_string()?, "bogus");
+        assert_eq!(iter.field(), "foo");
         assert!(iter.next()?.is_none());
 
         Ok(())
@@ -307,9 +308,10 @@ mod tests {
         assert_eq!(terms.len(), pb.size() as usize);
 
         while let Some(actual_bytes) = iter.next()? {
+            let actual_bytes = actual_bytes.into_owned();
             let expected_term = expected.next();
             assert!(expected_term.is_some());
-            let actual_term = Term::new(iter.field().to_string(), actual_bytes.clone());
+            let actual_term = Term::new(iter.field().to_string(), actual_bytes);
 
             assert_eq!(*expected_term.unwrap(), actual_term);
         }

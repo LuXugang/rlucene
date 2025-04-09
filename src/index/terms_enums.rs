@@ -26,6 +26,7 @@ use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
+use std::borrow::Cow;
 
 pub enum TermsEnums<I>
 where
@@ -41,11 +42,7 @@ impl<I> BytesRefIterator for TermsEnums<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
-        todo!()
-    }
-
-    fn next_ref(&mut self) -> Result<Option<&BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         todo!()
     }
 }

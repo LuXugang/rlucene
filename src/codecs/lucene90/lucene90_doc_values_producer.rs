@@ -65,6 +65,7 @@ use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use crate::util::{SliceCopyOps, ToInt};
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -2958,7 +2959,7 @@ impl<I> BytesRefIterator for TermsDict<I>
 where
     I: IndexInput,
 {
-    fn next_ref(&mut self) -> Result<Option<&BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         self.ord += 1;
         if self.ord >= self.entry.terms_dict_size {
             return Ok(None);
@@ -2982,7 +2983,7 @@ where
             self.term.length = prefix_length + suffix_length;
             input.read_bytes(&mut self.term.bytes, prefix_length, suffix_length)?;
         }
-        Ok(Some(&self.term))
+        Ok(Some(Cow::Borrowed(&self.term)))
     }
 }
 
@@ -3013,7 +3014,7 @@ where
                 return Ok(SeekStatus::NotFound);
             }
 
-            if self.next_ref()?.is_none() {
+            if self.next()?.is_none() {
                 return Ok(SeekStatus::End);
             }
         }
@@ -3039,7 +3040,7 @@ where
         }
         // Scan forward to the desired ordinal
         while self.ord < ord {
-            self.next_ref()?;
+            self.next()?;
         }
         Ok(())
     }

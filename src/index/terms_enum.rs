@@ -24,6 +24,7 @@ use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::marker::PhantomData;
 
 /// Iterator to seek [`seek_ceil(BytesRef)`](TermsEnum::seek_ceil), [`seek_exact(BytesRef)`](TermsEnum::seek_exact)
@@ -176,7 +177,7 @@ impl<I> BytesRefIterator for TermsEnumEmpty<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         Ok(None)
     }
 }

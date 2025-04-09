@@ -23,6 +23,7 @@ use crate::index::BytesRef;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 
 pub struct DummyTermsEnum {
     atts: AttributeSource,
@@ -41,7 +42,7 @@ impl DummyTermsEnum {
     }
 }
 impl BytesRefIterator for DummyTermsEnum {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

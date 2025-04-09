@@ -24,6 +24,7 @@ use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 /// A base `TermsEnum` that provides default implementations for:
@@ -58,7 +59,7 @@ impl<I> BytesRefIterator for BaseTermsEnum<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<BytesRef>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
         self.sub_terms_enum.next()
     }
 }

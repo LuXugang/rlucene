@@ -349,6 +349,7 @@ impl FieldUpdatesBuffer {
 
         let result: Result<()> = (|| {
             while let Some(current) = iterator.next()? {
+                let current = current.into_owned();
                 if let Some(last_term) = &last {
                     let cmp = current.cmp(last_term);
                     debug_assert_ne!(cmp, Ordering::Less, "term in reverse order");
@@ -363,7 +364,7 @@ impl FieldUpdatesBuffer {
                         "doc id in reverse order"
                     );
                 }
-                last = Some(current.clone());
+                last = Some(current);
                 last_ord = iterator.ord();
             }
             Ok(())
@@ -513,8 +514,19 @@ impl<'a> BufferedUpdateIterator<'a> {
                     buffered_update.binary_value = None;
                 } else {
                     debug_assert!(self.numeric_values_length == 0);
-                    buffered_update.binary_value =
-                        self.byte_values_iterator.as_mut().unwrap().next()?;
+                    match &mut self.byte_values_iterator {
+                        Some(iterator) => match iterator.next()? {
+                            Some(bytes_ref) => {
+                                buffered_update.binary_value = Some(bytes_ref.into_owned());
+                            }
+                            None => {
+                                buffered_update.binary_value = None;
+                            }
+                        },
+                        None => {
+                            buffered_update.binary_value = None;
+                        }
+                    }
                 }
             } else {
                 buffered_update.binary_value = None;
@@ -535,24 +547,33 @@ impl<'a> BufferedUpdateIterator<'a> {
             let mut ahead_term;
             loop {
                 ahead_term = look_ahead_term_iterator.next()?;
-                last_term = self.term_values_iterator.next()?;
+                match self.term_values_iterator.next()? {
+                    Some(term) => {
+                        last_term = Some(term.into_owned());
+                    }
+                    None => {
+                        last_term = None;
+                    }
+                }
 
                 if let Some(ahead) = ahead_term {
-                    if let Some(last) = &last_term {
-                        // Shortcut to avoid equals, we did a stable sort before, so aheadTerm can only equal
-                        // lastTerm when aheadTerm has a lager ord.
-                        if look_ahead_term_iterator.ord() > self.term_values_iterator.ord()
-                            && ahead == *last
-                        {
-                            continue;
-                        }
+                    let ahead = ahead.into_owned();
+                    // Shortcut to avoid equals, we did a stable sort before, so aheadTerm can only equal
+                    // lastTerm when aheadTerm has a lager ord.
+                    if look_ahead_term_iterator.ord() > self.term_values_iterator.ord()
+                        && ahead == *last_term.as_mut().unwrap()
+                    {
+                        continue;
                     }
                 }
                 break;
             }
             Ok(last_term)
         } else {
-            self.term_values_iterator.next()
+            match self.term_values_iterator.next()? {
+                Some(term) => Ok(Some(term.into_owned())),
+                None => Ok(None),
+            }
         }
     }
 }
