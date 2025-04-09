@@ -56,11 +56,11 @@ where
     pub(crate) fn new<D>(
         dir: Arc<Mutex<D>>,
         name: String,
-        suffix: String,
-        extension: String,
-        codec_name: String,
-        id: Vec<u8>,
-        meta_in: &mut I,
+        suffix: &str,
+        extension: &str,
+        codec_name: &str,
+        id: &[u8],
+        meta_in: &mut impl IndexInput,
         context: &IOContext,
     ) -> Result<Self>
     where
@@ -82,7 +82,7 @@ where
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
             .open_input(
-                &IndexFileNames::segment_file_name(&name, &suffix, &extension),
+                &IndexFileNames::segment_file_name(&name, suffix, extension),
                 &context.with_read_advice(ReadAdvice::RandomPreload)?,
             )?;
 
@@ -91,8 +91,8 @@ where
             &format!("{}Idx", codec_name),
             FieldsIndexWriter::VERSION_START,
             FieldsIndexWriter::VERSION_CURRENT,
-            &id,
-            &suffix,
+            id,
+            suffix,
         )?;
         CodecUtil::retrieve_checksum(&mut index_input)?;
 

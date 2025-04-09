@@ -18,6 +18,8 @@ use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::{DataOutput, IndexOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
+use crate::util::packed::PackedInts;
+use once_cell::sync::Lazy;
 
 pub struct Lucene90CompressingStoredFieldsWriter<O>
 where
@@ -27,6 +29,25 @@ where
     fields_stream: O,
 }
 impl Lucene90CompressingStoredFieldsWriter<DummyIndexOutput> {
+    /// Extension of stored fields file
+    pub(crate) const FIELDS_EXTENSION: &'static str = "fdt";
+    /// Extension of stored fields index
+    pub(crate) const INDEX_EXTENSION: &'static str = "fdx";
+    /// Extension of stored fields meta
+    pub(crate) const META_EXTENSION: &'static str = "fdm";
+    /// Codec name for the index
+    pub(crate) const INDEX_CODEC_NAME: &'static str = "Lucene90FieldsIndex";
+    pub const STRING: i32 = 0x00;
+    pub const BYTE_ARR: i32 = 0x01;
+    pub const NUMERIC_INT: i32 = 0x02;
+    pub const NUMERIC_FLOAT: i32 = 0x03;
+    pub const NUMERIC_LONG: i32 = 0x04;
+    pub const NUMERIC_DOUBLE: i32 = 0x05;
+
+    pub const VERSION_START: i32 = 1;
+    pub const VERSION_CURRENT: i32 = Self::VERSION_START;
+    pub const META_VERSION_START: i32 = 0;
+
     // -0 isn't compressed.
     pub(crate) const NEGATIVE_ZERO_FLOAT: u32 = (-0f32).to_bits();
     pub(crate) const NEGATIVE_ZERO_DOUBLE: u64 = (-0f64).to_bits();
@@ -168,6 +189,11 @@ impl Lucene90CompressingStoredFieldsWriter<DummyIndexOutput> {
     }
 }
 impl<O> Lucene90CompressingStoredFieldsWriter<O> where O: IndexOutput {}
+pub(crate) static TYPE_BITS: Lazy<i32> = Lazy::new(|| {
+    PackedInts::bits_required(Lucene90CompressingStoredFieldsWriter::NUMERIC_DOUBLE as i64).unwrap()
+});
+
+pub(crate) static TYPE_MASK: Lazy<i64> = Lazy::new(|| PackedInts::max_value(*TYPE_BITS));
 
 #[cfg(test)]
 mod tests {
@@ -319,12 +345,7 @@ mod tests {
             let x = x as f64;
             Lucene90CompressingStoredFieldsWriter::write_zdouble(&mut output, x)?;
             let len = output.get_position();
-            assert!(
-                len <= 5,
-                "length={}, d={}",
-                len,
-                x
-            );
+            assert!(len <= 5, "length={}, d={}", len, x);
             let mut input =
                 ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
             let y = Lucene90CompressingStoredFieldsReader::read_zdouble(&mut input)?;
@@ -343,10 +364,15 @@ mod tests {
 
         // round-trip small integer values
         for i in i16::MIN..i16::MAX {
-            for &mul in &[Lucene90CompressingStoredFieldsWriter::SECOND, Lucene90CompressingStoredFieldsWriter::HOUR, Lucene90CompressingStoredFieldsWriter::DAY] {
+            for &mul in &[
+                Lucene90CompressingStoredFieldsWriter::SECOND,
+                Lucene90CompressingStoredFieldsWriter::HOUR,
+                Lucene90CompressingStoredFieldsWriter::DAY,
+            ] {
                 let l1 = i as i64 * mul;
                 Lucene90CompressingStoredFieldsWriter::write_tlong(&mut output, l1)?;
-                let mut input = ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                let mut input =
+                    ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
                 let l2 = Lucene90CompressingStoredFieldsReader::read_tlong(&mut input)?;
                 assert!(input.eof());
                 assert_eq!(l1, l2);
@@ -369,7 +395,7 @@ mod tests {
             } else {
                 ((1u64 << num_bits) - 1) as i64
             };
-            let mut l1 = rng.random::<i64>() & mask ;
+            let mut l1 = rng.random::<i64>() & mask;
             match rng.random_range(0..4) {
                 0 => l1 *= Lucene90CompressingStoredFieldsWriter::SECOND,
                 1 => l1 *= Lucene90CompressingStoredFieldsWriter::HOUR,
@@ -378,7 +404,8 @@ mod tests {
             }
 
             Lucene90CompressingStoredFieldsWriter::write_tlong(&mut output, l1)?;
-            let mut input = ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let mut input =
+                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
             let l2 = Lucene90CompressingStoredFieldsReader::read_tlong(&mut input)?;
             assert!(input.eof());
             assert_eq!(l1, l2);

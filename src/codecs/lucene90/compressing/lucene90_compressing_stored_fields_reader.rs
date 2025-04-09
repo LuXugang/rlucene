@@ -14,28 +14,62 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::Lucene90CompressingStoredFieldsWriter;
+use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::{
+    Lucene90CompressingStoredFieldsWriter, TYPE_MASK,
+};
 use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
-use crate::codecs::compression::compression_mode::DecompressorEnum;
+use crate::codecs::compression::compression_mode::{
+    CompressionModeBase, CompressionModeEnum, DecompressorEnum,
+};
 use crate::codecs::compression::decompressor::Decompressor;
-use crate::index::BytesRef;
+use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
+use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
+use crate::codecs::CodecUtil;
+use crate::index::field_infos::FieldInfos;
+use crate::index::segment_info::SegmentInfo;
+use crate::index::{BytesRef, IndexFileNames};
+use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
-use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
+use crate::store::{ByteArrayDataInput, DataInput, IOContext, IndexInput, ReadAdvice};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CommonUtil, SliceCopyOps};
-use byteorder::ReadBytesExt;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
+const PREFETCH_CACHE_SIZE: usize = 1 << 4;
+const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;
 pub struct Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
 {
+    version: i32,
+    field_infos: FieldInfos,
+    index_reader: FieldsIndexEnum<I>,
+    max_pointer: i64,
     fields_stream: Rc<RefCell<I>>,
+    chunk_size: i32,
+    compression_mode: CompressionModeEnum,
+    decompressor: DecompressorEnum,
+    num_docs: i32,
+    merging: bool,
+    state: BlockState<I>,
+    // number of written blocks
+    num_chunks: i64,
+    // number of incomplete compressed blocks written
+    num_dirty_chunks: i64,
+    // cumulative number of docs in incomplete chunks
+    num_dirty_docs: i64,
+    // Cache of recently prefetched block IDs. This helps reduce chances of prefetching the same block
+    // multiple times, which is otherwise likely due to index sorting or recursive graph bisection
+    // clustering similar documents together. NOTE: this cache must be small since it's fully scanned.
+    prefetched_block_id_cache: [i64; PREFETCH_CACHE_SIZE],
+    prefetched_block_id_cache_index: usize,
+    closed: bool,
 }
 impl Lucene90CompressingStoredFieldsReader<DummyIndexInput> {
     /// Reads a float in a variable-length format. Reads between one and five bytes.
@@ -51,7 +85,7 @@ impl Lucene90CompressingStoredFieldsReader<DummyIndexInput> {
             Ok(((b & 0x7F) - 1) as f32)
         } else {
             // positive float
-            let high = b  << 24;
+            let high = b << 24;
             let mid = (input.read_short()? as u16 as i32) << 8;
             let low = input.read_byte()? as i32;
             let bits = high | mid | low;
@@ -133,6 +167,300 @@ where
     const SECOND_ENCODING: u8 = 0x40;
     const HOUR_ENCODING: u8 = 0x80;
     const DAY_ENCODING: u8 = 0xC0;
+    pub fn open<D>(
+        directory: Arc<Mutex<D>>,
+        si: &SegmentInfo<D>,
+        segment_suffix: &str,
+        field_infos: FieldInfos,
+        context: &IOContext,
+        format_name: &str,
+        compression_mode: CompressionModeEnum,
+    ) -> Result<Self>
+    where
+        D: Directory<IndexInputType = I>,
+    {
+        let segment = &si.name;
+        let num_docs = si.max_doc()?;
+
+        let fields_stream_fn = IndexFileNames::segment_file_name(
+            segment,
+            segment_suffix,
+            Lucene90CompressingStoredFieldsWriter::FIELDS_EXTENSION,
+        );
+        let mut meta_in = None;
+        let result: Result<Self> = (|| {
+            let dir = directory
+                .lock()
+                .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
+            let mut fields_stream = dir.open_input(
+                &fields_stream_fn,
+                &context.with_read_advice(ReadAdvice::Random)?,
+            )?;
+
+            let version = CodecUtil::check_index_header(
+                &mut fields_stream,
+                format_name,
+                Lucene90CompressingStoredFieldsWriter::VERSION_START,
+                Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT,
+                &si.get_id(),
+                segment_suffix,
+            )?;
+
+            debug_assert_eq!(
+                CodecUtil::index_header_length(format_name, segment_suffix) as i64,
+                fields_stream.get_file_pointer()
+            );
+
+            let meta_stream_fm = IndexFileNames::segment_file_name(
+                segment,
+                segment_suffix,
+                Lucene90CompressingStoredFieldsWriter::META_EXTENSION,
+            );
+            let mut meta = dir.open_checksum_input(&meta_stream_fm)?;
+
+            CodecUtil::check_index_header(
+                &mut meta,
+                &format!(
+                    "{}Meta",
+                    Lucene90CompressingStoredFieldsWriter::INDEX_CODEC_NAME
+                ),
+                Lucene90CompressingStoredFieldsWriter::META_VERSION_START,
+                version,
+                &si.get_id(),
+                segment_suffix,
+            )?;
+
+            let chunk_size = meta.read_vint()?;
+
+            let decompressor = compression_mode.new_decompressor();
+            let prefetched_block_id_cache = [-1i64; PREFETCH_CACHE_SIZE];
+
+            let merging = false;
+            // NOTE: data file is too costly to verify checksum against all the bytes on open,
+            // but for now we at least verify proper structure of the checksum footer: which looks
+            // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
+            // such as file truncation.
+            CodecUtil::retrieve_checksum(&mut fields_stream)?;
+            let fields_stream = Rc::new(RefCell::new(fields_stream));
+            let state = BlockState::new(
+                merging,
+                Rc::clone(&fields_stream),
+                compression_mode.new_decompressor(),
+                chunk_size,
+            );
+            let fields_index_reader = FieldsIndexReader::new(
+                directory.clone(),
+                si.name.to_string(),
+                segment_suffix,
+                Lucene90CompressingStoredFieldsWriter::INDEX_EXTENSION,
+                Lucene90CompressingStoredFieldsWriter::INDEX_CODEC_NAME,
+                &si.get_id(),
+                &mut meta,
+                context,
+            )?;
+            let max_pointer = fields_index_reader.get_max_pointer();
+            let index_reader = FieldsIndexEnum::Lucene90(fields_index_reader);
+
+            let num_chunks = meta.read_vlong()?;
+            let num_dirty_chunks = meta.read_vlong()?;
+            let num_dirty_docs = meta.read_vlong()?;
+
+            if num_chunks < num_dirty_chunks {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Cannot have more dirty chunks than chunks: numChunks={}, numDirtyChunks={} (resource={})",
+                    num_chunks, num_dirty_chunks, meta
+                )));
+            }
+            if (num_dirty_chunks == 0) != (num_dirty_docs == 0) {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Cannot have dirty chunks without dirty docs or vice-versa: numDirtyChunks={}, numDirtyDocs={} (resource={})",
+                    num_dirty_chunks, num_dirty_docs, meta
+                )));
+            }
+            if num_dirty_docs < num_dirty_chunks {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Cannot have more dirty chunks than documents within dirty chunks: numDirtyChunks={}, numDirtyDocs={} (resource={})",
+                    num_dirty_chunks, num_dirty_docs, meta
+                )));
+            };
+            CodecUtil::check_footer(&mut meta)?;
+            meta_in = Some(meta);
+            Ok(Self {
+                version,
+                field_infos,
+                index_reader,
+                max_pointer,
+                fields_stream,
+                chunk_size,
+                compression_mode,
+                decompressor,
+                num_docs,
+                merging,
+                state,
+                num_chunks,
+                num_dirty_chunks,
+                num_dirty_docs,
+                prefetched_block_id_cache,
+                prefetched_block_id_cache_index: 0,
+                closed: false,
+            })
+        })();
+        match result {
+            Ok(reader) => Ok(reader),
+            Err(mut e) => {
+                if let Some(ref mut meta) = meta_in {
+                    CodecUtil::check_footer_with_error(meta, &mut e);
+                }
+                Err(e)
+            }
+        }
+    }
+
+    /// Ensures the reader is open.
+    ///
+    /// # Errors
+    ///
+    /// Returns `LuceneError::AlreadyClosed` if this `FieldsReader` is closed.
+    pub fn ensure_open(&self) -> Result<()> {
+        if self.closed {
+            Err(LuceneError::already_closed("this FieldsReader is closed"))
+        } else {
+            Ok(())
+        }
+    }
+    pub fn close(&mut self) {
+        if !self.closed {
+            self.closed = true;
+        }
+    }
+    fn skip_field(input: &mut impl DataInput, bits: i32) -> Result<()> {
+        match bits & *TYPE_MASK as i32 {
+            Lucene90CompressingStoredFieldsWriter::BYTE_ARR
+            | Lucene90CompressingStoredFieldsWriter::STRING => {
+                let length = input.read_vint()?;
+                input.skip_bytes(length as i64)?;
+            }
+            Lucene90CompressingStoredFieldsWriter::NUMERIC_INT => {
+                input.read_zint()?;
+            }
+            Lucene90CompressingStoredFieldsWriter::NUMERIC_FLOAT => {
+                Lucene90CompressingStoredFieldsReader::read_zfloat(input)?;
+            }
+            Lucene90CompressingStoredFieldsWriter::NUMERIC_LONG => {
+                Lucene90CompressingStoredFieldsReader::read_tlong(input)?;
+            }
+            Lucene90CompressingStoredFieldsWriter::NUMERIC_DOUBLE => {
+                Lucene90CompressingStoredFieldsReader::read_zdouble(input)?;
+            }
+            other => {
+                return Err(LuceneError::illegal_state(format!(
+                    "Unknown type flag: {:x}",
+                    other
+                )));
+            }
+        }
+        Ok(())
+    }
+    pub fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+        let block_id = self.index_reader.get_block_id(doc_id)?;
+        for &prefetched in &self.prefetched_block_id_cache {
+            if prefetched == block_id {
+                return Ok(());
+            }
+        }
+
+        let block_start_pointer = self.index_reader.get_block_start_pointer(block_id)?;
+        let block_length = self.index_reader.get_block_length(block_id)?;
+
+        self.fields_stream
+            .borrow_mut()
+            .prefetch(block_start_pointer, block_length)?;
+
+        self.prefetched_block_id_cache
+            [self.prefetched_block_id_cache_index & PREFETCH_CACHE_MASK] = block_id;
+        self.prefetched_block_id_cache_index += 1;
+
+        Ok(())
+    }
+    fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<I>> {
+        if !self.state.contains(doc_id) {
+            let pointer = self.index_reader.get_start_pointer(doc_id)?;
+            self.fields_stream.borrow_mut().seek(pointer)?;
+            self.state.reset(doc_id, self.num_docs)?;
+        }
+
+        debug_assert!(self.state.contains(doc_id));
+        self.state.document(doc_id)
+    }
+    /// Checks if a given docID was loaded in the current block state.
+    fn is_loaded(&self, doc_id: i32) -> Result<bool> {
+        if !self.merging {
+            return Err(LuceneError::illegal_state(
+                "is_loaded should only ever get called on a merge instance",
+            ));
+        }
+
+        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state(
+                "is_loaded should only ever get called when the reader is on the current version",
+            ));
+        }
+
+        Ok(self.state.contains(doc_id))
+    }
+    fn version(&self) -> i32 {
+        self.version
+    }
+    fn compression_mode(&self) -> &CompressionModeEnum {
+        &self.compression_mode
+    }
+    fn index_reader(&self) -> &FieldsIndexEnum<I> {
+        &self.index_reader
+    }
+    fn max_pointer(&self) -> i64 {
+        self.max_pointer
+    }
+    fn fields_stream(&self) -> Rc<RefCell<I>> {
+        Rc::clone(&self.fields_stream)
+    }
+    pub fn chunk_size(&self) -> i32 {
+        self.chunk_size
+    }
+
+    #[allow(unused)]
+    pub fn num_docs(&self) -> i32 {
+        self.num_docs
+    }
+
+    pub fn num_dirty_docs(&self) -> Result<i64> {
+        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state(
+                "getNumDirtyDocs should only ever get called when the reader is on the current version",
+            ));
+        }
+        debug_assert!(self.num_dirty_docs >= 0);
+        Ok(self.num_dirty_docs)
+    }
+
+    pub fn num_dirty_chunks(&self) -> Result<i64> {
+        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state(
+                "getNumDirtyChunks should only ever get called when the reader is on the current version",
+            ));
+        }
+        debug_assert!(self.num_dirty_chunks >= 0);
+        Ok(self.num_dirty_chunks)
+    }
+
+    pub fn num_chunks(&self) -> Result<i64> {
+        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state(
+                "getNumChunks should only ever get called when the reader is on the current version",
+            ));
+        }
+        debug_assert!(self.num_chunks >= 0);
+        Ok(self.num_chunks)
+    }
 }
 
 /// Keeps state about the current block of documents.

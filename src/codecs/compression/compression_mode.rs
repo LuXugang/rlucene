@@ -64,7 +64,7 @@ pub(crate) trait CompressionModeBase: Display {
 /// A compression mode that trades compression ratio for speed. Although the compression ratio
 /// might remain high, compression and decompression are very fast. Use this mode with indices that
 /// have a high update rate but should be able to load documents from disk quickly.
-pub(crate) struct LZ4FastCompressionMode;
+pub struct LZ4FastCompressionMode;
 
 impl Display for LZ4FastCompressionMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -85,7 +85,7 @@ impl CompressionModeBase for LZ4FastCompressionMode {
 /// decompression might be slow, this compression mode should provide a good compression ratio.
 /// This mode might be interesting if/when your index size is much bigger than your OS cache.
 #[allow(unused)]
-pub(crate) struct DeflateCompressionMode;
+pub struct DeflateCompressionMode;
 
 impl Display for DeflateCompressionMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -106,7 +106,7 @@ impl CompressionModeBase for DeflateCompressionMode {
 /// This compression mode is similar to `FAST` but it spends more time compressing in order
 /// to improve the compression ratio. This compression mode is best used with indices that have a
 /// low update rate but should be able to load documents from disk quickly.
-pub(crate) struct LZ4HighCompressionMode;
+pub struct LZ4HighCompressionMode;
 
 impl Display for LZ4HighCompressionMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -125,7 +125,7 @@ impl CompressionModeBase for LZ4HighCompressionMode {
 }
 
 #[allow(unused)]
-pub(crate) enum CompressionModeEnum {
+pub enum CompressionModeEnum {
     Fast(LZ4FastCompressionMode),
     High(LZ4HighCompressionMode),
     Deflate(DeflateCompressionMode),
