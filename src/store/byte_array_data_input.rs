@@ -44,18 +44,19 @@ impl ByteArrayDataInput {
         Self::with_range(bytes, 0, len as i32)
     }
     pub fn with_range(bytes: Vec<u8>, offset: i32, length: i32) -> Self {
-        let mut data_input = Self::new();
-        data_input.reset_with_range(bytes, offset, length);
-        data_input
+        Self {
+            bytes,
+            pos: offset,
+            limit: offset + length,
+        }
     }
 
-    pub fn reset(&mut self, bytes: Vec<u8>) {
-        let len = bytes.len();
+    pub fn reset(&mut self) {
+        let len = self.bytes.len();
         debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
-        self.reset_with_range(bytes, 0, len as i32);
+        self.reset_with_range(0, len as i32);
     }
-    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: i32, length: i32) {
-        self.bytes = bytes;
+    pub fn reset_with_range(&mut self, offset: i32, length: i32) {
         self.pos = offset;
         self.limit = offset + length;
     }
