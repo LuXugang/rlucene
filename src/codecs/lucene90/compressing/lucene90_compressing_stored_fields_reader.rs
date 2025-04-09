@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::Lucene90CompressingStoredFieldsWriter;
 use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
 use crate::codecs::compression::compression_mode::DecompressorEnum;
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::index::BytesRef;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
+use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CommonUtil, SliceCopyOps};
 use std::cell::RefCell;
@@ -27,7 +29,107 @@ use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
-pub struct Lucene90CompressingStoredFieldsReader;
+pub struct Lucene90CompressingStoredFieldsReader<I>
+where
+    I: IndexInput,
+{
+    fields_stream: Rc<RefCell<I>>,
+}
+impl<I> Lucene90CompressingStoredFieldsReader<I>
+where
+    I: IndexInput,
+{
+    // -0 isn't compressed.
+    const NEGATIVE_ZERO_FLOAT: u32 = (-0f32).to_bits();
+    const NEGATIVE_ZERO_DOUBLE: u64 = (-0f64).to_bits();
+
+    // for compression of timestamps
+    const SECOND: i64 = 1_000;
+    const HOUR: i64 = 60 * 60 * Self::SECOND;
+    const DAY: i64 = 24 * Self::HOUR;
+
+    const SECOND_ENCODING: u8 = 0x40;
+    const HOUR_ENCODING: u8 = 0x80;
+    const DAY_ENCODING: u8 = 0xC0;
+
+    /// Reads a float in a variable-length format. Reads between one and five bytes.
+    /// Small integral values typically take fewer bytes.
+    pub fn read_zfloat(input: &mut I) -> Result<f32> {
+        let b = input.read_byte()? as i8 as i32;
+        if b == 0xFF {
+            // negative value
+            let bits = input.read_int()? as u32;
+            Ok(f32::from_bits(bits))
+        } else if (b & 0x80) != 0 {
+            // small integer [-1..125]
+            Ok(((b & 0x7F) - 1) as f32)
+        } else {
+            // positive float
+            let high = (b as u32) << 24;
+            let mid = (input.read_short()? as u16 as u32) << 8;
+            let low = input.read_byte()? as u32;
+            let bits = high | mid | low;
+            Ok(f32::from_bits(bits))
+        }
+    }
+    /// Reads a double in a variable-length format. Reads between one and nine bytes.
+    /// Small integral values typically take fewer bytes.
+    pub fn read_zdouble(input: &mut I) -> Result<f64> {
+        let b = input.read_byte()? as i8 as i32;
+        if b == 0xFF {
+            // negative value (full i64 bits)
+            let bits = input.read_long()? as u64;
+            Ok(f64::from_bits(bits))
+        } else if b == 0xFE {
+            // float encoded as f32
+            let bits = input.read_int()? as u32;
+            Ok(f32::from_bits(bits) as f64)
+        } else if (b & 0x80) != 0 {
+            // small integer [-1..124]
+            Ok(((b & 0x7F) - 1) as f64)
+        } else {
+            // positive double
+            let high = (b as u64) << 56;
+            let mid1 = (input.read_int()? as u32 as u64) << 24;
+            let mid2 = (input.read_short()? as u16 as u64) << 8;
+            let low = input.read_byte()? as u64;
+            let bits = high | mid1 | mid2 | low;
+            Ok(f64::from_bits(bits))
+        }
+    }
+    /// Reads a long in a variable-length format. Reads between one and nine bytes.
+    /// Small values typically take fewer bytes.
+    pub fn read_tlong(input: &mut I) -> Result<i64> {
+        let header = input.read_byte()? as i8 as i32;
+
+        let mut bits = (header & 0x1F) as i64;
+        if (header & 0x20) != 0 {
+            // continuation bit is set
+            bits |= input.read_vlong()? << 5;
+        }
+
+        let mut l = BitUtil::zig_zag_decode_i64(bits as u64);
+
+        match header & Lucene90CompressingStoredFieldsWriter::DAY_ENCODING {
+            Lucene90CompressingStoredFieldsWriter::SECOND_ENCODING => {
+                l *= Lucene90CompressingStoredFieldsWriter::SECOND
+            }
+            Lucene90CompressingStoredFieldsWriter::HOUR_ENCODING => {
+                l *= Lucene90CompressingStoredFieldsWriter::HOUR
+            }
+            Lucene90CompressingStoredFieldsWriter::DAY_ENCODING => {
+                l *= Lucene90CompressingStoredFieldsWriter::DAY
+            }
+            0 => {}
+            _ => {
+                debug_assert!(false, "should not be here");
+                return Err(LuceneError::unreachable("invalid tlong encoding"));
+            }
+        }
+
+        Ok(l)
+    }
+}
 
 /// Keeps state about the current block of documents.
 struct BlockState<I>
