@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
+use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 #[allow(unused)]
 pub(crate) trait FieldsIndex {
@@ -35,4 +37,45 @@ pub(crate) trait FieldsIndex {
 
     /// Check the integrity of the index.
     fn check_integrity(&mut self) -> Result<()>;
+}
+
+pub(crate) enum FieldsIndexEnum<I>
+where
+    I: IndexInput,
+{
+    Lucene90(FieldsIndexReader<I>),
+}
+impl<I> FieldsIndex for FieldsIndexEnum<I>
+where
+    I: IndexInput,
+{
+    fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
+        match self {
+            FieldsIndexEnum::Lucene90(reader) => reader.get_block_id(doc_id),
+        }
+    }
+
+    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64> {
+        match self {
+            FieldsIndexEnum::Lucene90(reader) => reader.get_block_start_pointer(block_id),
+        }
+    }
+
+    fn get_block_length(&mut self, block_id: i64) -> Result<i64> {
+        match self {
+            FieldsIndexEnum::Lucene90(reader) => reader.get_block_length(block_id),
+        }
+    }
+
+    fn get_start_pointer(&mut self, doc_id: i32) -> Result<i64> {
+        match self {
+            FieldsIndexEnum::Lucene90(reader) => reader.get_start_pointer(doc_id),
+        }
+    }
+
+    fn check_integrity(&mut self) -> Result<()> {
+        match self {
+            FieldsIndexEnum::Lucene90(reader) => reader.check_integrity(),
+        }
+    }
 }
