@@ -16,7 +16,6 @@
  */
 use crate::codecs::doc_values_enum::doc_values::SortedDocValuesEnum;
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
-use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::ord_term_state::OrdTermState;
 use crate::index::postings_enum::PostingsEnum;
@@ -86,15 +85,6 @@ where
             Ok(false)
         }
     }
-
-    fn prepare_seek_exact(
-        &mut self,
-        _term: &BytesRef,
-    ) -> Result<Option<Self::IOBooleanSupplierType>> {
-        Err(LuceneError::not_implemented(""))
-    }
-
-    type IOBooleanSupplierType = DummyIOBooleanSupplier;
 
     fn seek_ceil(&mut self, text: &BytesRef) -> Result<SeekStatus> {
         let ord = self.values.lookup_term(text)?;

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
-use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
@@ -25,7 +24,6 @@ use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::io_boolean_supplier::{IOBooleanSupplier, IOBooleanSupplierEnum};
 use std::marker::PhantomData;
 
 /// Iterator to seek [`seek_ceil(BytesRef)`](TermsEnum::seek_ceil), [`seek_exact(BytesRef)`](TermsEnum::seek_exact)
@@ -61,11 +59,12 @@ pub trait TermsEnum: BytesRefIterator {
     /// term may not exist without performing any I/O.
     ///
     /// **NOTE**: The returned [`IOBooleanSupplier`] must be
-    fn prepare_seek_exact(
-        &mut self,
-        term: &BytesRef,
-    ) -> Result<Option<Self::IOBooleanSupplierType>>;
-    type IOBooleanSupplierType: IOBooleanSupplier;
+    fn prepare_seek_exact<'a>(
+        &'a mut self,
+        text: BytesRef,
+    ) -> Result<impl FnMut() -> Result<bool> + 'a> {
+        Ok(move || self.seek_exact(&text))
+    }
 
     /// Seeks to the specified term, if it exists, or to the next (ceiling) term.
     /// Returns `SeekStatus` to indicate whether the exact term was found,
@@ -189,15 +188,6 @@ where
     fn attributes(&self) -> Result<&AttributeSource> {
         todo!()
     }
-
-    fn prepare_seek_exact(
-        &mut self,
-        _term: &BytesRef,
-    ) -> Result<Option<Self::IOBooleanSupplierType>> {
-        Ok(Some(IOBooleanSupplierEnum::Dummy(DummyIOBooleanSupplier)))
-    }
-
-    type IOBooleanSupplierType = IOBooleanSupplierEnum<I>;
 
     fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
         Ok(SeekStatus::End)

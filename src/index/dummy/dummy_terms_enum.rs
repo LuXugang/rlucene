@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
-use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::TermStateEnum;
@@ -54,17 +53,6 @@ impl TermsEnum for DummyTermsEnum {
         debug_assert!(false, "should never be called");
         Ok(&self.atts)
     }
-
-    fn prepare_seek_exact(
-        &mut self,
-        _term: &BytesRef,
-    ) -> Result<Option<Self::IOBooleanSupplierType>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
-    }
-
-    type IOBooleanSupplierType = DummyIOBooleanSupplier;
 
     fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
         Err(LuceneError::illegal_state(

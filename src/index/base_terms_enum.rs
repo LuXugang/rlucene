@@ -24,7 +24,7 @@ use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::io_boolean_supplier::{IOBooleanSupplier, IOBooleanSupplierEnum};
+use crate::util::io_boolean_supplier::IOBooleanSupplier;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
@@ -74,35 +74,6 @@ where
         // TODO: 参考BaseTermsEnum中prepare_seek_exact方法 来选择使用父或子的实现
         Ok(&self.atts)
     }
-
-    fn prepare_seek_exact(
-        &mut self,
-        term: &BytesRef,
-    ) -> Result<Option<Self::IOBooleanSupplierType>> {
-        let sub = self.sub_terms_enum.borrow_mut().prepare_seek_exact(term);
-        match sub {
-            Ok(s) => Ok(s),
-            Err(e) => match e {
-                // sub_terms_enum's invalid error,
-                // it means sub_terms_enum uses the return value of BaseTermsEnum's prepare_seek_exact
-                LuceneError::NotImplemented(_) => {
-                    let supplier = IOBooleanSupplierImpl {
-                        text: term.clone(),
-                        sub_terms_enum: self.sub_terms_enum.clone(),
-                    };
-                    if self.seek_exact(&supplier.text)? {
-                        Ok(Some(IOBooleanSupplierEnum::Impl1(supplier)))
-                    } else {
-                        Ok(None)
-                    }
-                }
-                // sub_terms_enum's valid error
-                _ => Err(e),
-            },
-        }
-    }
-
-    type IOBooleanSupplierType = IOBooleanSupplierEnum<I>;
 
     fn seek_ceil(&mut self, term: &BytesRef) -> Result<SeekStatus> {
         self.sub_terms_enum.borrow_mut().seek_ceil(term)

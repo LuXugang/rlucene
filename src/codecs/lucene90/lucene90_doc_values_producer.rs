@@ -35,7 +35,6 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_skipper::DocValuesSkipper;
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
-use crate::index::dummy::dummy_io_boolean_supplier::DummyIOBooleanSupplier;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::field_info::FieldInfo;
@@ -2994,15 +2993,6 @@ where
     fn attributes(&self) -> Result<&AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }
-
-    fn prepare_seek_exact(
-        &mut self,
-        _term: &BytesRef,
-    ) -> Result<Option<Self::IOBooleanSupplierType>> {
-        Err(LuceneError::not_implemented(""))
-    }
-
-    type IOBooleanSupplierType = DummyIOBooleanSupplier;
 
     fn seek_ceil(&mut self, text: &BytesRef) -> Result<SeekStatus> {
         let block = self.seek_block(text)?;

@@ -26,7 +26,6 @@ use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
-use crate::util::io_boolean_supplier::IOBooleanSupplierEnum;
 
 pub enum TermsEnums<I>
 where
@@ -62,15 +61,6 @@ where
     fn seek_exact(&mut self, term: &BytesRef) -> Result<bool> {
         todo!()
     }
-
-    fn prepare_seek_exact(
-        &mut self,
-        term: &BytesRef,
-    ) -> Result<Option<Self::IOBooleanSupplierType>> {
-        todo!()
-    }
-
-    type IOBooleanSupplierType = IOBooleanSupplierEnum<I>;
 
     fn seek_ceil(&mut self, term: &BytesRef) -> Result<SeekStatus> {
         todo!()
