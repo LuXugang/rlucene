@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
-use crate::store::IndexOutput;
+use crate::store::{DataOutput, IndexOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 
@@ -39,11 +39,7 @@ impl Lucene90CompressingStoredFieldsWriter<DummyIndexOutput> {
     pub(crate) const SECOND_ENCODING: i32 = 0x40;
     pub(crate) const HOUR_ENCODING: i32 = 0x80;
     pub(crate) const DAY_ENCODING: i32 = 0xC0;
-}
-impl<O> Lucene90CompressingStoredFieldsWriter<O>
-where
-    O: IndexOutput,
-{
+
     /// Writes a float in a variable-length format. Writes between one and five bytes.
     /// Small integral values typically take fewer bytes.
     ///
@@ -55,7 +51,7 @@ where
     ///   Otherwise, the value is a positive float value whose first byte is the header, and 3
     ///   bytes need to be read to complete it.
     /// - Bytes --> Potential additional bytes to read depending on the header.
-    pub(crate) fn write_zfloat(out: &mut O, f: f32) -> Result<()> {
+    pub(crate) fn write_zfloat(out: &mut impl DataOutput, f: f32) -> Result<()> {
         let int_val = f as i32;
         let float_bits = f.to_bits();
 
@@ -89,7 +85,7 @@ where
     ///   value is a positive float value whose first byte is the header, and 7 bytes need to be
     ///   read to complete it.
     /// - Bytes --> Potential additional bytes to read depending on the header.
-    pub(crate) fn write_zdouble(out: &mut O, d: f64) -> Result<()> {
+    pub(crate) fn write_zdouble(out: &mut impl DataOutput, d: f64) -> Result<()> {
         let int_val = d as i32;
         let double_bits = d.to_bits(); // u64
 
@@ -136,23 +132,23 @@ where
     ///
     /// - Bytes --> Potential additional bytes to read depending on the header.
     // T for "timestamp"
-    pub(crate) fn write_tlong(out: &mut O, mut l: i64) -> Result<()> {
+    pub(crate) fn write_tlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {
         let mut header;
 
-        if l % Lucene90CompressingStoredFieldsWriter::SECOND != 0 {
+        if l % Self::SECOND != 0 {
             header = 0;
-        } else if l % Lucene90CompressingStoredFieldsWriter::DAY == 0 {
+        } else if l % Self::DAY == 0 {
             // timestamp with day precision
-            header = Lucene90CompressingStoredFieldsWriter::DAY_ENCODING;
-            l /= Lucene90CompressingStoredFieldsWriter::DAY;
-        } else if l % Lucene90CompressingStoredFieldsWriter::HOUR == 0 {
+            header = Self::DAY_ENCODING;
+            l /= Self::DAY;
+        } else if l % Self::HOUR == 0 {
             // timestamp with hour precision, or day precision with a timezone
-            header = Lucene90CompressingStoredFieldsWriter::HOUR_ENCODING;
-            l /= Lucene90CompressingStoredFieldsWriter::HOUR;
+            header = Self::HOUR_ENCODING;
+            l /= Self::HOUR;
         } else {
             // timestamp with second precision
-            header = Lucene90CompressingStoredFieldsWriter::SECOND_ENCODING;
-            l /= Lucene90CompressingStoredFieldsWriter::SECOND;
+            header = Self::SECOND_ENCODING;
+            l /= Self::SECOND;
         }
 
         let zigzag_l = BitUtil::zig_zag_encode_i64(l);
@@ -168,6 +164,227 @@ where
         if upper_bits != 0 {
             out.write_vlong(upper_bits)?;
         }
+        Ok(())
+    }
+}
+impl<O> Lucene90CompressingStoredFieldsWriter<O> where O: IndexOutput {}
+
+#[cfg(test)]
+mod tests {
+    use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
+    use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::Lucene90CompressingStoredFieldsWriter;
+    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
+    use crate::test::util::lucene_test_case::random;
+    use crate::util::error::lucene_error::Result;
+    use rand::Rng;
+
+    struct TestCompressingStoredFieldsFormat;
+    #[test]
+    fn test_zfloat() -> Result<()> {
+        let buffer_out = vec![0u8; 5]; // we never need more than 5 bytes
+        let mut output = ByteArrayDataOutput::with_bytes(buffer_out);
+
+        // round-trip small integer values
+        for i in i16::MIN..i16::MAX {
+            let f = i as f32;
+            Lucene90CompressingStoredFieldsWriter::write_zfloat(&mut output, f)?;
+            let mut input =
+                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let g = Lucene90CompressingStoredFieldsReader::read_zfloat(&mut input)?;
+
+            assert!(input.eof());
+            assert_eq!(f.to_bits(), g.to_bits());
+            // check that compression actually works
+            if (-1..=123).contains(&i) {
+                assert_eq!(output.get_position(), 1);
+            }
+            output.reset()?;
+        }
+
+        // round-trip special values
+        let special = [
+            -0.0f32,
+            0.0f32,
+            f32::NEG_INFINITY,
+            f32::INFINITY,
+            f32::MIN,
+            f32::MAX,
+            f32::NAN,
+        ];
+
+        for &f in &special {
+            Lucene90CompressingStoredFieldsWriter::write_zfloat(&mut output, f)?;
+            let mut input =
+                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let g = Lucene90CompressingStoredFieldsReader::read_zfloat(&mut input)?;
+            assert!(input.eof());
+            assert_eq!(f.to_bits(), g.to_bits());
+            output.reset()?;
+        }
+
+        // round-trip random values
+        let mut rng = random();
+        for _ in 0..100_000 {
+            let f: f32 = rng.random::<f32>() * (rng.random_range(0..100) as f32 - 50.0);
+            Lucene90CompressingStoredFieldsWriter::write_zfloat(&mut output, f)?;
+
+            let len = output.get_position();
+            assert!(
+                len <= if (f.to_bits() >> 31) == 1 { 5 } else { 4 },
+                "length={}, f={}",
+                len,
+                f
+            );
+
+            let mut input =
+                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let g = Lucene90CompressingStoredFieldsReader::read_zfloat(&mut input)?;
+            assert!(input.eof());
+            assert_eq!(f.to_bits(), g.to_bits());
+
+            output.reset()?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_zdouble() -> Result<()> {
+        let buffer_out = vec![0u8; 9]; // we never need more than 9 bytes
+        let mut output = ByteArrayDataOutput::with_bytes(buffer_out);
+
+        // round-trip small integer values
+        for i in i16::MIN..i16::MAX {
+            let x = i as f64;
+            Lucene90CompressingStoredFieldsWriter::write_zdouble(&mut output, x)?;
+            let mut input =
+                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let y = Lucene90CompressingStoredFieldsReader::read_zdouble(&mut input)?;
+            assert!(input.eof());
+            assert_eq!(x.to_bits(), y.to_bits());
+
+            // check that compression actually works
+            if (-1..=124).contains(&i) {
+                assert_eq!(output.get_position(), 1); // single byte compression
+            }
+
+            output.reset()?;
+        }
+
+        // round-trip special values
+        let special = [
+            -0.0f64,
+            0.0f64,
+            f64::NEG_INFINITY,
+            f64::INFINITY,
+            f64::MIN,
+            f64::MAX,
+            f64::NAN,
+        ];
+
+        for &x in &special {
+            Lucene90CompressingStoredFieldsWriter::write_zdouble(&mut output, x)?;
+            let mut input =
+                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let y = Lucene90CompressingStoredFieldsReader::read_zdouble(&mut input)?;
+            assert!(input.eof());
+            assert_eq!(x.to_bits(), y.to_bits());
+            output.reset()?;
+        }
+
+        // round-trip random double values
+        let mut random = random();
+        for _ in 0..100_000 {
+            let x = random.random::<f64>() * (random.random_range(0..100) as f64 - 50.0);
+            Lucene90CompressingStoredFieldsWriter::write_zdouble(&mut output, x)?;
+            let len = output.get_position();
+            assert!(
+                len <= if x < 0.0 { 9 } else { 8 },
+                "length={}, d={}",
+                len,
+                x
+            );
+
+            let mut input =
+                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let y = Lucene90CompressingStoredFieldsReader::read_zdouble(&mut input)?;
+            assert!(input.eof());
+            assert_eq!(x.to_bits(), y.to_bits());
+
+            output.reset()?;
+        }
+
+        // round-trip float values cast to double
+        for _ in 0..100_000 {
+            let x = random.random::<f32>() * (random.random_range(0..100) as f32 - 50.0);
+            let x = x as f64;
+            Lucene90CompressingStoredFieldsWriter::write_zdouble(&mut output, x)?;
+            let len = output.get_position();
+            assert!(
+                len <= 5,
+                "length={}, d={}",
+                len,
+                x
+            );
+            let mut input =
+                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let y = Lucene90CompressingStoredFieldsReader::read_zdouble(&mut input)?;
+            assert!(input.eof());
+            assert_eq!(x.to_bits(), y.to_bits());
+
+            output.reset()?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_tlong() -> Result<()> {
+        let buffer_out = vec![0u8; 10]; // we never need more than 10 bytes
+        let mut output = ByteArrayDataOutput::with_bytes(buffer_out);
+
+        // round-trip small integer values
+        for i in i16::MIN..i16::MAX {
+            for &mul in &[Lucene90CompressingStoredFieldsWriter::SECOND, Lucene90CompressingStoredFieldsWriter::HOUR, Lucene90CompressingStoredFieldsWriter::DAY] {
+                let l1 = i as i64 * mul;
+                Lucene90CompressingStoredFieldsWriter::write_tlong(&mut output, l1)?;
+                let mut input = ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                let l2 = Lucene90CompressingStoredFieldsReader::read_tlong(&mut input)?;
+                assert!(input.eof());
+                assert_eq!(l1, l2);
+
+                // check that compression actually works
+                if (-16..=15).contains(&i) {
+                    assert_eq!(output.get_position(), 1); // single byte compression
+                }
+
+                output.reset()?;
+            }
+        }
+
+        // round-trip random values
+        let mut rng = random();
+        for _ in 0..100_000 {
+            let num_bits = rng.random_range(0..=64);
+            let mask = if num_bits == 64 {
+                i64::MAX
+            } else {
+                ((1u64 << num_bits) - 1) as i64
+            };
+            let mut l1 = rng.random::<i64>() & mask ;
+            match rng.random_range(0..4) {
+                0 => l1 *= Lucene90CompressingStoredFieldsWriter::SECOND,
+                1 => l1 *= Lucene90CompressingStoredFieldsWriter::HOUR,
+                2 => l1 *= Lucene90CompressingStoredFieldsWriter::DAY,
+                _ => {} // uncompressed
+            }
+
+            Lucene90CompressingStoredFieldsWriter::write_tlong(&mut output, l1)?;
+            let mut input = ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+            let l2 = Lucene90CompressingStoredFieldsReader::read_tlong(&mut input)?;
+            assert!(input.eof());
+            assert_eq!(l1, l2);
+            output.reset()?;
+        }
+
         Ok(())
     }
 }

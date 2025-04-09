@@ -19,11 +19,13 @@ use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
 use crate::codecs::compression::compression_mode::DecompressorEnum;
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::index::BytesRef;
+use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CommonUtil, SliceCopyOps};
+use byteorder::ReadBytesExt;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
@@ -35,27 +37,11 @@ where
 {
     fields_stream: Rc<RefCell<I>>,
 }
-impl<I> Lucene90CompressingStoredFieldsReader<I>
-where
-    I: IndexInput,
-{
-    // -0 isn't compressed.
-    const NEGATIVE_ZERO_FLOAT: u32 = (-0f32).to_bits();
-    const NEGATIVE_ZERO_DOUBLE: u64 = (-0f64).to_bits();
-
-    // for compression of timestamps
-    const SECOND: i64 = 1_000;
-    const HOUR: i64 = 60 * 60 * Self::SECOND;
-    const DAY: i64 = 24 * Self::HOUR;
-
-    const SECOND_ENCODING: u8 = 0x40;
-    const HOUR_ENCODING: u8 = 0x80;
-    const DAY_ENCODING: u8 = 0xC0;
-
+impl Lucene90CompressingStoredFieldsReader<DummyIndexInput> {
     /// Reads a float in a variable-length format. Reads between one and five bytes.
     /// Small integral values typically take fewer bytes.
-    pub fn read_zfloat(input: &mut I) -> Result<f32> {
-        let b = input.read_byte()? as i8 as i32;
+    pub fn read_zfloat(input: &mut impl DataInput) -> Result<f32> {
+        let b = input.read_byte()? as i32;
         if b == 0xFF {
             // negative value
             let bits = input.read_int()? as u32;
@@ -65,17 +51,17 @@ where
             Ok(((b & 0x7F) - 1) as f32)
         } else {
             // positive float
-            let high = (b as u32) << 24;
-            let mid = (input.read_short()? as u16 as u32) << 8;
-            let low = input.read_byte()? as u32;
+            let high = b  << 24;
+            let mid = (input.read_short()? as u16 as i32) << 8;
+            let low = input.read_byte()? as i32;
             let bits = high | mid | low;
-            Ok(f32::from_bits(bits))
+            Ok(f32::from_bits(bits as u32))
         }
     }
     /// Reads a double in a variable-length format. Reads between one and nine bytes.
     /// Small integral values typically take fewer bytes.
-    pub fn read_zdouble(input: &mut I) -> Result<f64> {
-        let b = input.read_byte()? as i8 as i32;
+    pub fn read_zdouble(input: &mut impl DataInput) -> Result<f64> {
+        let b = input.read_byte()? as i32;
         if b == 0xFF {
             // negative value (full i64 bits)
             let bits = input.read_long()? as u64;
@@ -99,8 +85,8 @@ where
     }
     /// Reads a long in a variable-length format. Reads between one and nine bytes.
     /// Small values typically take fewer bytes.
-    pub fn read_tlong(input: &mut I) -> Result<i64> {
-        let header = input.read_byte()? as i8 as i32;
+    pub fn read_tlong(input: &mut impl DataInput) -> Result<i64> {
+        let header = input.read_byte()? as i32;
 
         let mut bits = (header & 0x1F) as i64;
         if (header & 0x20) != 0 {
@@ -129,6 +115,24 @@ where
 
         Ok(l)
     }
+}
+
+impl<I> Lucene90CompressingStoredFieldsReader<I>
+where
+    I: IndexInput,
+{
+    // -0 isn't compressed.
+    const NEGATIVE_ZERO_FLOAT: u32 = (-0f32).to_bits();
+    const NEGATIVE_ZERO_DOUBLE: u64 = (-0f64).to_bits();
+
+    // for compression of timestamps
+    const SECOND: i64 = 1_000;
+    const HOUR: i64 = 60 * 60 * Self::SECOND;
+    const DAY: i64 = 24 * Self::HOUR;
+
+    const SECOND_ENCODING: u8 = 0x40;
+    const HOUR_ENCODING: u8 = 0x80;
+    const DAY_ENCODING: u8 = 0xC0;
 }
 
 /// Keeps state about the current block of documents.
