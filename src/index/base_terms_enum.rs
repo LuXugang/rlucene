@@ -24,10 +24,7 @@ use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::io_boolean_supplier::IOBooleanSupplier;
-use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
-use std::rc::Rc;
 
 /// A base `TermsEnum` that provides default implementations for:
 ///
@@ -43,13 +40,13 @@ where
     I: IndexInput,
 {
     atts: AttributeSource,
-    sub_terms_enum: Rc<RefCell<TermsEnums<I>>>,
+    sub_terms_enum: TermsEnums<I>,
 }
 impl<I> BaseTermsEnum<I>
 where
     I: IndexInput,
 {
-    pub fn new(sub_terms_enum: Rc<RefCell<TermsEnums<I>>>) -> Self {
+    pub fn new(sub_terms_enum: TermsEnums<I>) -> Self {
         Self {
             atts: AttributeSource::new(),
             sub_terms_enum,
@@ -62,7 +59,7 @@ where
     I: IndexInput,
 {
     fn next(&mut self) -> Result<Option<BytesRef>> {
-        self.sub_terms_enum.borrow_mut().next()
+        self.sub_terms_enum.next()
     }
 }
 
@@ -76,11 +73,11 @@ where
     }
 
     fn seek_ceil(&mut self, term: &BytesRef) -> Result<SeekStatus> {
-        self.sub_terms_enum.borrow_mut().seek_ceil(term)
+        self.sub_terms_enum.seek_ceil(term)
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        self.sub_terms_enum.borrow_mut().seek_exact_with_ord(ord)
+        self.sub_terms_enum.seek_exact_with_ord(ord)
     }
 
     fn seek_exact_with_state(&mut self, term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
@@ -94,19 +91,19 @@ where
     }
 
     fn term(&self) -> Result<BytesRef> {
-        self.sub_terms_enum.borrow_mut().term()
+        self.sub_terms_enum.term()
     }
 
     fn ord(&self) -> Result<i64> {
-        self.sub_terms_enum.borrow_mut().ord()
+        self.sub_terms_enum.ord()
     }
 
     fn doc_freq(&self) -> Result<i32> {
-        self.sub_terms_enum.borrow_mut().doc_freq()
+        self.sub_terms_enum.doc_freq()
     }
 
     fn total_term_freq(&self) -> Result<i64> {
-        self.sub_terms_enum.borrow_mut().total_term_freq()
+        self.sub_terms_enum.total_term_freq()
     }
 
     fn postings_with_flags(
@@ -114,21 +111,19 @@ where
         reuse: &Option<impl PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnumType> {
-        self.sub_terms_enum
-            .borrow_mut()
-            .postings_with_flags(reuse, flags)
+        self.sub_terms_enum.postings_with_flags(reuse, flags)
     }
 
     type PostingsEnumType = PostingsEnums;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType> {
-        self.sub_terms_enum.borrow_mut().impacts(flags)
+        self.sub_terms_enum.impacts(flags)
     }
 
     type ImpactsEnumType = ImpactsEnumEnum;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
-        let sub = self.sub_terms_enum.borrow_mut().term_state();
+        let sub = self.sub_terms_enum.term_state();
         match sub {
             Ok(s) => Ok(s),
             Err(e) => match e {
@@ -153,20 +148,5 @@ impl Display for TermStateImpl1 {
 impl TermState for TermStateImpl1 {
     fn copy_from(&mut self, _other: &TermStateEnum) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
-    }
-}
-pub struct IOBooleanSupplierImpl<I>
-where
-    I: IndexInput,
-{
-    pub(crate) text: BytesRef,
-    sub_terms_enum: Rc<RefCell<TermsEnums<I>>>,
-}
-impl<I> IOBooleanSupplier for IOBooleanSupplierImpl<I>
-where
-    I: IndexInput,
-{
-    fn get(&mut self) -> Result<bool> {
-        self.sub_terms_enum.borrow_mut().seek_exact(&self.text)
     }
 }

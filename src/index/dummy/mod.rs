@@ -18,7 +18,6 @@ pub(crate) mod dummy_doc_map;
 pub mod dummy_impacts;
 pub mod dummy_impacts_enum;
 pub mod dummy_indexable_field_type;
-pub mod dummy_io_boolean_supplier;
 pub mod dummy_point_tree;
 pub mod dummy_point_value_base;
 pub mod dummy_postings_enum;
