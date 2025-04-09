@@ -1415,8 +1415,8 @@ impl<I> BinaryDocValues for DenseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self) -> Result<Option<&BytesRef>> {
-        Ok(Some(self.sub.binary_value(self.doc)?))
+    fn binary_value(&mut self) -> Result<&BytesRef> {
+        self.sub.binary_value(self.doc)
     }
 }
 
@@ -1470,8 +1470,8 @@ impl<I> BinaryDocValues for SparseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self) -> Result<Option<&BytesRef>> {
-        Ok(Some(self.sub.binary_value(&mut self.disi)?))
+    fn binary_value(&mut self) -> Result<&BytesRef> {
+        self.sub.binary_value(&mut self.disi)
     }
 }
 

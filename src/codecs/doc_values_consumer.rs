@@ -415,20 +415,14 @@ impl<I> BinaryDocValues for BinaryDocValuesMerge<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self) -> Result<Option<&BytesRef>> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         match self.current {
             Some(ref current) => {
                 let mut current = current.borrow_mut();
-
-                match current.sub.values.binary_value()? {
-                    Some(bytes) => {
-                        // TODO:Since we need to return a reference, but cannot return a temporary value created by borrowing,
-                        // we are forced to make a copy.Is there any way to avoid the copy?
-                        self.bytes = bytes.clone();
-                    }
-                    None => return Ok(None),
-                }
-                Ok(Some(&self.bytes))
+                // TODO:Since we need to return a reference, but cannot return a temporary value created by borrowing,
+                // we are forced to make a copy.Is there any way to avoid the copy?
+                self.bytes = current.sub.values.binary_value()?.clone();
+                Ok(&self.bytes)
             }
             None => Err(LuceneError::unreachable("should not be here")),
         }

@@ -25,7 +25,7 @@ pub trait BinaryDocValues: DocValuesIterator {
     ///
     /// # Returns
     /// The binary value for the current document ID.
-    fn binary_value(&mut self) -> Result<Option<&BytesRef>> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         Err(LuceneError::not_implemented("this method need implement"))
     }
 }

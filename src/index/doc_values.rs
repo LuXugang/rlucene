@@ -99,6 +99,7 @@ impl DocValues {
 /// An empty [`BinaryDocValues`] which returns no documents */
 pub struct EmptyBinary {
     doc: i32,
+    bytes: BytesRef,
 }
 impl Default for EmptyBinary {
     fn default() -> Self {
@@ -107,7 +108,10 @@ impl Default for EmptyBinary {
 }
 impl EmptyBinary {
     pub fn new() -> Self {
-        Self { doc: -1 }
+        Self {
+            doc: -1,
+            bytes: BytesRef::default(),
+        }
     }
 }
 
@@ -138,12 +142,12 @@ impl DocValuesIterator for EmptyBinary {
     }
 }
 impl BinaryDocValues for EmptyBinary {
-    fn binary_value(&mut self) -> Result<Option<&BytesRef>> {
+    fn binary_value(&mut self) -> Result<&BytesRef> {
         debug_assert!(
             false,
             "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
         );
-        Ok(None)
+        Ok(&self.bytes)
     }
 }
 /// An empty [`NumericDocValues`] which returns no documents */
