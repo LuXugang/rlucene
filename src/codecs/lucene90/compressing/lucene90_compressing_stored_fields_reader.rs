@@ -35,9 +35,11 @@ use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::{ByteArrayDataInput, DataInput, IOContext, IndexInput, ReadAdvice};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
+use crate::util::clone::Clone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CommonUtil, SliceCopyOps};
 use std::cell::RefCell;
+use std::clone::Clone;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -321,11 +323,11 @@ where
     fn new_with_reader(
         reader: &Lucene90CompressingStoredFieldsReader<I>,
         merging: bool,
-    ) -> Lucene90CompressingStoredFieldsReader<I> {
-        Self {
+    ) -> Result<Lucene90CompressingStoredFieldsReader<I>> {
+        Ok(Self {
             version: reader.version,
             field_infos: Rc::clone(&reader.field_infos),
-            index_reader: reader.index_reader.clone(),
+            index_reader: reader.index_reader.try_clone()?,
             max_pointer: reader.max_pointer,
             fields_stream: Rc::clone(&reader.fields_stream),
             chunk_size: reader.chunk_size,
@@ -345,7 +347,7 @@ where
             prefetched_block_id_cache: [-1i64; PREFETCH_CACHE_SIZE],
             prefetched_block_id_cache_index: 0,
             closed: false,
-        }
+        })
     }
 
     /// Ensures the reader is open.
@@ -578,11 +580,14 @@ where
         Ok(self.num_chunks)
     }
 }
-impl<I> Clone for Lucene90CompressingStoredFieldsReader<I>
+impl<I> crate::util::clone::Clone for Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
 {
-    fn clone(&self) -> Self {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
         Lucene90CompressingStoredFieldsReader::new_with_reader(self, false)
     }
 }
