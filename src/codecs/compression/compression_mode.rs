@@ -55,7 +55,7 @@ impl CompressionMode {
 }
 
 #[allow(unused)]
-pub(crate) trait CompressionModeBase: Display {
+pub(crate) trait CompressionModeBase: Display + Clone {
     /// Create a new `Compressor` instance.
     fn new_compressor(&self) -> CompressorEnum;
     /// Create a new `Decompressor` instance.
@@ -69,6 +69,12 @@ pub struct LZ4FastCompressionMode;
 impl Display for LZ4FastCompressionMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "FAST")
+    }
+}
+
+impl Clone for LZ4FastCompressionMode {
+    fn clone(&self) -> Self {
+        LZ4FastCompressionMode
     }
 }
 
@@ -93,6 +99,12 @@ impl Display for DeflateCompressionMode {
     }
 }
 
+impl Clone for DeflateCompressionMode {
+    fn clone(&self) -> Self {
+        DeflateCompressionMode
+    }
+}
+
 impl CompressionModeBase for DeflateCompressionMode {
     fn new_compressor(&self) -> CompressorEnum {
         CompressorEnum::Deflate(DeflateCompressor::new(6))
@@ -111,6 +123,12 @@ pub struct LZ4HighCompressionMode;
 impl Display for LZ4HighCompressionMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "FAST_DECOMPRESSION")
+    }
+}
+
+impl Clone for LZ4HighCompressionMode {
+    fn clone(&self) -> Self {
+        LZ4HighCompressionMode
     }
 }
 
@@ -159,6 +177,16 @@ impl CompressionModeBase for CompressionModeEnum {
             CompressionModeEnum::High(mode) => mode.new_decompressor(),
             CompressionModeEnum::Deflate(mode) => mode.new_decompressor(),
             CompressionModeEnum::LZ4Dict(mode) => mode.new_decompressor(),
+        }
+    }
+}
+impl Clone for CompressionModeEnum {
+    fn clone(&self) -> Self {
+        match self {
+            CompressionModeEnum::Fast(mode) => CompressionModeEnum::Fast(mode.clone()),
+            CompressionModeEnum::High(mode) => CompressionModeEnum::High(mode.clone()),
+            CompressionModeEnum::Deflate(mode) => CompressionModeEnum::Deflate(mode.clone()),
+            CompressionModeEnum::LZ4Dict(mode) => CompressionModeEnum::LZ4Dict(mode.clone()),
         }
     }
 }

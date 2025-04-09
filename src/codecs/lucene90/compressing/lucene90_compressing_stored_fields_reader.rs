@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::{
-    Lucene90CompressingStoredFieldsWriter, TYPE_MASK,
+    Lucene90CompressingStoredFieldsWriter, TYPE_BITS, TYPE_MASK,
 };
 use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
 use crate::codecs::compression::compression_mode::{
@@ -25,8 +25,10 @@ use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::codecs::CodecUtil;
+use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
+use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::{BytesRef, IndexFileNames};
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
@@ -48,7 +50,7 @@ where
     I: IndexInput,
 {
     version: i32,
-    field_infos: FieldInfos,
+    field_infos: Rc<FieldInfos>,
     index_reader: FieldsIndexEnum<I>,
     max_pointer: i64,
     fields_stream: Rc<RefCell<I>>,
@@ -171,7 +173,7 @@ where
         directory: Arc<Mutex<D>>,
         si: &SegmentInfo<D>,
         segment_suffix: &str,
-        field_infos: FieldInfos,
+        field_infos: Rc<FieldInfos>,
         context: &IOContext,
         format_name: &str,
         compression_mode: CompressionModeEnum,
@@ -316,6 +318,36 @@ where
         }
     }
 
+    fn new_with_reader(
+        reader: &Lucene90CompressingStoredFieldsReader<I>,
+        merging: bool,
+    ) -> Lucene90CompressingStoredFieldsReader<I> {
+        Self {
+            version: reader.version,
+            field_infos: Rc::clone(&reader.field_infos),
+            index_reader: reader.index_reader.clone(),
+            max_pointer: reader.max_pointer,
+            fields_stream: Rc::clone(&reader.fields_stream),
+            chunk_size: reader.chunk_size,
+            compression_mode: reader.compression_mode.clone(),
+            decompressor: reader.decompressor.clone(),
+            num_docs: reader.num_docs,
+            merging,
+            state: BlockState::new(
+                merging,
+                Rc::clone(&reader.fields_stream),
+                reader.compression_mode.new_decompressor(),
+                reader.chunk_size,
+            ),
+            num_chunks: 0,
+            num_dirty_chunks: 0,
+            num_dirty_docs: 0,
+            prefetched_block_id_cache: [-1i64; PREFETCH_CACHE_SIZE],
+            prefetched_block_id_cache_index: 0,
+            closed: false,
+        }
+    }
+
     /// Ensures the reader is open.
     ///
     /// # Errors
@@ -328,10 +360,53 @@ where
             Ok(())
         }
     }
+    /// # Note
+    /// `indexReader` and `fieldsStream` will automatically release resource in Rust Lucene,
+    /// but we still keep this method for compatibility with Java Lucene.
     pub fn close(&mut self) {
         if !self.closed {
             self.closed = true;
         }
+    }
+    pub fn read_field(
+        input: &mut impl DataInput,
+        visitor: &mut impl StoredFieldVisitor,
+        info: &FieldInfo,
+        bits: i32,
+    ) -> Result<()> {
+        match bits & *TYPE_MASK as i32 {
+            Lucene90CompressingStoredFieldsWriter::BYTE_ARR => {
+                let length = input.read_vint()?;
+                visitor.binary_field_with_input(info, input, length)?;
+            }
+            Lucene90CompressingStoredFieldsWriter::STRING => {
+                let s = input.read_string()?;
+                visitor.string_field(info, &s)?;
+            }
+            Lucene90CompressingStoredFieldsWriter::NUMERIC_INT => {
+                let v = input.read_zint()?;
+                visitor.int_field(info, v)?;
+            }
+            Lucene90CompressingStoredFieldsWriter::NUMERIC_FLOAT => {
+                let v = Lucene90CompressingStoredFieldsReader::read_zfloat(input)?;
+                visitor.float_field(info, v)?;
+            }
+            Lucene90CompressingStoredFieldsWriter::NUMERIC_LONG => {
+                let v = Lucene90CompressingStoredFieldsReader::read_tlong(input)?;
+                visitor.long_field(info, v)?;
+            }
+            Lucene90CompressingStoredFieldsWriter::NUMERIC_DOUBLE => {
+                let v = Lucene90CompressingStoredFieldsReader::read_zdouble(input)?;
+                visitor.double_field(info, v)?;
+            }
+            other => {
+                return Err(LuceneError::illegal_state(format!(
+                    "Unknown type flag: {:x}",
+                    other
+                )));
+            }
+        }
+        Ok(())
     }
     fn skip_field(input: &mut impl DataInput, bits: i32) -> Result<()> {
         match bits & *TYPE_MASK as i32 {
@@ -408,6 +483,47 @@ where
 
         Ok(self.state.contains(doc_id))
     }
+    pub fn document(&mut self, doc_id: i32, visitor: &mut impl StoredFieldVisitor) -> Result<()> {
+        let field_infos = &self.field_infos.clone();
+        let mut doc = self.serialized_document(doc_id)?;
+        for field_idx in 0..doc.num_stored_fields {
+            let info_and_bits = doc.input.read_vlong()?;
+            let field_number = ((info_and_bits as u64 >> *TYPE_BITS) as i64) as i32;
+            let field_info = field_infos.field_info_by_number(field_number)?;
+            let bits = (info_and_bits & *TYPE_MASK) as i32;
+
+            debug_assert!(
+                bits <= Lucene90CompressingStoredFieldsWriter::NUMERIC_DOUBLE,
+                "bits={:#x} is out of valid range",
+                bits
+            );
+            match field_info {
+                Some(field_info) => {
+                    match visitor.needs_field(&field_info)? {
+                        Status::Yes => {
+                            Self::read_field(&mut doc.input, visitor, &field_info, bits)?;
+                        }
+                        Status::No => {
+                            // don't skipField on last field value; treat like STOP
+                            if field_idx == doc.num_stored_fields - 1 {
+                                return Ok(());
+                            }
+                            Self::skip_field(&mut doc.input, bits)?;
+                        }
+                        Status::Stop => return Ok(()),
+                    }
+                }
+                None => {
+                    return Err(LuceneError::illegal_state(format!(
+                        "field_info is None with number: {}",
+                        field_number
+                    )))
+                }
+            }
+        }
+
+        Ok(())
+    }
     fn version(&self) -> i32 {
         self.version
     }
@@ -460,6 +576,14 @@ where
         }
         debug_assert!(self.num_chunks >= 0);
         Ok(self.num_chunks)
+    }
+}
+impl<I> Clone for Lucene90CompressingStoredFieldsReader<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        Lucene90CompressingStoredFieldsReader::new_with_reader(self, false)
     }
 }
 

@@ -130,6 +130,15 @@ where
     }
 }
 
+impl<I> Clone for FieldsIndexReader<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        todo!()
+    }
+}
+
 impl<I> FieldsIndex for FieldsIndexReader<I>
 where
     I: IndexInput,

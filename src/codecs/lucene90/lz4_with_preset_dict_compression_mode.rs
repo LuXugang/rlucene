@@ -43,6 +43,12 @@ impl Display for LZ4WithPresetDictCompressionMode {
     }
 }
 
+impl Clone for LZ4WithPresetDictCompressionMode {
+    fn clone(&self) -> Self {
+        LZ4WithPresetDictCompressionMode
+    }
+}
+
 impl CompressionModeBase for LZ4WithPresetDictCompressionMode {
     fn new_compressor(&self) -> CompressorEnum {
         CompressorEnum::LZ4Dict(LZ4WithPresetDictCompressor::new())
