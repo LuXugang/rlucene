@@ -19,7 +19,7 @@ use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
 
 /// A decompressor.
-pub trait Decompressor: Clone {
+pub trait Decompressor: crate::util::clone::TryClone {
     /// Decompress bytes that were stored between offsets `offset` and `offset + length`
     /// in the original stream from the compressed stream `in` to `bytes`.
     /// After returning, the length of `bytes` must be equal to `length`. Implementations of this

@@ -334,7 +334,7 @@ where
             fields_stream: fields_stream.clone(),
             chunk_size: reader.chunk_size,
             compression_mode: reader.compression_mode.clone(),
-            decompressor: reader.decompressor.clone(),
+            decompressor: reader.decompressor.try_clone()?,
             num_docs: reader.num_docs,
             merging,
             state: BlockState::new(

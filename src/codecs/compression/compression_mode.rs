@@ -23,6 +23,7 @@ use crate::index::BytesRef;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, DataOutput};
+use crate::util::clone::TryClone;
 use crate::util::compress::lz4::{
     FastCompressionHashTable, HashTableEnum, HighCompressionHashTable, LZ4,
 };
@@ -192,11 +193,15 @@ impl Clone for CompressionModeEnum {
 }
 
 pub struct LZ4Decompressor;
-impl Clone for LZ4Decompressor {
-    fn clone(&self) -> Self {
-        LZ4Decompressor
+impl TryClone for LZ4Decompressor {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(LZ4Decompressor)
     }
 }
+
 impl Decompressor for LZ4Decompressor {
     fn decompress<I>(
         &mut self,
@@ -235,17 +240,20 @@ pub enum DecompressorEnum {
     LZ4Dict(LZ4WithPresetDictDecompressor),
 }
 
-impl Clone for DecompressorEnum {
-    fn clone(&self) -> Self {
-        match self {
-            DecompressorEnum::LZ4(decompressor) => DecompressorEnum::LZ4(decompressor.clone()),
+impl TryClone for DecompressorEnum {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(match self {
+            DecompressorEnum::LZ4(decompressor) => DecompressorEnum::LZ4(decompressor.try_clone()?),
             DecompressorEnum::Deflate(decompressor) => {
-                DecompressorEnum::Deflate(decompressor.clone())
+                DecompressorEnum::Deflate(decompressor.try_clone()?)
             }
             DecompressorEnum::LZ4Dict(decompressor) => {
                 DecompressorEnum::LZ4Dict(decompressor.clone())
             }
-        }
+        })
     }
 }
 
@@ -324,9 +332,12 @@ impl Compressor for LZ4HighCompressor {
 
 pub struct DeflateDecompressor;
 
-impl Clone for DeflateDecompressor {
-    fn clone(&self) -> Self {
-        DeflateDecompressor
+impl TryClone for DeflateDecompressor {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(DeflateDecompressor)
     }
 }
 

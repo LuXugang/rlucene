@@ -24,6 +24,7 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::array_util::ArrayUtil;
+use crate::util::clone::TryClone;
 use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::SliceCopyOps;
@@ -59,6 +60,7 @@ impl CompressionModeBase for LZ4WithPresetDictCompressionMode {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct LZ4WithPresetDictDecompressor {
     compressed_lengths: Vec<i32>,
     buffer: Vec<u8>,
@@ -99,9 +101,12 @@ impl LZ4WithPresetDictDecompressor {
     }
 }
 
-impl Clone for LZ4WithPresetDictDecompressor {
-    fn clone(&self) -> Self {
-        LZ4WithPresetDictDecompressor::new()
+impl TryClone for LZ4WithPresetDictDecompressor {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(self.clone())
     }
 }
 
