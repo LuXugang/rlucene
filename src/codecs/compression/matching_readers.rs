@@ -42,17 +42,14 @@ impl MatchingReaders {
         let mut matching_readers = vec![false; num_readers];
         let mut matched_count: i32 = 0;
 
-        'next_reader: for i in 0..num_readers {
-            for fi in &*merge_state.field_infos[i] {
-                if let Some(other) = merge_state
+        'next_reader: for (i, field_infos) in merge_state.field_infos.iter().enumerate() {
+            for fi in &**field_infos {
+                match merge_state
                     .merge_field_infos
                     .field_info_by_number(fi.number)?
                 {
-                    if other.name != fi.name {
-                        continue 'next_reader;
-                    }
-                } else {
-                    continue 'next_reader;
+                    Some(other) if other.name == fi.name => continue,
+                    _ => continue 'next_reader,
                 }
             }
             matching_readers[i] = true;

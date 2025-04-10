@@ -533,8 +533,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         }
         // All blocks has been written. Flush the offset jump-table
         let offsets_origo = self.data.get_file_pointer();
-        for i in 0..offsets_index {
-            self.data.write_long(offsets[i])?;
+        for &offset in offsets.iter().take(offsets_index) {
+            self.data.write_long(offset)?;
         }
         self.data.write_long(offsets_origo)?;
         Ok(offsets_origo)

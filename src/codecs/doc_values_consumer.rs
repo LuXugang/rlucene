@@ -529,7 +529,7 @@ where
         }
     }
 }
-pub(crate) struct SortedNumericDocValuesMerge<I>
+pub struct SortedNumericDocValuesMerge<I>
 where
     I: IndexInput,
 {
