@@ -17,18 +17,11 @@
 use crate::store::{DataOutput, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-#[allow(unused)]
 pub(crate) struct StoredFieldsInts;
-#[allow(unused)]
 impl StoredFieldsInts {
     const BLOCK_SIZE: usize = 128;
     const BLOCK_SIZE_MINUS_ONE: usize = Self::BLOCK_SIZE - 1;
-    fn write_ints<D: DataOutput>(
-        values: &[i32],
-        start: i32,
-        count: i32,
-        out: &mut D,
-    ) -> Result<()> {
+    fn write_ints(values: &[i32], start: i32, count: i32, out: &mut impl DataOutput) -> Result<()> {
         let start = start as usize;
 
         let mut all_equal = true;
@@ -62,8 +55,8 @@ impl StoredFieldsInts {
         Ok(())
     }
 
-    fn write_ints8<D: DataOutput>(
-        out: &mut D,
+    fn write_ints8(
+        out: &mut impl DataOutput,
         count: i32,
         values: &[i32],
         offset: i32,
@@ -91,8 +84,8 @@ impl StoredFieldsInts {
 
         Ok(())
     }
-    fn write_ints16<D: DataOutput>(
-        out: &mut D,
+    fn write_ints16(
+        out: &mut impl DataOutput,
         count: i32,
         values: &[i32],
         offset: i32,
@@ -117,8 +110,8 @@ impl StoredFieldsInts {
         Ok(())
     }
 
-    fn write_ints32<D: DataOutput>(
-        out: &mut D,
+    fn write_ints32(
+        out: &mut impl DataOutput,
         count: i32,
         values: &[i32],
         offset: i32,
@@ -139,8 +132,8 @@ impl StoredFieldsInts {
 
         Ok(())
     }
-    pub(crate) fn read_ints<I: IndexInput>(
-        input: &mut I,
+    pub(crate) fn read_ints(
+        input: &mut impl IndexInput,
         count: i32,
         values: &mut [i64],
         offset: i32,
@@ -166,8 +159,8 @@ impl StoredFieldsInts {
         Ok(())
     }
 
-    fn read_ints8<I: IndexInput>(
-        input: &mut I,
+    fn read_ints8(
+        input: &mut impl IndexInput,
         count: i32,
         values: &mut [i64],
         offset: i32,
@@ -197,8 +190,8 @@ impl StoredFieldsInts {
         Ok(())
     }
 
-    fn read_ints16<I: IndexInput>(
-        input: &mut I,
+    fn read_ints16(
+        input: &mut impl IndexInput,
         count: i32,
         values: &mut [i64],
         offset: i32,
@@ -224,8 +217,8 @@ impl StoredFieldsInts {
         Ok(())
     }
 
-    fn read_ints32<I: IndexInput>(
-        input: &mut I,
+    fn read_ints32(
+        input: &mut impl IndexInput,
         count: i32,
         values: &mut [i64],
         offset: i32,
