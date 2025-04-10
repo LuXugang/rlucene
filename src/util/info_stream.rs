@@ -22,13 +22,13 @@ use std::sync::{Arc, Mutex};
 /// and [`SegmentInfos`](crate::index::segment_infos::SegmentInfos).
 pub trait InfoStream: Send + Sync {
     /// Prints a message.
-    fn message(&self, component: &str, message: &str);
+    fn message(&mut self, component: &str, message: &str);
 
     /// Returns true if messages are enabled and should be posted to `message`.
-    fn is_enabled(&self, component: &str) -> bool;
+    fn enabled(&mut self, component: &str) -> bool;
 
     /// Closes the stream.
-    fn close(&self);
+    fn close(&mut self);
 }
 
 /// A global, thread-safe reference to a default `InfoStream`,
@@ -41,18 +41,18 @@ static DEFAULT_INFOSTREAM: Lazy<Arc<Mutex<InfoStreamEnum>>> =
 pub struct NoOutput;
 
 impl InfoStream for NoOutput {
-    fn message(&self, _component: &str, _message: &str) {
+    fn message(&mut self, _component: &str, _message: &str) {
         debug_assert!(
             false,
             "this method should never be called when is_enabled returns false"
         );
     }
 
-    fn is_enabled(&self, _component: &str) -> bool {
+    fn enabled(&mut self, _component: &str) -> bool {
         false
     }
 
-    fn close(&self) {
+    fn close(&mut self) {
         // Nothing to do.
     }
 }
@@ -75,19 +75,19 @@ pub enum InfoStreamEnum {
     NoOutput(NoOutput),
 }
 impl InfoStream for InfoStreamEnum {
-    fn message(&self, component: &str, message: &str) {
+    fn message(&mut self, component: &str, message: &str) {
         match self {
             InfoStreamEnum::NoOutput(output) => output.message(component, message),
         }
     }
 
-    fn is_enabled(&self, component: &str) -> bool {
+    fn enabled(&mut self, component: &str) -> bool {
         match self {
-            InfoStreamEnum::NoOutput(output) => output.is_enabled(component),
+            InfoStreamEnum::NoOutput(output) => output.enabled(component),
         }
     }
 
-    fn close(&self) {
+    fn close(&mut self) {
         match self {
             InfoStreamEnum::NoOutput(output) => output.close(),
         }

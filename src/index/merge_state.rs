@@ -26,7 +26,9 @@ use crate::index::tests::DocMapMock2;
 use crate::store::IndexInput;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::DocMapMock;
+use crate::util::info_stream::InfoStreamEnum;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 pub struct MergeState<I>
 where
@@ -38,6 +40,8 @@ where
     pub doc_values_producers: Vec<Option<DocValuesProducerEnum<I>>>,
     pub field_infos: Vec<Rc<FieldInfos>>,
     pub needs_index_sort: bool,
+    pub max_docs: Vec<i32>,
+    pub info_stream: Arc<Mutex<InfoStreamEnum>>,
 }
 
 /// A map of doc IDs.

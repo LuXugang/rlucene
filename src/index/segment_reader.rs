@@ -14,7 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod compression_mode;
-pub mod compressor;
-pub mod decompressor;
-mod matching_readers;
+pub struct SegmentReader;
