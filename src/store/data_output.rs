@@ -256,9 +256,26 @@ pub trait DataOutput: Sized {
     ///
     /// # Note
     /// This is an experimental API.
-    fn write_group_vints(&mut self, values: &mut [i64], limit: i32) -> Result<()> {
+    fn write_group_vints_i64(&mut self, values: &mut [i64], limit: i32) -> Result<()> {
         let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
-        GroupVIntUtil::write_group_vints(self, &mut group_vint_bytes, values, limit)?;
+        GroupVIntUtil::write_group_vints_i64(self, &mut group_vint_bytes, values, limit)?;
+        Ok(())
+    }
+
+    /// Encodes integers using group-varint encoding. Tail values that do not fit into a group
+    /// are encoded using [`write_vint`](#method.write_vint).
+    /// Note: A `long[]` is used because it aligns with posting requirements,
+    /// but all longs are actually expected to be integers.
+    ///
+    /// # Arguments
+    /// * `values` - The values to write.
+    /// * `limit` - The number of values to write.
+    ///
+    /// # Note
+    /// This is an experimental API.
+    fn write_group_vints_i32(&mut self, values: &mut [i32], limit: i32) -> Result<()> {
+        let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
+        GroupVIntUtil::write_group_vints_i32(self, &mut group_vint_bytes, values, limit)?;
         Ok(())
     }
 }

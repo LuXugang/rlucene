@@ -65,7 +65,7 @@ impl DataInput for ByteBuffersIndexInput<'_> {
         DataInput::read_int(&mut self.data_input)
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<()> {
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         self.data_input.read_group_vint(dst, offset)
     }
 

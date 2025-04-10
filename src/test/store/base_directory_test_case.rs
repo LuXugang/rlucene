@@ -1844,7 +1844,7 @@ pub trait BaseDirectoryTestCase {
             out.write_short(12345i16)?;
             out.write_int(1234567890i32)?;
             let values_len = values.len() as i32;
-            out.write_group_vints(&mut values, values_len)?;
+            out.write_group_vints_i64(&mut values, values_len)?;
             out.write_long(1234567890123456789i64)?;
         }
 
@@ -1855,7 +1855,7 @@ pub trait BaseDirectoryTestCase {
             assert_eq!(12345, DataInput::read_short(&mut input)? as i32);
             assert_eq!(1234567890, DataInput::read_int(&mut input)?);
             let restored_len = restored.len();
-            GroupVIntUtil::read_group_vints(&mut input, &mut restored, restored_len as i32)?;
+            GroupVIntUtil::read_group_vints_i64(&mut input, &mut restored, restored_len as i32)?;
             assert_eq!(values, restored);
             assert_eq!(1234567890123456789, DataInput::read_long(&mut input)?);
         }
@@ -1886,11 +1886,11 @@ pub trait BaseDirectoryTestCase {
         let io_context = IOContext::default_io_context()?;
         {
             let mut out = dir.create_output("test", &io_context)?;
-            out.write_group_vints(&mut values[..values_len], limit as i32)?;
+            out.write_group_vints_i64(&mut values[..values_len], limit as i32)?;
         }
         {
             let mut input = dir.open_input("test", &io_context)?;
-            GroupVIntUtil::read_group_vints(&mut input, &mut restore, limit as i32)?;
+            GroupVIntUtil::read_group_vints_i64(&mut input, &mut restore, limit as i32)?;
             for i in 0..limit {
                 assert_eq!(values[i], restore[i]);
             }
@@ -1901,7 +1901,7 @@ pub trait BaseDirectoryTestCase {
             let file_path = temp_dir.into_path();
             std::fs::remove_file(file_path.join("test"))?;
             let mut out = dir.create_output("test", &io_context)?;
-            let result = out.write_group_vints(&mut values[..values_len], 4);
+            let result = out.write_group_vints_i64(&mut values[..values_len], 4);
             assert!(matches!(result, Err(LuceneError::IntegerOverflow(_))));
         }
 
@@ -1968,7 +1968,7 @@ pub trait BaseDirectoryTestCase {
                     vint_out.write_vint(*value as i32)?;
                 }
 
-                group_vint_out.write_group_vints(&mut values, *num_values as i32)?;
+                group_vint_out.write_group_vints_i64(&mut values, *num_values as i32)?;
             }
         }
 
@@ -1978,7 +1978,7 @@ pub trait BaseDirectoryTestCase {
             let mut vint_in = dir2.open_input("vint", &io_context)?;
             for &num_values in num_values_array.iter().take(iterations) {
                 // 读取组 VInts
-                GroupVIntUtil::read_group_vints(
+                GroupVIntUtil::read_group_vints_i64(
                     &mut group_vint_in,
                     &mut values,
                     num_values as i32,

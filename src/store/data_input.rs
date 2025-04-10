@@ -98,11 +98,11 @@ pub trait DataInput: Sized + Display {
     /// Override if you have an efficient implementation.
     /// In general, this is when the input supports
     /// random access.
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<()> {
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         self.default_read_group_vint(dst, offset)
     }
-    fn default_read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<()> {
-        GroupVIntUtil::read_group_vint(self, dst, offset)
+    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,
     /// with smaller values taking fewer bytes. Negative numbers are supported but should be avoided.

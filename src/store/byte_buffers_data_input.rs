@@ -223,13 +223,13 @@ impl DataInput for ByteBuffersDataInput<'_> {
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<()> {
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
         let block = self.blocks.get_mut(block_index as usize).unwrap();
         let remain =
             block.remain_between(block_offset as u64, block.get_ref().len() as u64) as usize;
-        let len = GroupVIntUtil::read_group_vint_with_reader(
+        let len = GroupVIntUtil::read_group_vint_i32_with_reader(
             self,
             remain as u64,
             block_offset as i64,

@@ -579,12 +579,12 @@ where
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i64], offset: i32) -> Result<()> {
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         let remain =
             self.buffer
                 .remain_between(self.buffer.position(), self.length as u64) as usize;
         debug_assert!(self.buffer.position() <= i64::MAX as u64);
-        let len = GroupVIntUtil::read_group_vint_with_reader(
+        let len = GroupVIntUtil::read_group_vint_i32_with_reader(
             self,
             remain as u64,
             self.buffer.position() as i64,

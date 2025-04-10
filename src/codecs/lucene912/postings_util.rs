@@ -26,25 +26,25 @@ impl PostingsUtil {
     /// instead of bit-packing.
     pub(crate) fn read_vint_block(
         doc_in: &mut impl IndexInput,
-        doc_buffer: &mut [i64],
-        freq_buffer: &mut [i64],
+        doc_buffer: &mut [i32],
+        freq_buffer: &mut [i32],
         num: i32,
         index_has_freq: bool,
         decode_freq: bool,
     ) -> Result<()> {
-        GroupVIntUtil::read_group_vints(doc_in, doc_buffer, num)?;
+        GroupVIntUtil::read_group_vints_i32(doc_in, doc_buffer, num)?;
         let num = num as usize;
         if index_has_freq && decode_freq {
             for i in 0..num {
                 freq_buffer[i] = doc_buffer[i] & 0x01;
-                doc_buffer[i] >>= 1;
+                doc_buffer[i] = ((doc_buffer[i] as u32) >> 1) as i32;
                 if freq_buffer[i] == 0 {
-                    freq_buffer[i] = doc_in.read_vint()? as i64;
+                    freq_buffer[i] = doc_in.read_vint()?;
                 }
             }
         } else if index_has_freq {
             for val in doc_buffer.iter_mut().take(num) {
-                *val >>= 1;
+                *val = ((*val as u32) >> 1) as i32;
             }
         }
         Ok(())
@@ -52,8 +52,8 @@ impl PostingsUtil {
     /// Write freq buffer with variable-length encoding and doc buffer with group-varint encoding.
     pub(crate) fn write_vint_block(
         doc_out: &mut impl DataOutput,
-        doc_buffer: &mut [i64],
-        freq_buffer: &[i64],
+        doc_buffer: &mut [i32],
+        freq_buffer: &[i32],
         num: i32,
         write_freqs: bool,
     ) -> Result<()> {
@@ -62,12 +62,11 @@ impl PostingsUtil {
                 doc_buffer[i] = (doc_buffer[i] << 1) | if freq_buffer[i] == 1 { 1 } else { 0 };
             }
         }
-        doc_out.write_group_vints(doc_buffer, num)?;
+        doc_out.write_group_vints_i32(doc_buffer, num)?;
         let num = num as usize;
 
         if write_freqs {
             for &freq in freq_buffer.iter().take(num) {
-                let freq = freq as i32;
                 if freq != 1 {
                     doc_out.write_vint(freq)?;
                 }
@@ -85,22 +84,30 @@ mod tests {
     use crate::store::IOContext;
     use crate::test::util::lucene_test_case::{new_directory, random};
     use crate::util::error::lucene_error::Result;
+    use rand::rngs::StdRng;
     use rand::Rng;
+
     // checks for bug described in https://github.com/apache/lucene/issues/13373
     #[allow(dead_code)] // for quick search
     struct TestPostingsUtil;
     #[test]
     fn test_integer_overflow() -> Result<()> {
         let mut random = random();
-        let size = random.random_range(1..=ForUtil::BLOCK_SIZE);
-        let mut doc_delta_buffer = vec![0i64; size];
-        let freq_buffer = vec![0i64; size];
+        let random_size1: usize = random.random_range(1..3);
+        let random_size2: usize = random.random_range(4..=ForUtil::BLOCK_SIZE);
+        do_test_integer_overflow(&mut random, random_size1)?;
+        do_test_integer_overflow(&mut random, random_size2)?;
+        Ok(())
+    }
+    fn do_test_integer_overflow(random: &mut StdRng, size: usize) -> Result<()> {
+        let mut doc_delta_buffer = vec![0i32; size];
+        let freq_buffer = vec![0i32; size];
 
         let delta = 1 << 30;
         doc_delta_buffer[0] = delta;
 
         // TODO: ByteBuffersDirectory not Implemented
-        let mut dir = new_directory(&mut random)?;
+        let mut dir = new_directory(random)?;
         {
             let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;
             PostingsUtil::write_vint_block(
@@ -112,8 +119,8 @@ mod tests {
             )?;
         }
 
-        let mut restored_docs = vec![0i64; size];
-        let mut restored_freqs = vec![0i64; size];
+        let mut restored_docs = vec![0i32; size];
+        let mut restored_freqs = vec![0i32; size];
 
         {
             let mut input = dir.open_input("test", &IOContext::default_io_context()?)?;
@@ -128,7 +135,6 @@ mod tests {
         }
 
         assert_eq!(delta, restored_docs[0]);
-
         Ok(())
     }
 }
