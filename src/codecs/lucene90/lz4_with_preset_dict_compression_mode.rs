@@ -74,16 +74,13 @@ impl LZ4WithPresetDictDecompressor {
         }
     }
 
-    fn read_compressed_lengths<I>(
+    fn read_compressed_lengths(
         &mut self,
-        input: &mut I,
+        input: &mut impl DataInput,
         original_length: i32,
         dict_length: i32,
         block_length: i32,
-    ) -> Result<i32>
-    where
-        I: DataInput,
-    {
+    ) -> Result<i32> {
         input.read_vint()?; // Compressed length of the dictionary, unused
         let mut total_length = dict_length;
         let mut i = 0;
@@ -111,17 +108,14 @@ impl TryClone for LZ4WithPresetDictDecompressor {
 }
 
 impl Decompressor for LZ4WithPresetDictDecompressor {
-    fn decompress<I>(
+    fn decompress(
         &mut self,
-        input: &mut I,
+        input: &mut impl DataInput,
         original_length: i32,
         offset: i32,
         length: i32,
         bytes: &mut BytesRef,
-    ) -> Result<()>
-    where
-        I: DataInput,
-    {
+    ) -> Result<()> {
         debug_assert!(offset + length <= original_length);
 
         if length == 0 {
@@ -219,10 +213,13 @@ impl LZ4WithPresetDictCompressor {
             buffer: Vec::new(),
         }
     }
-    fn do_compress<D>(&mut self, bytes: Vec<u8>, dict_len: i32, len: i32, out: &mut D) -> Result<()>
-    where
-        D: DataOutput,
-    {
+    fn do_compress(
+        &mut self,
+        bytes: Vec<u8>,
+        dict_len: i32,
+        len: i32,
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         let prev_compressed_size = self.compressed.size();
         LZ4::compress_with_dictionary(
             bytes,
@@ -247,10 +244,11 @@ impl LZ4WithPresetDictCompressor {
     }
 }
 impl Compressor for LZ4WithPresetDictCompressor {
-    fn compress<D>(&mut self, buffers_input: &mut ByteBuffersDataInput, out: &mut D) -> Result<()>
-    where
-        D: DataOutput,
-    {
+    fn compress(
+        &mut self,
+        buffers_input: &mut ByteBuffersDataInput,
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         let len = (buffers_input.length() - buffers_input.position()) as i32;
         let dict_length = (len
             / (LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS

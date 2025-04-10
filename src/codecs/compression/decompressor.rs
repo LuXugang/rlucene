@@ -31,14 +31,12 @@ pub trait Decompressor: crate::util::clone::TryClone {
     /// - `offset`: Bytes before this offset do not need to be decompressed.
     /// - `length`: Bytes after `offset + length` do not need to be decompressed.
     /// - `bytes`: A reference to a `BytesRef` where to store the decompressed data.
-    fn decompress<I>(
+    fn decompress(
         &mut self,
-        input: &mut I,
+        input: &mut impl DataInput,
         original_length: i32,
         offset: i32,
         length: i32,
         bytes: &mut BytesRef,
-    ) -> Result<()>
-    where
-        I: DataInput;
+    ) -> Result<()>;
 }

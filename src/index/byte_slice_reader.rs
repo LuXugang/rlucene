@@ -71,7 +71,7 @@ impl ByteSliceReader {
     }
     /// # Note
     /// not used in Java Lucene, so it is not implemented here
-    pub(crate) fn write<D: DataOutput>(&self, _out: &mut D) -> i64 {
+    pub(crate) fn write(&self, _out: &mut impl DataOutput) -> i64 {
         0
     }
 
