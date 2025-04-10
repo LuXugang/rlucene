@@ -54,7 +54,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new<D>(
-        dir: Arc<Mutex<D>>,
+        dir: &mut D,
         name: String,
         suffix: &str,
         extension: &str,
@@ -78,13 +78,10 @@ where
         let start_pointers_end_pointer = meta_in.read_long()?;
         let max_pointer = meta_in.read_long()?;
 
-        let mut index_input = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
-            .open_input(
-                &IndexFileNames::segment_file_name(&name, suffix, extension),
-                &context.with_read_advice(ReadAdvice::RandomPreload)?,
-            )?;
+        let mut index_input = dir.open_input(
+            &IndexFileNames::segment_file_name(&name, suffix, extension),
+            &context.with_read_advice(ReadAdvice::RandomPreload)?,
+        )?;
 
         CodecUtil::check_index_header(
             &mut index_input,

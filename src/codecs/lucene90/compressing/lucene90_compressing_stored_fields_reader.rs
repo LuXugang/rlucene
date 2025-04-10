@@ -175,8 +175,8 @@ where
     const SECOND_ENCODING: u8 = 0x40;
     const HOUR_ENCODING: u8 = 0x80;
     const DAY_ENCODING: u8 = 0xC0;
-    pub fn open<D>(
-        directory: Arc<Mutex<D>>,
+    pub fn new<D>(
+        dir: &mut D,
         si: &SegmentInfo<D>,
         segment_suffix: &str,
         field_infos: Rc<FieldInfos>,
@@ -197,9 +197,6 @@ where
         );
         let mut meta_in = None;
         let result: Result<Self> = (|| {
-            let dir = directory
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
             let mut fields_stream = dir.open_input(
                 &fields_stream_fn,
                 &context.with_read_advice(ReadAdvice::Random)?,
@@ -257,7 +254,7 @@ where
                 chunk_size,
             );
             let fields_index_reader = FieldsIndexReader::new(
-                directory.clone(),
+                dir,
                 si.name.to_string(),
                 segment_suffix,
                 Lucene90CompressingStoredFieldsWriter::INDEX_EXTENSION,
