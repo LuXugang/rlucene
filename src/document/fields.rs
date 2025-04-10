@@ -34,17 +34,17 @@ use std::sync::Arc;
 
 pub enum Fields {
     Field(Field),
-    TextField(TextField),
-    StringField(StringField),
-    StoredField(StoredField),
+    Text(TextField),
+    String(StringField),
+    Stored(StoredField),
 }
 impl Display for Fields {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Fields::Field(f1) => write!(f, "{}", f1),
-            Fields::TextField(f1) => write!(f, "{}", f1),
-            Fields::StringField(f1) => write!(f, "{}", f1),
-            Fields::StoredField(f1) => write!(f, "{}", f1),
+            Fields::Text(f1) => write!(f, "{}", f1),
+            Fields::String(f1) => write!(f, "{}", f1),
+            Fields::Stored(f1) => write!(f, "{}", f1),
         }
     }
 }
@@ -53,9 +53,9 @@ impl IndexableField for Fields {
     fn name(&self) -> &str {
         match self {
             Fields::Field(f) => f.name(),
-            Fields::TextField(f) => f.name(),
-            Fields::StringField(f) => f.name(),
-            Fields::StoredField(f) => f.name(),
+            Fields::Text(f) => f.name(),
+            Fields::String(f) => f.name(),
+            Fields::Stored(f) => f.name(),
         }
     }
 
@@ -64,9 +64,9 @@ impl IndexableField for Fields {
     fn field_type(&self) -> &Self::FieldType {
         match self {
             Fields::Field(f) => f.field_type(),
-            Fields::TextField(f) => f.field_type(),
-            Fields::StringField(f) => f.field_type(),
-            Fields::StoredField(f) => f.field_type(),
+            Fields::Text(f) => f.field_type(),
+            Fields::String(f) => f.field_type(),
+            Fields::Stored(f) => f.field_type(),
         }
     }
 
@@ -77,72 +77,72 @@ impl IndexableField for Fields {
     ) -> Result<TokenStreamEnum> {
         match self {
             Fields::Field(f) => f.token_stream(_analyzer, _reuse),
-            Fields::TextField(f) => f.token_stream(_analyzer, _reuse),
-            Fields::StringField(f) => f.token_stream(_analyzer, _reuse),
-            Fields::StoredField(f) => f.token_stream(_analyzer, _reuse),
+            Fields::Text(f) => f.token_stream(_analyzer, _reuse),
+            Fields::String(f) => f.token_stream(_analyzer, _reuse),
+            Fields::Stored(f) => f.token_stream(_analyzer, _reuse),
         }
     }
 
     fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
         match self {
             Fields::Field(f) => f.binary_value(),
-            Fields::TextField(f) => f.binary_value(),
-            Fields::StringField(f) => f.binary_value(),
-            Fields::StoredField(f) => f.binary_value(),
+            Fields::Text(f) => f.binary_value(),
+            Fields::String(f) => f.binary_value(),
+            Fields::Stored(f) => f.binary_value(),
         }
     }
 
     fn string_value(&self) -> Result<Option<Arc<String>>> {
         match self {
             Fields::Field(f) => f.string_value(),
-            Fields::TextField(f) => f.string_value(),
-            Fields::StringField(f) => f.string_value(),
-            Fields::StoredField(f) => f.string_value(),
+            Fields::Text(f) => f.string_value(),
+            Fields::String(f) => f.string_value(),
+            Fields::Stored(f) => f.string_value(),
         }
     }
 
     fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
         match self {
             Fields::Field(f) => f.get_char_sequence_value(),
-            Fields::TextField(f) => f.get_char_sequence_value(),
-            Fields::StringField(f) => f.get_char_sequence_value(),
-            Fields::StoredField(f) => f.get_char_sequence_value(),
+            Fields::Text(f) => f.get_char_sequence_value(),
+            Fields::String(f) => f.get_char_sequence_value(),
+            Fields::Stored(f) => f.get_char_sequence_value(),
         }
     }
 
     fn reader_value(&self) -> Result<Option<ReaderEnum>> {
         match self {
             Fields::Field(f) => f.reader_value(),
-            Fields::TextField(f) => f.reader_value(),
-            Fields::StringField(f) => f.reader_value(),
-            Fields::StoredField(f) => f.reader_value(),
+            Fields::Text(f) => f.reader_value(),
+            Fields::String(f) => f.reader_value(),
+            Fields::Stored(f) => f.reader_value(),
         }
     }
 
     fn numeric_value(&self) -> Result<Option<Number>> {
         match self {
             Fields::Field(f) => f.numeric_value(),
-            Fields::TextField(f) => f.numeric_value(),
-            Fields::StringField(f) => f.numeric_value(),
-            Fields::StoredField(f) => f.numeric_value(),
+            Fields::Text(f) => f.numeric_value(),
+            Fields::String(f) => f.numeric_value(),
+            Fields::Stored(f) => f.numeric_value(),
         }
     }
 
     fn stored_value(&self) -> Result<Option<StoredValue>> {
         match self {
             Fields::Field(f) => f.stored_value(),
-            Fields::TextField(f) => f.stored_value(),
-            Fields::StringField(f) => f.stored_value(),
-            Fields::StoredField(f) => f.stored_value(),
+            Fields::Text(f) => f.stored_value(),
+            Fields::String(f) => f.stored_value(),
+            Fields::Stored(f) => f.stored_value(),
         }
     }
 
     fn invertable_type(&self) -> Result<&InvertableType> {
         match self {
             Fields::Field(f) => f.invertable_type(),
-            Fields::TextField(f) => f.invertable_type(),
-            Fields::StringField(f) => f.invertable_type(),
-            Fields::StoredField(f) => f.invertable_type(),
+            Fields::Text(f) => f.invertable_type(),
+            Fields::String(f) => f.invertable_type(),
+            Fields::Stored(f) => f.invertable_type(),
         }
     }
 }
@@ -155,19 +155,19 @@ impl From<Field> for Fields {
 
 impl From<TextField> for Fields {
     fn from(t: TextField) -> Self {
-        Fields::TextField(t)
+        Fields::Text(t)
     }
 }
 
 impl From<StringField> for Fields {
     fn from(s: StringField) -> Self {
-        Fields::StringField(s)
+        Fields::String(s)
     }
 }
 
 impl From<StoredField> for Fields {
     fn from(s: StoredField) -> Self {
-        Fields::StoredField(s)
+        Fields::Stored(s)
     }
 }
 

@@ -52,7 +52,7 @@ impl Document {
     /// to an index. These methods cannot be used to change the content of an existing index! In order
     /// to achieve this, a document has to be deleted from an index and a new changed version of that
     /// document has to be added.
-    pub fn add<T: Into<Fields>>(&mut self, field: T) {
+    pub fn add(&mut self, field: impl Into<Fields>) {
         self.fields.push(field.into());
     }
     /// Removes the field with the specified name from the document. If multiple fields exist with this

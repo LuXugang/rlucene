@@ -650,7 +650,7 @@ pub(crate) mod tests {
         let add_called = AtomicI64::new(0);
         let mut hash = create_new_hash(new_called, add_called)?;
         let dummy_value = "dummy";
-        let dummy_filed = Fields::StoredField(StoredField::with_binary(
+        let dummy_filed = Fields::Stored(StoredField::with_binary(
             "binary",
             dummy_value.as_bytes().to_vec(),
         )?);
@@ -798,7 +798,7 @@ pub(crate) mod tests {
         let add_called = AtomicI64::new(0);
         let mut hash = create_new_hash(new_called, add_called)?;
         let dummy_value = "dummy";
-        let dummy_filed = Fields::StoredField(StoredField::with_binary(
+        let dummy_filed = Fields::Stored(StoredField::with_binary(
             "binary",
             dummy_value.as_bytes().to_vec(),
         )?);
@@ -908,7 +908,7 @@ pub(crate) mod tests {
             let add_called = AtomicI64::new(0);
             let mut hash = create_new_hash(new_called, add_called)?;
             let dummy_value = "dummy";
-            let dummy_filed = Fields::StoredField(StoredField::with_binary(
+            let dummy_filed = Fields::Stored(StoredField::with_binary(
                 "binary",
                 dummy_value.as_bytes().to_vec(),
             )?);

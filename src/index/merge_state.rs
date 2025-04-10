@@ -16,6 +16,7 @@
  */
 use crate::codecs::doc_values_producer::DocValuesProducerEnum;
 use crate::codecs::norms_producer::NormsProducerEnum;
+use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 #[cfg(test)]
 use crate::index::doc_id_merger::tests::DocMapMock1;
 use crate::index::dummy::dummy_doc_map::DummyDocMap;
@@ -26,6 +27,7 @@ use crate::index::tests::DocMapMock2;
 use crate::store::IndexInput;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::DocMapMock;
+use crate::util::bits::BitsEnum;
 use crate::util::info_stream::InfoStreamEnum;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -36,9 +38,11 @@ where
 {
     pub doc_maps: Vec<Rc<DocMapEnum>>,
     pub merge_field_infos: Rc<FieldInfos>,
+    pub stored_fields_readers: Vec<StoredFieldsReaderEnum<I>>,
     pub norms_producers: Vec<Option<NormsProducerEnum<I>>>,
     pub doc_values_producers: Vec<Option<DocValuesProducerEnum<I>>>,
     pub field_infos: Vec<Rc<FieldInfos>>,
+    pub live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub needs_index_sort: bool,
     pub max_docs: Vec<i32>,
     pub info_stream: Arc<Mutex<InfoStreamEnum>>,

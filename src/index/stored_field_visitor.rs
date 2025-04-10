@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::index::field_info::FieldInfo;
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
+use std::rc::Rc;
 
 /// Expert: provides a low-level means of accessing the stored field values in an index.
 ///
@@ -33,48 +35,83 @@ pub trait StoredFieldVisitor {
     /// Default implementation reads into a byte array and delegates to `binary_field`.
     fn binary_field_with_input(
         &mut self,
-        field_info: &FieldInfo,
+        field_info: Rc<FieldInfo>,
         input: &mut impl DataInput,
         length: i32,
+        writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
         let mut buffer = vec![0u8; length as usize];
         input.read_bytes(&mut buffer, 0, length)?;
-        self.binary_field(field_info, &buffer)
+        self.binary_field(field_info, buffer, writer)
     }
 
     /// Process a binary field.
-    fn binary_field(&mut self, _field_info: &FieldInfo, _value: &[u8]) -> Result<()> {
+    fn binary_field(
+        &mut self,
+        _field_info: Rc<FieldInfo>,
+        _value: Vec<u8>,
+        _writer: &mut impl StoredFieldsWriter,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Process a string field.
-    fn string_field(&mut self, _field_info: &FieldInfo, _value: &str) -> Result<()> {
+    fn string_field(
+        &mut self,
+        _field_info: Rc<FieldInfo>,
+        _value: &str,
+        _writer: &mut impl StoredFieldsWriter,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Process an int numeric field.
-    fn int_field(&mut self, _field_info: &FieldInfo, _value: i32) -> Result<()> {
+    fn int_field(
+        &mut self,
+        _field_info: Rc<FieldInfo>,
+        _value: i32,
+        _writer: &mut impl StoredFieldsWriter,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Process a long numeric field.
-    fn long_field(&mut self, _field_info: &FieldInfo, _value: i64) -> Result<()> {
+    fn long_field(
+        &mut self,
+        _field_info: Rc<FieldInfo>,
+        _value: i64,
+        _writer: &mut impl StoredFieldsWriter,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Process a float numeric field.
-    fn float_field(&mut self, _field_info: &FieldInfo, _value: f32) -> Result<()> {
+    fn float_field(
+        &mut self,
+        _field_info: Rc<FieldInfo>,
+        _value: f32,
+        _writer: &mut impl StoredFieldsWriter,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Process a double numeric field.
-    fn double_field(&mut self, _field_info: &FieldInfo, _value: f64) -> Result<()> {
+    fn double_field(
+        &mut self,
+        _field_info: Rc<FieldInfo>,
+        _value: f64,
+        _writer: &mut impl StoredFieldsWriter,
+    ) -> Result<()> {
         Ok(())
     }
 
     /// Hook before processing a field.
     /// Returns a [`Status`] representing whether to visit, skip, or stop.
-    fn needs_field(&mut self, field_info: &FieldInfo) -> Result<Status>;
+    fn needs_field(
+        &mut self,
+        field_info: Rc<FieldInfo>,
+        _writer: &mut impl StoredFieldsWriter,
+    ) -> Result<Status>;
 }
 
 /// Enumeration of possible return values for `needs_field`.

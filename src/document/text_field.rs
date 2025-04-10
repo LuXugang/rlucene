@@ -21,37 +21,43 @@ use crate::document::field_type::FieldType;
 use crate::document::fields::{ReaderEnum, TokenStreamEnum};
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
-use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
-use once_cell::sync::Lazy;
 use std::fmt;
 use std::sync::Arc;
 
-/// Indexed, tokenized, not stored.
-static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
-        .expect("set_index_options should never fail in this context");
-    ft.set_tokenized(true)
-        .expect("set_tokenized(true) should never fail in this context");
-    ft.freeze();
-    Arc::new(ft)
-});
-/// Indexed, tokenized, stored.
-static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
-        .expect("set_index_options should never fail in this context");
-    ft.set_tokenized(true)
-        .expect("set_tokenized(true) should never fail in this context");
-    ft.set_stored(true)
-        .expect("set_stored(true) should never fail in this context");
-    ft.freeze();
-    Arc::new(ft)
-});
+pub mod text {
+    use crate::document::field_type::FieldType;
+    use crate::index::index_options::IndexOptions;
+    use once_cell::sync::Lazy;
+    use std::sync::Arc;
+
+    /// Indexed, tokenized, not stored.
+    pub(crate) static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
+        let mut ft = FieldType::new();
+        ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
+            .expect("set_index_options should never fail in this context");
+        ft.set_tokenized(true)
+            .expect("set_tokenized(true) should never fail in this context");
+        ft.freeze();
+        Arc::new(ft)
+    });
+    /// Indexed, tokenized, stored.
+    pub(crate) static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
+        let mut ft = FieldType::new();
+        ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
+            .expect("set_index_options should never fail in this context");
+        ft.set_tokenized(true)
+            .expect("set_tokenized(true) should never fail in this context");
+        ft.set_stored(true)
+            .expect("set_stored(true) should never fail in this context");
+        ft.freeze();
+        Arc::new(ft)
+    });
+}
+
 /// A field that is indexed and tokenized, without term vectors.
 /// For example, this would be used on a `body` field that contains the bulk of a document's text.
 pub struct TextField {
@@ -68,7 +74,7 @@ impl TextField {
     /// - `reader`: `ReaderEnum` value.
     pub fn with_reader(name: &str, reader: ReaderEnum) -> Result<Self> {
         let name_arc = Arc::new(name.to_string());
-        let parent_field = Field::with_reader(name, reader, Arc::clone(&TYPE_NOT_STORED))?;
+        let parent_field = Field::with_reader(name, reader, Arc::clone(&text::TYPE_NOT_STORED))?;
         Ok(Self {
             parent_field,
             stored_value: None,
@@ -84,9 +90,9 @@ impl TextField {
         let store = store.into();
         let value_str = Arc::new(value.to_string());
         let field_type = if store {
-            Arc::clone(&TYPE_STORED)
+            Arc::clone(&text::TYPE_STORED)
         } else {
-            Arc::clone(&TYPE_NOT_STORED)
+            Arc::clone(&text::TYPE_NOT_STORED)
         };
         let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
         let stored_value = if store {
@@ -105,7 +111,8 @@ impl TextField {
     /// - `name`: Field name.
     /// - `stream`: `TokenStream` value.
     pub fn with_token_stream(name: &str, stream: TokenStreamEnum) -> Result<Self> {
-        let parent_field = Field::with_token_stream(name, stream, Arc::clone(&TYPE_NOT_STORED))?;
+        let parent_field =
+            Field::with_token_stream(name, stream, Arc::clone(&text::TYPE_NOT_STORED))?;
         Ok(Self {
             parent_field,
             stored_value: None,

@@ -24,11 +24,14 @@ use crate::codecs::compression::compression_mode::{
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
+use crate::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum};
+use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
+use crate::index::stored_fields::StoredFields;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
@@ -47,6 +50,7 @@ use std::sync::{Arc, Mutex};
 
 const PREFETCH_CACHE_SIZE: usize = 1 << 4;
 const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;
+/// [`StoredFieldsReader`] implementation for [`Lucene90CompressingStoredFieldsFormat`](crate::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
 pub struct Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
@@ -375,33 +379,34 @@ where
     pub fn read_field(
         input: &mut impl DataInput,
         visitor: &mut impl StoredFieldVisitor,
-        info: &FieldInfo,
+        info: Rc<FieldInfo>,
         bits: i32,
+        writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
         match bits & *TYPE_MASK as i32 {
             Lucene90CompressingStoredFieldsWriter::BYTE_ARR => {
                 let length = input.read_vint()?;
-                visitor.binary_field_with_input(info, input, length)?;
+                visitor.binary_field_with_input(info, input, length, writer)?;
             }
             Lucene90CompressingStoredFieldsWriter::STRING => {
                 let s = input.read_string()?;
-                visitor.string_field(info, &s)?;
+                visitor.string_field(info, &s, writer)?;
             }
             Lucene90CompressingStoredFieldsWriter::NUMERIC_INT => {
                 let v = input.read_zint()?;
-                visitor.int_field(info, v)?;
+                visitor.int_field(info, v, writer)?;
             }
             Lucene90CompressingStoredFieldsWriter::NUMERIC_FLOAT => {
                 let v = Lucene90CompressingStoredFieldsReader::read_zfloat(input)?;
-                visitor.float_field(info, v)?;
+                visitor.float_field(info, v, writer)?;
             }
             Lucene90CompressingStoredFieldsWriter::NUMERIC_LONG => {
                 let v = Lucene90CompressingStoredFieldsReader::read_tlong(input)?;
-                visitor.long_field(info, v)?;
+                visitor.long_field(info, v, writer)?;
             }
             Lucene90CompressingStoredFieldsWriter::NUMERIC_DOUBLE => {
                 let v = Lucene90CompressingStoredFieldsReader::read_zdouble(input)?;
-                visitor.double_field(info, v)?;
+                visitor.double_field(info, v, writer)?;
             }
             other => {
                 return Err(LuceneError::illegal_state(format!(
@@ -440,7 +445,92 @@ where
         }
         Ok(())
     }
-    pub fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+    pub(crate) fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<I>> {
+        if !self.state.contains(doc_id) {
+            let pointer = self.index_reader.get_start_pointer(doc_id)?;
+            self.fields_stream.borrow_mut().seek(pointer)?;
+            self.state.reset(doc_id, self.num_docs)?;
+        }
+
+        debug_assert!(self.state.contains(doc_id));
+        self.state.document(doc_id)
+    }
+    /// Checks if a given docID was loaded in the current block state.
+    pub(crate) fn is_loaded(&self, doc_id: i32) -> Result<bool> {
+        if !self.merging {
+            return Err(LuceneError::illegal_state(
+                "is_loaded should only ever get called on a merge instance",
+            ));
+        }
+
+        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state(
+                "is_loaded should only ever get called when the reader is on the current version",
+            ));
+        }
+
+        Ok(self.state.contains(doc_id))
+    }
+    pub(crate) fn get_version(&self) -> i32 {
+        self.version
+    }
+    pub(crate) fn get_compression_mode(&self) -> &CompressionModeEnum {
+        &self.compression_mode
+    }
+    pub(crate) fn get_index_reader(&mut self) -> &mut FieldsIndexEnum<I> {
+        &mut self.index_reader
+    }
+    pub(crate) fn get_max_pointer(&self) -> i64 {
+        self.max_pointer
+    }
+    pub(crate) fn get_fields_stream(&self) -> Rc<RefCell<I>> {
+        Rc::clone(&self.fields_stream)
+    }
+    pub fn get_chunk_size(&self) -> i32 {
+        self.chunk_size
+    }
+
+    #[allow(unused)]
+    pub fn num_docs(&self) -> i32 {
+        self.num_docs
+    }
+
+    pub fn get_num_dirty_docs(&self) -> Result<i64> {
+        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state(
+                "getNumDirtyDocs should only ever get called when the reader is on the current version",
+            ));
+        }
+        debug_assert!(self.num_dirty_docs >= 0);
+        Ok(self.num_dirty_docs)
+    }
+
+    pub fn get_num_dirty_chunks(&self) -> Result<i64> {
+        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state(
+                "getNumDirtyChunks should only ever get called when the reader is on the current version",
+            ));
+        }
+        debug_assert!(self.num_dirty_chunks >= 0);
+        Ok(self.num_dirty_chunks)
+    }
+
+    pub fn get_num_chunks(&self) -> Result<i64> {
+        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state(
+                "getNumChunks should only ever get called when the reader is on the current version",
+            ));
+        }
+        debug_assert!(self.num_chunks >= 0);
+        Ok(self.num_chunks)
+    }
+}
+
+impl<I> StoredFields for Lucene90CompressingStoredFieldsReader<I>
+where
+    I: IndexInput,
+{
+    fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         let block_id = self.index_reader.get_block_id(doc_id)?;
         for &prefetched in &self.prefetched_block_id_cache {
             if prefetched == block_id {
@@ -461,33 +551,13 @@ where
 
         Ok(())
     }
-    fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<I>> {
-        if !self.state.contains(doc_id) {
-            let pointer = self.index_reader.get_start_pointer(doc_id)?;
-            self.fields_stream.borrow_mut().seek(pointer)?;
-            self.state.reset(doc_id, self.num_docs)?;
-        }
 
-        debug_assert!(self.state.contains(doc_id));
-        self.state.document(doc_id)
-    }
-    /// Checks if a given docID was loaded in the current block state.
-    fn is_loaded(&self, doc_id: i32) -> Result<bool> {
-        if !self.merging {
-            return Err(LuceneError::illegal_state(
-                "is_loaded should only ever get called on a merge instance",
-            ));
-        }
-
-        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
-            return Err(LuceneError::illegal_state(
-                "is_loaded should only ever get called when the reader is on the current version",
-            ));
-        }
-
-        Ok(self.state.contains(doc_id))
-    }
-    pub fn document(&mut self, doc_id: i32, visitor: &mut impl StoredFieldVisitor) -> Result<()> {
+    fn document_with_visitor(
+        &mut self,
+        doc_id: i32,
+        visitor: &mut impl StoredFieldVisitor,
+        writer: &mut impl StoredFieldsWriter,
+    ) -> Result<()> {
         let field_infos = &self.field_infos.clone();
         let mut doc = self.serialized_document(doc_id)?;
         for field_idx in 0..doc.num_stored_fields {
@@ -503,9 +573,15 @@ where
             );
             match field_info {
                 Some(field_info) => {
-                    match visitor.needs_field(&field_info)? {
+                    match visitor.needs_field(field_info.clone(), writer)? {
                         Status::Yes => {
-                            Self::read_field(&mut doc.input, visitor, &field_info, bits)?;
+                            Self::read_field(
+                                &mut doc.input,
+                                visitor,
+                                field_info.clone(),
+                                bits,
+                                writer,
+                            )?;
                         }
                         Status::No => {
                             // don't skipField on last field value; treat like STOP
@@ -525,61 +601,25 @@ where
                 }
             }
         }
-
         Ok(())
     }
-    fn version(&self) -> i32 {
-        self.version
-    }
-    fn compression_mode(&self) -> &CompressionModeEnum {
-        &self.compression_mode
-    }
-    fn index_reader(&self) -> &FieldsIndexEnum<I> {
-        &self.index_reader
-    }
-    fn max_pointer(&self) -> i64 {
-        self.max_pointer
-    }
-    fn fields_stream(&self) -> Rc<RefCell<I>> {
-        Rc::clone(&self.fields_stream)
-    }
-    pub fn chunk_size(&self) -> i32 {
-        self.chunk_size
+}
+
+impl<I> StoredFieldsReader<I> for Lucene90CompressingStoredFieldsReader<I>
+where
+    I: IndexInput,
+{
+    fn check_integrity(&mut self) -> Result<()> {
+        self.index_reader.check_integrity()?;
+        CodecUtil::checksum_entire_file(&mut *self.fields_stream.borrow_mut())?;
+        Ok(())
     }
 
-    #[allow(unused)]
-    pub fn num_docs(&self) -> i32 {
-        self.num_docs
-    }
-
-    pub fn num_dirty_docs(&self) -> Result<i64> {
-        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
-            return Err(LuceneError::illegal_state(
-                "getNumDirtyDocs should only ever get called when the reader is on the current version",
-            ));
-        }
-        debug_assert!(self.num_dirty_docs >= 0);
-        Ok(self.num_dirty_docs)
-    }
-
-    pub fn num_dirty_chunks(&self) -> Result<i64> {
-        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
-            return Err(LuceneError::illegal_state(
-                "getNumDirtyChunks should only ever get called when the reader is on the current version",
-            ));
-        }
-        debug_assert!(self.num_dirty_chunks >= 0);
-        Ok(self.num_dirty_chunks)
-    }
-
-    pub fn num_chunks(&self) -> Result<i64> {
-        if self.version != Lucene90CompressingStoredFieldsWriter::VERSION_CURRENT {
-            return Err(LuceneError::illegal_state(
-                "getNumChunks should only ever get called when the reader is on the current version",
-            ));
-        }
-        debug_assert!(self.num_chunks >= 0);
-        Ok(self.num_chunks)
+    fn get_merge_instance(&self) -> Result<Option<StoredFieldsReaderEnum<I>>> {
+        self.ensure_open()?;
+        Ok(Some(StoredFieldsReaderEnum::Lucene90(
+            Lucene90CompressingStoredFieldsReader::new_with_reader(self, true)?,
+        )))
     }
 }
 impl<I> crate::util::clone::TryClone for Lucene90CompressingStoredFieldsReader<I>
@@ -590,6 +630,7 @@ where
     where
         Self: Sized,
     {
+        self.ensure_open()?;
         Lucene90CompressingStoredFieldsReader::new_with_reader(self, false)
     }
 }
@@ -873,13 +914,13 @@ where
     I: IndexInput,
 {
     /// The serialized data input.
-    input: DataInputEnum<'a, I>,
+    pub(crate) input: DataInputEnum<'a, I>,
 
     /// The number of bytes on which the document is encoded.
-    length: i32,
+    pub(crate) length: i32,
 
     /// The number of stored fields in the document.
-    num_stored_fields: i32,
+    pub(crate) num_stored_fields: i32,
 }
 
 impl<'a, I> SerializedDocument<'a, I>
@@ -895,7 +936,7 @@ where
     }
 }
 
-struct DataInputImpl<'a, I>
+pub(crate) struct DataInputImpl<'a, I>
 where
     I: IndexInput,
 {
@@ -1009,7 +1050,7 @@ where
         Ok(())
     }
 }
-enum DataInputEnum<'a, I>
+pub(crate) enum DataInputEnum<'a, I>
 where
     I: IndexInput,
 {

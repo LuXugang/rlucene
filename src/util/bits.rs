@@ -67,3 +67,14 @@ impl Bits for MatchNoBits {
         self.len
     }
 }
+
+pub enum BitsEnum {}
+impl Bits for BitsEnum {
+    fn get(&self, index: i32) -> bool {
+        todo!()
+    }
+
+    fn length(&self) -> i32 {
+        todo!()
+    }
+}

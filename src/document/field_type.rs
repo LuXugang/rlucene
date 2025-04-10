@@ -82,7 +82,7 @@ impl FieldType {
     }
 
     /// Creates a new mutable FieldType with all of the properties from `ref_field`.
-    pub fn from_ref<I: IndexableFieldType>(ref_field: &I) -> Result<Self> {
+    pub fn from_ref(ref_field: &impl IndexableFieldType) -> Result<Self> {
         // Copy attributes if available; otherwise use an empty map.
         let attributes = {
             let ref_attrs = ref_field.get_attributes();

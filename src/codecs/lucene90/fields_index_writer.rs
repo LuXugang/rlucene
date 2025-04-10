@@ -58,12 +58,12 @@ where
     D: Directory,
 {
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    pub(crate) fn new(
         dir: Arc<Mutex<D>>,
-        name: String,
-        suffix: String,
-        extension: String,
-        codec_name: String,
+        name: &str,
+        suffix: &str,
+        extension: &str,
+        codec_name: &str,
         id: Vec<u8>,
         block_shift: i32,
         io_context: IOContext,
@@ -72,7 +72,7 @@ where
             .lock()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let mut docs_out =
-            dir_guard.create_temp_output(&name, &format!("{}-doc_ids", codec_name), &io_context)?;
+            dir_guard.create_temp_output(name, &format!("{}-doc_ids", codec_name), &io_context)?;
         CodecUtil::write_header(
             &mut docs_out,
             &format!("{}Docs", codec_name),
@@ -80,7 +80,7 @@ where
         )?;
 
         let mut file_pointers_out = dir_guard.create_temp_output(
-            &name,
+            name,
             &format!("{}file_pointers", codec_name),
             &io_context,
         )?;
@@ -93,10 +93,10 @@ where
 
         Ok(FieldsIndexWriter {
             dir,
-            name,
-            suffix,
-            extension,
-            codec_name,
+            name: name.to_string(),
+            suffix: name.to_string(),
+            extension: name.to_string(),
+            codec_name: codec_name.to_string(),
             id,
             block_shift,
             io_context,
@@ -107,7 +107,7 @@ where
             previous_fp: 0,
         })
     }
-    fn write_index(&mut self, num_docs: i32, start_pointer: i64) -> Result<()> {
+    pub(crate) fn write_index(&mut self, num_docs: i32, start_pointer: i64) -> Result<()> {
         debug_assert!(start_pointer >= self.previous_fp);
         debug_assert!(self.docs_out.is_some());
         debug_assert!(self.file_pointers_out.is_some());
@@ -122,7 +122,7 @@ where
         Ok(())
     }
 
-    fn finish(
+    pub(crate) fn finish(
         &mut self,
         num_docs: i32,
         max_pointer: i64,

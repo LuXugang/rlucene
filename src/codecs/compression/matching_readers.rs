@@ -17,7 +17,7 @@
 use crate::index::merge_state::MergeState;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::info_stream::{InfoStream};
+use crate::util::info_stream::InfoStream;
 
 /// Computes which segments have identical field name to number mappings,
 /// which allows stored fields and term vectors in this codec to be bulk-merged.

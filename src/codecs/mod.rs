@@ -38,6 +38,8 @@ pub mod norms_producer;
 pub mod points_format;
 pub mod segment_info_format;
 pub mod simple_text_live_docs_format;
+pub mod stored_fields_reader;
+pub mod stored_fields_writer;
 
 pub use codec::*;
 pub use codec_util::*;

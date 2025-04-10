@@ -21,7 +21,12 @@ pub(crate) struct StoredFieldsInts;
 impl StoredFieldsInts {
     const BLOCK_SIZE: usize = 128;
     const BLOCK_SIZE_MINUS_ONE: usize = Self::BLOCK_SIZE - 1;
-    fn write_ints(values: &[i32], start: i32, count: i32, out: &mut impl DataOutput) -> Result<()> {
+    pub(crate) fn write_ints(
+        values: &[i32],
+        start: i32,
+        count: i32,
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         let start = start as usize;
 
         let mut all_equal = true;
