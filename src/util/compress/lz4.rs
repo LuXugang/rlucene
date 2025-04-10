@@ -71,15 +71,12 @@ impl LZ4 {
     /// (meaning that you need to know the total decompressed length). If the given bytes were
     /// compressed using a preset dictionary, the same dictionary must be provided in
     /// `dest[d_off-dict_len..d_off]`.
-    pub fn decompress<D>(
-        compressed: &mut D,
+    pub fn decompress(
+        compressed: &mut impl DataInput,
         decompressed_len: i32,
         dest: &mut [u8],
         d_off: i32,
-    ) -> Result<i32>
-    where
-        D: DataInput,
-    {
+    ) -> Result<i32> {
         let dest_end = d_off + decompressed_len;
         let mut d_off = d_off;
 
@@ -149,10 +146,7 @@ impl LZ4 {
         }
         Ok(d_off)
     }
-    fn encode_len<D>(mut l: i32, out: &mut D) -> Result<()>
-    where
-        D: DataOutput,
-    {
+    fn encode_len(mut l: i32, out: &mut impl DataOutput) -> Result<()> {
         while l >= 0xFF {
             out.write_byte(0xFF)?;
             l -= 0xFF;
@@ -160,16 +154,13 @@ impl LZ4 {
         out.write_byte(l as u8)?;
         Ok(())
     }
-    fn encode_literals<D>(
+    fn encode_literals(
         bytes: &[u8],
         token: i32,
         anchor: i32,
         literal_len: i32,
-        out: &mut D,
-    ) -> Result<()>
-    where
-        D: DataOutput,
-    {
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         out.write_byte(token as u8)?;
 
         // encode literal length
@@ -182,30 +173,24 @@ impl LZ4 {
 
         Ok(())
     }
-    fn encode_last_literals<D>(
+    fn encode_last_literals(
         bytes: &[u8],
         anchor: i32,
         literal_len: i32,
-        out: &mut D,
-    ) -> Result<()>
-    where
-        D: DataOutput,
-    {
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         let token = std::cmp::min(literal_len, 0x0F) << 4;
         Self::encode_literals(bytes, token, anchor, literal_len, out)
     }
 
-    fn encode_sequence<D>(
+    fn encode_sequence(
         bytes: &[u8],
         anchor: i32,
         match_ref: i32,
         match_off: i32,
         match_len: i32,
-        out: &mut D,
-    ) -> Result<()>
-    where
-        D: DataOutput,
-    {
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         let literal_len = match_off - anchor;
         debug_assert!(match_len >= 4);
         // Encode token
@@ -226,33 +211,27 @@ impl LZ4 {
     }
     /// Compress `bytes[off:off+len]` into `out` using at most 16kB of memory.
     /// `ht` shouldn't be shared across threads but can safely be reused.
-    pub fn compress<D>(
+    pub fn compress(
         bytes: Vec<u8>,
         off: i32,
         len: i32,
-        out: &mut D,
+        out: &mut impl DataOutput,
         ht: &mut HashTableEnum,
-    ) -> Result<()>
-    where
-        D: DataOutput,
-    {
+    ) -> Result<()> {
         Self::compress_with_dictionary(bytes, off, 0, len, out, ht)
     }
     /// Compress `[dictOff+dictLen:dictOff+dictLen+len]` into `out` using at most 16kB
     /// of memory. `[dictOff:dictOff+dictLen]` will be used as a dictionary. `dictLen`
     /// must not be greater than `MAX_DISTANCE 64kB`, the maximum window size.
     /// `ht` shouldn't be shared across threads but can safely be reused.
-    pub fn compress_with_dictionary<D>(
+    pub fn compress_with_dictionary(
         bytes: Vec<u8>,
         dict_off: i32,
         dict_len: i32,
         len: i32,
-        out: &mut D,
+        out: &mut impl DataOutput,
         ht: &mut HashTableEnum,
-    ) -> Result<()>
-    where
-        D: DataOutput,
-    {
+    ) -> Result<()> {
         // Ensure the indices are valid
         CommonUtil::check_from_index_size(dict_off, dict_len, bytes.len() as i32)?;
         CommonUtil::check_from_index_size(dict_off + dict_len, len, bytes.len() as i32)?;
