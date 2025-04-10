@@ -32,7 +32,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 ///
 /// # See Also
 /// - [`Directory`](crate::store::directory::Directory) for file-based operations.
-pub trait IndexInput: DataInput + Clone {
+pub trait IndexInput: DataInput + crate::util::clone::TryClone {
     /// Returns the current position in this file, where the next read will occur.
     ///
     /// # See Also

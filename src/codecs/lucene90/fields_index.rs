@@ -16,10 +16,10 @@
  */
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::store::IndexInput;
-use crate::util::clone::Clone;
+use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
 #[allow(unused)]
-pub(crate) trait FieldsIndex: Clone {
+pub(crate) trait FieldsIndex: TryClone {
     /// Get the ID of the block that contains the given docID.
     fn get_block_id(&mut self, doc_id: i32) -> Result<i64>;
 
@@ -47,7 +47,7 @@ where
     Lucene90(FieldsIndexReader<I>),
 }
 
-impl<I> Clone for FieldsIndexEnum<I>
+impl<I> TryClone for FieldsIndexEnum<I>
 where
     I: IndexInput,
 {

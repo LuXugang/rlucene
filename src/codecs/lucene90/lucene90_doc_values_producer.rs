@@ -89,7 +89,7 @@ where
 
 impl<I> Lucene90DocValuesProducer<I>
 where
-    I: IndexInput + Clone,
+    I: IndexInput,
 {
     pub fn new<D>(
         state: &SegmentReadState<D>,
@@ -223,19 +223,19 @@ where
         data: &I,
         max_doc: i32,
         version: i32,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        Ok(Self {
             numerics,
             binaries,
             sorted,
             sorted_sets,
             sorted_numerics,
             skippers,
-            data: data.clone(),
+            data: data.try_clone()?,
             max_doc,
             version,
             merging: true,
-        }
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1151,7 +1151,7 @@ where
                 &self.data,
                 self.max_doc,
                 self.version,
-            ),
+            )?,
         ))))
     }
 }

@@ -660,21 +660,23 @@ where
         write!(f, "BufferedIndexInput({})", self.resource_desc)
     }
 }
-
-impl<T> Clone for BufferedIndexInput<T>
+impl<T> crate::util::clone::TryClone for BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-    fn clone(&self) -> Self {
-        Self {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
             buffer_size: self.buffer_size,
             resource_desc: self.resource_desc.clone(),
             buffer: self.buffer.clone(),
-            sub_index_input: self.sub_index_input.clone(),
+            sub_index_input: self.sub_index_input.try_clone()?,
             buffer_start: self.buffer_start,
             pos: self.pos,
             length: self.length,
-        }
+        })
     }
 }
 
@@ -777,12 +779,13 @@ mod tests {
     use crate::store::random_access_input::RandomAccessInput;
     use crate::store::{BufferedIndexInput, BufferedIndexInputBase, DataInput};
     use crate::test::util::lucene_test_case::random;
-
     use crate::util::bit_util::BitUtil;
+    use crate::util::clone::TryClone as OtherClone;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::ReadableCursorExt;
     use byteorder::WriteBytesExt;
     use rand::Rng;
+    use std::clone::Clone;
     use std::io::Cursor;
 
     #[allow(dead_code)] // for quick search
@@ -1073,7 +1076,7 @@ mod tests {
         let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
-            sub_index_input.clone(),
+            sub_index_input.try_clone()?,
             &resource_description,
             BufferedIndexInput::BUFFER_SIZE,
         )?;
@@ -1135,7 +1138,7 @@ mod tests {
         let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
-            sub_index_input.clone(),
+            sub_index_input.try_clone()?,
             &resource_description,
             BufferedIndexInput::BUFFER_SIZE,
         )?;
@@ -1195,7 +1198,7 @@ mod tests {
         let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
-            sub_index_input.clone(),
+            sub_index_input.try_clone()?,
             &resource_description,
             BufferedIndexInput::BUFFER_SIZE,
         )?;
@@ -1280,9 +1283,12 @@ mod tests {
         ((n * n) % 256) as u8
     }
 
-    impl Clone for MyBufferedIndexInput {
-        fn clone(&self) -> Self {
-            MyBufferedIndexInput::with_len(self.len)
+    impl crate::util::clone::TryClone for MyBufferedIndexInput {
+        fn try_clone(&self) -> Result<Self>
+        where
+            Self: Sized,
+        {
+            Ok(MyBufferedIndexInput::with_len(self.len))
         }
     }
 

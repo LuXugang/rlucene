@@ -23,6 +23,7 @@ use crate::store::{DataInput, DataOutput, IOContext};
 use crate::store::{IndexInput, IO_CONTEXT_DEFAULT};
 use crate::test::util::lucene_test_case::{at_least, new_directory, new_io_context};
 
+use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{StringHelper, LATEST};
 use rand::rngs::StdRng;
@@ -385,7 +386,7 @@ pub trait BaseCompoundFormatTestCase {
             .unwrap()
             .open_input("_123.f11", &new_io_context(random)?)?;
         let mut one = cr.open_input("_123.f11", &new_io_context(random)?)?;
-        let mut two = one.clone();
+        let mut two = one.try_clone()?;
 
         assert_same_streams("basic clone one", &mut expected, &mut one)?;
         expected.seek(0)?;
@@ -482,8 +483,8 @@ pub trait BaseCompoundFormatTestCase {
         let mut e1 = cr.open_input("_123.f11", &new_io_context(random)?)?;
         let mut e2 = cr.open_input("_123.f3", &new_io_context(random)?)?;
 
-        let mut a1 = e1.clone();
-        let mut a2 = e2.clone();
+        let mut a1 = e1.try_clone()?;
+        let mut a2 = e2.try_clone()?;
 
         // Seek the first pair
         e1.seek(100)?;

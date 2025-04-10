@@ -392,15 +392,15 @@ where
     }
 }
 
-impl<I> Clone for IndexInputImpl<I>
+impl<I> crate::util::clone::TryClone for IndexInputImpl<I>
 where
     I: IndexInput,
 {
-    fn clone(&self) -> Self {
-        Self {
-            inf: Rc::clone(&self.inf),
-            offset: self.offset,
-        }
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        todo!()
     }
 }
 
@@ -552,17 +552,17 @@ where
         Ok(())
     }
 
-    fn get_merge_instance(&self) -> Option<NormsProducerEnum<I>> {
+    fn get_merge_instance(&self) -> Result<Option<NormsProducerEnum<I>>> {
         let result = Self {
             norms: self.norms.clone(),
             max_doc: self.max_doc,
-            data: self.data.clone(),
+            data: self.data.try_clone()?,
             merging: true,
             disi_inputs: HashMap::new(),
             disi_jump_tables: HashMap::new(),
             data_inputs: HashMap::new(),
         };
-        Some(NormsProducerEnum::Lucene90(result))
+        Ok(Some(NormsProducerEnum::Lucene90(result)))
     }
 }
 

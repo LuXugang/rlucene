@@ -67,6 +67,21 @@ impl NIOFSIndexInput {
     }
 }
 
+impl crate::util::clone::TryClone for NIOFSIndexInput {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            file: self.file.try_clone()?,
+            off: self.off,
+            end: self.end,
+            resource_desc: self.resource_desc.clone(),
+            buffer_size: self.buffer_size,
+        })
+    }
+}
+
 impl BufferedIndexInputBase for NIOFSIndexInput {
     fn seek_internal(&mut self, pos: i64) -> Result<()> {
         if pos > self.length() {
@@ -203,17 +218,5 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
 impl Display for NIOFSIndexInput {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.resource_desc)
-    }
-}
-
-impl Clone for NIOFSIndexInput {
-    fn clone(&self) -> Self {
-        Self {
-            file: self.file.try_clone().unwrap(),
-            off: self.off,
-            end: self.end,
-            resource_desc: self.resource_desc.clone(),
-            buffer_size: self.buffer_size,
-        }
     }
 }

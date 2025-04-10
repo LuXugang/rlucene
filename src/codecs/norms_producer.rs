@@ -47,8 +47,8 @@ where
     /// By default, this method returns `None`, which indicates that no new
     /// `NormsProducerEnum` is required for merging, and the current instance
     /// should be used directly during merge operations.
-    fn get_merge_instance(&self) -> Option<NormsProducerEnum<I>> {
-        None
+    fn get_merge_instance(&self) -> Result<Option<NormsProducerEnum<I>>> {
+        Ok(None)
     }
 }
 

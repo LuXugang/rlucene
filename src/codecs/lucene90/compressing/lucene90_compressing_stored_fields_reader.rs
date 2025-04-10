@@ -35,7 +35,7 @@ use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::{ByteArrayDataInput, DataInput, IOContext, IndexInput, ReadAdvice};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
-use crate::util::clone::Clone as OtherClone;
+use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CommonUtil, SliceCopyOps};
 use std::cell::RefCell;
@@ -324,7 +324,7 @@ where
         reader: &Lucene90CompressingStoredFieldsReader<I>,
         merging: bool,
     ) -> Result<Lucene90CompressingStoredFieldsReader<I>> {
-        let fields_stream = (*reader.fields_stream.borrow_mut()).clone();
+        let fields_stream = (*reader.fields_stream.borrow_mut()).try_clone()?;
         let fields_stream = Rc::new(RefCell::new(fields_stream));
         Ok(Self {
             version: reader.version,
@@ -582,7 +582,7 @@ where
         Ok(self.num_chunks)
     }
 }
-impl<I> crate::util::clone::Clone for Lucene90CompressingStoredFieldsReader<I>
+impl<I> crate::util::clone::TryClone for Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
 {

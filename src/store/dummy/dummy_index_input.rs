@@ -47,8 +47,11 @@ impl Display for DummyIndexInput {
     }
 }
 
-impl Clone for DummyIndexInput {
-    fn clone(&self) -> Self {
+impl crate::util::clone::TryClone for DummyIndexInput {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
         unreachable!("this method should never be called")
     }
 }

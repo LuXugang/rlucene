@@ -28,6 +28,7 @@ use crate::test::util::lucene_test_case::{
 };
 
 use crate::test::util::test_util::TestUtil;
+use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::group_vint_util::GroupVIntUtil;
@@ -1110,7 +1111,7 @@ pub trait BaseDirectoryTestCase {
 
             for i in 0..threads {
                 let dir_clone = Arc::clone(&dir_new);
-                let mut src = input.clone();
+                let mut src = input.try_clone()?;
                 let barrier_clone = Arc::clone(&barrier);
                 let io_context = IOContext::default_io_context()?;
                 let handle = thread::spawn(move || {
@@ -2017,7 +2018,7 @@ pub trait BaseDirectoryTestCase {
         let mut temp = vec![0u8; 2048];
 
         let orig = dir.open_input("temp.bin", &io_context)?;
-        let mut input = orig.clone();
+        let mut input = orig.try_clone()?;
 
         for _ in 0..10_000 {
             let offset = random.random_range(0..(IndexInput::length(&input) as usize - 1)) as i64;

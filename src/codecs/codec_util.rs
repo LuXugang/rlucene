@@ -660,7 +660,7 @@ impl CodecUtil {
     /// This method may be slow, as it must process the entire file.  
     /// If you just need to extract the checksum value, call [`retrieve_checksum`](CodecUtil::retrieve_checksum).
     pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<i64> {
-        let mut clone = input.clone();
+        let mut clone = input.try_clone()?;
         clone.seek(0)?;
         let mut checksum_in = BufferedChecksumIndexInput::new(clone);
         assert_eq!(checksum_in.get_file_pointer(), 0);

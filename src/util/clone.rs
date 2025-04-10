@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::Result;
-pub trait Clone {
+pub trait TryClone {
     fn try_clone(&self) -> Result<Self>
     where
         Self: Sized;

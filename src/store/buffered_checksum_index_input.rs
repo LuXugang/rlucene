@@ -37,6 +37,18 @@ where
     }
 }
 
+impl<T> crate::util::clone::TryClone for BufferedChecksumIndexInput<T>
+where
+    T: IndexInput,
+{
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        unreachable!("unsupported operation")
+    }
+}
+
 impl<T> IndexInput for BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
@@ -111,15 +123,6 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BufferedChecksumIndexInput({})", self.main)
-    }
-}
-
-impl<T> Clone for BufferedChecksumIndexInput<T>
-where
-    T: IndexInput,
-{
-    fn clone(&self) -> Self {
-        unreachable!("unsupported operation")
     }
 }
 

@@ -159,10 +159,16 @@ impl Display for ByteBuffersIndexInput<'_> {
     }
 }
 
-impl Clone for ByteBuffersIndexInput<'_> {
-    fn clone(&self) -> Self {
-        let slice = self.data_input.slice(0, self.data_input.length()).unwrap();
-        ByteBuffersIndexInput::new(slice, format!("(clone of) {}", self).as_str())
+impl crate::util::clone::TryClone for ByteBuffersIndexInput<'_> {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let slice = self.data_input.slice(0, self.data_input.length())?;
+        Ok(ByteBuffersIndexInput::new(
+            slice,
+            format!("(clone of) {}", self).as_str(),
+        ))
     }
 }
 

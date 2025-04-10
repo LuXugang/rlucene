@@ -20,8 +20,11 @@ use std::io::Cursor;
 
 pub struct DummyBufferedIndexInputBase;
 
-impl Clone for DummyBufferedIndexInputBase {
-    fn clone(&self) -> Self {
+impl crate::util::clone::TryClone for DummyBufferedIndexInputBase {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
         unreachable!("this method should never be called")
     }
 }

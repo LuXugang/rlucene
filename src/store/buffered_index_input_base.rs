@@ -19,7 +19,7 @@ use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 use std::io::Cursor;
 
-pub trait BufferedIndexInputBase: Clone {
+pub trait BufferedIndexInputBase: crate::util::clone::TryClone {
     /// Expert: Implements seek functionality. Sets the current position in this file,
     /// where the next call to [`read_internal`](BufferedIndexInputBase::read_internal) will occur.
     ///

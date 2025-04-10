@@ -145,7 +145,7 @@ where
             num_chunks: other.num_chunks,
             docs_meta,
             start_pointers_meta,
-            index_input: other.index_input.clone(),
+            index_input: other.index_input.try_clone()?,
             docs_start_pointer: other.docs_start_pointer,
             docs_end_pointer: other.docs_end_pointer,
             start_pointers_start_pointer: other.start_pointers_start_pointer,
@@ -160,7 +160,7 @@ where
     }
 }
 
-impl<I> crate::util::clone::Clone for FieldsIndexReader<I>
+impl<I> crate::util::clone::TryClone for FieldsIndexReader<I>
 where
     I: IndexInput,
 {
