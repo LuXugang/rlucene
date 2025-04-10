@@ -318,7 +318,7 @@ impl DocIdsWriter {
             doc_ids[half_len + i] = (l & 0xffff) + min;
         }
         if count & 1 == 1 {
-            doc_ids[count as usize - 1] = ((input.read_short()? as i32) & 0xffff) + min;
+            doc_ids[count as usize - 1] = (input.read_short()? as u16 as i32) + min;
         }
         Ok(())
     }
@@ -341,8 +341,8 @@ impl DocIdsWriter {
             i += 8;
         }
         while i < count_usize {
-            doc_ids[i] = (((input.read_short()? as i32) & 0xffff) << 8)
-                | ((input.read_byte()? as i32) & 0xff);
+            doc_ids[i] =
+                ((input.read_short()? as u16 as i32) << 8) | ((input.read_byte()? as i32) & 0xff);
             i += 1;
         }
         Ok(())

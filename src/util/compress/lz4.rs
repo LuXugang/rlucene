@@ -104,7 +104,8 @@ impl LZ4 {
             }
 
             // Read matches
-            let match_dec = compressed.read_short()? as i32 & 0xFFFF;
+            let match_dec = compressed.read_short()? as u16 as i32;
+
             assert!(match_dec > 0);
 
             let mut match_len = token & 0x0F;
@@ -670,7 +671,7 @@ impl HashTable for HighCompressionHashTable {
             if LZ4::read_int(self.bytes.as_slice(), ref_idx) == v {
                 return ref_idx;
             }
-            ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32 & 0xFFFF;
+            ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32;
             self.attempts += 1;
         }
         -1
