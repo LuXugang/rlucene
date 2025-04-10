@@ -324,12 +324,14 @@ where
         reader: &Lucene90CompressingStoredFieldsReader<I>,
         merging: bool,
     ) -> Result<Lucene90CompressingStoredFieldsReader<I>> {
+        let fields_stream = (*reader.fields_stream.borrow_mut()).clone();
+        let fields_stream = Rc::new(RefCell::new(fields_stream));
         Ok(Self {
             version: reader.version,
             field_infos: Rc::clone(&reader.field_infos),
             index_reader: reader.index_reader.try_clone()?,
             max_pointer: reader.max_pointer,
-            fields_stream: Rc::clone(&reader.fields_stream),
+            fields_stream: fields_stream.clone(),
             chunk_size: reader.chunk_size,
             compression_mode: reader.compression_mode.clone(),
             decompressor: reader.decompressor.clone(),
@@ -337,7 +339,7 @@ where
             merging,
             state: BlockState::new(
                 merging,
-                Rc::clone(&reader.fields_stream),
+                fields_stream,
                 reader.compression_mode.new_decompressor(),
                 reader.chunk_size,
             ),
