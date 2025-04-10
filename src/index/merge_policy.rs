@@ -19,6 +19,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
+pub struct MergePolicy;
 /// Reason for pausing the merge thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[allow(unused)]

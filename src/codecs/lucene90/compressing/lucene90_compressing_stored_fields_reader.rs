@@ -46,7 +46,6 @@ use std::clone::Clone;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
 
 const PREFETCH_CACHE_SIZE: usize = 1 << 4;
 const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;

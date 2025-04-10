@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
-use crate::codecs::stored_fields_writer::{StoredFieldsWriter, StoredFieldsWriterEnum};
+use crate::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
@@ -31,7 +31,7 @@ pub trait StoredFieldsFormat {
         &self,
         directory: &mut D,
         segment_info: Rc<SegmentInfo<D>>,
-        field_infos: FieldInfos,
+        field_infos: Rc<FieldInfos>,
         context: &IOContext,
     ) -> Result<StoredFieldsReaderEnum<D::IndexInputType>>
     where

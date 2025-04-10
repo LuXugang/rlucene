@@ -39,10 +39,8 @@ use std::io::{Read, Write};
 ///
 /// # Experimental
 /// This feature is experimental. Its behavior might change in future versions.
-#[allow(unused)]
 pub struct CompressionMode;
 
-#[allow(unused)]
 impl CompressionMode {
     pub fn fast() -> CompressionModeEnum {
         CompressionModeEnum::Fast(LZ4FastCompressionMode)
@@ -55,7 +53,6 @@ impl CompressionMode {
     }
 }
 
-#[allow(unused)]
 pub(crate) trait CompressionModeBase: Display + Clone {
     /// Create a new `Compressor` instance.
     fn new_compressor(&self) -> CompressorEnum;
@@ -91,7 +88,6 @@ impl CompressionModeBase for LZ4FastCompressionMode {
 /// A compression mode that trades speed for compression ratio. Although compression and
 /// decompression might be slow, this compression mode should provide a good compression ratio.
 /// This mode might be interesting if/when your index size is much bigger than your OS cache.
-#[allow(unused)]
 pub struct DeflateCompressionMode;
 
 impl Display for DeflateCompressionMode {
@@ -143,7 +139,6 @@ impl CompressionModeBase for LZ4HighCompressionMode {
     }
 }
 
-#[allow(unused)]
 pub enum CompressionModeEnum {
     Fast(LZ4FastCompressionMode),
     High(LZ4HighCompressionMode),
@@ -230,7 +225,6 @@ impl Decompressor for LZ4Decompressor {
     }
 }
 
-#[allow(unused)]
 pub enum DecompressorEnum {
     LZ4(LZ4Decompressor),
     Deflate(DeflateDecompressor),
@@ -281,7 +275,6 @@ pub(crate) struct LZ4FastCompressor {
     ht: HashTableEnum,
 }
 impl LZ4FastCompressor {
-    #[allow(unused)]
     pub fn new() -> Self {
         LZ4FastCompressor {
             ht: HashTableEnum::Fast(FastCompressionHashTable::new()),
@@ -306,7 +299,6 @@ pub(crate) struct LZ4HighCompressor {
     ht: HashTableEnum,
 }
 impl LZ4HighCompressor {
-    #[allow(unused)]
     pub fn new(ht: HighCompressionHashTable) -> Self {
         LZ4HighCompressor {
             ht: HashTableEnum::High(ht),
@@ -378,7 +370,6 @@ pub(crate) struct DeflateCompressor {
     level: u32,
 }
 
-#[allow(unused)]
 impl DeflateCompressor {
     pub fn new(level: u32) -> Self {
         DeflateCompressor { level }
@@ -403,7 +394,6 @@ impl Compressor for DeflateCompressor {
     }
 }
 
-#[allow(unused)]
 pub enum CompressorEnum {
     LZ4Fast(LZ4FastCompressor),
     LZ4High(LZ4HighCompressor),

@@ -67,7 +67,7 @@ pub mod knn_vector_values;
 pub mod leaf_metadata;
 pub mod leaf_reader_context;
 mod live_index_writer_config;
-mod merge_policy;
+pub mod merge_policy;
 pub mod merge_state;
 pub mod multi_bits;
 pub mod numeric_doc_values;
