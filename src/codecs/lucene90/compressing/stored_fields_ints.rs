@@ -286,7 +286,7 @@ mod tests {
         Ok(())
     }
 
-    fn test<D: Directory>(random: &mut StdRng, dir: &mut D, ints: &[i32]) -> Result<()> {
+    fn test(random: &mut StdRng, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
         let len;
         {
             let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;

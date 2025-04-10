@@ -24,7 +24,7 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use std::sync::{Arc, Mutex};
 
@@ -75,15 +75,14 @@ impl Lucene90CompoundFormat {
     pub fn new() -> Lucene90CompoundFormat {
         Lucene90CompoundFormat {}
     }
-    pub fn write_compound_file<D: Directory, DO: IndexOutput>(
+    pub fn write_compound_file<D: Directory>(
         &self,
-        entries: &mut DO,
-        data: &mut DO,
-        dir: Arc<Mutex<D>>,
+        entries: &mut impl IndexOutput,
+        data: &mut impl IndexOutput,
+        directory: &mut impl Directory,
         si: &SegmentInfo<D>,
     ) -> Result<()> {
         let mut pq;
-        let directory;
         {
             // write number of files
             let files_ref = si.files()?;
@@ -91,9 +90,6 @@ impl Lucene90CompoundFormat {
             let num_files = files.len();
             debug_assert!(num_files <= i32::MAX as usize);
             entries.write_vint(num_files as i32)?;
-            directory = dir
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
             pq = PriorityQueue::new(num_files as i32, SizedFileQueueCmp)?;
             {
                 for filename in files {
@@ -150,7 +146,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
 
     fn write<D: Directory>(
         &self,
-        dir: Arc<Mutex<D>>,
+        dir: &mut impl Directory,
         si: &SegmentInfo<D>,
         context: &IOContext,
     ) -> Result<()> {
@@ -164,11 +160,8 @@ impl CompoundFormat for Lucene90CompoundFormat {
         let mut data_output;
         let mut entries_output;
         {
-            let mut directory = dir
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-            data_output = directory.create_output(&data_file, context)?;
-            entries_output = directory.create_output(&entries_file, context)?;
+            data_output = dir.create_output(&data_file, context)?;
+            entries_output = dir.create_output(&entries_file, context)?;
         }
 
         CodecUtil::write_index_header(
@@ -185,7 +178,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
             &si.get_id(),
             "",
         )?;
-        self.write_compound_file(&mut entries_output, &mut data_output, dir.clone(), si)?;
+        self.write_compound_file(&mut entries_output, &mut data_output, dir, si)?;
         CodecUtil::write_footer(&mut data_output)?;
         CodecUtil::write_footer(&mut entries_output)?;
 
@@ -390,9 +383,12 @@ mod tests {
         let files = shuffled_files.into_iter().collect();
         si.set_files(files);
 
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        {
+            let mut directory = dir.lock().unwrap();
+            LATEST_CODEC
+                .compound_format()
+                .write(&mut *directory, &si, &IO_CONTEXT_DEFAULT)?;
+        }
 
         // Entries file should contain files ordered by their size
         let entries_file_name = IndexFileNames::segment_file_name(

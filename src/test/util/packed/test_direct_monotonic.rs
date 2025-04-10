@@ -324,15 +324,12 @@ pub fn test_monotonic_binary_search_random() -> Result<()> {
     Ok(())
 }
 
-fn do_test_monotonic_binary_search_against_long_array<D>(
+fn do_test_monotonic_binary_search_against_long_array(
     random: &mut StdRng,
-    dir: &mut D,
+    dir: &mut impl Directory,
     array: &[i64],
     block_shift: i32,
-) -> Result<()>
-where
-    D: Directory,
-{
+) -> Result<()> {
     {
         let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
         let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;

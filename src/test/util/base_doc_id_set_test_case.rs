@@ -98,12 +98,12 @@ pub trait BaseDocIdSetTestCase {
     //TODO
     /// Test ram usage estimation.
     fn test_ram_bytes_used(&self, _random: &mut StdRng) {}
-    fn assert_equals<T: DocIdSet>(
+    fn assert_equals(
         &self,
         random: &mut StdRng,
         num_bits: i32,
         ds1: &bit_set::BitSet,
-        ds2: T,
+        ds2: impl DocIdSet,
     ) -> Result<()>;
 }
 // todo
@@ -112,12 +112,12 @@ fn ram_bytes_used(_set: impl DocIdSet, _length: i32) -> i64 {
     0
 }
 pub trait BaseDocIdSetTestCaseSupperImpl {
-    fn assert_equals<T: DocIdSet>(
+    fn assert_equals(
         &self,
         random: &mut StdRng,
         num_bits: i32,
         ds1: &bit_set::BitSet,
-        ds2: T,
+        ds2: impl DocIdSet,
     ) -> Result<()> {
         // nextDoc
         let mut it2 = ds2.iterator();

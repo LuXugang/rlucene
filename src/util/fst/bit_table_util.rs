@@ -109,10 +109,10 @@ impl BitTableUtil {
     ///
     /// # Returns
     /// The zero-based index of the next set bit after `bit_index`, or `-1` if none exist.
-    pub fn next_bit_set<B: BytesReader>(
+    pub fn next_bit_set(
         bit_index: i32,
         bit_table_bytes: i32,
-        reader: &mut B,
+        reader: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert!(
             bit_index >= -1 && bit_index < bit_table_bytes * i8::BITS as i32,

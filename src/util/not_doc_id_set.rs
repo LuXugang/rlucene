@@ -180,12 +180,12 @@ mod tests {
             NotDocIdSet::new(length, bit_doc_id_set)
         }
 
-        fn assert_equals<T: DocIdSet>(
+        fn assert_equals(
             &self,
             random: &mut StdRng,
             num_bits: i32,
             ds1: &bit_set::BitSet,
-            ds2: T,
+            ds2: impl DocIdSet,
         ) -> Result<()> {
             let bits2_wrap = ds2.bits();
             assert!(bits2_wrap.is_some());

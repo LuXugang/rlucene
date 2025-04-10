@@ -55,7 +55,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     /// # Errors
     ///
     /// Returns an `IoError` if the reading fails.
-    fn read_vlong(data_input: &mut T) -> Result<i64> {
+    fn read_vlong(data_input: &mut impl DataInput) -> Result<i64> {
         let mut l = 0u64;
         for shift in (0..56).step_by(7) {
             let b = data_input.read_byte()?;

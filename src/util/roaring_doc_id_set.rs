@@ -544,12 +544,12 @@ mod tests {
             builder.build()
         }
 
-        fn assert_equals<T: DocIdSet>(
+        fn assert_equals(
             &self,
             random: &mut StdRng,
             num_bits: i32,
             ds1: &bit_set::BitSet,
-            ds2: T,
+            ds2: impl DocIdSet,
         ) -> Result<()> {
             BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }

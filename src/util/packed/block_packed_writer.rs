@@ -49,9 +49,9 @@ use crate::util::packed::PackedInts;
 #[derive(Default)]
 pub struct BlockPackedWriter;
 impl AbstractBlockPackedWriterBase for BlockPackedWriter {
-    fn flush<T: DataOutput>(
+    fn flush(
         &mut self,
-        out: &mut T,
+        out: &mut impl DataOutput,
         off: &mut i32,
         values: &mut [i64],
         blocks: &mut Vec<u8>,

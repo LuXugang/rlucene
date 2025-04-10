@@ -380,7 +380,7 @@ impl DataOutput for ByteBuffersDataOutput {
         self.write_bytes_range(bytes, 0, length as i32)
     }
 
-    fn copy_bytes<T: DataInput>(&mut self, input: &mut T, mut num_bytes: i64) -> Result<()> {
+    fn copy_bytes(&mut self, input: &mut impl DataInput, mut num_bytes: i64) -> Result<()> {
         while num_bytes > 0 {
             let available_space = self.append_block_if_needed();
             let last_block = self

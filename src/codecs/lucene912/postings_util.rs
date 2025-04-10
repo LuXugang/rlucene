@@ -24,8 +24,8 @@ pub(crate) struct PostingsUtil;
 impl PostingsUtil {
     /// Read values that have been written using variable-length encoding and group-varint encoding
     /// instead of bit-packing.
-    pub(crate) fn read_vint_block<I: IndexInput>(
-        doc_in: &mut I,
+    pub(crate) fn read_vint_block(
+        doc_in: &mut impl IndexInput,
         doc_buffer: &mut [i64],
         freq_buffer: &mut [i64],
         num: i32,
@@ -50,8 +50,8 @@ impl PostingsUtil {
         Ok(())
     }
     /// Write freq buffer with variable-length encoding and doc buffer with group-varint encoding.
-    pub(crate) fn write_vint_block<O: DataOutput>(
-        doc_out: &mut O,
+    pub(crate) fn write_vint_block(
+        doc_out: &mut impl DataOutput,
         doc_buffer: &mut [i64],
         freq_buffer: &[i64],
         num: i32,

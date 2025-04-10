@@ -120,16 +120,13 @@ fn test_random_merge_with_offset() -> Result<()> {
     Ok(())
 }
 
-fn do_test_bpv<D>(
+fn do_test_bpv(
     random: &mut StdRng,
-    directory: &mut D,
+    directory: &mut impl Directory,
     bpv: i32,
     offset: i64,
     merge: bool,
-) -> Result<()>
-where
-    D: Directory,
-{
+) -> Result<()> {
     let num_iters = if is_night_mode() { 100 } else { 10 };
     for i in 0..num_iters {
         let original = random_longs(random, bpv);

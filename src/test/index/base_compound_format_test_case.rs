@@ -36,9 +36,11 @@ pub trait BaseCompoundFormatTestCase {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -64,9 +66,11 @@ pub trait BaseCompoundFormatTestCase {
             )?;
 
             si.set_files(HashSet::from([test_file.clone()]));
-            LATEST_CODEC
-                .compound_format()
-                .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+            LATEST_CODEC.compound_format().write(
+                &mut *dir.lock().unwrap(),
+                &si,
+                &IO_CONTEXT_DEFAULT,
+            )?;
 
             let cfs = LATEST_CODEC
                 .compound_format()
@@ -110,9 +114,11 @@ pub trait BaseCompoundFormatTestCase {
 
         let files_set: HashSet<String> = files.iter().map(|&file| file.to_string()).collect();
         si.set_files(files_set);
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -151,9 +157,11 @@ pub trait BaseCompoundFormatTestCase {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -173,9 +181,11 @@ pub trait BaseCompoundFormatTestCase {
         out.write_int(3)?;
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -194,9 +204,11 @@ pub trait BaseCompoundFormatTestCase {
         out.write_int(3)?;
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -215,9 +227,11 @@ pub trait BaseCompoundFormatTestCase {
         out.write_int(3)?;
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -237,9 +251,11 @@ pub trait BaseCompoundFormatTestCase {
         out.write_int(3)?;
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -312,9 +328,11 @@ pub trait BaseCompoundFormatTestCase {
             .filter(|file| file.starts_with(segment))
             .collect();
         si.set_files(files.iter().cloned().collect());
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -352,9 +370,11 @@ pub trait BaseCompoundFormatTestCase {
         }
         let file_sets = files.iter().cloned().collect();
         si.set_files(file_sets);
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -590,9 +610,11 @@ pub trait BaseCompoundFormatTestCase {
         let mut hash_set_file = HashSet::new();
         hash_set_file.insert(sub_file.to_string());
         si.set_files(hash_set_file);
-        LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        )?;
         let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(dir.clone(), &si)?;
@@ -625,9 +647,11 @@ pub trait BaseCompoundFormatTestCase {
         hash_set_file.insert(sub_file.to_string());
         si.set_files(hash_set_file);
 
-        let result = LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT);
+        let result = LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        );
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
         match result {
             Ok(_) => unreachable!(),
@@ -665,9 +689,11 @@ pub trait BaseCompoundFormatTestCase {
         hash_set_file.insert(sub_file.to_string());
         si.set_files(hash_set_file);
 
-        let result = LATEST_CODEC
-            .compound_format()
-            .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT);
+        let result = LATEST_CODEC.compound_format().write(
+            &mut *dir.lock().unwrap(),
+            &si,
+            &IO_CONTEXT_DEFAULT,
+        );
 
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
 
@@ -761,7 +787,11 @@ fn create_sequence_file<D: Directory>(
     Ok(())
 }
 
-fn assert_same_streams<D: IndexInput>(msg: &str, expected: &mut D, test: &mut D) -> Result<()> {
+fn assert_same_streams(
+    msg: &str,
+    expected: &mut impl IndexInput,
+    test: &mut impl IndexInput,
+) -> Result<()> {
     assert_eq!(expected.length(), test.length(), "{} length", msg);
     assert_eq!(
         expected.get_file_pointer(),
@@ -784,10 +814,10 @@ fn assert_same_streams<D: IndexInput>(msg: &str, expected: &mut D, test: &mut D)
     }
     Ok(())
 }
-fn assert_same_streams_seek_with_seek<D: IndexInput>(
+fn assert_same_streams_seek_with_seek(
     msg: &str,
-    expected: &mut D,
-    actual: &mut D,
+    expected: &mut impl IndexInput,
+    actual: &mut impl IndexInput,
     seek_to: i64,
 ) -> Result<()> {
     if seek_to >= 0 && seek_to < expected.length() {
@@ -798,10 +828,10 @@ fn assert_same_streams_seek_with_seek<D: IndexInput>(
     Ok(())
 }
 
-fn assert_same_seek_behavior<D: IndexInput>(
+fn assert_same_seek_behavior(
     msg: &str,
-    expected: &mut D,
-    actual: &mut D,
+    expected: &mut impl IndexInput,
+    actual: &mut impl IndexInput,
 ) -> Result<()> {
     // Seek to 0
     let point = 0;
@@ -863,7 +893,7 @@ where
     si.set_files(files);
     LATEST_CODEC
         .compound_format()
-        .write(dir.clone(), &si, &IO_CONTEXT_DEFAULT)?;
+        .write(&mut *dir.lock().unwrap(), &si, &IO_CONTEXT_DEFAULT)?;
     let cfs = LATEST_CODEC
         .compound_format()
         .get_compound_reader(dir.clone(), &si)?;

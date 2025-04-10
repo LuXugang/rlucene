@@ -1252,10 +1252,10 @@ mod tests {
         Ok(set)
     }
 
-    fn do_test_all_single_jump<D: Directory>(
+    fn do_test_all_single_jump(
         random: &mut StdRng,
         set: &impl BitSet,
-        dir: &mut D,
+        dir: &mut impl Directory,
     ) -> Result<()> {
         let cardinality = set.cardinality();
         let dense_rank_power = if rarely(random) {

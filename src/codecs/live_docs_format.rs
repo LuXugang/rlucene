@@ -21,7 +21,6 @@ use crate::store::IOContext;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
 
 /// Format for live/deleted documents
 pub trait LiveDocsFormat {
@@ -36,7 +35,7 @@ pub trait LiveDocsFormat {
     /// A `Bits` implementation representing the live docs.
     fn read_live_docs<D>(
         &self,
-        dir: Arc<Mutex<D>>,
+        dir: &mut impl Directory,
         info: &SegmentCommitInfo<D>,
         context: &IOContext,
     ) -> Result<impl Bits>
@@ -45,17 +44,16 @@ pub trait LiveDocsFormat {
 
     /// Persist live docs bits. Use [`SegmentCommitInfo#getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine the generation
     /// of the deletes file you should write to.
-    fn write_live_docs<D, B>(
+    fn write_live_docs<D>(
         &self,
-        bits: &B,
-        dir: Arc<Mutex<D>>,
+        bits: &impl Bits,
+        dir: &mut impl Directory,
         info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,
     ) -> Result<()>
     where
-        D: Directory,
-        B: Bits;
+        D: Directory;
 
     /// Records all files in use by this [`SegmentCommitInfo`] into the files argument.
     fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>

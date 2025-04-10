@@ -37,10 +37,11 @@ impl GroupVIntUtil {
     ///
     /// # Note
     /// This is an experimental API.
-    pub fn read_group_vints<D>(data_input: &mut D, dst: &mut [i64], limit: i32) -> Result<()>
-    where
-        D: DataInput,
-    {
+    pub fn read_group_vints(
+        data_input: &mut impl DataInput,
+        dst: &mut [i64],
+        limit: i32,
+    ) -> Result<()> {
         debug_assert!(limit >= 0);
         let mut i = 0;
         while i <= limit - 4 {
@@ -60,10 +61,11 @@ impl GroupVIntUtil {
     /// * `in` - The input to use to read data.
     /// * `dst` - The array to read `i64` values into.
     /// * `offset` - The offset in the array to start storing `i64` values.
-    pub fn read_group_vint<D>(data_input: &mut D, dst: &mut [i64], offset: i32) -> Result<()>
-    where
-        D: DataInput,
-    {
+    pub fn read_group_vint(
+        data_input: &mut impl DataInput,
+        dst: &mut [i64],
+        offset: i32,
+    ) -> Result<()> {
         {
             let flag = data_input.read_byte()? as usize;
 
@@ -80,10 +82,7 @@ impl GroupVIntUtil {
             Ok(())
         }
     }
-    fn read_long_in_group<D>(data_input: &mut D, num_bytes_minus1: usize) -> Result<i64>
-    where
-        D: DataInput,
-    {
+    fn read_long_in_group(data_input: &mut impl DataInput, num_bytes_minus1: usize) -> Result<i64> {
         match num_bytes_minus1 {
             0 => {
                 let value = data_input.read_byte()? as u64 & 0xFF;
@@ -117,16 +116,13 @@ impl GroupVIntUtil {
     /// # Returns
     /// The number of bytes read excluding the flag. This indicates the number of positions that should be
     /// increased for the caller. It is a non-negative number less than `MAX_LENGTH_PER_GROUP`.
-    pub fn read_group_vint_with_reader<D>(
-        data_input: &mut D,
+    pub fn read_group_vint_with_reader(
+        data_input: &mut (impl DataInput + RandomAccessInput),
         remaining: u64,
         mut pos: i64,
         dst: &mut [i64],
         offset: i32,
-    ) -> Result<i32>
-    where
-        D: DataInput + RandomAccessInput,
-    {
+    ) -> Result<i32> {
         if remaining < Self::MAX_LENGTH_PER_GROUP as u64 {
             Self::read_group_vint(data_input, dst, offset)?;
             return Ok(0);
@@ -181,15 +177,12 @@ impl GroupVIntUtil {
         }
     }
     /// The implementation for group-varint encoding. It uses a maximum of [`MAX_LENGTH_PER_GROUP`](GroupVIntUtil::MAX_LENGTH_PER_GROUP) bytes scratch buffer.
-    pub fn write_group_vints<D>(
-        data_output: &mut D,
+    pub fn write_group_vints(
+        data_output: &mut impl DataOutput,
         scratch: &mut [u8],
         values: &mut [i64],
         limit: i32,
-    ) -> Result<()>
-    where
-        D: DataOutput,
-    {
+    ) -> Result<()> {
         let mut read_pos: usize = 0;
 
         // encode each group

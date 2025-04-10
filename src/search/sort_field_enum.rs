@@ -48,7 +48,7 @@ impl SortFiledBase for SortFieldEnum {
         }
     }
 
-    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<()> {
+    fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
         match self {
             SortFieldEnum::SortedNumeric(sort_field) => sort_field.serialize(out),
             SortFieldEnum::SortedSet(sort_field) => sort_field.serialize(out),

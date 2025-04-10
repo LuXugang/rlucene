@@ -43,16 +43,16 @@ pub struct MonotonicBlockPackedReader {
 }
 
 impl MonotonicBlockPackedReader {
-    pub fn of<I: IndexInput>(
-        input: &mut I,
+    pub fn of(
+        input: &mut impl IndexInput,
         packed_ints_version: i32,
         block_size: i32,
         value_count: i64,
     ) -> Result<Self> {
         Self::new(input, packed_ints_version, block_size, value_count)
     }
-    fn new<I: IndexInput>(
-        input: &mut I,
+    fn new(
+        input: &mut impl IndexInput,
         packed_ints_version: i32,
         block_size: i32,
         value_count: i64,

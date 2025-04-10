@@ -27,7 +27,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use num_bigint::BigInt;
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
 
 /// Lucene 9.0 live docs format
 ///
@@ -65,17 +64,13 @@ impl Lucene90LiveDocsFormat {
     pub fn new() -> Lucene90LiveDocsFormat {
         Lucene90LiveDocsFormat {}
     }
-    fn read_fixed_bit_set<T: IndexInput>(input: &mut T, length: i32) -> Result<FixedBitSet> {
+    fn read_fixed_bit_set(input: &mut impl IndexInput, length: i32) -> Result<FixedBitSet> {
         let num_words = FixedBitSet::bits2words(length);
         let mut data = vec![0i64; num_words as usize];
         input.read_longs(&mut data, 0, num_words)?;
         FixedBitSet::with_capacity(data, length)
     }
-    fn write_bits<I, B>(output: &mut I, bits: &B) -> Result<i32>
-    where
-        I: IndexOutput,
-        B: Bits,
-    {
+    fn write_bits(output: &mut impl IndexOutput, bits: &impl Bits) -> Result<i32> {
         let mut del_count = 0;
         let long_count = FixedBitSet::bits2words(bits.length());
         for i in 0..long_count {
@@ -100,7 +95,7 @@ impl Lucene90LiveDocsFormat {
 impl LiveDocsFormat for Lucene90LiveDocsFormat {
     fn read_live_docs<D>(
         &self,
-        dir: Arc<Mutex<D>>,
+        directory: &mut impl Directory,
         info: &SegmentCommitInfo<D>,
         _context: &IOContext,
     ) -> Result<impl Bits>
@@ -115,9 +110,6 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         );
         let length = info.info.max_doc()?;
         debug_assert!(name.is_some());
-        let directory = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
         let name_str = name.as_ref().unwrap();
         let mut input = directory.open_checksum_input(name_str)?;
         let result = (|| {
@@ -150,17 +142,16 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         }
     }
 
-    fn write_live_docs<D, B>(
+    fn write_live_docs<D>(
         &self,
-        bits: &B,
-        dir: Arc<Mutex<D>>,
+        bits: &impl Bits,
+        directory: &mut impl Directory,
         info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,
     ) -> Result<()>
     where
         D: Directory,
-        B: Bits,
     {
         let gen = info.get_next_del_gen();
         let name = IndexFileNames::file_name_from_generation(
@@ -171,11 +162,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         debug_assert!(name.is_some());
         let del_count: i32;
         {
-            let mut directory = dir
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock .".to_string()))?;
             let mut output = directory.create_output(name.as_ref().unwrap().as_str(), context)?;
-
             CodecUtil::write_index_header(
                 &mut output,
                 Lucene90LiveDocsFormat::CODEC_NAME,

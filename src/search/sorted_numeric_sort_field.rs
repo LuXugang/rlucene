@@ -85,8 +85,8 @@ impl SortedNumericSortField {
             parent_sort: sort_field,
         })
     }
-    pub fn read_selector_type<T: DataInput>(
-        data_input: &mut T,
+    pub fn read_selector_type(
+        data_input: &mut impl DataInput,
     ) -> Result<SortedNumericSelectorType> {
         let selector_type = data_input.read_int()?;
 
@@ -128,7 +128,7 @@ impl SortFiledBase for SortedNumericSortField {
         }
     }
 
-    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<()> {
+    fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
         debug_assert!(self.parent_sort.get_field().is_some());
         out.write_string(self.parent_sort.get_field().unwrap())?;
         out.write_string(&self.sort_field_type.to_string())?;
@@ -225,10 +225,7 @@ impl NumericProvider {
     pub const NAME: &'static str = "SortedNumericSortField";
 }
 impl SortFieldProvider for NumericProvider {
-    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortFieldEnum>
-    where
-        D: DataInput,
-    {
+    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
         let field_name = data_input.read_string()?;
         let field_type = SortFieldType::read_type(data_input)?;
         let reverse = data_input.read_int()? == 1;
@@ -277,10 +274,7 @@ impl SortFieldProvider for NumericProvider {
         Ok(SortFieldEnum::SortedNumeric(sorted_numeric_sort_field))
     }
 
-    fn write_sort_field<D>(&self, sf: &SortFieldEnum, output: &mut D) -> Result<()>
-    where
-        D: DataOutput,
-    {
+    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
         sf.serialize(output)
     }
 }

@@ -128,7 +128,7 @@ pub trait BaseLiveDocsFormatTestCase {
         )?;
         format.write_live_docs(
             &bits,
-            dir.clone(),
+            &mut *dir.lock().unwrap(),
             &sci,
             max_doc - num_live_docs,
             &io_context,
@@ -144,7 +144,8 @@ pub trait BaseLiveDocsFormatTestCase {
             Option::from(StringHelper::random_id().to_vec()),
         )?;
         let io_context = IOContext::read_once_io_context()?;
-        let bits2 = format.read_live_docs(dir.clone(), &sci, &io_context)?;
+        let mut dir = dir.lock().unwrap();
+        let bits2 = format.read_live_docs(&mut *dir, &sci, &io_context)?;
 
         assert_eq!(max_doc, bits2.length());
         for i in 0..max_doc {

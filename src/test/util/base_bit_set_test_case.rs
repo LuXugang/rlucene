@@ -53,10 +53,10 @@ pub fn random_set_impl(random: &mut StdRng, num_bits: i32, num_bits_set: i32) ->
 pub trait BaseBitSetTestCase {
     fn copy_of(&self, bs: &RustUtilBitSet, length: i32)
         -> (impl BitSet, Option<SparseFixedBitSet>);
-    fn assert_equals<T: BitSet>(
+    fn assert_equals(
         &self,
         set1: &RustUtilBitSet,
-        set2: &T,
+        set2: &impl BitSet,
         max_doc: i32,
         sfbs: &Option<SparseFixedBitSet>,
     );

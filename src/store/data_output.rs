@@ -198,7 +198,7 @@ pub trait DataOutput: Sized {
     }
 
     /// Copy numBytes bytes from input to ourselves.
-    fn copy_bytes<T: DataInput>(&mut self, input: &mut T, num_bytes: i64) -> Result<()> {
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
         let mut buffer = vec![0u8; COPY_BUFFER_SIZE as usize];
         let mut left = num_bytes;
         while left > 0 {

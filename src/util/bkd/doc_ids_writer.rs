@@ -581,7 +581,7 @@ mod tests {
         Ok(())
     }
 
-    fn test<D: Directory>(random: &mut StdRng, dir: &mut D, ints: &[i32]) -> Result<()> {
+    fn test(random: &mut StdRng, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
         let len: i64;
         let mut doc_ids_writer = DocIdsWriter::new(ints.len() as i32);
         {

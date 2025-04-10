@@ -87,7 +87,7 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_string(s)
     }
 
-    fn copy_bytes<T: DataInput>(&mut self, input: &mut T, num_bytes: i64) -> Result<()> {
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
         self.delegate.copy_bytes(input, num_bytes)
     }
 

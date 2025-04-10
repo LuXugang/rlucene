@@ -73,15 +73,14 @@ impl Lucene99SegmentInfoFormat {
     const CODEC_NAME: &'static str = "Lucene90SegmentInfo";
     const VERSION_START: i32 = 0;
     const VERSION_CURRENT: i32 = Lucene99SegmentInfoFormat::VERSION_START;
-    fn parse_segment_info<D, T>(
+    fn parse_segment_info<D>(
         dir: Arc<Mutex<D>>,
-        input: &mut T,
+        input: &mut impl DataInput,
         segment: &str,
         segment_id: Vec<u8>,
     ) -> Result<SegmentInfo<D>>
     where
         D: Directory,
-        T: DataInput,
     {
         let major = input.read_int()?;
         debug_assert!(major >= 0);
@@ -159,9 +158,8 @@ impl Lucene99SegmentInfoFormat {
         si.set_files(files);
         Ok(si)
     }
-    fn write_segment_info<T, D>(output: &mut T, si: &SegmentInfo<D>) -> Result<()>
+    fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()>
     where
-        T: DataOutput,
         D: Directory,
     {
         let version_wrap = si.get_version();

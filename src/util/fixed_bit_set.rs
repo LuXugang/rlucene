@@ -707,10 +707,10 @@ mod tests {
             (set, None)
         }
 
-        fn assert_equals<T: BitSet>(
+        fn assert_equals(
             &self,
             set1: &RustUtilBitSet,
-            set2: &T,
+            set2: &impl BitSet,
             max_doc: i32,
             _sfbs: &Option<SparseFixedBitSet>,
         ) {

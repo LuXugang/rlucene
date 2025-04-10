@@ -428,7 +428,7 @@ impl Compressor for CompressorEnum {
 #[cfg(test)]
 mod tests {
     use crate::codecs::compression::compression_mode::{
-        CompressionMode, CompressionModeBase, CompressionModeEnum, CompressorEnum, DecompressorEnum,
+        CompressionMode, CompressionModeBase, CompressionModeEnum,
     };
     use crate::codecs::compression::compressor::Compressor;
     use crate::codecs::compression::decompressor::Decompressor;
@@ -493,7 +493,7 @@ mod tests {
         }
 
         fn compress_with_compressor(
-            compressor: &mut CompressorEnum,
+            compressor: &mut impl Compressor,
             decompressed: &[u8],
             off: i32,
             len: i32,
@@ -530,7 +530,7 @@ mod tests {
         }
 
         fn decompress_with_decompressor(
-            decompressor: &mut DecompressorEnum,
+            decompressor: &mut impl Decompressor,
             compressed: Vec<u8>,
             original_length: i32,
         ) -> Result<Vec<u8>> {

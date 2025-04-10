@@ -264,17 +264,17 @@ where
     }
 
     /// Read the commit from the provided [`ChecksumIndexInput`].
-    pub fn read_commit_with_input<I: ChecksumIndexInput>(
+    pub fn read_commit_with_input(
         directory: Arc<Mutex<D>>,
-        input: &mut I,
+        input: &mut impl ChecksumIndexInput,
         generation: i64,
     ) -> Result<Self> {
         Self::read_commit_impl(directory, input, generation, *MIN_SUPPORTED_MAJOR)
     }
     /// Read the commit from the provided [`ChecksumIndexInput`].
-    pub fn read_commit_impl<I: ChecksumIndexInput>(
+    pub fn read_commit_impl(
         directory: Arc<Mutex<D>>,
-        input: &mut I,
+        input: &mut impl ChecksumIndexInput,
         generation: i64,
         min_supported_major_version: i32,
     ) -> Result<Self> {
@@ -345,9 +345,9 @@ where
 
         Ok(infos)
     }
-    pub fn parse_segment_infos<I: DataInput>(
+    pub fn parse_segment_infos(
         directory: Arc<Mutex<D>>,
-        input: &mut I,
+        input: &mut impl DataInput,
         infos: &mut SegmentInfos<D>,
         format: i32,
     ) -> Result<()> {
@@ -513,7 +513,7 @@ where
         Ok(())
     }
 
-    pub fn read_codec<I: DataInput>(input: &mut I) -> Result<Lucene101Codec> {
+    pub fn read_codec(input: &mut impl DataInput) -> Result<Lucene101Codec> {
         let name = input.read_string()?;
         let codec = get_default_code();
         if codec.get_name() != name {
@@ -544,7 +544,7 @@ where
         find_segments_file.run()
     }
 
-    fn write_with_directory(&mut self, directory: &mut D) -> Result<()> {
+    fn write_with_directory(&mut self, directory: &mut impl Directory) -> Result<()> {
         let next_generation = self.get_next_pending_generation();
         let segment_file_name_wrap = IndexFileNames::file_name_from_generation(
             IndexFileNames::PENDING_SEGMENTS,
@@ -589,7 +589,7 @@ where
     /// # Errors
     ///
     /// Returns a `LuceneError` if there is an issue writing the segment information.
-    pub fn write<T: IndexOutput>(&self, out: &mut T) -> Result<()> {
+    pub fn write(&self, out: &mut impl IndexOutput) -> Result<()> {
         CodecUtil::write_index_header(
             out,
             "segments",
@@ -764,7 +764,7 @@ where
     }
 
     /// Rollback a pending commit.
-    pub fn rollback_commit(&mut self, directory: &mut D) {
+    pub fn rollback_commit(&mut self, directory: &mut impl Directory) {
         if self.pending_commit {
             self.pending_commit = false;
 
@@ -787,17 +787,14 @@ where
     /// to complete the commit or [`rollback_commit`](SegmentInfos::rollback_commit) to abort it.
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
-    pub fn prepare_commit(&mut self, dir: Arc<Mutex<D>>) -> Result<()> {
+    pub fn prepare_commit(&mut self, directory: &mut impl Directory) -> Result<()> {
         if self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was already called".to_string(),
             ));
         }
-        let mut directory = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         directory.sync_metadata()?;
-        self.write_with_directory(&mut directory)?;
+        self.write_with_directory(directory)?;
         Ok(())
     }
 
@@ -815,7 +812,7 @@ where
         Ok(files)
     }
     /// Returns the committed `segments_N` filename.
-    pub fn finish_commit(&mut self, dir: Arc<Mutex<D>>) -> Result<String> {
+    pub fn finish_commit(&mut self, directory: &mut impl Directory) -> Result<String> {
         if !self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was not called".to_string(),
@@ -841,9 +838,6 @@ where
             .ok_or_else(|| {
                 LuceneError::illegal_state("Failed to generate destination file name.".to_string())
             })?;
-            let mut directory = dir
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
             directory.rename(&src, &dest)?;
             directory.sync_metadata()?;
             success_rename_and_sync = true;
@@ -859,10 +853,7 @@ where
             Err(e) => {
                 if !success_rename_and_sync {
                     // Attempt to roll back the commit if renaming or syncing failed
-                    let mut directory = dir.lock().map_err(|_| {
-                        LuceneError::illegal_state("Failed to acquire  lock.".to_string())
-                    })?;
-                    self.rollback_commit(&mut directory);
+                    self.rollback_commit(directory);
                 }
                 Err(e)
             }
@@ -871,9 +862,9 @@ where
     /// Writes and syncs to the Directory, taking care to remove the segment file on exception.
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
-    pub fn commit(&mut self, dir: Arc<Mutex<D>>) -> Result<()> {
-        self.prepare_commit(dir.clone())?;
-        self.finish_commit(dir.clone())?;
+    pub fn commit(&mut self, dir: &mut impl Directory) -> Result<()> {
+        self.prepare_commit(dir)?;
+        self.finish_commit(dir)?;
         Ok(())
     }
     /// Returns `user_data` saved with this commit.
@@ -1093,9 +1084,6 @@ where
     pub fn get_index_created_version_major(&self) -> i32 {
         self.index_created_version_major
     }
-    #[cfg(feature = "test_only")]
-    /// To enable the type of D to be inferred in the logic that only uses [`new`](SegmentInfos::new).
-    pub fn make_complies_happy(&self, _dir: &mut D) {}
 }
 
 impl<D> fmt::Display for SegmentInfos<D>
@@ -1119,29 +1107,26 @@ where
     }
 }
 
-pub struct FindSegmentsFile<D, FB>
+pub struct FindSegmentsFile<D, F>
 where
     D: Directory,
-    FB: FindSegmentsFileBase,
+    F: FindSegmentsFileBase,
 {
     directory: Arc<Mutex<D>>,
-    sub: FB,
+    sub: F,
 }
-impl<D, FB> FindSegmentsFile<D, FB>
+impl<D, F> FindSegmentsFile<D, F>
 where
     D: Directory,
-    FB: FindSegmentsFileBase,
+    F: FindSegmentsFileBase,
 {
-    pub fn new(directory: Arc<Mutex<D>>, sub: FB) -> Self {
+    pub fn new(directory: Arc<Mutex<D>>, sub: F) -> Self {
         FindSegmentsFile { directory, sub }
     }
     pub fn run(&self) -> Result<SegmentsFileEnum<D>> {
         self.run_with_commit(None::<DummyIndexCommit>)
     }
-    pub fn run_with_commit<I>(&self, commit: Option<I>) -> Result<SegmentsFileEnum<D>>
-    where
-        I: IndexCommit,
-    {
+    pub fn run_with_commit(&self, commit: Option<impl IndexCommit>) -> Result<SegmentsFileEnum<D>> {
         if let Some(commit) = commit {
             if !Arc::ptr_eq(&self.directory, &commit.get_directory()) {
                 return Err(LuceneError::illegal_state(
@@ -1440,7 +1425,7 @@ mod tests {
         let mut random = random();
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut sis = SegmentInfos::new(LATEST.major)?;
-        sis.commit(directory.clone())?;
+        sis.commit(&mut *directory.lock().unwrap())?;
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
@@ -1488,7 +1473,7 @@ mod tests {
         )?;
 
         sis.add(commit_info)?;
-        sis.commit(directory.clone())?;
+        sis.commit(&mut *directory.lock().unwrap())?;
 
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
@@ -1570,7 +1555,7 @@ mod tests {
             Some(Vec::from(StringHelper::random_id())),
         )?;
         sis.add(commit_info_1)?;
-        sis.commit(directory.clone())?;
+        sis.commit(&mut *directory.lock().unwrap())?;
 
         let commit_info_id_0 = sis.info(0).unwrap().get_id().clone();
         let commit_info_id_1 = sis.info(1).unwrap().get_id().clone();
@@ -1843,7 +1828,7 @@ mod tests {
         )?;
         sis.add(commit_info_1)?;
 
-        sis.commit(dir.clone())?;
+        sis.commit(&mut *dir.lock().unwrap())?;
 
         // Create a corrupt directory
         let corrupt_dir = Arc::new(Mutex::new(new_directory(&mut random)?));

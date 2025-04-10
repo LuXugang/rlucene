@@ -37,7 +37,7 @@ impl FstReader for NullFSTReader {
         ))
     }
 
-    fn write_to<D: DataOutput>(&self, _out: &mut D) -> Result<()> {
+    fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "NullFSTReader does not support writing bytes".to_string(),
         ))

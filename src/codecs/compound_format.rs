@@ -40,7 +40,7 @@ pub trait CompoundFormat {
     /// and [`CodecUtil::write_footer`](crate::codecs::codec_util::CodecUtil::write_footer).
     fn write<D: Directory>(
         &self,
-        dir: Arc<Mutex<D>>,
+        dir: &mut impl Directory,
         si: &SegmentInfo<D>,
         context: &IOContext,
     ) -> Result<()>;

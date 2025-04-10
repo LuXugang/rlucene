@@ -276,7 +276,7 @@ impl SortFiledBase for SortField {
             _ => None,
         }
     }
-    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<()> {
+    fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
         debug_assert!(self.fields.is_some());
         out.write_string(self.fields.as_ref().unwrap())?;
         out.write_string(&self.field_type.to_string())?;
@@ -455,10 +455,7 @@ impl Provider {
     pub const NAME: &'static str = "SortField";
 }
 impl SortFieldProvider for Provider {
-    fn read_sort_field<D>(&self, data_input: &mut D) -> Result<SortFieldEnum>
-    where
-        D: DataInput,
-    {
+    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
         let field_name = data_input.read_string()?;
         let field_type = SortFieldType::read_type(data_input)?;
         let reverse = data_input.read_int()? == 1;
@@ -504,10 +501,7 @@ impl SortFieldProvider for Provider {
         Ok(SortFieldEnum::Sorter(sort_field))
     }
 
-    fn write_sort_field<D>(&self, sf: &SortFieldEnum, output: &mut D) -> Result<()>
-    where
-        D: DataOutput,
-    {
+    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
         sf.serialize(output)
     }
 }
@@ -705,5 +699,5 @@ pub trait SortFiledBase {
     /// Set the value to use for documents that don't have a value.
     fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()>;
     fn get_index_sorter(&self) -> Option<IndexSortEnum>;
-    fn serialize<T: DataOutput>(&self, out: &mut T) -> Result<()>;
+    fn serialize(&self, out: &mut impl DataOutput) -> Result<()>;
 }

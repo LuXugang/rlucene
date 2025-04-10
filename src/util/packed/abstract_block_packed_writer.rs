@@ -147,9 +147,9 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     /// # Errors
     ///
     /// Returns an error if writing to the output stream fails.
-    pub fn write_values<O: DataOutput>(
+    pub fn write_values(
         bits_required: i32,
-        out: &mut O,
+        out: &mut impl DataOutput,
         blocks: &mut Vec<u8>,
         values: &mut [i64],
         off: i32,
@@ -187,9 +187,9 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
 /// # Errors
 ///
 /// Returns an error if writing to the output stream fails.
-pub(crate) fn write_values<O: DataOutput>(
+pub(crate) fn write_values(
     bits_required: i32,
-    out: &mut O,
+    out: &mut impl DataOutput,
     blocks: &mut Vec<u8>,
     values: &mut [i64],
     off: i32,
@@ -218,7 +218,7 @@ pub(crate) fn write_values<O: DataOutput>(
     Ok(())
 }
 /// Same as DataOutput::writeVLong but accepts negative values.
-pub(crate) fn write_vlong<T: DataOutput>(out: &mut T, mut i: i64) -> Result<()> {
+pub(crate) fn write_vlong(out: &mut impl DataOutput, mut i: i64) -> Result<()> {
     let mut k = 0;
     while (i & !0x7F) != 0 && k < 8 {
         out.write_byte(((i & 0x7F) | 0x80) as u8)?;
@@ -229,9 +229,9 @@ pub(crate) fn write_vlong<T: DataOutput>(out: &mut T, mut i: i64) -> Result<()> 
     Ok(())
 }
 pub(crate) trait AbstractBlockPackedWriterBase {
-    fn flush<T: DataOutput>(
+    fn flush(
         &mut self,
-        out: &mut T,
+        out: &mut impl DataOutput,
         off: &mut i32,
         values: &mut [i64],
         blocks: &mut Vec<u8>,

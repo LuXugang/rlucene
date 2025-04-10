@@ -118,7 +118,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
     fn write_values(
         values: &mut impl NumericDocValues,
         num_bytes_per_value: u8,
-        out: &mut O,
+        out: &mut impl IndexOutput,
     ) -> Result<()> {
         while values.next_doc()? != NO_MORE_DOCS {
             let value = values.long_value()?;

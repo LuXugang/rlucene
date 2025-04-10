@@ -49,9 +49,9 @@ use crate::util::packed::PackedInts;
 /// This is an internal implementation detail of the Lucene-like system.
 pub struct MonotonicBlockPackedWriter;
 impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
-    fn flush<T: DataOutput>(
+    fn flush(
         &mut self,
-        out: &mut T,
+        out: &mut impl DataOutput,
         off: &mut i32,
         values: &mut [i64],
         blocks: &mut Vec<u8>,
