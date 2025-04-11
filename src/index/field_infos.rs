@@ -428,7 +428,7 @@ impl FieldNumbers {
     pub(crate) fn add_or_get_impl(
         &self,
         fi: Rc<FieldInfo>,
-        field_properties: &mut RefMut<Property>,
+        field_properties: &mut Property,
     ) -> Result<i32> {
         let field_name = fi.get_name();
         self.verify_soft_deleted_field_name(field_name, fi.is_soft_deletes_field())?;
