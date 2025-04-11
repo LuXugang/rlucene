@@ -17,7 +17,7 @@
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst::fst::BytesReader;
+use crate::util::fst_impl::fst::BytesReader;
 use std::fmt::{Display, Formatter};
 
 /// Implements reverse read from a RandomAccessInput.

@@ -16,7 +16,7 @@
  */
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst::fst::BytesReader;
+use crate::util::fst_impl::fst::BytesReader;
 use std::fmt::{Display, Formatter};
 
 /// Reads in reverse from a single byte array.

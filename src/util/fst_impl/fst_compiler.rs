@@ -16,25 +16,30 @@
  */
 use crate::store::DataOutput;
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::Result;
-use crate::util::fst::fst::BytesReader;
-
-/// Abstraction for reading bytes necessary for FST.
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fst_impl::fst::DummyBytesReader;
+use crate::util::fst_impl::fst_reader::FstReader;
 #[allow(unused)]
-pub trait FstReader: Accountable {
-    type FstBytesReader: BytesReader;
-    /// Get the reverse `BytesReader` for this FST.
-    ///
-    /// # Returns
-    /// The reverse `BytesReader`.
-    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader>;
+struct NullFSTReader;
+#[allow(unused)]
+impl Accountable for NullFSTReader {
+    fn ram_bytes_used(&self) -> Result<i64> {
+        todo!()
+    }
+}
+#[allow(unused)]
+impl FstReader for NullFSTReader {
+    type FstBytesReader = DummyBytesReader;
 
-    /// Write this FST to another `DataOutput`.
-    ///
-    /// # Parameters
-    /// - `out`: The `DataOutput` to write to.
-    ///
-    /// # Errors
-    /// Returns an error if an exception occurred during writing.
-    fn write_to(&self, out: &mut impl DataOutput) -> Result<()>;
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
+        Err(LuceneError::unsupported_operation(
+            "NullFSTReader does not support reading bytes".to_string(),
+        ))
+    }
+
+    fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
+        Err(LuceneError::unsupported_operation(
+            "NullFSTReader does not support writing bytes".to_string(),
+        ))
+    }
 }
