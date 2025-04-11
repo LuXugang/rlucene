@@ -17,7 +17,7 @@
 use crate::index::segment_info::SegmentInfo;
 
 use crate::store::directory::Directory;
-use crate::store::IOContext;
+use crate::store::{DataInput, IOContext};
 use crate::util::error::lucene_error::Result;
 use std::sync::{Arc, Mutex};
 
@@ -56,7 +56,7 @@ pub trait SegmentInfoFormat {
     /// The codec must add its SegmentInfo filename(s) to `info` before doing I/O.
     fn write<D>(
         &self,
-        directory: Arc<Mutex<D>>,
+        directory: &mut impl Directory,
         info: &mut SegmentInfo<D>,
         context: &IOContext,
     ) -> Result<()>

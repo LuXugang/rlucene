@@ -58,9 +58,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(dir.clone(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock().unwrap(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -90,9 +92,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(dir.clone(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock().unwrap(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -124,9 +128,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         )?;
         let original_files: HashSet<String> = ["_123.a".to_string()].iter().cloned().collect();
         info.set_files(original_files.clone());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(dir.clone(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock().unwrap(),
+            &mut info,
+            &io_context,
+        )?;
         let files = info.files()?;
         let modified_files = files.borrow();
         assert!(modified_files.is_superset(&original_files));
@@ -174,9 +180,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(dir.clone(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock().unwrap(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -216,9 +224,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(dir.clone(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock().unwrap(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -260,9 +270,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(dir.clone(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock().unwrap(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -295,9 +307,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     None,
                 )?;
                 info.set_files(HashSet::new());
-                LATEST_CODEC
-                    .segment_info_format()
-                    .write(dir.clone(), &mut info, &io_context)?;
+                LATEST_CODEC.segment_info_format().write(
+                    &mut *dir.lock().unwrap(),
+                    &mut info,
+                    &io_context,
+                )?;
                 let info2 = LATEST_CODEC.segment_info_format().read(
                     dir.clone(),
                     "_123",
@@ -476,9 +490,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 sort,
             )?;
             info.set_files(HashSet::new());
-            LATEST_CODEC
-                .segment_info_format()
-                .write(dir.clone(), &mut info, &io_context)?;
+            LATEST_CODEC.segment_info_format().write(
+                &mut *dir.lock().unwrap(),
+                &mut info,
+                &io_context,
+            )?;
             let info2 = LATEST_CODEC.segment_info_format().read(
                 dir.clone(),
                 "_123",
@@ -568,9 +584,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 None,
             )?;
             info.set_files(files.clone());
-            LATEST_CODEC
-                .segment_info_format()
-                .write(dir.clone(), &mut info, &io_context)?;
+            LATEST_CODEC.segment_info_format().write(
+                &mut *dir.lock().unwrap(),
+                &mut info,
+                &io_context,
+            )?;
             let info2 = LATEST_CODEC.segment_info_format().read(
                 dir.clone(),
                 &name,

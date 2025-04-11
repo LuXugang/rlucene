@@ -1458,9 +1458,11 @@ mod tests {
             None,
         )?;
         info.set_files(HashSet::new());
-        codec
-            .segment_info_format()
-            .write(directory.clone(), &mut info, &io_context)?;
+        codec.segment_info_format().write(
+            &mut *directory.lock().unwrap(),
+            &mut info,
+            &io_context,
+        )?;
 
         let commit_info = SegmentCommitInfo::new(
             Rc::new(info),
@@ -1511,9 +1513,11 @@ mod tests {
             None,
         )?;
         info_0.set_files(HashSet::new());
-        codec
-            .segment_info_format()
-            .write(directory.clone(), &mut info_0, &io_context)?;
+        codec.segment_info_format().write(
+            &mut *directory.lock().unwrap(),
+            &mut info_0,
+            &io_context,
+        )?;
 
         let commit_info_0 = SegmentCommitInfo::new(
             Rc::new(info_0),
@@ -1541,9 +1545,11 @@ mod tests {
             None,
         )?;
         info_1.set_files(HashSet::new());
-        codec
-            .segment_info_format()
-            .write(directory.clone(), &mut info_1, &io_context)?;
+        codec.segment_info_format().write(
+            &mut *directory.lock().unwrap(),
+            &mut info_1,
+            &io_context,
+        )?;
 
         let commit_info_1 = SegmentCommitInfo::new(
             Rc::new(info_1),
@@ -1787,7 +1793,7 @@ mod tests {
         info_0.set_files(HashSet::new());
         codec
             .segment_info_format()
-            .write(dir.clone(), &mut info_0, &io_context)?;
+            .write(&mut *dir.lock().unwrap(), &mut info_0, &io_context)?;
         let commit_info_0 = SegmentCommitInfo::new(
             Rc::new(info_0),
             0,
@@ -1816,7 +1822,7 @@ mod tests {
         info_1.set_files(HashSet::new());
         codec
             .segment_info_format()
-            .write(dir.clone(), &mut info_1, &io_context)?;
+            .write(&mut *dir.lock().unwrap(), &mut info_1, &io_context)?;
         let commit_info_1 = SegmentCommitInfo::new(
             Rc::new(info_1),
             0,

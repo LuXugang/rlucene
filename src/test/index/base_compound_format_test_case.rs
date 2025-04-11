@@ -43,7 +43,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
         assert_eq!(0, cfs.list_all()?.len());
         Ok(())
     }
@@ -74,7 +74,7 @@ pub trait BaseCompoundFormatTestCase {
 
             let cfs = LATEST_CODEC
                 .compound_format()
-                .get_compound_reader(dir.clone(), &si)?;
+                .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
 
             let mut expected = dir
                 .lock()
@@ -121,7 +121,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
 
         for file in files.iter() {
             let mut expected = dir
@@ -164,7 +164,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
         let io_context = IOContext::default_io_context()?;
         let result = cfs.create_output("bogus", &io_context);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
@@ -188,7 +188,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
         let result = cfs.delete_file(testfile);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -211,7 +211,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
         let result = cfs.rename(testfile, "bogus");
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -234,7 +234,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
         let result = cfs.sync(&[testfile]);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -258,7 +258,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
         let result = cfs.obtain_lock("foobar");
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -335,7 +335,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
 
         // Validate each file
         for file in files.iter() {
@@ -377,7 +377,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
         let mut ins = Vec::with_capacity(file_count);
         // Open the files
         for file_idx in 0..file_count {
@@ -617,7 +617,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(dir.clone(), &si)?;
+            .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
         let in_stream = cfs.open_input(sub_file, &new_io_context(random)?)?;
         let desc = in_stream.to_string();
         assert!(
@@ -896,6 +896,6 @@ where
         .write(&mut *dir.lock().unwrap(), &si, &IO_CONTEXT_DEFAULT)?;
     let cfs = LATEST_CODEC
         .compound_format()
-        .get_compound_reader(dir.clone(), &si)?;
+        .get_compound_reader(&mut *dir.lock().unwrap(), &si)?;
     Ok(cfs)
 }

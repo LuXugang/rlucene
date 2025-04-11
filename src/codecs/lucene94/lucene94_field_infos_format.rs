@@ -213,7 +213,7 @@ impl Lucene94FieldInfosFormat {
 impl FieldInfosFormat for Lucene94FieldInfosFormat {
     fn read<D>(
         &self,
-        directory: Arc<Mutex<D>>,
+        directory: &mut impl Directory,
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         _io_context: &IOContext,
@@ -223,10 +223,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
     {
         let file_name =
             IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
-        let mut input = directory
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?
-            .open_checksum_input(&file_name)?;
+        let mut input = directory.open_checksum_input(&file_name)?;
 
         // Wrap the main logic in a closure so we can capture errors for footer checking.
         let result = (|| {
@@ -350,7 +347,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 
     fn write<D>(
         &self,
-        directory: Arc<Mutex<D>>,
+        directory: &mut impl Directory,
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         infos: &FieldInfos,
@@ -361,10 +358,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
     {
         let file_name =
             IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
-        let mut output = directory
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .create_output(&file_name, io_context)?;
+        let mut output = directory.create_output(&file_name, io_context)?;
 
         CodecUtil::write_index_header(
             &mut output,

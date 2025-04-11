@@ -42,18 +42,18 @@ pub struct Lucene90CompoundReader<D>
 where
     D: Directory,
 {
-    directory: Arc<Mutex<D>>,
     segment_name: String,
     entries: HashMap<String, FileEntry>,
     handle: D::IndexInputType,
     #[allow(unused)]
     version: i32,
+    dir_fmt: String,
 }
 impl<D> Lucene90CompoundReader<D>
 where
     D: Directory,
 {
-    pub fn new(directory: Arc<Mutex<D>>, si: &SegmentInfo<D>) -> Result<Self> {
+    pub fn new(directory: &mut D, si: &SegmentInfo<D>) -> Result<Self> {
         let segment_name = si.name.clone();
         let data_file_name = IndexFileNames::segment_file_name(
             &segment_name,
@@ -66,12 +66,9 @@ where
             Lucene90CompoundFormat::ENTRIES_EXTENSION,
         );
 
-        let (version, entries) = Self::read_entries(&si.get_id(), &directory, &entries_file_name)?;
+        let (version, entries) = Self::read_entries(&si.get_id(), directory, &entries_file_name)?;
 
-        let dir = directory
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
-        let mut handle = dir.open_input(
+        let mut handle = directory.open_input(
             &data_file_name,
             &IO_CONTEXT_DEFAULT.with_read_advice(ReadAdvice::Normal)?,
         )?;
@@ -107,24 +104,21 @@ where
                 expected_length, length, handle
             )));
         }
-        let dir = directory.clone();
+        let dir_fmt = directory.to_string();
         Ok(Self {
-            directory: dir,
             segment_name,
             entries,
             handle,
             version,
+            dir_fmt,
         })
     }
     /// Helper method that reads CFS entries from an input stream.
     fn read_entries(
         segment_id: &[u8],
-        dir: &Arc<Mutex<D>>,
+        directory: &mut D,
         entries_file_name: &str,
     ) -> Result<(i32, HashMap<String, FileEntry>)> {
-        let directory = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
         let mut entries_stream = directory.open_checksum_input(entries_file_name)?;
         let result = (|| {
             let version = CodecUtil::check_index_header(
@@ -286,21 +280,11 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let dir_result = self.directory.lock();
-        match dir_result {
-            Ok(dir) => {
-                write!(
-                    f,
-                    "CompoundFileDirectory(segment=\"{}\" in dir={})",
-                    self.segment_name, dir
-                )
-            }
-            Err(_) => write!(
-                f,
-                "CompoundFileDirectory(segment=\"{}\" in dir=<locked>)",
-                self.segment_name
-            ),
-        }
+        write!(
+            f,
+            "CompoundFileDirectory(segment=\"{}\" in dir={})",
+            self.segment_name, self.dir_fmt
+        )
     }
 }
 

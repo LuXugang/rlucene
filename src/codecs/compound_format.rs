@@ -26,7 +26,7 @@ pub trait CompoundFormat {
     /// Returns a read-only view of the compound files in this segment.
     fn get_compound_reader<D>(
         &self,
-        dir: Arc<Mutex<D>>,
+        dir: &mut D,
         si: &SegmentInfo<D>,
     ) -> Result<CompoundDirectory<D>>
     where

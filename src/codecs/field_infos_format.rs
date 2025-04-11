@@ -28,7 +28,7 @@ pub trait FieldInfosFormat {
     /// Reads the FieldInfos previously written.
     fn read<D>(
         &self,
-        directory: Arc<Mutex<D>>,
+        directory: &mut impl Directory,
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         io_context: &IOContext,
@@ -39,7 +39,7 @@ pub trait FieldInfosFormat {
     /// Writes the provided FieldInfos.
     fn write<D>(
         &self,
-        directory: Arc<Mutex<D>>,
+        directory: &mut impl Directory,
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         infos: &FieldInfos,

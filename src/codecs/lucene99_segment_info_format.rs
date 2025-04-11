@@ -306,7 +306,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
 
     fn write<D>(
         &self,
-        dir: Arc<Mutex<D>>,
+        dir: &mut impl Directory,
         si: &mut SegmentInfo<D>,
         io_context: &IOContext,
     ) -> Result<()>
@@ -314,10 +314,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         D: Directory,
     {
         let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
-        let mut directory = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
-        let mut output = directory.create_output(&file_name, io_context)?;
+        let mut output = dir.create_output(&file_name, io_context)?;
         si.add_file(file_name.clone())?;
         CodecUtil::write_index_header(
             &mut output,

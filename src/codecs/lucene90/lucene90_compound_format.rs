@@ -133,7 +133,7 @@ impl Lucene90CompoundFormat {
 impl CompoundFormat for Lucene90CompoundFormat {
     fn get_compound_reader<D>(
         &self,
-        dir: Arc<Mutex<D>>,
+        dir: &mut D,
         si: &SegmentInfo<D>,
     ) -> Result<CompoundDirectory<D>>
     where
