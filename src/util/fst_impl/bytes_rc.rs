@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 pub struct BytesRc {
@@ -21,17 +22,54 @@ pub struct BytesRc {
     pub offset: i32,
     pub length: i32,
 }
+impl Default for BytesRc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl BytesRc {
-    pub fn from_vec(bytes: Vec<u8>, offset: i32, length: i32) -> BytesRc {
+    pub fn new() -> Self {
         BytesRc {
-            bytes: Rc::new(bytes),
+            bytes: Rc::new(vec![]),
+            offset: 0,
+            length: 0,
+        }
+    }
+    pub fn from_vec(bytes: Rc<Vec<u8>>, offset: i32, length: i32) -> BytesRc {
+        BytesRc {
+            bytes,
             offset,
             length,
         }
     }
-    pub fn from_bytes(bytes: Vec<u8>) -> BytesRc {
+    pub fn from_bytes(bytes: Rc<Vec<u8>>) -> BytesRc {
         debug_assert!(bytes.len() <= i32::MAX as usize);
         let length = bytes.len() as i32;
         Self::from_vec(bytes, 0, length)
+    }
+    pub fn with_capacity(capacity: i32) -> BytesRc {
+        BytesRc {
+            bytes: Rc::new(vec![0; capacity as usize]),
+            offset: 0,
+            length: 0,
+        }
+    }
+}
+impl Display for BytesRc {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        let end = self.offset + self.length;
+
+        for (i, &byte) in self.bytes[self.offset as usize..end as usize]
+            .iter()
+            .enumerate()
+        {
+            if i > 0 {
+                write!(f, " ")?;
+            }
+            write!(f, "{:02x}", byte)?;
+        }
+
+        write!(f, "]")
     }
 }

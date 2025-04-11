@@ -108,16 +108,32 @@ impl StringHelper {
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
     pub fn starts_with_byte_ref(ref_bytes: &BytesRef, prefix: &BytesRef) -> bool {
+        Self::starts_with(
+            &ref_bytes.bytes,
+            ref_bytes.offset,
+            ref_bytes.length,
+            &prefix.bytes,
+            prefix.offset,
+            prefix.length,
+        )
+    }
+    pub fn starts_with(
+        ref_bytes: &[u8],
+        ref_offset: i32,
+        ref_length: i32,
+        prefix: &[u8],
+        prefix_offset: i32,
+        prefix_length: i32,
+    ) -> bool {
         // Not long enough to start with the prefix
-        if ref_bytes.length < prefix.length {
+        if ref_length < prefix_length {
             return false;
         }
 
         // Check if the prefix matches
-        let ref_slice = &ref_bytes.bytes
-            [ref_bytes.offset as usize..(ref_bytes.offset + prefix.length) as usize];
+        let ref_slice = &ref_bytes[ref_offset as usize..(ref_offset + prefix_length) as usize];
         let prefix_slice =
-            &prefix.bytes[prefix.offset as usize..(prefix.offset + prefix.length) as usize];
+            &prefix[prefix_offset as usize..(prefix_offset + prefix_length) as usize];
 
         ref_slice == prefix_slice
     }

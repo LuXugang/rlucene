@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod BytesRc;
-mod Outputs;
 pub mod bit_table_util;
 pub mod byte_block_pool_reverse_bytes_reader;
+mod byte_sequence_outputs;
+mod bytes_rc;
 pub mod fst;
 pub mod fst_compiler;
 pub mod fst_reader;
 pub mod off_heap_fst_store;
+mod outputs;
 pub mod reverse_bytes_reader;
 pub mod reverse_random_access_reader;
