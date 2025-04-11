@@ -57,7 +57,7 @@ pub trait BaseCompoundFormatTestCase {
             let mut si = new_segment_info(random, dir.clone(), &format!("_{}", i))?;
             create_sequence_file(
                 random,
-                dir.clone(),
+                &mut *dir.lock().unwrap(),
                 &test_file,
                 0,
                 size,
@@ -95,7 +95,7 @@ pub trait BaseCompoundFormatTestCase {
 
         create_sequence_file(
             random,
-            dir.clone(),
+            &mut *dir.lock().unwrap(),
             files[0],
             0,
             15,
@@ -104,7 +104,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         create_sequence_file(
             random,
-            dir.clone(),
+            &mut *dir.lock().unwrap(),
             files[1],
             0,
             114,
@@ -273,49 +273,79 @@ pub trait BaseCompoundFormatTestCase {
         let chunk = 1024; // internal buffer size used by the stream
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         let seg_id = si.get_id();
-        create_random_file(random, &dir, &format!("{}.zero", segment), 0, &seg_id)?;
-        create_random_file(random, &dir, &format!("{}.one", segment), 1, &seg_id)?;
-        create_random_file(random, &dir, &format!("{}.ten", segment), 10, &seg_id)?;
-        create_random_file(random, &dir, &format!("{}.hundred", segment), 100, &seg_id)?;
-        create_random_file(random, &dir, &format!("{}.big1", segment), chunk, &seg_id)?;
         create_random_file(
             random,
-            &dir,
+            &mut *dir.lock().unwrap(),
+            &format!("{}.zero", segment),
+            0,
+            &seg_id,
+        )?;
+        create_random_file(
+            random,
+            &mut *dir.lock().unwrap(),
+            &format!("{}.one", segment),
+            1,
+            &seg_id,
+        )?;
+        create_random_file(
+            random,
+            &mut *dir.lock().unwrap(),
+            &format!("{}.ten", segment),
+            10,
+            &seg_id,
+        )?;
+        create_random_file(
+            random,
+            &mut *dir.lock().unwrap(),
+            &format!("{}.hundred", segment),
+            100,
+            &seg_id,
+        )?;
+        create_random_file(
+            random,
+            &mut *dir.lock().unwrap(),
+            &format!("{}.big1", segment),
+            chunk,
+            &seg_id,
+        )?;
+        create_random_file(
+            random,
+            &mut *dir.lock().unwrap(),
             &format!("{}.big2", segment),
             chunk - 1,
             &seg_id,
         )?;
         create_random_file(
             random,
-            &dir,
+            &mut *dir.lock().unwrap(),
             &format!("{}.big3", segment),
             chunk + 1,
             &seg_id,
         )?;
         create_random_file(
             random,
-            &dir,
+            &mut *dir.lock().unwrap(),
             &format!("{}.big4", segment),
             3 * chunk,
             &seg_id,
         )?;
         create_random_file(
             random,
-            &dir,
+            &mut *dir.lock().unwrap(),
             &format!("{}.big5", segment),
             3 * chunk - 1,
             &seg_id,
         )?;
         create_random_file(
             random,
-            &dir,
+            &mut *dir.lock().unwrap(),
             &format!("{}.big6", segment),
             3 * chunk + 1,
             &seg_id,
         )?;
         create_random_file(
             random,
-            &dir,
+            &mut *dir.lock().unwrap(),
             &format!("{}.big7", segment),
             1000 * chunk,
             &seg_id,
@@ -600,7 +630,7 @@ pub trait BaseCompoundFormatTestCase {
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         create_sequence_file(
             random,
-            dir.clone(),
+            &mut *dir.lock().unwrap(),
             sub_file,
             0,
             10,
@@ -740,17 +770,14 @@ pub(crate) fn new_segment_info<D: Directory>(
     Ok(value)
 }
 /// Creates a file of the specified size with random data.
-pub(crate) fn create_random_file<D: Directory>(
+pub(crate) fn create_random_file(
     random: &mut StdRng,
-    dir: &Arc<Mutex<D>>,
+    dir: &mut impl Directory,
     name: &str,
     size: i32,
     seg_id: &[u8],
 ) -> Result<()> {
-    let mut os = dir
-        .lock()
-        .unwrap()
-        .create_output(name, &new_io_context(random)?)?;
+    let mut os = dir.create_output(name, &new_io_context(random)?)?;
     CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, "suffix")?;
 
     for _ in 0..size {
@@ -764,19 +791,16 @@ pub(crate) fn create_random_file<D: Directory>(
 /// Creates a file of the specified size with sequential data. The first byte is written as the
 /// start byte provided. All subsequent bytes are computed as start + offset where offset is the
 /// number of the byte.
-fn create_sequence_file<D: Directory>(
+fn create_sequence_file(
     random: &mut StdRng,
-    dir: Arc<Mutex<D>>,
+    dir: &mut impl Directory,
     name: &str,
     mut start: u8,
     size: i32,
     seg_id: &[u8],
     seg_suffix: &str,
 ) -> Result<()> {
-    let mut os = dir
-        .lock()
-        .unwrap()
-        .create_output(name, &new_io_context(random)?)?;
+    let mut os = dir.create_output(name, &new_io_context(random)?)?;
     CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, seg_suffix)?;
     for _ in 0..size {
         os.write_byte(start)?;
@@ -881,7 +905,7 @@ where
         let file_name = format!("_123.f{}", i);
         create_sequence_file(
             random,
-            dir.clone(),
+            &mut *dir.lock().unwrap(),
             &file_name,
             0,
             2000,

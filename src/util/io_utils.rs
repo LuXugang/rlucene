@@ -20,7 +20,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 
 pub struct IOUtils;
 impl IOUtils {
@@ -34,11 +33,9 @@ impl IOUtils {
             }
         }
     }
-    pub fn delete_files<D: Directory>(dir: Arc<Mutex<D>>, names: Vec<String>) -> Result<()> {
+    pub fn delete_files(dir: &mut impl Directory, names: Vec<String>) -> Result<()> {
         for name in names {
-            dir.lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
-                .delete_file(&name)?;
+            dir.delete_file(&name)?;
         }
         Ok(())
     }

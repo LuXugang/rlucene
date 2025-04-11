@@ -372,7 +372,13 @@ mod tests {
 
         for i in 0..10 {
             let filename = format!("{}.{}", segment, i);
-            create_random_file(&mut random, &dir, &filename, random_file_size, &seg_id)?;
+            create_random_file(
+                &mut random,
+                &mut *dir.lock().unwrap(),
+                &filename,
+                random_file_size,
+                &seg_id,
+            )?;
             random_file_size += random.random_range(1..100);
             ordered_files.push(filename);
         }

@@ -291,9 +291,13 @@ where
             );
             let _ = self.file_pointers_out.take();
         }
-        match IOUtils::delete_files(Arc::clone(&self.dir), files) {
-            Ok(_) => (),
-            Err(e) => eprintln!("Failed to delete files: {:?}", e),
+        if let Ok(mut dir) = self.dir.lock() {
+            match IOUtils::delete_files(&mut *dir, files) {
+                Ok(_) => (),
+                Err(e) => eprintln!("Failed to delete files: {:?}", e),
+            }
+        } else {
+            eprintln!("Failed to acquire lock in Drop.");
         }
     }
 }
