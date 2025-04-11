@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod Outputs;
 pub mod bit_table_util;
 pub mod byte_block_pool_reverse_bytes_reader;
 pub mod fst;

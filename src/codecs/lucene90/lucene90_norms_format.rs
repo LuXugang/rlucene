@@ -56,7 +56,7 @@ use crate::util::error::lucene_error::Result;
 /// Notes:
 ///
 /// - A `FieldNumber` of `-1` indicates the end of metadata.
-/// - `NormsAddress` points to the start of the norm values in `.nvd`, or to the singleton value if `BytesPerNorm == 0`.  
+/// - `NormsAddress` points to the start of the norm values in `.nvd`, or to the SINGLETON value if `BytesPerNorm == 0`.  
 ///   If `BytesPerNorm != 0`, there are `NumDocsWithField` values to read at that offset.
 /// - `DocsWithFieldAddress` points to the start of the bit set representing documents with norms:  
 ///     - `-2`: no documents have a norm  

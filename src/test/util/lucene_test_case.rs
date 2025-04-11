@@ -106,7 +106,7 @@ pub(crate) fn new_io_context_with_default(
     old_context: &IOContext,
 ) -> Result<IOContext> {
     if *old_context == *IO_CONTEXT_READ_ONCE {
-        // Don't modify the READONCE singleton
+        // Don't modify the READONCE SINGLETON
         return Ok(old_context.clone());
     }
 

@@ -253,7 +253,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// In this implementation:
     /// - For a count of `0`, an empty `HashSet` is returned.
-    /// - For a count of `1`, a singleton `HashSet` is created.
+    /// - For a count of `1`, a SINGLETON `HashSet` is created.
     /// - For larger sets, a `HashSet` is created and populated.
     /// - Ownership is transferred to the caller, and immutability is guaranteed by not exposing mutable references.
     fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
@@ -289,7 +289,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// In this implementation:
     /// - For a count of `0`, an empty `HashSet` is returned.
-    /// - For a count of `1`, a singleton `HashSet` is created.
+    /// - For a count of `1`, a SINGLETON `HashSet` is created.
     /// - For larger sets, a `HashSet` is created and populated.
     /// - Ownership is transferred to the caller, and immutability is guaranteed by not exposing mutable references.
     fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
