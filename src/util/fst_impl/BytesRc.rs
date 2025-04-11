@@ -14,13 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod BytesRc;
-mod Outputs;
-pub mod bit_table_util;
-pub mod byte_block_pool_reverse_bytes_reader;
-pub mod fst;
-pub mod fst_compiler;
-pub mod fst_reader;
-pub mod off_heap_fst_store;
-pub mod reverse_bytes_reader;
-pub mod reverse_random_access_reader;
+use std::rc::Rc;
+
+pub struct BytesRc {
+    pub bytes: Rc<Vec<u8>>,
+    pub offset: i32,
+    pub length: i32,
+}
+impl BytesRc {
+    pub fn from_vec(bytes: Vec<u8>, offset: i32, length: i32) -> BytesRc {
+        BytesRc {
+            bytes: Rc::new(bytes),
+            offset,
+            length,
+        }
+    }
+    pub fn from_bytes(bytes: Vec<u8>) -> BytesRc {
+        debug_assert!(bytes.len() <= i32::MAX as usize);
+        let length = bytes.len() as i32;
+        Self::from_vec(bytes, 0, length)
+    }
+}
