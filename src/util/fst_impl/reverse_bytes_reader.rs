@@ -20,18 +20,18 @@ use crate::util::fst_impl::fst::BytesReader;
 use std::fmt::{Display, Formatter};
 
 /// Reads in reverse from a single byte array.
-pub struct ReverseBytesReader<'a> {
-    bytes: &'a mut [u8],
+pub struct ReverseBytesReader {
+    bytes: Vec<u8>,
     pos: i32,
 }
 #[allow(unused)]
-impl<'a> ReverseBytesReader<'a> {
-    pub fn new(bytes: &'a mut [u8]) -> Self {
+impl ReverseBytesReader {
+    pub fn new(bytes: Vec<u8>) -> Self {
         Self { bytes, pos: 0 }
     }
 }
 
-impl DataInput for ReverseBytesReader<'_> {
+impl DataInput for ReverseBytesReader {
     fn read_byte(&mut self) -> Result<u8> {
         let b = self.bytes[self.pos as usize];
         self.pos -= 1;
@@ -40,8 +40,7 @@ impl DataInput for ReverseBytesReader<'_> {
 
     fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let offset = offset as usize;
-        let len = len as usize;
-        for i in 0..len {
+        for i in 0..len as usize {
             b[offset + i] = self.bytes[self.pos as usize];
             self.pos -= 1;
         }
@@ -54,7 +53,7 @@ impl DataInput for ReverseBytesReader<'_> {
     }
 }
 
-impl BytesReader for ReverseBytesReader<'_> {
+impl BytesReader for ReverseBytesReader {
     fn get_position(&self) -> i64 {
         self.pos as i64
     }
@@ -64,8 +63,8 @@ impl BytesReader for ReverseBytesReader<'_> {
     }
 }
 
-impl Display for ReverseBytesReader<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl Display for ReverseBytesReader {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "ReverseBytesReader")
     }
 }

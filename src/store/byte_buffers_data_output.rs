@@ -252,7 +252,7 @@ impl ByteBuffersDataOutput {
 
     /// Returns a list of read-only views of [`Cursor<Vec<u8>>`](Cursor) blocks over the current content written
     /// to the output.
-    pub fn to_buffer_list(&self) -> (i64, Vec<Cursor<&[u8]>>) {
+    pub fn to_buffer_list_ref(&self) -> (i64, Vec<Cursor<&[u8]>>) {
         let data = self
             .blocks
             .iter()
@@ -266,7 +266,7 @@ impl ByteBuffersDataOutput {
         (self.size(), data)
     }
     /// Moves the blocks out of the current object, transferring ownership.
-    pub fn get_owned_buffer_list(&mut self) -> (i64, Vec<Cursor<Vec<u8>>>) {
+    pub fn to_buffer_list_owner(&mut self) -> (i64, Vec<Cursor<Vec<u8>>>) {
         let size = self.size();
         let old_blocks = std::mem::take(&mut self.blocks);
         let data = old_blocks.into_iter().collect();
@@ -289,7 +289,7 @@ impl ByteBuffersDataOutput {
     }
 
     pub fn get_data_input(&mut self) -> ByteBuffersDataInput {
-        let (length, data) = self.to_buffer_list();
+        let (length, data) = self.to_buffer_list_ref();
         ByteBuffersDataInput::new(data, length)
     }
 
@@ -477,7 +477,7 @@ mod tests {
         let mut random = random();
         let mut o = ByteBuffersDataOutput::with_size(0)?;
         o.write_byte(0)?;
-        let (_length, mut result) = o.to_buffer_list();
+        let (_length, mut result) = o.to_buffer_list_ref();
         let capacity = result.get_mut(0).unwrap().get_ref().len();
         assert_eq!(
             1 << ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
@@ -488,7 +488,7 @@ mod tests {
         let expected_size: i64 = random.random_range(mb..mb * 1024);
         let mut o = ByteBuffersDataOutput::with_size(expected_size as i64)?;
         let _ = o.write_byte(0);
-        let (_length, mut result) = o.to_buffer_list();
+        let (_length, mut result) = o.to_buffer_list_ref();
         let cap = result.get_mut(0).unwrap().get_ref().len();
         assert!(
             ((cap >> 1) * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize)
@@ -612,6 +612,16 @@ mod tests {
         o.copy_bytes(&mut input, len as i64)?;
         let expected = bytes_clone[offset..offset + len].to_vec();
         assert_eq!(o.get_array_copy(), expected);
+        Ok(())
+    }
+    #[test]
+    fn test_to_buffer_list_returns_read_only_buffers() -> Result<()> {
+        // this test is not required in Rust Lucene
+        Ok(())
+    }
+    #[test]
+    fn test_to_writeable_buffer_list_returns_original_buffers() -> Result<()> {
+        // this test is not required in Rust Lucene
         Ok(())
     }
 

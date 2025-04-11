@@ -26,7 +26,7 @@ pub trait FstReader: Accountable {
     ///
     /// # Returns
     /// The reverse `BytesReader`.
-    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader>;
+    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader>;
 
     /// Write this FST to another `DataOutput`.
     ///
@@ -35,5 +35,5 @@ pub trait FstReader: Accountable {
     ///
     /// # Errors
     /// Returns an error if an exception occurred during writing.
-    fn write_to(&self, out: &mut impl DataOutput) -> Result<()>;
+    fn write_to(&mut self, out: &mut impl DataOutput) -> Result<()>;
 }

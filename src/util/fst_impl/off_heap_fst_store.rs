@@ -62,13 +62,13 @@ where
 {
     type FstBytesReader = ReverseRandomAccessReader<I::RandomAccessSlice>;
 
-    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
+    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
         let input = self.input.borrow_mut();
         let slice = input.random_access_slice(self.offset, self.num_bytes)?;
         Ok(ReverseRandomAccessReader::new(slice))
     }
 
-    fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
+    fn write_to(&mut self, _out: &mut impl DataOutput) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "write_to is not supported for OffHeapFSTStore",
         ))

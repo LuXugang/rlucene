@@ -32,13 +32,13 @@ impl Accountable for NullFSTReader {
 impl FstReader for NullFSTReader {
     type FstBytesReader = DummyBytesReader;
 
-    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
+    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
         Err(LuceneError::unsupported_operation(
             "FST was not constructed with getOnHeapReaderWriter()".to_string(),
         ))
     }
 
-    fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
+    fn write_to(&mut self, _out: &mut impl DataOutput) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "FST was not constructed with getOnHeapReaderWriter()".to_string(),
         ))

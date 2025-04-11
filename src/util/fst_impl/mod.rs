@@ -23,5 +23,6 @@ pub mod fst_compiler;
 pub mod fst_reader;
 pub mod off_heap_fst_store;
 mod outputs;
+mod read_write_data_output;
 pub mod reverse_bytes_reader;
 pub mod reverse_random_access_reader;

@@ -32,12 +32,12 @@ pub trait BytesReader: DataInput {
     fn set_position(&mut self, pos: i64);
 }
 #[allow(unused)]
-pub(crate) enum BytesReaderEnum<'a, R>
+pub(crate) enum BytesReaderEnum<R>
 where
     R: RandomAccessInput,
 {
-    ByteBlockPool(ByteBlockPoolReverseBytesReader),
-    Reverse(ReverseBytesReader<'a>),
+    ByteBlockPoolReverse(ByteBlockPoolReverseBytesReader),
+    ReverseBytes(ReverseBytesReader),
     ReverseRandomAccess(ReverseRandomAccessReader<R>),
     Dummy(DummyBytesReader),
 }
