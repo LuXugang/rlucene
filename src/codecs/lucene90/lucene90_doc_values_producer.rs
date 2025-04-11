@@ -843,19 +843,19 @@ impl<I> DocValuesProducer<I> for Lucene90DocValuesProducer<I>
 where
     I: IndexInput,
 {
-    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
-        let entry = self.numerics.get(&_field.number);
+    fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+        let entry = self.numerics.get(&field.number);
         match entry {
             Some(entry) => self.get_numeric(entry.clone()),
             None => Err(LuceneError::illegal_state(format!(
                 "Missing numeric entry for field {}",
-                _field.number
+                field.number
             ))),
         }
     }
 
-    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
-        let entry = self.binaries.get(&_field.number);
+    fn get_binary(&mut self, field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
+        let entry = self.binaries.get(&field.number);
         match entry {
             Some(entry) => {
                 if entry.docs_with_field_offset == -1 {
@@ -969,41 +969,41 @@ where
             }
             None => Err(LuceneError::illegal_state(format!(
                 "Missing binary entry for field {}",
-                _field.number
+                field.number
             ))),
         }
     }
 
     fn get_sorted(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        field: &Rc<FieldInfo>,
     ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
-        let entry = self.sorted.get(&_field.number);
+        let entry = self.sorted.get(&field.number);
         match entry {
             Some(entry) => Ok(Rc::new(RefCell::new(self.get_sorted(entry.clone())?))),
             None => Err(LuceneError::illegal_state(format!(
                 "Missing sorted entry for field {}",
-                _field.number
+                field.number
             ))),
         }
     }
 
     fn get_sorted_numeric(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        field: &Rc<FieldInfo>,
     ) -> Result<SortedNumericDocValuesEnum<I>> {
-        let entry = self.sorted_numerics.get(&_field.number);
+        let entry = self.sorted_numerics.get(&field.number);
         match entry {
             Some(entry) => self.get_sorted_numeric(&entry.clone()),
             None => Err(LuceneError::illegal_state(format!(
                 "Missing sorted numeric entry for field {}",
-                _field.number
+                field.number
             ))),
         }
     }
 
-    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
-        let field_number = _field.number;
+    fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
+        let field_number = field.number;
         let entry = self.sorted_sets.get(&field_number);
         match entry {
             Some(entry) => {
@@ -1111,8 +1111,8 @@ where
         }
     }
 
-    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
-        let entry = self.skippers.get(&_field.number);
+    fn get_skipper(&mut self, field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
+        let entry = self.skippers.get(&field.number);
         match entry {
             Some(entry) => {
                 let mut input = self
@@ -1129,7 +1129,7 @@ where
             }
             None => Err(LuceneError::illegal_state(format!(
                 "Missing skipper entry for field {}",
-                _field.number
+                field.number
             ))),
         }
     }
