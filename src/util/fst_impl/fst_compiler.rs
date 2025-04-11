@@ -19,7 +19,8 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::DummyBytesReader;
 use crate::util::fst_impl::fst_reader::FstReader;
-#[allow(unused)]
+/// This class is used for FST backed by non-FSTReader DataOutput. It does not allow getting the
+/// reverse BytesReader nor writing to a DataOutput.
 struct NullFSTReader;
 #[allow(unused)]
 impl Accountable for NullFSTReader {
@@ -33,13 +34,13 @@ impl FstReader for NullFSTReader {
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         Err(LuceneError::unsupported_operation(
-            "NullFSTReader does not support reading bytes".to_string(),
+            "FST was not constructed with getOnHeapReaderWriter()".to_string(),
         ))
     }
 
     fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
         Err(LuceneError::unsupported_operation(
-            "NullFSTReader does not support writing bytes".to_string(),
+            "FST was not constructed with getOnHeapReaderWriter()".to_string(),
         ))
     }
 }

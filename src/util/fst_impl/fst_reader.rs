@@ -20,7 +20,6 @@ use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::BytesReader;
 
 /// Abstraction for reading bytes necessary for FST.
-#[allow(unused)]
 pub trait FstReader: Accountable {
     type FstBytesReader: BytesReader;
     /// Get the reverse `BytesReader` for this FST.

@@ -37,7 +37,7 @@ use std::sync::Arc;
 /// This is identical to Unicode codepoint order.
 #[derive(Debug)]
 pub struct BytesRef {
-    /// The contents of the BytesRef. Should never be `None`.
+    /// The contents of the BytesRef
     pub bytes: Vec<u8>,
     pub offset: i32,
     pub length: i32,
@@ -201,10 +201,6 @@ impl Display for BytesRef {
         write!(f, "]")
     }
 }
-/// for single-threaded scenarios
-pub type STBytesRef = Rc<BytesRef>;
-/// for multi-threaded scenarios
-pub type MTBytesRef = Arc<BytesRef>;
 
 #[cfg(test)]
 mod tests {
