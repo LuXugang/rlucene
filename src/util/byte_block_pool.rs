@@ -24,7 +24,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-/// This class enables the allocation of fixed-size buffers and their management as part of a buffer array.
+/// This struct enables the allocation of fixed-size buffers and their management as part of a buffer array.
 /// Allocation is done through the use of an [`AllocatorByte`](crate::util::allocator_byte::AllocatorByte) which can be customized,
 /// e.g., to allow recycling old buffers. There are methods for writing ([`append`](#method.append)) and
 /// reading from the buffers (e.g., [`read_bytes`](#method.read_bytes)), which handle read/write operations across buffer boundaries.

@@ -18,7 +18,7 @@ use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
-/// Utility class to decode postings.
+/// Utility struct to decode postings.
 pub struct PostingDecodingUtil<I: IndexInput> {
     /// The wrapper {@link IndexInput}.
     pub input: Rc<RefCell<I>>,

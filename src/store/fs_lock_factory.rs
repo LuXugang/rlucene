@@ -20,8 +20,8 @@ use crate::store::NativeFSLockFactory;
 use crate::util::error::lucene_error::Result;
 use std::path::Path;
 
-/// Base class for file-system-based locking implementation.
-/// This class is explicitly checking that
+/// Base struct for file-system-based locking implementation.
+/// This struct is explicitly checking that
 /// the passed [`Directory`](crate::store::directory::Directory)
 /// is an [`FSDirectory`](crate::store::fs_directory::FSDirectory).
 pub trait FSLockFactory: LockFactory {

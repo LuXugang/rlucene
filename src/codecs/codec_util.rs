@@ -25,7 +25,7 @@ use crate::util::version::MIN_SUPPORTED_MAJOR;
 use crate::util::StringHelper;
 use std::cmp::Ordering;
 
-/// Utility class for reading and writing versioned headers.
+/// Utility struct for reading and writing versioned headers.
 ///
 /// Writing codec headers is useful to ensure that a file is in the format you expect it to be.
 ///

@@ -35,7 +35,7 @@ use std::rc::Rc;
 /// 2. `writeField` is called for each field in the document.
 /// 3. After all documents have been written, [`finish(int)`](StoredFieldsWriter::finish) is called for
 ///    verification/sanity-checks.
-/// 4. Finally, the writer is closed ([`close()`]).
+/// 4. Finally, the writer is closed.
 pub trait StoredFieldsWriter {
     /// Called before writing the stored fields of the document.
     /// `write_field` will be called for each stored field.

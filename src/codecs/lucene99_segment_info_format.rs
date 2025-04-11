@@ -46,7 +46,7 @@ use std::sync::{Arc, Mutex};
 /// - **IsCompoundFile** --> [`DataOutput::write_byte`] (Int8)
 /// - **HasBlocks** --> [`DataOutput::write_byte`] (Int8)
 /// - **IndexSort** --> [`DataOutput::write_vint`] (Int32) count, followed by `count` SortField
-/// - **SortField** --> [`DataOutput::write_string`] (String) sort class, followed by a per-sort byte stream
+/// - **SortField** --> [`DataOutput::write_string`] (String) sort struct, followed by a per-sort byte stream
 ///   (see [`SortFieldProvider::read_sort_field`])
 /// - **Footer** --> [`CodecUtil::write_footer`](CodecUtil::write_footer)
 ///

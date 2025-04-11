@@ -23,7 +23,7 @@ use std::mem;
 /// operation is implemented with a linear cost.
 ///
 /// # Note
-/// This class pre-allocates an array of length `max_size + 1` and pre-fills it with elements if instantiated via the
+/// This struct pre-allocates an array of length `max_size + 1` and pre-fills it with elements if instantiated via the
 /// [`PriorityQueue::with_sentinel_object`](#method.with_sentinel_object) constructor.
 ///
 /// # Note
@@ -166,7 +166,7 @@ where
     ///
     /// # Errors
     /// If one tries to add more objects than the `max_size` passed in the constructor, an
-    /// [`ArrayIndexOutOfBoundsError`](crate::util::error::array_index_out_of_bounds) is thrown.
+    /// [`ArrayIndexOutOfBoundsError`](crate::util::error::ArrayIndexOutOfBoundsError) is thrown.
     pub fn add_all(&mut self, elements: Vec<T>) -> Result<()> {
         if (self.size + elements.len()) > self.max_size {
             return Err(LuceneError::array_index_out_of_bounds(format!(
@@ -190,7 +190,7 @@ where
     }
 
     /// Adds an object to a priority queue in `O(log(size))` time. If more objects are added than the
-    /// `max_size` initialized, an [`ArrayIndexOutOfBoundsError`](crate::util::error::array_index_out_of_bounds) is thrown.
+    /// `max_size` initialized, an [`ArrayIndexOutOfBoundsError`](crate::util::error::ArrayIndexOutOfBoundsError) is thrown.
     ///
     /// # Returns
     /// The new 'top' element in the queue.

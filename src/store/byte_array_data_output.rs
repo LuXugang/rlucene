@@ -20,7 +20,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// `DataOutput` backed by a byte array.
 ///
 /// # Warning
-/// This class omits most low-level checks, so be sure to test thoroughly with assertions enabled.
+/// This struct omits most low-level checks, so be sure to test thoroughly with assertions enabled.
 ///
 /// # Note
 /// This is an experimental API.

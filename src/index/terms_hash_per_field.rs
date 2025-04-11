@@ -33,11 +33,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-/// This class stores streams of information per term without knowing the size of the stream ahead of
+/// This struct stores streams of information per term without knowing the size of the stream ahead of
 /// time. Each stream typically encodes one level of information, like term frequency per document or
 /// term proximity.
 ///
-/// Internally, this class allocates a linked list of slices that can be read by a [`ByteSliceReader`]
+/// Internally, this struct allocates a linked list of slices that can be read by a [`ByteSliceReader`]
 /// for each term. Terms are first deduplicated in a [`BytesRefHash`]. Once this is done, internal
 /// data structures point to the current offset of each stream that can be written to.
 #[allow(unused)]

@@ -17,7 +17,7 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-/// This class contains useful constants representing filenames and extensions used by Lucene, as
+/// This struct contains useful constants representing filenames and extensions used by Lucene, as
 /// well as convenience methods for querying whether a file name matches an extension
 /// ([`matches_extension`](IndexFileNames::matches_extension)), as well as generating file names from a
 /// segment name, generation, and extension

@@ -24,7 +24,7 @@ use crc32fast::Hasher;
 use std::fmt::{Display, Formatter};
 use std::io::{BufWriter, Write};
 
-/// Implementation class for buffered [`IndexOutput`] that writes to an [`OutputStream`](Write).
+/// Implementation struct for buffered [`IndexOutput`] that writes to an [`OutputStream`](Write).
 pub struct OutputStreamIndexOutput<W>
 where
     W: Write,

@@ -25,7 +25,7 @@ use crate::util::packed::monotonic_long_values::MonotonicLongValuesBuilder;
 use crate::util::packed::read_enum::PackedIntsReadEnum;
 use crate::util::packed::{Mutable, NullReader, PackedInts, Reader};
 
-/// Utility class to compress integers into a [`LongValues`] instance.
+/// Utility struct to compress integers into a [`LongValues`] instance.
 pub struct PackedLongValues {
     page_shift: i32,
     pub(crate) page_mask: i32,

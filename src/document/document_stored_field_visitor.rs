@@ -28,7 +28,7 @@ use std::rc::Rc;
 /// A [`StoredFieldVisitor`] that creates a [`Document`] from stored fields.
 ///
 /// This visitor supports loading all stored fields, or only specific requested fields
-/// provided from a [`Set`].
+/// provided from a `Set`.
 ///
 /// This is used by [`StoredFields::document`](crate::index::stored_fields::StoredFields::document) to load a document.
 pub struct DocumentStoredFieldVisitor<'a> {

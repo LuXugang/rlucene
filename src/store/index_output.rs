@@ -21,7 +21,7 @@ use std::fmt::Display;
 /// A `DataOutput` for appending data to a file in a `Directory`.
 ///
 /// # Note
-/// Instances of this class are **not** thread-safe.
+/// Instances of this struct are **not** thread-safe.
 ///
 /// # See Also
 /// [`Directory`](crate::store::directory::Directory)

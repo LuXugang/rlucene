@@ -23,7 +23,7 @@ use std::collections::HashSet;
 
 /// API for reading stored fields.
 ///
-/// **NOTE**: This class is not thread-safe and should only be consumed in the thread where it
+/// **NOTE**: This struct is not thread-safe and should only be consumed in the thread where it
 /// was acquired.
 pub trait StoredFields {
     /// Optional method: Give a hint to this [`StoredFields`] instance that the given document will
@@ -32,7 +32,7 @@ pub trait StoredFields {
     ///
     /// NOTE: This API is expected to be called on a small enough set of doc IDs that they could all
     /// fit in the page cache. If you plan on retrieving a very large number of documents, it may be a
-    /// good idea to perform calls to [`prefetch`] and [`document`] in batches instead of
+    /// good idea to perform calls to [`prefetch`](StoredFields::prefetch) and [`document`](crate::document::document::Document) in batches instead of
     /// prefetching all documents up-front.
     fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
         Ok(())
@@ -51,10 +51,10 @@ pub trait StoredFields {
     ///
     /// # Errors
     ///
-    /// - [`CorruptIndexError`](crate::util::error::corrupt_index::CorruptIndexError) if the index is corrupt
+    /// - [`CorruptIndexError`](crate::util::error::CorruptIndexError) if the index is corrupt
     /// - [`std::io::Error`] if there is a low-level IO error
     // TODO: we need a separate StoredField, so that the
-    // Document returned here contains that class not
+    // Document returned here contains that struct not
     // IndexableField
     fn document(&mut self, doc_id: i32, writer: &mut impl StoredFieldsWriter) -> Result<Document> {
         let mut visitor = DocumentStoredFieldVisitor::new();
@@ -63,7 +63,7 @@ pub trait StoredFields {
     }
 
     /// Expert: visits the fields of a stored document, for custom processing/loading of each field.
-    /// If you simply want to load all fields, use [`document`]. If you want to load a subset,
+    /// If you simply want to load all fields, use [`document`](Document). If you want to load a subset,
     /// use [`DocumentStoredFieldVisitor`].
     fn document_with_visitor(
         &mut self,
@@ -72,8 +72,8 @@ pub trait StoredFields {
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()>;
 
-    /// Like [`document`] but only loads the specified fields. Note that this is simply sugar
-    /// for [`DocumentStoredFieldVisitor::new_with_fields`].
+    /// Like [`document`](Document) but only loads the specified fields. Note that this is simply sugar
+    /// for [`DocumentStoredFieldVisitor::new_fields`](DocumentStoredFieldVisitor::needs_field).
     fn document_with_fields(
         &mut self,
         doc_id: i32,

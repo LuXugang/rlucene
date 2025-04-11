@@ -21,7 +21,7 @@ use std::rc::Rc;
 /// A pool for int blocks similar to `ByteBlockPool`.
 pub struct IntBlockPool {
     /// array of buffers currently used in the pool. Buffers are allocated if needed don't modify this
-    /// outside of this class
+    /// outside of this struct
     buffers: Vec<Vec<i32>>,
     /// index into the buffers array pointing to the current buffer used as the head.
     pub(crate) buffer_upto: i32,
@@ -135,7 +135,7 @@ pub trait AllocatorI32 {
     fn get_block_size(&self) -> i32;
 }
 
-/// A simple [`AllocatorByte`] that never recycles. */
+/// A simple `AllocatorByte` that never recycles. */
 pub struct DirectAllocatorI32 {
     block_size: i32,
 }

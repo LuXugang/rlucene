@@ -40,7 +40,7 @@ use std::rc::Rc;
 /// 2. [`add_norms_field`](NormsConsumer::add_norms_field) is called for each field with normalization values.
 ///    The API is *pull*-based rather than *push*-based; the implementation is free
 ///    to iterate over the values multiple times.
-/// 3. After all fields are added, the consumer is [`close`]d.
+/// 3. After all fields are added, the consumer is closed.
 pub trait NormsConsumer {
     /// Writes normalization values for a field.
     ///

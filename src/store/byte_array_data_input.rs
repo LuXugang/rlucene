@@ -24,7 +24,7 @@ use std::fmt::{Display, Formatter};
 /// `DataInput` backed by a byte array.
 ///
 /// # Warning
-/// This class omits all low-level checks.
+/// This struct omits all low-level checks.
 ///
 /// # Note
 /// This is an experimental API.

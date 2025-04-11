@@ -31,7 +31,7 @@ pub enum PauseReason {
     /// Other reason.
     Other,
 }
-/// Progress and state for an executing merge. This class encapsulates the logic to pause and
+/// Progress and state for an executing merge. This struct encapsulates the logic to pause and
 /// resume the merge thread or to abort the merge entirely.
 #[allow(unused)]
 pub struct OneMergeProgress {

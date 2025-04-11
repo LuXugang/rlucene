@@ -35,7 +35,7 @@ pub trait DocValuesFormat: Display {
     /// NOTE: By the time this call returns, it must hold open any files it will need to use;
     /// otherwise, those files may be deleted. Additionally, required files may be deleted during
     /// the execution of this call before there is a chance to open them. Under these circumstances,
-    /// an [`IOException`] should be returned by the implementation. IOExceptions are expected and
+    /// an io error should be returned by the implementation. IOExceptions are expected and
     /// will automatically cause a retry of the segment opening logic with the newly revised segments.
     fn fields_producer<D>(
         &self,

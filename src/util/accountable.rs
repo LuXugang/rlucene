@@ -23,7 +23,7 @@ pub trait Accountable {
     /// Return the memory usage of this object in bytes. Negative values are illegal.
     fn ram_bytes_used(&self) -> Result<i64>;
 
-    /// Returns nested resources of this class. The result should be a point-in-time snapshot (to avoid
+    /// Returns nested resources of this struct. The result should be a point-in-time snapshot (to avoid
     /// race conditions).
     fn get_child_resources<T: Accountable>(&self) -> Vec<T> {
         vec![]

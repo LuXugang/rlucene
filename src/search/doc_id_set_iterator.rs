@@ -17,11 +17,11 @@
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-/// This abstract class defines methods to iterate over a set of non-decreasing document IDs.
-/// Note that this class assumes it iterates on document IDs, and therefore [`NO_MORE_DOCS`]
+/// This abstract struct defines methods to iterate over a set of non-decreasing document IDs.
+/// Note that this struct assumes it iterates on document IDs, and therefore [`NO_MORE_DOCS`]
 /// is set to its constant value to be used as a sentinel object.
 ///
-/// Implementations of this class are expected to treat `i32::MAX` as an invalid value.
+/// Implementations of this struct are expected to treat `i32::MAX` as an invalid value.
 pub trait DocIdSetIterator {
     /// Returns the following:
     ///

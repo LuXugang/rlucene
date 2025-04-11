@@ -18,7 +18,7 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
 
-/// Class that Posting and PostingVector use to write interleaved byte streams into shared fixed-size
+/// struct that Posting and PostingVector use to write interleaved byte streams into shared fixed-size
 /// byte[] arrays. The idea is to allocate slices of increasing lengths. For example, the first slice
 /// is 5 bytes, the next slice is 14, etc. We start by writing our bytes into the first 5 bytes. When
 /// we hit the end of the slice, we allocate the next slice and then write the address of the new

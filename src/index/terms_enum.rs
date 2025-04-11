@@ -48,18 +48,16 @@ pub trait TermsEnum: BytesRefIterator {
     }
 
     /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase typically calls [`IndexInput::prefetch`] on
-    /// the right range of bytes under the hood, while the second phase [`IOBooleanSupplier::get`]
+    /// the right range of bytes under the hood, while the second phase [`see.exact`](TermsEnum::seek_exact)
     /// actually seeks the term within these bytes. This can be used to parallelize I/O across multiple
     /// terms by calling [`prepare_seek_exact`](TermsEnum::prepare_seek_exact) on multiple terms enums before calling
     /// `IOBooleanSupplier::get()`.
     ///
     /// **NOTE**: It is illegal to call other methods on this [`TermsEnum`] after calling
-    /// this method until [`IOBooleanSupplier::get()`] is called.
+    /// this method until [`seek_exact`](TermsEnum::seek_exact) is called.
     ///
     /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that the
     /// term may not exist without performing any I/O.
-    ///
-    /// **NOTE**: The returned [`IOBooleanSupplier`] must be
     fn prepare_seek_exact<'a>(
         &'a mut self,
         text: BytesRef,

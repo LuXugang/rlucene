@@ -17,7 +17,7 @@
 use crate::store::{DataOutput, IndexInput};
 use crate::util::error::lucene_error::Result;
 use crate::util::group_vint_util::GroupVIntUtil;
-/// Utility class to encode/decode postings block.
+/// Utility struct to encode/decode postings block.
 #[allow(unused)]
 pub(crate) struct PostingsUtil;
 #[allow(unused)]

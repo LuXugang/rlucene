@@ -29,7 +29,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
-/// Utility class to write new points into in-heap arrays.
+/// Utility struct to write new points into in-heap arrays.
 #[allow(unused)]
 pub struct HeapPointWriter<D>
 where

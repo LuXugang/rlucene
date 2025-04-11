@@ -28,7 +28,7 @@ pub trait DocIdSet: Accountable {
         Self: 'a;
     fn iterator(&self) -> Option<Self::DISIType<'_>>;
 
-    // TODO: somehow this class should express the cost of
+    // TODO: somehow this struct should express the cost of
     // iteration vs the cost of random access Bits; for
     // expensive Filters (e.g. distance < 1 km) we should use
     // bits() after all other Query/Filters have matched, but

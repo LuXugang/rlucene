@@ -20,7 +20,7 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-/// This class contains utility methods and constants for group varint.
+/// This struct contains utility methods and constants for group varint.
 pub struct GroupVIntUtil;
 
 impl GroupVIntUtil {

@@ -20,7 +20,7 @@ use crate::store::{DataInput, DataOutput, IndexInput};
 use crate::util::error::lucene_error::Result;
 use crate::util::long_heap::LongHeap;
 use crate::util::packed::PackedInts;
-/// Utility class to encode sequences of 128 small positive integers.
+/// Utility struct to encode sequences of 128 small positive integers.
 #[allow(unused)]
 pub(crate) struct PForUtil {
     for_util: ForUtil,

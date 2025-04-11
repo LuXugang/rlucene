@@ -27,7 +27,7 @@ use std::path::Path;
 ///
 /// # Read and Write Modes
 ///
-/// This class uses `std::fs::File` for reading, enabling thread-safe concurrent reads. Writing
+/// This struct uses `std::fs::File` for reading, enabling thread-safe concurrent reads. Writing
 /// is achieved using [`OutputStreamIndexOutput`](crate::store::output_stream_index_output).
 pub struct NIOFSDirectory;
 

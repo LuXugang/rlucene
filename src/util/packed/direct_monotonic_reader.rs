@@ -205,7 +205,7 @@ where
 }
 pub mod direct_monotonic {
 
-    /// In-memory metadata that needs to be kept around for [`DirectMonotonicReader`] to read data
+    /// In-memory metadata that needs to be kept around for [`DirectMonotonicReader`](crate::util::packed::direct_monotonic_reader::DirectMonotonicReader) to read data
     /// from disk.
     #[derive(Clone)]
     pub struct Meta {

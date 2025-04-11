@@ -25,7 +25,7 @@ use crate::util::{ReadableCursorExt, SliceCopyOps};
 use byteorder::{ByteOrder, LE};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
-/// Base implementation class for buffered [`IndexInput`]. */
+/// Base implementation struct for buffered [`IndexInput`]. */
 pub struct BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,

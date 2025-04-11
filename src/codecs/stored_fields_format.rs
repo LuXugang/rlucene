@@ -27,7 +27,7 @@ use std::sync::{Arc, Mutex};
 
 /// Controls the format of stored fields.
 pub trait StoredFieldsFormat {
-    /// Returns a [`StoredFieldsReader`] to load stored fields.
+    /// Returns a [`StoredFieldsReader`](crate::codecs::stored_fields_reader::StoredFieldsReader) to load stored fields.
     fn fields_reader<D>(
         &self,
         directory: &mut D,
@@ -38,7 +38,7 @@ pub trait StoredFieldsFormat {
     where
         D: Directory;
 
-    /// Returns a [`StoredFieldsWriter`] to write stored fields.
+    /// Returns a [`StoredFieldsWriter`](crate::codecs::stored_fields_writer::StoredFieldsWriter) to write stored fields.
     fn fields_writer<D>(
         &self,
         directory: Arc<Mutex<D>>,
