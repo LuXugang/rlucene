@@ -19,7 +19,6 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
-use std::sync::{Arc, Mutex};
 
 /// Encodes/decodes FieldInfos
 ///

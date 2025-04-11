@@ -14,27 +14,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod already_closed;
-pub mod array_index_out_of_bounds;
-mod buffer_allocation;
-pub mod corrupt_index;
-pub mod eof;
-pub mod illegal_argument;
-pub mod illegal_state;
-pub mod index_format_too_new;
-pub mod index_format_too_old;
-mod index_not_found;
-pub mod integer_overflow;
-mod lock_already_held;
-mod lock_held_by_other;
 pub mod lucene_error;
-mod max_bytes_length_exceeded;
-mod merge;
-mod merge_aborted;
-mod need_implemented;
-mod not_found;
-mod number_format;
 pub mod parse;
-mod unimplemented;
-mod unreachable;
-mod unsupported_operation;
+
+#[macro_export]
+macro_rules! message_error {
+    ($name:ident) => {
+        #[derive(Debug)]
+        pub struct $name {
+            pub message: String,
+        }
+
+        impl $name {
+            pub fn new(msg: impl Into<String>) -> Self {
+                Self {
+                    message: msg.into(),
+                }
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.message)
+            }
+        }
+
+        impl std::error::Error for $name {}
+    };
+}
+message_error!(NeedImplementedError);
+message_error!(NotImplementedError);
+message_error!(UnreachableError);
+message_error!(NumberFormatError);
+message_error!(IllegalArgumentError);
+message_error!(IllegalStateError);
+message_error!(Eof);
+message_error!(IntegerOverflow);
+message_error!(CorruptIndexError);
+message_error!(IndexFormatTooNewError);
+message_error!(IndexFormatTooOldError);
+message_error!(UnsupportedOperationError);
+message_error!(NotFoundError);
+message_error!(LockAlreadyHeldError);
+message_error!(LockHeldByOtherError);
+message_error!(ArrayIndexOutOfBoundsError);
+message_error!(IndexNotFound);
+message_error!(MaxBytesLengthExceededError);
+message_error!(BufferAllocationError);
+message_error!(MergeError);
+message_error!(MergeAbortedError);
+message_error!(AlreadyClosedError);
+message_error!(VersionError);

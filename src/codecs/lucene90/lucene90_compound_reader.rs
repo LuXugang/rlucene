@@ -26,7 +26,6 @@ use crate::store::{IOContext, IndexInput, ReadAdvice, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::sync::{Arc, Mutex};
 
 /// Offset/Length for a slice inside of a compound file
 pub struct FileEntry {

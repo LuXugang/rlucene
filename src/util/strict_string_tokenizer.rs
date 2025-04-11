@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::illegal_state::IllegalStateError;
+use crate::util::error::IllegalStateError;
 
 /// Used for parsing version strings so we don't have to use the overkill of `String.split` or
 /// `StringTokenizer` (which silently skips empty tokens).

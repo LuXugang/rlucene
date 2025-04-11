@@ -29,8 +29,8 @@ use crate::test::util::lucene_test_case::{
 
 use crate::test::util::test_util::TestUtil;
 use crate::util::clone::TryClone as OtherClone;
-use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::IllegalStateError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::packed::PackedInts;
 use crate::util::SliceCopyOps;

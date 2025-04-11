@@ -26,7 +26,6 @@ use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::priority_queue::{Compare, PriorityQueue};
-use std::sync::{Arc, Mutex};
 
 /// Lucene 9.0 compound file format
 ///

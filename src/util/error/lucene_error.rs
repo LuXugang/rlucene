@@ -14,28 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::already_closed::AlreadyClosedError;
-use crate::util::error::array_index_out_of_bounds::ArrayIndexOutOfBoundsError;
-use crate::util::error::buffer_allocation::BufferAllocationError;
-use crate::util::error::corrupt_index::CorruptIndexError;
-use crate::util::error::eof::Eof;
-use crate::util::error::illegal_argument::IllegalArgumentError;
-use crate::util::error::illegal_state::IllegalStateError;
-use crate::util::error::index_format_too_new::IndexFormatTooNewError;
-use crate::util::error::index_format_too_old::IndexFormatTooOldError;
-use crate::util::error::index_not_found::IndexNotFound;
-use crate::util::error::integer_overflow::IntegerOverflow;
-use crate::util::error::lock_already_held::LockAlreadyHeldError;
-use crate::util::error::lock_held_by_other::LockHeldByOtherError;
-use crate::util::error::max_bytes_length_exceeded::MaxBytesLengthExceededError;
-use crate::util::error::merge::MergeError;
-use crate::util::error::merge_aborted::MergeAbortedError;
-use crate::util::error::need_implemented::NeedImplementedError;
-use crate::util::error::not_found::NotFoundError;
-use crate::util::error::number_format::NumberFormatError;
-use crate::util::error::unimplemented::NotImplementedError;
-use crate::util::error::unreachable::UnreachableError;
-use crate::util::error::unsupported_operation::UnsupportedOperationError;
+use crate::util::error::parse::Parse;
+use crate::util::error::{
+    AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CorruptIndexError, Eof,
+    IllegalArgumentError, IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError,
+    IndexNotFound, IntegerOverflow, LockAlreadyHeldError, LockHeldByOtherError,
+    MaxBytesLengthExceededError, MergeAbortedError, MergeError, NeedImplementedError,
+    NotFoundError, NotImplementedError, NumberFormatError, UnreachableError,
+    UnsupportedOperationError,
+};
 use crate::util::VersionError;
 use std::io::Error;
 use std::string::FromUtf8Error;
@@ -45,7 +32,6 @@ use thiserror::Error;
 pub enum LuceneError {
     #[error("IO error: {0}")]
     Io(#[from] Error),
-
     #[error("IO error on {path}: {source}")]
     IoWithPath { source: Error, path: String },
     #[error("{0}")]
@@ -54,76 +40,63 @@ pub enum LuceneError {
     LockError(String),
     #[error("UTF-8 conversion error: {0}")]
     FromUtf8Error(#[from] FromUtf8Error),
-
-    #[error("{0}")]
-    IllegalArgument(#[from] IllegalArgumentError),
-
-    #[error("{0}")]
-    IllegalState(#[from] IllegalStateError),
-
-    #[error("{0}")]
-    Eof(#[from] Eof),
-
-    #[error("{0}")]
-    IntegerOverflow(#[from] IntegerOverflow),
-
-    #[error("{0}")]
-    CorruptIndex(#[from] CorruptIndexError),
-
-    #[error("{0}")]
-    IndexFormatTooNew(#[from] IndexFormatTooNewError),
-
-    #[error("{0}")]
-    IndexFormatTooOld(#[from] IndexFormatTooOldError),
-
-    #[error("{0}")]
-    UnsupportedOperation(#[from] UnsupportedOperationError),
-
-    #[error("{0}")]
-    NotFound(#[from] NotFoundError),
-
-    #[error("{0}")]
-    LockAlreadyHeld(#[from] LockAlreadyHeldError),
-
-    #[error("{0}")]
-    LockHeldByOther(#[from] LockHeldByOtherError),
-
-    #[error("{0}")]
-    ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
-
     #[error("UTF-8 decoding error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
-
+    #[error("{0}")]
+    IllegalArgument(#[from] IllegalArgumentError),
+    #[error("{0}")]
+    IllegalState(#[from] IllegalStateError),
+    #[error("{0}")]
+    Eof(#[from] Eof),
+    #[error("{0}")]
+    IntegerOverflow(#[from] IntegerOverflow),
+    #[error("{0}")]
+    CorruptIndex(#[from] CorruptIndexError),
+    #[error("{0}")]
+    IndexFormatTooNew(#[from] IndexFormatTooNewError),
+    #[error("{0}")]
+    IndexFormatTooOld(#[from] IndexFormatTooOldError),
+    #[error("{0}")]
+    UnsupportedOperation(#[from] UnsupportedOperationError),
+    #[error("{0}")]
+    NotFound(#[from] NotFoundError),
+    #[error("{0}")]
+    LockAlreadyHeld(#[from] LockAlreadyHeldError),
+    #[error("{0}")]
+    LockHeldByOther(#[from] LockHeldByOtherError),
+    #[error("{0}")]
+    ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
     #[error("{0}")]
     IndexNotFound(#[from] IndexNotFound),
-    // TODO: A lock unwrap error handling should be added.
     #[error("{0}")]
     NumberFormat(#[from] NumberFormatError),
-
     #[error("{0}")]
     NeedImplemented(#[from] NeedImplementedError),
-
     #[error("{0}")]
     MaxBytesLengthExceeded(#[from] MaxBytesLengthExceededError),
-
     #[error("{0}")]
     BufferAllocation(#[from] BufferAllocationError),
-
     #[error("{0}")]
     Merge(#[from] MergeError),
-
     #[error("{0}")]
     MergeAborted(#[from] MergeAbortedError),
-
     #[error("{0}")]
     AlreadyClosed(#[from] AlreadyClosedError),
-
     #[error("{0}")]
     NotImplemented(#[from] NotImplementedError),
     #[error("{0}")]
     VersionError(#[from] VersionError),
     #[error("{0}")]
     Unreachable(#[from] UnreachableError),
+    #[error("{0}")]
+    Parse(#[from] Parse),
+}
+macro_rules! error_ctor {
+    ($fn_name:ident, $variant:ident, $error_type:ty) => {
+        pub fn $fn_name(msg: impl Into<String>) -> Self {
+            LuceneError::$variant(<$error_type>::new(msg))
+        }
+    };
 }
 impl LuceneError {
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
@@ -132,6 +105,7 @@ impl LuceneError {
             path: path.into(),
         }
     }
+
     pub fn io(err: std::io::Error) -> Self {
         Self::io_with_path("", err)
     }
@@ -139,80 +113,53 @@ impl LuceneError {
     pub fn utf8(err: FromUtf8Error) -> Self {
         LuceneError::FromUtf8Error(err)
     }
-    pub fn illegal_argument(msg: impl Into<String>) -> Self {
-        LuceneError::IllegalArgument(IllegalArgumentError::new(msg))
-    }
-    pub fn illegal_state(msg: impl Into<String>) -> Self {
-        LuceneError::IllegalState(IllegalStateError::new(msg))
-    }
 
-    pub fn eof(msg: impl Into<String>) -> Self {
-        LuceneError::Eof(Eof::new(msg))
-    }
-
-    pub fn integer_overflow(msg: impl Into<String>) -> Self {
-        LuceneError::IntegerOverflow(IntegerOverflow::new(msg))
-    }
-
-    pub fn corrupt_index(msg: impl Into<String>) -> Self {
-        LuceneError::CorruptIndex(CorruptIndexError::new(msg))
-    }
-
-    pub fn index_format_too_new(msg: impl Into<String>) -> Self {
-        LuceneError::IndexFormatTooNew(IndexFormatTooNewError::new(msg))
-    }
-    pub fn index_format_too_old(msg: impl Into<String>) -> Self {
-        LuceneError::IndexFormatTooOld(IndexFormatTooOldError::new(msg))
-    }
-
-    pub fn unsupported_operation(msg: impl Into<String>) -> Self {
-        LuceneError::UnsupportedOperation(UnsupportedOperationError::new(msg))
-    }
-    pub fn not_found(msg: impl Into<String>) -> Self {
-        LuceneError::NotFound(NotFoundError::new(msg))
-    }
-    pub fn lock_already_held(msg: impl Into<String>) -> Self {
-        LuceneError::LockAlreadyHeld(LockAlreadyHeldError::new(msg))
-    }
-    pub fn lock_held_by_other(msg: impl Into<String>) -> Self {
-        LuceneError::LockHeldByOther(LockHeldByOtherError::new(msg))
-    }
-    pub fn array_index_out_of_bounds(msg: impl Into<String>) -> Self {
-        LuceneError::ArrayIndexOutOfBounds(ArrayIndexOutOfBoundsError::new(msg))
-    }
     pub fn utf8_error(err: std::str::Utf8Error) -> Self {
         LuceneError::Utf8Error(err)
     }
 
-    pub fn index_not_found(msg: impl Into<String>) -> Self {
-        LuceneError::IndexNotFound(IndexNotFound::new(msg))
-    }
-    pub fn number_format(msg: impl Into<String>) -> Self {
-        LuceneError::NumberFormat(NumberFormatError::new(msg))
-    }
-    pub fn need_implemented(msg: impl Into<String>) -> Self {
-        LuceneError::NeedImplemented(NeedImplementedError::new(msg))
-    }
-    pub fn max_bytes_length_exceeded(msg: impl Into<String>) -> Self {
-        LuceneError::MaxBytesLengthExceeded(MaxBytesLengthExceededError::new(msg))
-    }
-    pub fn buffer_allocation(msg: impl Into<String>) -> Self {
-        LuceneError::BufferAllocation(BufferAllocationError::new(msg))
-    }
-    pub fn merge(msg: impl Into<String>) -> Self {
-        LuceneError::Merge(MergeError::new(msg))
-    }
-    pub fn merge_abort(msg: impl Into<String>) -> Self {
-        LuceneError::MergeAborted(MergeAbortedError::new(msg))
-    }
-    pub fn already_closed(msg: impl Into<String>) -> Self {
-        LuceneError::AlreadyClosed(AlreadyClosedError::new(msg))
-    }
-    pub fn not_implemented(msg: impl Into<String>) -> Self {
-        LuceneError::NotImplemented(NotImplementedError::new(msg))
-    }
-    pub fn unreachable(msg: impl Into<String>) -> Self {
-        LuceneError::Unreachable(UnreachableError::new(msg))
-    }
+    error_ctor!(illegal_argument, IllegalArgument, IllegalArgumentError);
+    error_ctor!(illegal_state, IllegalState, IllegalStateError);
+    error_ctor!(eof, Eof, Eof);
+    error_ctor!(integer_overflow, IntegerOverflow, IntegerOverflow);
+    error_ctor!(corrupt_index, CorruptIndex, CorruptIndexError);
+    error_ctor!(
+        index_format_too_new,
+        IndexFormatTooNew,
+        IndexFormatTooNewError
+    );
+    error_ctor!(
+        index_format_too_old,
+        IndexFormatTooOld,
+        IndexFormatTooOldError
+    );
+    error_ctor!(
+        unsupported_operation,
+        UnsupportedOperation,
+        UnsupportedOperationError
+    );
+    error_ctor!(not_found, NotFound, NotFoundError);
+    error_ctor!(lock_already_held, LockAlreadyHeld, LockAlreadyHeldError);
+    error_ctor!(lock_held_by_other, LockHeldByOther, LockHeldByOtherError);
+    error_ctor!(
+        array_index_out_of_bounds,
+        ArrayIndexOutOfBounds,
+        ArrayIndexOutOfBoundsError
+    );
+    error_ctor!(index_not_found, IndexNotFound, IndexNotFound);
+    error_ctor!(number_format, NumberFormat, NumberFormatError);
+    error_ctor!(need_implemented, NeedImplemented, NeedImplementedError);
+    error_ctor!(
+        max_bytes_length_exceeded,
+        MaxBytesLengthExceeded,
+        MaxBytesLengthExceededError
+    );
+    error_ctor!(buffer_allocation, BufferAllocation, BufferAllocationError);
+    error_ctor!(merge, Merge, MergeError);
+    error_ctor!(merge_abort, MergeAborted, MergeAbortedError);
+    error_ctor!(already_closed, AlreadyClosed, AlreadyClosedError);
+    error_ctor!(not_implemented, NotImplemented, NotImplementedError);
+    error_ctor!(unreachable, Unreachable, UnreachableError);
 }
+
 pub type Result<T> = core::result::Result<T, LuceneError>;

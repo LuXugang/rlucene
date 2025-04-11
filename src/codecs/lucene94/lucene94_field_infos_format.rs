@@ -31,7 +31,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
 
 /// Lucene 9.0 Field Infos format.
 ///

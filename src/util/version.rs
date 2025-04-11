@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::illegal_argument::IllegalArgumentError;
-use crate::util::error::illegal_state::IllegalStateError;
 use crate::util::error::parse::Parse;
+use crate::util::error::{IllegalArgumentError, IllegalStateError};
 use crate::util::strict_string_tokenizer::StrictStringTokenizer;
 use once_cell::sync::Lazy;
 use regex::Regex;
