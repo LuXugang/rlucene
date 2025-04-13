@@ -974,10 +974,7 @@ where
         }
     }
 
-    fn get_sorted(
-        &mut self,
-        field: &Rc<FieldInfo>,
-    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    fn get_sorted(&mut self, field: &Rc<FieldInfo>) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         let entry = self.sorted.get(&field.number);
         match entry {
             Some(entry) => Ok(Rc::new(RefCell::new(self.get_sorted(entry.clone())?))),

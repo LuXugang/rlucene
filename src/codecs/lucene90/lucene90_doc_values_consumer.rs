@@ -58,7 +58,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// writer for [`Lucene90DocValuesFormat`](Lucene90DocValuesFormat).
-pub(crate) struct Lucene90DocValuesConsumer<O>
+pub struct Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,
 {
@@ -889,12 +889,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 }
-impl<O, I> DocValuesConsumer<I> for Lucene90DocValuesConsumer<O>
+impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,
-    I: IndexInput,
 {
-    fn add_numeric_field(
+    fn add_numeric_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
@@ -915,7 +914,7 @@ where
         Ok(())
     }
 
-    fn add_binary_field(
+    fn add_binary_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
@@ -1004,7 +1003,7 @@ where
         Ok(())
     }
 
-    fn add_sorted_field(
+    fn add_sorted_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
@@ -1015,7 +1014,7 @@ where
         Ok(())
     }
 
-    fn add_sorted_numeric_field(
+    fn add_sorted_numeric_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,
@@ -1027,7 +1026,7 @@ where
         Ok(())
     }
 
-    fn add_sorted_set_field(
+    fn add_sorted_set_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer<I>,

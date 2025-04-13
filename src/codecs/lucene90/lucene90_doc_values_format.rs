@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_consumer::DocValuesConsumerEnum;
 use crate::codecs::doc_values_format::DocValuesFormat;
 use crate::codecs::doc_values_producer::DocValuesProducerEnum;
 use crate::codecs::lucene90_doc_values_consumer::Lucene90DocValuesConsumer;
@@ -22,9 +21,11 @@ use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
+use crate::store::{IndexInput, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use once_cell::sync::Lazy;
 use std::fmt::{Display, Formatter};
+
 /// Lucene 9.0 DocValues format.
 ///
 /// Documents that have a value for the field are encoded in a way that it is always possible to
@@ -199,41 +200,41 @@ impl Display for Lucene90DocValuesFormat {
 }
 
 impl DocValuesFormat for Lucene90DocValuesFormat {
+    type DocValuesConsumer<T: IndexOutput> = Lucene90DocValuesConsumer<T>;
+
     fn fields_consumer<D>(
         &self,
         state: &SegmentWriteState<D>,
-    ) -> Result<DocValuesConsumerEnum<D::IndexOutputType>>
+    ) -> Result<Self::DocValuesConsumer<D::IndexOutputType>>
     where
         D: Directory,
     {
-        Ok(DocValuesConsumerEnum::Lucene90(
-            Lucene90DocValuesConsumer::new(
-                state,
-                self.skip_index_interval_size,
-                Self::DATA_CODEC,
-                Self::DATA_EXTENSION,
-                Self::META_CODEC,
-                Self::META_EXTENSION,
-            )?,
-        ))
+        Lucene90DocValuesConsumer::new(
+            state,
+            self.skip_index_interval_size,
+            Self::DATA_CODEC,
+            Self::DATA_EXTENSION,
+            Self::META_CODEC,
+            Self::META_EXTENSION,
+        )
     }
+
+    type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T>;
 
     fn fields_producer<D>(
         &self,
         state: &SegmentReadState<D>,
-    ) -> Result<DocValuesProducerEnum<D::IndexInputType>>
+    ) -> Result<Self::DocValuesProducer<D::IndexInputType>>
     where
         D: Directory,
     {
-        Ok(DocValuesProducerEnum::Lucene90(Box::new(
-            Lucene90DocValuesProducer::new(
-                state,
-                Self::DATA_CODEC,
-                Self::DATA_EXTENSION,
-                Self::META_CODEC,
-                Self::META_EXTENSION,
-            )?,
-        )))
+        Lucene90DocValuesProducer::new(
+            state,
+            Self::DATA_CODEC,
+            Self::DATA_EXTENSION,
+            Self::META_CODEC,
+            Self::META_EXTENSION,
+        )
     }
 }
 /// Number of bytes to skip when skipping a level. It does not take into account the
