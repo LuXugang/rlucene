@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::norms::NumericDocValuesEnum;
+use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::doc_values_iterator::DocValuesIterator;
@@ -112,7 +112,9 @@ impl<'a, I> NormsProducer<I> for NormsProducerMerge<'a, I>
 where
     I: IndexInput,
 {
-    fn get_norms(&mut self, field_info: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+    type NumericDocValues = NumericDocValuesMerge<I>;
+
+    fn get_norms(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if Rc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
@@ -122,7 +124,7 @@ where
             self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len()
         );
         for i in 0..self.merge_state.doc_values_producers.len() {
-            let mut norms: Option<NumericDocValuesEnum<I>> = None;
+            let mut norms: Option<Lucene90NormNumericDocValuesEnum<I>> = None;
             let norms_producer_opt = &mut self.merge_state.norms_producers[i];
             if let Some(norms_producer) = norms_producer_opt {
                 let reader_field_info =
@@ -143,11 +145,11 @@ where
         }
 
         let doc_id_merger = doc_id_merger_static::of(subs, self.merge_state.needs_index_sort)?;
-        Ok(NumericDocValuesEnum::Merge(NumericDocValuesMerge {
+        Ok(NumericDocValuesMerge {
             doc_id: -1,
             current: None,
             doc_id_merger,
-        }))
+        })
     }
 
     fn check_integrity(&mut self) -> Result<()> {
@@ -223,7 +225,7 @@ struct NumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    values: NumericDocValuesEnum<I>,
+    values: Lucene90NormNumericDocValuesEnum<I>,
     doc_map: Rc<DocMapEnum>,
 }
 #[allow(unused)]
@@ -231,7 +233,7 @@ impl<I> NumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: NumericDocValuesEnum<I>) -> Self {
+    fn new(doc_map: Rc<DocMapEnum>, values: Lucene90NormNumericDocValuesEnum<I>) -> Self {
         debug_assert!(values.doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }
@@ -255,7 +257,7 @@ where
 {
     fn default() -> Self {
         NumericDocValuesSub {
-            values: NumericDocValuesEnum::Empty(Default::default()),
+            values: Lucene90NormNumericDocValuesEnum::Empty(Default::default()),
             doc_map: Rc::new(DocMapEnum::Dummy(Default::default())),
         }
     }

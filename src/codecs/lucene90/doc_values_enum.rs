@@ -465,97 +465,88 @@ pub mod doc_values {
 
 pub mod norms {
     use crate::codecs::lucene90_norms_producer::{DenseNormsIterator, SparseNormsIterator};
-    use crate::codecs::norms_consumer::NumericDocValuesMerge;
     use crate::index::doc_values::EmptyNumeric;
     use crate::index::doc_values_iterator::DocValuesIterator;
     use crate::index::numeric_doc_values::NumericDocValues;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
     use crate::util::error::lucene_error::Result;
-    pub enum NumericDocValuesEnum<I>
+    pub enum Lucene90NormNumericDocValuesEnum<I>
     where
         I: IndexInput,
     {
         Dense(DenseNormsIterator<I>),
         Sparse(SparseNormsIterator<I>),
         Empty(EmptyNumeric),
-        Merge(NumericDocValuesMerge<I>),
     }
 
-    impl<I> DocValuesIterator for NumericDocValuesEnum<I>
+    impl<I> DocValuesIterator for Lucene90NormNumericDocValuesEnum<I>
     where
         I: IndexInput,
     {
         fn advance_exact(&mut self, target: i32) -> Result<bool> {
             match self {
-                NumericDocValuesEnum::Dense(dense) => dense.advance_exact(target),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.advance_exact(target),
-                NumericDocValuesEnum::Empty(empty) => empty.advance_exact(target),
-                NumericDocValuesEnum::Merge(merge) => merge.advance_exact(target),
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.advance_exact(target),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.advance_exact(target),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.advance_exact(target),
             }
         }
     }
 
-    impl<I> DocIdSetIterator for NumericDocValuesEnum<I>
+    impl<I> DocIdSetIterator for Lucene90NormNumericDocValuesEnum<I>
     where
         I: IndexInput,
     {
         fn doc_id(&self) -> i32 {
             match self {
-                NumericDocValuesEnum::Dense(dense) => dense.doc_id(),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.doc_id(),
-                NumericDocValuesEnum::Empty(empty) => empty.doc_id(),
-                NumericDocValuesEnum::Merge(merge) => merge.doc_id(),
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.doc_id(),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.doc_id(),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.doc_id(),
             }
         }
 
         fn next_doc(&mut self) -> Result<i32> {
             match self {
-                NumericDocValuesEnum::Dense(dense) => dense.next_doc(),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.next_doc(),
-                NumericDocValuesEnum::Empty(empty) => empty.next_doc(),
-                NumericDocValuesEnum::Merge(merge) => merge.next_doc(),
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.next_doc(),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.next_doc(),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.next_doc(),
             }
         }
 
         fn advance(&mut self, target: i32) -> Result<i32> {
             match self {
-                NumericDocValuesEnum::Dense(dense) => dense.advance(target),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.advance(target),
-                NumericDocValuesEnum::Empty(empty) => empty.advance(target),
-                NumericDocValuesEnum::Merge(merge) => merge.advance(target),
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.advance(target),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.advance(target),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.advance(target),
             }
         }
 
         fn slow_advance(&mut self, target: i32) -> Result<i32> {
             match self {
-                NumericDocValuesEnum::Dense(dense) => dense.slow_advance(target),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.slow_advance(target),
-                NumericDocValuesEnum::Empty(empty) => empty.slow_advance(target),
-                NumericDocValuesEnum::Merge(merge) => merge.slow_advance(target),
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.slow_advance(target),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.slow_advance(target),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.slow_advance(target),
             }
         }
 
         fn cost(&self) -> Result<i64> {
             match self {
-                NumericDocValuesEnum::Dense(dense) => dense.cost(),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.cost(),
-                NumericDocValuesEnum::Empty(empty) => empty.cost(),
-                NumericDocValuesEnum::Merge(merge) => merge.cost(),
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.cost(),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.cost(),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.cost(),
             }
         }
     }
 
-    impl<I> NumericDocValues for NumericDocValuesEnum<I>
+    impl<I> NumericDocValues for Lucene90NormNumericDocValuesEnum<I>
     where
         I: IndexInput,
     {
         fn long_value(&mut self) -> Result<i64> {
             match self {
-                NumericDocValuesEnum::Dense(dense) => dense.long_value(),
-                NumericDocValuesEnum::Sparse(sparse) => sparse.long_value(),
-                NumericDocValuesEnum::Empty(empty) => empty.long_value(),
-                NumericDocValuesEnum::Merge(merge) => merge.long_value(),
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.long_value(),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.long_value(),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.long_value(),
             }
         }
     }

@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::norms::NumericDocValuesEnum;
+use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::lucene90_norms_producer::Lucene90NormsProducer;
 use crate::index::field_info::FieldInfo;
+use crate::index::numeric_doc_values::NumericDocValues;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
@@ -26,13 +27,14 @@ pub trait NormsProducer<I>
 where
     I: IndexInput,
 {
+    type NumericDocValues: NumericDocValues;
     /// Returns `NumericDocValues` for the given field.
     ///
     /// The returned instance is not required to be thread-safe:
     /// it will only be used by a single thread.
     ///
     /// Behavior is undefined if the given field does not have norms enabled.
-    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>>;
+    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Self::NumericDocValues>;
 
     /// Checks consistency of this producer.
     ///
@@ -59,10 +61,13 @@ where
     Lucene90(Lucene90NormsProducer<I>),
 }
 impl<I> NormsProducer<I> for NormsProducerEnum<I>
+
 where
     I: IndexInput,
 {
-    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+    type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
+
+    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
         match self {
             NormsProducerEnum::Lucene90(producer) => producer.get_norms(field),
         }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::norms::NumericDocValuesEnum;
+use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::lucene90::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
@@ -443,12 +443,16 @@ impl<I> NormsProducer<I> for Lucene90NormsProducer<I>
 where
     I: IndexInput,
 {
-    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+    type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
+
+    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
         // copy on stack is acceptable, of course we could have a better way
         let entry = self.norms.get(&field.number).unwrap().clone();
         if entry.docs_with_field_offset == -2 {
             // empty
-            return Ok(NumericDocValuesEnum::<I>::Empty(EmptyNumeric::new()));
+            return Ok(Lucene90NormNumericDocValuesEnum::<I>::Empty(
+                EmptyNumeric::new(),
+            ));
         }
 
         if entry.docs_with_field_offset == -1 {
@@ -459,7 +463,9 @@ where
                         norms_offset: entry.norms_offset,
                     });
                 let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-                return Ok(NumericDocValuesEnum::Dense(dense_norms_iterator));
+                return Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                    dense_norms_iterator,
+                ));
             }
             let slice = self.get_data_input(field, &entry)?;
 
@@ -469,28 +475,36 @@ where
                         DenseNormsIteratorBaseEnum::Dense1(DenseNormsIteratorBaseImpl1 { slice });
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-                    Ok(NumericDocValuesEnum::Dense(dense_norms_iterator))
+                    Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                        dense_norms_iterator,
+                    ))
                 }
                 2 => {
                     let sub_dense_norms =
                         DenseNormsIteratorBaseEnum::Dense2(DenseNormsIteratorBaseImpl2 { slice });
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-                    Ok(NumericDocValuesEnum::Dense(dense_norms_iterator))
+                    Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                        dense_norms_iterator,
+                    ))
                 }
                 4 => {
                     let sub_dense_norms =
                         DenseNormsIteratorBaseEnum::Dense3(DenseNormsIteratorBaseImpl4 { slice });
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-                    Ok(NumericDocValuesEnum::Dense(dense_norms_iterator))
+                    Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                        dense_norms_iterator,
+                    ))
                 }
                 8 => {
                     let sub_dense_norms =
                         DenseNormsIteratorBaseEnum::Dense4(DenseNormsIteratorBaseImpl8 { slice });
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-                    Ok(NumericDocValuesEnum::Dense(dense_norms_iterator))
+                    Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                        dense_norms_iterator,
+                    ))
                 }
                 _ => Err(LuceneError::unreachable("invalid bytes_per_norm")),
             };
@@ -513,7 +527,9 @@ where
                     _phantom: PhantomData,
                 });
             let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-            return Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator));
+            return Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+                sparse_norms_iterator,
+            ));
         }
 
         let slice = self.get_data_input(field, &entry)?;
@@ -523,25 +539,33 @@ where
                 let sub_sparse_norms =
                     SparseNormsIteratorBaseEnum::Sparse1(SparseNormsIteratorBaseImpl1 { slice });
                 let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-                Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator))
+                Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+                    sparse_norms_iterator,
+                ))
             }
             2 => {
                 let sub_sparse_norms =
                     SparseNormsIteratorBaseEnum::Sparse2(SparseNormsIteratorBaseImpl2 { slice });
                 let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-                Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator))
+                Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+                    sparse_norms_iterator,
+                ))
             }
             4 => {
                 let sub_sparse_norms =
                     SparseNormsIteratorBaseEnum::Sparse3(SparseNormsIteratorBaseImpl4 { slice });
                 let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-                Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator))
+                Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+                    sparse_norms_iterator,
+                ))
             }
             8 => {
                 let sub_sparse_norms =
                     SparseNormsIteratorBaseEnum::Sparse4(SparseNormsIteratorBaseImpl8 { slice });
                 let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-                Ok(NumericDocValuesEnum::Sparse(sparse_norms_iterator))
+                Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+                    sparse_norms_iterator,
+                ))
             }
             _ => Err(LuceneError::unreachable("invalid bytes_per_norm")),
         }

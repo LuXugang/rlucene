@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
-use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::document::document::Document;
 use crate::index::stored_field_visitor::StoredFieldVisitor;
