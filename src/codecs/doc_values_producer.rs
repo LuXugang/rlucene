@@ -19,7 +19,6 @@ use crate::codecs::doc_values_enum::doc_values::{
     SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
 };
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
-use crate::index::empty_doc_values_producer::EmptyDocValuesProducer;
 use crate::index::field_info::FieldInfo;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -93,15 +92,14 @@ where
     /// # Note
     /// Returning None means returning itself.
     fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
-        Err(LuceneError::need_implemented(""))
+        Ok(None)
     }
 }
 pub enum DocValuesProducerEnum<I>
 where
     I: IndexInput,
 {
-    Lucene90(Box<Lucene90DocValuesProducer<I>>),
-    Empty(EmptyDocValuesProducer<I>),
+    Lucene90(Lucene90DocValuesProducer<I>),
 }
 impl<I> DocValuesProducer<I> for DocValuesProducerEnum<I>
 where
@@ -110,21 +108,18 @@ where
     fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_numeric(field),
-            DocValuesProducerEnum::Empty(empty) => empty.get_numeric(field),
         }
     }
 
     fn get_binary(&mut self, field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_binary(field),
-            DocValuesProducerEnum::Empty(empty) => empty.get_binary(field),
         }
     }
 
     fn get_sorted(&mut self, field: &Rc<FieldInfo>) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted(field),
-            DocValuesProducerEnum::Empty(empty) => empty.get_sorted(field),
         }
     }
 
@@ -134,35 +129,30 @@ where
     ) -> Result<SortedNumericDocValuesEnum<I>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted_numeric(field),
-            DocValuesProducerEnum::Empty(empty) => empty.get_sorted_numeric(field),
         }
     }
 
     fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted_set(field),
-            DocValuesProducerEnum::Empty(empty) => empty.get_sorted_set(field),
         }
     }
 
     fn get_skipper(&mut self, field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_skipper(field),
-            DocValuesProducerEnum::Empty(empty) => empty.get_skipper(field),
         }
     }
 
     fn check_integrity(&mut self) -> Result<()> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.check_integrity(),
-            DocValuesProducerEnum::Empty(empty) => empty.check_integrity(),
         }
     }
 
     fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_merge_instance(),
-            DocValuesProducerEnum::Empty(empty) => empty.get_merge_instance(),
         }
     }
 }

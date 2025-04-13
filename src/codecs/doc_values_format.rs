@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
-use crate::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum};
+use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;

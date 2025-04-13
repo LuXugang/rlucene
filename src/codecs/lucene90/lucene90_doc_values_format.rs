@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::codecs::doc_values_format::DocValuesFormat;
-use crate::codecs::doc_values_producer::DocValuesProducerEnum;
 use crate::codecs::lucene90_doc_values_consumer::Lucene90DocValuesConsumer;
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::index::segment_read_state::SegmentReadState;

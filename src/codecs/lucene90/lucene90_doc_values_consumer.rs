@@ -18,7 +18,7 @@ use crate::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::codecs::doc_values_enum::doc_values::{
     NumericDocValuesEnum, SortedDocValuesEnum, SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
 };
-use crate::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum};
+use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::CodecUtil;
@@ -1039,7 +1039,7 @@ where
             let sub = EmptyDocValuesProducerSubEnum::Impl3(EmptyDocValuesProducerSub3 {
                 doc_values: Some(sorted_set),
             });
-            let mut producer = DocValuesProducerEnum::Empty(EmptyDocValuesProducer::new(sub));
+            let mut producer = EmptyDocValuesProducer::new(sub);
             self.do_add_sorted_field(field, &mut producer, true)?;
             return Ok(());
         }
@@ -1047,7 +1047,7 @@ where
         let sub = EmptyDocValuesProducerSubEnum::Impl4(EmptyDocValuesProducerSub4 {
             doc_values: Some(values_producer.get_sorted_set(field)?),
         });
-        let mut producer = DocValuesProducerEnum::Empty(EmptyDocValuesProducer::new(sub));
+        let mut producer = EmptyDocValuesProducer::new(sub);
         self.do_add_sorted_numeric_field(field, &mut producer, true)?;
         self.add_terms_dict(&mut values_producer.get_sorted_set(field)?)?;
         Ok(())
