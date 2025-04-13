@@ -23,9 +23,7 @@ use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 /// A trait that produces field normalization values.
-pub trait NormsProducer<I>
-where
-    I: IndexInput,
+pub trait NormsProducer
 {
     type NumericDocValues: NumericDocValues;
     /// Returns `NumericDocValues` for the given field.
@@ -42,6 +40,7 @@ where
     /// for example it might compute a checksum over large data files.
     fn check_integrity(&mut self) -> Result<()>;
 
+    type NormsProducer<'a,I:IndexInput>: NormsProducer where Self: 'a, I: 'a;
     /// Returns an instance optimized for merging.
     ///
     /// This instance may only be used from the thread that acquires it.
@@ -49,7 +48,7 @@ where
     /// By default, this method returns `None`, which indicates that no new
     /// `NormsProducerEnum` is required for merging, and the current instance
     /// should be used directly during merge operations.
-    fn get_merge_instance(&self) -> Result<Option<NormsProducerEnum<I>>> {
+    fn get_merge_instance<I>(&self) -> Result<Option<Self::NormsProducer<'_, I>>> where I: IndexInput {
         Ok(None)
     }
 }
@@ -60,7 +59,7 @@ where
 {
     Lucene90(Lucene90NormsProducer<I>),
 }
-impl<I> NormsProducer<I> for NormsProducerEnum<I>
+impl<I> NormsProducer for NormsProducerEnum<I>
 
 where
     I: IndexInput,
@@ -77,5 +76,20 @@ where
         match self {
             NormsProducerEnum::Lucene90(producer) => producer.check_integrity(),
         }
+    }
+
+    type NormsProducer<'a,T:IndexInput + 'a> = NormsProducerEnum<I> where I: 'a;
+
+    fn get_merge_instance<T>(&self) -> Result<Option<Self::NormsProducer<'_, I>>> {
+       match self {
+            NormsProducerEnum::Lucene90(producer) => {
+                let merge_instance = producer.get_merge_instance::<I>()?;
+                if merge_instance.is_none() {
+                    Ok(None)
+                } else {
+                    Ok(merge_instance)
+                }
+            }
+       }
     }
 }

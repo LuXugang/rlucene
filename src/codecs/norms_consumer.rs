@@ -50,13 +50,11 @@ pub trait NormsConsumer {
     ///
     /// # Errors
     /// If an I/O error occurs during writing.
-    fn add_norms_field<I>(
+    fn add_norms_field(
         &mut self,
         field: &Rc<FieldInfo>,
-        norms_producer: &mut impl NormsProducer<I>,
-    ) -> Result<()>
-    where
-        I: IndexInput;
+        norms_producer: &mut impl NormsProducer,
+    ) -> Result<()>;
     /// Merges in the fields from the readers in `merge_state`.
     ///
     /// The default implementation calls [`merge_norms_field`](NormsConsumer::merge_norms_field) for each field,
@@ -108,7 +106,7 @@ where
     merge_field_info: Rc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
-impl<'a, I> NormsProducer<I> for NormsProducerMerge<'a, I>
+impl<'a, I> NormsProducer for NormsProducerMerge<'a, I>
 where
     I: IndexInput,
 {
@@ -155,6 +153,8 @@ where
     fn check_integrity(&mut self) -> Result<()> {
         Ok(())
     }
+
+    type NormsProducer<'b,T:IndexInput> = NormsProducerMerge<'a,I> where  Self: 'b, T: 'b;
 }
 
 pub struct NumericDocValuesMerge<I>
@@ -273,13 +273,11 @@ impl<O> NormsConsumer for NormsConsumerEnum<O>
 where
     O: IndexOutput,
 {
-    fn add_norms_field<I>(
+    fn add_norms_field(
         &mut self,
         field: &Rc<FieldInfo>,
-        norms_producer: &mut impl NormsProducer<I>,
+        norms_producer: &mut impl NormsProducer,
     ) -> Result<()>
-    where
-        I: IndexInput,
     {
         match self {
             NormsConsumerEnum::Lucene90(consumer) => {

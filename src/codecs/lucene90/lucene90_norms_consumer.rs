@@ -149,13 +149,11 @@ impl<O> NormsConsumer for Lucene90NormsConsumer<O>
 where
     O: IndexOutput,
 {
-    fn add_norms_field<I>(
+    fn add_norms_field(
         &mut self,
         field: &Rc<FieldInfo>,
-        norms_producer: &mut impl NormsProducer<I>,
+        norms_producer: &mut impl NormsProducer,
     ) -> Result<()>
-    where
-        I: IndexInput,
     {
         let mut num_docs_with_value = 0;
         let mut min = i64::MAX;

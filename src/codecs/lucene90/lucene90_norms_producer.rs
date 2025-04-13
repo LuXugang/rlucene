@@ -439,7 +439,7 @@ where
     }
 }
 
-impl<I> NormsProducer<I> for Lucene90NormsProducer<I>
+impl<I> NormsProducer for Lucene90NormsProducer<I>
 where
     I: IndexInput,
 {
@@ -576,7 +576,9 @@ where
         Ok(())
     }
 
-    fn get_merge_instance(&self) -> Result<Option<NormsProducerEnum<I>>> {
+    type NormsProducer<'a, T: IndexInput + 'a> = NormsProducerEnum<I> where I: 'a;
+
+    fn get_merge_instance<T>(&self) -> Result<Option<NormsProducerEnum<I>>> where I: IndexInput {
         let result = Self {
             norms: self.norms.clone(),
             max_doc: self.max_doc,
