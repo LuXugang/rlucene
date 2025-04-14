@@ -845,6 +845,8 @@ impl<I> DocValuesProducer<I> for Lucene90DocValuesProducer<I>
 where
     I: IndexInput,
 {
+    type NumericDocValues = NumericDocValuesEnum<I>;
+
     fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
         let entry = self.numerics.get(&field.number);
         match entry {

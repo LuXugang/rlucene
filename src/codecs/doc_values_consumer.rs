@@ -20,6 +20,7 @@ use crate::codecs::doc_values_enum::doc_values::{
 };
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dov_values_inner_enum::LongValuesEnum;
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
@@ -38,10 +39,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub trait DocValuesConsumer {
-    fn add_numeric_field<I: IndexInput>(
+    fn add_numeric_field<I: IndexInput, P: DocValuesProducer<I,NumericDocValues=NumericDocValuesEnum<I>>>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<I>,
+        values_producer: &mut P,
     ) -> Result<()>;
     fn add_binary_field<I: IndexInput>(
         &mut self,
@@ -117,7 +118,6 @@ pub trait DocValuesConsumer {
 }
 mod doc_values_consumer_static {
     use crate::codecs::doc_values_consumer::{NumericDocValuesMerge, NumericDocValuesSub};
-    use crate::codecs::doc_values_enum::doc_values::NumericDocValuesEnum;
     use crate::index::{doc_id_merger_static, Sub};
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
@@ -128,7 +128,7 @@ mod doc_values_consumer_static {
     pub(crate) fn merge_numeric_values<I>(
         mut subs: Vec<Rc<RefCell<Sub<NumericDocValuesSub<I>>>>>,
         index_is_sorted: bool,
-    ) -> Result<NumericDocValuesEnum<I>>
+    ) -> Result<NumericDocValuesMerge<I>>
     where
         I: IndexInput,
     {
@@ -137,12 +137,12 @@ mod doc_values_consumer_static {
             cost = sub.borrow().sub.values.borrow().cost()?;
         }
         let doc_id_merger = doc_id_merger_static::of(subs, index_is_sorted)?;
-        Ok(NumericDocValuesEnum::Merge(NumericDocValuesMerge {
+        Ok(NumericDocValuesMerge {
             doc_id: -1,
             current: None,
             doc_id_merger,
             final_cost: cost,
-        }))
+        })
     }
 }
 
@@ -266,7 +266,9 @@ impl<'a, I> DocValuesProducer<I> for EmptyDocValuesProducerMerge1<'a, I>
 where
     I: IndexInput,
 {
-    fn get_numeric(&mut self, field_info: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+    type NumericDocValues = NumericDocValuesEnum<I>;
+
+    fn get_numeric(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if Rc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
@@ -296,7 +298,10 @@ where
                 )))));
             }
         }
-        doc_values_consumer_static::merge_numeric_values(subs, self.merge_state.needs_index_sort)
+        Ok(NumericDocValuesEnum::Merge(doc_values_consumer_static::merge_numeric_values(
+            subs,
+            self.merge_state.needs_index_sort,
+        )?))
     }
 
     type SortedNumericDocValues = DummySortedNumericDocValues;
@@ -426,6 +431,8 @@ impl<'a, I> DocValuesProducer<I> for EmptyDocValuesProducerMerge2<'a, I>
 where
     I: IndexInput,
 {
+    type NumericDocValues = DummyNumericDocValues;
+
     fn get_binary(&mut self, field_info: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
         if Rc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
@@ -603,6 +610,7 @@ impl<'a, I> DocValuesProducer<I> for EmptyDocValuesProducerMerge3<'a, I>
 where
     I: IndexInput,
 {
+    type NumericDocValues = DummyNumericDocValues;
     type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
 
     fn get_sorted_numeric(
@@ -667,10 +675,10 @@ where
                     single_valued_values.unwrap(),
                 )))));
             }
-            let dv = doc_values_consumer_static::merge_numeric_values(
+            let dv = NumericDocValuesEnum::Merge(doc_values_consumer_static::merge_numeric_values(
                 single_valued_subs,
                 self.merge_state.needs_index_sort,
-            )?;
+            )?);
             return Ok(SortedNumericDocValuesEnum::Singleton(
                 DocValues::singleton_numeric(dv)?,
             ));

@@ -19,6 +19,7 @@ use crate::codecs::doc_values_enum::doc_values::{
     NumericDocValuesEnum, SortedDocValuesEnum, SortedSetDocValuesEnum,
 };
 use crate::codecs::doc_values_producer::DocValuesProducer;
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
@@ -886,11 +887,7 @@ impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,
 {
-    fn add_numeric_field<I: IndexInput>(
-        &mut self,
-        field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<I>,
-    ) -> Result<()> {
+    fn add_numeric_field<I: IndexInput, P: DocValuesProducer<I, NumericDocValues=NumericDocValuesEnum<I>>>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut P) -> Result<()> {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::NUMERIC)?;
 
@@ -906,6 +903,7 @@ where
         self.write_values(field, &mut producer, false)?;
         Ok(())
     }
+
 
     fn add_binary_field<I: IndexInput>(
         &mut self,
@@ -1193,6 +1191,7 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub1<I>
 where
     I: IndexInput,
 {
+    type NumericDocValues = DummyNumericDocValues;
     type SortedNumericDocValues = SingletonSortedNumericDocValues<I>;
 
     fn get_sorted_numeric(
@@ -1212,6 +1211,7 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub2<I>
 where
     I: IndexInput,
 {
+    type NumericDocValues = DummyNumericDocValues;
     type SortedNumericDocValues = SingletonSortedNumericDocValues<I>;
 
     fn get_sorted_numeric(
@@ -1235,6 +1235,7 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub3<I>
 where
     I: IndexInput,
 {
+    type NumericDocValues = DummyNumericDocValues;
     fn get_sorted(
         &mut self,
         _field: &Rc<FieldInfo>,
@@ -1254,6 +1255,7 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub4<I>
 where
     I: IndexInput,
 {
+    type NumericDocValues = DummyNumericDocValues;
     type SortedNumericDocValues = SortedNumericDocValuesImpl<I>;
 
     fn get_sorted_numeric(

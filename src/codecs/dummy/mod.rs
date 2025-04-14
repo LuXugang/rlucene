@@ -14,4 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod dummy_numeric_doc_values;
 pub mod dummy_sorted_numeric_doc_values;

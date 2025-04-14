@@ -20,6 +20,7 @@ use crate::codecs::doc_values_enum::doc_values::{
 };
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::index::field_info::FieldInfo;
+use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -31,10 +32,11 @@ pub trait DocValuesProducer<I>
 where
     I: IndexInput,
 {
+    type NumericDocValues: NumericDocValues;
     /// Returns [`NumericDocValues`](crate::index::numeric_doc_values::NumericDocValues) for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::NUMERIC`](crate::index::doc_values_type::DocValuesType::Numeric).
-    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
         Err(LuceneError::need_implemented(""))
     }
     /// Returns [`BinaryDocValues`](crate::index::binary_doc_values::BinaryDocValues) for this field. The returned instance need not be thread-safe:
@@ -107,6 +109,8 @@ impl<I> DocValuesProducer<I> for DocValuesProducerEnum<I>
 where
     I: IndexInput,
 {
+    type NumericDocValues = NumericDocValuesEnum<I>;
+
     fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_numeric(field),
