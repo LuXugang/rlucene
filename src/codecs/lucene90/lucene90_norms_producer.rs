@@ -576,9 +576,15 @@ where
         Ok(())
     }
 
-    type NormsProducer<'a, T: IndexInput + 'a> = NormsProducerEnum<I> where I: 'a;
+    type NormsProducer<'a, T: IndexInput + 'a>
+        = NormsProducerEnum<I>
+    where
+        I: 'a;
 
-    fn get_merge_instance<T>(&self) -> Result<Option<NormsProducerEnum<I>>> where I: IndexInput {
+    fn get_merge_instance<T>(&self) -> Result<Option<NormsProducerEnum<I>>>
+    where
+        I: IndexInput,
+    {
         let result = Self {
             norms: self.norms.clone(),
             max_doc: self.max_doc,

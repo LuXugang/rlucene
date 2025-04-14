@@ -460,17 +460,15 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok((num_docs_with_value, num_values))
     }
 
-    fn write_values_single_block<I>(
+    fn write_values_single_block(
         &mut self,
-        values: &mut impl SortedNumericDocValues<I>,
+        values: &mut impl SortedNumericDocValues,
         num_values: i64,
         num_bits_per_value: i32,
         min: i64,
         gcd: i64,
         encode: Option<HashMap<i64, i32>>,
     ) -> Result<()>
-    where
-        I: IndexInput,
     {
         let mut writer =
             DirectWriter::get_instance(&mut self.data, num_values, num_bits_per_value)?;
@@ -493,13 +491,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 
-    fn write_values_multiple_blocks<I>(
+    fn write_values_multiple_blocks(
         &mut self,
-        values: &mut impl SortedNumericDocValues<I>,
+        values: &mut impl SortedNumericDocValues,
         gcd: i64,
     ) -> Result<i64>
-    where
-        I: IndexInput,
     {
         let mut offsets: Vec<i64> =
             vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES as i32) as usize];
@@ -1366,7 +1362,7 @@ where
     }
 }
 
-impl<I> SortedNumericDocValues<I> for SortedNumericDocValuesImpl<I>
+impl<I> SortedNumericDocValues for SortedNumericDocValuesImpl<I>
 where
     I: IndexInput,
 {

@@ -563,7 +563,7 @@ where
     }
 }
 
-impl<I> SortedNumericDocValues<I> for SortedNumericDocValuesMerge<I>
+impl<I> SortedNumericDocValues for SortedNumericDocValuesMerge<I>
 where
     I: IndexInput,
 {

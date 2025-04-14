@@ -153,8 +153,7 @@ where
         &mut self,
         field: &Rc<FieldInfo>,
         norms_producer: &mut impl NormsProducer,
-    ) -> Result<()>
-    {
+    ) -> Result<()> {
         let mut num_docs_with_value = 0;
         let mut min = i64::MAX;
         let mut max = i64::MIN;

@@ -3164,7 +3164,7 @@ where
     }
 }
 
-impl<I> SortedNumericDocValues<I> for DenseSortedNumericDocValues<I>
+impl<I> SortedNumericDocValues for DenseSortedNumericDocValues<I>
 where
     I: IndexInput,
 {
@@ -3253,7 +3253,7 @@ where
         self.disi.advance_exact(target)
     }
 }
-impl<I> SortedNumericDocValues<I> for SpareSortedNumericDocValues<I>
+impl<I> SortedNumericDocValues for SpareSortedNumericDocValues<I>
 where
     I: IndexInput,
 {

@@ -303,7 +303,7 @@ pub mod doc_values {
         }
     }
 
-    impl<I> SortedNumericDocValues<I> for SortedNumericDocValuesEnum<I>
+    impl<I> SortedNumericDocValues for SortedNumericDocValuesEnum<I>
     where
         I: IndexInput,
     {
@@ -313,16 +313,6 @@ pub mod doc_values {
 
         fn doc_value_count(&mut self) -> Result<i32> {
             todo!()
-        }
-
-        fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<NumericDocValuesEnum<I>>>>> {
-            match self {
-                SortedNumericDocValuesEnum::Singleton(singleton) => singleton.unwrap_singleton(),
-                SortedNumericDocValuesEnum::Dense(dense) => dense.unwrap_singleton(),
-                SortedNumericDocValuesEnum::Sparse(sparse) => sparse.unwrap_singleton(),
-                SortedNumericDocValuesEnum::Impl(impl_) => impl_.unwrap_singleton(),
-                SortedNumericDocValuesEnum::Merge(merge) => merge.unwrap_singleton(),
-            }
         }
     }
 

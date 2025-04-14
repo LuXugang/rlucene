@@ -154,7 +154,11 @@ where
         Ok(())
     }
 
-    type NormsProducer<'b,T:IndexInput> = NormsProducerMerge<'a,I> where  Self: 'b, T: 'b;
+    type NormsProducer<'b, T: IndexInput>
+        = NormsProducerMerge<'a, I>
+    where
+        Self: 'b,
+        T: 'b;
 }
 
 pub struct NumericDocValuesMerge<I>
@@ -277,8 +281,7 @@ where
         &mut self,
         field: &Rc<FieldInfo>,
         norms_producer: &mut impl NormsProducer,
-    ) -> Result<()>
-    {
+    ) -> Result<()> {
         match self {
             NormsConsumerEnum::Lucene90(consumer) => {
                 consumer.add_norms_field(field, norms_producer)

@@ -88,12 +88,18 @@ impl DocValues {
     /// Returns a single-valued view of the SortedNumericDocValues, if it was previously wrapped with
     /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
     pub fn unwrap_singleton_sorted_numeric_doc_values<I>(
-        dv: &impl SortedNumericDocValues<I>,
+        dv: &SortedNumericDocValuesEnum<I>,
     ) -> Result<Option<Rc<RefCell<NumericDocValuesEnum<I>>>>>
     where
         I: IndexInput,
     {
-        dv.unwrap_singleton()
+        match dv {
+            SortedNumericDocValuesEnum::Singleton(singleton) => {
+                let inner = singleton.get_numeric_doc_values()?;
+                Ok(Some(inner))
+            }
+            _ => Ok(None),
+        }
     }
 }
 /// An empty [`BinaryDocValues`] which returns no documents */
