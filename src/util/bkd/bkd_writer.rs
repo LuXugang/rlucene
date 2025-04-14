@@ -748,7 +748,7 @@ where
         write_buffer: &mut ByteBuffersDataOutput,
         blocks: &mut Vec<Option<Vec<u8>>>,
     ) -> i32 {
-        let block = write_buffer.get_array_copy();
+        let block = write_buffer.try_get_array_ownership();
         debug_assert!(blocks.len() <= i32::MAX as usize);
         let block_len = block.len() as i32;
         blocks.push(Option::from(block));
@@ -886,7 +886,7 @@ where
                 debug_assert!(left_num_bytes == 0, "leftNumBytes={}", left_num_bytes);
             }
 
-            let bytes2 = write_buffer.get_array_copy();
+            let bytes2 = write_buffer.try_get_array_ownership();
             let bytes2_len = bytes2.len();
             debug_assert!(bytes2_len <= i32::MAX as usize);
             write_buffer.reset();

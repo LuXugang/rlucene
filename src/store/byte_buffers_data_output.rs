@@ -278,14 +278,40 @@ impl ByteBuffersDataOutput {
     }
     /// Returns a contiguous array containing the current content written to the output.
     /// The returned array is always a copy and can be safely mutated.
+    /// # Note
+    /// If reset is called immediately after get_array_copy, 
+    /// or if ByteBuffersDataOutput will no longer be used, 
+    /// then [`try_get_array_ownership`](Self::try_get_array_ownership) should be used instead.
+    /// If the number of blocks is 1, we take ownership to avoid copying. See [`try_get_array_ownership`](Self::try_get_array_ownership)
     pub fn get_array_copy(&self) -> Vec<u8> {
         let mut buffer = Vec::with_capacity(self.size() as usize);
-
         for block in &self.blocks {
             let end = block.position() as usize;
             buffer.extend_from_slice(&block.get_ref()[..end]);
         }
         buffer
+    }
+    pub fn try_get_array_ownership(&mut self) -> Vec<u8> {
+        match self.blocks.len() {
+            0 => vec![0u8; 1 << self.block_bits],
+            // If the number of blocks is 1, take ownership to avoid copying.
+            1 => {
+                let cursor = self.blocks.front_mut().unwrap();
+                let end = cursor.position() as usize;
+
+                let old_vec = std::mem::replace(cursor.get_mut(), vec![0u8; 1 << self.block_bits]);
+
+                old_vec.into_iter().take(end).collect()
+            }
+            _ => {
+                let mut buffer = Vec::with_capacity(self.size() as usize);
+                for block in &self.blocks {
+                    let end = block.position() as usize;
+                    buffer.extend_from_slice(&block.get_ref()[..end]);
+                }
+                buffer
+            }
+        }
     }
 
     pub fn get_data_input(&mut self) -> ByteBuffersDataInput {
@@ -465,11 +491,21 @@ mod tests {
         let mut random2 = random_from_seed(gen_seed);
         let add_count = random.random_range(1000..=5000);
         add_random_data::<ByteArrayDataInput>(&mut o, &mut random1, add_count);
-        let dta = o.get_array_copy();
+        let dta = match random.random_bool(0.5) {
+            true => o.get_array_copy(),
+            false => o.try_get_array_ownership(),
+        };
 
         o.reset();
         add_random_data::<ByteArrayDataInput>(&mut o, &mut random2, add_count);
-        assert_eq!(dta, o.get_array_copy());
+        match random.random_bool(0.5) {
+            true => {
+                assert_eq!(dta, o.get_array_copy());
+            }
+            false => {
+                assert_eq!(dta, o.try_get_array_ownership());
+            }
+        }
         Ok(())
     }
     #[test]
@@ -534,6 +570,7 @@ mod tests {
     }
     #[test]
     fn test_sanity() -> Result<()> {
+        let mut random = random();
         let case = TestByteBuffersDataOutput;
         let mut o = case.new_instance()?;
 
@@ -550,7 +587,15 @@ mod tests {
 
         o.write_bytes_with_len(&[2, 3, 4], 3)?;
         assert_eq!(o.size(), 4);
-        assert_eq!(o.get_array_copy(), vec![1, 2, 3, 4]);
+
+        match random.random_bool(0.5) {
+            true => {
+                assert_eq!(o.get_array_copy(), vec![1, 2, 3, 4]);
+            }
+            false => {
+                assert_eq!(o.try_get_array_ownership(), vec![1, 2, 3, 4]);
+            }
+        }
         Ok(())
     }
     #[test]
@@ -573,6 +618,14 @@ mod tests {
         assert_eq!(len as i64, o.size());
         let expected = bytes[offset..offset + len].to_vec();
         assert_eq!(expected, o.get_array_copy());
+        match random.random_bool(0.5) {
+            true => {
+                assert_eq!(expected, o.get_array_copy());
+            }
+            false => {
+                assert_eq!(expected, o.try_get_array_ownership());
+            }
+        }
         Ok(())
     }
     #[test]
@@ -592,7 +645,14 @@ mod tests {
         )?;
         o.copy_bytes(&mut input, len as i64)?;
         let expected = bytes_clone[offset..offset + len].to_vec();
-        assert_eq!(o.get_array_copy(), expected);
+        match random.random_bool(0.5) {
+            true => {
+                assert_eq!(o.get_array_copy(), expected);
+            }
+            false => {
+                assert_eq!(o.try_get_array_ownership(), expected);
+            }
+        }
         Ok(())
     }
     #[test]
@@ -611,7 +671,14 @@ mod tests {
         )?;
         o.copy_bytes(&mut input, len as i64)?;
         let expected = bytes_clone[offset..offset + len].to_vec();
-        assert_eq!(o.get_array_copy(), expected);
+        match random.random_bool(0.5) {
+            true => {
+                assert_eq!(o.get_array_copy(), expected);
+            }
+            false => {
+                assert_eq!(o.try_get_array_ownership(), expected);
+            }
+        }
         Ok(())
     }
     #[test]

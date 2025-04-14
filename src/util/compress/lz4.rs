@@ -905,7 +905,7 @@ mod tests {
             let mut out = ByteBuffersDataOutput::new();
             LZ4::compress(data.clone(), offset, length, &mut out, &mut hash_table.ht)?;
 
-            let compressed = out.get_array_copy();
+            let compressed = out.try_get_array_ownership();
             let mut off = 0;
             let mut decompressed_off = 0;
 
@@ -970,7 +970,7 @@ mod tests {
             // Compress once again with the same hash table to test reuse
             let mut out2 = ByteBuffersDataOutput::new();
             LZ4::compress(data.clone(), offset, length, &mut out2, &mut hash_table.ht)?;
-            assert_eq!(compressed, out2.get_array_copy());
+            assert_eq!(compressed, out2.try_get_array_ownership());
 
             let compressed_clone = compressed.clone();
             // Now restore and compare bytes
@@ -1028,7 +1028,7 @@ mod tests {
             copy.write_bytes(data)?;
             copy.write_bytes(vec![0u8; random.random_range(0..10)])?;
 
-            let copy_bytes = copy.get_array_copy();
+            let copy_bytes = copy.try_get_array_ownership();
             Self::do_test_with_dictionary_inner(
                 random,
                 copy_bytes,
@@ -1056,7 +1056,7 @@ mod tests {
                 &mut out,
                 &mut hash_table.ht,
             )?;
-            let compressed = out.get_array_copy();
+            let compressed = out.try_get_array_ownership();
 
             // Compress once again with the same hash table to test reuse
             let mut out2 = ByteBuffersDataOutput::new();
@@ -1068,7 +1068,7 @@ mod tests {
                 &mut out2,
                 &mut hash_table.ht,
             )?;
-            assert_eq!(compressed, out2.get_array_copy());
+            assert_eq!(compressed, out2.try_get_array_ownership());
 
             // Now restore and compare bytes
             let restore_offset = TestUtil::next_int(random, 1, 10);
