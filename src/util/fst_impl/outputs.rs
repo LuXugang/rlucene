@@ -16,6 +16,8 @@
  */
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
+use std::fmt::Display;
 
 /// Represents the outputs for an FST, providing the basic algebra required for building and
 /// traversing the FST.
@@ -24,7 +26,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// [`get_no_output`](Outputs::get_no_output).
 ///
 /// # lucene.experimental
-pub trait Outputs<T: Clone> {
+pub trait Outputs<T: Clone + PartialEq>: Display {
     // TODO: maybe change this API to allow for re-use of the
     // output instances -- this is an insane amount of garbage
     // (new object per byte/char/int) if eg used during
@@ -86,4 +88,8 @@ pub trait Outputs<T: Clone> {
     ///
     /// See also: `Accountable`
     fn ram_bytes_used(&self, output: &T) -> i64;
+}
+
+pub enum OutputsEnum {
+    ByteSequence(ByteSequenceOutputs),
 }

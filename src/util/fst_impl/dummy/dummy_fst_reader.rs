@@ -16,24 +16,26 @@
  */
 use crate::store::DataOutput;
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
+use crate::util::fst_impl::fst_reader::FstReader;
 
-/// Abstraction for reading bytes necessary for FST.
-pub trait FstReader: Accountable {
-    type FstBytesReader: BytesReader;
-    /// Get the reverse `BytesReader` for this FST.
-    ///
-    /// # Returns
-    /// The reverse `BytesReader`.
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader>;
+pub struct DummyFSTReader;
 
-    /// Write this FST to another `DataOutput`.
-    ///
-    /// # Parameters
-    /// - `out`: The `DataOutput` to write to.
-    ///
-    /// # Errors
-    /// Returns an error if an exception occurred during writing.
-    fn write_to(&mut self, out: &mut impl DataOutput) -> Result<()>;
+impl Accountable for DummyFSTReader {
+    fn ram_bytes_used(&self) -> Result<i64> {
+        Err(LuceneError::unreachable("this method should not be called"))
+    }
+}
+
+impl FstReader for DummyFSTReader {
+    type FstBytesReader = DummyBytesReader;
+
+    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+        Err(LuceneError::unreachable("this method should not be called"))
+    }
+
+    fn write_to(&mut self, _out: &mut impl DataOutput) -> Result<()> {
+        Err(LuceneError::unreachable("this method should not be called"))
+    }
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -71,5 +72,25 @@ impl Display for BytesRc {
         }
 
         write!(f, "]")
+    }
+}
+impl PartialOrd for BytesRc {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for BytesRc {}
+
+impl Ord for BytesRc {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.bytes[self.offset as usize..(self.offset + self.length) as usize]
+            .cmp(&other.bytes[other.offset as usize..(other.offset + other.length) as usize])
+    }
+}
+impl PartialEq for BytesRc {
+    fn eq(&self, other: &Self) -> bool {
+        self.bytes[self.offset as usize..(self.offset + self.length) as usize]
+            == other.bytes[other.offset as usize..(other.offset + other.length) as usize]
     }
 }

@@ -17,8 +17,16 @@
 use crate::store::DataOutput;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::DummyBytesReader;
+use crate::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
 use crate::util::fst_impl::fst_reader::FstReader;
+use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
+
+pub struct FSTCompiler;
+impl FSTCompiler {
+    pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
+        Ok(ReadWriteDataOutput::new(block_bits))
+    }
+}
 /// This class is used for FST backed by non-FSTReader DataOutput. It does not allow getting the
 /// reverse BytesReader nor writing to a DataOutput.
 struct NullFSTReader;

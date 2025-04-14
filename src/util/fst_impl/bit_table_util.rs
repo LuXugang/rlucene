@@ -16,11 +16,11 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::BytesReader;
+use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
 /// Static helper methods for `FST::Arc::BitTable`.
 ///
 /// # Experimental
-struct BitTableUtil;
+pub(crate) struct BitTableUtil;
 impl BitTableUtil {
     /// Returns whether the bit at the given zero-based index is set.
     ///
@@ -200,7 +200,7 @@ impl BitTableUtil {
 mod tests {
     use crate::store::DataInput;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::fst_impl::fst::BytesReader;
+    use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::fmt::{Display, Formatter};

@@ -279,8 +279,8 @@ impl ByteBuffersDataOutput {
     /// Returns a contiguous array containing the current content written to the output.
     /// The returned array is always a copy and can be safely mutated.
     /// # Note
-    /// If reset is called immediately after get_array_copy, 
-    /// or if ByteBuffersDataOutput will no longer be used, 
+    /// If reset is called immediately after get_array_copy,
+    /// or if ByteBuffersDataOutput will no longer be used,
     /// then [`try_get_array_ownership`](Self::try_get_array_ownership) should be used instead.
     /// If the number of blocks is 1, we take ownership to avoid copying. See [`try_get_array_ownership`](Self::try_get_array_ownership)
     pub fn get_array_copy(&self) -> Vec<u8> {
@@ -291,6 +291,7 @@ impl ByteBuffersDataOutput {
         }
         buffer
     }
+    /// See [`get_array_copy`](Self::get_array_copy) Before use this method.
     pub fn try_get_array_ownership(&mut self) -> Vec<u8> {
         match self.blocks.len() {
             0 => vec![0u8; 1 << self.block_bits],

@@ -14,26 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::DataOutput;
-use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
-
-/// Abstraction for reading bytes necessary for FST.
-pub trait FstReader: Accountable {
-    type FstBytesReader: BytesReader;
-    /// Get the reverse `BytesReader` for this FST.
-    ///
-    /// # Returns
-    /// The reverse `BytesReader`.
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader>;
-
-    /// Write this FST to another `DataOutput`.
-    ///
-    /// # Parameters
-    /// - `out`: The `DataOutput` to write to.
-    ///
-    /// # Errors
-    /// Returns an error if an exception occurred during writing.
-    fn write_to(&mut self, out: &mut impl DataOutput) -> Result<()>;
-}
+pub mod dummy_bytes_reader;
+pub mod dummy_fst_reader;
+pub mod dummy_outputs;

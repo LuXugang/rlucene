@@ -96,7 +96,7 @@ impl Outputs<Rc<BytesRc>> for ByteSequenceOutputs {
 
     fn add(&self, prefix: &Rc<BytesRc>, output: &Rc<BytesRc>) -> Rc<BytesRc> {
         let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
-        if Rc::ptr_eq(prefix, &no_output_clone) {
+        if **prefix == *no_output_clone {
             return output.clone();
         }
         if Rc::ptr_eq(output, &no_output_clone) {

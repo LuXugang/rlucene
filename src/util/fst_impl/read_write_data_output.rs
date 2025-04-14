@@ -17,7 +17,7 @@
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::BytesReader;
+use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use std::fmt::{Display, Formatter};

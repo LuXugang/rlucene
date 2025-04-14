@@ -17,7 +17,7 @@
 use crate::store::DataInput;
 use crate::util::access::Access;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::BytesReader;
+use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
 use crate::util::ByteBlockPoolBorrow;
 use std::fmt::{Display, Formatter};
 

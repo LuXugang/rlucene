@@ -93,17 +93,8 @@ impl BytesRef {
     /// # Note
     /// This is an internal method.
     pub fn bytes_equals(&self, other: &BytesRef) -> bool {
-        if self.length == other.length {
-            for i in 0..self.length {
-                if self.bytes[self.offset as usize + i as usize]
-                    != other.bytes[other.offset as usize + i as usize]
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-        false
+        self.bytes[self.offset as usize..(self.offset + self.length) as usize]
+            == other.bytes[other.offset as usize..(other.offset + other.length) as usize]
     }
     /// Interprets the stored bytes as UTF-8, returning the resulting string.
     pub fn utf8_to_string(&self) -> Result<String> {
