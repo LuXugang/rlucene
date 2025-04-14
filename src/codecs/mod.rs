@@ -23,6 +23,7 @@ pub mod compression;
 pub mod doc_values_consumer;
 pub mod doc_values_format;
 pub mod doc_values_producer;
+mod dummy;
 pub mod field_infos_format;
 pub mod live_docs_format;
 pub mod lucene101_codec;

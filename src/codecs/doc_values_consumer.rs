@@ -20,6 +20,7 @@ use crate::codecs::doc_values_enum::doc_values::{
 };
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dov_values_inner_enum::LongValuesEnum;
+use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
@@ -297,6 +298,8 @@ where
         }
         doc_values_consumer_static::merge_numeric_values(subs, self.merge_state.needs_index_sort)
     }
+
+    type SortedNumericDocValues = DummySortedNumericDocValues;
 }
 // 2. BinaryDocValues
 /// Tracks state of one binary sub-reader that we are merging.
@@ -466,6 +469,8 @@ where
         };
         Ok(BinaryDocValuesEnum::Merge(doc_value))
     }
+
+    type SortedNumericDocValues = DummySortedNumericDocValues;
 }
 // 3. SortedNumericDocValues
 /// Tracks state of one sorted numeric sub-reader that we are merging.
@@ -477,7 +482,6 @@ where
     doc_map: Rc<DocMapEnum>,
 }
 
-#[allow(unused)]
 impl<I> SortedNumericDocValuesSub<I>
 where
     I: IndexInput,
@@ -504,11 +508,12 @@ impl<I> Default for SortedNumericDocValuesSub<I>
 where
     I: IndexInput,
 {
+    // for padding use
     fn default() -> Self {
         let empty = DocValues::empty_sorted_numeric();
         debug_assert!(empty.is_ok());
         SortedNumericDocValuesSub {
-            values: empty.unwrap(),
+            values: SortedNumericDocValuesEnum::Singleton(empty.unwrap()),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }
@@ -598,6 +603,8 @@ impl<'a, I> DocValuesProducer<I> for EmptyDocValuesProducerMerge3<'a, I>
 where
     I: IndexInput,
 {
+    type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
+
     fn get_sorted_numeric(
         &mut self,
         field_info: &Rc<FieldInfo>,
@@ -624,7 +631,9 @@ where
             }
 
             if values.is_none() {
-                values = Some(DocValues::empty_sorted_numeric()?);
+                values = Some(SortedNumericDocValuesEnum::Singleton(
+                    DocValues::empty_sorted_numeric()?,
+                ));
             }
             {
                 let values_ref = values.as_ref().unwrap();
@@ -662,7 +671,9 @@ where
                 single_valued_subs,
                 self.merge_state.needs_index_sort,
             )?;
-            return DocValues::singleton_numeric(dv);
+            return Ok(SortedNumericDocValuesEnum::Singleton(
+                DocValues::singleton_numeric(dv)?,
+            ));
         }
         let doc_id_merger = doc_id_merger_static::of(subs, self.merge_state.needs_index_sort)?;
         Ok(SortedNumericDocValuesEnum::Merge(

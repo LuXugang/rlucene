@@ -16,9 +16,10 @@
  */
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::codecs::doc_values_enum::doc_values::{
-    NumericDocValuesEnum, SortedDocValuesEnum, SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
+    NumericDocValuesEnum, SortedDocValuesEnum, SortedSetDocValuesEnum,
 };
 use crate::codecs::doc_values_producer::DocValuesProducer;
+use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::CodecUtil;
@@ -26,12 +27,10 @@ use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
-use crate::index::empty_doc_values_producer::{
-    EmptyDocValuesProducer, EmptyDocValuesProducerSubEnum,
-};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
@@ -468,8 +467,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         min: i64,
         gcd: i64,
         encode: Option<HashMap<i64, i32>>,
-    ) -> Result<()>
-    {
+    ) -> Result<()> {
         let mut writer =
             DirectWriter::get_instance(&mut self.data, num_values, num_bits_per_value)?;
 
@@ -495,8 +493,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         &mut self,
         values: &mut impl SortedNumericDocValues,
         gcd: i64,
-    ) -> Result<i64>
-    {
+    ) -> Result<i64> {
         let mut offsets: Vec<i64> =
             vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES as i32) as usize];
         let mut offsets_index: usize = 0;
@@ -1032,18 +1029,16 @@ where
 
         let mut sorted_set = values_producer.get_sorted_set(field)?;
         if Self::is_single_valued(&mut sorted_set)? {
-            let sub = EmptyDocValuesProducerSubEnum::Impl3(EmptyDocValuesProducerSub3 {
+            let mut producer = EmptyDocValuesProducerSub3 {
                 doc_values: Some(sorted_set),
-            });
-            let mut producer = EmptyDocValuesProducer::new(sub);
+            };
             self.do_add_sorted_field(field, &mut producer, true)?;
             return Ok(());
         }
 
-        let sub = EmptyDocValuesProducerSubEnum::Impl4(EmptyDocValuesProducerSub4 {
+        let mut producer = EmptyDocValuesProducerSub4 {
             doc_values: Some(values_producer.get_sorted_set(field)?),
-        });
-        let mut producer = EmptyDocValuesProducer::new(sub);
+        };
         self.do_add_sorted_numeric_field(field, &mut producer, true)?;
         self.add_terms_dict(&mut values_producer.get_sorted_set(field)?)?;
         Ok(())
@@ -1198,10 +1193,12 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub1<I>
 where
     I: IndexInput,
 {
+    type SortedNumericDocValues = SingletonSortedNumericDocValues<I>;
+
     fn get_sorted_numeric(
         &mut self,
         _field: &Rc<FieldInfo>,
-    ) -> Result<SortedNumericDocValuesEnum<I>> {
+    ) -> Result<Self::SortedNumericDocValues> {
         DocValues::singleton_numeric(self.doc_values.take().unwrap())
     }
 }
@@ -1215,10 +1212,12 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub2<I>
 where
     I: IndexInput,
 {
+    type SortedNumericDocValues = SingletonSortedNumericDocValues<I>;
+
     fn get_sorted_numeric(
         &mut self,
         _field: &Rc<FieldInfo>,
-    ) -> Result<SortedNumericDocValuesEnum<I>> {
+    ) -> Result<Self::SortedNumericDocValues> {
         let sorted_ords = NumericDocValuesEnum::Impl(NumericDocValuesImpl {
             sorted: self.sorted.take().unwrap(),
         });
@@ -1242,6 +1241,8 @@ where
     ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         SortedSetSelector::wrap(self.doc_values.take().unwrap(), SortedSetSelectorType::Min)
     }
+
+    type SortedNumericDocValues = DummySortedNumericDocValues;
 }
 pub struct EmptyDocValuesProducerSub4<I>
 where
@@ -1253,18 +1254,18 @@ impl<I> DocValuesProducer<I> for EmptyDocValuesProducerSub4<I>
 where
     I: IndexInput,
 {
+    type SortedNumericDocValues = SortedNumericDocValuesImpl<I>;
+
     fn get_sorted_numeric(
         &mut self,
         _field: &Rc<FieldInfo>,
-    ) -> Result<SortedNumericDocValuesEnum<I>> {
-        Ok(SortedNumericDocValuesEnum::Impl(
-            SortedNumericDocValuesImpl {
-                ords: vec![],
-                i: 0,
-                doc_value_count: 0,
-                value: self.doc_values.take().unwrap(),
-            },
-        ))
+    ) -> Result<Self::SortedNumericDocValues> {
+        Ok(SortedNumericDocValuesImpl {
+            ords: vec![],
+            i: 0,
+            doc_value_count: 0,
+            value: self.doc_values.take().unwrap(),
+        })
     }
 }
 

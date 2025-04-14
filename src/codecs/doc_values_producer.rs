@@ -20,6 +20,7 @@ use crate::codecs::doc_values_enum::doc_values::{
 };
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::index::field_info::FieldInfo;
+use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
@@ -52,6 +53,7 @@ where
     ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
         Err(LuceneError::need_implemented(""))
     }
+    type SortedNumericDocValues: SortedNumericDocValues;
     /// Returns [`SortedNumericDocValues`](crate::index::sorted_numeric_doc_values::SortedNumericDocValues) for this field. The returned instance need not be
     /// thread-safe: it will only be used by a single thread. The behavior is undefined if the doc
     /// values type of the given field is not [`DocValuesType::SORTED_NUMERIC`](crate::index::doc_values_type::DocValuesType::SortedNumeric). The return value is
@@ -59,7 +61,7 @@ where
     fn get_sorted_numeric(
         &mut self,
         _field: &Rc<FieldInfo>,
-    ) -> Result<SortedNumericDocValuesEnum<I>> {
+    ) -> Result<Self::SortedNumericDocValues> {
         Err(LuceneError::need_implemented(""))
     }
 
@@ -122,6 +124,8 @@ where
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted(field),
         }
     }
+
+    type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
 
     fn get_sorted_numeric(
         &mut self,

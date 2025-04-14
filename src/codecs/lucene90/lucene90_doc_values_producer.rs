@@ -790,7 +790,9 @@ where
         I: IndexInput,
     {
         if entry.base.num_values == entry.num_docs_with_field as i64 {
-            return DocValues::singleton_numeric(self.get_numeric(entry.base.clone())?);
+            return Ok(SortedNumericDocValuesEnum::Singleton(
+                DocValues::singleton_numeric(self.get_numeric(entry.base.clone())?)?,
+            ));
         }
 
         let mut addresses_input = self
@@ -984,6 +986,9 @@ where
             ))),
         }
     }
+
+    // TODO: 应该将Single Dense sparse生成一个enum作为Lucene90
+    type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
 
     fn get_sorted_numeric(
         &mut self,

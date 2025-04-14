@@ -23,7 +23,6 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
-use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
@@ -39,13 +38,11 @@ impl DocValues {
     /// Returns a multi-valued view over the provided NumericDocValues.
     pub fn singleton_numeric<I>(
         dv: NumericDocValuesEnum<I>,
-    ) -> Result<SortedNumericDocValuesEnum<I>>
+    ) -> Result<SingletonSortedNumericDocValues<I>>
     where
         I: IndexInput,
     {
-        Ok(SortedNumericDocValuesEnum::Singleton(
-            SingletonSortedNumericDocValues::new(dv)?,
-        ))
+        SingletonSortedNumericDocValues::new(dv)
     }
     /// Returns a multi-valued view over the provided SortedDocValues.
     pub fn singleton_sorted<I>(
@@ -59,7 +56,7 @@ impl DocValues {
         ))
     }
     /// An empty SortedNumericDocValues which returns zero values for every document.
-    pub fn empty_sorted_numeric<I>() -> Result<SortedNumericDocValuesEnum<I>>
+    pub fn empty_sorted_numeric<I>() -> Result<SingletonSortedNumericDocValues<I>>
     where
         I: IndexInput,
     {
