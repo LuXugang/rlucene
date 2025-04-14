@@ -22,6 +22,8 @@ use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
 use std::fmt::{Display, Formatter};
 
+pub struct FST;
+
 /// Reads bytes stored in an FST.
 #[allow(unused)]
 pub trait BytesReader: DataInput {
