@@ -38,19 +38,13 @@ where
     page_shift: i32,
     page_mask: i32,
     sub_mutables: Vec<MutableEnum>,
-    bits_per_value: i32,
 }
 
 impl<T> AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    pub fn new(
-        bits_per_value: i32,
-        size: i64,
-        page_size: i32,
-        sub_reader: T,
-    ) -> Result<AbstractPagedMutable<T>> {
+    pub fn new(size: i64, page_size: i32, sub_reader: T) -> Result<AbstractPagedMutable<T>> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let page_mask = page_size - 1;
         let num_pages = PackedInts::num_blocks(size, page_size)?;
@@ -65,7 +59,6 @@ where
             page_shift,
             page_mask,
             sub_mutables,
-            bits_per_value,
         };
         if result.sub_reader.fill_pages() {
             result.fill_pages()?;
@@ -83,7 +76,7 @@ where
             };
             self.sub_mutables[i as usize] = self
                 .sub_reader
-                .new_mutable(value_count, self.bits_per_value)?;
+                .new_mutable(value_count, self.sub_reader.bits_per_value())?;
         }
         Ok(())
     }
@@ -141,7 +134,7 @@ where
             let bpv = if i < num_common_pages {
                 self.sub_mutables[i].get_bits_per_value()
             } else {
-                self.bits_per_value
+                self.sub_reader.bits_per_value()
             };
             copy.sub_mutables[i] = self.sub_reader.new_mutable(value_count, bpv)?;
 
@@ -222,4 +215,5 @@ pub(crate) trait AbstractPagedMutableBase: Default {
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>>;
     fn base_ram_bytes_used_base(&self) -> i64;
     fn fill_pages(&self) -> bool;
+    fn bits_per_value(&self) -> i32;
 }

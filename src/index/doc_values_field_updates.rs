@@ -70,7 +70,7 @@ impl DocValuesFieldInner {
     pub(crate) fn new(bits_per_value: i32) -> Result<Self> {
         let sub_mutable =
             PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
-        let writer = AbstractPagedMutable::new(bits_per_value, 1, PAGE_SIZE, sub_mutable)?;
+        let writer = AbstractPagedMutable::new(1, PAGE_SIZE, sub_mutable)?;
         Ok(Self {
             finished: false,
             docs: writer,

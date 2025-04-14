@@ -63,7 +63,7 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>> {
         let sub_read =
             PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false);
-        AbstractPagedMutable::new(self.bits_per_value, new_size, page_size, sub_read)
+        AbstractPagedMutable::new(new_size, page_size, sub_read)
     }
 
     fn base_ram_bytes_used_base(&self) -> i64 {
@@ -72,5 +72,9 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
 
     fn fill_pages(&self) -> bool {
         self.fill_page
+    }
+
+    fn bits_per_value(&self) -> i32 {
+        self.bits_per_value
     }
 }

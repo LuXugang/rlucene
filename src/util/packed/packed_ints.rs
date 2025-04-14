@@ -1810,7 +1810,7 @@ mod tests {
         let sub_reader =
             PagedGrowableWriter::with_fill_page(initial_bit_width, acceptable_overhead_ratio);
 
-        let mut writer = AbstractPagedMutable::new(initial_bit_width, 0, page_size, sub_reader)?;
+        let mut writer = AbstractPagedMutable::new(0, page_size, sub_reader)?;
         assert_eq!(writer.size(), 0);
 
         let mut buf =
@@ -1834,7 +1834,6 @@ mod tests {
         }
         let bits_per_value = random.random_range(1..=64);
         writer = AbstractPagedMutable::new(
-            bits_per_value,
             size,
             page_size,
             PagedGrowableWriter::with_fill_page(bits_per_value, random.random::<f32>()),
@@ -1891,7 +1890,7 @@ mod tests {
 
         let mut sub_mutable =
             PagedMutable::with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
-        let mut writer = AbstractPagedMutable::new(bits_per_value, 0, page_size, sub_mutable)?;
+        let mut writer = AbstractPagedMutable::new(0, page_size, sub_mutable)?;
         assert_eq!(writer.size(), 0);
 
         let mut buf =
@@ -1914,7 +1913,7 @@ mod tests {
         let acceptable_overhead_ratio = random.random::<f32>();
         sub_mutable =
             PagedMutable::with_overhead_ratio(page_size, bits_per_value, acceptable_overhead_ratio);
-        writer = AbstractPagedMutable::new(bits_per_value, size, page_size, sub_mutable)?;
+        writer = AbstractPagedMutable::new(size, page_size, sub_mutable)?;
 
         assert_eq!(writer.size(), size);
 

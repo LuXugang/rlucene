@@ -65,7 +65,7 @@ impl AbstractPagedMutableBase for PagedMutable {
         page_size: i32,
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>> {
         let sub_reader = PagedMutable::with_bits_and_format(self.bits_per_value, self.format);
-        AbstractPagedMutable::new(self.bits_per_value, new_size, page_size, sub_reader)
+        AbstractPagedMutable::new(new_size, page_size, sub_reader)
     }
 
     fn base_ram_bytes_used_base(&self) -> i64 {
@@ -74,5 +74,9 @@ impl AbstractPagedMutableBase for PagedMutable {
 
     fn fill_pages(&self) -> bool {
         true
+    }
+
+    fn bits_per_value(&self) -> i32 {
+        self.bits_per_value
     }
 }
