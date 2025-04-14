@@ -22,6 +22,7 @@ pub mod fst;
 pub mod fst_compiler;
 pub mod fst_reader;
 mod growable_byte_array_data_output;
+mod node_hash;
 pub mod off_heap_fst_store;
 mod outputs;
 mod read_write_data_output;

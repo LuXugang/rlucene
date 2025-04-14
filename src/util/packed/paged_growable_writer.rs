@@ -18,11 +18,11 @@ use crate::util::error::lucene_error::Result;
 use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
 use crate::util::packed::growable_writer::GrowableWriter;
 use crate::util::packed::mutable_enum::MutableEnum;
-/// A `PagedGrowableWriter`. This structure slices data into fixed-size blocks
+/// A [`PagedGrowableWriter`]. This structure slices data into fixed-size blocks
 /// which have independent numbers of bits per value and grow on-demand.
 ///
 /// # Note
-/// You should use this structure instead of the `PackedLongValues` related ones
+/// You should use this structure instead of the [`PackedLongValues`](crate::util::packed::packed_long_values::PackedLongValues) related ones
 /// only when you need random write-access. Otherwise, this structure will likely
 /// be slower and less memory-efficient.
 ///
