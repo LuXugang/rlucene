@@ -887,7 +887,14 @@ impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,
 {
-    fn add_numeric_field<I: IndexInput, P: DocValuesProducer<I, NumericDocValues=NumericDocValuesEnum<I>>>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut P) -> Result<()> {
+    fn add_numeric_field<
+        I: IndexInput,
+        P: DocValuesProducer<I, NumericDocValues = NumericDocValuesEnum<I>>,
+    >(
+        &mut self,
+        field: &Rc<FieldInfo>,
+        values_producer: &mut P,
+    ) -> Result<()> {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::NUMERIC)?;
 
@@ -903,7 +910,6 @@ where
         self.write_values(field, &mut producer, false)?;
         Ok(())
     }
-
 
     fn add_binary_field<I: IndexInput>(
         &mut self,

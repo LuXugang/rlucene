@@ -21,6 +21,7 @@ mod bytes_rc;
 pub mod fst;
 pub mod fst_compiler;
 pub mod fst_reader;
+mod growable_byte_array_data_output;
 pub mod off_heap_fst_store;
 mod outputs;
 mod read_write_data_output;

@@ -39,7 +39,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub trait DocValuesConsumer {
-    fn add_numeric_field<I: IndexInput, P: DocValuesProducer<I,NumericDocValues=NumericDocValuesEnum<I>>>(
+    fn add_numeric_field<
+        I: IndexInput,
+        P: DocValuesProducer<I, NumericDocValues = NumericDocValuesEnum<I>>,
+    >(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut P,
@@ -298,10 +301,12 @@ where
                 )))));
             }
         }
-        Ok(NumericDocValuesEnum::Merge(doc_values_consumer_static::merge_numeric_values(
-            subs,
-            self.merge_state.needs_index_sort,
-        )?))
+        Ok(NumericDocValuesEnum::Merge(
+            doc_values_consumer_static::merge_numeric_values(
+                subs,
+                self.merge_state.needs_index_sort,
+            )?,
+        ))
     }
 
     type SortedNumericDocValues = DummySortedNumericDocValues;
