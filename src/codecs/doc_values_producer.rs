@@ -45,6 +45,7 @@ where
     fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
         Err(LuceneError::need_implemented(""))
     }
+    // TODO: 这里可以都改成泛型 这样DocValuesProducer就不需要使用泛型I
 
     /// Returns [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues) for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
