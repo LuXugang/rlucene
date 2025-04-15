@@ -791,8 +791,8 @@ where
         }
     }
     /// Returns a [`BytesReader`] for this FST, positioned at position 0.
-    pub fn get_bytes_reader(&mut self) -> Result<()> {
-        todo!()
+    pub fn get_bytes_reader(&mut self) -> Result<F::FstBytesReader> {
+        self.fst_reader.get_reverse_bytes_reader()
     }
 }
 impl<T, O, F> Display for FST<T, O, F>
