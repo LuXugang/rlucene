@@ -14,19 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::directory::Directory;
 use crate::store::{ByteArrayDataOutput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
+use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
-use crate::util::fst_impl::fst::{fst_util, InputType, FST};
+use crate::util::fst_impl::fst::{fst_util, FSTMetadata, InputType, FST};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
 use crate::util::fst_impl::node_hash::NodeHash;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
+use crate::util::fst_impl::read_write_data_output::{BytesReaderEnum, ReadWriteDataOutput};
+use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
+use crate::util::SliceCopyOps;
 use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
+use std::hash::Hasher;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -58,30 +64,345 @@ use std::rc::Rc;
 ///
 ///
 /// *lucene.experimental*
-
-pub struct FSTCompiler<T, O, F>
+pub struct FSTCompiler<T, O, D>
 where
     T: OutputsBound,
     O: Outputs<T>,
-    F: FstReader,
+    D: Directory,
+{
+    pub(crate) dedup_hash: NodeHash<T, O, D>,
+    /// NOTE: cutting this over to ArrayList instead loses ~6%
+    /// in build performance on 9.8M Wikipedia terms; so we
+    /// left this as an array:
+    /// current "frontier"
+    /// # Note:
+    /// Wrap with `Option` for easy frontier growing
+    pub(crate) frontier: Vec<Option<UnCompiledNode<T, O, D>>>,
+    pub(crate) inner: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
+}
+impl<T, O, D> FSTCompiler<T, O, D>
+where
+    T: OutputsBound,
+    O: Outputs<T>,
+    D: Directory,
+{
+    fn new(
+        input_type: InputType,
+        suffix_ram_limit_mb: f64,
+        outputs: O,
+        allow_fixed_length_arcs: bool,
+        data_output: DataOutputEnum<D>,
+        direct_addressing_max_oversizing_factor: f32,
+        version: i32,
+    ) -> Result<Self> {
+        let inner = Rc::new(RefCell::new(FSTCompilerInner::new(
+            input_type,
+            suffix_ram_limit_mb,
+            outputs,
+            allow_fixed_length_arcs,
+            data_output,
+            direct_addressing_max_oversizing_factor,
+            version,
+        )?));
+        let dedup_hash = NodeHash::new(inner.clone(), suffix_ram_limit_mb)?;
+        let mut frontier = vec![];
+        for i in 0..10 {
+            frontier.push(Some(UnCompiledNode::new(inner.clone(), i)));
+        }
+        Ok(Self {
+            dedup_hash,
+            frontier,
+            inner,
+        })
+    }
+    fn compile_node(
+        &mut self,
+        mut node_in: UnCompiledNode<T, O, D>,
+    ) -> Result<(CompiledNode, UnCompiledNode<T, O, D>)> {
+        let mut inner = self.inner.borrow_mut();
+        let bytes_pos_start = inner.num_bytes_written;
+
+        let node = if node_in.num_arcs == 0 {
+            let node = inner.add_node(&node_in)?;
+            inner.last_frozen_node = node;
+            node
+        } else {
+            self.dedup_hash.add(&node_in)?
+        };
+
+        debug_assert!(node != -2);
+
+        let bytes_pos_end = inner.num_bytes_written;
+        if bytes_pos_end != bytes_pos_start {
+            // The FST added a new node:
+            debug_assert!(bytes_pos_end > bytes_pos_start);
+            inner.last_frozen_node = node;
+        }
+
+        node_in.clear();
+
+        Ok((CompiledNode { node }, node_in))
+    }
+    /// Minimizes and compiles the suffix path of the previous input from `prefix_len_plus1` to the end.
+    fn freeze_tail(&mut self, prefix_len_plus1: i32) -> Result<()> {
+        let (len, down_to) = {
+            let inner = self.inner.borrow();
+            (
+                inner.last_input.len() as usize,
+                prefix_len_plus1.max(1) as usize,
+            )
+        };
+
+        for idx in (down_to..=len).rev() {
+            let node = self.frontier[idx].take().unwrap();
+            let prev_idx = idx - 1;
+
+            let next_final_output = node.output.clone();
+            // We "fake" the node as being final if it has no
+            // outgoing arcs; in theory we could leave it
+            // as non-final (the FST can represent this), but
+            // FSTEnum, Util, etc., have trouble w/ non-final
+            // dead-end states:
+            let is_final = node.is_final || node.num_arcs == 0;
+            let label = {
+                let inner = self.inner.borrow();
+                inner.last_input.int_at(prev_idx as i32)
+            };
+            let (compiled, un_compiled) = self.compile_node(node)?;
+            self.frontier[idx] = Some(un_compiled);
+            let parent = &mut self.frontier[prev_idx].as_mut().unwrap();
+            // this node makes it and we now compile it.  first,
+            // compile any targets that were previously
+            // undecided:
+            parent.replace_last(
+                label,
+                NodeEnum::CompiledNode(compiled),
+                next_final_output,
+                is_final,
+            );
+        }
+
+        Ok(())
+    }
+    /// Add the next input/output pair. The provided input must be sorted after the previous one
+    /// according to [`IntsRef::cmp`]. It's also OK to add the same input twice in a row with
+    /// different outputs, as long as [`Outputs`] implements the [`Outputs::merge`] method. Note
+    /// that input is fully consumed after this method returns (so the caller is free to reuse), but
+    /// output is not. So if your outputs are changeable (e.g. [`ByteSequenceOutputs`](crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs) or
+    /// [`IntSequenceOutputs`](crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs)), then you cannot reuse them across calls.
+    pub(crate) fn add(&mut self, input: &IntsRef, mut output: T) -> Result<()> {
+        let ints = input.ints.borrow();
+        let prefix_len_plus1;
+        {
+            let mut inner = self.inner.borrow_mut();
+            // De-dup NO_OUTPUT since it must be a singleton:
+            if output == inner.no_output {
+                output = inner.no_output.clone();
+            }
+
+            debug_assert!(
+                inner.last_input.len() == 0 || *input >= *inner.last_input.get(),
+                "inputs are added out of order lastInput={:?} vs input={:?}",
+                inner.last_input.get(),
+                input
+            );
+            debug_assert!(inner.valid_output(&output));
+
+            if input.length == 0 {
+                // empty input: only allowed as first input.  we have
+                // to special case this because the packed FST
+                // format cannot represent the empty input since
+                // 'finalness' is stored on the incoming arc, not on
+                // the node
+                self.frontier[0].as_mut().unwrap().is_final = true;
+                inner.set_empty_output(output)?;
+                return Ok(());
+            }
+
+            // Compare shared prefix length
+            let mut pos1 = 0;
+            let mut pos2 = input.offset;
+            let pos1_stop = inner.last_input.len().min(input.length);
+            while pos1 < pos1_stop && inner.last_input.int_at(pos1) == ints[pos2 as usize] {
+                pos1 += 1;
+                pos2 += 1;
+            }
+            prefix_len_plus1 = pos1 + 1;
+
+            if self.frontier.len() < (input.length + 1) as usize {
+                let old_len = self.frontier.len();
+                debug_assert!(old_len <= i32::MAX as usize);
+                ArrayUtil::grow_with_len(&mut self.frontier, old_len as i32 + 1)?;
+                debug_assert!(self.frontier.len() <= i32::MAX as usize);
+                for i in old_len..self.frontier.len() {
+                    self.frontier[i] = Some(UnCompiledNode::new(self.inner.clone(), i as i32));
+                }
+            }
+        }
+
+        // minimize/compile states from previous input's
+        // orphan'd suffix
+        self.freeze_tail(prefix_len_plus1)?;
+
+        // init tail states for current input
+        let offset = input.offset as usize;
+        let prefix_len_plus1 = prefix_len_plus1 as usize;
+        for idx in prefix_len_plus1..=input.length as usize {
+            let label = ints[offset + idx - 1];
+            // TODO: 这里先抛出所有权 看看有没有问题
+            let un_compiled = NodeEnum::UnCompiledNode(self.frontier[idx].take().unwrap());
+            self.frontier[idx - 1]
+                .as_mut()
+                .unwrap()
+                .add_arc(label, un_compiled)?;
+        }
+
+        let inner = self.inner.borrow();
+        {
+            let last_node = self.frontier[offset].as_mut().unwrap();
+            if inner.last_input.len() != input.length
+                || prefix_len_plus1 != input.length as usize + 1
+            {
+                last_node.is_final = true;
+                last_node.output = inner.no_output.clone();
+            }
+        }
+        // push conflicting outputs forward, only as far as
+        // needed
+        let outputs = inner.fst.outputs.borrow();
+        for idx in 1..prefix_len_plus1 {
+            let parent = &mut self.frontier[idx - 1];
+            let label = ints[offset + idx - 1];
+
+            let last_output = parent.as_mut().unwrap().get_last_output(label);
+            debug_assert!(inner.valid_output(&last_output));
+
+            let common_output_prefix;
+            if std::ptr::eq(&last_output, &inner.no_output) {
+                common_output_prefix = outputs.common(&output, &last_output);
+                debug_assert!(inner.valid_output(&common_output_prefix));
+
+                let word_suffix = outputs.subtract(&last_output, &common_output_prefix);
+                debug_assert!(inner.valid_output(&word_suffix));
+
+                parent
+                    .as_mut()
+                    .unwrap()
+                    .set_last_output(label, common_output_prefix.clone());
+                let node = &mut self.frontier[idx];
+                node.as_mut().unwrap().prepend_output(&word_suffix);
+            } else {
+                common_output_prefix = inner.no_output.clone();
+            }
+
+            output = outputs.subtract(&output, &common_output_prefix);
+            debug_assert!(inner.valid_output(&output));
+        }
+
+        if inner.last_input.len() == input.length && prefix_len_plus1 == input.length as usize + 1 {
+            // same input more than 1 time in a row, mapping to
+            // multiple outputs
+            let last_node = self.frontier[offset].as_mut().unwrap();
+            last_node.output = outputs.merge(&last_node.output, &output)?;
+        } else {
+            // this new arc is private to this new input; set its
+            // arc output to the leftover output:
+            let label = ints[offset + prefix_len_plus1 - 1];
+            self.frontier[prefix_len_plus1 - 1]
+                .as_mut()
+                .unwrap()
+                .set_last_output(label, output);
+        }
+
+        // Save last input
+        self.inner.borrow_mut().last_input.copy_ints_ref(input)?;
+        Ok(())
+    }
+    pub fn compile(
+        &mut self,
+        frontier: &mut [UnCompiledNode<T, O, D>],
+    ) -> Result<Option<FSTMetadata<T, O>>> {
+        let root = self.frontier[0].take().unwrap();
+
+        // Minimize nodes in the last word's suffix
+        self.freeze_tail(0)?;
+
+        if root.num_arcs == 0 {
+            if self
+                .inner
+                .borrow()
+                .fst
+                .metadata
+                .as_ref()
+                .unwrap()
+                .empty_output
+                .is_none()
+            {
+                // return null for completely empty FST which accepts nothing
+                return Ok(None);
+            } else {
+                // we haven't written the padding byte so far, but the FST is still valid
+                self.inner.borrow_mut().write_padding_byte()?;
+            }
+        }
+
+        let (compiled_root, root) = self.compile_node(root)?;
+        self.inner.borrow_mut().finish(compiled_root.node)?;
+        self.frontier[0] = Some(root);
+        Ok(Some(self.inner.borrow_mut().fst.metadata.take().unwrap()))
+    }
+}
+
+pub mod fst_compiler_util {
+    use crate::util::error::lucene_error::Result;
+    use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
+    /// Maximum oversizing factor allowed for direct addressing.
+    pub(crate) const DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR: f32 = 1.0;
+
+    /// Minimum depth at which fixed-length arcs are considered for shallow nodes.
+    ///
+    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_fixed_length_arcs)..
+    pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: i32 = 3;
+
+    /// Minimum number of arcs required to consider fixed-length arcs at shallow depth.
+    ///
+    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_fixed_length_arcs)..
+    pub(crate) const FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS: i32 = 5;
+
+    /// Minimum number of arcs required to consider fixed-length arcs at deep depth.
+    ///
+    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_fixed_length_arcs).
+    pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: i32 = 10;
+
+    /// Maximum oversizing factor allowed for direct addressing compared to binary search when
+    /// expansion credits allow the oversizing. This factor prevents expansions that are obviously
+    /// too costly even if there are sufficient credits.
+    ///
+    /// See [`FSTCompiler::should_expand_node_with_direct_addressing`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_direct_addressing).
+    pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
+    pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
+        Ok(ReadWriteDataOutput::new(block_bits))
+    }
+}
+
+pub struct FSTCompilerInner<T, O, D>
+where
+    T: OutputsBound,
+    O: Outputs<T>,
+    D: Directory,
 {
     /// A temporary FST used during building for NodeHash cache.
-    pub(crate) fst: FST<T, O, F>,
+    pub(crate) fst: FST<T, O, NullFSTReader>,
     pub(crate) no_output: T,
     /// A FSTReader used when a non-FSTReader DataOutput is configured.
     /// Will panic if `get_reverse_bytes_reader()` or `write_to()` is called.
     pub(crate) null_fst_reader: NullFSTReader,
     /// Node deduplication hash table.
-    pub(crate) dedup_hash: NodeHash<T, O, F>,
     /// Last input added.
     pub(crate) last_input: IntsRefBuilder,
     /// Whether the initial padding byte needs to be written.
     pub(crate) padding_byte_pending: bool,
-    /// NOTE: cutting this over to ArrayList instead loses ~6%
-    /// in build performance on 9.8M Wikipedia terms; so we
-    /// left this as an array:
-    /// current "frontier"
-    pub(crate) frontier: Vec<UnCompiledNode<T, O, F>>,
+
     /// Used for the BIT_TARGET_NEXT optimization (whereby
     /// instead of storing the address of the target node for
     /// a given arc, we mark a single bit noting that the next
@@ -100,56 +421,641 @@ where
     pub(crate) direct_addressing_max_oversizing_factor: f32,
     pub(crate) version: i32,
     pub(crate) direct_addressing_expansion_credit: i64,
-    pub(crate) data_output: ReadWriteDataOutput,
+    pub(crate) data_output: DataOutputEnum<D>,
     pub(crate) scratch_bytes: GrowableByteArrayDataOutput,
     pub(crate) num_bytes_written: i64,
 }
-
-pub mod fst_compiler_util {
-    use crate::util::error::lucene_error::Result;
-    use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
-    /// Maximum oversizing factor allowed for direct addressing.
-    pub(crate) const DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR: f32 = 1.0;
-
-    /// Minimum depth at which fixed-length arcs are considered for shallow nodes.
-    ///
-    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`].
-    pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: i32 = 3;
-
-    /// Minimum number of arcs required to consider fixed-length arcs at shallow depth.
-    ///
-    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`].
-    pub(crate) const FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS: i32 = 5;
-
-    /// Minimum number of arcs required to consider fixed-length arcs at deep depth.
-    ///
-    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`].
-    pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: i32 = 10;
-
-    /// Maximum oversizing factor allowed for direct addressing compared to binary search when
-    /// expansion credits allow the oversizing. This factor prevents expansions that are obviously
-    /// too costly even if there are sufficient credits.
-    ///
-    /// See [`FSTCompiler::should_expand_node_with_direct_addressing`](Self::should_expand_node_with_direct_addressing).
-    pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
-    pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
-        Ok(ReadWriteDataOutput::new(block_bits))
-    }
-}
-impl<T, O, F> FSTCompiler<T, O, F>
+impl<T, O, D> FSTCompilerInner<T, O, D>
 where
     T: OutputsBound,
     O: Outputs<T>,
-    F: FstReader,
+    D: Directory,
 {
+    fn new(
+        input_type: InputType,
+        suffix_ram_limit_mb: f64,
+        outputs: O,
+        allow_fixed_length_arcs: bool,
+        data_output: DataOutputEnum<D>,
+        direct_addressing_max_oversizing_factor: f32,
+        version: i32,
+    ) -> Result<Self> {
+        if suffix_ram_limit_mb < 0.0 {
+            return Err(LuceneError::illegal_argument(format!(
+                "ramLimitMB must be >= 0; got: {}",
+                suffix_ram_limit_mb
+            )));
+        }
+
+        let num_bytes_written = 1; // pad 1 byte, written lazily
+        let padding_byte_pending = true;
+
+        let null_fst_reader = NullFSTReader; // assume you implemented Default
+        let no_output = outputs.get_no_output();
+        let fst_meta = FSTMetadata::new(
+            input_type,
+            Rc::new(RefCell::new(outputs)),
+            None,
+            -1,
+            version,
+            0,
+        );
+        let fst = FST::new(fst_meta, NullFSTReader);
+
+        Ok(FSTCompilerInner {
+            fst,
+            no_output,
+            null_fst_reader,
+            last_input: IntsRefBuilder::default(),
+            padding_byte_pending,
+            last_frozen_node: 0,
+            num_bytes_per_arc: vec![],
+            num_label_bytes_per_arc: vec![],
+            fixed_length_arcs_buffer: FixedLengthArcsBuffer::new(),
+            arc_count: 0,
+            node_count: 0,
+            binary_search_node_count: 0,
+            direct_addressing_node_count: 0,
+            continuous_node_count: 0,
+            allow_fixed_length_arcs,
+            direct_addressing_max_oversizing_factor,
+            version,
+            direct_addressing_expansion_credit: 0,
+            data_output,
+            scratch_bytes: GrowableByteArrayDataOutput::new(),
+            num_bytes_written,
+        })
+    }
+    // serializes new node by appending its bytes to the end
+    // of the current byte[]
+    pub(crate) fn add_node(&mut self, node_in: &UnCompiledNode<T, O, D>) -> Result<i64> {
+        if node_in.num_arcs == 0 {
+            return Ok(if node_in.is_final {
+                fst_util::FINAL_END_NODE
+            } else {
+                fst_util::NON_FINAL_END_NODE
+            });
+        }
+        // reset the scratch writer to prepare for new write
+        self.scratch_bytes.set_position(0)?;
+
+        let do_fixed_length_arcs = self.should_expand_node_with_fixed_length_arcs(node_in);
+        if do_fixed_length_arcs && self.num_bytes_per_arc.len() < node_in.num_arcs as usize {
+            let new_len = ArrayUtil::oversize(node_in.num_arcs, BitUtil::INT_BYTES as i32) as usize;
+            self.num_bytes_per_arc = vec![0; new_len];
+            self.num_label_bytes_per_arc = vec![0; new_len];
+        }
+
+        self.arc_count += node_in.num_arcs as i64;
+
+        let last_arc = node_in.num_arcs - 1;
+        let mut last_arc_start = 0;
+        let mut max_bytes_per_arc = 0;
+        let mut max_bytes_per_arc_without_label = 0;
+
+        for (arc_idx, arc) in node_in
+            .arcs
+            .iter()
+            .enumerate()
+            .take(node_in.num_arcs as usize)
+        {
+            match &arc.target {
+                NodeEnum::CompiledNode(target) => {
+                    let mut flags = 0;
+
+                    if arc_idx == last_arc as usize {
+                        flags |= fst_util::BIT_LAST_ARC as i32;
+                    }
+
+                    if self.last_frozen_node == target.node && !do_fixed_length_arcs {
+                        // TODO: for better perf (but more RAM used) we
+                        // could avoid this except when arc is "near" the
+                        // last arc:
+                        flags |= fst_util::BIT_TARGET_NEXT as i32;
+                    }
+
+                    if arc.is_final {
+                        flags |= fst_util::BIT_FINAL_ARC as i32;
+                        if std::ptr::eq(&arc.next_final_output, &self.no_output) {
+                            flags |= fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32;
+                        }
+                    } else {
+                        debug_assert!(std::ptr::eq(&arc.next_final_output, &self.no_output));
+                    }
+
+                    let target_has_arcs = target.node > 0;
+                    if !target_has_arcs {
+                        flags |= fst_util::BIT_STOP_NODE;
+                    }
+
+                    if std::ptr::eq(&arc.output, &self.no_output) {
+                        flags |= fst_util::BIT_ARC_HAS_OUTPUT as i32;
+                    }
+
+                    self.scratch_bytes.write_byte(flags as u8)?;
+
+                    let label_start = self.scratch_bytes.get_position();
+                    self.write_label(arc.label)?;
+                    let label_end = self.scratch_bytes.get_position();
+                    let num_label_bytes = label_end - label_start;
+
+                    if std::ptr::eq(&arc.output, &self.no_output) {
+                        self.fst
+                            .outputs
+                            .borrow()
+                            .write(&arc.output, &mut self.scratch_bytes)?;
+                    }
+
+                    if std::ptr::eq(&arc.next_final_output, &self.no_output) {
+                        self.fst
+                            .outputs
+                            .borrow()
+                            .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;
+                    }
+
+                    if target_has_arcs && (flags & fst_util::BIT_TARGET_NEXT as i32) == 0 {
+                        self.scratch_bytes.write_vlong(target.node)?;
+                    }
+
+                    if do_fixed_length_arcs {
+                        let num_arc_bytes = self.scratch_bytes.get_position() - last_arc_start;
+                        self.num_bytes_per_arc[arc_idx] = num_arc_bytes;
+                        self.num_label_bytes_per_arc[arc_idx] = num_label_bytes;
+                        last_arc_start = self.scratch_bytes.get_position();
+                        max_bytes_per_arc = max_bytes_per_arc.max(num_arc_bytes);
+                        max_bytes_per_arc_without_label =
+                            max_bytes_per_arc_without_label.max(num_arc_bytes - num_label_bytes);
+                    }
+                }
+                NodeEnum::UnCompiledNode(_) => {
+                    return Err(LuceneError::illegal_state("should be compiled"));
+                }
+            }
+        }
+        // TODO: try to avoid wasteful cases: disable doFixedLengthArcs in that case
+        /*
+         *
+         * LUCENE-4682: what is a fair heuristic here?
+         * It could involve some of these:
+         * 1. how "busy" the node is: nodeIn.inputCount relative to frontier[0].inputCount?
+         * 2. how much binSearch saves over scan: nodeIn.numArcs
+         * 3. waste: numBytes vs numBytesExpanded
+         *
+         * the one below just looks at #3
+        if (doFixedLengthArcs) {
+          // rough heuristic: make this 1.25 "waste factor" a parameter to the phd ctor????
+          int numBytes = lastArcStart - startAddress;
+          int numBytesExpanded = maxBytesPerArc * nodeIn.numArcs;
+          if (numBytesExpanded > numBytes*1.25) {
+            doFixedLengthArcs = false;
+          }
+        }
+        */
+        if do_fixed_length_arcs {
+            debug_assert!(max_bytes_per_arc > 0);
+            let label_range = node_in.arcs[last_arc as usize].label - node_in.arcs[0].label + 1;
+            debug_assert!(label_range > 0);
+            let continuous_label = label_range == node_in.num_arcs;
+            if continuous_label && self.version >= fst_util::VERSION_CONTINUOUS_ARCS {
+                self.write_node_for_direct_addressing_or_continuous(
+                    node_in,
+                    max_bytes_per_arc_without_label,
+                    label_range,
+                    true,
+                )?;
+                self.continuous_node_count += 1;
+            } else if self.should_expand_node_with_direct_addressing(
+                node_in,
+                max_bytes_per_arc,
+                max_bytes_per_arc_without_label,
+                label_range,
+            ) {
+                self.write_node_for_direct_addressing_or_continuous(
+                    node_in,
+                    max_bytes_per_arc_without_label,
+                    label_range,
+                    false,
+                )?;
+                self.direct_addressing_node_count += 1;
+            } else {
+                self.write_node_for_binary_search(node_in, max_bytes_per_arc)?;
+                self.binary_search_node_count += 1;
+            }
+        }
+
+        self.reverse_scratch_bytes();
+        // write the padding byte if needed
+        if self.padding_byte_pending {
+            self.write_padding_byte()?;
+        }
+
+        self.scratch_bytes
+            .write_to_data_output(&mut self.data_output)?;
+        self.num_bytes_written += self.scratch_bytes.get_position() as i64;
+
+        self.node_count += 1;
+        Ok(self.num_bytes_written - 1)
+    }
+    /// Get the respective [`DataOutputEnum`]. To call this method, you need
+    /// to use the default `DataOutput` or [`get_on_heap_reader_writer`](fst_compiler_util::get_on_heap_reader_writer), otherwise an
+    /// error will be thrown.
+    fn get_fst_reader(&mut self) -> Result<&mut DataOutputEnum<D>> {
+        let is_fst_reader = match self.data_output {
+            DataOutputEnum::FromDir(_) => false,
+            DataOutputEnum::ReadWriter(_) => true,
+        };
+        if is_fst_reader {
+            Ok(&mut self.data_output)
+        } else {
+            Err(LuceneError::illegal_state(format!(
+                "The DataOutput must implement FSTReader, but got {}",
+                self.data_output
+            )))
+        }
+    }
+    pub fn get_direct_addressing_max_oversizing_factor(&self) -> f32 {
+        self.direct_addressing_max_oversizing_factor
+    }
+
+    pub fn get_node_count(&self) -> i64 {
+        1 + self.node_count
+    }
+
+    pub fn get_arc_count(&self) -> i64 {
+        self.arc_count
+    }
+    /// Write the padding byte, ensure no node gets address 0 which is reserved to mean the stop state
+    /// w/ no arcs
+    fn write_padding_byte(&mut self) -> Result<()> {
+        debug_assert!(self.padding_byte_pending);
+        self.data_output.write_byte(0)?;
+        self.padding_byte_pending = false;
+        Ok(())
+    }
+    fn write_label(&mut self, v: i32) -> Result<()> {
+        debug_assert!(v >= 0, "v = {}", v);
+
+        match self.fst.metadata.as_ref().unwrap().input_type {
+            InputType::Byte1 => {
+                debug_assert!(v <= 255, "v = {}", v);
+                self.scratch_bytes.write_byte(v as u8)?;
+            }
+            InputType::Byte2 => {
+                debug_assert!(v <= 65535, "v = {}", v);
+                self.scratch_bytes.write_short(v as i16)?;
+            }
+            InputType::Byte4 => {
+                self.scratch_bytes.write_vint(v)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns whether the given node should be expanded with fixed length arcs. Nodes will be
+    /// expanded depending on their depth (distance from the root node) and their number of arcs.
+    ///
+    ///
+    /// Nodes with fixed length arcs use more space, because they encode all arcs with a fixed
+    /// number of bytes, but they allow either binary search or direct addressing on the arcs (instead
+    /// of linear scan) on lookup by arc label.
+    fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<T, O, D>) -> bool {
+        self.allow_fixed_length_arcs
+            && ((node.depth <= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_DEPTH
+                && node.num_arcs >= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
+                || node.num_arcs >= fst_compiler_util::FIXED_LENGTH_ARC_DEEP_NUM_ARCS)
+    }
+    /// Returns whether the given node should be expanded with direct addressing instead of binary
+    /// search.
+    ///
+    ///
+    /// Prefer direct addressing for performance if it does not oversize binary search byte size too
+    /// much, so that the arcs can be directly addressed by label.
+    ///
+    ///
+    /// # See also
+    ///
+    /// [`FSTCompiler::get_direct_addressing_max_oversizing_factor`](Self::get_direct_addressing_max_oversizing_factor)
+    fn should_expand_node_with_direct_addressing(
+        &mut self,
+        node_in: &UnCompiledNode<T, O, D>,
+        num_bytes_per_arc: i32,
+        max_bytes_per_arc_without_label: i32,
+        label_range: i32,
+    ) -> bool {
+        // Anticipate precisely the size of the encodings.
+        let size_for_binary_search = num_bytes_per_arc * node_in.num_arcs;
+        let size_for_direct_addressing = fst_util::get_num_presence_bytes(label_range)
+            + self.num_label_bytes_per_arc[0]
+            + max_bytes_per_arc_without_label * node_in.num_arcs;
+
+        // Determine the allowed oversize compared to binary search.
+        // This is defined by a parameter of FST Builder (default 1: no oversize).
+        let allowed_oversize = (size_for_binary_search as f32
+            * self.get_direct_addressing_max_oversizing_factor())
+            as i32;
+        let expansion_cost = size_for_direct_addressing - allowed_oversize;
+
+        // Select direct addressing if either:
+        // - Direct addressing size is smaller than binary search.
+        //   In this case, increment the credit by the reduced size (to use it later).
+        // - Direct addressing size is larger than binary search, but the positive credit allows the
+        //   oversizing. In this case, decrement the credit by the oversize.
+        // In addition, do not try to oversize to a clearly too large node size
+        // (this is the DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR parameter).
+        if expansion_cost == 0
+            || (self.direct_addressing_expansion_credit >= expansion_cost as i64
+                && size_for_direct_addressing
+                    <= (allowed_oversize as f32
+                        * fst_compiler_util::DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR)
+                        as i32)
+        {
+            self.direct_addressing_expansion_credit -= expansion_cost as i64;
+            return true;
+        }
+
+        false
+    }
+    fn write_node_for_binary_search(
+        &mut self,
+        node_in: &UnCompiledNode<T, O, D>,
+        max_bytes_per_arc: i32,
+    ) -> Result<()> {
+        // Build the header in a buffer.
+        // It is a false/special arc which is in fact a node header with node flags followed by node
+        // metadata.        self.fixed_length_arcs_buffer.reset_position();
+        self.fixed_length_arcs_buffer
+            .write_byte(fst_util::ARCS_FOR_BINARY_SEARCH)?;
+        self.fixed_length_arcs_buffer.write_vint(node_in.num_arcs)?;
+        self.fixed_length_arcs_buffer
+            .write_vint(max_bytes_per_arc)?;
+
+        let header_len = self.fixed_length_arcs_buffer.get_position();
+        // Expand the arcs in place, backwards.
+        let src_pos = self.scratch_bytes.get_position();
+        let dest_pos = header_len + node_in.num_arcs * max_bytes_per_arc;
+
+        debug_assert!(dest_pos >= src_pos);
+
+        if dest_pos > src_pos {
+            self.scratch_bytes.set_position(dest_pos)?;
+            let scratch_bytes = self.scratch_bytes.get_bytes();
+            let arc_bytes = &self.num_bytes_per_arc;
+            let mut src_pos = src_pos as usize;
+            let mut dest_pos = dest_pos as usize;
+            let max_bytes_per_arc = max_bytes_per_arc as usize;
+            for arc_idx in (0..node_in.num_arcs as usize).rev() {
+                dest_pos -= max_bytes_per_arc;
+                let arc_len = arc_bytes[arc_idx] as usize;
+                src_pos -= arc_len;
+                if src_pos != dest_pos {
+                    debug_assert!(
+                        dest_pos >= src_pos,
+                        "dest_pos={} < src_pos={} at arc_idx={}, max_bytes_per_arc={}, arc_len={}, num_arcs={}",
+                        dest_pos,
+                        src_pos,
+                        arc_idx,
+                        max_bytes_per_arc,
+                        arc_len,
+                        node_in.num_arcs
+                    );
+                    scratch_bytes.copy_within(src_pos..src_pos + arc_len, dest_pos);
+                }
+            }
+        }
+
+        // Write header at the beginning
+        self.scratch_bytes.get_bytes().copy_from(
+            &self.fixed_length_arcs_buffer.get_bytes()[..header_len as usize],
+            0,
+        );
+
+        Ok(())
+    }
+    /// Reverse the scratch bytes in place. This operation does not affect `scratch_bytes.get_position()`.
+    fn reverse_scratch_bytes(&mut self) {
+        let pos = self.scratch_bytes.get_position() as usize;
+        let bytes = self.scratch_bytes.get_bytes();
+        let limit = pos / 2;
+        for i in 0..limit {
+            let j = pos - 1 - i;
+            bytes.swap(i, j);
+        }
+    }
+    /// Write bytes from a source `byte[]` to the scratch bytes. The written bytes must fit within what
+    /// was already written in the scratch bytes.
+    ///
+    ///
+    /// This operation does not affect `scratch_bytes.get_position()`.
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `dest_pos` - the position in the scratch bytes  
+    /// * `bytes` - the source byte array  
+    /// * `offset` - the offset inside the source byte array  
+    /// * `length` - the number of bytes to write
+    #[allow(dead_code)]
+    fn write_scratch_bytes(&mut self, _dest_pos: i32, _bytes: &[u8], _offset: i32, _length: i32) {
+        // Not Implement in Rust Lucene
+    }
+    fn write_node_for_direct_addressing_or_continuous(
+        &mut self,
+        node_in: &UnCompiledNode<T, O, D>,
+        max_bytes_per_arc_without_label: i32,
+        label_range: i32,
+        continuous: bool,
+    ) -> Result<()> {
+        // Expand the arcs backwards in a buffer because we remove the labels.
+        // So the obtained arcs might occupy less space. This is the reason why this
+        // whole method is more complex.
+        // Drop the label bytes since we can infer the label based on the arc index,
+        // the presence bits, and the first label. Keep the first label.
+        let header_max_len = 11;
+        let num_presence_bytes = if continuous {
+            0
+        } else {
+            fst_util::get_num_presence_bytes(label_range)
+        };
+
+        let mut src_pos = self.scratch_bytes.get_position();
+        let total_arc_bytes =
+            self.num_label_bytes_per_arc[0] + node_in.num_arcs * max_bytes_per_arc_without_label;
+
+        let mut buffer_offset = header_max_len + num_presence_bytes + total_arc_bytes;
+        self.fixed_length_arcs_buffer
+            .ensure_capacity(buffer_offset)?;
+        let buffer = self.fixed_length_arcs_buffer.get_bytes();
+        // Copy the arcs to the buffer, dropping all labels except first one.
+        for arc_idx in (0..node_in.num_arcs as usize).rev() {
+            buffer_offset -= max_bytes_per_arc_without_label;
+            let src_arc_len = self.num_bytes_per_arc[arc_idx];
+            src_pos -= src_arc_len;
+            let label_len = self.num_label_bytes_per_arc[arc_idx];
+            self.scratch_bytes
+                .write_to(src_pos, buffer, buffer_offset, 1);
+            // Skip the label, copy the remaining.
+            let remaining_len = src_arc_len - 1 - label_len;
+            if remaining_len != 0 {
+                self.scratch_bytes
+                    .write_to(src_pos + 1, buffer, buffer_offset, label_len);
+            }
+
+            // Copy label for first arc only
+            if arc_idx == 0 {
+                buffer_offset -= label_len;
+                self.scratch_bytes
+                    .write_to(src_pos + 1, buffer, buffer_offset, label_len);
+            }
+        }
+
+        debug_assert_eq!(
+            buffer_offset,
+            header_max_len + num_presence_bytes,
+            "buffer_offset mismatch"
+        );
+        // Build the header in the buffer.
+        // It is a false/special arc which is in fact a node header with node flags followed by node
+        // metadata.
+        // Write header
+        self.fixed_length_arcs_buffer.reset_position()?;
+        self.fixed_length_arcs_buffer.write_byte(if continuous {
+            fst_util::ARCS_FOR_CONTINUOUS
+        } else {
+            fst_util::ARCS_FOR_DIRECT_ADDRESSING
+        })?;
+        self.fixed_length_arcs_buffer.write_vint(label_range)?; // labelRange instead of numArcs.
+        self.fixed_length_arcs_buffer
+            .write_vint(max_bytes_per_arc_without_label)?; // maxBytesPerArcWithoutLabel instead of maxBytesPerArc.
+        let header_len = self.fixed_length_arcs_buffer.get_position();
+
+        self.scratch_bytes.set_position(0)?;
+        self.scratch_bytes.write_bytes_range(
+            self.fixed_length_arcs_buffer.get_bytes(),
+            0,
+            header_len,
+        )?;
+
+        // Write presence bits if not continuous
+        if !continuous {
+            self.write_presence_bits(node_in)?;
+            debug_assert_eq!(
+                self.scratch_bytes.get_position(),
+                header_len + num_presence_bytes
+            );
+        }
+
+        // Write first label + arcs
+        self.scratch_bytes.write_bytes_range(
+            self.fixed_length_arcs_buffer.get_bytes(),
+            buffer_offset,
+            total_arc_bytes,
+        )?;
+
+        debug_assert_eq!(
+            self.scratch_bytes.get_position(),
+            header_len + num_presence_bytes + total_arc_bytes
+        );
+        Ok(())
+    }
+
+    fn write_presence_bits(&mut self, node_in: &UnCompiledNode<T, O, D>) -> Result<()> {
+        let mut presence_bits: u8 = 1; // The first arc is always present.
+        let mut presence_index = 0;
+        let mut previous_label = node_in.arcs[0].label;
+
+        let byte_size = i8::BITS as i32;
+        for arc_idx in 1..node_in.num_arcs as usize {
+            let label = node_in.arcs[arc_idx].label;
+            debug_assert!(label > previous_label);
+            presence_index += label - previous_label;
+            while presence_index >= byte_size {
+                self.scratch_bytes.write_byte(presence_bits)?;
+                presence_bits = 0;
+                presence_index -= byte_size;
+            }
+            // Set the bit at presenceIndex to flag that the corresponding arc is present.
+            presence_bits |= 1 << presence_index;
+            previous_label = label;
+        }
+
+        debug_assert!({
+            let last_label = node_in.arcs[node_in.num_arcs as usize - 1].label;
+            let first_label = node_in.arcs[0].label;
+            presence_index == (last_label - first_label) % 8
+        });
+        debug_assert!(presence_bits != 0); // The last byte is not 0.
+        debug_assert!((presence_bits & (1 << presence_index)) != 0); // The last arc is always present.
+
+        self.scratch_bytes.write_byte(presence_bits)?;
+        Ok(())
+    }
+    pub(crate) fn set_empty_output(&mut self, v: T) -> Result<()> {
+        match self.fst.metadata {
+            Some(ref mut metadata) => {
+                if let Some(existing) = &mut metadata.empty_output {
+                    metadata.empty_output =
+                        Some(self.fst.outputs.borrow_mut().merge(&existing.clone(), &v)?);
+                } else {
+                    metadata.empty_output = Some(v);
+                }
+            }
+            None => {
+                return Err(LuceneError::illegal_state("FSTCompiler's metadata is None"));
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn finish(&mut self, mut new_start_node: i64) -> Result<()> {
+        debug_assert!(new_start_node <= self.num_bytes_written);
+
+        match self.fst.metadata {
+            Some(ref mut metadata) => {
+                if metadata.start_node != -1 {
+                    return Err(LuceneError::illegal_state("already finished"));
+                }
+
+                if new_start_node == fst_util::FINAL_END_NODE && metadata.empty_output.is_some() {
+                    new_start_node = 0;
+                }
+
+                metadata.start_node = new_start_node;
+                metadata.num_bytes = self.num_bytes_written;
+
+                // Freeze the data output if it's a read-write buffer
+                match self.data_output {
+                    DataOutputEnum::FromDir(_) => {
+                        // No action needed
+                    }
+                    DataOutputEnum::ReadWriter(ref mut rw) => {
+                        rw.freeze()?;
+                    }
+                }
+            }
+            None => {
+                return Err(LuceneError::illegal_state("FSTCompiler's metadata is None"));
+            }
+        }
+
+        Ok(())
+    }
     fn valid_output(&self, output: &T) -> bool {
         std::ptr::eq(output, &self.no_output) || *output != self.no_output
     }
-}
+    /// Returns the estimated heap memory used by the in-construction FST.
+    pub fn fst_ram_bytes_used(&self) -> Result<i64> {
+        let mut ram_bytes_used = self.scratch_bytes.ram_bytes_used()?;
+        ram_bytes_used += self.data_output.ram_bytes_used()?;
+        Ok(ram_bytes_used)
+    }
 
+    /// Returns the current byte size of the FST being built.
+    pub fn fst_size_in_bytes(&self) -> i64 {
+        self.num_bytes_written
+    }
+}
 /// This class is used for FST backed by non-FSTReader DataOutput. It does not allow getting the
 /// reverse BytesReader nor writing to a DataOutput.
-struct NullFSTReader;
+pub(crate) struct NullFSTReader;
 #[allow(unused)]
 impl Accountable for NullFSTReader {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -176,24 +1082,26 @@ impl FstReader for NullFSTReader {
 ///
 /// Creates an FST/FSA builder with all possible tuning and construction tweaks.
 /// Read parameter documentation carefully.
-pub struct Builder<T, O>
+pub struct Builder<T, O, D>
 where
     T: OutputsBound,
     O: Outputs<T>,
+    D: Directory,
 {
     input_type: InputType,
     outputs: O,
     suffix_ram_limit_mb: f64,
     allow_fixed_length_arcs: bool,
-    data_output: Option<ReadWriteDataOutput>,
+    data_output: Option<DataOutputEnum<D>>,
     direct_addressing_max_oversizing_factor: f32,
     version: i32,
     phantom: PhantomData<T>,
 }
-impl<T, O> Builder<T, O>
+impl<T, O, D> Builder<T, O, D>
 where
     T: OutputsBound,
     O: Outputs<T>,
+    D: Directory,
 {
     /// Creates a new [`Builder`] with the given input type and outputs.
     ///
@@ -270,7 +1178,7 @@ where
     /// # See also
     ///
     /// [`fst_compiler_util::get_on_heap_reader_writer`]
-    pub fn data_output(mut self, data_output: ReadWriteDataOutput) -> Self {
+    pub fn data_output(mut self, data_output: DataOutputEnum<D>) -> Self {
         self.data_output = Some(data_output);
         self
     }
@@ -306,31 +1214,116 @@ where
         Ok(self)
     }
     /// Creates a new {@link FSTCompiler}
-    pub fn build(mut self) -> Result<FSTCompiler<T, O, ReadWriteDataOutput>> {
+    pub fn build(mut self) -> Result<FSTCompiler<T, O, D>> {
         if self.data_output.is_none() {
-            self.data_output = Some(fst_compiler_util::get_on_heap_reader_writer(15)?);
+            self.data_output = Some(DataOutputEnum::ReadWriter(
+                fst_compiler_util::get_on_heap_reader_writer(15)?,
+            ));
         }
+        FSTCompiler::new(
+            self.input_type,
+            self.suffix_ram_limit_mb,
+            self.outputs,
+            self.allow_fixed_length_arcs,
+            self.data_output.take().unwrap(),
+            self.direct_addressing_max_oversizing_factor,
+            self.version,
+        )
+    }
+}
+pub enum DataOutputEnum<D>
+where
+    D: Directory,
+{
+    FromDir(D::IndexOutputType),
+    ReadWriter(ReadWriteDataOutput),
+}
+impl<D> Display for DataOutputEnum<D>
+where
+    D: Directory,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DataOutputEnum::FromDir(data_output) => {
+                write!(f, "{}", data_output)
+            }
+            DataOutputEnum::ReadWriter(_) => {
+                write!(f, "ReadWriteDataOutput")
+            }
+        }
+    }
+}
+
+impl<D> Accountable for DataOutputEnum<D>
+where
+    D: Directory,
+{
+    fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
+
+impl<D> FstReader for DataOutputEnum<D>
+where
+    D: Directory,
+{
+    type FstBytesReader = BytesReaderEnum;
+
+    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+        match self {
+            DataOutputEnum::FromDir(_) => Err(LuceneError::unsupported_operation("".to_string())),
+            DataOutputEnum::ReadWriter(ref mut rw) => {
+                let reader = rw.get_reverse_bytes_reader()?;
+                Ok(reader)
+            }
+        }
+    }
+
+    fn write_to(&mut self, out: &mut impl DataOutput) -> Result<()> {
+        match self {
+            DataOutputEnum::FromDir(_) => Err(LuceneError::unsupported_operation("".to_string())),
+            DataOutputEnum::ReadWriter(ref mut rw) => rw.write_to(out),
+        }
+    }
+}
+impl<D> DataOutput for DataOutputEnum<D>
+where
+    D: Directory,
+{
+    fn write_byte(&mut self, b: u8) -> Result<()> {
+        match self {
+            DataOutputEnum::FromDir(data_output) => data_output.write_byte(b),
+            DataOutputEnum::ReadWriter(ref mut rw) => rw.write_byte(b),
+        }
+    }
+
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+        match self {
+            DataOutputEnum::FromDir(data_output) => {
+                data_output.write_bytes_range(b, offset, length)
+            }
+            DataOutputEnum::ReadWriter(ref mut rw) => rw.write_bytes_range(b, offset, length),
+        }
+    }
+}
 /// Expert: holds a pending (seen but not yet serialized) arc.
-pub(crate) struct Arc<T, O, F>
+pub(crate) struct Arc<T, O, D>
 where
     T: OutputsBound,
-    F: FstReader,
     O: Outputs<T>,
+    D: Directory,
 {
     pub label: i32, // really an "unsigned" byte
-    pub target: NodeEnum<T, O, F>,
+    pub target: NodeEnum<T, O, D>,
     pub is_final: bool,
     pub output: T,
     pub next_final_output: T,
 }
-impl<T, O, F> Default for Arc<T, O, F>
+impl<T, O, D> Default for Arc<T, O, D>
 where
     T: OutputsBound,
-    F: FstReader,
     O: Outputs<T>,
+    D: Directory,
 {
     fn default() -> Self {
         Self {
@@ -350,20 +1343,20 @@ where
 pub(crate) trait Node {
     fn is_compiled(&self) -> bool;
 }
-pub(crate) enum NodeEnum<T, O, F>
+pub(crate) enum NodeEnum<T, O, D>
 where
     T: OutputsBound,
-    F: FstReader,
     O: Outputs<T>,
+    D: Directory,
 {
-    UnCompiledNode(UnCompiledNode<T, O, F>),
+    UnCompiledNode(UnCompiledNode<T, O, D>),
     CompiledNode(CompiledNode),
 }
-impl<T, O, F> Node for NodeEnum<T, O, F>
+impl<T, O, D> Node for NodeEnum<T, O, D>
 where
     T: OutputsBound,
-    F: FstReader,
     O: Outputs<T>,
+    D: Directory,
 {
     fn is_compiled(&self) -> bool {
         match self {
@@ -374,7 +1367,7 @@ where
 }
 #[derive(Default)]
 pub(crate) struct CompiledNode {
-    node: i64,
+    pub(crate) node: i64,
 }
 impl CompiledNode {
     pub(crate) fn new() -> Self {
@@ -387,15 +1380,15 @@ impl Node for CompiledNode {
     }
 }
 /// Expert: holds a pending (seen but not yet serialized) Node.
-pub(crate) struct UnCompiledNode<T, O, F>
+pub(crate) struct UnCompiledNode<T, O, D>
 where
     T: OutputsBound,
-    F: FstReader,
     O: Outputs<T>,
+    D: Directory,
 {
-    pub owner: Rc<RefCell<FSTCompiler<T, O, F>>>,
+    pub owner: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
     pub num_arcs: i32,
-    pub arcs: Vec<Arc<T, O, F>>,
+    pub arcs: Vec<Arc<T, O, D>>,
     // TODO: instead of recording is_final/output on the node,
     // maybe we should use -1 arc to mean "end" (like we do when reading the FST).
     // Would simplify much code here...
@@ -405,18 +1398,18 @@ where
     /// This node's depth, starting from the automaton root.
     pub depth: i32,
 }
-impl<T, O, F> UnCompiledNode<T, O, F>
+impl<T, O, D> UnCompiledNode<T, O, D>
 where
     T: OutputsBound,
-    F: FstReader,
     O: Outputs<T>,
+    D: Directory,
 {
     /// Creates a new uncompiled node.
     ///
     /// # Parameters
     /// - `depth`: The node's depth starting from the automaton root.
     ///   Needed for LUCENE-2934 (node expansion based on conditions other than the fanout size).
-    pub(crate) fn new(owner: Rc<RefCell<FSTCompiler<T, O, F>>>, depth: i32) -> Self {
+    pub(crate) fn new(owner: Rc<RefCell<FSTCompilerInner<T, O, D>>>, depth: i32) -> Self {
         let mut arcs = Vec::with_capacity(1);
         arcs.push(Arc::default());
 
@@ -450,7 +1443,7 @@ where
         self.arcs[self.num_arcs as usize - 1].output.clone()
     }
 
-    pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum<T, O, F>) -> Result<()> {
+    pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum<T, O, D>) -> Result<()> {
         debug_assert!(label >= 0);
         debug_assert!(
             self.num_arcs == 0 || label > self.arcs[self.num_arcs as usize - 1].label,
@@ -476,7 +1469,7 @@ where
     pub(crate) fn replace_last(
         &mut self,
         label_to_match: i32,
-        target: NodeEnum<T, O, F>,
+        target: NodeEnum<T, O, D>,
         next_final_output: T,
         is_final: bool,
     ) {
@@ -519,11 +1512,11 @@ where
         }
     }
 }
-impl<T, O, F> Node for UnCompiledNode<T, O, F>
+impl<T, O, D> Node for UnCompiledNode<T, O, D>
 where
     T: OutputsBound,
-    F: FstReader,
     O: Outputs<T>,
+    D: Directory,
 {
     fn is_compiled(&self) -> bool {
         false

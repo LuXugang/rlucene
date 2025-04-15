@@ -16,6 +16,8 @@
  */
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::Ordering;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::num::Wrapping;
 
 pub struct CommonUtil;
 impl CommonUtil {
@@ -34,7 +36,7 @@ impl CommonUtil {
             Ok(from_index)
         }
     }
-    pub(crate) fn miss_match(prior: &[u8], current: &[u8]) -> i32 {
+    pub fn miss_match(prior: &[u8], current: &[u8]) -> i32 {
         let miss_match = prior.iter().zip(current.iter()).position(|(a, b)| a != b);
 
         match miss_match {
@@ -58,6 +60,16 @@ impl CommonUtil {
         let old = std::mem::take(target);
         *target = reset_fn(&old);
         old
+    }
+    pub fn compute_hash<T>(value: &T) -> i64
+    where
+        T: Hash,
+    {
+        let mut hasher = DefaultHasher::new();
+        value.hash(&mut hasher);
+        let h = hasher.finish();
+        let reduced = (h ^ (h >> 32)) as i32;
+        Wrapping(reduced).0 as i64
     }
 }
 

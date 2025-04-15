@@ -16,6 +16,7 @@
  */
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 #[derive(Clone)]
@@ -93,5 +94,13 @@ impl PartialEq for BytesRc {
     fn eq(&self, other: &Self) -> bool {
         self.bytes[self.offset as usize..(self.offset + self.length) as usize]
             == other.bytes[other.offset as usize..(other.offset + other.length) as usize]
+    }
+}
+impl Hash for BytesRc {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let slice = &self.bytes[self.offset as usize..(self.offset + self.length) as usize];
+        slice.hash(state);
+        self.offset.hash(state);
+        self.length.hash(state);
     }
 }

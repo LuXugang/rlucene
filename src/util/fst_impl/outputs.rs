@@ -18,6 +18,7 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use std::fmt::Display;
+use std::hash::Hash;
 
 /// Represents the outputs for an FST, providing the basic algebra required for building and
 /// traversing the FST.
@@ -97,5 +98,5 @@ pub enum OutputsEnum {
     ByteSequence(ByteSequenceOutputs),
 }
 
-pub trait OutputsBound: Clone + PartialEq + Default {}
-impl<T: Clone + PartialEq + Default> OutputsBound for T {}
+pub trait OutputsBound: Clone + PartialEq + Default + Hash {}
+impl<T: Clone + PartialEq + Default + Hash> OutputsBound for T {}

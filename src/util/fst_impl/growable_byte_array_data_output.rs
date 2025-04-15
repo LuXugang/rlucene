@@ -39,8 +39,8 @@ impl GrowableByteArrayDataOutput {
         self.next_write
     }
     /// Returns the full byte buffer.
-    pub(crate) fn get_bytes(&self) -> &[u8] {
-        &self.bytes
+    pub(crate) fn get_bytes(&mut self) -> &mut [u8] {
+        &mut self.bytes
     }
 
     /// Set the position of the byte array, increasing the capacity if needed.

@@ -159,7 +159,7 @@ impl ArrayUtil {
     }
     pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: i32) -> Result<()>
     where
-        T: Clone + Default,
+        T: Default,
     {
         debug_assert!(
             min_size >= 0,
@@ -386,7 +386,7 @@ impl ArrayUtil {
     /// Clone a slice into a new vector.
     pub fn clone_array<T>(array: &[T]) -> Vec<T>
     where
-        T: Clone + Default,
+        T: Clone,
     {
         Self::clone_of_sub_array(array, 0, array.len() as i32)
     }
@@ -454,7 +454,7 @@ impl ArrayUtil {
     /// element cloned individually.
     pub fn clone_of_sub_array<T>(array: &[T], from: i32, to: i32) -> Vec<T>
     where
-        T: Clone + Default,
+        T: Clone,
     {
         debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0 && to as usize <= array.len());
         array[from as usize..to as usize].to_vec()

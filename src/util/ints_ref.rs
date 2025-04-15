@@ -17,6 +17,7 @@
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{Comparator, ToInt};
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -144,6 +145,18 @@ impl Clone for IntsRef {
             offset: self.offset,
             length: self.length,
         }
+    }
+}
+impl PartialOrd for IntsRef {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for IntsRef {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.ints.borrow()[self.offset as usize..(self.offset + self.length) as usize].cmp(
+            &other.ints.borrow()[other.offset as usize..(other.offset + other.length) as usize],
+        )
     }
 }
 impl PartialEq for IntsRef {
