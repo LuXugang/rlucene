@@ -318,7 +318,7 @@ mod tests {
             let mut b = Builder::new(max_doc);
             let mut doc = random.random_range(0..100);
             while doc < max_doc {
-                let _ = b.add(doc);
+                b.add(doc)?;
                 fixed_set_bit.set(doc);
                 doc += base_inc + random.random_range(0..10000);
             }
@@ -349,7 +349,7 @@ mod tests {
             let mut b = Builder::new(max_doc);
             let mut doc = random.random_range(0..1000);
             while doc < max_doc {
-                let _ = b.add(doc);
+                b.add(doc)?;
                 fixed_set_bit.set(doc);
                 doc += 1 + random.random_range(0..100);
             }

@@ -18,7 +18,7 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
-use crate::util::fst_impl::fst_compiler::FSTCompiler;
+use crate::util::fst_impl::fst_compiler::fst_compiler_util;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::read_write_data_output::{BytesReaderEnum, ReadWriteDataOutput};
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
@@ -43,7 +43,7 @@ impl OnHeapFSTStore {
 
         if num_bytes > (1_i64 << max_block_bits) {
             // FST is big: we need multiple pages
-            let mut data_output = FSTCompiler::get_on_heap_reader_writer(max_block_bits)?;
+            let mut data_output = fst_compiler_util::get_on_heap_reader_writer(max_block_bits)?;
             data_output.copy_bytes(input, num_bytes)?;
             data_output.freeze()?;
             Ok(Self {

@@ -821,7 +821,7 @@ pub mod fst_util {
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fst_impl::dummy::dummy_bytes_reader::{BytesReader, InputType};
     use crate::util::fst_impl::fst::{fst_util, Arc, FSTMetadata};
-    use crate::util::fst_impl::fst_compiler::FSTCompiler;
+    use crate::util::fst_impl::fst_compiler::fst_compiler_util;
     use crate::util::fst_impl::fst_reader::FstReader;
     use crate::util::fst_impl::outputs::Outputs;
     use std::cell::RefCell;
@@ -926,7 +926,7 @@ pub mod fst_util {
         if meta_in.read_byte()? == 1 {
             // Accepts empty string
             // 1 KB blocks:
-            let mut empty_bytes = FSTCompiler::get_on_heap_reader_writer(10)?;
+            let mut empty_bytes = fst_compiler_util::get_on_heap_reader_writer(10)?;
             let num_bytes = meta_in.read_vint()?;
             empty_bytes.copy_bytes(meta_in, num_bytes as i64)?;
             empty_bytes.freeze()?;
