@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::CodecUtil;
+use crate::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::bit_table_util::BitTableUtil;
@@ -25,7 +26,8 @@ use crate::util::fst_impl::outputs::Outputs;
 use core::fmt;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::fs::File;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 pub struct FST<T, O, F>
@@ -101,20 +103,23 @@ where
     ///
     /// * `metaOut` - the DataOutput to write the metadata to  
     /// * `out` - the DataOutput to write the FST bytes to
-    pub fn save(
+    pub fn save<D: DataOutput>(
         &mut self,
-        meta_out: &mut impl DataOutput,
-        out: &mut impl DataOutput,
+        meta_out: Rc<RefCell<D>>,
+        out: Rc<RefCell<D>>,
     ) -> Result<()> {
-        self.metadata.save(meta_out)?;
-        self.fst_reader.write_to(out)
+        self.metadata.save(&mut *meta_out.borrow_mut())?;
+        self.fst_reader.write_to(&mut *out.borrow_mut())
     }
     /// Writes the automaton to a file.
-    pub fn save_to_path(&self, path: &Path) -> Result<()> {
-        todo!()
+    pub fn save_to_path(&mut self, path: &PathBuf) -> Result<()> {
+        let file = File::create(path)?; // or: path.as_path()
+        let out = Rc::new(RefCell::new(OutputStreamDataOutput::new(file)));
+        self.save(out.clone(), out)?;
+        Ok(())
     }
     /// Reads the automaton from a file.
-    pub fn read_from_path(path: &Path, outputs: Rc<RefCell<O>>) -> Result<Self> {
+    pub fn read_from_path(_path: &PathBuf, _outputs: Rc<RefCell<O>>) -> Result<Self> {
         todo!()
     }
     /// Reads one BYTE1/2/4 label from the provided DataInput.
@@ -820,6 +825,7 @@ pub mod fst_util {
     use crate::util::fst_impl::fst_reader::FstReader;
     use crate::util::fst_impl::outputs::Outputs;
     use std::cell::RefCell;
+    
     use std::rc::Rc;
 
     pub(crate) const BIT_FINAL_ARC: u8 = 1 << 0;
@@ -958,6 +964,7 @@ pub mod fst_util {
             num_bytes,
         ))
     }
+
     /// Returns `true` if the node at this address has any outgoing arcs.
     pub fn target_has_arcs<T: Clone>(arc: &Arc<T>) -> bool {
         arc.target() > 0
