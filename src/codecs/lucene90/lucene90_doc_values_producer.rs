@@ -49,7 +49,7 @@ use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::terms_enums::TermsEnums;
 use crate::index::{BytesRef, IndexFileNames};
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::random_access_input::RandomAccessInput;
@@ -62,7 +62,9 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
-use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
+use crate::util::packed::direct_monotonic_reader::{
+    direct_monotonic_reader_util, DirectMonotonicReader,
+};
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use crate::util::{SliceCopyOps, ToInt};
 use std::borrow::Cow;
@@ -380,7 +382,7 @@ where
             // Old count of uncompressed addresses
             let num_addresses = num_docs_with_field as i64 + 1;
             let block_shift = meta.read_vint()?; // 注意这里是 VInt
-            addresses_meta = Some(DirectMonotonicReader::load_meta(
+            addresses_meta = Some(direct_monotonic_reader_util::load_meta(
                 meta,
                 num_addresses,
                 block_shift,
@@ -457,7 +459,7 @@ where
             - 1)
             >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
 
-        entry.terms_addresses_meta = Some(DirectMonotonicReader::load_meta(
+        entry.terms_addresses_meta = Some(direct_monotonic_reader_util::load_meta(
             meta,
             addresses_size,
             block_shift,
@@ -474,7 +476,7 @@ where
         let index_size = (entry.terms_dict_size + (1 << entry.terms_dict_index_shift) - 1)
             >> entry.terms_dict_index_shift;
 
-        entry.terms_index_addresses_meta = Some(DirectMonotonicReader::load_meta(
+        entry.terms_index_addresses_meta = Some(direct_monotonic_reader_util::load_meta(
             meta,
             1 + index_size,
             block_shift,
@@ -507,7 +509,7 @@ where
         if entry.num_docs_with_field as i64 != entry.base.num_values {
             entry.addresses_offset = meta.read_long()?;
             let block_shift = meta.read_vint()?;
-            entry.addresses_meta = Some(DirectMonotonicReader::load_meta(
+            entry.addresses_meta = Some(direct_monotonic_reader_util::load_meta(
                 meta,
                 entry.num_docs_with_field as i64 + 1,
                 block_shift,
@@ -1653,7 +1655,7 @@ impl<I> DocValuesSkipper for DocValuesSkipperImpl<I>
 where
     I: IndexInput,
 {
-    fn advance(&mut self, target: i32) -> crate::util::error::lucene_error::Result<()> {
+    fn advance(&mut self, target: i32) -> Result<()> {
         if target > self.entry.max_doc_id {
             // skipper is exhausted
             for i in 0..Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL {

@@ -23,7 +23,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::bit_set_iterator::BitSetIterator;
 use std::rc::Rc;
 
@@ -85,12 +85,13 @@ impl Accountable for RoaringDocIdSet {
     }
 }
 pub mod builder {
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
     use crate::util::bits::Bits;
     use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::not_doc_id_set::NotDocIdSet;
     use crate::util::roaring_doc_id_set::{
@@ -131,7 +132,7 @@ pub mod builder {
             }
         }
         /// Add a new doc-id to this builder. NOTE: doc ids must be added in order.
-        pub fn add(&mut self, doc_id: i32) -> crate::util::error::lucene_error::Result<()> {
+        pub fn add(&mut self, doc_id: i32) -> Result<()> {
             if doc_id <= self.last_doc_id {
                 return Err(LuceneError::illegal_argument(format!(
                     "Doc ids must be added in-order, got {} which is <= lastDocID=",
@@ -163,10 +164,7 @@ pub mod builder {
             Ok(())
         }
         /// Add the content of the provided DocIdSetIterator.
-        pub fn add_disi<T: DocIdSetIterator>(
-            &mut self,
-            mut disi: T,
-        ) -> crate::util::error::lucene_error::Result<()> {
+        pub fn add_disi<T: DocIdSetIterator>(&mut self, mut disi: T) -> Result<()> {
             let mut doc = disi.next_doc()?;
             while doc != NO_MORE_DOCS {
                 let _ = self.add(doc);
@@ -178,7 +176,7 @@ pub mod builder {
             let _ = self.flush();
             RoaringDocIdSet::new(std::mem::take(&mut self.sets), self.cardinality)
         }
-        fn flush(&mut self) -> crate::util::error::lucene_error::Result<()> {
+        fn flush(&mut self) -> Result<()> {
             debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
             if self.current_block_cardinality <= MAX_ARRAY_LENGTH {
                 // use sparse encoding

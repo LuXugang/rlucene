@@ -26,7 +26,7 @@ use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
+use crate::util::packed::direct_monotonic_writer::direct_monotonic_writer_util;
 use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -108,13 +108,14 @@ impl Lucene90CompressingStoredFieldsFormat {
                 "max_docs_per_chunk must be >= 1".to_string(),
             ));
         }
-        if !(DirectMonotonicWriter::MIN_BLOCK_SHIFT..=DirectMonotonicWriter::MAX_BLOCK_SHIFT)
+        if !(direct_monotonic_writer_util::MIN_BLOCK_SHIFT
+            ..=direct_monotonic_writer_util::MAX_BLOCK_SHIFT)
             .contains(&block_shift)
         {
             return Err(LuceneError::illegal_argument(format!(
                 "block_shift must be in {}-{}, got {}",
-                DirectMonotonicWriter::MIN_BLOCK_SHIFT,
-                DirectMonotonicWriter::MAX_BLOCK_SHIFT,
+                direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
+                direct_monotonic_writer_util::MAX_BLOCK_SHIFT,
                 block_shift
             )));
         }

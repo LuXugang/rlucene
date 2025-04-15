@@ -23,7 +23,7 @@ use crate::util::error::lucene_error::Result;
 pub trait PostingsEnum: DocIdSetIterator {
     /// Returns term frequency in the current document, or 1 if the field was indexed with [`DOCS`](crate::index::index_options::IndexOptions::DOCS) only.
     ///  Do not call this before [`nextDoc`](DocIdSetIterator::next_doc) is first called, nor after
-    /// [`nextDoc`](DocIdSetIterator::next_doc) returns [`DocIdSetIterator#NO_MORE_DOCS`](crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS)
+    /// [`nextDoc`](DocIdSetIterator::next_doc) returns [`DocIdSetIterator#NO_MORE_DOCS`](crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS)
     ///
     /// NOTE: if this enum was obtained with `NONE`, the result of this method is undefined.
     fn freq(&mut self) -> Result<i32>;

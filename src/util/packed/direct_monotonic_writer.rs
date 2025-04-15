@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::IndexOutput;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::packed::direct_writer::DirectWriter;
+use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
 /// Write monotonically-increasing sequences of integers. This writer splits data into blocks and
 /// then for each block, computes the average slope, the minimum value, and encodes only the delta
 /// from the expected value using a `DirectWriter`.
@@ -42,7 +41,7 @@ where
     finished: bool,
     previous: i64,
 }
-impl DirectMonotonicWriter<'_, DummyIndexOutput, DummyIndexOutput> {
+pub mod direct_monotonic_writer_util {
     pub const MIN_BLOCK_SHIFT: i32 = 2;
     pub const MAX_BLOCK_SHIFT: i32 = 22;
 }
@@ -58,13 +57,14 @@ where
         num_values: i64,
         block_shift: i32,
     ) -> Result<Self> {
-        if !(DirectMonotonicWriter::MIN_BLOCK_SHIFT..=DirectMonotonicWriter::MAX_BLOCK_SHIFT)
+        if !(direct_monotonic_writer_util::MIN_BLOCK_SHIFT
+            ..=direct_monotonic_writer_util::MAX_BLOCK_SHIFT)
             .contains(&block_shift)
         {
             return Err(LuceneError::illegal_argument(format!(
                 "blockShift must be in [{}-{}], got {}",
-                DirectMonotonicWriter::MIN_BLOCK_SHIFT,
-                DirectMonotonicWriter::MAX_BLOCK_SHIFT,
+                direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
+                direct_monotonic_writer_util::MAX_BLOCK_SHIFT,
                 block_shift
             )));
         }
@@ -140,7 +140,7 @@ where
         if max_delta == 0 {
             self.meta.write_byte(0)?;
         } else {
-            let bits_required = DirectWriter::unsigned_bits_required(max_delta);
+            let bits_required = direct_writer_util::unsigned_bits_required(max_delta);
             let mut writer =
                 DirectWriter::get_instance(self.data, self.buffer_size as i64, bits_required)?;
             for i in 0..(self.buffer_size as usize) {

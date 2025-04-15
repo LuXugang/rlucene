@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::lucene90::fields_index::FieldsIndex;
-use crate::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
+use crate::codecs::lucene90::fields_index_writer::fields_index_writer_const;
 use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
@@ -23,7 +23,9 @@ use crate::store::{IOContext, IndexInput, ReadAdvice};
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
-use crate::util::packed::direct_monotonic_reader::DirectMonotonicReader;
+use crate::util::packed::direct_monotonic_reader::{
+    direct_monotonic_reader_util, DirectMonotonicReader,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -69,11 +71,12 @@ where
         let block_shift = meta_in.read_int()?;
         let num_chunks = meta_in.read_int()?;
         let docs_start_pointer = meta_in.read_long()?;
-        let docs_meta = DirectMonotonicReader::load_meta(meta_in, num_chunks as i64, block_shift)?;
+        let docs_meta =
+            direct_monotonic_reader_util::load_meta(meta_in, num_chunks as i64, block_shift)?;
         let docs_end_pointer = meta_in.read_long()?;
         let start_pointers_start_pointer = meta_in.read_long()?;
         let start_pointers_meta =
-            DirectMonotonicReader::load_meta(meta_in, num_chunks as i64, block_shift)?;
+            direct_monotonic_reader_util::load_meta(meta_in, num_chunks as i64, block_shift)?;
         let start_pointers_end_pointer = meta_in.read_long()?;
         let max_pointer = meta_in.read_long()?;
 
@@ -85,8 +88,8 @@ where
         CodecUtil::check_index_header(
             &mut index_input,
             &format!("{}Idx", codec_name),
-            FieldsIndexWriter::VERSION_START,
-            FieldsIndexWriter::VERSION_CURRENT,
+            fields_index_writer_const::VERSION_START,
+            fields_index_writer_const::VERSION_CURRENT,
             id,
             suffix,
         )?;

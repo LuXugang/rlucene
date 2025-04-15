@@ -23,7 +23,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bits::FixedBits;
 
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use std::hash::{Hash, Hasher};
 
 // todo
@@ -678,7 +678,7 @@ mod tests {
     use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
     use crate::test::util::lucene_test_case::{is_night_mode, random};
 
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSetIterator;

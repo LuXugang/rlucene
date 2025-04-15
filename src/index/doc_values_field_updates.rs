@@ -19,7 +19,7 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
@@ -1054,7 +1054,7 @@ mod tests {
     };
     use crate::test::util::lucene_test_case::{random, rarely};
 
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::util::error::lucene_error::Result;
     use rand::prelude::SliceRandom;

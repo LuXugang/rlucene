@@ -16,7 +16,7 @@
  */
 use crate::index::merge_state::{DocMap, DocMapEnum};
 
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use std::cell::RefCell;
@@ -39,6 +39,7 @@ where
 #[allow(unused)]
 pub mod doc_id_merger_static {
     use crate::index::{DocIDMergerEnum, SequentialDocIDMerger, SortedDocIDMerger, Sub, SubBase};
+    use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -47,7 +48,7 @@ pub mod doc_id_merger_static {
         subs: Vec<Rc<RefCell<Sub<S>>>>,
         max_count: i32,
         index_is_sorted: bool,
-    ) -> crate::util::error::lucene_error::Result<DocIDMergerEnum<S>> {
+    ) -> Result<DocIDMergerEnum<S>> {
         if index_is_sorted && max_count > 1 {
             Ok(DocIDMergerEnum::Sorted(SortedDocIDMerger::new(
                 subs, max_count,
@@ -62,7 +63,7 @@ pub mod doc_id_merger_static {
     pub(crate) fn of<S: SubBase + Default>(
         subs: Vec<Rc<RefCell<Sub<S>>>>,
         index_is_sorted: bool,
-    ) -> crate::util::error::lucene_error::Result<DocIDMergerEnum<S>> {
+    ) -> Result<DocIDMergerEnum<S>> {
         let max_count = subs.len() as i32;
         of_with_max_count(subs, max_count, index_is_sorted)
     }
@@ -313,7 +314,7 @@ pub mod tests {
     use crate::index::doc_id_merger_static::of;
     use crate::index::merge_state::{DocMap, DocMapEnum};
 
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_set::BitSet;

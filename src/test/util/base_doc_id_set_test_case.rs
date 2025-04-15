@@ -19,7 +19,7 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::test::util::base_bit_set_test_case::random_set;
 use crate::test::util::lucene_test_case::is_night_mode;
 
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::test::util::test_util::TestUtil;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;

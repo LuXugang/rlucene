@@ -17,12 +17,12 @@
 use crate::codecs::CodecUtil;
 use crate::index::point_values::{IntersectVisitor, PointTree, PointValuesBase, Relation};
 use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::{DataInput, IndexInput};
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::util::bkd::bkd_config::BKDConfig;
-use crate::util::bkd::bkd_writer::BKDWriter;
+use crate::util::bkd::bkd_writer::bkd_writer_util;
 use crate::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::math_util::MathUtil;
@@ -65,13 +65,13 @@ where
         let meta_in = &mut *meta_in.borrow_mut();
         let version = CodecUtil::check_header(
             meta_in,
-            BKDWriter::CODEC_NAME,
-            BKDWriter::VERSION_START,
-            BKDWriter::VERSION_CURRENT,
+            bkd_writer_util::CODEC_NAME,
+            bkd_writer_util::VERSION_START,
+            bkd_writer_util::VERSION_CURRENT,
         )?;
 
         let num_dims = meta_in.read_vint()?;
-        let num_index_dims = if version >= BKDWriter::VERSION_SELECTIVE_INDEXING {
+        let num_index_dims = if version >= bkd_writer_util::VERSION_SELECTIVE_INDEXING {
             meta_in.read_vint()?
         } else {
             num_dims
@@ -115,18 +115,19 @@ where
         let doc_count = meta_in.read_vint()?;
         let num_index_bytes = meta_in.read_vint()?;
 
-        let (min_leaf_block_fp, index_start_pointer) = if version >= BKDWriter::VERSION_META_FILE {
-            (
-                DataInput::read_long(meta_in)?,
-                DataInput::read_long(meta_in)?,
-            )
-        } else {
-            let mut index_in = index_in.borrow_mut();
-            let index_start_pointer = index_in.get_file_pointer();
-            let min_leaf_block_fp = index_in.read_vlong()?;
-            index_in.seek(index_start_pointer)?;
-            (min_leaf_block_fp, index_start_pointer)
-        };
+        let (min_leaf_block_fp, index_start_pointer) =
+            if version >= bkd_writer_util::VERSION_META_FILE {
+                (
+                    DataInput::read_long(meta_in)?,
+                    DataInput::read_long(meta_in)?,
+                )
+            } else {
+                let mut index_in = index_in.borrow_mut();
+                let index_start_pointer = index_in.get_file_pointer();
+                let min_leaf_block_fp = index_in.read_vlong()?;
+                index_in.seek(index_start_pointer)?;
+                (min_leaf_block_fp, index_start_pointer)
+            };
         let mut reader = Self {
             config,
             num_leaves,
@@ -147,7 +148,7 @@ where
     }
     /// Checks if the tree is balanced.
     fn is_tree_balanced(&self) -> Result<bool> {
-        if self.version >= BKDWriter::VERSION_META_FILE {
+        if self.version >= bkd_writer_util::VERSION_META_FILE {
             // Since Lucene 8.6 all trees are unbalanced.
             return Ok(false);
         }
@@ -648,7 +649,7 @@ where
     fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor, fp: i64) -> Result<()> {
         let count = self.read_doc_ids(fp)?;
 
-        if self.version >= BKDWriter::VERSION_LOW_CARDINALITY_LEAVES {
+        if self.version >= bkd_writer_util::VERSION_LOW_CARDINALITY_LEAVES {
             self.visit_doc_values_with_cardinality(count, visitor)?;
         } else {
             self.visit_doc_values_no_cardinality(count, visitor)?;
@@ -773,7 +774,9 @@ where
 
         self.read_common_prefixes()?;
 
-        if self.config.num_index_dims > 1 && self.version >= BKDWriter::VERSION_LEAF_STORES_BOUNDS {
+        if self.config.num_index_dims > 1
+            && self.version >= bkd_writer_util::VERSION_LEAF_STORES_BOUNDS
+        {
             self.scratch_max_index_packed_value.copy_from(
                 &self.scratch_data_packed_value[..packed_index_bytes_length],
                 0,
@@ -1011,7 +1014,8 @@ where
 
         if compressed_dim < -2
             || compressed_dim >= self.config.num_dims
-            || (self.version < BKDWriter::VERSION_LOW_CARDINALITY_LEAVES && compressed_dim == -2)
+            || (self.version < bkd_writer_util::VERSION_LOW_CARDINALITY_LEAVES
+                && compressed_dim == -2)
         {
             return Err(LuceneError::corrupt_index(format!(
                 "Got compressedDim={} from input, (resource={})",

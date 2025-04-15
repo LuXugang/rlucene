@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
+use crate::codecs::indexed_disi::indexed_disi_util;
 use crate::codecs::lucene90::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
@@ -26,7 +27,7 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::IndexFileNames;
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
@@ -267,7 +268,7 @@ where
             }
         }
 
-        let jump_table = IndexedDISI::create_jump_table(
+        let jump_table = indexed_disi_util::create_jump_table(
             &mut self.data,
             entry.docs_with_field_offset,
             entry.docs_with_field_length,
@@ -294,7 +295,7 @@ where
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::Slice>>> {
         // TODO: Due to the generic constraints, following the Java Lucene implementation currently makes it impossible to cache the Slice.
-        let input = IndexedDISI::create_block_slice(
+        let input = indexed_disi_util::create_block_slice(
             &mut self.data,
             "docs",
             entry.docs_with_field_offset,
@@ -304,7 +305,7 @@ where
         Ok(Rc::new(RefCell::new(input)))
 
         // if !self.merging {
-        //     let input = IndexedDISI::create_block_slice(
+        //     let input = indexed_disi_util::create_block_slice(
         //         &mut self.data,
         //         "docs",
         //         entry.docs_with_field_offset,
@@ -318,7 +319,7 @@ where
         //     return Ok(Rc::clone(existing));
         // }
         //
-        // let input = IndexedDISI::create_block_slice(
+        // let input = indexed_disi_util::create_block_slice(
         //     &mut self.data,
         //     "docs",
         //     entry.docs_with_field_offset,

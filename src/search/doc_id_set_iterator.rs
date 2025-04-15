@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// This abstract struct defines methods to iterate over a set of non-decreasing document IDs.
@@ -228,7 +228,7 @@ impl DocIdSetIterator for Range {
         Ok((self.max_doc - self.min_doc) as i64)
     }
 }
-pub mod doc_id_set_iterator_static {
+pub mod disi_const {
     /// When returned by [`next_doc`](crate::search::doc_id_set_iterator::DocIdSetIterator::next_doc), [`advance`](crate::search::doc_id_set_iterator::DocIdSetIterator::advance), and [`doc_id`](crate::search::doc_id_set_iterator::DocIdSetIterator::doc_id),
     /// it means there are no more documents in the iterator.
     pub const NO_MORE_DOCS: i32 = i32::MAX;
@@ -236,7 +236,7 @@ pub mod doc_id_set_iterator_static {
 
 #[cfg(test)]
 mod tests {
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range};
     use crate::util::error::lucene_error::Result;
 

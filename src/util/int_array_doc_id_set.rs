@@ -19,7 +19,7 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bits::MatchNoBits;
 
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 
@@ -145,7 +145,7 @@ mod tests {
     };
     use crate::test::util::lucene_test_case::random;
 
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::util::error::lucene_error::Result;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use rand::rngs::StdRng;

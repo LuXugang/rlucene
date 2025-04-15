@@ -24,7 +24,6 @@ use crate::index::IndexFileNames;
 
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::{DataInput, IndexOutput, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::output_enum::OutputEnum;
@@ -123,18 +122,15 @@ where
     // before finishCommit is called
     pending_commit: bool,
 }
-impl SegmentInfos<DummyDirectory> {
+pub mod segment_infos_util {
     /// The version at the time when 8.0 was released.
     pub const VERSION_74: i32 = 9;
     /// The version that recorded SegmentCommitInfo IDs.
     pub const VERSION_86: i32 = 10;
     /// Current version of SegmentInfos.
-    pub const VERSION_CURRENT: i32 = Self::VERSION_86;
+    pub(crate) const VERSION_CURRENT: i32 = VERSION_86;
     /// Name of the generation reference file name.
-    pub const OLD_SEGMENTS_GEN: &'static str = "segments.gen";
-    pub fn with_defaults(index_created_version_major: i32) -> Result<Self> {
-        SegmentInfos::new(index_created_version_major)
-    }
+    pub(crate) const OLD_SEGMENTS_GEN: &str = "segments.gen";
 }
 impl<D> SegmentInfos<D>
 where
@@ -288,8 +284,8 @@ where
         let format = CodecUtil::check_header_no_magic(
             input,
             "segments",
-            SegmentInfos::VERSION_74,
-            SegmentInfos::VERSION_CURRENT,
+            segment_infos_util::VERSION_74,
+            segment_infos_util::VERSION_CURRENT,
         )?;
 
         // Read the ID
@@ -333,7 +329,7 @@ where
             prior_error = Some(e);
         }
 
-        if format >= SegmentInfos::VERSION_74 {
+        if format >= segment_infos_util::VERSION_74 {
             if let Some(mut e) = prior_error {
                 return Err(CodecUtil::check_footer_with_error(input, &mut e));
             } else {
@@ -420,7 +416,7 @@ where
                 )));
             }
 
-            let sci_id = if format > SegmentInfos::VERSION_74 {
+            let sci_id = if format > segment_infos_util::VERSION_74 {
                 match input.read_byte()? {
                     1 => {
                         let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
@@ -593,7 +589,7 @@ where
         CodecUtil::write_index_header(
             out,
             "segments",
-            SegmentInfos::VERSION_CURRENT,
+            segment_infos_util::VERSION_CURRENT,
             &StringHelper::random_id(),
             &format!("{:x}", self.generation),
         )?;
@@ -1308,7 +1304,7 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
     for file in files {
         if file.starts_with(IndexFileNames::SEGMENTS)
             // skipping this file here helps deliver the right exception when opening an old index
-            && !file.starts_with( SegmentInfos::OLD_SEGMENTS_GEN)
+            && !file.starts_with( segment_infos_util::OLD_SEGMENTS_GEN)
         {
             let gen = generation_from_segments_file_name(file)?;
             if gen > max {
@@ -1348,10 +1344,10 @@ pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
 }
 /// Parse the generation off the segment file name and return it.
 pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64> {
-    if file_name == SegmentInfos::OLD_SEGMENTS_GEN {
+    if file_name == segment_infos_util::OLD_SEGMENTS_GEN {
         Err(LuceneError::illegal_argument(format!(
             "\"{}\" is not a valid segment file name since 4.0",
-            SegmentInfos::OLD_SEGMENTS_GEN
+            segment_infos_util::OLD_SEGMENTS_GEN
         )))
     } else if file_name == IndexFileNames::SEGMENTS {
         Ok(0)
@@ -1386,6 +1382,7 @@ mod tests {
     use crate::test::util::lucene_test_case::new_directory;
     use crate::test::util::lucene_test_case::random;
 
+    use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
@@ -1399,7 +1396,7 @@ mod tests {
     #[test]
     fn test_illegal_created_version() -> Result<()> {
         // Test for an indexCreatedVersionMajor less than 6
-        let result = SegmentInfos::with_defaults(5);
+        let result = SegmentInfos::<DummyDirectory>::new(5);
         assert!(result.is_err());
         if let Err(err) = result {
             assert!(err
@@ -1409,7 +1406,7 @@ mod tests {
 
         // Test for an indexCreatedVersionMajor greater than LATEST.major
         let future_version = LATEST.major + 1;
-        let result = SegmentInfos::with_defaults(future_version);
+        let result = SegmentInfos::<DummyDirectory>::new(future_version);
         assert!(result.is_err());
         let expect = format!(
             "indexCreatedVersionMajor is in the future: {}",

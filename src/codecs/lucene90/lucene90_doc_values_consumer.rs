@@ -21,7 +21,7 @@ use crate::codecs::doc_values_enum::doc_values::{
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
-use crate::codecs::indexed_disi::IndexedDISI;
+use crate::codecs::indexed_disi::indexed_disi_util;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::CodecUtil;
 use crate::index::binary_doc_values::BinaryDocValues;
@@ -36,7 +36,7 @@ use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::{BytesRefBuilder, IndexFileNames};
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::sorted_set_selector::{SortedSetSelector, SortedSetSelectorType};
 use crate::store::directory::Directory;
@@ -51,7 +51,7 @@ use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::math_util::MathUtil;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
-use crate::util::packed::direct_writer::DirectWriter;
+use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
 use crate::util::{CommonUtil, StringHelper};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -362,17 +362,17 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             self.meta.write_long(offset)?; // docsWithFieldOffset
 
             let mut values = values_producer.get_sorted_numeric(field)?;
-            let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+            let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
                 &mut values,
                 &mut self.data,
-                IndexedDISI::DEFAULT_DENSE_RANK_POWER,
+                indexed_disi_util::DEFAULT_DENSE_RANK_POWER,
             )?;
 
             self.meta
                 .write_long(self.data.get_file_pointer() - offset)?;
             self.meta.write_short(jump_table_entry_count)?;
             self.meta
-                .write_byte(IndexedDISI::DEFAULT_DENSE_RANK_POWER as u8)?;
+                .write_byte(indexed_disi_util::DEFAULT_DENSE_RANK_POWER as u8)?;
         }
 
         self.meta.write_long(num_values)?;
@@ -387,14 +387,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             self.meta.write_int(-1)?;
         } else if let Some(set) = unique_values.as_ref() {
             if set.len() > 1
-                && DirectWriter::unsigned_bits_required(set.len() as i64 - 1)
-                    < DirectWriter::unsigned_bits_required((max - min) / gcd)
+                && direct_writer_util::unsigned_bits_required(set.len() as i64 - 1)
+                    < direct_writer_util::unsigned_bits_required((max - min) / gcd)
             {
                 let mut sorted: Vec<i64> = set.iter().cloned().collect();
                 sorted.sort_unstable();
                 debug_assert!(sorted.len() <= i32::MAX as usize);
                 let set_len = sorted.len() as i32;
-                num_bits_per_value = DirectWriter::unsigned_bits_required(set_len as i64 - 1);
+                num_bits_per_value = direct_writer_util::unsigned_bits_required(set_len as i64 - 1);
                 self.meta.write_int(set_len)?;
                 for v in &sorted {
                     self.meta.write_long(*v)?;
@@ -417,11 +417,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                     self.meta
                         .write_int(-2 - Lucene90DocValuesFormat::NUMERIC_BLOCK_SHIFT)?;
                 } else {
-                    num_bits_per_value = DirectWriter::unsigned_bits_required((max - min) / gcd);
+                    num_bits_per_value =
+                        direct_writer_util::unsigned_bits_required((max - min) / gcd);
                     if gcd == 1
                         && min > 0
-                        && DirectWriter::unsigned_bits_required(max)
-                            == DirectWriter::unsigned_bits_required(max - min)
+                        && direct_writer_util::unsigned_bits_required(max)
+                            == direct_writer_util::unsigned_bits_required(max - min)
                     {
                         min = 0;
                     }
@@ -555,7 +556,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             self.data.write_byte(0)?;
             self.data.write_long(min)?;
         } else {
-            let bits_per_value = DirectWriter::unsigned_bits_required((max - min) / gcd);
+            let bits_per_value = direct_writer_util::unsigned_bits_required((max - min) / gcd);
 
             buffer.reset();
             assert_eq!(buffer.size(), 0);
@@ -953,16 +954,16 @@ where
             let offset = self.data.get_file_pointer();
             self.meta.write_long(offset)?; // docsWithFieldOffset
             let mut values = values_producer.get_binary(field)?;
-            let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+            let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
                 &mut values,
                 &mut self.data,
-                IndexedDISI::DEFAULT_DENSE_RANK_POWER,
+                indexed_disi_util::DEFAULT_DENSE_RANK_POWER,
             )?;
             self.meta
                 .write_long(self.data.get_file_pointer() - offset)?; //docsWithFieldLength
             self.meta.write_short(jump_table_entry_count)?;
             self.meta
-                .write_byte(IndexedDISI::DEFAULT_DENSE_RANK_POWER as u8)?;
+                .write_byte(indexed_disi_util::DEFAULT_DENSE_RANK_POWER as u8)?;
         }
 
         self.meta.write_int(num_docs_with_field)?;
@@ -1109,7 +1110,7 @@ impl MinMaxTracker {
     /// Update the required space
     pub fn finish(&mut self) {
         if self.max > self.min {
-            let bits = DirectWriter::unsigned_bits_required(self.max - self.min);
+            let bits = direct_writer_util::unsigned_bits_required(self.max - self.min);
             self.space_in_bits += bits as i64 * self.num_values;
         }
     }

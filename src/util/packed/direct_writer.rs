@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::dummy::dummy_data_output::DummyDataOutput;
 use crate::store::DataOutput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -198,7 +197,7 @@ where
     }
     /// Returns an instance suitable for encoding `numValues` using `bitsPerValue`.
     pub fn get_instance(output: &'a mut D, num_values: i64, bits_per_value: i32) -> Result<Self> {
-        match Self::SUPPORTED_BITS_PER_VALUE.binary_search(&bits_per_value) {
+        match direct_writer_util::SUPPORTED_BITS_PER_VALUE.binary_search(&bits_per_value) {
             Ok(_) => (),
             Err(_) => {
                 return Err(LuceneError::illegal_argument(format!(
@@ -209,21 +208,10 @@ where
         }
         DirectWriter::new(output, num_values, bits_per_value)
     }
-
-    /// Returns how many bits are required to hold values up to and including `max_value`, interpreted as an unsigned value.
-    ///
-    /// # Parameters
-    /// - `max_value`: The maximum value that should be representable.
-    ///
-    /// # Returns
-    /// The amount of bits needed to represent values from 0 to `max_value`.
-    ///
-    /// # See also
-    /// `PackedInts::unsigned_bits_required(long)`
-    const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
-        [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64];
 }
-impl DirectWriter<'_, DummyDataOutput> {
+pub mod direct_writer_util {
+    use crate::util::packed::PackedInts;
+
     /// Round a number of bits per value to the next amount of bits per value that is supported by this
     /// writer.
     ///
@@ -234,9 +222,9 @@ impl DirectWriter<'_, DummyDataOutput> {
     /// The next number of bits per value that is greater than or equal to the provided value and supported by this
     /// writer.
     fn round_bits(bits_required: i32) -> i32 {
-        match Self::SUPPORTED_BITS_PER_VALUE.binary_search(&bits_required) {
+        match SUPPORTED_BITS_PER_VALUE.binary_search(&bits_required) {
             Ok(_) => bits_required,
-            Err(index) => Self::SUPPORTED_BITS_PER_VALUE[index],
+            Err(index) => SUPPORTED_BITS_PER_VALUE[index],
         }
     }
     /// Returns how many bits are required to hold values up to and including `max_value`.
@@ -249,10 +237,22 @@ impl DirectWriter<'_, DummyDataOutput> {
     ///
     /// # See also
     /// `PackedInts::bits_required(long)`
-    pub fn bits_required(max_value: i64) -> Result<i32> {
-        Ok(Self::round_bits(PackedInts::bits_required(max_value)?))
+    pub fn bits_required(max_value: i64) -> crate::util::error::lucene_error::Result<i32> {
+        Ok(round_bits(PackedInts::bits_required(max_value)?))
     }
     pub fn unsigned_bits_required(max_value: i64) -> i32 {
-        Self::round_bits(PackedInts::unsigned_bits_required(max_value))
+        round_bits(PackedInts::unsigned_bits_required(max_value))
     }
+    /// Returns how many bits are required to hold values up to and including `max_value`, interpreted as an unsigned value.
+    ///
+    /// # Parameters
+    /// - `max_value`: The maximum value that should be representable.
+    ///
+    /// # Returns
+    /// The amount of bits needed to represent values from 0 to `max_value`.
+    ///
+    /// # See also
+    /// `PackedInts::unsigned_bits_required(long)`
+    pub(crate) const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
+        [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64];
 }

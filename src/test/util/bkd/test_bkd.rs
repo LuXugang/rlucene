@@ -17,10 +17,10 @@
 use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
 use crate::index::merge_state::{DocMap, DocMapEnum};
 use crate::index::point_values::{
-    IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
+    point_values_util, IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
 };
 use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, IndexOutput};
@@ -29,7 +29,7 @@ use crate::test::util::test_util::TestUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_reader::BKDReader;
-use crate::util::bkd::bkd_writer::BKDWriter;
+use crate::util::bkd::bkd_writer::{bkd_writer_util, BKDWriter};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
 use crate::util::{SliceCopyOps, ToInt};
@@ -425,10 +425,10 @@ fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<()> {
     let num_docs = TestUtil::next_int(random, count, count * 2);
     let num_bytes_per_dim = TestUtil::next_int(random, 2, 30);
 
-    let num_data_dims = TestUtil::next_int(random, 1, PointValues::MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(random, 1, num_data_dims),
-        PointValues::MAX_INDEX_DIMENSIONS,
+        point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let mut doc_values = vec![
@@ -457,10 +457,10 @@ fn test_all_equal() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, PointValues::MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
-        PointValues::MAX_INDEX_DIMENSIONS,
+        point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 1000);
@@ -494,10 +494,10 @@ fn test_index_dim_equal_data_dim_different() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 2, PointValues::MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(&mut random, 2, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims - 1),
-        PointValues::MAX_INDEX_DIMENSIONS,
+        point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 1000);
@@ -543,10 +543,10 @@ fn test_one_dim_equal() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, PointValues::MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
-        PointValues::MAX_INDEX_DIMENSIONS,
+        point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 1000);
@@ -584,10 +584,10 @@ fn test_one_dim_low_card() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 2, PointValues::MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(&mut random, 2, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 2, num_data_dims),
-        PointValues::MAX_INDEX_DIMENSIONS,
+        point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 10_000);
@@ -644,10 +644,10 @@ fn test_one_dim_two_values() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, PointValues::MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
-        PointValues::MAX_INDEX_DIMENSIONS,
+        point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 1000);
@@ -696,10 +696,10 @@ fn test_random_few_different_values() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, PointValues::MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
-        PointValues::MAX_INDEX_DIMENSIONS,
+        point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 10000);
@@ -748,10 +748,10 @@ fn test_multi_valued() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, PointValues::MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
-        PointValues::MAX_INDEX_DIMENSIONS,
+        point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 1000);
@@ -1646,9 +1646,9 @@ impl IntersectVisitor for IntersectVisitorMock5<'_> {
 #[test]
 fn test_wasted_leading_bytes() -> Result<()> {
     let mut random = random();
-    let num_dims = TestUtil::next_int(&mut random, 1, PointValues::MAX_INDEX_DIMENSIONS);
+    let num_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_INDEX_DIMENSIONS);
     let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
-    let bytes_per_dim = PointValues::MAX_NUM_BYTES;
+    let bytes_per_dim = point_values_util::MAX_NUM_BYTES;
     let bytes_used = TestUtil::next_int(&mut random, 1, 3);
 
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
@@ -1786,7 +1786,7 @@ fn test_estimate_point_count() -> Result<()> {
         dir.clone(),
         "_temp",
         config.clone(),
-        BKDWriter::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+        bkd_writer_util::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values as i64,
     )?;
 
@@ -1928,7 +1928,7 @@ fn test_total_point_count_validation() -> Result<()> {
         dir.clone(),
         "_temp",
         config,
-        BKDWriter::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+        bkd_writer_util::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values as i64,
     )?;
     let out = Rc::new(RefCell::new(
@@ -2030,7 +2030,7 @@ fn test_too_many_points_1d() -> Result<()> {
         dir.clone(),
         "_temp",
         config,
-        BKDWriter::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+        bkd_writer_util::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values as i64,
     )?;
 

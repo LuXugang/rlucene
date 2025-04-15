@@ -18,7 +18,7 @@ use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field_type::IndexableFieldType;
-use crate::index::point_values::PointValues;
+use crate::index::point_values::point_values_util;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -237,10 +237,10 @@ impl FieldType {
                 dimension_count
             )));
         }
-        if dimension_count > PointValues::MAX_DIMENSIONS {
+        if dimension_count > point_values_util::MAX_DIMENSIONS {
             return Err(LuceneError::illegal_argument(format!(
                 "dimensionCount must be <= {}; got {}",
-                PointValues::MAX_DIMENSIONS,
+                point_values_util::MAX_DIMENSIONS,
                 dimension_count
             )));
         }
@@ -256,10 +256,10 @@ impl FieldType {
                 dimension_count, index_dimension_count
             )));
         }
-        if index_dimension_count > PointValues::MAX_INDEX_DIMENSIONS {
+        if index_dimension_count > point_values_util::MAX_INDEX_DIMENSIONS {
             return Err(LuceneError::illegal_argument(format!(
                 "indexDimensionCount must be <= {}; got {}",
-                PointValues::MAX_INDEX_DIMENSIONS,
+                point_values_util::MAX_INDEX_DIMENSIONS,
                 index_dimension_count
             )));
         }
@@ -269,10 +269,10 @@ impl FieldType {
                 dimension_num_bytes
             )));
         }
-        if dimension_num_bytes > PointValues::MAX_NUM_BYTES {
+        if dimension_num_bytes > point_values_util::MAX_NUM_BYTES {
             return Err(LuceneError::illegal_argument(format!(
                 "dimensionNumBytes must be <= {}; got {}",
-                PointValues::MAX_NUM_BYTES,
+                point_values_util::MAX_NUM_BYTES,
                 dimension_num_bytes
             )));
         }
@@ -553,7 +553,7 @@ mod tests {
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::index_options::IndexOptions;
     use crate::index::indexable_field_type::IndexableFieldType;
-    use crate::index::point_values::PointValues;
+    use crate::index::point_values::point_values_util;
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::test::util::lucene_test_case::random;
@@ -611,10 +611,10 @@ mod tests {
     #[test]
     fn test_points_to_string() -> Result<()> {
         let mut ft = FieldType::new();
-        ft.set_dimensions(1, PointValues::MAX_NUM_BYTES)?;
+        ft.set_dimensions(1, point_values_util::MAX_NUM_BYTES)?;
         let expected = format!(
             "pointDimensionCount=1,pointIndexDimensionCount=1,pointNumBytes={}",
-            PointValues::MAX_NUM_BYTES
+            point_values_util::MAX_NUM_BYTES
         );
         let s = ft.to_string();
         assert_eq!(s, expected);
@@ -654,9 +654,9 @@ mod tests {
     // Generates a random FieldType.
     fn random_field_type(random: &mut StdRng) -> Result<FieldType> {
         let mut ft = FieldType::new();
-        let max_idx_dims = PointValues::MAX_INDEX_DIMENSIONS;
-        let max_dims = PointValues::MAX_DIMENSIONS;
-        let max_bytes = PointValues::MAX_NUM_BYTES;
+        let max_idx_dims = point_values_util::MAX_INDEX_DIMENSIONS;
+        let max_dims = point_values_util::MAX_DIMENSIONS;
+        let max_bytes = point_values_util::MAX_NUM_BYTES;
         let dim = random.random_range(1..=max_dims);
         let idx_dim = random.random_range(1..=max_idx_dims.min(dim));
         let num_bytes = random.random_range(1..=max_bytes);

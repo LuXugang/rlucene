@@ -18,11 +18,12 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyNumericDocValues;
 
 impl DocValuesIterator for DummyNumericDocValues {
-    fn advance_exact(&mut self, _target: i32) -> crate::util::error::lucene_error::Result<bool> {
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
@@ -34,25 +35,25 @@ impl DocIdSetIterator for DummyNumericDocValues {
         -1
     }
 
-    fn next_doc(&mut self) -> crate::util::error::lucene_error::Result<i32> {
+    fn next_doc(&mut self) -> Result<i32> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
     }
 
-    fn advance(&mut self, _target: i32) -> crate::util::error::lucene_error::Result<i32> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
     }
 
-    fn slow_advance(&mut self, target: i32) -> crate::util::error::lucene_error::Result<i32> {
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
     }
 
-    fn cost(&self) -> crate::util::error::lucene_error::Result<i64> {
+    fn cost(&self) -> Result<i64> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
@@ -60,7 +61,7 @@ impl DocIdSetIterator for DummyNumericDocValues {
 }
 
 impl NumericDocValues for DummyNumericDocValues {
-    fn long_value(&mut self) -> crate::util::error::lucene_error::Result<i64> {
+    fn long_value(&mut self) -> Result<i64> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))

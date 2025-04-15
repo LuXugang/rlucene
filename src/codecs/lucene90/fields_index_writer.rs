@@ -17,7 +17,6 @@
 use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
@@ -45,9 +44,7 @@ where
     total_chunks: i32,
     previous_fp: i64,
 }
-
-#[allow(unused)]
-impl FieldsIndexWriter<DummyDirectory> {
+pub(crate) mod fields_index_writer_const {
     pub(crate) const VERSION_START: i32 = 0;
     pub(crate) const VERSION_CURRENT: i32 = 0;
 }
@@ -76,7 +73,7 @@ where
         CodecUtil::write_header(
             &mut docs_out,
             &format!("{}Docs", codec_name),
-            FieldsIndexWriter::VERSION_CURRENT,
+            fields_index_writer_const::VERSION_CURRENT,
         )?;
 
         let mut file_pointers_out = dir_guard.create_temp_output(
@@ -88,7 +85,7 @@ where
         CodecUtil::write_header(
             &mut file_pointers_out,
             &format!("{}FilePointers", codec_name),
-            FieldsIndexWriter::VERSION_CURRENT,
+            fields_index_writer_const::VERSION_CURRENT,
         )?;
 
         Ok(FieldsIndexWriter {
@@ -158,7 +155,7 @@ where
         CodecUtil::write_index_header(
             &mut data_out,
             &format!("{}Idx", self.codec_name),
-            FieldsIndexWriter::VERSION_CURRENT,
+            fields_index_writer_const::VERSION_CURRENT,
             &self.id,
             &self.suffix,
         )?;
@@ -179,8 +176,8 @@ where
                 CodecUtil::check_header(
                     &mut docs_in,
                     &format!("{}Docs", self.codec_name),
-                    FieldsIndexWriter::VERSION_CURRENT,
-                    FieldsIndexWriter::VERSION_CURRENT,
+                    fields_index_writer_const::VERSION_CURRENT,
+                    fields_index_writer_const::VERSION_CURRENT,
                 )?;
 
                 let mut docs = DirectMonotonicWriter::get_instance(
@@ -228,8 +225,8 @@ where
                 CodecUtil::check_header(
                     &mut file_pointers_in,
                     &format!("{}FilePointers", self.codec_name),
-                    FieldsIndexWriter::VERSION_CURRENT,
-                    FieldsIndexWriter::VERSION_CURRENT,
+                    fields_index_writer_const::VERSION_CURRENT,
+                    fields_index_writer_const::VERSION_CURRENT,
                 )?;
 
                 let mut file_pointers = DirectMonotonicWriter::get_instance(

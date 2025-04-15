@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::index_input::get_full_slice_description;
-use crate::store::{BufferedIndexInput, BufferedIndexInputBase};
+use crate::store::{buffered_index_input_util, BufferedIndexInput, BufferedIndexInputBase};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
@@ -44,7 +44,7 @@ impl NIOFSIndexInput {
             off: 0,
             end: len as i64,
             resource_desc: resource_desc.to_string(),
-            buffer_size: BufferedIndexInput::BUFFER_SIZE,
+            buffer_size: buffered_index_input_util::BUFFER_SIZE,
         }
     }
     pub fn with_range(

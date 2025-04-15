@@ -19,7 +19,6 @@ use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
 use std::cell::RefCell;
 
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::Version;
 use crate::util::StringHelper;
@@ -65,14 +64,12 @@ where
     has_blocks: bool,
     set_files: Option<Rc<RefCell<HashSet<String>>>>,
 }
-
-impl SegmentInfo<DummyDirectory> {
+pub mod seg_info {
     /// Used by some member fields to mean not present (e.g., norms, deletions).
     pub const NO: i32 = -1; // e.g. no norms; no deletes;
     /// Used by some member fields to mean present (e.g., norms, deletions).
     pub const YES: i32 = 1; // e.g. have norms; have deletes;
 }
-
 impl<D> SegmentInfo<D>
 where
     D: Directory,

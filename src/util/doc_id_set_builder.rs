@@ -25,7 +25,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
 
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use std::rc::Rc;
 
 /// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather documents,
@@ -238,7 +238,7 @@ mod tests {
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range};
     use crate::test::util::lucene_test_case::{is_night_mode, random, rarely};
 
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;

@@ -31,7 +31,7 @@ use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::{doc_id_merger_static, BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase};
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};

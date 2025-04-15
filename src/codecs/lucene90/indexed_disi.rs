@@ -15,17 +15,11 @@
  * limitations under the License.
  */
 use crate::index::knn_vector_values::DocIndexIteratorBase;
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput, IndexOutput};
-use crate::util::array_util::ArrayUtil;
-use crate::util::bit_set::BitSet;
-use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fixed_bit_set::FixedBitSet;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -116,7 +110,19 @@ where
     // ALL variables
     gap: i32,
 }
-impl IndexedDISI<DummyIndexInput> {
+pub mod indexed_disi_util {
+    use crate::codecs::indexed_disi::{DocIndexIteratorImpl, IndexedDISI};
+    use crate::index::knn_vector_values::DocIndexIteratorBase;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::store::{DataInput, IndexInput, IndexOutput};
+    use crate::util::array_util::ArrayUtil;
+    use crate::util::bit_set::BitSet;
+    use crate::util::bit_set_iterator::BitSetIterator;
+    use crate::util::bit_util::BitUtil;
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::fixed_bit_set::FixedBitSet;
     // jump-table time/space trade-offs to consider:
     // The block offsets and the block indexes could be stored in more compressed form with
     // two PackedInts or two MonotonicDirectReaders.
@@ -124,12 +130,12 @@ impl IndexedDISI<DummyIndexInput> {
     // at least 4096 set bits in DENSE blocks, there will be at least one rank with 2^12 bits, so it
     // is doubtful if there is much to gain here.
     // The number of docIDs that a single block represents
-    const BLOCK_SIZE: i32 = 65536;
+    pub(super) const BLOCK_SIZE: i32 = 65536;
     // Long.SIZE = 64 bits
-    const DENSE_BLOCK_LONGS: i32 = Self::BLOCK_SIZE / i64::BITS as i32;
+    pub(super) const DENSE_BLOCK_LONGS: i32 = BLOCK_SIZE / i64::BITS as i32;
     // Every 512 docIDs / 8 longs
     pub const DEFAULT_DENSE_RANK_POWER: i8 = 9;
-    const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
+    pub(crate) const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
     /// Writes the doc IDs from the iterator into the output in logical blocks,
     /// with one block for every 65,536 doc IDs, in monotonically increasing and gap-less order.
     ///
@@ -155,7 +161,7 @@ impl IndexedDISI<DummyIndexInput> {
     where
         O: IndexOutput,
     {
-        Self::write_bitset_with_dense_rank_power(it, out, IndexedDISI::DEFAULT_DENSE_RANK_POWER)
+        write_bitset_with_dense_rank_power(it, out, DEFAULT_DENSE_RANK_POWER)
     }
     /// Writes the doc IDs from the iterator into the output in logical blocks,
     /// with one block for every 65,536 doc IDs, in monotonically increasing and gap-less order.
@@ -210,7 +216,7 @@ impl IndexedDISI<DummyIndexInput> {
             let block = doc >> 16;
 
             if prev_block != -1 && block != prev_block {
-                Self::add_jumps(
+                add_jumps(
                     &mut jumps,
                     out.get_file_pointer() - origo,
                     total_cardinality,
@@ -218,7 +224,7 @@ impl IndexedDISI<DummyIndexInput> {
                     prev_block + 1,
                 )?;
                 jump_block_index = prev_block + 1;
-                Self::flush(
+                flush(
                     prev_block,
                     &buffer,
                     block_cardinality,
@@ -238,7 +244,7 @@ impl IndexedDISI<DummyIndexInput> {
         }
 
         if block_cardinality > 0 {
-            Self::add_jumps(
+            add_jumps(
                 &mut jumps,
                 out.get_file_pointer() - origo,
                 total_cardinality,
@@ -246,7 +252,7 @@ impl IndexedDISI<DummyIndexInput> {
                 prev_block + 1,
             )?;
             total_cardinality += block_cardinality;
-            Self::flush(
+            flush(
                 prev_block,
                 &buffer,
                 block_cardinality,
@@ -265,7 +271,7 @@ impl IndexedDISI<DummyIndexInput> {
         // offset of the
         // NO_MORE_DOCS block, with the jumpBlockIndex set to the logical EMPTY block after all real
         // blocks.
-        Self::add_jumps(
+        add_jumps(
             &mut jumps,
             out.get_file_pointer() - origo,
             total_cardinality,
@@ -274,11 +280,239 @@ impl IndexedDISI<DummyIndexInput> {
         )?;
 
         buffer.set(NO_MORE_DOCS & 0xFFFF);
-        Self::flush(NO_MORE_DOCS >> 16, &buffer, 1, dense_rank_power, out)?;
+        flush(NO_MORE_DOCS >> 16, &buffer, 1, dense_rank_power, out)?;
 
-        Self::flush_block_jumps(&jumps, last_block + 1, out)
+        flush_block_jumps(&jumps, last_block + 1, out)
+    }
+    /// Helper method for using [`IndexedDISI::from_components`].
+    /// Creates a `disi_slice` for the `IndexedDISI` data blocks, excluding the jump table.
+    ///
+    /// # Parameters
+    /// - `slice`: Backing data containing both blocks and the jump table.
+    /// - `slice_description`: Human-readable description of the slice.
+    /// - `offset`: Offset relative to the backing data.
+    /// - `length`: Total length of the `IndexedDISI`, including blocks and jump-table data.
+    /// - `jump_table_entry_count`: Number of blocks covered by the jump table.
+    ///
+    /// # Returns
+    /// A jump table containing the block skip data, or `None` if no such table exists.
+    ///
+    /// # Errors
+    /// Returns an error if a `RandomAccessInput` could not be created from the slice.
+    pub fn create_block_slice<I: IndexInput>(
+        slice: &mut I,
+        slice_description: &str,
+        offset: i64,
+        length: i64,
+        jump_table_entry_count: i32,
+    ) -> Result<I::Slice> {
+        let jump_table_bytes = if jump_table_entry_count < 0 {
+            0
+        } else {
+            jump_table_entry_count as i64 * BitUtil::INT_BYTES as i64 * 2
+        };
+        slice.slice(slice_description, offset, length - jump_table_bytes)
+    }
+    /// Helper method for using [`IndexedDISI::from_components`].
+    /// Creates a `RandomAccessInput` covering only the jump-table data, or returns `None` if no such table exists.
+    ///
+    /// # Parameters
+    /// - `slice`: Backing data containing both blocks and the jump table.
+    /// - `offset`: Offset relative to the backing data.
+    /// - `length`: Total length of the `IndexedDISI`, including blocks and jump-table data.
+    /// - `jump_table_entry_count`: Number of blocks covered by the jump table.
+    ///
+    /// # Returns
+    /// A `RandomAccessInput` covering the jump-table section, or `None` if the table doesn't exist.
+    ///
+    /// # Errors
+    /// Returns an error if a `RandomAccessInput` could not be created from the slice.
+    pub fn create_jump_table<I: IndexInput>(
+        slice: &mut I,
+        offset: i64,
+        length: i64,
+        jump_table_entry_count: i32,
+    ) -> Result<Option<I::RandomAccessSlice>> {
+        if jump_table_entry_count <= 0 {
+            Ok(None)
+        } else {
+            let jump_table_bytes = (jump_table_entry_count as i64) * BitUtil::INT_BYTES as i64 * 2;
+            slice
+                .random_access_slice(offset + length - jump_table_bytes, jump_table_bytes)
+                .map(Some)
+        }
+    }
+
+    fn flush<O>(
+        block: i32,
+        buffer: &FixedBitSet,
+        cardinality: i32,
+        dense_rank_power: i8,
+        out: &mut O,
+    ) -> Result<()>
+    where
+        O: IndexOutput,
+    {
+        debug_assert!((0..BLOCK_SIZE).contains(&block));
+        out.write_short(block as i16)?;
+        debug_assert!(cardinality > 0 && cardinality <= BLOCK_SIZE);
+        out.write_short((cardinality - 1) as i16)?;
+
+        if cardinality > MAX_ARRAY_LENGTH {
+            if cardinality != BLOCK_SIZE {
+                if dense_rank_power != -1 {
+                    let rank = create_rank(buffer, dense_rank_power as u8);
+                    let rank_len = rank.len();
+                    debug_assert!(rank_len <= i32::MAX as usize);
+                    out.write_bytes_with_len(&rank, rank_len as i32)?;
+                }
+                for word in buffer.get_bits() {
+                    out.write_long(*word)?;
+                }
+            }
+        } else {
+            let mut iter = BitSetIterator::new(buffer, cardinality as i64)?;
+            let mut doc;
+            while {
+                doc = iter.next_doc()?;
+                doc != NO_MORE_DOCS
+            } {
+                out.write_short(doc as i16)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    // Creates a DENSE rank-entry (the number of set bits up to a given point) for the buffer.
+    // One rank-entry for every {@code 2^denseRankPower} bits, with each rank-entry using 2 bytes.
+    // Represented as a byte[] for fast flushing and mirroring of the retrieval representation.
+    fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> Vec<u8> {
+        let longs_per_rank = 1 << (dense_rank_power - 6);
+        let rank_mark = longs_per_rank - 1;
+        // 6 for the long (2^6) + 1 for 2 bytes/entry
+        let rank_index_shift = dense_rank_power - 7;
+        let rank = (DENSE_BLOCK_LONGS >> rank_index_shift) as usize;
+        let mut rank = vec![0u8; rank];
+        let bits = buffer.get_bits();
+        let mut bit_count = 0;
+        for word in 0..DENSE_BLOCK_LONGS {
+            // Every longsPerRank longs
+            if (word & rank_mark) == 0 {
+                let rank_index = (word >> rank_index_shift) as usize;
+                rank[rank_index] = (bit_count >> 8) as u8;
+                rank[rank_index + 1] = (bit_count & 0xFF) as u8;
+            }
+            bit_count += bits[word as usize].count_ones() as i32;
+        }
+        rank
+    }
+
+    // Adds entries to the offset & index jump-table for blocks
+    fn add_jumps(
+        jumps: &mut Vec<i32>,
+        offset: i64,
+        index: i32,
+        start_block: i32,
+        end_block: i32,
+    ) -> Result<()> {
+        debug_assert!(
+            offset < i32::MAX as i64,
+            "Logically the offset should not exceed 2^30 but was >= i32::MAX"
+        );
+        ArrayUtil::grow_i32(jumps, (end_block + 1) * 2)?;
+        for b in start_block..end_block {
+            let i = (b * 2) as usize;
+            jumps[i] = index;
+            jumps[i + 1] = offset as i32;
+        }
+        Ok(())
+    }
+    // Flushes the offset & index jump-table for blocks. This should be the last data written to out
+    // This method returns the blockCount for the blocks reachable for the jump_table or -1 for no
+    // jump-table
+    fn flush_block_jumps<O: IndexOutput>(
+        jumps: &[i32],
+        mut block_count: i32,
+        out: &mut O,
+    ) -> Result<i16> {
+        // Jumps with a single real entry + NO_MORE_DOCS is just wasted space so we ignore
+        // that
+        if block_count == 2 {
+            block_count = 0;
+        }
+
+        for i in 0..block_count as usize {
+            out.write_int(jumps[i * 2])?;
+            out.write_int(jumps[i * 2 + 1])?;
+        }
+        // As there are at most 32k blocks, the count is a short
+        // The jumpTableOffset will be at lastPos - (blockCount * Long.BYTES)
+        Ok(block_count as i16)
+    }
+    /// If the distance between the current position and the target is greater than 8 words,
+    /// the rank cache will be used to guarantee a worst-case of one rank lookup and up to
+    /// seven word-read-and-bit-count operations.
+    ///
+    /// **Note**: This does *not* guarantee a skip up to the target, only up to the nearest rank boundary.
+    /// It is the caller’s responsibility to continue iterating to reach the actual target.
+    ///
+    /// # Parameters
+    /// - `disi`: The standard `DISI` instance.
+    /// - `target_in_block`: The lower 16 bits of the target document ID.
+    ///
+    /// # Errors
+    /// Returns an error if seeking in the `DISI` failed.
+    pub(super) fn rank_skip<I: IndexInput>(
+        disi: &mut IndexedDISI<I>,
+        target_in_block: i32,
+    ) -> Result<()> {
+        debug_assert!(
+            disi.dense_rank_power >= 0,
+            "dense_rank_power = {}",
+            disi.dense_rank_power
+        );
+        // Resolve the rank as close to targetInBlock as possible (maximum distance is 8 longs)
+        // Note: rankOrigoOffset is tracked on block open, so it is absolute (e.g. don't add origo)
+        let rank_index = target_in_block >> disi.dense_rank_power; // Default is 9 (8 longs: 2^3 * 2^6 = 512 docIDs)
+        let byte_index = (rank_index << 1) as usize;
+        let mut rank = 0;
+        match &disi.dense_rank_table {
+            None => {
+                Err::<(), LuceneError>(LuceneError::unreachable("should not be here"))?;
+            }
+            Some(rank_table) => {
+                let high = rank_table[byte_index] as u16;
+                let low = rank_table[byte_index + 1] as u16;
+                rank = ((high << 8) | low) as i32;
+            }
+        }
+        // Position the counting logic just after the rank point
+        let rank_aligned_word_index = (rank_index << disi.dense_rank_power) >> 6;
+        let offset = disi.dense_bitmap_offset
+            + (rank_aligned_word_index as i64) * BitUtil::LONG_BYTES as i64;
+        let mut slice = disi.slice.borrow_mut();
+        slice.seek(offset)?;
+        let rank_word = slice.read_long()?;
+        let dense_noo = rank + rank_word.count_ones() as i32;
+
+        disi.word_index = rank_aligned_word_index;
+        disi.word = rank_word;
+        disi.number_of_ones = disi.dense_origo_index + dense_noo;
+
+        Ok(())
+    }
+    ///  Returns an iterator that delegates to the IndexedDISI. Advancing this iterator will advance the
+    /// underlying IndexedDISI, and vice-versa.
+    pub fn get_doc_index_iterator<D, I>(disi: &mut IndexedDISI<I>) -> DocIndexIteratorImpl<I>
+    where
+        D: DocIdSetIterator + DocIndexIteratorBase,
+        I: IndexInput,
+    {
+        DocIndexIteratorImpl::new(disi)
     }
 }
+
 impl<I> IndexedDISI<I>
 where
     I: IndexInput,
@@ -306,10 +540,19 @@ where
         dense_rank_power: i8,
         cost: i64,
     ) -> Result<Self> {
-        let block_slice =
-            Self::create_block_slice(index_input, "docs", offset, length, jump_table_entry_count)?;
-        let jump_table_option =
-            Self::create_jump_table(index_input, offset, length, jump_table_entry_count)?;
+        let block_slice = indexed_disi_util::create_block_slice(
+            index_input,
+            "docs",
+            offset,
+            length,
+            jump_table_entry_count,
+        )?;
+        let jump_table_option = indexed_disi_util::create_jump_table(
+            index_input,
+            offset,
+            length,
+            jump_table_entry_count,
+        )?;
         let jump_table =
             jump_table_option.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
 
@@ -371,7 +614,7 @@ where
             let rank_index_shift = dense_rank_power - 7;
             Some(vec![
                 0u8;
-                (IndexedDISI::DENSE_BLOCK_LONGS >> rank_index_shift)
+                (indexed_disi_util::DENSE_BLOCK_LONGS >> rank_index_shift)
                     as usize
             ])
         };
@@ -399,188 +642,7 @@ where
             gap: 0,
         })
     }
-    fn flush<O>(
-        block: i32,
-        buffer: &FixedBitSet,
-        cardinality: i32,
-        dense_rank_power: i8,
-        out: &mut O,
-    ) -> Result<()>
-    where
-        O: IndexOutput,
-    {
-        debug_assert!((0..IndexedDISI::BLOCK_SIZE).contains(&block));
-        out.write_short(block as i16)?;
-        debug_assert!(cardinality > 0 && cardinality <= IndexedDISI::BLOCK_SIZE);
-        out.write_short((cardinality - 1) as i16)?;
 
-        if cardinality > IndexedDISI::MAX_ARRAY_LENGTH {
-            if cardinality != IndexedDISI::BLOCK_SIZE {
-                if dense_rank_power != -1 {
-                    let rank = Self::create_rank(buffer, dense_rank_power as u8);
-                    let rank_len = rank.len();
-                    debug_assert!(rank_len <= i32::MAX as usize);
-                    out.write_bytes_with_len(&rank, rank_len as i32)?;
-                }
-                for word in buffer.get_bits() {
-                    out.write_long(*word)?;
-                }
-            }
-        } else {
-            let mut iter = BitSetIterator::new(buffer, cardinality as i64)?;
-            let mut doc;
-            while {
-                doc = iter.next_doc()?;
-                doc != NO_MORE_DOCS
-            } {
-                out.write_short(doc as i16)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    // Creates a DENSE rank-entry (the number of set bits up to a given point) for the buffer.
-    // One rank-entry for every {@code 2^denseRankPower} bits, with each rank-entry using 2 bytes.
-    // Represented as a byte[] for fast flushing and mirroring of the retrieval representation.
-    fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> Vec<u8> {
-        let longs_per_rank = 1 << (dense_rank_power - 6);
-        let rank_mark = longs_per_rank - 1;
-        // 6 for the long (2^6) + 1 for 2 bytes/entry
-        let rank_index_shift = dense_rank_power - 7;
-        let rank = (IndexedDISI::DENSE_BLOCK_LONGS >> rank_index_shift) as usize;
-        let mut rank = vec![0u8; rank];
-        let bits = buffer.get_bits();
-        let mut bit_count = 0;
-        for word in 0..IndexedDISI::DENSE_BLOCK_LONGS {
-            // Every longsPerRank longs
-            if (word & rank_mark) == 0 {
-                let rank_index = (word >> rank_index_shift) as usize;
-                rank[rank_index] = (bit_count >> 8) as u8;
-                rank[rank_index + 1] = (bit_count & 0xFF) as u8;
-            }
-            bit_count += bits[word as usize].count_ones() as i32;
-        }
-        rank
-    }
-
-    // Adds entries to the offset & index jump-table for blocks
-    fn add_jumps(
-        jumps: &mut Vec<i32>,
-        offset: i64,
-        index: i32,
-        start_block: i32,
-        end_block: i32,
-    ) -> Result<()> {
-        debug_assert!(
-            offset < i32::MAX as i64,
-            "Logically the offset should not exceed 2^30 but was >= i32::MAX"
-        );
-        ArrayUtil::grow_i32(jumps, (end_block + 1) * 2)?;
-        for b in start_block..end_block {
-            let i = (b * 2) as usize;
-            jumps[i] = index;
-            jumps[i + 1] = offset as i32;
-        }
-        Ok(())
-    }
-    // Flushes the offset & index jump-table for blocks. This should be the last data written to out
-    // This method returns the blockCount for the blocks reachable for the jump_table or -1 for no
-    // jump-table
-    fn flush_block_jumps<O: IndexOutput>(
-        jumps: &[i32],
-        mut block_count: i32,
-        out: &mut O,
-    ) -> Result<i16> {
-        // Jumps with a single real entry + NO_MORE_DOCS is just wasted space so we ignore
-        // that
-        if block_count == 2 {
-            block_count = 0;
-        }
-
-        for i in 0..block_count as usize {
-            out.write_int(jumps[i * 2])?;
-            out.write_int(jumps[i * 2 + 1])?;
-        }
-        // As there are at most 32k blocks, the count is a short
-        // The jumpTableOffset will be at lastPos - (blockCount * Long.BYTES)
-        Ok(block_count as i16)
-    }
-    /// Helper method for using [`IndexedDISI::from_components`].  
-    /// Creates a `disi_slice` for the `IndexedDISI` data blocks, excluding the jump table.
-    ///
-    /// # Parameters
-    /// - `slice`: Backing data containing both blocks and the jump table.
-    /// - `slice_description`: Human-readable description of the slice.
-    /// - `offset`: Offset relative to the backing data.
-    /// - `length`: Total length of the `IndexedDISI`, including blocks and jump-table data.
-    /// - `jump_table_entry_count`: Number of blocks covered by the jump table.
-    ///
-    /// # Returns
-    /// A jump table containing the block skip data, or `None` if no such table exists.
-    ///
-    /// # Errors
-    /// Returns an error if a `RandomAccessInput` could not be created from the slice.
-    pub fn create_block_slice(
-        slice: &mut I,
-        slice_description: &str,
-        offset: i64,
-        length: i64,
-        jump_table_entry_count: i32,
-    ) -> Result<I::Slice> {
-        let jump_table_bytes = if jump_table_entry_count < 0 {
-            0
-        } else {
-            jump_table_entry_count as i64 * BitUtil::INT_BYTES as i64 * 2
-        };
-        slice.slice(slice_description, offset, length - jump_table_bytes)
-    }
-    /// Helper method for using [`IndexedDISI::from_components`].  
-    /// Creates a `RandomAccessInput` covering only the jump-table data, or returns `None` if no such table exists.
-    ///
-    /// # Parameters
-    /// - `slice`: Backing data containing both blocks and the jump table.
-    /// - `offset`: Offset relative to the backing data.
-    /// - `length`: Total length of the `IndexedDISI`, including blocks and jump-table data.
-    /// - `jump_table_entry_count`: Number of blocks covered by the jump table.
-    ///
-    /// # Returns
-    /// A `RandomAccessInput` covering the jump-table section, or `None` if the table doesn't exist.
-    ///
-    /// # Errors
-    /// Returns an error if a `RandomAccessInput` could not be created from the slice.
-    pub fn create_jump_table(
-        slice: &mut I,
-        offset: i64,
-        length: i64,
-        jump_table_entry_count: i32,
-    ) -> Result<Option<I::RandomAccessSlice>> {
-        if jump_table_entry_count <= 0 {
-            Ok(None)
-        } else {
-            let jump_table_bytes = (jump_table_entry_count as i64) * BitUtil::INT_BYTES as i64 * 2;
-            slice
-                .random_access_slice(offset + length - jump_table_bytes, jump_table_bytes)
-                .map(Some)
-        }
-    }
-    pub fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        let target_block = ((target as u32) & 0xFFFF_0000) as i32;
-
-        if self.block < target_block {
-            self.advance_block(target_block)?;
-        }
-
-        let found = self.block == target_block && {
-            match self.method {
-                Method::Sparse => SparseMethod.advance_exact_within_block(self, target)?,
-                Method::Dense => DenseMethod.advance_exact_within_block(self, target)?,
-                Method::ALL => All.advance_exact_within_block(self, target)?,
-            }
-        };
-        self.doc = target;
-        Ok(found)
-    }
     fn advance_block(&mut self, target_block: i32) -> Result<()> {
         let block_index = target_block >> 16;
         // If the destination block is 2 blocks or more ahead, we use the jump-table.
@@ -627,11 +689,11 @@ where
         self.index = self.next_block_index;
         self.next_block_index = self.index + num_values;
 
-        if num_values <= IndexedDISI::MAX_ARRAY_LENGTH {
+        if num_values <= indexed_disi_util::MAX_ARRAY_LENGTH {
             self.method = Method::Sparse;
             self.block_end = slice.get_file_pointer() + (num_values << 1) as i64;
             self.next_exist_doc_in_block = -1;
-        } else if num_values == IndexedDISI::BLOCK_SIZE {
+        } else if num_values == indexed_disi_util::BLOCK_SIZE {
             self.method = Method::ALL;
             self.block_end = slice.get_file_pointer();
             self.gap = self.block - self.index - 1;
@@ -667,68 +729,28 @@ where
 
         Ok(())
     }
+    pub fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        let target_block = ((target as u32) & 0xFFFF_0000) as i32;
+
+        if self.block < target_block {
+            self.advance_block(target_block)?;
+        }
+
+        let found = self.block == target_block && {
+            match self.method {
+                Method::Sparse => SparseMethod.advance_exact_within_block(self, target)?,
+                Method::Dense => DenseMethod.advance_exact_within_block(self, target)?,
+                Method::ALL => All.advance_exact_within_block(self, target)?,
+            }
+        };
+        self.doc = target;
+        Ok(found)
+    }
     pub fn index(&self) -> i32 {
         self.index
     }
-    /// If the distance between the current position and the target is greater than 8 words,
-    /// the rank cache will be used to guarantee a worst-case of one rank lookup and up to
-    /// seven word-read-and-bit-count operations.
-    ///
-    /// **Note**: This does *not* guarantee a skip up to the target, only up to the nearest rank boundary.
-    /// It is the caller’s responsibility to continue iterating to reach the actual target.
-    ///
-    /// # Parameters
-    /// - `disi`: The standard `DISI` instance.
-    /// - `target_in_block`: The lower 16 bits of the target document ID.
-    ///
-    /// # Errors
-    /// Returns an error if seeking in the `DISI` failed.
-    fn rank_skip(disi: &mut IndexedDISI<I>, target_in_block: i32) -> Result<()> {
-        debug_assert!(
-            disi.dense_rank_power >= 0,
-            "dense_rank_power = {}",
-            disi.dense_rank_power
-        );
-        // Resolve the rank as close to targetInBlock as possible (maximum distance is 8 longs)
-        // Note: rankOrigoOffset is tracked on block open, so it is absolute (e.g. don't add origo)
-        let rank_index = target_in_block >> disi.dense_rank_power; // Default is 9 (8 longs: 2^3 * 2^6 = 512 docIDs)
-        let byte_index = (rank_index << 1) as usize;
-        let mut rank = 0;
-        match &disi.dense_rank_table {
-            None => {
-                Err::<(), LuceneError>(LuceneError::unreachable("should not be here"))?;
-            }
-            Some(rank_table) => {
-                let high = rank_table[byte_index] as u16;
-                let low = rank_table[byte_index + 1] as u16;
-                rank = ((high << 8) | low) as i32;
-            }
-        }
-        // Position the counting logic just after the rank point
-        let rank_aligned_word_index = (rank_index << disi.dense_rank_power) >> 6;
-        let offset = disi.dense_bitmap_offset
-            + (rank_aligned_word_index as i64) * BitUtil::LONG_BYTES as i64;
-        let mut slice = disi.slice.borrow_mut();
-        slice.seek(offset)?;
-        let rank_word = slice.read_long()?;
-        let dense_noo = rank + rank_word.count_ones() as i32;
-
-        disi.word_index = rank_aligned_word_index;
-        disi.word = rank_word;
-        disi.number_of_ones = disi.dense_origo_index + dense_noo;
-
-        Ok(())
-    }
-
-    ///  Returns an iterator that delegates to the IndexedDISI. Advancing this iterator will advance the
-    /// underlying IndexedDISI, and vice-versa.
-    pub fn get_doc_index_iterator<D>(disi: &mut IndexedDISI<I>) -> DocIndexIteratorImpl<I>
-    where
-        D: DocIdSetIterator + DocIndexIteratorBase,
-    {
-        DocIndexIteratorImpl::new(disi)
-    }
 }
+
 pub struct DocIndexIteratorImpl<'a, I>
 where
     I: IndexInput,
@@ -944,7 +966,7 @@ impl MethodBehavior for DenseMethod {
         if disi.dense_rank_power != -1
             && target_word_index - disi.word_index >= (1 << (disi.dense_rank_power - 6))
         {
-            IndexedDISI::rank_skip(disi, target_in_block)?;
+            indexed_disi_util::rank_skip(disi, target_in_block)?;
         }
 
         let mut slice = disi.slice.borrow_mut();
@@ -991,7 +1013,7 @@ impl MethodBehavior for DenseMethod {
         if disi.dense_rank_power != -1
             && target_word_index - disi.word_index >= (1 << (disi.dense_rank_power - 6))
         {
-            IndexedDISI::rank_skip(disi, target_in_block)?;
+            indexed_disi_util::rank_skip(disi, target_in_block)?;
         }
 
         let mut slice = disi.slice.borrow_mut();
@@ -1033,7 +1055,8 @@ impl MethodBehavior for All {
 mod tests {
     use crate::codecs::lucene90::indexed_disi::{IndexedDISI, Method};
 
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::codecs::indexed_disi::indexed_disi_util;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::directory::Directory;
     use crate::store::{IOContext, IndexInput, IndexOutput};
@@ -1112,7 +1135,7 @@ mod tests {
         let cardinality = set.cardinality();
         let dense_rank_power = 9;
         let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
-        let jump_count = IndexedDISI::write_bitset_with_dense_rank_power(
+        let jump_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(set, cardinality as i64)?,
             &mut out,
             dense_rank_power,
@@ -1172,7 +1195,7 @@ mod tests {
         let set = create_set_with_random_blocks(&mut random, BLOCKS)?;
         let cardinality = set.cardinality();
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+        let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(&set, cardinality as i64)?,
             &mut out,
             dense_rank_power,
@@ -1200,7 +1223,7 @@ mod tests {
         cardinality: i64,
         blocks: i32,
     ) -> Result<()> {
-        let mut block_data = IndexedDISI::create_block_slice(
+        let mut block_data = indexed_disi_util::create_block_slice(
             full_input,
             "blocks",
             0,
@@ -1209,7 +1232,7 @@ mod tests {
         )?;
         block_data.seek(random.random_range(0..block_data.length()))?;
         let jump_table =
-            IndexedDISI::create_jump_table(full_input, 0, length, jump_table_entry_count)?;
+            indexed_disi_util::create_jump_table(full_input, 0, length, jump_table_entry_count)?;
         let jump_table = jump_table.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
         let mut disi: IndexedDISI<I> = IndexedDISI::from_components(
             Rc::new(RefCell::new(block_data)),
@@ -1264,7 +1287,7 @@ mod tests {
             (random.random_range(0..7) + 7) as i8
         };
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+        let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(set, cardinality as i64)?,
             &mut out,
             dense_rank_power,
@@ -1376,10 +1399,10 @@ mod tests {
             (random.random_range(0..7) + 7) as i8
         };
 
-        set.set_with_range(start, start + IndexedDISI::MAX_ARRAY_LENGTH);
+        set.set_with_range(start, start + indexed_disi_util::MAX_ARRAY_LENGTH);
         let mut out = dir.create_output("sparse", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(&set, IndexedDISI::MAX_ARRAY_LENGTH as i64)?,
+        let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
+            &mut BitSetIterator::new(&set, indexed_disi_util::MAX_ARRAY_LENGTH as i64)?,
             &mut out,
             dense_rank_power,
         )? as i32;
@@ -1394,7 +1417,7 @@ mod tests {
                 length,
                 jump_table_entry_count,
                 dense_rank_power,
-                IndexedDISI::MAX_ARRAY_LENGTH as i64,
+                indexed_disi_util::MAX_ARRAY_LENGTH as i64,
             )?;
             assert_eq!(start, disi.next_doc()?);
             assert_eq!(Method::Sparse, disi.method);
@@ -1402,10 +1425,10 @@ mod tests {
 
         do_test(&set, &mut dir, &mut random)?;
 
-        set.set(start + IndexedDISI::MAX_ARRAY_LENGTH + random.random_range(0..100));
+        set.set(start + indexed_disi_util::MAX_ARRAY_LENGTH + random.random_range(0..100));
         let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
-        IndexedDISI::write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(&set, (IndexedDISI::MAX_ARRAY_LENGTH + 1) as i64)?,
+        indexed_disi_util::write_bitset_with_dense_rank_power(
+            &mut BitSetIterator::new(&set, (indexed_disi_util::MAX_ARRAY_LENGTH + 1) as i64)?,
             &mut out,
             dense_rank_power,
         )?;
@@ -1420,7 +1443,7 @@ mod tests {
                 length,
                 jump_table_entry_count,
                 dense_rank_power,
-                (IndexedDISI::MAX_ARRAY_LENGTH + 1) as i64,
+                (indexed_disi_util::MAX_ARRAY_LENGTH + 1) as i64,
             )?;
             assert_eq!(start, disi.next_doc()?);
             assert_eq!(Method::Dense, disi.method);
@@ -1499,7 +1522,7 @@ mod tests {
         let mut random = random();
         let mut dir = new_directory(&mut random)?;
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let jump_count = IndexedDISI::write_bitset_with_dense_rank_power(
+        let jump_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(&set, set.cardinality() as i64)?,
             &mut out,
             write_power,
@@ -1536,7 +1559,7 @@ mod tests {
 
         let mut dir = new_directory(&mut random)?;
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+        let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(&set, cardinality)?,
             &mut out,
             dense_rank_power,
@@ -1607,7 +1630,7 @@ mod tests {
 
         {
             let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-            jump_table_entry_count = IndexedDISI::write_bitset_with_dense_rank_power(
+            jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
                 &mut BitSetIterator::new(set, cardinality)?,
                 &mut out,
                 dense_rank_power,

@@ -153,7 +153,7 @@ mod tests {
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::test::util::lucene_test_case::random;
 
-    use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use rand::Rng;

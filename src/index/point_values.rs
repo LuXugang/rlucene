@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::dummy::dummy_point_value_base::DummyPointValuesBase;
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
-use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_reader::BKDPointTree;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
@@ -29,7 +27,8 @@ where
 {
     sub_point_values: S,
 }
-impl PointValues<DummyPointValuesBase> {
+pub mod point_values_util {
+    use crate::util::bkd::bkd_config::BKDConfig;
     pub const MAX_NUM_BYTES: i32 = 16;
     pub const MAX_DIMENSIONS: i32 = BKDConfig::MAX_DIMS;
     pub const MAX_INDEX_DIMENSIONS: i32 = BKDConfig::MAX_INDEX_DIMS;

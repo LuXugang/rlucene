@@ -63,7 +63,8 @@ impl Outputs<Rc<BytesRc>> for ByteSequenceOutputs {
     }
 
     fn subtract(&self, output: &Rc<BytesRc>, inc: &Rc<BytesRc>) -> Rc<BytesRc> {
-        if Rc::ptr_eq(inc, &NO_OUTPUT.with(|rc| rc.clone())) {
+        let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
+        if **inc == *no_output_clone {
             // no prefix removed
             return output.clone();
         }
@@ -77,7 +78,7 @@ impl Outputs<Rc<BytesRc>> for ByteSequenceOutputs {
             inc.length
         ));
         if inc.length == output.length {
-            NO_OUTPUT.with(|rc| rc.clone())
+            no_output_clone
         } else {
             debug_assert!(
                 inc.length < output.length,
@@ -99,7 +100,7 @@ impl Outputs<Rc<BytesRc>> for ByteSequenceOutputs {
         if **prefix == *no_output_clone {
             return output.clone();
         }
-        if Rc::ptr_eq(output, &no_output_clone) {
+        if **output == *no_output_clone {
             return prefix.clone();
         }
         debug_assert!(prefix.length > 0);

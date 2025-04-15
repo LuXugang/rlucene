@@ -776,6 +776,7 @@ impl FieldNumbers {
 pub mod build {
     use crate::index::field_info::FieldInfo;
     use crate::index::field_infos::{FieldInfos, FieldNumbers};
+    use crate::util::error::lucene_error::Result;
     use std::collections::HashMap;
     use std::rc::Rc;
 
@@ -802,18 +803,11 @@ pub mod build {
             &self.global_field_numbers.parent_field_name
         }
 
-        pub fn add(
-            &mut self,
-            fi: Rc<FieldInfo>,
-        ) -> crate::util::error::lucene_error::Result<Rc<FieldInfo>> {
+        pub fn add(&mut self, fi: Rc<FieldInfo>) -> Result<Rc<FieldInfo>> {
             self.add_with_dv_gen(fi, -1)
         }
 
-        pub fn add_with_dv_gen(
-            &mut self,
-            fi: Rc<FieldInfo>,
-            dv_gen: i64,
-        ) -> crate::util::error::lucene_error::Result<Rc<FieldInfo>> {
+        pub fn add_with_dv_gen(&mut self, fi: Rc<FieldInfo>, dv_gen: i64) -> Result<Rc<FieldInfo>> {
             if let Some(cur_fi) = self.field_info(&fi.name) {
                 cur_fi.verify_same_schema(&fi)?;
 
@@ -864,7 +858,7 @@ pub mod build {
                 panic!("FieldInfos.Builder was already finished; cannot add new fields");
             }
         }
-        pub fn finish(&mut self) -> crate::util::error::lucene_error::Result<FieldInfos> {
+        pub fn finish(&mut self) -> Result<FieldInfos> {
             self.finished = true;
             FieldInfos::new(self.by_name.values().cloned().collect())
         }

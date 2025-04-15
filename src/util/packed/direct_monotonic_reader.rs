@@ -14,9 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
@@ -39,8 +37,11 @@ where
     avgs: Vec<f32>,
     bpvs: Vec<u8>,
 }
+pub mod direct_monotonic_reader_util {
+    use crate::store::IndexInput;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 
-impl DirectMonotonicReader<DummyRandomAccessInput> {
     /// Load metadata from the given [`IndexInput`].
     ///
     /// # See also

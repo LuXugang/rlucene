@@ -25,7 +25,7 @@ use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_reader::DirectReader;
-use crate::util::packed::direct_writer::DirectWriter;
+use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
 use crate::util::packed::PackedInts;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -37,7 +37,7 @@ pub struct TestDirectPacked;
 fn test_simple() -> Result<()> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
-    let bits_per_value = DirectWriter::bits_required(2)?;
+    let bits_per_value = direct_writer_util::bits_required(2)?;
     {
         let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
         let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
@@ -64,7 +64,7 @@ fn test_simple() -> Result<()> {
 fn test_not_enough_values() -> Result<()> {
     let mut random = random();
     let mut dir = new_directory(&mut random)?;
-    let bits_per_value = DirectWriter::bits_required(2)?;
+    let bits_per_value = direct_writer_util::bits_required(2)?;
     {
         let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
         let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
@@ -133,7 +133,7 @@ fn do_test_bpv(
         let bits_required = if bpv == 64 {
             64
         } else {
-            DirectWriter::bits_required(1i64 << (bpv - 1))?
+            direct_writer_util::bits_required(1i64 << (bpv - 1))?
         };
         let name = format!("bpv{}_{}", bpv, i);
         {

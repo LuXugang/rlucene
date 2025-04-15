@@ -22,7 +22,7 @@ use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::stored_fields::StoredFields;
 use crate::index::{doc_id_merger_static, BytesRef, DocIDMerger, Sub, SubBase};
-use crate::search::doc_id_set_iterator::doc_id_set_iterator_static::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
