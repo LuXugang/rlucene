@@ -93,3 +93,6 @@ pub trait Outputs<T: Clone + PartialEq + Default>: Display {
 pub enum OutputsEnum {
     ByteSequence(ByteSequenceOutputs),
 }
+
+pub trait OutputsBound: Clone + PartialEq + Default {}
+impl<T: Clone + PartialEq + Default> OutputsBound for T {}

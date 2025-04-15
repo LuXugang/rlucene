@@ -18,6 +18,7 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct BytesRc {
     pub bytes: Rc<Vec<u8>>,
     pub offset: i32,

@@ -21,7 +21,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::dummy::dummy_bytes_reader::{DummyBytesReader, InputType};
 use crate::util::fst_impl::fst::{fst_util, FST};
 use crate::util::fst_impl::fst_reader::FstReader;
-use crate::util::fst_impl::outputs::Outputs;
+use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -29,7 +29,7 @@ use std::rc::Rc;
 
 pub struct FSTCompiler<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
 {
@@ -69,7 +69,7 @@ pub mod fst_compiler_util {
 }
 impl<T, O, F> FSTCompiler<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
 {
@@ -109,7 +109,7 @@ impl FstReader for NullFSTReader {
 /// Read parameter documentation carefully.
 pub struct Builder<T, O>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
 {
     input_type: InputType,
@@ -123,7 +123,7 @@ where
 }
 impl<T, O> Builder<T, O>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
 {
     /// Creates a new [`Builder`] with the given input type and outputs.
@@ -247,7 +247,7 @@ where
 /// Expert: holds a pending (seen but not yet serialized) arc.
 pub(crate) struct Arc<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     F: FstReader,
     O: Outputs<T>,
 {
@@ -259,7 +259,7 @@ where
 }
 impl<T, O, F> Default for Arc<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     F: FstReader,
     O: Outputs<T>,
 {
@@ -283,7 +283,7 @@ pub(crate) trait Node {
 }
 pub(crate) enum NodeEnum<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     F: FstReader,
     O: Outputs<T>,
 {
@@ -292,7 +292,7 @@ where
 }
 impl<T, O, F> Node for NodeEnum<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     F: FstReader,
     O: Outputs<T>,
 {
@@ -320,7 +320,7 @@ impl Node for CompiledNode {
 /// Expert: holds a pending (seen but not yet serialized) Node.
 pub(crate) struct UnCompiledNode<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     F: FstReader,
     O: Outputs<T>,
 {
@@ -338,7 +338,7 @@ where
 }
 impl<T, O, F> UnCompiledNode<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     F: FstReader,
     O: Outputs<T>,
 {
@@ -452,7 +452,7 @@ where
 }
 impl<T, O, F> Node for UnCompiledNode<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     F: FstReader,
     O: Outputs<T>,
 {

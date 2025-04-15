@@ -22,7 +22,7 @@ use crate::util::fst_impl::bit_table_util::BitTableUtil;
 use crate::util::fst_impl::dummy::dummy_bytes_reader::{BytesReader, InputType};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
-use crate::util::fst_impl::outputs::Outputs;
+use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use core::fmt;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
@@ -32,7 +32,7 @@ use std::rc::Rc;
 
 pub struct FST<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
 {
@@ -43,7 +43,7 @@ where
 
 impl<T, O> FST<T, O, OnHeapFSTStore>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
 {
     /// Load a previously saved FST with a DataInput for metadata using an [`OnHeapFSTStore`](crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore) with
@@ -59,7 +59,7 @@ where
 }
 impl<T, O, F> FST<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
 {
@@ -802,7 +802,7 @@ where
 }
 impl<T, O, F> Display for FST<T, O, F>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
 {
@@ -823,7 +823,7 @@ pub mod fst_util {
     use crate::util::fst_impl::fst::{fst_util, Arc, FSTMetadata};
     use crate::util::fst_impl::fst_compiler::fst_compiler_util;
     use crate::util::fst_impl::fst_reader::FstReader;
-    use crate::util::fst_impl::outputs::Outputs;
+    use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
     use std::cell::RefCell;
 
     use std::rc::Rc;
@@ -909,7 +909,7 @@ pub mod fst_util {
         outputs: Rc<RefCell<O>>,
     ) -> Result<FSTMetadata<T, O>>
     where
-        T: Clone + PartialEq + Default,
+        T: OutputsBound,
         O: Outputs<T>,
     {
         // NOTE: only reads formats VERSION_START up to VERSION_CURRENT; we don't have
@@ -1264,7 +1264,7 @@ impl BitTable {
 /// `T` is the FST output type.
 pub struct FSTMetadata<T, O>
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
     O: Outputs<T>,
 {
     pub input_type: InputType,
@@ -1275,7 +1275,7 @@ where
     pub start_node: i64,
     pub num_bytes: i64,
 }
-impl<T: Clone + PartialEq + Default, O: Outputs<T>> FSTMetadata<T, O> {
+impl<T: OutputsBound, O: Outputs<T>> FSTMetadata<T, O> {
     pub fn new(
         input_type: InputType,
         outputs: Rc<RefCell<O>>,

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::store::{DataInput, DataOutput};
-use crate::util::fst_impl::outputs::Outputs;
+use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use std::fmt::{Display, Formatter};
 
 pub struct NoOutputs;
@@ -33,7 +33,7 @@ impl Display for NoOutputs {
 
 impl<T> Outputs<T> for NoOutputs
 where
-    T: Clone + PartialEq + Default,
+    T: OutputsBound,
 {
     fn common(&self, output1: &T, output2: &T) -> T {
         todo!()
