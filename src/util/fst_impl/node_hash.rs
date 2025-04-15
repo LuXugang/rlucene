@@ -18,6 +18,9 @@ use crate::util::access::Access;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
+use crate::util::fst_impl::fst_compiler::Arc;
+use crate::util::fst_impl::fst_reader::FstReader;
+use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
@@ -26,7 +29,14 @@ use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct NodeHash;
+pub struct NodeHash<T, O, F>
+where
+    T: OutputsBound,
+    O: Outputs<T>,
+    F: FstReader,
+{
+    scratch_arc: Arc<T, O, F>,
+}
 
 pub struct PagedGrowableHash {
     /// Storing the FST node address where the position is the masked hash of the node arcs.

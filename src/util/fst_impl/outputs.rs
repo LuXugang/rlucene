@@ -26,7 +26,10 @@ use std::fmt::Display;
 /// [`get_no_output`](Outputs::get_no_output).
 ///
 /// # lucene.experimental
-pub trait Outputs<T: Clone + PartialEq + Default>: Display {
+pub trait Outputs<T>: Display
+where
+    T: OutputsBound,
+{
     // TODO: maybe change this API to allow for re-use of the
     // output instances -- this is an insane amount of garbage
     // (new object per byte/char/int) if eg used during

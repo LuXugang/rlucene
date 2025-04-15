@@ -21,11 +21,43 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
 use crate::util::fst_impl::fst::{fst_util, InputType, FST};
 use crate::util::fst_impl::fst_reader::FstReader;
+use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
+use crate::util::fst_impl::node_hash::NodeHash;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
+use crate::util::ints_ref_builder::IntsRefBuilder;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
+
+/// Builds a minimal FST (maps an `IntsRef` term to an arbitrary output) from pre-sorted terms with
+/// outputs. The FST becomes an FSA if you use `NoOutputs`. The FST is written on-the-fly into a
+/// compact serialized format byte array, which can be saved to / loaded from a `Directory` or used
+/// directly for traversal. The FST is always finite (no cycles).
+///
+///
+/// **NOTE**: The algorithm is described at:
+/// <http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.24.3698>
+///
+///
+/// The parameterized type `T` is the output type. See the subclasses of [`Outputs`].
+///
+///
+/// FSTs larger than 2.1GB are now possible (as of Lucene 4.2). FSTs containing more than 2.1B
+/// nodes are also now possible, however they cannot be packed.
+///
+///
+/// It now supports 3 different workflows:
+///
+/// - Build FST and use it immediately entirely in RAM and then discard it
+/// - Build FST and use it immediately entirely in RAM and also save it to other `DataOutput`, and
+///   load it later and use it
+/// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to be saved at the
+///   end). In order to use it, you need to construct the corresponding `DataInput` and use the FST
+///   constructor to read it.
+///
+///
+/// *lucene.experimental*
 
 pub struct FSTCompiler<T, O, F>
 where
@@ -33,9 +65,46 @@ where
     O: Outputs<T>,
     F: FstReader,
 {
-    no_output: T,
-    fst: FST<T, O, F>,
+    /// A temporary FST used during building for NodeHash cache.
+    pub(crate) fst: FST<T, O, F>,
+    pub(crate) no_output: T,
+    /// A FSTReader used when a non-FSTReader DataOutput is configured.
+    /// Will panic if `get_reverse_bytes_reader()` or `write_to()` is called.
+    pub(crate) null_fst_reader: NullFSTReader,
+    /// Node deduplication hash table.
+    pub(crate) dedup_hash: NodeHash<T, O, F>,
+    /// Last input added.
+    pub(crate) last_input: IntsRefBuilder,
+    /// Whether the initial padding byte needs to be written.
+    pub(crate) padding_byte_pending: bool,
+    /// NOTE: cutting this over to ArrayList instead loses ~6%
+    /// in build performance on 9.8M Wikipedia terms; so we
+    /// left this as an array:
+    /// current "frontier"
+    pub(crate) frontier: Vec<UnCompiledNode<T, O, F>>,
+    /// Used for the BIT_TARGET_NEXT optimization (whereby
+    /// instead of storing the address of the target node for
+    /// a given arc, we mark a single bit noting that the next
+    /// node in the byte[] is the target node):
+    pub(crate) last_frozen_node: i64,
+    /// Reused temporarily while building the FST:
+    pub(crate) num_bytes_per_arc: Vec<i32>,
+    pub(crate) num_label_bytes_per_arc: Vec<i32>,
+    pub(crate) fixed_length_arcs_buffer: FixedLengthArcsBuffer,
+    pub(crate) arc_count: i64,
+    pub(crate) node_count: i64,
+    pub(crate) binary_search_node_count: i64,
+    pub(crate) direct_addressing_node_count: i64,
+    pub(crate) continuous_node_count: i64,
+    pub(crate) allow_fixed_length_arcs: bool,
+    pub(crate) direct_addressing_max_oversizing_factor: f32,
+    pub(crate) version: i32,
+    pub(crate) direct_addressing_expansion_credit: i64,
+    pub(crate) data_output: ReadWriteDataOutput,
+    pub(crate) scratch_bytes: GrowableByteArrayDataOutput,
+    pub(crate) num_bytes_written: i64,
 }
+
 pub mod fst_compiler_util {
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
@@ -61,7 +130,7 @@ pub mod fst_compiler_util {
     /// expansion credits allow the oversizing. This factor prevents expansions that are obviously
     /// too costly even if there are sufficient credits.
     ///
-    /// See [`FSTCompiler::should_expand_node_with_direct_addressing`].
+    /// See [`FSTCompiler::should_expand_node_with_direct_addressing`](Self::should_expand_node_with_direct_addressing).
     pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
     pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
         Ok(ReadWriteDataOutput::new(block_bits))
