@@ -49,7 +49,7 @@ impl MonotonicLongValues {
     }
 }
 
-pub(crate) struct MonotonicLongValuesBuilder {
+pub struct MonotonicLongValuesBuilder {
     averages: Vec<f32>,
 }
 
@@ -64,13 +64,13 @@ impl MonotonicLongValuesBuilder {
     #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
 
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             averages: vec![0.0; INITIAL_PAGE_COUNT as usize],
         }
     }
 
-    pub fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
+    pub(crate) fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
         let _ = self.averages.split_off(values_off as usize);
 
         // TODO
@@ -79,7 +79,7 @@ impl MonotonicLongValuesBuilder {
         Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
     }
     #[allow(dead_code)]
-    fn base_ram_bytes_used(&self) -> u64 {
+    pub(crate) fn base_ram_bytes_used(&self) -> u64 {
         // TODO
         Self::BASE_RAM_BYTES_USED
     }

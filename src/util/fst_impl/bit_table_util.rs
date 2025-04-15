@@ -16,7 +16,7 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
+use crate::util::fst_impl::fst::BytesReader;
 /// Static helper methods for `FST::Arc::BitTable`.
 ///
 /// # Experimental
@@ -200,7 +200,7 @@ impl BitTableUtil {
 mod tests {
     use crate::store::DataInput;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
+    use crate::util::fst_impl::fst::BytesReader;
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::fmt::{Display, Formatter};

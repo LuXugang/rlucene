@@ -19,7 +19,6 @@ use crate::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::bit_table_util::BitTableUtil;
-use crate::util::fst_impl::dummy::dummy_bytes_reader::{BytesReader, InputType};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
@@ -46,7 +45,7 @@ where
     T: OutputsBound,
     O: Outputs<T>,
 {
-    /// Load a previously saved FST with a DataInput for metadata using an [`OnHeapFSTStore`](crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore) with
+    /// Load a previously saved FST with a DataInput for metadata using an [`OnHeapFSTStore`] with
     /// `maxBlockBits` set to [`DEFAULT_MAX_BLOCK_BITS`]
     pub fn from_on_heap_store(
         metadata: FSTMetadata<T, O>,
@@ -819,8 +818,7 @@ pub mod fst_util {
     use crate::codecs::CodecUtil;
     use crate::store::{DataInput, DataOutput};
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::fst_impl::dummy::dummy_bytes_reader::{BytesReader, InputType};
-    use crate::util::fst_impl::fst::{fst_util, Arc, FSTMetadata};
+    use crate::util::fst_impl::fst::{fst_util, Arc, BytesReader, FSTMetadata, InputType};
     use crate::util::fst_impl::fst_compiler::fst_compiler_util;
     use crate::util::fst_impl::fst_reader::FstReader;
     use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
@@ -1354,4 +1352,22 @@ impl<T: OutputsBound, O: Outputs<T>> FSTMetadata<T, O> {
 
         Ok(())
     }
+}
+
+/// Specifies allowed range of each int input label for this FST.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputType {
+    Byte1,
+    Byte2,
+    Byte4,
+}
+
+/// Reads bytes stored in an FST.
+#[allow(unused)]
+pub trait BytesReader: DataInput {
+    /// Get current read position.
+    fn get_position(&self) -> i64;
+
+    /// Set current read position.
+    fn set_position(&mut self, pos: i64);
 }

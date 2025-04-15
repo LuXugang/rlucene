@@ -356,7 +356,7 @@ where
     }
 }
 
-pub(crate) struct BinaryDocValuesMerge<I>
+pub struct BinaryDocValuesMerge<I>
 where
     I: IndexInput,
 {

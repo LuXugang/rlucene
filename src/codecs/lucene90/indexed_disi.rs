@@ -17,7 +17,7 @@
 use crate::index::knn_vector_values::DocIndexIteratorBase;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{DataInput, IndexInput, IndexOutput};
+use crate::store::{DataInput, IndexInput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
@@ -571,8 +571,8 @@ where
     /// where reuse improves performance and avoids unnecessary allocations.
     ///
     /// # Parameters
-    /// - `block_slice`: The data blocks, typically created using [`create_block_slice`](Self::create_block_slice).
-    /// - `jump_table`: The table holding jump data for block skips, typically created using [`create_jump_table`](Self::create_jump_table).
+    /// - `block_slice`: The data blocks, typically created using [`create_block_slice`](indexed_disi_util::create_block_slice).
+    /// - `jump_table`: The table holding jump data for block skips, typically created using [`create_jump_table`](indexed_disi_util::create_jump_table).
     /// - `jump_table_entry_count`: The number of blocks covered by the jump table. This must match the
     ///   number returned by `write_bit_set`
     /// - `dense_rank_power`: The number of doc IDs covered by each rank entry in DENSE blocks,

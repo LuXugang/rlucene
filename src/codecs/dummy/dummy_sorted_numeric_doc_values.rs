@@ -46,7 +46,7 @@ impl DocIdSetIterator for DummySortedNumericDocValues {
         ))
     }
 
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    fn slow_advance(&mut self, _target: i32) -> Result<i32> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))

@@ -17,14 +17,14 @@
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
+use crate::util::fst_impl::fst::BytesReader;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 /// An adapter class to use [`ByteBuffersDataOutput`] as a [`FSTReader`](FstReader). It allows the FST
 /// to be readable immediately after writing
-pub(crate) struct ReadWriteDataOutput {
+pub struct ReadWriteDataOutput {
     pub data_output: ByteBuffersDataOutput,
     pub block_bits: i32,
     pub block_size: i32,
@@ -34,7 +34,7 @@ pub(crate) struct ReadWriteDataOutput {
     pub frozen: bool,
 }
 impl ReadWriteDataOutput {
-    pub fn new(block_bits: i32) -> Self {
+    pub(crate) fn new(block_bits: i32) -> Self {
         let block_size = 1 << block_bits;
         let block_mask = block_size - 1;
         let data_output = ByteBuffersDataOutput::new();

@@ -33,7 +33,7 @@ where
     I: IndexInput,
 {
     type NumericDocValues: NumericDocValues;
-    /// Returns [`NumericDocValues`](crate::index::numeric_doc_values::NumericDocValues) for this field. The returned instance need not be thread-safe:
+    /// Returns [`NumericDocValues`] for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::NUMERIC`](crate::index::doc_values_type::DocValuesType::Numeric).
     fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -57,7 +57,7 @@ where
         Err(LuceneError::need_implemented(""))
     }
     type SortedNumericDocValues: SortedNumericDocValues;
-    /// Returns [`SortedNumericDocValues`](crate::index::sorted_numeric_doc_values::SortedNumericDocValues) for this field. The returned instance need not be
+    /// Returns [`SortedNumericDocValues`] for this field. The returned instance need not be
     /// thread-safe: it will only be used by a single thread. The behavior is undefined if the doc
     /// values type of the given field is not [`DocValuesType::SORTED_NUMERIC`](crate::index::doc_values_type::DocValuesType::SortedNumeric). The return value is
     /// never `null`.

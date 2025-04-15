@@ -461,14 +461,8 @@ where
         from_doc_id: i32,
         to_doc_id: i32,
     ) -> Result<()> {
-        let reader = match &mut merge_state.stored_fields_readers[sub.reader_index] {
-            StoredFieldsReaderEnum::Lucene90(reader) => reader,
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "Invalid reader type".to_string(),
-                ))
-            }
-        };
+        let StoredFieldsReaderEnum::Lucene90(reader) =
+            &mut merge_state.stored_fields_readers[sub.reader_index];
 
         debug_assert_eq!(reader.get_version(), lucene90_csf_util::VERSION_CURRENT);
         debug_assert_eq!(reader.get_chunk_size(), self.chunk_size);

@@ -271,11 +271,11 @@ impl Decompressor for DecompressorEnum {
     }
 }
 
-pub(crate) struct LZ4FastCompressor {
+pub struct LZ4FastCompressor {
     ht: HashTableEnum,
 }
 impl LZ4FastCompressor {
-    pub fn new() -> Self {
+    fn new() -> Self {
         LZ4FastCompressor {
             ht: HashTableEnum::Fast(FastCompressionHashTable::new()),
         }
@@ -295,11 +295,11 @@ impl Compressor for LZ4FastCompressor {
     }
 }
 
-pub(crate) struct LZ4HighCompressor {
+pub struct LZ4HighCompressor {
     ht: HashTableEnum,
 }
 impl LZ4HighCompressor {
-    pub fn new(ht: HighCompressionHashTable) -> Self {
+    fn new(ht: HighCompressionHashTable) -> Self {
         LZ4HighCompressor {
             ht: HashTableEnum::High(ht),
         }
@@ -366,12 +366,12 @@ impl Decompressor for DeflateDecompressor {
     }
 }
 
-pub(crate) struct DeflateCompressor {
+pub struct DeflateCompressor {
     level: u32,
 }
 
 impl DeflateCompressor {
-    pub fn new(level: u32) -> Self {
+    fn new(level: u32) -> Self {
         DeflateCompressor { level }
     }
 }

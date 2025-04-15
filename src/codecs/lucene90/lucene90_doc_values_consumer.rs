@@ -57,7 +57,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-/// writer for [`Lucene90DocValuesFormat`](Lucene90DocValuesFormat).
+/// writer for [`Lucene90DocValuesFormat`].
 pub struct Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,

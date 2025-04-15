@@ -19,28 +19,11 @@ use crate::store::DataInput;
 use crate::util::error::lucene_error;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
+use crate::util::fst_impl::fst::BytesReader;
 use crate::util::fst_impl::read_write_data_output::BytesReaderImpl;
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
 use std::fmt::{Display, Formatter};
-
-/// Specifies allowed range of each int input label for this FST.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InputType {
-    Byte1,
-    Byte2,
-    Byte4,
-}
-
-/// Reads bytes stored in an FST.
-#[allow(unused)]
-pub trait BytesReader: DataInput {
-    /// Get current read position.
-    fn get_position(&self) -> i64;
-
-    /// Set current read position.
-    fn set_position(&mut self, pos: i64);
-}
 
 #[allow(unused)]
 pub(crate) enum BytesReaderEnum<R>

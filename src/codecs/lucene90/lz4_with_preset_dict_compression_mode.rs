@@ -198,7 +198,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
     }
 }
 
-pub(crate) struct LZ4WithPresetDictCompressor {
+pub struct LZ4WithPresetDictCompressor {
     compressed: ByteBuffersDataOutput,
     hash_table: HashTableEnum,
     buffer: Vec<u8>,
@@ -206,7 +206,7 @@ pub(crate) struct LZ4WithPresetDictCompressor {
 
 impl LZ4WithPresetDictCompressor {
     #[allow(unused)]
-    pub fn new() -> Self {
+    fn new() -> Self {
         LZ4WithPresetDictCompressor {
             compressed: ByteBuffersDataOutput::with_resettable_instance(),
             hash_table: HashTableEnum::Fast(FastCompressionHashTable::new()),

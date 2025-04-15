@@ -82,7 +82,7 @@ pub enum SortedSetSelectorType {
     MiddleMax,
 }
 /// Wraps a SortedSetDocValues and returns the first ordinal (min)
-struct MinValue<I>
+pub struct MinValue<I>
 where
     I: IndexInput,
 {
@@ -164,7 +164,7 @@ where
     }
 }
 /// Wraps a SortedSetDocValues and returns the last ordinal (max)
-struct MaxValue<I: IndexInput> {
+pub struct MaxValue<I: IndexInput> {
     inner: Box<SortedSetDocValuesWrapper<I>>,
     ord: i32,
 }
@@ -236,7 +236,7 @@ impl<I: IndexInput> SortedDocValues<I> for MaxValue<I> {
     }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the two)
-struct MiddleMinValue<I: IndexInput> {
+pub struct MiddleMinValue<I: IndexInput> {
     inner: Box<SortedSetDocValuesWrapper<I>>,
     ord: i32,
 }
@@ -309,7 +309,7 @@ impl<I: IndexInput> SortedDocValues<I> for MiddleMinValue<I> {
     }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the two)
-struct MiddleMaxValue<I: IndexInput> {
+pub struct MiddleMaxValue<I: IndexInput> {
     inner: Box<SortedSetDocValuesWrapper<I>>,
     ord: i32,
 }

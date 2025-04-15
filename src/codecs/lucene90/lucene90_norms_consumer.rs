@@ -26,7 +26,7 @@ use crate::index::IndexFileNames;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
-use crate::store::{IndexInput, IndexOutput};
+use crate::store::IndexOutput;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;

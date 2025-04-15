@@ -53,7 +53,7 @@ impl DeltaPackedLongValues {
     }
 }
 
-pub(crate) struct DeltaPackedLongValuesBuilder {
+pub struct DeltaPackedLongValuesBuilder {
     pub(crate) sub_builder: Option<MonotonicLongValuesBuilder>,
     pub(crate) mins: Vec<i64>,
 }
@@ -67,10 +67,10 @@ impl DeltaPackedLongValuesBuilder {
     // TODO
     #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
-    pub fn new() -> DeltaPackedLongValuesBuilder {
+    pub(crate) fn new() -> DeltaPackedLongValuesBuilder {
         Self::with_sub_builder(None)
     }
-    pub fn with_sub_builder(
+    pub(crate) fn with_sub_builder(
         sub_builder: Option<MonotonicLongValuesBuilder>,
     ) -> DeltaPackedLongValuesBuilder {
         Self {
@@ -79,7 +79,7 @@ impl DeltaPackedLongValuesBuilder {
         }
     }
 
-    pub fn build(mut self, values_off: i32) -> Result<DeltaPackedLongValues> {
+    pub(crate) fn build(mut self, values_off: i32) -> Result<DeltaPackedLongValues> {
         let sub_reader = if self.sub_builder.is_some() {
             Some(self.sub_builder.take().unwrap().build(values_off)?)
         } else {

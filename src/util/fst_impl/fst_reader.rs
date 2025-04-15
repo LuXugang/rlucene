@@ -17,7 +17,7 @@
 use crate::store::DataOutput;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::dummy::dummy_bytes_reader::BytesReader;
+use crate::util::fst_impl::fst::BytesReader;
 
 /// Abstraction for reading bytes necessary for FST.
 pub trait FstReader: Accountable {

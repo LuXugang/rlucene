@@ -917,7 +917,7 @@ impl<'a, I> SerializedDocument<'a, I>
 where
     I: IndexInput,
 {
-    pub fn new(input: DataInputEnum<'a, I>, length: i32, num_stored_fields: i32) -> Self {
+    fn new(input: DataInputEnum<'a, I>, length: i32, num_stored_fields: i32) -> Self {
         SerializedDocument {
             input,
             length,
@@ -926,7 +926,7 @@ where
     }
 }
 
-pub(crate) struct DataInputImpl<'a, I>
+pub struct DataInputImpl<'a, I>
 where
     I: IndexInput,
 {
@@ -1040,7 +1040,7 @@ where
         Ok(())
     }
 }
-pub(crate) enum DataInputEnum<'a, I>
+pub enum DataInputEnum<'a, I>
 where
     I: IndexInput,
 {

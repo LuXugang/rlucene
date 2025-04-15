@@ -26,7 +26,7 @@ use std::fmt::Display;
 /// Encodes/decodes per-document values.
 pub trait DocValuesFormat: Display {
     type DocValuesConsumer<T: IndexOutput>: DocValuesConsumer;
-    /// Returns a [`DocValuesConsumer`](DocValuesConsumer) to write docvalues to the index.
+    /// Returns a [`DocValuesConsumer`] to write docvalues to the index.
     fn fields_consumer<D>(
         &self,
         state: &SegmentWriteState<D>,
@@ -35,7 +35,7 @@ pub trait DocValuesFormat: Display {
         D: Directory;
 
     type DocValuesProducer<T: IndexInput>: DocValuesProducer<T>;
-    /// Returns a [`DocValuesProducer`](crate::codecs::doc_values_producer::DocValuesProducer) to read docvalues from the index.
+    /// Returns a [`DocValuesProducer`] to read docvalues from the index.
     ///
     /// NOTE: By the time this call returns, it must hold open any files it will need to use;
     /// otherwise, those files may be deleted. Additionally, required files may be deleted during
