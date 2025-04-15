@@ -32,7 +32,7 @@ use std::rc::Rc;
 
 pub struct FST<T, O, F>
 where
-    T: Clone + PartialEq,
+    T: Clone + PartialEq + Default,
     O: Outputs<T>,
     F: FstReader,
 {
@@ -43,7 +43,7 @@ where
 
 impl<T, O> FST<T, O, OnHeapFSTStore>
 where
-    T: Clone + PartialEq,
+    T: Clone + PartialEq + Default,
     O: Outputs<T>,
 {
     /// Load a previously saved FST with a DataInput for metadata using an [`OnHeapFSTStore`](crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore) with
@@ -59,7 +59,7 @@ where
 }
 impl<T, O, F> FST<T, O, F>
 where
-    T: Clone + PartialEq,
+    T: Clone + PartialEq + Default,
     O: Outputs<T>,
     F: FstReader,
 {
@@ -802,7 +802,7 @@ where
 }
 impl<T, O, F> Display for FST<T, O, F>
 where
-    T: Clone + PartialEq,
+    T: Clone + PartialEq + Default,
     O: Outputs<T>,
     F: FstReader,
 {
@@ -825,7 +825,7 @@ pub mod fst_util {
     use crate::util::fst_impl::fst_reader::FstReader;
     use crate::util::fst_impl::outputs::Outputs;
     use std::cell::RefCell;
-    
+
     use std::rc::Rc;
 
     pub(crate) const BIT_FINAL_ARC: u8 = 1 << 0;
@@ -909,7 +909,7 @@ pub mod fst_util {
         outputs: Rc<RefCell<O>>,
     ) -> Result<FSTMetadata<T, O>>
     where
-        T: Clone + PartialEq,
+        T: Clone + PartialEq + Default,
         O: Outputs<T>,
     {
         // NOTE: only reads formats VERSION_START up to VERSION_CURRENT; we don't have
@@ -966,7 +966,7 @@ pub mod fst_util {
     }
 
     /// Returns `true` if the node at this address has any outgoing arcs.
-    pub fn target_has_arcs<T: Clone>(arc: &Arc<T>) -> bool {
+    pub fn target_has_arcs<T>(arc: &Arc<T>) -> bool {
         arc.target() > 0
     }
     /// Gets the number of bytes required to flag the presence of each arc in the given label range,
@@ -977,7 +977,7 @@ pub mod fst_util {
     }
     /// Reads the presence bits of a direct-addressing node. Actually we don't read them here,
     /// we just keep the pointer to the bit-table start and we skip them.
-    pub(crate) fn read_presence_bytes<T: Clone>(
+    pub(crate) fn read_presence_bytes<T>(
         arc: &mut Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
@@ -1048,30 +1048,7 @@ pub struct Arc<T> {
     /// in the bit-table. This field is a cache to avoid counting bits repeatedly when iterating arcs.
     presence_index: i32,
 }
-impl<T: Clone> Arc<T> {
-    /// Returns `self` after copying all fields from `other`.
-    pub fn copy_from(&mut self, other: &Arc<T>) {
-        self.label = other.label();
-        self.target = other.target();
-        self.flags = other.flags();
-        self.output = other.output();
-        self.next_final_output = other.next_final_output();
-        self.next_arc = other.next_arc();
-        self.node_flags = other.node_flags();
-        self.bytes_per_arc = other.bytes_per_arc();
-        // Fields for arcs belonging to a node with fixed length arcs.
-        // We could avoid copying them if bytesPerArc() == 0 (this was the case with previous code,
-        // and the current code
-        // still supports that), but it may actually help external uses of FST to have consistent arc
-        // state, and debugging
-        // is easier.
-        self.pos_arcs_start = other.pos_arcs_start();
-        self.arc_idx = other.arc_idx();
-        self.num_arcs = other.num_arcs();
-        self.bit_table_start = other.bit_table_start;
-        self.first_label = other.first_label();
-        self.presence_index = other.presence_index;
-    }
+impl<T> Arc<T> {
     pub(crate) fn flag(&self, flag: i32) -> bool {
         fst_util::flag(self.flags as i32, flag)
     }
@@ -1085,11 +1062,6 @@ impl<T: Clone> Arc<T> {
     pub fn label(&self) -> i32 {
         self.label
     }
-
-    pub fn output(&self) -> T {
-        self.output.clone()
-    }
-
     /// Ord/address to target node.
     pub fn target(&self) -> i64 {
         self.target
@@ -1097,10 +1069,6 @@ impl<T: Clone> Arc<T> {
 
     pub fn flags(&self) -> u8 {
         self.flags
-    }
-
-    pub fn next_final_output(&self) -> T {
-        self.next_final_output.clone()
     }
 
     /// Address (into the byte[]) of the next arc - only for list of variable length arc. Or
@@ -1144,6 +1112,37 @@ impl<T: Clone> Arc<T> {
     /// First label of a direct addressing node. Only valid if nodeFlags == [`ARCS_FOR_DIRECT_ADDRESSING`](fst_util::ARCS_FOR_DIRECT_ADDRESSING) or [`ARCS_FOR_CONTINUOUS`](fst_util::ARCS_FOR_CONTINUOUS).
     pub fn first_label(&self) -> i32 {
         self.first_label
+    }
+}
+impl<T: Clone> Arc<T> {
+    /// Returns `self` after copying all fields from `other`.
+    pub fn copy_from(&mut self, other: &Arc<T>) {
+        self.label = other.label();
+        self.target = other.target();
+        self.flags = other.flags();
+        self.output = other.output();
+        self.next_final_output = other.next_final_output();
+        self.next_arc = other.next_arc();
+        self.node_flags = other.node_flags();
+        self.bytes_per_arc = other.bytes_per_arc();
+        // Fields for arcs belonging to a node with fixed length arcs.
+        // We could avoid copying them if bytesPerArc() == 0 (this was the case with previous code,
+        // and the current code
+        // still supports that), but it may actually help external uses of FST to have consistent arc
+        // state, and debugging
+        // is easier.
+        self.pos_arcs_start = other.pos_arcs_start();
+        self.arc_idx = other.arc_idx();
+        self.num_arcs = other.num_arcs();
+        self.bit_table_start = other.bit_table_start;
+        self.first_label = other.first_label();
+        self.presence_index = other.presence_index;
+    }
+    pub fn output(&self) -> T {
+        self.output.clone()
+    }
+    pub fn next_final_output(&self) -> T {
+        self.next_final_output.clone()
     }
 }
 impl<T: Display + Clone> Display for Arc<T> {
@@ -1265,7 +1264,7 @@ impl BitTable {
 /// `T` is the FST output type.
 pub struct FSTMetadata<T, O>
 where
-    T: Clone + PartialEq,
+    T: Clone + PartialEq + Default,
     O: Outputs<T>,
 {
     pub input_type: InputType,
@@ -1276,7 +1275,7 @@ where
     pub start_node: i64,
     pub num_bytes: i64,
 }
-impl<T: Clone + PartialEq, O: Outputs<T>> FSTMetadata<T, O> {
+impl<T: Clone + PartialEq + Default, O: Outputs<T>> FSTMetadata<T, O> {
     pub fn new(
         input_type: InputType,
         outputs: Rc<RefCell<O>>,
