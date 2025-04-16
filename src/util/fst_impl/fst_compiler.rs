@@ -61,9 +61,6 @@ use std::rc::Rc;
 /// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to be saved at the
 ///   end). In order to use it, you need to construct the corresponding `DataInput` and use the FST
 ///   constructor to read it.
-///
-///
-/// *lucene.experimental*
 pub struct FSTCompiler<T, O, D>
 where
     T: OutputsBound,
@@ -431,7 +428,7 @@ where
     O: Outputs<T>,
     D: Directory,
 {
-    fn new(
+    pub(crate) fn new(
         input_type: InputType,
         suffix_ram_limit_mb: f64,
         outputs: O,

@@ -653,44 +653,65 @@ where
 
 #[cfg(test)]
 mod tests {
-
+    use crate::store::dummy::dummy_directory::DummyDirectory;
+    use crate::test::util::lucene_test_case::{at_least, random};
     use crate::util::error::lucene_error::Result;
+    use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
+    use crate::util::fst_impl::fst::InputType;
+    use crate::util::fst_impl::fst_compiler::{DataOutputEnum, FSTCompilerInner};
+    use crate::util::fst_impl::node_hash::PagedGrowableHash;
+    use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
+    use rand::Rng;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     #[allow(dead_code)]
     struct TestNodeHash;
     #[test]
     fn test_copy_fallback_node_bytes() -> Result<()> {
-        // let mut random = random();
-        // // Create primary and fallback hash tables
-        // let mut primary_hash_table = PagedGrowableHash::new()?;
-        // let mut fallback_hash_table = PagedGrowableHash::new()?;
-        //
-        // let node_length = at_least(&mut random, 500);
-        // let fallback_hash_slot = 1;
-        // let fallback_bytes: Vec<u8> = (0..node_length).map(|_| random.random()).collect();
-        //
-        // fallback_hash_table.copy_node_bytes(fallback_hash_slot, &fallback_bytes, node_length)?;
-        //
-        // // Check that fallback bytes stored correctly
-        // let stored_bytes = fallback_hash_table.get_bytes(fallback_hash_slot, node_length as i32)?;
-        // for i in 0..node_length as usize {
-        //     assert_eq!(fallback_bytes[i], stored_bytes[i], "byte @ index={}", i);
-        // }
-        //
-        // let primary_hash_slot = 2;
-        // primary_hash_table.copy_fallback_node_bytes(
-        //     primary_hash_slot,
-        //     &mut fallback_hash_table,
-        //     fallback_hash_slot,
-        //     node_length,
-        // )?;
-        //
-        // // Check that primary copied bytes match original
-        // let copied_bytes = primary_hash_table.get_bytes(primary_hash_slot, node_length as i32)?;
-        // for i in 0..node_length as usize {
-        //     assert_eq!(fallback_bytes[i], copied_bytes[i], "byte @ index={}", i);
-        // }
+        let mut random = random();
+        let data_output: DataOutputEnum<DummyDirectory> =
+            DataOutputEnum::ReadWriter(ReadWriteDataOutput::new(10));
+        let index_type = InputType::Byte1;
+        let outputs = ByteSequenceOutputs;
+        let fst_compiler_inner = Rc::new(RefCell::new(FSTCompilerInner::new(
+            index_type,
+            0f64,
+            outputs,
+            true,
+            data_output,
+            0f32,
+            10,
+        )?));
+        // Create primary and fallback hash tables
+        let mut primary_hash_table = PagedGrowableHash::new(fst_compiler_inner.clone())?;
+        let mut fallback_hash_table = PagedGrowableHash::new(fst_compiler_inner)?;
 
+        let node_length = at_least(&mut random, 500);
+        let fallback_hash_slot = 1;
+        let fallback_bytes: Vec<u8> = (0..node_length).map(|_| random.random()).collect();
+
+        fallback_hash_table.copy_node_bytes(fallback_hash_slot, &fallback_bytes, node_length)?;
+
+        // Check that fallback bytes stored correctly
+        let stored_bytes = fallback_hash_table.get_bytes(fallback_hash_slot, node_length as i32)?;
+        for i in 0..node_length as usize {
+            assert_eq!(fallback_bytes[i], stored_bytes[i], "byte @ index={}", i);
+        }
+
+        let primary_hash_slot = 2;
+        primary_hash_table.copy_fallback_node_bytes(
+            primary_hash_slot,
+            &mut fallback_hash_table,
+            fallback_hash_slot,
+            node_length,
+        )?;
+
+        // Check that primary copied bytes match original
+        let copied_bytes = primary_hash_table.get_bytes(primary_hash_slot, node_length as i32)?;
+        for i in 0..node_length as usize {
+            assert_eq!(fallback_bytes[i], copied_bytes[i], "byte @ index={}", i);
+        }
         Ok(())
     }
 }
