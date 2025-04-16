@@ -27,7 +27,7 @@ use std::hash::Hash;
 /// [`get_no_output`](Outputs::get_no_output).
 ///
 /// # lucene.experimental
-pub trait Outputs<T>: Display
+pub trait Outputs<T>: Display + Clone
 where
     T: OutputsBound,
 {
@@ -98,5 +98,5 @@ pub enum OutputsEnum {
     ByteSequence(ByteSequenceOutputs),
 }
 
-pub trait OutputsBound: Clone + PartialEq + Default + Hash + Display{}
+pub trait OutputsBound: Clone + PartialEq + Default + Hash + Display {}
 impl<T: Clone + PartialEq + Default + Hash + Display> OutputsBound for T {}

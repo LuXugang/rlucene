@@ -28,6 +28,12 @@ impl Display for DummyOutputs {
     }
 }
 
+impl Clone for DummyOutputs {
+    fn clone(&self) -> Self {
+        DummyOutputs
+    }
+}
+
 impl Outputs<i32> for DummyOutputs {
     fn common(&self, _output1: &i32, _output2: &i32) -> i32 {
         debug_assert!(false, "this method should not be called");

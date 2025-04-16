@@ -47,7 +47,7 @@ where
 {
     fn new(mut fst: FST<T, O, F>, sub: S) -> Result<Self> {
         let fst_reader = fst.get_bytes_reader()?;
-        let no_output = fst.outputs.borrow().get_no_output();
+        let no_output = fst.outputs.get_no_output();
         let mut arcs = vec![None; 10];
         let mut arc = Arc::default();
         fst.get_first_arc(&mut arc);
@@ -243,7 +243,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
@@ -286,7 +285,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
@@ -331,7 +329,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
@@ -395,7 +392,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
@@ -551,7 +547,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
@@ -601,7 +596,6 @@ where
                 self.output[self.upto] = self
                     .fst
                     .outputs
-                    .borrow()
                     .add(&self.output[self.upto - 1], &arc.output());
 
                 if target_label == fst_util::END_LABEL {
@@ -842,7 +836,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
@@ -888,7 +881,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
@@ -986,7 +978,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &next_arc.output());
 
             if target_label == fst_util::END_LABEL {
@@ -1025,7 +1016,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if arc.label() == fst_util::END_LABEL {
@@ -1059,7 +1049,6 @@ where
             self.output[self.upto] = self
                 .fst
                 .outputs
-                .borrow()
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if label == fst_util::END_LABEL {

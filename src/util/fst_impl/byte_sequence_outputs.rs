@@ -36,6 +36,13 @@ impl ByteSequenceOutputs {
         &SINGLETON
     }
 }
+
+impl Clone for ByteSequenceOutputs {
+    fn clone(&self) -> Self {
+        ByteSequenceOutputs
+    }
+}
+
 impl Outputs<Rc<BytesRc>> for ByteSequenceOutputs {
     fn common(&self, output1: &Rc<BytesRc>, output2: &Rc<BytesRc>) -> Rc<BytesRc> {
         let mismatch_pos = CommonUtil::miss_match(

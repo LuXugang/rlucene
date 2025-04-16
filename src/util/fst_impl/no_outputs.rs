@@ -31,6 +31,12 @@ impl Display for NoOutputs {
     }
 }
 
+impl Clone for NoOutputs {
+    fn clone(&self) -> Self {
+        NoOutputs
+    }
+}
+
 impl<T> Outputs<T> for NoOutputs
 where
     T: OutputsBound,

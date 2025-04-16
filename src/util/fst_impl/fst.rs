@@ -37,7 +37,7 @@ where
     F: FstReader,
 {
     pub metadata: Option<FSTMetadata<T, O>>,
-    pub outputs: Rc<RefCell<O>>,
+    pub outputs: O,
     pub fst_reader: F,
 }
 
@@ -156,8 +156,8 @@ where
         Ok(())
     }
     /// Fills the virtual 'start' arc, i.e., an empty incoming arc to the FST's start node.
-    pub fn get_first_arc(&self, arc: & mut Arc<T>) {
-        let no_output = self.outputs.borrow().get_no_output();
+    pub fn get_first_arc(&self, arc: &mut Arc<T>) {
+        let no_output = self.outputs.get_no_output();
 
         if let Some(ref empty_output) = self.metadata.as_ref().unwrap().empty_output {
             arc.flags = fst_util::BIT_FINAL_ARC | fst_util::BIT_LAST_ARC;
@@ -229,14 +229,13 @@ where
             arc.bytes_per_arc = 0;
 
             // Linear scan through variable-length arcs
-            let outputs = self.outputs.borrow();
             while !arc.is_last() {
                 self.read_label(input)?;
                 if arc.flag(fst_util::BIT_ARC_HAS_OUTPUT as i32) {
-                    outputs.skip_output(input)?;
+                    self.outputs.skip_output(input)?;
                 }
                 if arc.flag(fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32) {
-                    outputs.skip_final_output(input)?;
+                    self.outputs.skip_final_output(input)?;
                 }
                 if arc.flag(fst_util::BIT_STOP_NODE) {
                     // no-op
@@ -600,17 +599,16 @@ where
             arc.label = self.read_label(reader)?;
         }
 
-        let outputs = self.outputs.borrow();
         if arc.flag(fst_util::BIT_ARC_HAS_OUTPUT as i32) {
-            arc.output = outputs.read(reader)?;
+            arc.output = self.outputs.read(reader)?;
         } else {
-            arc.output = outputs.get_no_output();
+            arc.output = self.outputs.get_no_output();
         }
 
         if arc.flag(fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32) {
-            arc.next_final_output = outputs.read_final_output(reader)?;
+            arc.next_final_output = self.outputs.read_final_output(reader)?;
         } else {
-            arc.next_final_output = outputs.get_no_output();
+            arc.next_final_output = self.outputs.get_no_output();
         }
 
         if arc.flag(fst_util::BIT_STOP_NODE) {
@@ -758,12 +756,11 @@ where
                 return Ok(None);
             } else {
                 let flag = arc.flags as i32;
-                let outputs = self.outputs.borrow();
                 if fst_util::flag(flag, fst_util::BIT_ARC_HAS_OUTPUT as i32) {
-                    outputs.skip_output(input)?;
+                    self.outputs.skip_output(input)?;
                 }
                 if fst_util::flag(flag, fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32) {
-                    outputs.skip_final_output(input)?;
+                    self.outputs.skip_final_output(input)?;
                 }
                 if !fst_util::flag(flag, fst_util::BIT_STOP_NODE)
                     && !fst_util::flag(flag, fst_util::BIT_TARGET_NEXT as i32)
@@ -776,17 +773,16 @@ where
 
     /// Skips over a variable-length arc node until it reaches the last arc.
     pub fn seek_to_next_node(&self, reader: &mut impl BytesReader) -> Result<()> {
-        let outputs = self.outputs.borrow();
         loop {
             let flags = reader.read_byte()?;
             self.read_label(reader)?;
 
             if flags & fst_util::BIT_ARC_HAS_OUTPUT != 0 {
-                outputs.skip_output(reader)?;
+                self.outputs.skip_output(reader)?;
             }
 
             if flags & fst_util::BIT_ARC_HAS_FINAL_OUTPUT != 0 {
-                outputs.skip_final_output(reader)?;
+                self.outputs.skip_final_output(reader)?;
             }
 
             if fst_util::flag(flags as i32, fst_util::BIT_STOP_NODE)
@@ -811,12 +807,12 @@ where
     O: Outputs<T>,
     F: FstReader,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "FST(input={:?}, output={})",
             self.metadata.as_ref().unwrap().input_type,
-            self.outputs.borrow()
+            self.outputs
         )
     }
 }
@@ -824,13 +820,12 @@ pub mod fst_util {
     use crate::codecs::CodecUtil;
     use crate::store::{DataInput, DataOutput};
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::fst_impl::fst::{fst_util, Arc, BytesReader, FSTMetadata, InputType};
+    use crate::util::fst_impl::fst::{Arc, BytesReader, FSTMetadata, InputType};
     use crate::util::fst_impl::fst_compiler::fst_compiler_util;
     use crate::util::fst_impl::fst_reader::FstReader;
     use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-    use std::cell::RefCell;
+
     use std::hash::Hash;
-    use std::rc::Rc;
 
     pub(crate) const BIT_FINAL_ARC: u8 = 1 << 0;
     pub(crate) const BIT_LAST_ARC: u8 = 1 << 1;
@@ -910,7 +905,7 @@ pub mod fst_util {
     /// Returns an error if an exception occurred during parsing
     pub fn read_metadata<T, O>(
         meta_in: &mut impl DataInput,
-        outputs: Rc<RefCell<O>>,
+        outputs: O,
     ) -> Result<FSTMetadata<T, O>>
     where
         T: OutputsBound,
@@ -918,12 +913,8 @@ pub mod fst_util {
     {
         // NOTE: only reads formats VERSION_START up to VERSION_CURRENT; we don't have
         // back-compat promise for FSTs (they are experimental), but we are sometimes able to offer it
-        let version = CodecUtil::check_header(
-            meta_in,
-            fst_util::FILE_FORMAT_NAME,
-            fst_util::VERSION_START,
-            fst_util::VERSION_CURRENT,
-        )?;
+        let version =
+            CodecUtil::check_header(meta_in, FILE_FORMAT_NAME, VERSION_START, VERSION_CURRENT)?;
 
         let mut empty_output: Option<T> = None;
 
@@ -942,7 +933,7 @@ pub mod fst_util {
             if num_bytes > 0 {
                 reader.set_position((num_bytes - 1) as i64);
             }
-            empty_output = Some(outputs.borrow().read_final_output(&mut reader)?);
+            empty_output = Some(outputs.read_final_output(&mut reader)?);
         }
         let input_type = match meta_in.read_byte()? {
             0 => InputType::Byte1,
@@ -986,9 +977,9 @@ pub mod fst_util {
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         debug_assert!(arc.bytes_per_arc() > 0);
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
         arc.bit_table_start = reader.get_position();
-        let skip = fst_util::get_num_presence_bytes(arc.num_arcs());
+        let skip = get_num_presence_bytes(arc.num_arcs());
         reader.skip_bytes(skip as i64)
     }
     /// Reads the end arc based on the `follow` arc.
@@ -1006,14 +997,14 @@ pub mod fst_util {
     fn read_end_arc<T: Clone + Hash>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
         if follow.is_final() {
             if follow.target() <= 0 {
-                arc.flags = fst_util::BIT_LAST_ARC;
+                arc.flags = BIT_LAST_ARC;
             } else {
                 arc.flags = 0;
                 // NOTE: nextArc is a node (not an address!) in this case:
                 arc.next_arc = follow.target();
             }
             arc.output = follow.next_final_output();
-            arc.label = fst_util::END_LABEL;
+            arc.label = END_LABEL;
             Some(())
         } else {
             None
@@ -1288,7 +1279,7 @@ where
     O: Outputs<T>,
 {
     pub input_type: InputType,
-    pub outputs: Rc<RefCell<O>>,
+    pub outputs: O,
     pub version: i32,
     /// If non-None, this FST accepts the empty string and produces this output.
     pub empty_output: Option<T>,
@@ -1298,7 +1289,7 @@ where
 impl<T: OutputsBound, O: Outputs<T>> FSTMetadata<T, O> {
     pub fn new(
         input_type: InputType,
-        outputs: Rc<RefCell<O>>,
+        outputs: O,
         empty_output: Option<T>,
         start_node: i64,
         version: i32,
@@ -1345,9 +1336,7 @@ impl<T: OutputsBound, O: Outputs<T>> FSTMetadata<T, O> {
 
             // Serialize empty-string output
             let mut ros = ByteBuffersDataOutput::new();
-            self.outputs
-                .borrow_mut()
-                .write_final_output(empty_output, &mut ros)?;
+            self.outputs.write_final_output(empty_output, &mut ros)?;
             let mut empty_output_bytes = ros.try_get_array_ownership();
             let empty_len = empty_output_bytes.len();
             // reverse

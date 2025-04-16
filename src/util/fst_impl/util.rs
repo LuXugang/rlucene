@@ -14,11 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::fmt;
-use std::fmt::Display;
-use std::hash::Hash;
-use std::rc::Rc;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::{Arc, InputType, FST};
@@ -26,6 +21,9 @@ use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
+use std::fmt;
+use std::fmt::Display;
+use std::hash::Hash;
 
 pub struct Util;
 impl Util {
@@ -39,19 +37,19 @@ impl Util {
         let mut arc = Arc::default();
         fst.get_first_arc(&mut arc);
         let mut fst_reader = fst.get_bytes_reader()?;
-        let mut output = fst.outputs.borrow().get_no_output();
+        let mut output = fst.outputs.get_no_output();
 
-        for i in 0..input.length as usize{
+        for i in 0..input.length as usize {
             let label = input.ints.borrow()[input.offset as usize + i];
             let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);
             }
-            output = fst.outputs.borrow().add(&output, &arc.output());
+            output = fst.outputs.add(&output, &arc.output());
         }
 
         if arc.is_final() {
-            let final_output = fst.outputs.borrow().add(&output, &arc.next_final_output());
+            let final_output = fst.outputs.add(&output, &arc.next_final_output());
             Ok(Some(final_output))
         } else {
             Ok(None)
@@ -69,19 +67,19 @@ impl Util {
         let mut fst_reader = fst.get_bytes_reader()?;
         let mut arc = Arc::<T>::default();
         fst.get_first_arc(&mut arc);
-        let mut output = fst.outputs.borrow().get_no_output();
+        let mut output = fst.outputs.get_no_output();
 
-        for i in 0..input.length as usize{
-            let label = (input.bytes[input.offset as usize+ i] & 0xFF) as i32;
+        for i in 0..input.length as usize {
+            let label = input.bytes[input.offset as usize + i] as i32;
             let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);
             }
-            output = fst.outputs.borrow().add(&output, &arc.output());
+            output = fst.outputs.add(&output, &arc.output());
         }
 
         if arc.is_final() {
-            let final_output = fst.outputs.borrow().add(&output, &arc.next_final_output());
+            let final_output = fst.outputs.add(&output, &arc.next_final_output());
             Ok(Some(final_output))
         } else {
             Ok(None)
@@ -130,14 +128,14 @@ where
         context: String,
         payload: i32,
     ) -> Self {
-        let mut arc =  Arc::default();
+        let mut arc = Arc::default();
         arc.copy_from(other);
         FSTPath {
             arc,
             output,
             input,
             boost,
-            context: context.into(),
+            context,
             payload,
         }
     }

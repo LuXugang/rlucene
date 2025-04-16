@@ -266,7 +266,6 @@ where
         }
         // push conflicting outputs forward, only as far as
         // needed
-        let outputs = inner.fst.outputs.borrow();
         for idx in 1..prefix_len_plus1 {
             let parent = &mut self.frontier[idx - 1];
             let label = ints[offset + idx - 1];
@@ -276,10 +275,13 @@ where
 
             let common_output_prefix;
             if std::ptr::eq(&last_output, &inner.no_output) {
-                common_output_prefix = outputs.common(&output, &last_output);
+                common_output_prefix = inner.fst.outputs.common(&output, &last_output);
                 debug_assert!(inner.valid_output(&common_output_prefix));
 
-                let word_suffix = outputs.subtract(&last_output, &common_output_prefix);
+                let word_suffix = inner
+                    .fst
+                    .outputs
+                    .subtract(&last_output, &common_output_prefix);
                 debug_assert!(inner.valid_output(&word_suffix));
 
                 parent
@@ -292,7 +294,7 @@ where
                 common_output_prefix = inner.no_output.clone();
             }
 
-            output = outputs.subtract(&output, &common_output_prefix);
+            output = inner.fst.outputs.subtract(&output, &common_output_prefix);
             debug_assert!(inner.valid_output(&output));
         }
 
@@ -300,7 +302,7 @@ where
             // same input more than 1 time in a row, mapping to
             // multiple outputs
             let last_node = self.frontier[offset].as_mut().unwrap();
-            last_node.output = outputs.merge(&last_node.output, &output)?;
+            last_node.output = inner.fst.outputs.merge(&last_node.output, &output)?;
         } else {
             // this new arc is private to this new input; set its
             // arc output to the leftover output:
@@ -449,14 +451,7 @@ where
 
         let null_fst_reader = NullFSTReader; // assume you implemented Default
         let no_output = outputs.get_no_output();
-        let fst_meta = FSTMetadata::new(
-            input_type,
-            Rc::new(RefCell::new(outputs)),
-            None,
-            -1,
-            version,
-            0,
-        );
+        let fst_meta = FSTMetadata::new(input_type, outputs, None, -1, version, 0);
         let fst = FST::new(fst_meta, NullFSTReader);
 
         Ok(FSTCompilerInner {
@@ -559,14 +554,12 @@ where
                     if std::ptr::eq(&arc.output, &self.no_output) {
                         self.fst
                             .outputs
-                            .borrow()
                             .write(&arc.output, &mut self.scratch_bytes)?;
                     }
 
                     if std::ptr::eq(&arc.next_final_output, &self.no_output) {
                         self.fst
                             .outputs
-                            .borrow()
                             .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;
                     }
 
@@ -990,8 +983,7 @@ where
         match self.fst.metadata {
             Some(ref mut metadata) => {
                 if let Some(existing) = &mut metadata.empty_output {
-                    metadata.empty_output =
-                        Some(self.fst.outputs.borrow_mut().merge(&existing.clone(), &v)?);
+                    metadata.empty_output = Some(self.fst.outputs.merge(&existing.clone(), &v)?);
                 } else {
                     metadata.empty_output = Some(v);
                 }
@@ -1494,17 +1486,16 @@ where
     pub(crate) fn prepend_output(&mut self, output_prefix: &T) {
         debug_assert!(self.owner.borrow().valid_output(output_prefix));
         let owner = self.owner.borrow();
-        let outputs = owner.fst.outputs.borrow();
 
         for i in 0..self.num_arcs as usize {
-            let new_output = outputs.add(output_prefix, &self.arcs[i].output);
-            debug_assert!(self.owner.borrow().valid_output(&new_output));
+            let new_output = owner.fst.outputs.add(output_prefix, &self.arcs[i].output);
+            debug_assert!(owner.valid_output(&new_output));
             self.arcs[i].output = new_output;
         }
 
         if self.is_final {
-            let new_output = outputs.add(output_prefix, &self.output);
-            debug_assert!(self.owner.borrow().valid_output(&new_output));
+            let new_output = owner.fst.outputs.add(output_prefix, &self.output);
+            debug_assert!(owner.valid_output(&new_output));
             self.output = new_output;
         }
     }
