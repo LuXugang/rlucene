@@ -133,7 +133,7 @@ impl TermsHashPerField {
             postings_array_wrapper,
         })
     }
-    pub fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
+    pub(crate) fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
         debug_assert!(stream < self.stream_count);
         let term_id = term_id as usize;
         let postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
