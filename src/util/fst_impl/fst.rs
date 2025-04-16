@@ -156,7 +156,7 @@ where
         Ok(())
     }
     /// Fills the virtual 'start' arc, i.e., an empty incoming arc to the FST's start node.
-    pub fn get_first_arc<'a>(&self, arc: &'a mut Arc<T>) -> &'a mut Arc<T> {
+    pub fn get_first_arc(&self, arc: & mut Arc<T>) {
         let no_output = self.outputs.borrow().get_no_output();
 
         if let Some(ref empty_output) = self.metadata.as_ref().unwrap().empty_output {
@@ -174,7 +174,6 @@ where
         // If there are no nodes, ie, the FST only accepts the
         // empty string, then startNode is 0
         arc.target = self.metadata.as_ref().unwrap().start_node;
-        arc
     }
     /// Follows the `follow` arc and reads the last arc of its target; this changes the
     /// provided `arc` (2nd arg) in-place and returns it.
@@ -665,7 +664,7 @@ where
     pub fn find_target_arc(
         &mut self,
         label_to_match: i32,
-        follow: &mut Arc<T>,
+        follow: &Arc<T>,
         arc: &mut Arc<T>,
         input: &mut impl BytesReader,
     ) -> Result<Option<()>> {

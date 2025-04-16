@@ -50,7 +50,7 @@ where
         let no_output = fst.outputs.borrow().get_no_output();
         let mut arcs = vec![None; 10];
         let mut arc = Arc::default();
-        let _ = fst.get_first_arc(&mut arc);
+        fst.get_first_arc(&mut arc);
         arcs[0] = Some(arc);
 
         let mut output = vec![T::default(); 10];

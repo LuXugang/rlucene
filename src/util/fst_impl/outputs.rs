@@ -98,5 +98,5 @@ pub enum OutputsEnum {
     ByteSequence(ByteSequenceOutputs),
 }
 
-pub trait OutputsBound: Clone + PartialEq + Default + Hash {}
-impl<T: Clone + PartialEq + Default + Hash> OutputsBound for T {}
+pub trait OutputsBound: Clone + PartialEq + Default + Hash + Display{}
+impl<T: Clone + PartialEq + Default + Hash + Display> OutputsBound for T {}

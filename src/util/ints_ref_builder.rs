@@ -27,6 +27,7 @@ use std::rc::Rc;
 /// Internal utility used during FST construction.
 ///
 /// # Lucene internal
+#[derive(Clone)]
 pub struct IntsRefBuilder {
     ints_ref: IntsRef,
 }
