@@ -529,7 +529,7 @@ where
         compiler
             .fst
             .read_first_real_target_arc(node_address, &mut scratch_arc, reader)?;
-
+        // TODO: 这里要改成wrapping_mul跟wrapping_add
         loop {
             h = prime * h + scratch_arc.label() as i64;
             let target = scratch_arc.target();

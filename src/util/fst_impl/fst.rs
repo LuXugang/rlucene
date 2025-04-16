@@ -174,7 +174,6 @@ where
         // If there are no nodes, ie, the FST only accepts the
         // empty string, then startNode is 0
         arc.target = self.metadata.as_ref().unwrap().start_node;
-
         arc
     }
     /// Follows the `follow` arc and reads the last arc of its target; this changes the
@@ -183,12 +182,12 @@ where
     /// # Returns
     ///
     /// Returns the second argument (`arc`).
-    pub(crate) fn read_last_target_arc(
+    pub(crate) fn read_last_target_arc<'a>(
         &self,
         follow: &Arc<T>,
-        arc: &mut Arc<T>,
+        arc: &'a mut Arc<T>,
         input: &mut impl BytesReader,
-    ) -> Result<()> {
+    ) -> Result<&'a mut Arc<T>> {
         if !fst_util::target_has_arcs(follow) {
             debug_assert!(follow.is_final());
             arc.label = fst_util::END_LABEL;
@@ -196,7 +195,7 @@ where
             arc.output = follow.next_final_output.clone();
             arc.flags = fst_util::BIT_LAST_ARC;
             arc.node_flags = arc.flags;
-            return Ok(());
+            return Ok(arc);
         }
 
         input.set_position(follow.target());
@@ -256,7 +255,7 @@ where
         }
 
         debug_assert!(arc.is_last());
-        Ok(())
+        Ok(arc)
     }
     /// Reads an unpacked node target address (as a `vLong`) from the input.
     fn read_unpacked_node_target(&self, reader: &mut impl BytesReader) -> Result<i64> {
@@ -367,7 +366,11 @@ where
     }
     /// Peeks at next arc's label; does not alter arc.
     /// Do not call this if `arc.is_last()`!
-    fn read_next_arc_label(&self, arc: &Arc<T>, input: &mut impl BytesReader) -> Result<i32> {
+    pub(crate) fn read_next_arc_label(
+        &self,
+        arc: &Arc<T>,
+        input: &mut impl BytesReader,
+    ) -> Result<i32> {
         debug_assert!(!arc.is_last());
 
         if arc.label() == fst_util::END_LABEL {
@@ -662,7 +665,7 @@ where
     pub fn find_target_arc(
         &mut self,
         label_to_match: i32,
-        follow: &Arc<T>,
+        follow: &mut Arc<T>,
         arc: &mut Arc<T>,
         input: &mut impl BytesReader,
     ) -> Result<Option<()>> {
@@ -968,7 +971,7 @@ pub mod fst_util {
     }
 
     /// Returns `true` if the node at this address has any outgoing arcs.
-    pub fn target_has_arcs<T: Hash>(arc: &Arc<T>) -> bool {
+    pub fn target_has_arcs<T: Hash + Clone>(arc: &Arc<T>) -> bool {
         arc.target() > 0
     }
     /// Gets the number of bytes required to flag the presence of each arc in the given label range,
@@ -979,7 +982,7 @@ pub mod fst_util {
     }
     /// Reads the presence bits of a direct-addressing node. Actually we don't read them here,
     /// we just keep the pointer to the bit-table start and we skip them.
-    pub(crate) fn read_presence_bytes<T: Hash>(
+    pub(crate) fn read_presence_bytes<T: Hash + Clone>(
         arc: &mut Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
@@ -1019,10 +1022,10 @@ pub mod fst_util {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Arc<T>
 where
-    T: Hash,
+    T: Hash + Clone,
 {
     // *** Arc fields.
     label: i32,
@@ -1056,7 +1059,7 @@ where
 }
 impl<T> Arc<T>
 where
-    T: Hash,
+    T: Hash + Clone,
 {
     pub(crate) fn flag(&self, flag: i32) -> bool {
         fst_util::flag(self.flags as i32, flag)
@@ -1125,7 +1128,7 @@ where
 }
 impl<T: Clone> Arc<T>
 where
-    T: Hash,
+    T: Hash + Clone,
 {
     /// Returns `self` after copying all fields from `other`.
     pub fn copy_from(&mut self, other: &Arc<T>) {
@@ -1159,7 +1162,7 @@ where
 }
 impl<T: Display + Clone> Display for Arc<T>
 where
-    T: Hash,
+    T: Hash + Clone,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, " target={}", self.target)?;
