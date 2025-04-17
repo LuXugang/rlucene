@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
 use crate::index::ord_term_state::OrdTermState;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::LuceneError;
+use std::fmt::{Display, Formatter};
 
 /// Holds all state required for [`PostingsReaderBase`](crate::codecs::postings_reader_base::PostingsReaderBase) to produce a
 /// [`PostingsEnum`](crate::index::postings_enum::PostingsEnum) without re-seeking the terms dict.
-#[derive(Default,Clone)]
+#[derive(Default, Clone)]
 pub struct BlockTermState {
     /// how many docs have this term
     pub doc_freq: i32,
@@ -40,10 +40,7 @@ impl Display for BlockTermState {
         write!(
             f,
             "docFreq={} totalTermFreq={} termBlockOrd={} blockFP={}",
-            self.doc_freq,
-            self.total_term_freq,
-            self.term_block_ord,
-            self.block_file_pointer
+            self.doc_freq, self.total_term_freq, self.term_block_ord, self.block_file_pointer
         )
     }
 }
@@ -59,7 +56,9 @@ impl TermState for BlockTermState {
                 self.ord = other.ord.clone();
                 Ok(())
             }
-            _ => Err(LuceneError::illegal_state("enum other should be BlockTermState"))
+            _ => Err(LuceneError::illegal_state(
+                "enum other should be BlockTermState",
+            )),
         }
     }
 }

@@ -143,7 +143,7 @@ where
 pub struct TermStateImpl1;
 impl Display for TermStateImpl1 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BaseTermsEnum#TermState", )
+        write!(f, "BaseTermsEnum#TermState",)
     }
 }
 impl TermState for TermStateImpl1 {

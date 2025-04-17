@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod block_term_state;
 pub mod codec;
 pub mod codec_util;
 pub mod compound_directory;
@@ -30,7 +31,6 @@ pub mod lucene101;
 pub mod lucene101_codec;
 pub mod lucene90;
 pub mod lucene90_live_docs_format;
-pub mod lucene912;
 pub mod lucene94;
 pub mod lucene99_segment_info_format;
 pub mod mutable_point_tree;
@@ -38,13 +38,12 @@ pub mod norms_consumer;
 pub mod norms_format;
 pub mod norms_producer;
 pub mod points_format;
+pub mod postings_reader_base;
 pub mod segment_info_format;
 pub mod simple_text_live_docs_format;
 pub mod stored_fields_format;
 pub mod stored_fields_reader;
 pub mod stored_fields_writer;
-pub mod block_term_state;
-pub mod postings_reader_base;
 
 pub use codec::*;
 pub use codec_util::*;

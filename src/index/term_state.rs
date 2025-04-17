@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::block_term_state::BlockTermState;
 use crate::index::base_terms_enum::TermStateImpl1;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::ord_term_state::OrdTermState;
 use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
-use crate::codecs::block_term_state::BlockTermState;
 
 /// Encapsulates all required internal state to position the associated [`TermsEnum`](crate::index::terms_enum::TermsEnum) without re-seeking.
 pub trait TermState: Display + Clone {
@@ -27,12 +27,11 @@ pub trait TermState: Display + Clone {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()>;
 }
 
-
 pub enum TermStateEnum {
     Dummy(DummyTermState),
     Impl1(TermStateImpl1),
     Ord(OrdTermState),
-    Block(BlockTermState)
+    Block(BlockTermState),
 }
 
 impl Display for TermStateEnum {

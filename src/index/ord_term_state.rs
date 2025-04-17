@@ -19,7 +19,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 
 /// An ordinal-based [`TermState`](TermState)
-#[derive(Clone,Default)]
+#[derive(Clone, Default)]
 pub struct OrdTermState {
     /// Term ordinal, i.e. its position in the full list of sorted terms.
     pub ord: i64,
@@ -37,7 +37,9 @@ impl TermState for OrdTermState {
                 self.ord = other_ord_term_state.ord;
                 Ok(())
             }
-            _ => Err(LuceneError::illegal_state("enum other should be OrdTermState"))
+            _ => Err(LuceneError::illegal_state(
+                "enum other should be OrdTermState",
+            )),
         }
     }
 }

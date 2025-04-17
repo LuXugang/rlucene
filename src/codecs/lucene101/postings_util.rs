@@ -78,8 +78,8 @@ impl PostingsUtil {
 }
 #[cfg(test)]
 mod tests {
-    use crate::codecs::lucene912::for_util::ForUtil;
-    use crate::codecs::lucene912::postings_util::PostingsUtil;
+    use crate::codecs::lucene101::for_util::ForUtil;
+    use crate::codecs::lucene101::postings_util::PostingsUtil;
     use crate::store::directory::Directory;
     use crate::store::IOContext;
     use crate::test::util::lucene_test_case::{new_directory, random};

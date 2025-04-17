@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene912::for_util::ForUtil;
+use crate::codecs::lucene101::for_util::ForUtil;
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::store::{DataInput, DataOutput, IndexInput};
 use crate::util::error::lucene_error::Result;
@@ -33,20 +33,20 @@ impl PForUtil {
         }
     }
 
-    pub(crate) fn all_equal(arr: &[i64]) -> bool {
+    pub(crate) fn all_equal(arr: &[i32]) -> bool {
         arr.iter().skip(1).all(|&v| v == arr[0])
     }
-    /// Encode 128 integers from `longs` into `out`.
-    pub(crate) fn encode<O: DataOutput>(&mut self, longs: &mut [i64], out: &mut O) -> Result<()> {
+    /// Encode 128 integers from `ints` into `out`.
+    pub(crate) fn encode<O: DataOutput>(&mut self, ints: &mut [i32], out: &mut O) -> Result<()> {
         let mut top = LongHeap::new(Self::MAX_EXCEPTIONS as i32 + 1)?;
-        for &v in &longs[..=Self::MAX_EXCEPTIONS] {
-            top.push(v)?;
+        for &v in &ints[..=Self::MAX_EXCEPTIONS] {
+            top.push(v as i64)?;
         }
 
         let mut top_value = top.top();
-        for &v in &longs[Self::MAX_EXCEPTIONS + 1..ForUtil::BLOCK_SIZE] {
-            if v > top_value {
-                top_value = top.update_top(v);
+        for &v in &ints[Self::MAX_EXCEPTIONS + 1..ForUtil::BLOCK_SIZE] {
+            if v as i64 > top_value {
+                top_value = top.update_top(v as i64);
             }
         }
 
@@ -71,29 +71,29 @@ impl PForUtil {
         let mut exceptions = vec![0u8; num_exceptions * 2];
         if num_exceptions > 0 {
             let mut exception_count = 0;
-            for (i, v) in longs.iter_mut().enumerate().take(ForUtil::BLOCK_SIZE) {
-                if *v > max_unpatched_value {
+            for (i, v) in ints.iter_mut().enumerate().take(ForUtil::BLOCK_SIZE) {
+                if *v as i64 > max_unpatched_value {
                     exceptions[exception_count * 2] = i as u8;
                     exceptions[exception_count * 2 + 1] =
                         (*v as u64 >> patched_bits_required) as u8;
-                    *v &= max_unpatched_value;
+                    *v = ((*v as i64) & max_unpatched_value) as i32;
                     exception_count += 1;
                 }
             }
             debug_assert!(exception_count == num_exceptions)
         }
 
-        if Self::all_equal(longs) && max_bits_required <= 8 {
+        if Self::all_equal(ints) && max_bits_required <= 8 {
             for i in 0..num_exceptions {
                 exceptions[2 * i + 1] =
-                    ((exceptions[2 * i + 1] as i64) << patched_bits_required as i64) as u8;
+                    ((exceptions[2 * i + 1] as i32) << patched_bits_required as i32) as u8;
             }
             out.write_byte((num_exceptions << 5) as u8)?;
-            out.write_vlong(longs[0])?;
+            out.write_vint(ints[0])?;
         } else {
             let token = (num_exceptions << 5) | (patched_bits_required as usize);
             out.write_byte(token as u8)?;
-            self.for_util.encode(longs, patched_bits_required, out)?;
+            self.for_util.encode(ints, patched_bits_required, out)?;
         }
 
         let len = exceptions.len();
@@ -106,23 +106,23 @@ impl PForUtil {
     pub(crate) fn decode<I: IndexInput>(
         &mut self,
         pdu: &mut PostingDecodingUtil<I>,
-        longs: &mut [i64],
+        ints: &mut [i32],
     ) -> Result<()> {
         let token = pdu.input.borrow_mut().read_byte()?;
         let bits_per_value = token & 0x1f;
 
         if bits_per_value == 0 {
-            let value = pdu.input.borrow_mut().read_vlong()?;
-            longs[..ForUtil::BLOCK_SIZE].fill(value);
+            let value = pdu.input.borrow_mut().read_vint()?;
+            ints[..ForUtil::BLOCK_SIZE].fill(value);
         } else {
-            self.for_util.decode(bits_per_value as i32, pdu, longs)?;
+            self.for_util.decode(bits_per_value as i32, pdu, ints)?;
         }
         let num_exceptions = (token >> 5) as usize;
         let mut input = pdu.input.borrow_mut();
         for _ in 0..num_exceptions {
             let index = input.read_byte()? as usize;
-            let patch = input.read_byte()? as i64;
-            longs[index] |= patch << bits_per_value;
+            let patch = input.read_byte()? as i32;
+            ints[index] |= patch << bits_per_value;
         }
 
         Ok(())
@@ -132,14 +132,14 @@ impl PForUtil {
     pub(crate) fn skip<I: DataInput>(input: &mut I) -> Result<()> {
         let token = input.read_byte()? as i32;
         let bits_per_value = token & 0x1f;
-        let num_exceptions = (token as u32 >> 5) as i64;
+        let num_exceptions = (token as u32 >> 5) as i32;
 
         if bits_per_value == 0 {
             input.read_vlong()?;
-            input.skip_bytes(num_exceptions << 1)?;
+            input.skip_bytes((num_exceptions << 1) as i64)?;
         } else {
-            let skip = (ForUtil::num_bytes(bits_per_value) as i64) + (num_exceptions << 1);
-            input.skip_bytes(skip)?;
+            let skip = (ForUtil::num_bytes(bits_per_value)) + (num_exceptions << 1);
+            input.skip_bytes(skip as i64)?;
         }
 
         Ok(())
@@ -148,8 +148,8 @@ impl PForUtil {
 
 #[cfg(test)]
 mod tests {
-    use crate::codecs::lucene912::for_util::ForUtil;
-    use crate::codecs::lucene912::pfor_util::PForUtil;
+    use crate::codecs::lucene101::for_util::ForUtil;
+    use crate::codecs::lucene101::pfor_util::PForUtil;
     use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
     use crate::store::directory::Directory;
     use crate::store::{IOContext, IndexInput, IndexOutput};
@@ -188,9 +188,9 @@ mod tests {
                     continue;
                 }
             }
-            let mut restored = vec![0i64; ForUtil::BLOCK_SIZE];
+            let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
             pfor_util.decode(&mut pdu, &mut restored)?;
-            let restored_ints: Vec<i32> = restored.iter().map(|&x| x as i32).collect();
+            let restored_ints: Vec<i32> = restored.iter().map(|&x| x).collect();
 
             let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
             assert_eq!(
@@ -234,9 +234,9 @@ mod tests {
         let mut pfor_util = PForUtil::new();
 
         for i in 0..iterations {
-            let mut source = [0i64; ForUtil::BLOCK_SIZE];
+            let mut source = [0i32; ForUtil::BLOCK_SIZE];
             for j in 0..ForUtil::BLOCK_SIZE {
-                source[j] = values[i * ForUtil::BLOCK_SIZE + j] as i64;
+                source[j] = values[i * ForUtil::BLOCK_SIZE + j];
             }
             pfor_util.encode(&mut source, &mut out)?;
         }

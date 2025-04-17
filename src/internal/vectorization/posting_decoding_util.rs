@@ -38,19 +38,17 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
     ///   - Store the result in `b` at offset `count * i`
     /// - Apply mask `c_mask` to each value in `c` starting at `c_index`
     #[allow(clippy::too_many_arguments)]
-    pub fn split_longs_same(
+    pub fn split_ints_same(
         &mut self,
         count: i32,
-        b_and_c: &mut [i64],
+        b_and_c: &mut [i32],
         b_shift: i32,
         dec: i32,
-        b_mask: i64,
+        b_mask: i32,
         c_index: i32,
-        c_mask: i64,
+        c_mask: i32,
     ) -> Result<()> {
-        self.input
-            .borrow_mut()
-            .read_longs(b_and_c, c_index, count)?;
+        self.input.borrow_mut().read_ints(b_and_c, c_index, count)?;
 
         let count = count as usize;
         let c_index = c_index as usize;
@@ -60,7 +58,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
                 let shift = b_shift - j * dec;
                 if shift > 0 {
                     b_and_c[count * j as usize + i] =
-                        ((b_and_c[c_index + i] as u64) >> shift) as i64 & b_mask;
+                        ((b_and_c[c_index + i] as u64) >> shift) as i32 & b_mask;
                 }
             }
             b_and_c[c_index + i] &= c_mask;
@@ -70,18 +68,18 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn split_longs_diff(
+    pub fn split_ints_diff(
         &mut self,
         count: i32,
-        b: &mut [i64],
+        b: &mut [i32],
         b_shift: i32,
         dec: i32,
-        b_mask: i64,
-        c: &mut [i64],
+        b_mask: i32,
+        c: &mut [i32],
         c_index: i32,
-        c_mask: i64,
+        c_mask: i32,
     ) -> Result<()> {
-        self.input.borrow_mut().read_longs(c, c_index, count)?;
+        self.input.borrow_mut().read_ints(c, c_index, count)?;
         let count = count as usize;
         let c_index = c_index as usize;
         let max_iter = (b_shift - 1) / dec;
@@ -89,7 +87,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
             for j in 0..=max_iter {
                 let shift = b_shift - j * dec;
                 if shift > 0 {
-                    b[count * j as usize + i] = ((c[c_index + i] as u64) >> shift) as i64 & b_mask;
+                    b[count * j as usize + i] = ((c[c_index + i] as u64) >> shift) as i32 & b_mask;
                 }
             }
             c[c_index + i] &= c_mask;
