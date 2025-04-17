@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::marker::PhantomData;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, FST};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::fst_impl::util::Util;
+use std::marker::PhantomData;
 
 /// Can next() and advance() through the terms in an FST
-pub struct FSTEnum<T, O, F, S,I>
+pub struct FSTEnum<T, O, F, S, I>
 where
     T: OutputsBound,
     O: Outputs<T>,
@@ -39,9 +39,8 @@ where
     pub(crate) target_length: usize,
     pub(crate) sub: S,
     _phantom: PhantomData<I>,
-
 }
-impl<T, O, F, S,I> FSTEnum<T, O, F, S,I>
+impl<T, O, F, S, I> FSTEnum<T, O, F, S, I>
 where
     T: OutputsBound,
     O: Outputs<T>,
@@ -91,7 +90,8 @@ where
         {
             // Borrow fst mutably once for the entire loop.
             while self.upto < current_limit && self.upto <= self.target_length + 1 {
-                let cmp = self.sub.get_current_label(self.upto)? - self.sub.get_target_label(self.upto)?;
+                let cmp = self.sub.get_current_label(self.upto)?
+                    - self.sub.get_target_label(self.upto)?;
                 if cmp < 0 {
                     break;
                 } else if cmp > 0 {
@@ -254,7 +254,7 @@ where
                 return Ok(None);
             }
 
-            self.sub.set_current_label(arc.label(), self.upto);
+            self.sub.set_current_label(arc.label(), self.upto)?;
             self.incr()?;
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
@@ -296,7 +296,7 @@ where
                 return Ok(None);
             }
 
-            self.sub.set_current_label(arc.label(),self.upto)?;
+            self.sub.set_current_label(arc.label(), self.upto)?;
             self.incr()?;
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
@@ -340,7 +340,7 @@ where
                 return Ok(None);
             }
 
-            self.sub.set_current_label(arc.label(),self.upto)?;
+            self.sub.set_current_label(arc.label(), self.upto)?;
             self.incr()?;
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
@@ -402,7 +402,7 @@ where
                 return Ok(None);
             }
 
-            self.sub.set_current_label(arc.label(),self.upto)?;
+            self.sub.set_current_label(arc.label(), self.upto)?;
             self.incr()?;
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
@@ -558,7 +558,7 @@ where
                 return Ok(None);
             }
 
-            self.sub.set_current_label(arc.label(),self.upto)?;
+            self.sub.set_current_label(arc.label(), self.upto)?;
             self.incr()?;
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
@@ -607,7 +607,7 @@ where
                     return Ok(None);
                 }
 
-                self.sub.set_current_label(arc.label(),self.upto)?;
+                self.sub.set_current_label(arc.label(), self.upto)?;
                 self.incr()?;
                 let mut next_arc = self.get_arc_ownership(self.upto);
                 self.fst
@@ -846,7 +846,7 @@ where
                 return Ok(None);
             }
 
-            self.sub.set_current_label(arc.label(),self.upto)?;
+            self.sub.set_current_label(arc.label(), self.upto)?;
             self.incr()?;
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
@@ -891,7 +891,7 @@ where
                 return Ok(None);
             }
 
-            self.sub.set_current_label(arc.label(),self.upto)?;
+            self.sub.set_current_label(arc.label(), self.upto)?;
             self.incr()?;
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
@@ -991,7 +991,7 @@ where
             }
 
             self.arcs[upto] = Some(arc);
-            self.sub.set_current_label(target_label,self.upto)?;
+            self.sub.set_current_label(target_label, self.upto)?;
             self.incr()?;
             target_label = self.sub.get_target_label(self.upto)?;
             upto = self.upto;
@@ -1027,7 +1027,7 @@ where
                 break;
             }
 
-            self.sub.set_current_label(arc.label(),self.upto)?;
+            self.sub.set_current_label(arc.label(), self.upto)?;
             self.incr()?;
 
             let mut next_arc = self.get_arc_ownership(self.upto);
@@ -1049,7 +1049,7 @@ where
 
         loop {
             let label = arc.label();
-            self.sub.set_current_label(label,self.upto)?;
+            self.sub.set_current_label(label, self.upto)?;
             self.output[self.upto] = self
                 .fst
                 .outputs
@@ -1078,11 +1078,13 @@ where
         self.arcs[idx].take().unwrap()
     }
 }
-impl<T, O, F, S,I> FSTEnumBase<I, T> for FSTEnum<T, O, F, S, I> where
+impl<T, O, F, S, I> FSTEnumBase<I, T> for FSTEnum<T, O, F, S, I>
+where
     T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
-    S: FSTEnumBase<I, T>,{
+    S: FSTEnumBase<I, T>,
+{
     fn current(&self) -> &InputOutput<T, I> {
         self.sub.current()
     }
@@ -1094,7 +1096,7 @@ impl<T, O, F, S,I> FSTEnumBase<I, T> for FSTEnum<T, O, F, S, I> where
 
     fn seek_ceil(&mut self, target: I) -> Result<Option<&InputOutput<T, I>>> {
         self.target_length = self.target_length;
-        let _ =self.sub.set_target(target)?;
+        let _ = self.sub.set_target(target)?;
         self.do_seek_ceil()?;
         self.set_results(self.upto, self.output[self.upto].clone())
     }
@@ -1108,58 +1110,78 @@ impl<T, O, F, S,I> FSTEnumBase<I, T> for FSTEnum<T, O, F, S, I> where
 
     fn seek_exact(&mut self, target: I) -> Result<Option<&InputOutput<T, I>>> {
         self.target_length = self.target_length;
-        let target_len  = self.sub.set_target(target)?;
+        let target_len = self.sub.set_target(target)?;
         if self.do_seek_exact()? {
             debug_assert!(self.upto == 1 + target_len as usize);
             self.set_results(self.upto, self.output[self.upto].clone())
-        }else { 
+        } else {
             Ok(None)
         }
     }
 
-    fn set_results(&mut self, _upto:usize, output:T) -> Result<Option<&InputOutput<T, I>>> {
-        if self.upto == 0{
-           Ok(None) 
-        }else { 
-           self.sub.set_results(self.upto, output) 
+    fn set_results(&mut self, _upto: usize, output: T) -> Result<Option<&InputOutput<T, I>>> {
+        if self.upto == 0 {
+            Ok(None)
+        } else {
+            self.sub.set_results(self.upto, output)
         }
     }
 }
-pub(crate) trait FSTEnumBase<I,T> where T:OutputsBound{
+pub(crate) trait FSTEnumBase<I, T>
+where
+    T: OutputsBound,
+{
     fn current(&self) -> &InputOutput<T, I>;
-    fn next(&mut self) -> Result<Option<&InputOutput<T, I>>>{
-        Err(LuceneError::need_implemented("this method need implemented"))
+    fn next(&mut self) -> Result<Option<&InputOutput<T, I>>> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
     /// Seeks to the smallest term that is `>=` the target.
-    fn seek_ceil(&mut self, _target: I) -> Result<Option<&InputOutput<T, I>>>{
-        Err(LuceneError::need_implemented("this method need implemented"))
+    fn seek_ceil(&mut self, _target: I) -> Result<Option<&InputOutput<T, I>>> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
     /// Seeks to the biggest term that is `<=` the target.
-    fn seek_floor(&mut self, _target: I) -> Result<Option<&InputOutput<T, I>>>{
-        Err(LuceneError::need_implemented("this method need implemented"))
+    fn seek_floor(&mut self, _target: I) -> Result<Option<&InputOutput<T, I>>> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
     /// Seeks to exactly this term, returning `None` if the term doesn't exist. This is faster than
     /// using [`Self::seek_floor`] or [`Self::seek_ceil`] because it short-circuits as soon as the
     /// match is not found.
-    fn seek_exact(&mut self, _target: I) -> Result<Option<&InputOutput<T, I>>>{
-        Err(LuceneError::need_implemented("this method need implemented"))
+    fn seek_exact(&mut self, _target: I) -> Result<Option<&InputOutput<T, I>>> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
-    fn get_target_label(&self, _upto:usize) -> Result<i32>{
-        Err(LuceneError::need_implemented("this method need implemented"))
-
+    fn get_target_label(&self, _upto: usize) -> Result<i32> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
-    fn get_current_label(&self,_upto:usize) -> Result<i32>{
-        Err(LuceneError::need_implemented("this method need implemented"))
+    fn get_current_label(&self, _upto: usize) -> Result<i32> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
-    fn set_current_label(&mut self, _label: i32,_upto:usize) ->Result<()>{
-        Err(LuceneError::need_implemented("this method need implemented"))
+    fn set_current_label(&mut self, _label: i32, _upto: usize) -> Result<()> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
-    fn grow(&mut self,_upto:usize) ->Result<()>{
-        Err(LuceneError::need_implemented("this method need implemented"))
+    fn grow(&mut self, _upto: usize) -> Result<()> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
-    fn set_results(&mut self, upto:usize, _output: T) -> Result<Option<&InputOutput<T, I>>>;
-    fn set_target(&mut self, _target: I) -> Result<i32 >{
-        Err(LuceneError::need_implemented("this method need implemented"))
+    fn set_results(&mut self, upto: usize, _output: T) -> Result<Option<&InputOutput<T, I>>>;
+    fn set_target(&mut self, _target: I) -> Result<i32> {
+        Err(LuceneError::need_implemented(
+            "this method need implemented",
+        ))
     }
 }
 /// Holds a single input + output pair

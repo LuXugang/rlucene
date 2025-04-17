@@ -765,7 +765,7 @@ where
         DocIndexIteratorImpl { disi }
     }
 }
-impl<'a, I> DocIdSetIterator for DocIndexIteratorImpl<'a, I>
+impl<I> DocIdSetIterator for DocIndexIteratorImpl<'_, I>
 where
     I: IndexInput,
 {
@@ -785,7 +785,7 @@ where
         self.disi.cost()
     }
 }
-impl<'a, I> DocIndexIteratorBase for DocIndexIteratorImpl<'a, I>
+impl<I> DocIndexIteratorBase for DocIndexIteratorImpl<'_, I>
 where
     I: IndexInput,
 {

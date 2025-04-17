@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 use crate::util::array_util::ArrayUtil;
+use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::bytes_rc::BytesRc;
 use crate::util::fst_impl::fst::fst_util;
 use crate::util::fst_impl::fst_enum::{FSTEnumBase, InputOutput};
 use crate::util::fst_impl::outputs::OutputsBound;
-use crate::util::error::lucene_error::Result;
 
 /// Enumerates all input (`BytesRc`) + output pairs in an FST.
 pub struct BytesRefFSTEnum<T>
@@ -49,11 +49,7 @@ where
     pub fn new() -> Self {
         let mut current = BytesRc::with_capacity(10);
         current.offset = 1;
-        let result_input = BytesRc::from_vec(
-            current.bytes.clone(),
-            current.offset ,
-            current.length ,
-        );
+        let result_input = BytesRc::from_vec(current.bytes.clone(), current.offset, current.length);
         BytesRefFSTEnum {
             current,
             result: InputOutput {

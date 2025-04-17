@@ -34,7 +34,7 @@ impl Default for BytesRc {
 impl BytesRc {
     pub fn new() -> Self {
         BytesRc {
-            bytes: Rc::new(RefCell::new( vec![])),
+            bytes: Rc::new(RefCell::new(vec![])),
             offset: 0,
             length: 0,
         }
@@ -53,7 +53,7 @@ impl BytesRc {
     }
     pub fn with_capacity(capacity: i32) -> BytesRc {
         BytesRc {
-            bytes: Rc::new(RefCell::new( vec![0; capacity as usize])),
+            bytes: Rc::new(RefCell::new(vec![0; capacity as usize])),
             offset: 0,
             length: 0,
         }
@@ -87,8 +87,9 @@ impl Eq for BytesRc {}
 
 impl Ord for BytesRc {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize]
-            .cmp(&other.bytes.borrow()[other.offset as usize..(other.offset + other.length) as usize])
+        self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize].cmp(
+            &other.bytes.borrow()[other.offset as usize..(other.offset + other.length) as usize],
+        )
     }
 }
 impl PartialEq for BytesRc {
@@ -99,7 +100,8 @@ impl PartialEq for BytesRc {
 }
 impl Hash for BytesRc {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let slice = &self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize];
+        let slice =
+            &self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize];
         slice.hash(state);
         self.offset.hash(state);
         self.length.hash(state);

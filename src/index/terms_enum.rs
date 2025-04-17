@@ -58,10 +58,7 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that the
     /// term may not exist without performing any I/O.
-    fn prepare_seek_exact<'a>(
-        &'a mut self,
-        text: BytesRef,
-    ) -> Result<impl FnMut() -> Result<bool> + 'a> {
+    fn prepare_seek_exact(&mut self, text: BytesRef) -> Result<impl FnMut() -> Result<bool> + '_> {
         Ok(move || self.seek_exact(&text))
     }
 

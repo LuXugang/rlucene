@@ -14,19 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
+use crate::index::buffered_updates::{buffered_updates_util, BufferedUpdates, MTBufferedUpdates};
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::term::Term;
-use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
-use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStreamEnum, InfoStreamLock};
-use crate::util::{ByteBlockPoolLock, CounterEnumLock};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
@@ -226,7 +223,7 @@ where
                 //deletes that have been added after the current in-flight global slices
                 //tail the next time we can get the lock!
                 if self.update_slice_no_seq_no(&mut global_state) {
-                    global_state.apply(BufferedUpdates::MAX_INT)?;
+                    global_state.apply(buffered_updates_util::MAX_INT)?;
                 }
             }
             Err(_) => {
@@ -300,7 +297,7 @@ where
     {
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
             global_state.global_slice.slice_tail = current_tail;
-            global_state.apply(BufferedUpdates::MAX_INT)?;
+            global_state.apply(buffered_updates_util::MAX_INT)?;
         }
 
         if global_state.global_buffered_updates.any() {
@@ -429,7 +426,7 @@ where
 
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
             global_state.global_slice.slice_tail = current_tail;
-            global_state.apply(BufferedUpdates::MAX_INT)?;
+            global_state.apply(buffered_updates_util::MAX_INT)?;
         }
         Ok(global_state.global_buffered_updates.delete_terms.size())
     }
@@ -562,13 +559,7 @@ where
     global_slice: DeleteSlice<Q>,
     #[allow(unused)]
     generation: i64,
-    global_buffered_updates: BufferedUpdates<
-        Q,
-        CounterEnumLock,
-        ByteBlockPoolLock,
-        BytesStartArrayEnumLock,
-        MTPostingsArrayWrapper,
-    >,
+    global_buffered_updates: MTBufferedUpdates<Q>,
     max_seq_no: i64,
     advanced: bool,
     closed: bool,
@@ -624,17 +615,7 @@ where
         }
     }
 
-    pub(crate) fn apply(
-        &mut self,
-        del: &mut BufferedUpdates<
-            Q,
-            CounterEnumLock,
-            ByteBlockPoolLock,
-            BytesStartArrayEnumLock,
-            MTPostingsArrayWrapper,
-        >,
-        doc_id_upto: i32,
-    ) -> Result<()> {
+    pub(crate) fn apply(&mut self, del: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
         if Arc::ptr_eq(&self.slice_head, &self.slice_tail) {
             // 0 length slice
             return Ok(());
@@ -1003,7 +984,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::index::buffered_updates::{BufferedUpdates, BufferedUpdatesLock};
+    use crate::index::buffered_updates::{
+        buffered_updates_util, BufferedUpdates, BufferedUpdatesLock, MTBufferedUpdates,
+    };
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{
         BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum,
@@ -1021,12 +1004,10 @@ mod tests {
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::test::util::lucene_test_case::{random, random_multiplier};
 
-    use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
-    use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::{get_default_info_stream, InfoStreamLock};
-    use crate::util::{ByteBlockPoolLock, CounterEnumLock};
+
     use rand::Rng;
     use std::collections::HashSet;
     use std::sync::atomic::{AtomicI32, Ordering};
@@ -1108,13 +1089,7 @@ mod tests {
     fn test_assert_all_between<Q>(
         start: i32,
         end: i32,
-        deletes: &mut BufferedUpdates<
-            Q,
-            CounterEnumLock,
-            ByteBlockPoolLock,
-            BytesStartArrayEnumLock,
-            MTPostingsArrayWrapper,
-        >,
+        deletes: &mut MTBufferedUpdates<Q>,
         ids: &[i32],
     ) -> Result<()>
     where
@@ -1257,7 +1232,7 @@ mod tests {
             let mut deletes_guard = deletes.lock().unwrap();
             guard
                 .slice
-                .apply(&mut deletes_guard, BufferedUpdates::MAX_INT)?;
+                .apply(&mut deletes_guard, buffered_updates_util::MAX_INT)?;
             assert_eq!(unique_values, deletes_guard.delete_terms.key_set()?);
         }
 
@@ -1304,7 +1279,7 @@ mod tests {
                 DocValuesType::Binary,
                 Term::from_text("id".to_string(), "0"),
                 "enabled".to_string(),
-                BufferedUpdates::MAX_INT,
+                buffered_updates_util::MAX_INT,
                 sub_update,
             );
             let result = queue.add_doc_values_updates(vec![update]);
@@ -1374,7 +1349,8 @@ mod tests {
                 assert!(self.slice.is_tail(&term_node));
 
                 let mut guard = self.deletes.lock().unwrap();
-                self.slice.apply(&mut *guard, BufferedUpdates::MAX_INT)?;
+                self.slice
+                    .apply(&mut *guard, buffered_updates_util::MAX_INT)?;
 
                 i = self.index.fetch_add(1, Ordering::SeqCst) as usize;
             }

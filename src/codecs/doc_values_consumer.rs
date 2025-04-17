@@ -265,7 +265,7 @@ where
     merge_field_info: Rc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
-impl<'a, I> DocValuesProducer<I> for EmptyDocValuesProducerMerge1<'a, I>
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerMerge1<'_, I>
 where
     I: IndexInput,
 {
@@ -432,7 +432,7 @@ where
     merge_field_info: Rc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
-impl<'a, I> DocValuesProducer<I> for EmptyDocValuesProducerMerge2<'a, I>
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerMerge2<'_, I>
 where
     I: IndexInput,
 {
@@ -611,7 +611,7 @@ where
     merge_field_info: Rc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
-impl<'a, I> DocValuesProducer<I> for EmptyDocValuesProducerMerge3<'a, I>
+impl<I> DocValuesProducer<I> for EmptyDocValuesProducerMerge3<'_, I>
 where
     I: IndexInput,
 {

@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 use crate::util::array_util::ArrayUtil;
+use crate::util::error::lucene_error::Result;
+use crate::util::fst_impl::fst::fst_util;
 use crate::util::fst_impl::fst_enum::{FSTEnumBase, InputOutput};
 use crate::util::fst_impl::outputs::OutputsBound;
 use crate::util::ints_ref::IntsRef;
-use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::fst_util;
 /// Enumerates all input (`IntsRef`) + output pairs in an FST.
 pub struct IntsRefFSTEnum<T>
 where
@@ -32,7 +32,7 @@ where
 impl<T> Default for IntsRefFSTEnum<T>
 where
     T: OutputsBound,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -58,16 +58,19 @@ where
         }
     }
 }
-impl<T> FSTEnumBase<IntsRef,T> for IntsRefFSTEnum<T> where T: OutputsBound {
+impl<T> FSTEnumBase<IntsRef, T> for IntsRefFSTEnum<T>
+where
+    T: OutputsBound,
+{
     fn current(&self) -> &InputOutput<T, IntsRef> {
         &self.result
     }
 
     fn get_target_label(&self, upto: usize) -> Result<i32> {
-        if upto - 1 == self.target.length as usize{
-           Ok(fst_util::END_LABEL) 
-        }else{
-           Ok(self.target.ints.borrow()[self.target.offset as usize + upto - 1]) 
+        if upto - 1 == self.target.length as usize {
+            Ok(fst_util::END_LABEL)
+        } else {
+            Ok(self.target.ints.borrow()[self.target.offset as usize + upto - 1])
         }
     }
 
@@ -84,10 +87,9 @@ impl<T> FSTEnumBase<IntsRef,T> for IntsRefFSTEnum<T> where T: OutputsBound {
         ArrayUtil::grow_with_len(&mut self.current.ints.borrow_mut(), upto as i32 + 1)
     }
 
-
-    fn set_results(&mut self,upto:usize, output:T) -> Result<Option<&InputOutput<T, IntsRef>>> {
-        self.current.length =  upto as i32- 1;
-        self.result.output =output ;
+    fn set_results(&mut self, upto: usize, output: T) -> Result<Option<&InputOutput<T, IntsRef>>> {
+        self.current.length = upto as i32 - 1;
+        self.result.output = output;
         Ok(Some(&self.result))
     }
 

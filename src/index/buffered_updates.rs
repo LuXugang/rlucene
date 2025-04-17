@@ -21,7 +21,6 @@ use crate::index::terms_hash_per_field::{
     MTPostingsArrayWrapper, PostingsArrayWrapper, STPostingsArrayWrapper,
 };
 use crate::index::BytesRef;
-use crate::search::dummy::dummy_query::DummyQuery;
 use crate::search::query::Query;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
@@ -78,16 +77,7 @@ where
     #[allow(unused)]
     segment_name: String,
 }
-#[allow(unused)]
-impl
-    BufferedUpdates<
-        DummyQuery,
-        CounterEnumLock,
-        ByteBlockPoolLock,
-        BytesStartArrayEnumLock,
-        MTPostingsArrayWrapper,
-    >
-{
+pub mod buffered_updates_util {
     /// Rough logic: HashMap has an array with varying load factor.
     /// Entry consists of Query key, Integer value, int hash, and Entry next.
     // TODO: memory calculation not implemented
