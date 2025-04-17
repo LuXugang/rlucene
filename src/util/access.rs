@@ -107,18 +107,69 @@ impl<T> Access<T> for Arc<Mutex<T>> {
         f(&mut *guard)
     }
 }
-pub trait Shared<T>: Clone + Deref<Target = T> {
-    fn new(value: T) -> Self;
+
+/// Similar to the `Access` trait, but specifically for `Vec<T>`.
+pub trait AccessVec<T>: Clone {
+    fn access<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&Vec<T>) -> Result<R>;
+
+    fn access_mut<F, R>(&mut self, f: F) -> Result<R>
+    where
+        F: FnOnce(&mut Vec<T>) -> Result<R>;
 }
 
-impl<T> Shared<T> for Rc<T> {
-    fn new(value: T) -> Self {
-        Rc::new(value)
+impl<T: Clone> AccessVec<T> for Vec<T> {
+    fn access<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&Vec<T>) -> Result<R>,
+    {
+        f(self)
+    }
+
+    fn access_mut<F, R>(&mut self, f: F) -> Result<R>
+    where
+        F: FnOnce(&mut Vec<T>) -> Result<R>,
+    {
+        f(self)
     }
 }
 
-impl<T> Shared<T> for Arc<T> {
-    fn new(value: T) -> Self {
-        Arc::new(value)
+impl<T: Clone> AccessVec<T> for Rc<RefCell<Vec<T>>> {
+    fn access<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&Vec<T>) -> Result<R>,
+    {
+        let borrow = self.borrow();
+        f(&*borrow)
+    }
+
+    fn access_mut<F, R>(&mut self, f: F) -> Result<R>
+    where
+        F: FnOnce(&mut Vec<T>) -> Result<R>,
+    {
+        let mut borrow = self.borrow_mut();
+        f(&mut *borrow)
+    }
+}
+impl<T: Clone> AccessVec<T> for Arc<Mutex<Vec<T>>> {
+    fn access<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&Vec<T>) -> Result<R>,
+    {
+        let guard: MutexGuard<Vec<T>> = self
+            .lock()
+            .map_err(|e| LuceneError::LockError(format!("{:?}", e)))?;
+        f(&*guard)
+    }
+
+    fn access_mut<F, R>(&mut self, f: F) -> Result<R>
+    where
+        F: FnOnce(&mut Vec<T>) -> Result<R>,
+    {
+        let mut guard: MutexGuard<Vec<T>> = self
+            .lock()
+            .map_err(|e| LuceneError::LockError(format!("{:?}", e)))?;
+        f(&mut *guard)
     }
 }
