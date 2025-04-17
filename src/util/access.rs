@@ -19,7 +19,45 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
-
+/// Provides a unified interface for accessing shared data, abstracting over
+/// single-threaded (`Rc<RefCell<T>>`) and multi-threaded (`Arc<Mutex<T>>`) containers.
+///
+/// This trait allows the caller to interact with the wrapped value through immutable or mutable
+/// closures, without needing to know whether the underlying implementation uses `RefCell` or `Mutex`.
+///
+/// ### Use Case
+/// This trait is especially useful when you have components or fields that may be used in either
+/// single-threaded or multi-threaded contexts. By defining them in terms of `Access<T>`, you can:
+///
+/// - Use `Rc<RefCell<T>>` in single-threaded mode for better performance (no locking).
+/// - Use `Arc<Mutex<T>>` in multi-threaded mode for thread-safe access.
+/// - Write common logic that doesn’t care about the underlying synchronization strategy.
+///
+/// ### Example
+/// ```rust
+/// use rlucene::util::access::Access;
+/// use rlucene::util::error::lucene_error::Result;
+/// struct MyStruct;
+/// impl MyStruct{
+///    fn do_something(&self) {
+///     }
+/// }
+///
+/// fn update_state<S: Access<MyStruct>>(state: &mut S) -> Result<()> {
+///     state.access_mut(|s| {
+///         s.do_something();
+///         Ok(())
+///     })?;
+///     state.access(|s| {
+///         s.do_something();
+///         Ok(())
+///     })
+/// }
+/// ```
+///
+/// Then depending on your runtime context:
+/// - `Rc<RefCell<MyStruct>>` can implement `Access<MyStruct>` for local use
+/// - `Arc<Mutex<MyStruct>>` can implement `Access<MyStruct>` for concurrent use
 pub trait Access<T>: Clone {
     fn access<F, R>(&self, f: F) -> Result<R>
     where
