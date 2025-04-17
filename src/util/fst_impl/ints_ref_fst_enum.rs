@@ -65,7 +65,7 @@ where
     }
 
     pub fn next(&mut self) -> Result<Option<&InputOutput<T, IntsRef>>> {
-        self.base.take_do(|base| base.do_next())?;
+        self.base.take_do_return(|base| base.do_next())?;
         self.set_result()
     }
     /// Seeks to smallest term that's &gt;= target.
@@ -121,7 +121,7 @@ where
     }
 
     fn set_result(&mut self) -> Result<Option<&InputOutput<T, IntsRef>>> {
-        self.base.take_do(|base| {
+        self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
             } else {
@@ -140,7 +140,7 @@ where
     F: FstReader,
 {
     fn get_target_label(&mut self) -> Result<i32> {
-        self.base.take_do(|base| {
+        self.base.take_do_return(|base| {
             if base.upto - 1 == self.target.length as usize {
                 Ok(fst_util::END_LABEL)
             } else {
@@ -151,18 +151,18 @@ where
 
     fn get_current_label(&mut self) -> Result<i32> {
         self.base
-            .take_do(|base| Ok(self.current.ints.borrow()[base.upto]))
+            .take_do_return(|base| Ok(self.current.ints.borrow()[base.upto]))
     }
 
     fn set_current_label(&mut self, label: i32) -> Result<()> {
-        self.base.take_do(|base| {
+        self.base.take_do_return(|base| {
             self.current.ints.borrow_mut()[base.upto] = label;
             Ok(())
         })
     }
 
     fn grow(&mut self) -> Result<()> {
-        self.base.take_do(|base| {
+        self.base.take_do_return(|base| {
             ArrayUtil::grow_with_len(&mut *self.current.ints.borrow_mut(), base.upto as i32 + 1)
         })
     }

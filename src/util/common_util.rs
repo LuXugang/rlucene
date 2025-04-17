@@ -87,17 +87,46 @@ impl ToInt for Ordering {
     }
 }
 
+/// Extension trait for `Option<T>` that provides a convenient way to
+/// temporarily take ownership of the inner value, operate on it, and
+/// then restore it back into the `Option`.
+///
+/// This is useful for patterns where you need a mutable borrow of the
+/// contents, perform some fallible operation, and then put the value
+/// back—without panicking or manually handling `take()` / `replace()`.
 pub trait OptionTakeExt<T> {
-    fn take_do<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R>;
+    /// Takes the inner `T` out of the `Option`, leaving `None` in its place,
+    /// then calls the provided closure `f` on a mutable reference to that `T`.
+    ///
+    /// - If the `Option` was `Some(val)`, runs `f(&mut val)`, restores `Some(val)`,
+    ///   and returns the closure’s `Result<R>`.
+    /// - If the `Option` was `None`, returns an `Err` with a
+    ///   `LuceneError::illegal_state("Option was None".to_string())`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(LuceneError::illegal_state)` if the `Option` is empty,
+    /// or propagates any `Err` returned by the closure.
+    fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R>;
 }
 
 impl<T> OptionTakeExt<T> for Option<T> {
-    fn take_do<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
+    /// Implementation of `take_do` for all `Option<T>`.
+    ///
+    /// 1. Calls `self.take()` to extract the value (or return an error if `None`).
+    /// 2. Runs the user-provided closure on a mutable reference to the value.
+    /// 3. Restores the value back into `self` regardless of success or failure.
+    /// 4. Returns the `Result<R>` produced by the closure.
+    fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
+        // 1. Extract the value, or return an illegal-state error
         let mut val = self
             .take()
             .ok_or_else(|| LuceneError::illegal_state("Option was None".to_string()))?;
+        // 2. Run the closure
         let res = f(&mut val);
+        // 3. Restore the value back into the Option
         *self = Some(val);
+        // 4. Return the closure’s result
         res
     }
 }
