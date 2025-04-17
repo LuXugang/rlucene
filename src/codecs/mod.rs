@@ -26,6 +26,7 @@ pub mod doc_values_producer;
 mod dummy;
 pub mod field_infos_format;
 pub mod live_docs_format;
+pub mod lucene101;
 pub mod lucene101_codec;
 pub mod lucene90;
 pub mod lucene90_live_docs_format;

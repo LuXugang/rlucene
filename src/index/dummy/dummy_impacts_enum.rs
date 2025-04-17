@@ -75,13 +75,13 @@ impl ImpactsSource for DummyImpactsEnum {
         ))
     }
 
+    type ImpactsType = DummyImpacts;
+
     fn get_impacts(&self) -> Result<&Self::ImpactsType> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
-
-    type ImpactsType = DummyImpacts;
 }
 
 impl ImpactsEnum for DummyImpactsEnum {}

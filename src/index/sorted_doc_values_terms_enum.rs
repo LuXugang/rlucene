@@ -137,6 +137,8 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
+    type PostingsEnumType = DummyPostingsEnum;
+
     fn postings_with_flags(
         &mut self,
         _reuse: &Option<impl PostingsEnum>,
@@ -145,19 +147,17 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PostingsEnumType = DummyPostingsEnum;
+    type ImpactsEnumType = DummyImpactsEnum;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type ImpactsEnumType = DummyImpactsEnum;
+    type TermStateType = TermStateEnum;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
         let mut state = OrdTermState::new();
         state.ord = self.current_ord as i64;
         Ok(TermStateEnum::Ord(state))
     }
-
-    type TermStateType = TermStateEnum;
 }

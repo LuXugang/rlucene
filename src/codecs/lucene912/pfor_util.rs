@@ -21,11 +21,9 @@ use crate::util::error::lucene_error::Result;
 use crate::util::long_heap::LongHeap;
 use crate::util::packed::PackedInts;
 /// Utility struct to encode sequences of 128 small positive integers.
-#[allow(unused)]
 pub(crate) struct PForUtil {
     for_util: ForUtil,
 }
-#[allow(unused)]
 impl PForUtil {
     pub(crate) const MAX_EXCEPTIONS: usize = 7;
 

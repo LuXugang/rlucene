@@ -63,11 +63,11 @@ impl ImpactsSource for ImpactsEnumEnum {
         todo!()
     }
 
+    type ImpactsType = ImpactsEnums;
+
     fn get_impacts(&self) -> Result<&Self::ImpactsType> {
         todo!()
     }
-
-    type ImpactsType = ImpactsEnums;
 }
 
 impl ImpactsEnum for ImpactsEnumEnum {}

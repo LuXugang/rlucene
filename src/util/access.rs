@@ -16,7 +16,6 @@
  */
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
-use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
 /// Provides a unified interface for accessing shared data, abstracting over

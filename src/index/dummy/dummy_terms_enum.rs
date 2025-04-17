@@ -97,6 +97,8 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
+    type PostingsEnumType = DummyPostingsEnum;
+
     fn postings_with_flags(
         &mut self,
         _reuse: &Option<impl PostingsEnum>,
@@ -107,7 +109,7 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
-    type PostingsEnumType = DummyPostingsEnum;
+    type ImpactsEnumType = DummyImpactsEnum;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
         Err(LuceneError::illegal_state(
@@ -115,13 +117,11 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
-    type ImpactsEnumType = DummyImpactsEnum;
+    type TermStateType = TermStateEnum;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
-
-    type TermStateType = TermStateEnum;
 }

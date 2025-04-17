@@ -95,6 +95,8 @@ where
         todo!()
     }
 
+    type PostingsEnumType = PostingsEnums;
+
     fn postings_with_flags(
         &mut self,
         reuse: &Option<impl PostingsEnum>,
@@ -103,17 +105,15 @@ where
         todo!()
     }
 
-    type PostingsEnumType = PostingsEnums;
+    type ImpactsEnumType = ImpactsEnumEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType> {
         todo!()
     }
 
-    type ImpactsEnumType = ImpactsEnumEnum;
+    type TermStateType = TermStateEnum;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
         todo!()
     }
-
-    type TermStateType = TermStateEnum;
 }

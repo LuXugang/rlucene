@@ -130,6 +130,7 @@ pub trait TermsEnum: BytesRefIterator {
         self.postings_with_flags(&reuse, postings_enum_static::FREQS as i32)
     }
 
+    type PostingsEnumType: PostingsEnum;
     /// Get [`PostingsEnum`] for the current term, with control over whether freqs, positions,
     /// offsets or payloads are required. Do not call this when the enum is unpositioned.
     /// This method will not return `None`.
@@ -144,13 +145,13 @@ pub trait TermsEnum: BytesRefIterator {
         reuse: &Option<impl PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnumType>;
-    type PostingsEnumType: PostingsEnum;
+    type ImpactsEnumType: ImpactsEnum;
     /// Return an `ImpactsEnum`.
     ///
     /// See also: [`postings_with_flags`](TermsEnum::postings_with_flags).
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType>;
-    type ImpactsEnumType: ImpactsEnum;
 
+    type TermStateType: TermState;
     /// Expert: Returns the [`TermsEnum`]'s internal state to position the enum without re-seeking
     /// the term dictionary.
     ///
@@ -159,7 +160,6 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// See also: [`TermState`], [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
     fn term_state(&self) -> Result<Self::TermStateType>;
-    type TermStateType: TermState;
 }
 pub struct TermsEnumEmpty<I>
 where
@@ -223,6 +223,8 @@ where
         ))
     }
 
+    type PostingsEnumType = DummyPostingsEnum;
+
     fn postings_with_flags(
         &mut self,
         _reuse: &Option<impl PostingsEnum>,
@@ -233,7 +235,7 @@ where
         ))
     }
 
-    type PostingsEnumType = DummyPostingsEnum;
+    type ImpactsEnumType = DummyImpactsEnum;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
         Err(LuceneError::not_implemented(
@@ -241,15 +243,13 @@ where
         ))
     }
 
-    type ImpactsEnumType = DummyImpactsEnum;
+    type TermStateType = TermStateEnum;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
     }
-
-    type TermStateType = TermStateEnum;
 }
 /// Represents returned result from `seek_ceil`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

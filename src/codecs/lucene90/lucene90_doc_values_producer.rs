@@ -3071,6 +3071,8 @@ where
         Ok(-1)
     }
 
+    type PostingsEnumType = DummyPostingsEnum;
+
     fn postings_with_flags(
         &mut self,
         _reuse: &Option<impl PostingsEnum>,
@@ -3079,19 +3081,17 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PostingsEnumType = DummyPostingsEnum;
+    type ImpactsEnumType = DummyImpactsEnum;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type ImpactsEnumType = DummyImpactsEnum;
+    type TermStateType = DummyTermState;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
         Err(LuceneError::not_implemented(""))
     }
-
-    type TermStateType = DummyTermState;
 }
 
 pub struct DenseSortedNumericDocValues<I>

@@ -107,6 +107,8 @@ where
         self.sub_terms_enum.total_term_freq()
     }
 
+    type PostingsEnumType = PostingsEnums;
+
     fn postings_with_flags(
         &mut self,
         reuse: &Option<impl PostingsEnum>,
@@ -115,13 +117,13 @@ where
         self.sub_terms_enum.postings_with_flags(reuse, flags)
     }
 
-    type PostingsEnumType = PostingsEnums;
+    type ImpactsEnumType = ImpactsEnumEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType> {
         self.sub_terms_enum.impacts(flags)
     }
 
-    type ImpactsEnumType = ImpactsEnumEnum;
+    type TermStateType = TermStateEnum;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
         let sub = self.sub_terms_enum.term_state();
@@ -136,8 +138,6 @@ where
             },
         }
     }
-
-    type TermStateType = TermStateEnum;
 }
 #[derive(Debug, Clone)]
 pub struct TermStateImpl1;
