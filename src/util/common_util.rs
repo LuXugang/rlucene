@@ -86,3 +86,18 @@ impl ToInt for Ordering {
         }
     }
 }
+
+pub trait OptionTakeExt<T> {
+    fn take_do<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R>;
+}
+
+impl<T> OptionTakeExt<T> for Option<T> {
+    fn take_do<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
+        let mut val = self
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("Option was None".to_string()))?;
+        let res = f(&mut val);
+        *self = Some(val);
+        res
+    }
+}

@@ -15,86 +15,155 @@
  * limitations under the License.
  */
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::fst_util;
-use crate::util::fst_impl::fst_enum::{FSTEnumBase, InputOutput};
-use crate::util::fst_impl::outputs::OutputsBound;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fst_impl::fst::{fst_util, FST};
+use crate::util::fst_impl::fst_enum::{FSTEnum, FSTEnumBase, InputOutput};
+use crate::util::fst_impl::fst_reader::FstReader;
+use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
+use crate::util::OptionTakeExt;
+
 /// Enumerates all input (`IntsRef`) + output pairs in an FST.
-pub struct IntsRefFSTEnum<T>
+pub struct IntsRefFSTEnum<T, O, F>
 where
     T: OutputsBound,
+    O: Outputs<T>,
+    F: FstReader,
 {
     pub(crate) current: IntsRef,
     pub(crate) result: InputOutput<T, IntsRef>,
     pub(crate) target: IntsRef,
-}
-impl<T> Default for IntsRefFSTEnum<T>
-where
-    T: OutputsBound,
-{
-    fn default() -> Self {
-        Self::new()
-    }
+    base: Option<FSTEnum<T, O, F>>,
 }
 
-impl<T> IntsRefFSTEnum<T>
+impl<T, O, F> IntsRefFSTEnum<T, O, F>
 where
     T: OutputsBound,
+    O: Outputs<T>,
+    F: FstReader,
 {
-    /// doFloor controls the behavior of advance: if it's true doFloor is true, advance positions to
-    ///  the biggest term before target.
-    pub fn new() -> Self {
+    /// `do_floor` controls the behavior of advance: if it's true,
+    /// `advance` positions to the biggest term before target.
+    pub fn new(fst: FST<T, O, F>) -> Result<Self> {
         let mut current = IntsRef::with_capacity(10);
         current.offset = 1;
         let result_input = IntsRef::from_ints(current.ints.clone(), current.offset, current.length);
-        IntsRefFSTEnum {
+        let base = FSTEnum::new(fst)?;
+        Ok(Self {
             current,
             result: InputOutput {
                 input: result_input,
                 output: T::default(),
             },
             target: IntsRef::new(),
-        }
+            base: Some(base),
+        })
     }
-}
-impl<T> FSTEnumBase<IntsRef, T> for IntsRefFSTEnum<T>
-where
-    T: OutputsBound,
-{
-    fn current(&self) -> &InputOutput<T, IntsRef> {
+
+    pub fn current(&self) -> &InputOutput<T, IntsRef> {
         &self.result
     }
 
-    fn get_target_label(&self, upto: usize) -> Result<i32> {
-        if upto - 1 == self.target.length as usize {
-            Ok(fst_util::END_LABEL)
-        } else {
-            Ok(self.target.ints.borrow()[self.target.offset as usize + upto - 1])
+    pub fn next(&mut self) -> Result<Option<&InputOutput<T, IntsRef>>> {
+        self.base.take_do(|base| base.do_next())?;
+        self.set_result()
+    }
+    /// Seeks to smallest term that's &gt;= target.
+    pub fn seek_ceil(&mut self, target: IntsRef) -> Result<Option<&InputOutput<T, IntsRef>>> {
+        self.target = target;
+        match self.base.take() {
+            Some(mut base) => {
+                base.target_length = self.target.length;
+                base.do_seek_ceil(self)?;
+                self.base = Some(base);
+            }
+            None => {
+                return Err(LuceneError::illegal_state("base is None".to_string()));
+            }
+        }
+        self.set_result()
+    }
+
+    ///  Seeks to biggest term that's &lt;= target.
+    pub fn seek_floor(&mut self, target: IntsRef) -> Result<Option<&InputOutput<T, IntsRef>>> {
+        self.target = target;
+        match self.base.take() {
+            Some(mut base) => {
+                base.target_length = self.target.length;
+                base.do_seek_floor(self)?;
+                self.base = Some(base);
+            }
+            None => {
+                return Err(LuceneError::illegal_state("base is None".to_string()));
+            }
+        }
+        self.set_result()
+    }
+    /// Seeks to the exact target term and returns `None` if the term does not exist.
+    /// This is faster than using [`Self::seek_floor`] or [`Self::seek_ceil`] because it short-circuits
+    /// as soon as a mismatch is detected.
+    pub fn seek_exact(&mut self, target: IntsRef) -> Result<Option<&InputOutput<T, IntsRef>>> {
+        self.target = target;
+        match self.base.take() {
+            Some(mut base) => {
+                base.target_length = self.target.length;
+                if base.do_seek_exact(self)? {
+                    debug_assert_eq!(base.upto, 1 + self.target.length as usize);
+                    self.base = Some(base);
+                    self.set_result()
+                } else {
+                    self.base = Some(base);
+                    Ok(None)
+                }
+            }
+            None => Err(LuceneError::illegal_state("base is None".to_string())),
         }
     }
 
-    fn get_current_label(&self, upto: usize) -> Result<i32> {
-        Ok(self.current.ints.borrow()[upto])
+    fn set_result(&mut self) -> Result<Option<&InputOutput<T, IntsRef>>> {
+        self.base.take_do(|base| {
+            if base.upto == 0 {
+                Ok(None)
+            } else {
+                self.current.length = base.upto as i32 - 1;
+                self.result.output = base.output[base.upto].clone();
+                Ok(Some(&self.result))
+            }
+        })
+    }
+}
+
+impl<T, O, F> FSTEnumBase for IntsRefFSTEnum<T, O, F>
+where
+    T: OutputsBound,
+    O: Outputs<T>,
+    F: FstReader,
+{
+    fn get_target_label(&mut self) -> Result<i32> {
+        self.base.take_do(|base| {
+            if base.upto - 1 == self.target.length as usize {
+                Ok(fst_util::END_LABEL)
+            } else {
+                Ok(self.target.ints.borrow()[self.target.offset as usize + base.upto - 1])
+            }
+        })
     }
 
-    fn set_current_label(&mut self, label: i32, upto: usize) -> Result<()> {
-        self.current.ints.borrow_mut()[upto] = label;
-        Ok(())
+    fn get_current_label(&mut self) -> Result<i32> {
+        self.base
+            .take_do(|base| Ok(self.current.ints.borrow()[base.upto]))
     }
 
-    fn grow(&mut self, upto: usize) -> Result<()> {
-        ArrayUtil::grow_with_len(&mut self.current.ints.borrow_mut(), upto as i32 + 1)
+    fn set_current_label(&mut self, label: i32) -> Result<()> {
+        self.base.take_do(|base| {
+            self.current.ints.borrow_mut()[base.upto] = label;
+            Ok(())
+        })
     }
 
-    fn set_results(&mut self, upto: usize, output: T) -> Result<Option<&InputOutput<T, IntsRef>>> {
-        self.current.length = upto as i32 - 1;
-        self.result.output = output;
-        Ok(Some(&self.result))
-    }
-
-    fn set_target(&mut self, target: IntsRef) -> Result<i32> {
-        self.target = target;
-        Ok(self.target.length)
+    fn grow(&mut self) -> Result<()> {
+        self.base.take_do(|base| {
+            ArrayUtil::grow_with_len(&mut *self.current.ints.borrow_mut(), base.upto as i32 + 1)
+        })
     }
 }
