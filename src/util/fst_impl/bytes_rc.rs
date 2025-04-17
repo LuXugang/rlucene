@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -21,7 +22,7 @@ use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct BytesRc {
-    pub bytes: Rc<Vec<u8>>,
+    pub bytes: Rc<RefCell<Vec<u8>>>,
     pub offset: i32,
     pub length: i32,
 }
@@ -33,26 +34,26 @@ impl Default for BytesRc {
 impl BytesRc {
     pub fn new() -> Self {
         BytesRc {
-            bytes: Rc::new(vec![]),
+            bytes: Rc::new(RefCell::new( vec![])),
             offset: 0,
             length: 0,
         }
     }
-    pub fn from_vec(bytes: Rc<Vec<u8>>, offset: i32, length: i32) -> BytesRc {
+    pub fn from_vec(bytes: Rc<RefCell<Vec<u8>>>, offset: i32, length: i32) -> BytesRc {
         BytesRc {
             bytes,
             offset,
             length,
         }
     }
-    pub fn from_bytes(bytes: Rc<Vec<u8>>) -> BytesRc {
-        debug_assert!(bytes.len() <= i32::MAX as usize);
-        let length = bytes.len() as i32;
+    pub fn from_bytes(bytes: Rc<RefCell<Vec<u8>>>) -> BytesRc {
+        debug_assert!(bytes.borrow().len() <= i32::MAX as usize);
+        let length = bytes.borrow().len() as i32;
         Self::from_vec(bytes, 0, length)
     }
     pub fn with_capacity(capacity: i32) -> BytesRc {
         BytesRc {
-            bytes: Rc::new(vec![0; capacity as usize]),
+            bytes: Rc::new(RefCell::new( vec![0; capacity as usize])),
             offset: 0,
             length: 0,
         }
@@ -63,7 +64,7 @@ impl Display for BytesRc {
         write!(f, "[")?;
         let end = self.offset + self.length;
 
-        for (i, &byte) in self.bytes[self.offset as usize..end as usize]
+        for (i, &byte) in self.bytes.borrow()[self.offset as usize..end as usize]
             .iter()
             .enumerate()
         {
@@ -86,19 +87,19 @@ impl Eq for BytesRc {}
 
 impl Ord for BytesRc {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.bytes[self.offset as usize..(self.offset + self.length) as usize]
-            .cmp(&other.bytes[other.offset as usize..(other.offset + other.length) as usize])
+        self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize]
+            .cmp(&other.bytes.borrow()[other.offset as usize..(other.offset + other.length) as usize])
     }
 }
 impl PartialEq for BytesRc {
     fn eq(&self, other: &Self) -> bool {
-        self.bytes[self.offset as usize..(self.offset + self.length) as usize]
-            == other.bytes[other.offset as usize..(other.offset + other.length) as usize]
+        self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize]
+            == other.bytes.borrow()[other.offset as usize..(other.offset + other.length) as usize]
     }
 }
 impl Hash for BytesRc {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let slice = &self.bytes[self.offset as usize..(self.offset + self.length) as usize];
+        let slice = &self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize];
         slice.hash(state);
         self.offset.hash(state);
         self.length.hash(state);

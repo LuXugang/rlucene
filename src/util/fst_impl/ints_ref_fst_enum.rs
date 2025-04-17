@@ -20,7 +20,7 @@ use crate::util::fst_impl::outputs::OutputsBound;
 use crate::util::ints_ref::IntsRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::fst_util;
-
+/// Enumerates all input (`IntsRef`) + output pairs in an FST.
 pub struct IntsRefFSTEnum<T>
 where
     T: OutputsBound,
