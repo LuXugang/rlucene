@@ -156,7 +156,7 @@ where
     type TermStateType = TermStateEnum;
 
     fn term_state(&self) -> Result<Self::TermStateType> {
-        let mut state = OrdTermState::new();
+        let mut state = OrdTermState::default();
         state.ord = self.current_ord as i64;
         Ok(TermStateEnum::Ord(state))
     }

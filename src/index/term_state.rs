@@ -19,20 +19,20 @@ use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::ord_term_state::OrdTermState;
 use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+use crate::codecs::block_term_state::BlockTermState;
 
 /// Encapsulates all required internal state to position the associated [`TermsEnum`](crate::index::terms_enum::TermsEnum) without re-seeking.
 pub trait TermState: Display + Clone {
     /// Copies the content of the given `TermState` to this instance.
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()>;
-    fn to_string(&self) -> String {
-        "TermState".to_string()
-    }
 }
+
 
 pub enum TermStateEnum {
     Dummy(DummyTermState),
     Impl1(TermStateImpl1),
     Ord(OrdTermState),
+    Block(BlockTermState)
 }
 
 impl Display for TermStateEnum {
@@ -49,10 +49,6 @@ impl Clone for TermStateEnum {
 
 impl TermState for TermStateEnum {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
-        todo!()
-    }
-
-    fn to_string(&self) -> String {
         todo!()
     }
 }

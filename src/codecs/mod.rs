@@ -43,6 +43,8 @@ pub mod simple_text_live_docs_format;
 pub mod stored_fields_format;
 pub mod stored_fields_reader;
 pub mod stored_fields_writer;
+pub mod block_term_state;
+pub mod postings_reader_base;
 
 pub use codec::*;
 pub use codec_util::*;

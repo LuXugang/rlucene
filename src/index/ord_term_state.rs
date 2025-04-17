@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 use crate::index::term_state::{TermState, TermStateEnum};
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 
 /// An ordinal-based [`TermState`](TermState)
-#[derive(Clone)]
+#[derive(Clone,Default)]
 pub struct OrdTermState {
     /// Term ordinal, i.e. its position in the full list of sorted terms.
     pub ord: i64,
-}
-impl Default for OrdTermState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl OrdTermState {
-    pub fn new() -> Self {
-        Self { ord: 0 }
-    }
 }
 impl Display for OrdTermState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -43,17 +32,12 @@ impl Display for OrdTermState {
 
 impl TermState for OrdTermState {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
-        debug_assert!(
-            { matches!(other, TermStateEnum::Ord(_)) },
-            "can not copy from {}",
-            other
-        );
         match other {
             TermStateEnum::Ord(other_ord_term_state) => {
                 self.ord = other_ord_term_state.ord;
+                Ok(())
             }
-            _ => debug_assert!(false, "can not copy from {}", other),
+            _ => Err(LuceneError::illegal_state("enum other should be OrdTermState"))
         }
-        Ok(())
     }
 }

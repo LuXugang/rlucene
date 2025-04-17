@@ -14,21 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::term_state::{TermState, TermStateEnum};
-use crate::util::error::lucene_error::{LuceneError, Result};
-use std::fmt::{Debug, Display, Formatter};
-#[derive(Debug, Clone)]
-pub struct DummyTermState;
-impl Display for DummyTermState {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("this method should never be called")
-    }
-}
-
-impl TermState for DummyTermState {
-    fn copy_from(&mut self, _other: &TermStateEnum) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
-    }
-}
+pub struct PostingsReaderBase;

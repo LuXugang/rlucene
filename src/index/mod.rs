@@ -72,7 +72,7 @@ pub mod merge_state;
 pub mod multi_bits;
 pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
-mod ord_term_state;
+pub mod ord_term_state;
 mod parallel_postings_array;
 pub mod point_values;
 pub(crate) mod point_values_writer;
