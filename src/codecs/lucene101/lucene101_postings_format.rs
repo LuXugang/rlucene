@@ -14,3 +14,127 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub struct Lucene101PostingsFormat;
+
+#[cfg(test)]
+mod tests {
+    use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
+    use crate::codecs::lucene101::lucene101_postings_reader::{
+        lucene101_pr_util, MutableImpactList,
+    };
+    use crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util;
+    use crate::index::impact::Impact;
+
+    use crate::store::directory::Directory;
+    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput};
+    use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::util::error::lucene_error::Result;
+    use rand::Rng;
+
+    struct TestLucene101PostingsFormat;
+    impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
+        // TODO
+    }
+    #[test]
+    fn test_vint15() -> Result<()> {
+        let buffer = vec![0u8; 5];
+        let mut out = ByteArrayDataOutput::with_bytes(buffer);
+        for &i in &[0i32, 1, 127, 128, 32767, 32768, i32::MAX] {
+            out.reset()?;
+            lucene101_pw_util::write_vint15(&mut out, i)?;
+            let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
+            let v = lucene101_pr_util::read_vint15(&mut inp)?;
+            assert_eq!(v, i);
+            assert_eq!(inp.get_position(), out.get_position());
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_vlong15() -> Result<()> {
+        // buffer size should accommodate the largest encoded value
+        let mut out = ByteArrayDataOutput::with_bytes(vec![0u8; 9]);
+        for &i in &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX] {
+            out.reset()?;
+            lucene101_pw_util::write_vlong15(&mut out, i)?;
+            let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
+            let v = lucene101_pr_util::read_vlong15(&mut inp)?;
+            assert_eq!(v, i);
+            assert_eq!(inp.get_position(), out.get_position());
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_final_block() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_impact_serialization() -> Result<()> {
+        let cases = vec![
+            vec![Impact { freq: 1, norm: 1 }],
+            vec![Impact { freq: 1, norm: 42 }],
+            vec![Impact {
+                freq: 1,
+                norm: -100,
+            }],
+            vec![Impact { freq: 30, norm: 1 }],
+            vec![Impact { freq: 500, norm: 1 }],
+            vec![
+                Impact { freq: 1, norm: 7 },
+                Impact { freq: 3, norm: 9 },
+                Impact { freq: 7, norm: 10 },
+                Impact { freq: 15, norm: 11 },
+                Impact { freq: 20, norm: 13 },
+                Impact { freq: 28, norm: 14 },
+            ],
+            vec![
+                Impact { freq: 2, norm: 2 },
+                Impact { freq: 10, norm: 10 },
+                Impact { freq: 12, norm: 50 },
+                Impact {
+                    freq: 50,
+                    norm: -100,
+                },
+                Impact {
+                    freq: 1000,
+                    norm: -80,
+                },
+                Impact {
+                    freq: 1005,
+                    norm: -3,
+                },
+            ],
+        ];
+
+        for impacts in cases {
+            do_test_impact_serialization(&impacts)?;
+        }
+
+        Ok(())
+    }
+    fn do_test_impact_serialization(impacts: &[Impact]) -> Result<()> {
+        let mut random = random();
+        let mut acc = CompetitiveImpactAccumulator::new();
+        for imp in impacts {
+            acc.add(imp.freq, imp.norm);
+        }
+        let mut dir = new_directory(&mut random)?;
+        {
+            let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+            lucene101_pw_util::write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
+        }
+        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let len = input.length();
+        let mut buffer = vec![0u8; len as usize];
+        input.read_bytes(&mut buffer, 0, len as i32)?;
+
+        let mut data_in = ByteArrayDataInput::with_bytes(buffer);
+        let mut mutable_impacts_list =
+            MutableImpactList::with_capacity(impacts.len() + random.random_range(0..3));
+        let impacts2 = lucene101_pr_util::read_impacts(&mut data_in, &mut mutable_impacts_list)?;
+
+        assert_eq!(impacts2, impacts);
+        Ok(())
+    }
+}
