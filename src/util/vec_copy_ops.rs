@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) trait SliceCopyOps<T: Copy> {
+pub(crate) trait SliceCopyOps<T> {
     /// Copies elements from a source slice (`src`) into the current slice (`self`) starting at the specified offset.
     ///
     /// # Parameters
@@ -35,13 +35,13 @@ pub(crate) trait SliceCopyOps<T: Copy> {
     fn copy_from(&mut self, src: &[T], offset: usize);
 }
 
-impl<T: Copy> SliceCopyOps<T> for Vec<T> {
+impl<T> SliceCopyOps<T> for Vec<T> {
     #[inline]
     fn copy_from(&mut self, src: &[T], offset: usize) {
         self.as_mut_slice().copy_from(src, offset)
     }
 }
-impl<T: Copy> SliceCopyOps<T> for [T] {
+impl<T> SliceCopyOps<T> for [T] {
     fn copy_from(&mut self, src: &[T], offset: usize) {
         debug_assert!(
             offset + src.len() <= self.len(),
