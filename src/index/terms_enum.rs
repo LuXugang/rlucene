@@ -114,6 +114,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// Note: like other term measures, this does not take deleted documents into account.
     fn total_term_freq(&self) -> Result<i64>;
 
+    type PostingsEnumType: PostingsEnum;
     /// Get [`PostingsEnum`] for the current term. Do not call this when the enum is unpositioned.
     /// This method will not return `None`.
     ///
@@ -130,7 +131,6 @@ pub trait TermsEnum: BytesRefIterator {
         self.postings_with_flags(&reuse, postings_enum_static::FREQS as i32)
     }
 
-    type PostingsEnumType: PostingsEnum;
     /// Get [`PostingsEnum`] for the current term, with control over whether freqs, positions,
     /// offsets or payloads are required. Do not call this when the enum is unpositioned.
     /// This method will not return `None`.
