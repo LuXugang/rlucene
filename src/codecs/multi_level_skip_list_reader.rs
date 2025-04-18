@@ -37,6 +37,8 @@ where
     doc_count: i32,
 
     /// skipStream for each level.
+    // TODO: if IndexInput impl Default , we could use Default for padding when we need take ownership in `#load_skip_levels`
+    // then there no need wrap with `Option`
     skip_stream: Vec<Option<I>>,
 
     /// The start pointer of each skip level.
