@@ -786,7 +786,7 @@ mod tests {
                 let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
 
                 for_util.decode(bits_per_value, &mut pdu, &mut restored)?;
-                let restored_ints: Vec<i32> = restored.iter().map(|&x| x).collect();
+                let restored_ints: Vec<i32> = restored.to_vec();
 
                 let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
                 assert_eq!(
