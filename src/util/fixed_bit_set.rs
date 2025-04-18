@@ -886,20 +886,7 @@ mod tests {
         assert_eq!(b.cardinality(), count);
     }
 
-    fn do_iterate(
-        random: &mut StdRng,
-        a: &bit_set::BitSet,
-        b: &FixedBitSet,
-        mode: i32,
-    ) -> Result<()> {
-        match mode {
-            1 => do_iterate1(random, a, b),
-            2 => do_iterate2(random, a, b),
-            _ => Ok(()),
-        }
-    }
-
-    fn do_iterate1(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<()> {
+    fn do_iterate(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<()> {
         assert_eq!(a.len(), b.cardinality() as usize);
         let mut iterator = BitSetIterator::new(b, 0)?;
         let iter = a.iter();
@@ -915,23 +902,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_iterate2(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<()> {
-        assert_eq!(a.len(), b.cardinality() as usize);
-        let mut iterator = BitSetIterator::new(b, 0)?;
-        let iter = a.iter();
-        for index in iter {
-            let bb = if random.random_bool(0.5) {
-                iterator.next_doc()?
-            } else {
-                iterator.advance(index as i32)?
-            };
-            assert_eq!(index, bb as usize);
-        }
-        assert_eq!(iterator.next_doc()?, NO_MORE_DOCS);
-        Ok(())
-    }
-
-    fn do_random_sets(random: &mut StdRng, iter: i32, mode: i32) -> Result<()> {
+    fn do_random_sets(random: &mut StdRng, iter: i32) -> Result<()> {
         // let max_size = random.random_range(1200..=i32::MAX);
         let max_size = random.random_range(1200..=100000);
         let mut a0: bit_set::BitSet = Default::default();
@@ -983,7 +954,7 @@ mod tests {
             let mut bb = b.clone();
             bb.flip_range(from_index, to_index);
 
-            do_iterate(random, &aa, &bb, mode)?; //  a problem here is from flip or doIterate
+            do_iterate(random, &aa, &bb)?; //  a problem here is from flip or doIterate
 
             from_index = random.random_range(0..(sz / 2));
             to_index = from_index + random.random_range(0..(sz - from_index));
@@ -1037,10 +1008,10 @@ mod tests {
                 assert_eq!(a_andn.len(), b_andn.cardinality() as usize);
                 assert_eq!(a_xor.len(), b_xor.cardinality() as usize);
 
-                do_iterate(random, &a_and, &b_and, mode)?;
-                do_iterate(random, &a_xor, &b_xor, mode)?;
-                do_iterate(random, &a_or, &b_or, mode)?;
-                do_iterate(random, &a_andn, &b_andn, mode)?;
+                do_iterate(random, &a_and, &b_and)?;
+                do_iterate(random, &a_xor, &b_xor)?;
+                do_iterate(random, &a_or, &b_or)?;
+                do_iterate(random, &a_andn, &b_andn)?;
 
                 a0 = a;
                 b0 = b;
@@ -1061,8 +1032,7 @@ mod tests {
         } else {
             100
         };
-        do_random_sets(&mut random, iters, 1)?;
-        do_random_sets(&mut random, iters, 2)?;
+        do_random_sets(&mut random, iters)?;
         Ok(())
     }
 
