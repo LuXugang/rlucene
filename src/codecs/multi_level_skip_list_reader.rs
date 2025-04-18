@@ -24,6 +24,7 @@ use crate::util::math_util::MathUtil;
 ///
 /// Implementors must provide the `read_skip_data(&mut self, level: i32, input: &mut I)`
 /// method to define the actual format of the skip data.
+#[allow(dead_code)]
 pub struct MultiLevelSkipListReader<I>
 where
     I: IndexInput,
@@ -171,18 +172,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
 
         Ok(true)
     }
-    /// Seeks the skip entry on the given level
-    fn seek_child(&mut self, level: usize) -> Result<()> {
-        let stream = self.skip_stream[level].as_mut().unwrap();
-        stream.seek(self.last_child_pointer)?;
-        self.num_skipped[level] = self.num_skipped[level + 1] - self.skip_interval[level + 1];
-        self.skip_doc[level] = self.last_doc;
-        if level > 0 {
-            self.child_pointer[level] =
-                self.read_child_pointer(level)? + self.skip_pointer[level - 1];
-        }
-        Ok(())
-    }
+    
     /// Initializes the reader, for reuse on a new term.
     pub fn init(&mut self, skip_pointer: i64, df: i32) -> Result<()> {
         self.skip_pointer[0] = skip_pointer;
@@ -260,13 +250,33 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
             .read_vlong()
     }
 
-    /// Copies the values of the last read skip entry on this level.
+    
+}
+impl<I> MultiLevelSkipListReaderAbstract for MultiLevelSkipListReader<I> where I: IndexInput {
     fn set_last_skip_data(&mut self, level: usize) {
         self.last_doc = self.skip_doc[level];
         self.last_child_pointer = self.child_pointer[level];
     }
+    fn seek_child(&mut self, level: usize) -> Result<()> {
+        let stream = self.skip_stream[level].as_mut().unwrap();
+        stream.seek(self.last_child_pointer)?;
+        self.num_skipped[level] = self.num_skipped[level + 1] - self.skip_interval[level + 1];
+        self.skip_doc[level] = self.last_doc;
+        if level > 0 {
+            self.child_pointer[level] =
+                self.read_child_pointer(level)? + self.skip_pointer[level - 1];
+        }
+        Ok(())
+    }
 }
-
+#[allow(dead_code)]
+pub(crate) trait MultiLevelSkipListReaderAbstract {
+    /// Copies the values of the last read skip entry on this level.
+    fn set_last_skip_data(&mut self, level: usize);
+    /// Seeks the skip entry on the given level
+    fn seek_child(&mut self, level: usize) -> Result<()> ;
+}
+#[allow(dead_code)]
 pub(crate) trait MultiLevelSkipListReaderBase {
     /// Subclasses must implement the actual skip data encoding in this method.
     ///
@@ -275,3 +285,4 @@ pub(crate) trait MultiLevelSkipListReaderBase {
     /// - `skipStream`: the skip stream to read from
     fn read_skip_data(&mut self, level: usize, skip_stream: &mut impl IndexInput) -> Result<i32>;
 }
+
