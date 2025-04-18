@@ -22,6 +22,7 @@ use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
 use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexOutput};
+use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 
 /// Trait that plugs into term dictionaries, such as [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter), and
@@ -39,7 +40,7 @@ pub trait PostingsWriterBase {
         &mut self,
         terms_out: &mut impl IndexOutput,
         state: &SegmentWriteState<D>,
-    ) -> std::io::Result<()>;
+    ) -> Result<()>;
 
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull a
     /// [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This method should not re-position the `terms_enum`! It is already
@@ -52,7 +53,7 @@ pub trait PostingsWriterBase {
         terms_enum: &mut impl TermsEnum,
         docs_seen: &mut FixedBitSet,
         norms: &mut impl NormsProducer,
-    ) -> std::io::Result<Option<BlockTermState>>;
+    ) -> Result<Option<BlockTermState>>;
 
     /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the current term is delta
     /// encoded according to the latest term. Usually elements in `longs` are file pointers, so each
@@ -64,7 +65,7 @@ pub trait PostingsWriterBase {
         field_info: &FieldInfo,
         state: &BlockTermState,
         absolute: bool,
-    ) -> std::io::Result<()>;
+    ) -> Result<()>;
 
     /// Sets the current field for writing.
     fn set_field(&mut self, field_info: &FieldInfo);

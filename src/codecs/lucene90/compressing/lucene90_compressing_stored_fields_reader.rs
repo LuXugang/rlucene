@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::{
-    lucene90_csf_util, TYPE_BITS, TYPE_MASK,
+    lucene90_csfw_util, TYPE_BITS, TYPE_MASK,
 };
 use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
 use crate::codecs::compression::compression_mode::{
@@ -76,8 +76,8 @@ where
     prefetched_block_id_cache_index: usize,
     closed: bool,
 }
-pub mod lucene90_compressing_stored_fields_reader_util {
-    use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::lucene90_csf_util;
+pub mod lucene90_csfr_util {
+    use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::lucene90_csfw_util;
     use crate::store::DataInput;
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::LuceneError;
@@ -141,10 +141,10 @@ pub mod lucene90_compressing_stored_fields_reader_util {
 
         let mut l = BitUtil::zig_zag_decode_i64(bits as u64);
 
-        match header & lucene90_csf_util::DAY_ENCODING {
-            lucene90_csf_util::SECOND_ENCODING => l *= lucene90_csf_util::SECOND,
-            lucene90_csf_util::HOUR_ENCODING => l *= lucene90_csf_util::HOUR,
-            lucene90_csf_util::DAY_ENCODING => l *= lucene90_csf_util::DAY,
+        match header & lucene90_csfw_util::DAY_ENCODING {
+            lucene90_csfw_util::SECOND_ENCODING => l *= lucene90_csfw_util::SECOND,
+            lucene90_csfw_util::HOUR_ENCODING => l *= lucene90_csfw_util::HOUR,
+            lucene90_csfw_util::DAY_ENCODING => l *= lucene90_csfw_util::DAY,
             0 => {}
             _ => {
                 debug_assert!(false, "should not be here");
@@ -190,7 +190,7 @@ where
         let fields_stream_fn = IndexFileNames::segment_file_name(
             segment,
             segment_suffix,
-            lucene90_csf_util::FIELDS_EXTENSION,
+            lucene90_csfw_util::FIELDS_EXTENSION,
         );
         let mut meta_in = None;
         let result: Result<Self> = (|| {
@@ -202,8 +202,8 @@ where
             let version = CodecUtil::check_index_header(
                 &mut fields_stream,
                 format_name,
-                lucene90_csf_util::VERSION_START,
-                lucene90_csf_util::VERSION_CURRENT,
+                lucene90_csfw_util::VERSION_START,
+                lucene90_csfw_util::VERSION_CURRENT,
                 &si.get_id(),
                 segment_suffix,
             )?;
@@ -216,14 +216,14 @@ where
             let meta_stream_fm = IndexFileNames::segment_file_name(
                 segment,
                 segment_suffix,
-                lucene90_csf_util::META_EXTENSION,
+                lucene90_csfw_util::META_EXTENSION,
             );
             let mut meta = dir.open_checksum_input(&meta_stream_fm)?;
 
             CodecUtil::check_index_header(
                 &mut meta,
-                &format!("{}Meta", lucene90_csf_util::INDEX_CODEC_NAME),
-                lucene90_csf_util::META_VERSION_START,
+                &format!("{}Meta", lucene90_csfw_util::INDEX_CODEC_NAME),
+                lucene90_csfw_util::META_VERSION_START,
                 version,
                 &si.get_id(),
                 segment_suffix,
@@ -251,8 +251,8 @@ where
                 dir,
                 si.name.to_string(),
                 segment_suffix,
-                lucene90_csf_util::INDEX_EXTENSION,
-                lucene90_csf_util::INDEX_CODEC_NAME,
+                lucene90_csfw_util::INDEX_EXTENSION,
+                lucene90_csfw_util::INDEX_CODEC_NAME,
                 &si.get_id(),
                 &mut meta,
                 context,
@@ -375,28 +375,28 @@ where
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
         match bits & *TYPE_MASK as i32 {
-            lucene90_csf_util::BYTE_ARR => {
+            lucene90_csfw_util::BYTE_ARR => {
                 let length = input.read_vint()?;
                 visitor.binary_field_with_input(info, input, length, writer)?;
             }
-            lucene90_csf_util::STRING => {
+            lucene90_csfw_util::STRING => {
                 let s = input.read_string()?;
                 visitor.string_field(info, &s, writer)?;
             }
-            lucene90_csf_util::NUMERIC_INT => {
+            lucene90_csfw_util::NUMERIC_INT => {
                 let v = input.read_zint()?;
                 visitor.int_field(info, v, writer)?;
             }
-            lucene90_csf_util::NUMERIC_FLOAT => {
-                let v = lucene90_compressing_stored_fields_reader_util::read_zfloat(input)?;
+            lucene90_csfw_util::NUMERIC_FLOAT => {
+                let v = lucene90_csfr_util::read_zfloat(input)?;
                 visitor.float_field(info, v, writer)?;
             }
-            lucene90_csf_util::NUMERIC_LONG => {
-                let v = lucene90_compressing_stored_fields_reader_util::read_tlong(input)?;
+            lucene90_csfw_util::NUMERIC_LONG => {
+                let v = lucene90_csfr_util::read_tlong(input)?;
                 visitor.long_field(info, v, writer)?;
             }
-            lucene90_csf_util::NUMERIC_DOUBLE => {
-                let v = lucene90_compressing_stored_fields_reader_util::read_zdouble(input)?;
+            lucene90_csfw_util::NUMERIC_DOUBLE => {
+                let v = lucene90_csfr_util::read_zdouble(input)?;
                 visitor.double_field(info, v, writer)?;
             }
             other => {
@@ -410,21 +410,21 @@ where
     }
     fn skip_field(input: &mut impl DataInput, bits: i32) -> Result<()> {
         match bits & *TYPE_MASK as i32 {
-            lucene90_csf_util::BYTE_ARR | lucene90_csf_util::STRING => {
+            lucene90_csfw_util::BYTE_ARR | lucene90_csfw_util::STRING => {
                 let length = input.read_vint()?;
                 input.skip_bytes(length as i64)?;
             }
-            lucene90_csf_util::NUMERIC_INT => {
+            lucene90_csfw_util::NUMERIC_INT => {
                 input.read_zint()?;
             }
-            lucene90_csf_util::NUMERIC_FLOAT => {
-                lucene90_compressing_stored_fields_reader_util::read_zfloat(input)?;
+            lucene90_csfw_util::NUMERIC_FLOAT => {
+                lucene90_csfr_util::read_zfloat(input)?;
             }
-            lucene90_csf_util::NUMERIC_LONG => {
-                lucene90_compressing_stored_fields_reader_util::read_tlong(input)?;
+            lucene90_csfw_util::NUMERIC_LONG => {
+                lucene90_csfr_util::read_tlong(input)?;
             }
-            lucene90_csf_util::NUMERIC_DOUBLE => {
-                lucene90_compressing_stored_fields_reader_util::read_zdouble(input)?;
+            lucene90_csfw_util::NUMERIC_DOUBLE => {
+                lucene90_csfr_util::read_zdouble(input)?;
             }
             other => {
                 return Err(LuceneError::illegal_state(format!(
@@ -453,7 +453,7 @@ where
             ));
         }
 
-        if self.version != lucene90_csf_util::VERSION_CURRENT {
+        if self.version != lucene90_csfw_util::VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "is_loaded should only ever get called when the reader is on the current version",
             ));
@@ -486,7 +486,7 @@ where
     }
 
     pub fn get_num_dirty_docs(&self) -> Result<i64> {
-        if self.version != lucene90_csf_util::VERSION_CURRENT {
+        if self.version != lucene90_csfw_util::VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "getNumDirtyDocs should only ever get called when the reader is on the current version",
             ));
@@ -496,7 +496,7 @@ where
     }
 
     pub fn get_num_dirty_chunks(&self) -> Result<i64> {
-        if self.version != lucene90_csf_util::VERSION_CURRENT {
+        if self.version != lucene90_csfw_util::VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "getNumDirtyChunks should only ever get called when the reader is on the current version",
             ));
@@ -506,7 +506,7 @@ where
     }
 
     pub fn get_num_chunks(&self) -> Result<i64> {
-        if self.version != lucene90_csf_util::VERSION_CURRENT {
+        if self.version != lucene90_csfw_util::VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "getNumChunks should only ever get called when the reader is on the current version",
             ));
@@ -557,7 +557,7 @@ where
             let bits = (info_and_bits & *TYPE_MASK) as i32;
 
             debug_assert!(
-                bits <= lucene90_csf_util::NUMERIC_DOUBLE,
+                bits <= lucene90_csfw_util::NUMERIC_DOUBLE,
                 "bits={:#x} is out of valid range",
                 bits
             );

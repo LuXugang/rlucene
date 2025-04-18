@@ -17,6 +17,7 @@
 mod for_delta_util;
 mod for_util;
 mod lucene101_postings_format;
+mod lucene101_postings_reader;
 mod lucene101_postings_writer;
 mod pfor_util;
 mod postings_util;

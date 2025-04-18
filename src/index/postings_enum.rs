@@ -29,7 +29,7 @@ pub trait PostingsEnum: DocIdSetIterator {
     fn freq(&mut self) -> Result<i32>;
 
     /// Returns the next position, or -1 if positions were not indexed.
-    /// Calling this more than [`freq()`](PostingsEnum::freq) times is undefined.
+    /// Calling this more than [`freq()`](Self::freq) times is undefined.
     fn next_position(&mut self) -> Result<i32>;
 
     /// Returns start offset for the current position, or -1 if offsets were not indexed.
