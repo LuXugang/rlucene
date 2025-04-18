@@ -17,6 +17,7 @@
 pub mod block_term_state;
 pub mod codec;
 pub mod codec_util;
+mod competitive_impact_accumulator;
 pub mod compound_directory;
 pub mod compound_directory_enum;
 pub mod compound_format;

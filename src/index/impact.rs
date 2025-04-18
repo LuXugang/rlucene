@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cmp::Ordering;
 use std::fmt::Display;
 
 /// Per-document scoring factors.
@@ -36,5 +37,18 @@ impl Impact {
 impl Display for Impact {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{freq={},norm={}}}", self.freq, self.norm)
+    }
+}
+impl PartialOrd for Impact {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Impact {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.freq.cmp(&other.freq) {
+            Ordering::Equal => (other.norm as u64).cmp(&(self.norm as u64)),
+            non_eq => non_eq,
+        }
     }
 }
