@@ -30,7 +30,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::index::{doc_id_merger_static, BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase};
+use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
@@ -119,9 +119,9 @@ pub trait DocValuesConsumer {
         todo!()
     }
 }
-mod doc_values_consumer_static {
+mod doc_values_consumer_util {
     use crate::codecs::doc_values_consumer::{NumericDocValuesMerge, NumericDocValuesSub};
-    use crate::index::{doc_id_merger_static, Sub};
+    use crate::index::{doc_id_merger_util, Sub};
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
     use crate::util::error::lucene_error::Result;
@@ -139,7 +139,7 @@ mod doc_values_consumer_static {
         for sub in &mut subs {
             cost = sub.borrow().sub.values.borrow().cost()?;
         }
-        let doc_id_merger = doc_id_merger_static::of(subs, index_is_sorted)?;
+        let doc_id_merger = doc_id_merger_util::of(subs, index_is_sorted)?;
         Ok(NumericDocValuesMerge {
             doc_id: -1,
             current: None,
@@ -302,7 +302,7 @@ where
             }
         }
         Ok(NumericDocValuesEnum::Merge(
-            doc_values_consumer_static::merge_numeric_values(
+            doc_values_consumer_util::merge_numeric_values(
                 subs,
                 self.merge_state.needs_index_sort,
             )?,
@@ -471,7 +471,7 @@ where
                 )))));
             }
         }
-        let doc_id_merger = doc_id_merger_static::of(subs, self.merge_state.needs_index_sort)?;
+        let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
         let doc_value = BinaryDocValuesMerge {
             doc_id: -1,
             current: None,
@@ -680,7 +680,7 @@ where
                     single_valued_values.unwrap(),
                 )))));
             }
-            let dv = NumericDocValuesEnum::Merge(doc_values_consumer_static::merge_numeric_values(
+            let dv = NumericDocValuesEnum::Merge(doc_values_consumer_util::merge_numeric_values(
                 single_valued_subs,
                 self.merge_state.needs_index_sort,
             )?);
@@ -688,7 +688,7 @@ where
                 DocValues::singleton_numeric(dv)?,
             ));
         }
-        let doc_id_merger = doc_id_merger_static::of(subs, self.merge_state.needs_index_sort)?;
+        let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
         Ok(SortedNumericDocValuesEnum::Merge(
             SortedNumericDocValuesMerge {
                 doc_id: -1,

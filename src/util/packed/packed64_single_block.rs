@@ -17,7 +17,7 @@
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-use crate::util::packed::bulk_operation::bulkoperation_static;
+use crate::util::packed::bulk_operation::bulk_operation_util;
 use crate::util::packed::format_behavior::PackedSingleBlockImpl;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader};
@@ -123,7 +123,7 @@ where
             0,
             "index not aligned with block boundary"
         );
-        let decoder = bulkoperation_static::of(
+        let decoder = bulk_operation_util::of(
             Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
             self.bits_per_value,
         );
@@ -331,7 +331,7 @@ where
             "index not aligned with block boundary"
         );
 
-        let op = bulkoperation_static::of(
+        let op = bulk_operation_util::of(
             Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
             self.bits_per_value,
         );

@@ -27,7 +27,7 @@ use crate::util::packed::packed64_single_block::create;
 use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
 
-use crate::util::packed::bulk_operation::bulkoperation_static;
+use crate::util::packed::bulk_operation::bulk_operation_util;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::string::ToString;
@@ -72,7 +72,7 @@ impl PackedInts {
         bits_per_value: i32,
     ) -> Result<&'static BulkOperationPackedEnum> {
         check_version(version)?;
-        Ok(bulkoperation_static::of(format, bits_per_value))
+        Ok(bulk_operation_util::of(format, bits_per_value))
     }
     /// Get an [`Encoder`].
     ///

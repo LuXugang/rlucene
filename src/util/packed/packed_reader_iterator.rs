@@ -17,7 +17,7 @@
 use crate::store::DataInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::longs_ref::LongsRef;
-use crate::util::packed::bulk_operation::{bulkoperation_static, BulkOperation};
+use crate::util::packed::bulk_operation::{bulk_operation_util, BulkOperation};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
 use crate::util::packed::{Decoder, Format, ReaderIterator};
@@ -50,7 +50,7 @@ where
         data_input: &'a mut D,
         mem: i32,
     ) -> Self {
-        let bulk_operation = bulkoperation_static::of(format, bits_per_value);
+        let bulk_operation = bulk_operation_util::of(format, bits_per_value);
         let iterations = bulk_operation.compute_iterations(value_count, mem);
 
         debug_assert!(

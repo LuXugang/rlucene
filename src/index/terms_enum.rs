@@ -17,7 +17,7 @@
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::impacts_enum::ImpactsEnum;
-use crate::index::postings_enum::{postings_enum_static, PostingsEnum};
+use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
 use crate::store::IndexInput;
@@ -128,7 +128,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse
     ///   See also: `postings_with_flags`.
     fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnumType> {
-        self.postings_with_flags(&reuse, postings_enum_static::FREQS as i32)
+        self.postings_with_flags(&reuse, postings_enum_util::FREQS as i32)
     }
 
     /// Get [`PostingsEnum`] for the current term, with control over whether freqs, positions,
@@ -139,7 +139,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// so deleted documents must be checked on top of the [`PostingsEnum`].
     ///
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse
-    /// - `flags`: specifies which optional per-document values you require (see [`PostingsEnum::FREQS`](postings_enum_static::FREQS))
+    /// - `flags`: specifies which optional per-document values you require (see [`PostingsEnum::FREQS`](postings_enum_util::FREQS))
     fn postings_with_flags(
         &mut self,
         reuse: &Option<impl PostingsEnum>,

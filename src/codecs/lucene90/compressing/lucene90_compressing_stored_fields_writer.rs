@@ -30,7 +30,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::stored_fields::StoredFields;
-use crate::index::{doc_id_merger_static, BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase};
+use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::random_access_input::RandomAccessInput;
@@ -778,7 +778,7 @@ where
             ))));
         }
 
-        let mut doc_id_merger = doc_id_merger_static::of(subs, merge_state.needs_index_sort)?;
+        let mut doc_id_merger = doc_id_merger_util::of(subs, merge_state.needs_index_sort)?;
         let mut doc_count = 0;
 
         while let Some(sub_rc) = doc_id_merger.next()? {

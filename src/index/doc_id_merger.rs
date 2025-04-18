@@ -37,7 +37,7 @@ where
     fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>>;
 }
 #[allow(unused)]
-pub mod doc_id_merger_static {
+pub mod doc_id_merger_util {
     use crate::index::{DocIDMergerEnum, SequentialDocIDMerger, SortedDocIDMerger, Sub, SubBase};
     use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
@@ -311,7 +311,7 @@ where
 #[cfg(test)]
 pub mod tests {
     use crate::index::doc_id_merger::{DocIDMerger, Sub, SubBase};
-    use crate::index::doc_id_merger_static::of;
+    use crate::index::doc_id_merger_util::of;
     use crate::index::merge_state::{DocMap, DocMapEnum};
 
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;

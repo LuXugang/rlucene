@@ -189,7 +189,7 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
         }
     }
 }
-pub mod bulkoperation_static {
+pub mod bulk_operation_util {
     use crate::util::packed::bulk_operation::{PACKED_BULK_OPS, PACKED_SINGLE_BLOCK_BULK_OPS};
     use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
     use crate::util::packed::Format;
