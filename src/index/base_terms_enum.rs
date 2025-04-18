@@ -107,13 +107,13 @@ where
         self.sub_terms_enum.total_term_freq()
     }
 
-    type PostingsEnumType = PostingsEnums;
+    type PostingsEnum = PostingsEnums;
 
     fn postings_with_flags(
         &mut self,
-        reuse: &Option<impl PostingsEnum>,
+        reuse: Option<impl PostingsEnum>,
         flags: i32,
-    ) -> Result<Self::PostingsEnumType> {
+    ) -> Result<Self::PostingsEnum> {
         self.sub_terms_enum.postings_with_flags(reuse, flags)
     }
 

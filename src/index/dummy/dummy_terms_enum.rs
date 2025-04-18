@@ -97,13 +97,13 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
-    type PostingsEnumType = DummyPostingsEnum;
+    type PostingsEnum = DummyPostingsEnum;
 
     fn postings_with_flags(
         &mut self,
-        _reuse: &Option<impl PostingsEnum>,
-        _flags: i32,
-    ) -> Result<Self::PostingsEnumType> {
+        reuse: Option<impl PostingsEnum>,
+        flags: i32,
+    ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

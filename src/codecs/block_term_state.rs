@@ -40,7 +40,11 @@ impl Display for BlockTermState {
         write!(
             f,
             "{} docFreq={} totalTermFreq={} termBlockOrd={} blockFP={}",
-            self.ord,self.doc_freq, self.total_term_freq, self.term_block_ord, self.block_file_pointer
+            self.ord,
+            self.doc_freq,
+            self.total_term_freq,
+            self.term_block_ord,
+            self.block_file_pointer
         )
     }
 }

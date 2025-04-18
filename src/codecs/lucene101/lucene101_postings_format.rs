@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::codecs::block_term_state::BlockTermState;
+use crate::codecs::lucene101::for_util::ForUtil;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::LuceneError;
 use std::fmt::{Display, Formatter};
-use crate::codecs::lucene101::for_util::ForUtil;
 
 pub struct Lucene101PostingsFormat;
 impl Lucene101PostingsFormat {

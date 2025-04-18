@@ -91,17 +91,17 @@ where
         todo!()
     }
 
-    fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnumType> {
+    type PostingsEnum = PostingsEnums;
+
+    fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnum> {
         todo!()
     }
 
-    type PostingsEnumType = PostingsEnums;
-
     fn postings_with_flags(
         &mut self,
-        reuse: &Option<impl PostingsEnum>,
+        reuse: Option<impl PostingsEnum>,
         flags: i32,
-    ) -> Result<Self::PostingsEnumType> {
+    ) -> Result<Self::PostingsEnum> {
         todo!()
     }
 

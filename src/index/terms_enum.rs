@@ -114,7 +114,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// Note: like other term measures, this does not take deleted documents into account.
     fn total_term_freq(&self) -> Result<i64>;
 
-    type PostingsEnumType: PostingsEnum;
+    type PostingsEnum: PostingsEnum;
     /// Get [`PostingsEnum`] for the current term. Do not call this when the enum is unpositioned.
     /// This method will not return `None`.
     ///
@@ -127,8 +127,8 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse
     ///   See also: `postings_with_flags`.
-    fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnumType> {
-        self.postings_with_flags(&reuse, postings_enum_util::FREQS as i32)
+    fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnum> {
+        self.postings_with_flags(reuse, postings_enum_util::FREQS as i32)
     }
 
     /// Get [`PostingsEnum`] for the current term, with control over whether freqs, positions,
@@ -142,9 +142,9 @@ pub trait TermsEnum: BytesRefIterator {
     /// - `flags`: specifies which optional per-document values you require (see [`PostingsEnum::FREQS`](postings_enum_util::FREQS))
     fn postings_with_flags(
         &mut self,
-        reuse: &Option<impl PostingsEnum>,
+        reuse: Option<impl PostingsEnum>,
         flags: i32,
-    ) -> Result<Self::PostingsEnumType>;
+    ) -> Result<Self::PostingsEnum>;
     type ImpactsEnumType: ImpactsEnum;
     /// Return an `ImpactsEnum`.
     ///
@@ -223,13 +223,13 @@ where
         ))
     }
 
-    type PostingsEnumType = DummyPostingsEnum;
+    type PostingsEnum = DummyPostingsEnum;
 
     fn postings_with_flags(
         &mut self,
-        _reuse: &Option<impl PostingsEnum>,
-        _flags: i32,
-    ) -> Result<Self::PostingsEnumType> {
+        reuse: Option<impl PostingsEnum>,
+        flags: i32,
+    ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
