@@ -172,7 +172,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
 
         Ok(true)
     }
-    
+
     /// Initializes the reader, for reuse on a new term.
     pub fn init(&mut self, skip_pointer: i64, df: i32) -> Result<()> {
         self.skip_pointer[0] = skip_pointer;
@@ -249,10 +249,11 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
             .unwrap()
             .read_vlong()
     }
-
-    
 }
-impl<I> MultiLevelSkipListReaderAbstract for MultiLevelSkipListReader<I> where I: IndexInput {
+impl<I> MultiLevelSkipListReaderAbstract for MultiLevelSkipListReader<I>
+where
+    I: IndexInput,
+{
     fn set_last_skip_data(&mut self, level: usize) {
         self.last_doc = self.skip_doc[level];
         self.last_child_pointer = self.child_pointer[level];
@@ -274,7 +275,7 @@ pub(crate) trait MultiLevelSkipListReaderAbstract {
     /// Copies the values of the last read skip entry on this level.
     fn set_last_skip_data(&mut self, level: usize);
     /// Seeks the skip entry on the given level
-    fn seek_child(&mut self, level: usize) -> Result<()> ;
+    fn seek_child(&mut self, level: usize) -> Result<()>;
 }
 #[allow(dead_code)]
 pub(crate) trait MultiLevelSkipListReaderBase {
@@ -285,4 +286,3 @@ pub(crate) trait MultiLevelSkipListReaderBase {
     /// - `skipStream`: the skip stream to read from
     fn read_skip_data(&mut self, level: usize, skip_stream: &mut impl IndexInput) -> Result<i32>;
 }
-

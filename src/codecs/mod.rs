@@ -42,6 +42,7 @@ pub mod norms_format;
 pub mod norms_producer;
 pub mod points_format;
 pub mod postings_reader_base;
+mod postings_writer_base;
 pub mod segment_info_format;
 pub mod simple_text_live_docs_format;
 pub mod stored_fields_format;
