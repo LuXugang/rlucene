@@ -48,3 +48,9 @@ impl DocValuesSkipIndexType {
         }
     }
 }
+/// Use Default for padding
+impl Default for DocValuesSkipIndexType {
+    fn default() -> Self {
+        Self::None
+    }
+}

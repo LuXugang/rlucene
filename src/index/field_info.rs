@@ -30,6 +30,9 @@ use std::rc::Rc;
 ///  Each segment has a separate Field Info file. Objects of this struct are thread-safe for multiple
 ///  readers, but only one thread can be adding documents at a time, with no other reader or writer
 ///  threads accessing this object.
+/// # Note
+/// FieldInfo Implement trait Default for padding using
+#[derive(Default)] // for padding using
 pub struct FieldInfo {
     /// Field's name
     pub name: String,
@@ -59,6 +62,15 @@ pub struct FieldInfo {
 pub struct Properties {
     pub(crate) attributes: Rc<RefCell<HashMap<String, String>>>,
     store_payloads: bool, // whether this field stores payloads together with term positions
+}
+/// For padding using
+impl Default for Properties {
+    fn default() -> Self {
+        Properties {
+            attributes: Rc::new(RefCell::new(HashMap::new())),
+            store_payloads: false,
+        }
+    }
 }
 
 impl FieldInfo {

@@ -38,3 +38,9 @@ pub enum IndexOptions {
     /// Character offsets are encoded alongside the positions.
     DocsAndFreqsAndPositionsAndOffsets,
 }
+/// Use Default for padding
+impl Default for IndexOptions {
+    fn default() -> Self {
+        IndexOptions::None
+    }
+}

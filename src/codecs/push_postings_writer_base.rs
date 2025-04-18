@@ -46,22 +46,22 @@ pub struct PushPostingsWriterBase<T: TermsEnum> {
     enum_flags: i32,
 
     /// `FieldInfo` of current field being written.
-    pub field_info: Rc<FieldInfo>,
+    pub(crate) field_info: Rc<FieldInfo>,
 
     /// `IndexOptions` of current field being written.
-    pub index_options: IndexOptions,
+    pub(crate) index_options: IndexOptions,
 
     /// True if the current field writes freqs.
-    pub write_freqs: bool,
+    pub(crate) write_freqs: bool,
 
     /// True if the current field writes positions.
-    pub write_positions: bool,
+    pub(crate) write_positions: bool,
 
     /// True if the current field writes payloads.
-    pub write_payloads: bool,
+    pub(crate) write_payloads: bool,
 
     /// True if the current field writes offsets.
-    pub write_offsets: bool,
+    pub(crate) write_offsets: bool,
 }
 
 impl<T> PushPostingsWriterBase<T>
@@ -69,24 +69,19 @@ where
     T: TermsEnum,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        enum_flags: i32,
-        field_info: Rc<FieldInfo>,
-        index_options: IndexOptions,
-        write_freqs: bool,
-        write_positions: bool,
-        write_payloads: bool,
-        write_offsets: bool,
-    ) -> Self {
+    /// # Parameters
+    /// - `field_info`: It is just a placeholder value; it should be initialized as None, but I don't want to add extra wrapping around it.
+    /// It would be set in [`set_field`](Self::set_field) before used
+    pub fn new(field_info: FieldInfo) -> Self {
         PushPostingsWriterBase {
             postings_enum: None,
-            enum_flags,
-            field_info,
-            index_options,
-            write_freqs,
-            write_positions,
-            write_payloads,
-            write_offsets,
+            enum_flags: 0,
+            field_info: Rc::new(field_info),
+            index_options: Default::default(),
+            write_freqs: false,
+            write_positions: false,
+            write_payloads: false,
+            write_offsets: false,
         }
     }
 }
@@ -106,7 +101,7 @@ where
 
     fn write_term<N: NormsProducer>(
         &mut self,
-        term: &BytesRef,
+        _term: &BytesRef,
         terms_enum: &mut T,
         docs_seen: &mut FixedBitSet,
         norms: &mut N,

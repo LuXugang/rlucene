@@ -41,3 +41,9 @@ pub enum DocValuesType {
     /// presorted and allows access via document id, ordinal, and by-value. Values must be <= 32,766 bytes.
     SortedSet,
 }
+/// Use Default for padding
+impl Default for DocValuesType {
+    fn default() -> Self {
+        DocValuesType::None
+    }
+}

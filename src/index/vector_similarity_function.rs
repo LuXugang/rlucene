@@ -24,3 +24,9 @@ pub enum VectorSimilarityFunction {
     Cosine,
     MaximumInnerProduct,
 }
+/// Use Default for padding
+impl Default for VectorSimilarityFunction {
+    fn default() -> Self {
+        VectorSimilarityFunction::Euclidean
+    }
+}
