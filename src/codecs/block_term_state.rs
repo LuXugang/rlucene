@@ -39,8 +39,8 @@ impl Display for BlockTermState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "docFreq={} totalTermFreq={} termBlockOrd={} blockFP={}",
-            self.doc_freq, self.total_term_freq, self.term_block_ord, self.block_file_pointer
+            "{} docFreq={} totalTermFreq={} termBlockOrd={} blockFP={}",
+            self.ord,self.doc_freq, self.total_term_freq, self.term_block_ord, self.block_file_pointer
         )
     }
 }
