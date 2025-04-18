@@ -193,36 +193,4 @@ mod tests {
             // }
         }
     }
-    struct A {
-        b: B,
-    }
-
-    impl A {
-        fn new() -> Self {
-            A { b: B {} }
-        }
-
-        fn method_of_a(&self) {
-            println!("A's method called!");
-        }
-
-        fn run(&self) {
-            self.b.do_something(self); // 把 A 的引用传进去
-        }
-    }
-
-    struct B;
-
-    impl B {
-        fn do_something(&self, a: &A) {
-            println!("B is doing something...");
-            a.method_of_a(); // 调用 A 的方法
-        }
-    }
-
-    #[test]
-    fn main() {
-        let a = A::new();
-        a.run();
-    }
 }

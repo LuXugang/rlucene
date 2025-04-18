@@ -16,6 +16,7 @@
  */
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
+
 use once_cell::sync::Lazy;
 
 pub struct SmallFloat;
@@ -101,12 +102,12 @@ impl SmallFloat {
         }
         let num_bits = 64 - i.leading_zeros();
         if num_bits < 4 {
-            i32::try_from(i).map_err(|_| LuceneError::integer_overflow(format!("too large: {}", i)))
+            let v = i.try_into()?;
+            Ok(v)
         } else {
             // normal value
             let shift = num_bits as i32 - 4;
-            let mut encoded = i32::try_from((i as u64 >> shift) as i64)
-                .map_err(|_| LuceneError::integer_overflow(format!("too large: {}", i)))?;
+            let mut encoded = ((i as u64 >> shift) as i64).try_into()?;
             // only keep the 5 most significant bits
             encoded &= 0x07;
             // encode the shift, adding 1 because 0 is reserved for subnormal values
@@ -150,9 +151,9 @@ impl SmallFloat {
         if i < *NUM_FREE_VALUES {
             Ok(i)
         } else {
-            let decoded = *NUM_FREE_VALUES as i64 + Self::int4_to_long(i - *NUM_FREE_VALUES);
-            i32::try_from(decoded)
-                .map_err(|_| LuceneError::integer_overflow(format!("too large: {}", i)))
+            let v =
+                (*NUM_FREE_VALUES as i64 + Self::int4_to_long(i - *NUM_FREE_VALUES)).try_into()?;
+            Ok(v)
         }
     }
 }

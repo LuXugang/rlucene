@@ -18,13 +18,13 @@ use crate::util::error::parse::Parse;
 use crate::util::error::{
     AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CorruptIndexError, Eof,
     IllegalArgumentError, IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError,
-    IndexNotFound, IntegerOverflow, LockAlreadyHeldError, LockHeldByOtherError,
-    MaxBytesLengthExceededError, MergeAbortedError, MergeError, NeedImplementedError,
-    NotFoundError, NotImplementedError, NumberFormatError, UnreachableError,
-    UnsupportedOperationError,
+    IndexNotFound, LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
+    MergeAbortedError, MergeError, NeedImplementedError, NotFoundError, NotImplementedError,
+    NumberFormatError, NumberOverflow, UnreachableError, UnsupportedOperationError,
 };
 use crate::util::VersionError;
 use std::io::Error;
+use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
@@ -32,6 +32,8 @@ use thiserror::Error;
 pub enum LuceneError {
     #[error("IO error: {0}")]
     Io(#[from] Error),
+    #[error("conversion failed: {0}")]
+    Convert(#[from] TryFromIntError),
     #[error("IO error on {path}: {source}")]
     IoWithPath { source: Error, path: String },
     #[error("{0}")]
@@ -49,7 +51,7 @@ pub enum LuceneError {
     #[error("{0}")]
     Eof(#[from] Eof),
     #[error("{0}")]
-    IntegerOverflow(#[from] IntegerOverflow),
+    NumberOverflow(#[from] NumberOverflow),
     #[error("{0}")]
     CorruptIndex(#[from] CorruptIndexError),
     #[error("{0}")]
@@ -121,7 +123,7 @@ impl LuceneError {
     error_ctor!(illegal_argument, IllegalArgument, IllegalArgumentError);
     error_ctor!(illegal_state, IllegalState, IllegalStateError);
     error_ctor!(eof, Eof, Eof);
-    error_ctor!(integer_overflow, IntegerOverflow, IntegerOverflow);
+    error_ctor!(number_overflow, NumberOverflow, NumberOverflow);
     error_ctor!(corrupt_index, CorruptIndex, CorruptIndexError);
     error_ctor!(
         index_format_too_new,

@@ -118,7 +118,7 @@ impl IntBlockPool {
                 self.int_offset = val;
                 Ok(())
             }
-            None => Err(LuceneError::integer_overflow(
+            None => Err(LuceneError::number_overflow(
                 "Overflow when calculating byte offset.".to_string(),
             )),
         }
@@ -257,7 +257,7 @@ mod tests {
             Ok(())
         })();
 
-        assert!(matches!(result, Err(LuceneError::IntegerOverflow(_))));
+        assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
         assert!(pool.int_offset + IntBlockPool::INT_BLOCK_SIZE < pool.int_offset);
 
         Ok(())

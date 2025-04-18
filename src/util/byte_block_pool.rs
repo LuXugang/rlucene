@@ -147,7 +147,7 @@ where
         match self.byte_offset.checked_add(ByteBlockPool::BYTE_BLOCK_SIZE) {
             Some(val) => self.byte_offset = val,
             None => {
-                return Err(LuceneError::integer_overflow(
+                return Err(LuceneError::number_overflow(
                     "Overflow when calculating byte offset.".to_string(),
                 ))
             }
@@ -305,30 +305,22 @@ where
         bytes_length: i32,
     ) -> Result<()> {
         let mut bytes_left = bytes_length;
-        let shift = offset >> ByteBlockPool::BYTE_BLOCK_SHIFT;
-        match i32::try_from(shift) {
-            Ok(buffer_index) => {
-                let mut buffer_index = buffer_index as usize;
-                let mut pos = (offset & ByteBlockPool::BYTE_BLOCK_MASK as i64) as i32;
-                while bytes_left > 0 {
-                    let chunk = std::cmp::min(ByteBlockPool::BYTE_BLOCK_SIZE - pos, bytes_left);
-                    bytes.copy_from(
-                        &self.buffers[buffer_index][pos as usize..(pos + chunk) as usize],
-                        bytes_offset as usize,
-                    );
+        let buffer_index: i32 = (offset >> ByteBlockPool::BYTE_BLOCK_SHIFT).try_into()?;
+        let mut buffer_index = buffer_index as usize;
+        let mut pos = (offset & ByteBlockPool::BYTE_BLOCK_MASK as i64) as i32;
+        while bytes_left > 0 {
+            let chunk = std::cmp::min(ByteBlockPool::BYTE_BLOCK_SIZE - pos, bytes_left);
+            bytes.copy_from(
+                &self.buffers[buffer_index][pos as usize..(pos + chunk) as usize],
+                bytes_offset as usize,
+            );
 
-                    bytes_offset += chunk;
-                    bytes_left -= chunk;
-                    buffer_index += 1;
-                    pos = 0;
-                }
-                Ok(())
-            }
-            Err(_) => Err(LuceneError::integer_overflow(format!(
-                "offset >> BYTE_BLOCK_SHIFT:  {} overflow",
-                offset >> ByteBlockPool::BYTE_BLOCK_SHIFT
-            ))),
+            bytes_offset += chunk;
+            bytes_left -= chunk;
+            buffer_index += 1;
+            pos = 0;
         }
+        Ok(())
     }
     /// Reads a single byte at the given offset.
     ///
@@ -561,7 +553,7 @@ mod tests {
             Ok(())
         })();
 
-        assert!(matches!(result, Err(LuceneError::IntegerOverflow(_))));
+        assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
         assert!(pool.byte_offset + ByteBlockPool::BYTE_BLOCK_SIZE < pool.byte_offset);
 
         Ok(())

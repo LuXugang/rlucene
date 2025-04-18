@@ -19,6 +19,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -101,23 +102,15 @@ where
 
     /// Get lower/upper bounds for the value at a given index without hitting the direct reader.
     fn get_bounds(&self, index: i64) -> Result<[i64; 2]> {
-        match i32::try_from((index as u64) >> self.block_shift) {
-            Ok(block) => {
-                let block = block as usize;
-                let block_index = index & self.block_mask;
-                let lower_bound =
-                    self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64);
-                let upper_bound = lower_bound + ((1i64 << (self.bpvs[block] as u32)) - 1);
-                if self.bpvs[block] == 64 || upper_bound < lower_bound {
-                    Ok([i64::MIN, i64::MAX])
-                } else {
-                    Ok([lower_bound, upper_bound])
-                }
-            }
-            Err(_) => Err(LuceneError::integer_overflow(format!(
-                "value: {} is too large",
-                index
-            ))),
+        let block: i32 = (((index as u64) >> self.block_shift) as i64).try_into()?;
+        let block = block as usize;
+        let block_index = index & self.block_mask;
+        let lower_bound = self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64);
+        let upper_bound = lower_bound + ((1i64 << (self.bpvs[block] as u32)) - 1);
+        if self.bpvs[block] == 64 || upper_bound < lower_bound {
+            Ok([i64::MIN, i64::MAX])
+        } else {
+            Ok([lower_bound, upper_bound])
         }
     }
 

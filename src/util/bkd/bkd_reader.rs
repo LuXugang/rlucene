@@ -355,12 +355,7 @@ where
             vec![vec![0; config.packed_index_bytes_length() as usize]; tree_depth];
         let right_most_leaf_node = (1 << (tree_depth - 1)) - 1;
         let last_leaf_node_point_count =
-            i32::try_from(point_count % config.max_points_in_leaf_node as i64).map_err(|_| {
-                LuceneError::integer_overflow(format!(
-                    "too large: {}",
-                    point_count % config.max_points_in_leaf_node as i64
-                ))
-            })?;
+            (point_count % config.max_points_in_leaf_node as i64).try_into()?;
         let last_leaf_node_point_count = if last_leaf_node_point_count == 0 {
             config.max_points_in_leaf_node
         } else {
@@ -539,16 +534,10 @@ where
         right_most_leaf_node: i32,
     ) -> Result<i64> {
         // number of points that need to be distributed between leaves, one per leaf
-        let extra_points = i32::try_from(
-            self.config.max_points_in_leaf_node as i64 * self.leaf_node_offset as i64
-                - self.point_count,
-        )
-        .map_err(|_| {
-            LuceneError::integer_overflow(format!(
-                "value too large: {}",
-                self.inner_nodes.get_file_pointer()
-            ))
-        })?;
+        let extra_points: i32 = (self.config.max_points_in_leaf_node as i64
+            * self.leaf_node_offset as i64
+            - self.point_count)
+            .try_into()?;
 
         debug_assert!(
             extra_points < self.leaf_node_offset,
@@ -744,15 +733,10 @@ where
             } else {
                 0
             };
-            let file_pointer =
-                i32::try_from(self.inner_nodes.get_file_pointer()).map_err(|_| {
-                    LuceneError::integer_overflow(format!(
-                        "value too large: {}",
-                        self.inner_nodes.get_file_pointer()
-                    ))
-                })?;
-            self.right_node_positions[level] = file_pointer + left_num_bytes;
-            self.read_node_data_positions[level] = file_pointer;
+            self.right_node_positions[level] =
+                (self.inner_nodes.get_file_pointer() + left_num_bytes as i64).try_into()?;
+            self.read_node_data_positions[level] =
+                self.inner_nodes.get_file_pointer().try_into()?;
         }
         Ok(())
     }

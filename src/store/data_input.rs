@@ -17,7 +17,7 @@
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::group_vint_util::GroupVIntUtil;
-use crate::util::CommonUtil;
+use crate::util::CoreHelper;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
@@ -153,7 +153,7 @@ pub trait DataInput: Sized + Display {
     /// This is an experimental API.
     fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
-        CommonUtil::check_from_index_size(offset, len, dst.len() as i32)?;
+        CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = self.read_long()?;
@@ -169,7 +169,7 @@ pub trait DataInput: Sized + Display {
     /// * `length` - The number of `int` values to read.
     fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
-        CommonUtil::check_from_index_size(offset, len, dst.len() as i32)?;
+        CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = self.read_int()?;
@@ -186,7 +186,7 @@ pub trait DataInput: Sized + Display {
     /// * `len` - The number of `float` values to read.
     fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
-        CommonUtil::check_from_index_size(offset, len, dst.len() as i32)?;
+        CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
         while i < len {
             dst[(i + offset) as usize] = f32::from_bits(self.read_int()? as u32);

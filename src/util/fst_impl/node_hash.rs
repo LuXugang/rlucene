@@ -26,7 +26,7 @@ use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::PackedInts;
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CommonUtil};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CoreHelper};
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -268,10 +268,10 @@ where
 
             h = PRIME
                 .wrapping_mul(h)
-                .wrapping_add(CommonUtil::compute_hash(&arc.output));
+                .wrapping_add(CoreHelper::compute_hash(&arc.output));
             h = PRIME
                 .wrapping_mul(h)
-                .wrapping_add(CommonUtil::compute_hash(&arc.next_final_output));
+                .wrapping_add(CoreHelper::compute_hash(&arc.next_final_output));
 
             if arc.is_final {
                 h = h.wrapping_add(17);
@@ -534,8 +534,8 @@ where
             h = prime * h + scratch_arc.label() as i64;
             let target = scratch_arc.target();
             h = prime * h + (target ^ (target >> 32));
-            h = prime * h + CommonUtil::compute_hash(&scratch_arc.output());
-            h = prime * h + CommonUtil::compute_hash(&scratch_arc.next_final_output());
+            h = prime * h + CoreHelper::compute_hash(&scratch_arc.output());
+            h = prime * h + CoreHelper::compute_hash(&scratch_arc.next_final_output());
             if scratch_arc.is_final() {
                 h += 17;
             }

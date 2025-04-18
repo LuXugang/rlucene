@@ -1070,7 +1070,7 @@ pub(crate) mod tests {
                                 Some(term_freqs) => {
                                     let value = term_freqs[term_id] as i64 + 1;
                                     if value > i32::MAX as i64 {
-                                        return Err(LuceneError::integer_overflow(
+                                        return Err(LuceneError::number_overflow(
                                             "term_freqs".to_string(),
                                         ));
                                     }

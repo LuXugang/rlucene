@@ -23,7 +23,7 @@ use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{CommonUtil, SliceCopyOps, ToInt};
+use crate::util::{CoreHelper, SliceCopyOps, ToInt};
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -218,7 +218,7 @@ where
                 let start = (dim * self.config.bytes_per_dim + common_prefix_lengths[dim as usize])
                     as usize;
                 let end = (dim * self.config.bytes_per_dim + self.config.bytes_per_dim) as usize;
-                if CommonUtil::miss_match(
+                if CoreHelper::miss_match(
                     &self.block.borrow()[next_point_offset + start..next_point_offset + end],
                     &self.block.borrow()[point_offset + start..point_offset + end],
                 ) != -1

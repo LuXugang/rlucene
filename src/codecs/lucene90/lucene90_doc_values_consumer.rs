@@ -52,7 +52,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::math_util::MathUtil;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
-use crate::util::{CommonUtil, StringHelper};
+use crate::util::{CoreHelper, StringHelper};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -716,7 +716,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         let uncompressed_length = buffered_output.get_position() - dict_length;
         data.write_vint(uncompressed_length)?;
         LZ4::compress_with_dictionary(
-            CommonUtil::take_and_reset(&mut buffered_output.bytes, |old| vec![0u8; old.len()]),
+            CoreHelper::take_and_reset(&mut buffered_output.bytes, |old| vec![0u8; old.len()]),
             0,
             dict_length,
             uncompressed_length,

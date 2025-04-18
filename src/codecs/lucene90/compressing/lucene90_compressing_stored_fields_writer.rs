@@ -41,12 +41,14 @@ use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::PackedInts;
+
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::env;
 use std::mem::discriminant;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+
 /// [`StoredFieldsWriter`] implementation for [`Lucene90CompressingStoredFieldsFormat`](crate::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
 pub(crate) static TYPE_BITS: Lazy<i32> =
     Lazy::new(|| PackedInts::bits_required(lucene90_csfw_util::NUMERIC_DOUBLE as i64).unwrap());
@@ -638,15 +640,7 @@ where
 
         self.num_stored_fields[self.num_buffered_docs as usize] = self.num_stored_fields_in_doc;
         self.num_stored_fields_in_doc = 0;
-
-        let offset = i32::try_from(self.buffered_docs.size()).map_err(|_| {
-            LuceneError::illegal_state(format!(
-                "bufferedDocs size {} too large for i32",
-                self.buffered_docs.size()
-            ))
-        })?;
-        self.end_offsets[self.num_buffered_docs as usize] = offset;
-
+        self.end_offsets[self.num_buffered_docs as usize] = self.buffered_docs.size().try_into()?;
         self.num_buffered_docs += 1;
 
         if self.trigger_flush() {

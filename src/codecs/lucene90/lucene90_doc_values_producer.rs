@@ -1589,13 +1589,12 @@ where
                 self.block += 1;
 
                 if self.block == block {
-                    let num_values = std::cmp::min(
+                    let num_values: i32 = std::cmp::min(
                         1 << self.shift,
                         self.entry.num_values - (block << self.shift),
-                    );
-                    let num_values = i32::try_from(num_values).map_err(|_| {
-                        LuceneError::integer_overflow(format!("too large: {}", num_values))
-                    })?;
+                    )
+                    .try_into()?;
+
                     self.values = if bits_per_value == 0 {
                         Some(DirectPackedEnum::Zeroes(Zeroes))
                     } else {
@@ -2326,24 +2325,19 @@ where
     }
 
     fn get_value_count(&self) -> Result<i32> {
-        let count = self.entry.terms_dict_entry.terms_dict_size;
-        let count_i32 = i32::try_from(count)
-            .map_err(|_| LuceneError::integer_overflow(format!("too large: {}", count)))?;
-        Ok(count_i32)
+        let v: i32 = self.entry.terms_dict_entry.terms_dict_size.try_into()?;
+        Ok(v)
     }
 
     fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
         match self.terms_enum.seek_ceil(key)? {
             SeekStatus::Found => {
-                let ord = self.terms_enum.ord()?;
-                i32::try_from(ord)
-                    .map_err(|_| LuceneError::integer_overflow(format!("too large: {}", ord)))
+                let v = self.terms_enum.ord()?.try_into()?;
+                Ok(v)
             }
             SeekStatus::NotFound | SeekStatus::End => {
-                let ord = self.terms_enum.ord()?;
-                let ord_i32 = i32::try_from(ord)
-                    .map_err(|_| LuceneError::integer_overflow(format!("too large: {}", ord)))?;
-                Ok(-1 - ord_i32)
+                let v = (-1 - self.terms_enum.ord()?).try_into()?;
+                Ok(v)
             }
         }
     }

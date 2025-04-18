@@ -1902,7 +1902,7 @@ pub trait BaseDirectoryTestCase {
             std::fs::remove_file(file_path.join("test"))?;
             let mut out = dir.create_output("test", &io_context)?;
             let result = out.write_group_vints_i64(&mut values[..values_len], 4);
-            assert!(matches!(result, Err(LuceneError::IntegerOverflow(_))));
+            assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
         }
 
         Ok(())

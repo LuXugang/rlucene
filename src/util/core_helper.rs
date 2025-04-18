@@ -19,8 +19,8 @@ use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::Wrapping;
 
-pub struct CommonUtil;
-impl CommonUtil {
+pub struct CoreHelper;
+impl CoreHelper {
     pub fn check_from_index_size(from_index: i32, size: i32, length: i32) -> Result<i32> {
         if from_index < 0 || size < 0 || length < 0 {
             Err(LuceneError::array_index_out_of_bounds(format!(
@@ -118,15 +118,11 @@ impl<T> OptionTakeExt<T> for Option<T> {
     /// 3. Restores the value back into `self` regardless of success or failure.
     /// 4. Returns the `Result<R>` produced by the closure.
     fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
-        // 1. Extract the value, or return an illegal-state error
         let mut val = self
             .take()
             .ok_or_else(|| LuceneError::illegal_state("Option was None".to_string()))?;
-        // 2. Run the closure
         let res = f(&mut val);
-        // 3. Restore the value back into the Option
         *self = Some(val);
-        // 4. Return the closure’s result
         res
     }
 }

@@ -18,7 +18,7 @@ use crate::index::BytesRef;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
-use crate::util::CommonUtil;
+use crate::util::CoreHelper;
 use once_cell::sync::Lazy;
 use rand::Rng;
 use std::env;
@@ -44,7 +44,7 @@ impl StringHelper {
     ///
     /// The number of common elements (from the start of each).
     pub fn bytes_difference(prior_term: &BytesRef, current_term: &BytesRef) -> Result<i32> {
-        let mismatch = CommonUtil::miss_match(
+        let mismatch = CoreHelper::miss_match(
             &prior_term.bytes
                 [prior_term.offset as usize..(prior_term.offset + prior_term.length) as usize],
             &current_term.bytes[current_term.offset as usize

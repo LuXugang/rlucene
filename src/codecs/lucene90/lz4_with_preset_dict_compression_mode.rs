@@ -230,17 +230,7 @@ impl LZ4WithPresetDictCompressor {
             &mut self.hash_table,
         )?;
         // Write the number of compressed bytes
-        let compressed_bytes = i32::try_from(self.compressed.size() - prev_compressed_size);
-        match compressed_bytes {
-            Ok(compressed_bytes) => {
-                out.write_vint(compressed_bytes)?;
-                Ok(())
-            }
-            Err(_) => Err(LuceneError::integer_overflow(format!(
-                "compressed_bytes:{}",
-                self.compressed.size() - prev_compressed_size
-            ))),
-        }
+        out.write_vint((self.compressed.size() - prev_compressed_size).try_into()?)
     }
 }
 impl Compressor for LZ4WithPresetDictCompressor {

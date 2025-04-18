@@ -32,6 +32,7 @@ use crate::util::packed::direct_monotonic_reader::{
 use crate::util::packed::direct_monotonic_writer::{
     direct_monotonic_writer_util, DirectMonotonicWriter,
 };
+
 use rand::rngs::StdRng;
 use rand::Rng;
 
@@ -398,19 +399,10 @@ fn do_test_monotonic_binary_search_against_long_array(
                         };
                         let index = reader.binary_search(0, array.len() as i64, intermediate)?;
                         assert!(index < 0);
-                        match i32::try_from(index) {
-                            Ok(index) => {
-                                let insertion_point = -1 - index;
-                                assert!(
-                                    insertion_point > 0 && (insertion_point as usize) < array.len()
-                                );
-                                assert!(array[insertion_point as usize] > intermediate);
-                                assert!(array[(insertion_point - 1) as usize] < intermediate);
-                            }
-                            Err(_) => {
-                                unreachable!()
-                            }
-                        }
+                        let insertion_point:i32 = (-1 - index).try_into()?;
+                        assert!(insertion_point > 0 && (insertion_point as usize) < array.len());
+                        assert!(array[insertion_point as usize] > intermediate);
+                        assert!(array[(insertion_point - 1) as usize] < intermediate);
                     }
                 }
             }

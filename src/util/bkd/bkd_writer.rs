@@ -218,14 +218,10 @@ where
             )?;
             self.point_writer = Some(PointWriterEnum::Offline(writer));
         } else {
-            let size = i32::try_from(self.total_point_count).map_err(|_| {
-                LuceneError::integer_overflow(format!(
-                    "total_point_count is too large: {}",
-                    self.total_point_count
-                ))
-            })?;
-            let writer = HeapPointWriter::new(self.config.clone(), size);
-            self.point_writer = Some(PointWriterEnum::Heap(writer));
+            self.point_writer = Some(PointWriterEnum::Heap(HeapPointWriter::new(
+                self.config.clone(),
+                self.total_point_count.try_into()?,
+            )));
         }
 
         Ok(())
@@ -383,13 +379,9 @@ where
             return Ok(None);
         }
 
-        let num_leaves = i32::try_from(
-            (self.point_count + self.config.max_points_in_leaf_node as i64 - 1)
-                / self.config.max_points_in_leaf_node as i64,
-        )
-        .map_err(|_| {
-            LuceneError::integer_overflow(format!("value too large: {}", self.total_point_count))
-        })?;
+        let num_leaves = ((self.point_count + self.config.max_points_in_leaf_node as i64 - 1)
+            / self.config.max_points_in_leaf_node as i64)
+            .try_into()?;
         let num_splits = num_leaves - 1;
 
         self.check_max_leaf_node_count(num_leaves as usize)?;
@@ -398,12 +390,7 @@ where
         let mut split_dimension_values = vec![0u8; num_splits as usize];
         let mut leaf_block_fps = vec![0i64; num_leaves as usize];
 
-        let point_count = i32::try_from(self.point_count).map_err(|_| {
-            LuceneError::integer_overflow(format!(
-                "point_count is too large: {}",
-                self.total_point_count
-            ))
-        })?;
+        let point_count = self.point_count.try_into()?;
         let mut min_packed_value = vec![0u8; self.min_packed_value.len()];
         let mut max_packed_value = vec![0u8; self.max_packed_value.len()];
         // Compute the min/max for this slice
@@ -466,9 +453,7 @@ where
         reader: Rc<RefCell<MutablePointTreeEnum>>,
     ) -> Result<Option<IORunnable>> {
         let mut reader = reader.borrow_mut();
-        let value = reader.size()?;
-        let size = i32::try_from(value)
-            .map_err(|_| LuceneError::integer_overflow(format!("value is too large: {}", value)))?;
+        let size = reader.size()?.try_into()?;
         MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, &mut reader, 0, size)?;
 
         let one_dim_writer = OneDimensionBKDWriter::new(data_out, self)?;
@@ -593,9 +578,9 @@ where
         );
 
         let max_points_in_leaf_node = self.config.max_points_in_leaf_node as i64;
-        let value = (self.point_count + max_points_in_leaf_node - 1) / max_points_in_leaf_node;
-        let num_leaves = i32::try_from(value)
-            .map_err(|_| LuceneError::integer_overflow(format!("value is too large: {}", value)))?;
+        let num_leaves = ((self.point_count + max_points_in_leaf_node - 1)
+            / max_points_in_leaf_node)
+            .try_into()?;
         let num_splits = num_leaves - 1;
 
         debug_assert!(num_leaves >= 0);
@@ -1384,9 +1369,7 @@ where
     /// Pull a partition back into heap once the point count is low enough while recursing.
     fn switch_to_heap(&self, source: &mut PointWriterEnum<D>) -> Result<PointWriterEnum<D>> {
         let source_count = source.count();
-        let count = i32::try_from(source_count).map_err(|_| {
-            LuceneError::integer_overflow(format!("source_count is too large: {}", source_count))
-        })?;
+        let count = source_count.try_into()?;
         let mut reader = source.get_reader(0, source_count)?;
         let mut writer = HeapPointWriter::new(self.config.clone(), count);
 
@@ -2583,15 +2566,8 @@ impl IntersectVisitor for MergeIntersectsVisitor {
         debug_assert_eq!(self.docs_in_block, 0);
         if self.doc_ids.len() < count as usize {
             ArrayUtil::grow_i32(&mut self.doc_ids, count)?;
-            let packed_values_size = i32::try_from(
-                self.doc_ids.len() * self.packed_bytes_length as usize,
-            )
-            .map_err(|_| {
-                LuceneError::integer_overflow(format!(
-                    "too large: {}",
-                    self.doc_ids.len() * self.packed_bytes_length as usize
-                ))
-            })?;
+            let packed_values_size =
+                (self.doc_ids.len() * self.packed_bytes_length as usize).try_into()?;
             // TODO:
             // if packed_values_size > ArrayUtil::MAX_ARRAY_LENGTH {
             //     return Err(LuceneError::illegal_state(format!(

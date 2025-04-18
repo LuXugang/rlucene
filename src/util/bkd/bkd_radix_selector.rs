@@ -27,7 +27,7 @@ use crate::util::intro_sorter::IntroSorter;
 use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::util::selector::Selector;
 use crate::util::{
-    CommonUtil, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorter,
+    CoreHelper, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorter,
     MSBRadixSorterBase, SliceCopyOps, Sorter,
 };
 use std::cell::RefCell;
@@ -269,7 +269,7 @@ where
                     (packed_value_offset + offset) as usize + scratch_start_index;
                 let packed_value_end_index =
                     (packed_value_offset + offset) as usize + scratch_end_index;
-                let j = CommonUtil::miss_match(
+                let j = CoreHelper::miss_match(
                     &self.scratch[scratch_start_index..scratch_end_index],
                     &value.borrow()[packed_value_start_index..packed_value_end_index],
                 );
@@ -278,7 +278,7 @@ where
                         let start_tie_break = self.config.packed_index_bytes_length();
                         let end_tie_break =
                             start_tie_break + common_prefix_position - self.config.bytes_per_dim;
-                        let k = CommonUtil::miss_match(
+                        let k = CoreHelper::miss_match(
                             &self.scratch[self.config.bytes_per_dim as usize
                                 ..common_prefix_position as usize],
                             &value.borrow()[(packed_value_offset + start_tie_break) as usize
@@ -628,7 +628,7 @@ where
         iteration: i32,
     ) -> Result<PointWriterEnum<D>> {
         if delta >= i32::MAX as i64 {
-            return Err(LuceneError::integer_overflow(
+            return Err(LuceneError::number_overflow(
                 "Delta is too large".to_string(),
             ));
         }
@@ -669,8 +669,7 @@ where
         // As we recurse, we hold two on-heap point writers at any point. Therefore the
         // max size for these objects is half of the total points we can have on-heap.
         if count <= self.max_points_sort_in_heap as i64 / 2 {
-            let size = i32::try_from(count)
-                .map_err(|_| LuceneError::integer_overflow("Count is too large".to_string()))?;
+            let size = count.try_into()?;
             Ok(PointWriterEnum::Heap(HeapPointWriter::new(
                 self.config.clone(),
                 size,
@@ -1068,7 +1067,7 @@ mod tests {
         use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
         use crate::util::error::lucene_error::Result;
         use crate::util::numeric_utils::NumericUtils;
-        use crate::util::{CommonUtil, SliceCopyOps, ToInt};
+        use crate::util::{CoreHelper, SliceCopyOps, ToInt};
         use rand::rngs::StdRng;
         use rand::Rng;
         use std::cell::RefCell;
@@ -1489,7 +1488,7 @@ mod tests {
         ) -> Result<i32> {
             let points_max = get_max(config.clone(), input_slice, split_dim)?;
             let points_min = get_min(config.clone(), input_slice, split_dim)?;
-            let mut common_prefix_length = CommonUtil::miss_match(
+            let mut common_prefix_length = CoreHelper::miss_match(
                 &points_max[0..config.bytes_per_dim as usize],
                 &points_min[0..config.bytes_per_dim as usize],
             );
@@ -1749,7 +1748,7 @@ mod tests {
         use crate::util::bkd::point_value::PointValue;
         use crate::util::bkd::point_writer::{PointWriter, PointWriterEnum};
         use crate::util::error::lucene_error::Result;
-        use crate::util::{CommonUtil, SliceCopyOps, ToInt};
+        use crate::util::{CoreHelper, SliceCopyOps, ToInt};
         use rand::prelude::StdRng;
         use rand::Rng;
         use std::cell::RefCell;
@@ -1999,7 +1998,7 @@ mod tests {
                         let (bytes_ref, packed_value_offset, _length) =
                             point_value.borrow().packed_value();
                         let bytes = bytes_ref.borrow();
-                        let diff = CommonUtil::miss_match(
+                        let diff = CoreHelper::miss_match(
                             &bytes[packed_value_offset as usize + offset
                                 ..packed_value_offset as usize
                                     + offset

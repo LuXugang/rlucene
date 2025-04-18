@@ -273,7 +273,7 @@ impl GroupVIntUtil {
     /// Throws an error if the value is not within 0 to 0xFFFFFFFF.
     fn get_int(value: i64) -> Result<i32> {
         if value > 0xFFFFFFFF {
-            Err(LuceneError::integer_overflow(format!(
+            Err(LuceneError::number_overflow(format!(
                 "value: {} is too large to be converted to i32",
                 value
             )))

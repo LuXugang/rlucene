@@ -18,7 +18,7 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::bytes_rc::BytesRc;
 use crate::util::fst_impl::outputs::Outputs;
-use crate::util::{CommonUtil, SliceCopyOps, StringHelper};
+use crate::util::{CoreHelper, SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
@@ -46,7 +46,7 @@ impl Clone for ByteSequenceOutputs {
 
 impl Outputs<Rc<BytesRc>> for ByteSequenceOutputs {
     fn common(&self, output1: &Rc<BytesRc>, output2: &Rc<BytesRc>) -> Rc<BytesRc> {
-        let mismatch_pos = CommonUtil::miss_match(
+        let mismatch_pos = CoreHelper::miss_match(
             &output1.bytes.borrow()
                 [output1.offset as usize..(output1.offset + output1.length) as usize],
             &output2.bytes.borrow()

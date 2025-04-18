@@ -49,7 +49,7 @@ message_error!(NumberFormatError);
 message_error!(IllegalArgumentError);
 message_error!(IllegalStateError);
 message_error!(Eof);
-message_error!(IntegerOverflow);
+message_error!(NumberOverflow);
 message_error!(CorruptIndexError);
 message_error!(IndexFormatTooNewError);
 message_error!(IndexFormatTooOldError);

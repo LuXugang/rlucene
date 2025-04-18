@@ -17,7 +17,7 @@
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::CommonUtil;
+use crate::util::CoreHelper;
 
 /// LZ4 compression and decompression routines.
 ///
@@ -60,7 +60,7 @@ impl LZ4 {
     fn common_bytes(b: &[u8], o1: i32, o2: i32, limit: i32) -> i32 {
         debug_assert!(o1 < o2);
         // never -1 because lengths always differ
-        CommonUtil::miss_match(
+        CoreHelper::miss_match(
             &b[(o1 as usize)..(limit as usize)],
             &b[(o2 as usize)..(limit as usize)],
         )
@@ -234,8 +234,8 @@ impl LZ4 {
         ht: &mut HashTableEnum,
     ) -> Result<()> {
         // Ensure the indices are valid
-        CommonUtil::check_from_index_size(dict_off, dict_len, bytes.len() as i32)?;
-        CommonUtil::check_from_index_size(dict_off + dict_len, len, bytes.len() as i32)?;
+        CoreHelper::check_from_index_size(dict_off, dict_len, bytes.len() as i32)?;
+        CoreHelper::check_from_index_size(dict_off + dict_len, len, bytes.len() as i32)?;
 
         if dict_len > LZ4::MAX_DISTANCE {
             return Err(LuceneError::illegal_argument(format!(
@@ -472,7 +472,7 @@ impl FastCompressionHashTable {
 }
 impl HashTable for FastCompressionHashTable {
     fn reset(&mut self, bytes: Vec<u8>, off: i32, len: i32) -> Result<()> {
-        CommonUtil::check_from_index_size(off, len, bytes.len() as i32)?;
+        CoreHelper::check_from_index_size(off, len, bytes.len() as i32)?;
         self.bytes = bytes;
         self.base = off;
         self.end = off + len;
@@ -601,7 +601,7 @@ impl HighCompressionHashTable {
 }
 impl HashTable for HighCompressionHashTable {
     fn reset(&mut self, bytes: Vec<u8>, off: i32, len: i32) -> Result<()> {
-        CommonUtil::check_from_index_size(off, len, bytes.len() as i32)?;
+        CoreHelper::check_from_index_size(off, len, bytes.len() as i32)?;
 
         if self.end - self.base < self.chain_table.len() as i32 {
             // The last call to compress was done on less than 64kB, let's not reset

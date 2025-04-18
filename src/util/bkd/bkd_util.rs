@@ -18,7 +18,7 @@ use crate::util::array_util::{
     ByteArrayComparatorEnum, CommonPrefixLength4, CommonPrefixLength8, CommonPrefixLengthN,
 };
 use crate::util::bit_util::BitUtil;
-use crate::util::CommonUtil;
+use crate::util::CoreHelper;
 
 pub(crate) struct BKDUtil;
 
@@ -82,7 +82,7 @@ impl BKDUtil {
     ) -> i32 {
         let slice_a = &a[a_offset..a_offset + num_bytes];
         let slice_b = &b[b_offset..b_offset + num_bytes];
-        let cmp = CommonUtil::miss_match(slice_a, slice_b);
+        let cmp = CoreHelper::miss_match(slice_a, slice_b);
         debug_assert!(num_bytes <= i32::MAX as usize);
         if cmp == -1 {
             num_bytes as i32
