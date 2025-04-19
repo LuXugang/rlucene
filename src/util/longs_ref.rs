@@ -220,10 +220,10 @@ impl Comparator<LongsRef> for LongsRefComparator {
     /// * A negative integer if `a < b`.
     /// * Zero if `a == b`.
     /// * A positive integer if `a > b`.
-    fn compare(&self, a: &LongsRef, b: &LongsRef) -> i32 {
+    fn compare(&self, a: &LongsRef, b: &LongsRef) -> Result<i32> {
         let a_slice = &a.longs[a.offset as usize..(a.offset + a.length) as usize];
         let b_slice = &b.longs[b.offset as usize..(b.offset + b.length) as usize];
-        a_slice.cmp(b_slice).to_int()
+        Ok(a_slice.cmp(b_slice).to_int())
     }
 }
 

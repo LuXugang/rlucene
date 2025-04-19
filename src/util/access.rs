@@ -110,7 +110,7 @@ impl<T> Access<T> for Arc<Mutex<T>> {
 }
 
 /// Similar to the `Access` trait, but specifically for `Vec<T>`.
-pub trait AccessVec<T>: Clone {
+pub trait AccessVec<T>: Clone + Default {
     fn access<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&Vec<T>) -> Result<R>;
@@ -119,9 +119,15 @@ pub trait AccessVec<T>: Clone {
     where
         F: FnOnce(&mut Vec<T>) -> Result<R>;
     fn slice_clone(&self, offset: usize, length: usize) -> Result<Self>;
+    fn new() -> Self;
+    fn with_capacity(capacity: usize) -> Self;
+    fn from_vec(v: Vec<T>) -> Self;
 }
 
-impl<T: Clone> AccessVec<T> for Vec<T> {
+impl<T> AccessVec<T> for Vec<T>
+where
+    T: Clone + Default,
+{
     fn access<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&Vec<T>) -> Result<R>,
@@ -140,9 +146,24 @@ impl<T: Clone> AccessVec<T> for Vec<T> {
         sub.copy_from(&self[offset..offset + length], 0);
         Ok(sub)
     }
+
+    fn new() -> Self {
+        Vec::new()
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        vec![T::default(); capacity]
+    }
+
+    fn from_vec(v: Vec<T>) -> Self {
+        v
+    }
 }
 
-impl<T: Clone> AccessVec<T> for Rc<RefCell<Vec<T>>> {
+impl<T> AccessVec<T> for Rc<RefCell<Vec<T>>>
+where
+    T: Clone + Default,
+{
     fn access<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&Vec<T>) -> Result<R>,
@@ -165,8 +186,23 @@ impl<T: Clone> AccessVec<T> for Rc<RefCell<Vec<T>>> {
         let new_vec = Rc::new(RefCell::new(sub));
         Ok(new_vec)
     }
+
+    fn new() -> Self {
+        Rc::new(RefCell::new(Vec::new()))
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Rc::new(RefCell::new(vec![T::default(); capacity]))
+    }
+
+    fn from_vec(v: Vec<T>) -> Self {
+        Rc::new(RefCell::new(v))
+    }
 }
-impl<T: Clone> AccessVec<T> for Arc<Mutex<Vec<T>>> {
+impl<T> AccessVec<T> for Arc<Mutex<Vec<T>>>
+where
+    T: Clone + Default,
+{
     fn access<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&Vec<T>) -> Result<R>,
@@ -198,4 +234,25 @@ impl<T: Clone> AccessVec<T> for Arc<Mutex<Vec<T>>> {
         let new_vec = Arc::new(Mutex::new(sub));
         Ok(new_vec)
     }
+
+    fn new() -> Self {
+        Arc::new(Mutex::new(Vec::new()))
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Arc::new(Mutex::new(vec![T::default(); capacity]))
+    }
+
+    fn from_vec(v: Vec<T>) -> Self {
+        Arc::new(Mutex::new(v))
+    }
+}
+#[macro_export]
+macro_rules! with_other {
+    (mut, $x:expr, $y:expr, |$ia:ident, $ib:ident| $body:expr) => {
+        $x.access_mut(|$ia| $y.access(|$ib| $body))
+    };
+    ($x:expr, $y:expr, |$ia:ident, $ib:ident| $body:expr) => {
+        $x.access(|$ia| $y.access(|$ib| $body))
+    };
 }

@@ -58,9 +58,8 @@ where
     T: Default + Clone,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        Ok(self
-            .comparator
-            .compare(&self.arr[i as usize], &self.arr[j as usize]))
+        self.comparator
+            .compare(&self.arr[i as usize], &self.arr[j as usize])
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -101,6 +100,6 @@ where
 
     fn compare_saved(&self, i: i32, j: i32) -> i32 {
         self.comparator
-            .compare(&self.tmp[i as usize], &self.arr[j as usize])
+            .compare_unchecked(&self.tmp[i as usize], &self.arr[j as usize])
     }
 }

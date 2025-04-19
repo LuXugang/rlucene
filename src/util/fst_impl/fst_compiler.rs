@@ -163,7 +163,7 @@ where
             let is_final = node.is_final || node.num_arcs == 0;
             let label = {
                 let inner = self.inner.borrow();
-                inner.last_input.int_at(prev_idx as i32)
+                inner.last_input.int_at(prev_idx as i32)?
             };
             let (compiled, un_compiled) = self.compile_node(node)?;
             self.frontier[idx] = Some(un_compiled);
@@ -187,8 +187,8 @@ where
     /// that input is fully consumed after this method returns (so the caller is free to reuse), but
     /// output is not. So if your outputs are changeable (e.g. [`ByteSequenceOutputs`](crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs) or
     /// [`IntSequenceOutputs`](crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs)), then you cannot reuse them across calls.
-    pub(crate) fn add(&mut self, input: &IntsRef, mut output: T) -> Result<()> {
-        let ints = input.ints.borrow();
+    pub(crate) fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: T) -> Result<()> {
+        let ints = &input.ints;
         let prefix_len_plus1;
         {
             let mut inner = self.inner.borrow_mut();
@@ -220,7 +220,7 @@ where
             let mut pos1 = 0;
             let mut pos2 = input.offset;
             let pos1_stop = inner.last_input.len().min(input.length);
-            while pos1 < pos1_stop && inner.last_input.int_at(pos1) == ints[pos2 as usize] {
+            while pos1 < pos1_stop && inner.last_input.int_at(pos1)? == ints[pos2 as usize] {
                 pos1 += 1;
                 pos2 += 1;
             }
@@ -398,7 +398,7 @@ where
     pub(crate) null_fst_reader: NullFSTReader,
     /// Node deduplication hash table.
     /// Last input added.
-    pub(crate) last_input: IntsRefBuilder,
+    pub(crate) last_input: IntsRefBuilder<Vec<i32>>,
     /// Whether the initial padding byte needs to be written.
     pub(crate) padding_byte_pending: bool,
 

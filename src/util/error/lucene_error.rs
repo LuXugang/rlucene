@@ -23,6 +23,7 @@ use crate::util::error::{
     NumberFormatError, NumberOverflow, UnreachableError, UnsupportedOperationError,
 };
 use crate::util::VersionError;
+use std::fmt;
 use std::io::Error;
 use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
@@ -34,6 +35,8 @@ pub enum LuceneError {
     Io(#[from] Error),
     #[error("conversion failed: {0}")]
     Convert(#[from] TryFromIntError),
+    #[error("format error: {0}")]
+    Fmt(#[from] fmt::Error),
     #[error("IO error on {path}: {source}")]
     IoWithPath { source: Error, path: String },
     #[error("{0}")]

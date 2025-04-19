@@ -22,6 +22,8 @@ use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
 use crate::util::OptionTakeExt;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// Enumerates all input (`IntsRef`) + output pairs in an FST.
 pub struct IntsRefFSTEnum<T, O, F>
@@ -30,9 +32,9 @@ where
     O: Outputs<T>,
     F: FstReader,
 {
-    pub(crate) current: IntsRef,
-    pub(crate) result: InputOutput<T, IntsRef>,
-    pub(crate) target: IntsRef,
+    pub(crate) current: Rc<RefCell<IntsRef<Vec<i32>>>>,
+    pub(crate) result: InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>,
+    pub(crate) target: IntsRef<Vec<i32>>,
     base: Option<FSTEnum<T, O, F>>,
 }
 
@@ -45,31 +47,34 @@ where
     /// `do_floor` controls the behavior of advance: if it's true,
     /// `advance` positions to the biggest term before target.
     pub fn new(fst: FST<T, O, F>) -> Result<Self> {
-        let mut current = IntsRef::with_capacity(10);
+        let mut current = IntsRef::with_capacity(10)?;
         current.offset = 1;
-        let result_input = IntsRef::from_ints(current.ints.clone(), current.offset, current.length);
+        let current = Rc::new(RefCell::new(current));
         let base = FSTEnum::new(fst)?;
         Ok(Self {
-            current,
+            current: current.clone(),
             result: InputOutput {
-                input: result_input,
+                input: current,
                 output: T::default(),
             },
-            target: IntsRef::new(),
+            target: IntsRef::default(),
             base: Some(base),
         })
     }
 
-    pub fn current(&self) -> &InputOutput<T, IntsRef> {
+    pub fn current(&self) -> &InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>> {
         &self.result
     }
 
-    pub fn next(&mut self) -> Result<Option<&InputOutput<T, IntsRef>>> {
+    pub fn next(&mut self) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
         self.base.take_do_return(|base| base.do_next())?;
         self.set_result()
     }
     /// Seeks to smallest term that's &gt;= target.
-    pub fn seek_ceil(&mut self, target: IntsRef) -> Result<Option<&InputOutput<T, IntsRef>>> {
+    pub fn seek_ceil(
+        &mut self,
+        target: IntsRef<Vec<i32>>,
+    ) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
@@ -85,7 +90,10 @@ where
     }
 
     ///  Seeks to biggest term that's &lt;= target.
-    pub fn seek_floor(&mut self, target: IntsRef) -> Result<Option<&InputOutput<T, IntsRef>>> {
+    pub fn seek_floor(
+        &mut self,
+        target: IntsRef<Vec<i32>>,
+    ) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
@@ -102,7 +110,10 @@ where
     /// Seeks to the exact target term and returns `None` if the term does not exist.
     /// This is faster than using [`Self::seek_floor`] or [`Self::seek_ceil`] because it short-circuits
     /// as soon as a mismatch is detected.
-    pub fn seek_exact(&mut self, target: IntsRef) -> Result<Option<&InputOutput<T, IntsRef>>> {
+    pub fn seek_exact(
+        &mut self,
+        target: IntsRef<Vec<i32>>,
+    ) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
@@ -120,12 +131,12 @@ where
         }
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<T, IntsRef>>> {
+    fn set_result(&mut self) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
             } else {
-                self.current.length = base.upto as i32 - 1;
+                self.current.borrow_mut().length = base.upto as i32 - 1;
                 self.result.output = base.output[base.upto].clone();
                 Ok(Some(&self.result))
             }
@@ -144,26 +155,26 @@ where
             if base.upto - 1 == self.target.length as usize {
                 Ok(fst_util::END_LABEL)
             } else {
-                Ok(self.target.ints.borrow()[self.target.offset as usize + base.upto - 1])
+                Ok(self.target.ints[self.target.offset as usize + base.upto - 1])
             }
         })
     }
 
     fn get_current_label(&mut self) -> Result<i32> {
         self.base
-            .take_do_return(|base| Ok(self.current.ints.borrow()[base.upto]))
+            .take_do_return(|base| Ok(self.current.borrow().ints[base.upto]))
     }
 
     fn set_current_label(&mut self, label: i32) -> Result<()> {
         self.base.take_do_return(|base| {
-            self.current.ints.borrow_mut()[base.upto] = label;
+            self.current.borrow_mut().ints[base.upto] = label;
             Ok(())
         })
     }
 
     fn grow(&mut self) -> Result<()> {
         self.base.take_do_return(|base| {
-            ArrayUtil::grow_with_len(&mut *self.current.ints.borrow_mut(), base.upto as i32 + 1)
+            ArrayUtil::grow_with_len(&mut self.current.borrow_mut().ints, base.upto as i32 + 1)
         })
     }
 }

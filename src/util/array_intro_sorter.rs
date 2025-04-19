@@ -48,9 +48,8 @@ where
     C: Comparator<T>,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        Ok(self
-            .comparator
-            .compare(&self.arr[i as usize], &self.arr[j as usize]))
+        self.comparator
+            .compare(&self.arr[i as usize], &self.arr[j as usize])
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -71,9 +70,8 @@ where
     }
 
     fn compare_pivot(&mut self, i: i32) -> Result<i32> {
-        Ok(self
-            .comparator
-            .compare(&self.arr[self.pivot as usize], &self.arr[i as usize]))
+        self.comparator
+            .compare(&self.arr[self.pivot as usize], &self.arr[i as usize])
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<()> {

@@ -71,7 +71,7 @@ where
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate_sorter
             .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
-        Ok(self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2))
+        self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -200,7 +200,7 @@ where
                 self.k.unwrap(),
             ))
         } else {
-            Ok(self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2))
+            self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
         }
     }
 
@@ -222,7 +222,7 @@ where
                 .cmp
                 .compare_with_offset(&self.pivot, &self.scratch_bytes1, self.k.unwrap()))
         } else {
-            Ok(self.cmp.compare(&self.pivot, &self.scratch_bytes1))
+            self.cmp.compare(&self.pivot, &self.scratch_bytes1)
         }
     }
 

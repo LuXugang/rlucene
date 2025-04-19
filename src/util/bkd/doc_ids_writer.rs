@@ -25,8 +25,6 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::ints_ref::IntsRef;
 use crate::util::longs_ref::LongsRef;
 use crate::util::CoreHelper;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub struct DocIdsWriter {
     scratch: Vec<i32>,
@@ -38,7 +36,7 @@ pub struct DocIdsWriter {
     /// rather than the [`IntersectVisitor#visit(int)`](crate::index::point_values::IntersectVisitor::visit)
     /// method. This seems to make a difference in performance, probably due to fewer virtual calls
     /// then happening (once per read call rather than once per doc).
-    scratch_ints_ref: IntsRef,
+    scratch_ints_ref: IntsRef<Vec<i32>>,
     /// used to init a new scratch
     max_points_in_leaf: usize,
 }
@@ -53,7 +51,7 @@ impl DocIdsWriter {
     pub const LEGACY_DELTA_VINT: i8 = 0;
 
     pub fn new(max_points_in_leaf: i32) -> Self {
-        let mut scratch_ints_ref = IntsRef::new();
+        let mut scratch_ints_ref = IntsRef::default();
         {
             // This is here to not rely on the default constructor of IntsRef to set offset to 0
             scratch_ints_ref.offset = 0;
@@ -421,10 +419,8 @@ impl DocIdsWriter {
         visitor: &mut impl IntersectVisitor,
     ) -> Result<()> {
         Self::read_delta16(input, count, &mut self.scratch)?;
-        self.scratch_ints_ref.ints = Rc::new(RefCell::new(CoreHelper::take_and_reset(
-            &mut self.scratch,
-            |_| vec![0; self.max_points_in_leaf],
-        )));
+        self.scratch_ints_ref.ints =
+            CoreHelper::take_and_reset(&mut self.scratch, |_| vec![0; self.max_points_in_leaf]);
 
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
@@ -466,10 +462,8 @@ impl DocIdsWriter {
         visitor: &mut impl IntersectVisitor,
     ) -> Result<()> {
         input.read_ints(&mut self.scratch, 0, count)?;
-        self.scratch_ints_ref.ints = Rc::new(RefCell::new(CoreHelper::take_and_reset(
-            &mut self.scratch,
-            |old| vec![0; old.len()],
-        )));
+        self.scratch_ints_ref.ints =
+            CoreHelper::take_and_reset(&mut self.scratch, |old| vec![0; old.len()]);
 
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;

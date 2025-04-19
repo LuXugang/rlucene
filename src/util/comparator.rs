@@ -15,11 +15,41 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
+use crate::util::error::lucene_error::Result;
 use crate::util::{BytesRefComparator, ToInt};
 
 pub trait Comparator<T> {
+    /// A static string that identifies the type of comparator.
     const TYPE: &'static str;
-    fn compare(&self, a: &T, b: &T) -> i32;
+
+    /// Compares two values and returns the result as `Result<i32>`.
+    ///
+    /// This method is fallible to support cases where comparison may fail,
+    /// such as dynamic comparator logic or I/O-dependent comparisons.
+    /// For most simple comparators (e.g., numerical or lexical), this
+    /// will always return `Ok(result)`.
+    fn compare(&self, a: &T, b: &T) -> Result<i32>;
+
+    /// Unwraps the result of [`compare`] and panics if an error occurs.
+    ///
+    /// This is a convenience method for use cases where failure is not expected,
+    /// which is the common case for most statically defined comparators.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`compare`] returns `Err`. Only use this when you are sure
+    /// the comparison cannot fail.
+    ///
+    /// # Why this method exists
+    ///
+    /// Most comparator implementations are infallible. However, to support
+    /// advanced use cases (e.g. pluggable or script-based comparators),
+    /// the main [`compare`] method returns a `Result<i32>`.
+    /// This method provides a cleaner, ergonomic way to call the comparator
+    /// in contexts where no error is expected.
+    fn compare_unchecked(&self, a: &T, b: &T) -> i32 {
+        self.compare(a, b).expect("Comparator failed unexpectedly")
+    }
 }
 
 pub struct NaturalOrder<T>
@@ -54,8 +84,8 @@ where
 {
     const TYPE: &'static str = COMPARATOR_TYPE;
 
-    fn compare(&self, a: &T, b: &T) -> i32 {
-        a.cmp(b).to_int()
+    fn compare(&self, a: &T, b: &T) -> Result<i32> {
+        Ok(a.cmp(b).to_int())
     }
 }
 
@@ -92,8 +122,8 @@ where
 {
     const TYPE: &'static str = "ReverseOrder";
 
-    fn compare(&self, a: &T, b: &T) -> i32 {
-        -self.comparator.compare(a, b)
+    fn compare(&self, a: &T, b: &T) -> Result<i32> {
+        Ok(-(self.comparator.compare(a, b)?))
     }
 }
 

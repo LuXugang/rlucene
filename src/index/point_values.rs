@@ -360,13 +360,12 @@ pub trait IntersectVisitor {
     /// Similar to `visit(doc_id)`, but a bulk visit and implementations may have their optimizations.
     /// Even if the implementation does the same thing as this method, this may be a speed improvement
     /// due to fewer virtual calls.
-    fn visit_with_ints_ref(&mut self, ints_ref: &IntsRef) -> Result<()> {
+    fn visit_with_ints_ref(&mut self, ints_ref: &IntsRef<Vec<i32>>) -> Result<()> {
         self.default_visit_with_ints_ref(ints_ref)
     }
-    fn default_visit_with_ints_ref(&mut self, ints_ref: &IntsRef) -> Result<()> {
-        let ints = ints_ref.ints.borrow();
+    fn default_visit_with_ints_ref(&mut self, ints_ref: &IntsRef<Vec<i32>>) -> Result<()> {
         for i in ints_ref.offset as usize..(ints_ref.offset + ints_ref.length) as usize {
-            self.visit(ints[i])?;
+            self.visit(ints_ref.ints[i])?;
         }
         Ok(())
     }

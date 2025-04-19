@@ -28,7 +28,7 @@ use std::hash::Hash;
 pub struct Util;
 impl Util {
     /// Looks up the output for this input, or null if the input is not accepted.
-    pub fn get<T, O, F>(fst: &mut FST<T, O, F>, input: &IntsRef) -> Result<Option<T>>
+    pub fn get<T, O, F>(fst: &mut FST<T, O, F>, input: &IntsRef<Vec<i32>>) -> Result<Option<T>>
     where
         T: OutputsBound,
         O: Outputs<T>,
@@ -40,7 +40,7 @@ impl Util {
         let mut output = fst.outputs.get_no_output();
 
         for i in 0..input.length as usize {
-            let label = input.ints.borrow()[input.offset as usize + i];
+            let label = input.ints[input.offset as usize + i];
             let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);
@@ -108,7 +108,7 @@ where
     pub arc: Arc<T>,
     /// Holds cost plus any usage-specific output:
     pub output: T,
-    pub input: IntsRefBuilder,
+    pub input: IntsRefBuilder<Vec<i32>>,
     pub boost: f32,
     pub context: String,
     // Custom int payload for consumers; the NRT suggester uses this to record if this path has
@@ -123,7 +123,7 @@ where
     pub fn new(
         output: T,
         other: &Arc<T>,
-        input: IntsRefBuilder,
+        input: IntsRefBuilder<Vec<i32>>,
         boost: f32,
         context: String,
         payload: i32,
@@ -139,7 +139,7 @@ where
             payload,
         }
     }
-    pub fn new_path(&self, output: T, input: IntsRefBuilder) -> Self {
+    pub fn new_path(&self, output: T, input: IntsRefBuilder<Vec<i32>>) -> Self {
         FSTPath {
             arc: self.arc.clone(),
             output,

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
+use crate::util::access::AccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
@@ -260,7 +261,7 @@ impl StringHelper {
             "(null)".to_string()
         }
     }
-    pub fn ints_ref_to_bytes_ref(_ints: IntsRef) -> Result<BytesRef> {
+    pub fn ints_ref_to_bytes_ref<AW: AccessVec<i32>>(_ints: IntsRef<AW>) -> Result<BytesRef> {
         unimplemented!()
     }
 }

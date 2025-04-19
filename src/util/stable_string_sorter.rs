@@ -154,7 +154,7 @@ where
                 self.k.unwrap(),
             ))
         } else {
-            Ok(self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2))
+            self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
         }
     }
 

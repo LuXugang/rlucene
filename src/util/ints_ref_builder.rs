@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
+use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::ints_ref::IntsRef;
 use crate::util::SliceCopyOps;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// A builder for [`IntsRef`] instances.
 ///
@@ -28,24 +27,33 @@ use std::rc::Rc;
 ///
 /// # Lucene internal
 #[derive(Clone)]
-pub struct IntsRefBuilder {
-    ints_ref: IntsRef,
+pub struct IntsRefBuilder<AV>
+where
+    AV: AccessVec<i32>,
+{
+    ints_ref: IntsRef<AV>,
 }
-impl Default for IntsRefBuilder {
+impl<AV> Default for IntsRefBuilder<AV>
+where
+    AV: AccessVec<i32>,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl IntsRefBuilder {
+impl<AV> IntsRefBuilder<AV>
+where
+    AV: AccessVec<i32>,
+{
     pub fn new() -> Self {
         Self {
-            ints_ref: IntsRef::new(),
+            ints_ref: IntsRef::default(),
         }
     }
 
     /// Returns a mutable reference to the underlying int buffer.
-    pub fn ints(&mut self) -> Rc<RefCell<Vec<i32>>> {
+    pub fn ints(&mut self) -> AV {
         self.ints_ref.ints.clone()
     }
 
@@ -64,13 +72,18 @@ impl IntsRefBuilder {
         self.set_length(0);
     }
     /// Returns the int at the given offset.
-    pub fn int_at(&self, offset: i32) -> i32 {
-        self.ints_ref.ints.borrow()[offset as usize]
+    pub fn int_at(&self, offset: i32) -> Result<i32> {
+        self.ints_ref
+            .ints
+            .access(|ints_bytes| Ok(ints_bytes[offset as usize]))
     }
 
     /// Sets the int at the given offset.
-    pub fn set_int_at(&mut self, offset: i32, value: i32) {
-        self.ints_ref.ints.borrow_mut()[offset as usize] = value;
+    pub fn set_int_at(&mut self, offset: i32, value: i32) -> Result<()> {
+        self.ints_ref.ints.access_mut(|ints_bytes| {
+            ints_bytes[offset as usize] = value;
+            Ok(())
+        })
     }
 
     /// Appends the provided int to this buffer.
@@ -78,7 +91,10 @@ impl IntsRefBuilder {
         let mut len = self.ints_ref.length;
         self.grow(len + 1)?;
         len = self.ints_ref.length;
-        self.ints_ref.ints.borrow_mut()[len as usize] = i;
+        self.ints_ref.ints.access_mut(|ints_bytes| {
+            ints_bytes[len as usize] = i;
+            Ok(())
+        })?;
         self.ints_ref.length += 1;
         Ok(())
     }
@@ -87,14 +103,19 @@ impl IntsRefBuilder {
     ///
     /// In general, this should not be used directly, as it does not take offset into account.
     pub fn grow(&mut self, new_length: i32) -> Result<()> {
-        ArrayUtil::grow_with_len(&mut *self.ints_ref.ints.borrow_mut(), new_length)
+        self.ints_ref
+            .ints
+            .access_mut(|ints_bytes| ArrayUtil::grow_with_len(ints_bytes, new_length))
     }
 
     /// Grows the reference array to at least `new_length`, without copying original data.
     pub fn grow_no_copy(&mut self, new_length: i32) -> Result<()> {
-        let result = ArrayUtil::grow_no_copy(&self.ints_ref.ints.borrow(), new_length)?;
-        if let Some(new_ints) = result {
-            self.ints_ref.ints = Rc::new(RefCell::new(new_ints));
+        let v = self
+            .ints_ref
+            .ints
+            .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length))?;
+        if let Some(v) = v {
+            self.ints_ref.ints = AV::from_vec(v);
         }
         Ok(())
     }
@@ -102,18 +123,19 @@ impl IntsRefBuilder {
     /// Copies the given slice into this instance.
     pub fn copy_ints(&mut self, other: &[i32], other_offset: i32, other_length: i32) -> Result<()> {
         self.grow_no_copy(other_length)?;
-        let target = self.ints_ref.ints.borrow_mut();
-        let dest = &mut *self.ints_ref.ints.borrow_mut();
-        dest.copy_from(
-            &other[other_offset as usize..(other_offset + other_length) as usize],
-            0,
-        );
-        self.ints_ref.length = other_length;
-        Ok(())
+        self.ints_ref.ints.access_mut(|ints_bytes| {
+            ints_bytes.copy_from(
+                &other[other_offset as usize..(other_offset + other_length) as usize],
+                0,
+            );
+            self.ints_ref.length = other_length;
+            Ok(())
+        })
     }
     /// Copies the given [`IntsRef`] into this instance.
-    pub fn copy_ints_ref(&mut self, ints: &IntsRef) -> Result<()> {
-        self.copy_ints(&ints.ints.borrow(), ints.offset, ints.length)
+    pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) -> Result<()> {
+        ints.ints
+            .access(|ints_bytes| self.copy_ints(ints_bytes, ints.offset, ints.length))
     }
 
     /// Copies the given UTF-8 bytes into this builder.
@@ -126,7 +148,7 @@ impl IntsRefBuilder {
     /// Returns a reference to the internal [`IntsRef`] content.
     ///
     /// Any modification to this builder may invalidate the returned value.
-    pub fn get(&self) -> &IntsRef {
+    pub fn get(&self) -> &IntsRef<AV> {
         debug_assert_eq!(
             self.ints_ref.offset, 0,
             "Modifying the offset of the returned ref is illegal"
@@ -135,7 +157,7 @@ impl IntsRefBuilder {
     }
 
     /// Builds a new [`IntsRef`] that has the same content as this builder.
-    pub fn to_ints_ref(&self) -> IntsRef {
+    pub fn to_ints_ref(&self) -> Result<IntsRef<AV>> {
         IntsRef::deep_copy_of(&self.ints_ref)
     }
 }

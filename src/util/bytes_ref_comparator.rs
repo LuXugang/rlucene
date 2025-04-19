@@ -16,6 +16,7 @@
  */
 use crate::index::BytesRef;
 use crate::util::comparator::Comparator;
+use crate::util::error::lucene_error::Result;
 
 /// Specialized [`BytesRef`] comparator that `StringSorter` has optimizations for.
 ///
@@ -59,8 +60,8 @@ impl Default for Natural {
 impl Comparator<BytesRef> for Natural {
     const TYPE: &'static str = BYTES_REF_COMPARATOR_TYPE;
 
-    fn compare(&self, a: &BytesRef, b: &BytesRef) -> i32 {
-        self.compare_with_offset(a, b, 0)
+    fn compare(&self, a: &BytesRef, b: &BytesRef) -> Result<i32> {
+        Ok(self.compare_with_offset(a, b, 0))
     }
 }
 
