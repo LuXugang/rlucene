@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::lucene101::lucene101_postings_format::IntBlockTermState;
 use crate::index::ord_term_state::OrdTermState;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 /// Holds all state required for [`PostingsReaderBase`](crate::codecs::postings_reader_base::PostingsReaderBase) to produce a
@@ -50,7 +52,7 @@ impl Display for BlockTermState {
 }
 
 impl TermState for BlockTermState {
-    fn copy_from(&mut self, other: &TermStateEnum) -> crate::util::error::lucene_error::Result<()> {
+    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match other {
             TermStateEnum::Block(other) => {
                 self.doc_freq = other.doc_freq;
@@ -63,6 +65,18 @@ impl TermState for BlockTermState {
             _ => Err(LuceneError::illegal_state(
                 "enum other should be BlockTermState",
             )),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum BlockTermStateEnum {
+    Int(IntBlockTermState),
+}
+impl BlockTermStateEnum {
+    pub fn get_block_term_state(&mut self) -> &mut BlockTermState {
+        match self {
+            BlockTermStateEnum::Int(int) => &mut int.base,
         }
     }
 }

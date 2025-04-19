@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::store::{DataInput, DataOutput};
+use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use std::fmt::{Display, Formatter};
 
@@ -53,11 +54,7 @@ where
         todo!()
     }
 
-    fn write(
-        &self,
-        output: &T,
-        out: &mut impl DataOutput,
-    ) -> crate::util::error::lucene_error::Result<()> {
+    fn write(&self, output: &T, out: &mut impl DataOutput) -> Result<()> {
         todo!()
     }
 

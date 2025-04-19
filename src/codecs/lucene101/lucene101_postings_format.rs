@@ -18,6 +18,7 @@ use crate::codecs::block_term_state::BlockTermState;
 use crate::codecs::lucene101::for_util::ForUtil;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 pub struct Lucene101PostingsFormat;
@@ -111,7 +112,7 @@ impl Display for IntBlockTermState {
 }
 
 impl TermState for IntBlockTermState {
-    fn copy_from(&mut self, other: &TermStateEnum) -> crate::util::error::lucene_error::Result<()> {
+    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match other {
             TermStateEnum::IntBlock(other) => {
                 self.doc_start_fp = other.doc_start_fp;

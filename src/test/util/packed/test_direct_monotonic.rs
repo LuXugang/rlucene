@@ -399,7 +399,7 @@ fn do_test_monotonic_binary_search_against_long_array(
                         };
                         let index = reader.binary_search(0, array.len() as i64, intermediate)?;
                         assert!(index < 0);
-                        let insertion_point:i32 = (-1 - index).try_into()?;
+                        let insertion_point: i32 = (-1 - index).try_into()?;
                         assert!(insertion_point > 0 && (insertion_point as usize) < array.len());
                         assert!(array[insertion_point as usize] > intermediate);
                         assert!(array[(insertion_point - 1) as usize] < intermediate);

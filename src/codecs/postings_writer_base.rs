@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::block_term_state::BlockTermState;
+use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::push_postings_writer_base::PushPostingsWriterBaseAbstract;
 use crate::index::field_info::FieldInfo;
@@ -25,6 +25,7 @@ use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexOutput};
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
+use std::borrow::Cow;
 use std::rc::Rc;
 
 /// Trait that plugs into term dictionaries, such as [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter), and
@@ -35,7 +36,7 @@ use std::rc::Rc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == FieldsProducer/Consumer
-pub trait PostingsWriterBase<T: TermsEnum> {
+pub trait PostingsWriterBase<T: TermsEnum, N: NormsProducer> {
     /// Called once after startup, before any terms have been added. Implementations typically write a
     /// header to the provided `termsOut`.
     fn init<D: Directory>(
@@ -49,14 +50,14 @@ pub trait PostingsWriterBase<T: TermsEnum> {
     /// positioned on the term that should be written. This method must set the bit in the
     /// provided [`FixedBitSet`] for every docID written. If no docs were written, this method
     /// should return `None`, and the terms dict will skip the term.
-    fn write_term<N: NormsProducer>(
+    fn write_term(
         &mut self,
         term: &BytesRef,
         terms_enum: &mut T,
         docs_seen: &mut FixedBitSet,
         norms: &mut N,
-        sub: &mut impl PushPostingsWriterBaseAbstract,
-    ) -> Result<Option<BlockTermState>>;
+        sub: &mut impl PushPostingsWriterBaseAbstract<N>,
+    ) -> Result<Option<BlockTermStateEnum>>;
 
     /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the current term is delta
     /// encoded according to the latest term. Usually elements in `longs` are file pointers, so each
@@ -66,7 +67,7 @@ pub trait PostingsWriterBase<T: TermsEnum> {
         &mut self,
         out: &mut impl DataOutput,
         field_info: &FieldInfo,
-        state: &BlockTermState,
+        state: Cow<BlockTermStateEnum>,
         absolute: bool,
     ) -> Result<()>;
 

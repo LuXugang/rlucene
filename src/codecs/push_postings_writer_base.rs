@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::block_term_state::BlockTermState;
+use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::index::field_info::FieldInfo;
@@ -30,6 +30,8 @@ use crate::store::{DataOutput, IndexOutput};
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
+use std::borrow::Cow;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 /// Extension of [`PostingsWriterBase`], adding a push API for writing each element of the
@@ -40,7 +42,7 @@ use std::rc::Rc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub struct PushPostingsWriterBase<T: TermsEnum> {
+pub struct PushPostingsWriterBase<T: TermsEnum, N: NormsProducer> {
     /// Reused in `write_term`
     postings_enum: Option<T::PostingsEnum>,
     enum_flags: i32,
@@ -62,11 +64,13 @@ pub struct PushPostingsWriterBase<T: TermsEnum> {
 
     /// True if the current field writes offsets.
     pub(crate) write_offsets: bool,
+    phantom2: PhantomData<N>,
 }
 
-impl<T> PushPostingsWriterBase<T>
+impl<T, N> PushPostingsWriterBase<T, N>
 where
     T: TermsEnum,
+    N: NormsProducer,
 {
     #[allow(clippy::too_many_arguments)]
     /// # Parameters
@@ -82,12 +86,14 @@ where
             write_positions: false,
             write_payloads: false,
             write_offsets: false,
+            phantom2: PhantomData,
         }
     }
 }
-impl<T> PostingsWriterBase<T> for PushPostingsWriterBase<T>
+impl<T, N> PostingsWriterBase<T, N> for PushPostingsWriterBase<T, N>
 where
     T: TermsEnum,
+    N: NormsProducer,
 {
     fn init<D: Directory>(
         &mut self,
@@ -99,21 +105,21 @@ where
         ))
     }
 
-    fn write_term<N: NormsProducer>(
+    fn write_term(
         &mut self,
         _term: &BytesRef,
         terms_enum: &mut T,
         docs_seen: &mut FixedBitSet,
         norms: &mut N,
-        sub: &mut impl PushPostingsWriterBaseAbstract,
-    ) -> Result<Option<BlockTermState>> {
+        sub: &mut impl PushPostingsWriterBaseAbstract<N>,
+    ) -> Result<Option<BlockTermStateEnum>> {
         let norm_values = if self.field_info.has_norms() {
             Some(norms.get_norms(&self.field_info)?)
         } else {
             None
         };
 
-        sub.start_term::<N>(norm_values)?;
+        sub.start_term(norm_values)?;
 
         self.postings_enum =
             Some(terms_enum.postings_with_flags(self.postings_enum.take(), self.enum_flags)?);
@@ -163,22 +169,23 @@ where
             return Ok(None);
         }
 
-        let mut state = sub.new_term_state()?;
+        let mut upper = sub.new_term_state()?;
+        let state = upper.get_block_term_state();
         state.doc_freq = doc_freq;
         state.total_term_freq = if self.write_freqs {
             total_term_freq
         } else {
             -1
         };
-        sub.finish_term(&mut state)?;
-        Ok(Some(state))
+        sub.finish_term(&mut upper)?;
+        Ok(Some(upper))
     }
 
     fn encode_term(
         &mut self,
         _out: &mut impl DataOutput,
         _field_info: &FieldInfo,
-        _state: &BlockTermState,
+        _state: Cow<BlockTermStateEnum>,
         _absolute: bool,
     ) -> Result<()> {
         Err(LuceneError::unsupported_operation(
@@ -213,17 +220,17 @@ where
         };
     }
 }
-pub trait PushPostingsWriterBaseAbstract {
+pub trait PushPostingsWriterBaseAbstract<N: NormsProducer> {
     /// Return a newly created empty TermState
-    fn new_term_state(&mut self) -> Result<BlockTermState>;
+    fn new_term_state(&mut self) -> Result<BlockTermStateEnum>;
 
     /// Start a new term.
     /// A matching call to [`finish_term`](Self::finish_term) will be done only if the term has at least one document.
-    fn start_term<N: NormsProducer>(&mut self, norms: Option<N::NumericDocValues>) -> Result<()>;
+    fn start_term(&mut self, norms: Option<N::NumericDocValues>) -> Result<()>;
 
     /// Finishes the current term. The provided [`BlockTermState`] contains
     /// the term's summary statistics and will hold metadata from PBF when returned.
-    fn finish_term(&mut self, state: &BlockTermState) -> Result<()>;
+    fn finish_term(&mut self, state: &mut BlockTermStateEnum) -> Result<()>;
 
     /// Adds a new doc in this term. `freq` will be -1 when term
     /// frequencies are omitted for the field.

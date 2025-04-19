@@ -79,6 +79,7 @@ where
 pub mod lucene90_csfw_util {
     use crate::store::DataOutput;
     use crate::util::bit_util::BitUtil;
+    use crate::util::error::lucene_error::Result;
 
     /// Extension of stored fields file
     pub(crate) const FIELDS_EXTENSION: &str = "fdt";
@@ -123,10 +124,7 @@ pub mod lucene90_csfw_util {
     ///   Otherwise, the value is a positive float value whose first byte is the header, and 3
     ///   bytes need to be read to complete it.
     /// - Bytes --> Potential additional bytes to read depending on the header.
-    pub(crate) fn write_zfloat(
-        out: &mut impl DataOutput,
-        f: f32,
-    ) -> crate::util::error::lucene_error::Result<()> {
+    pub(crate) fn write_zfloat(out: &mut impl DataOutput, f: f32) -> Result<()> {
         let int_val = f as i32;
         let float_bits = f.to_bits();
 
@@ -160,10 +158,7 @@ pub mod lucene90_csfw_util {
     ///   value is a positive float value whose first byte is the header, and 7 bytes need to be
     ///   read to complete it.
     /// - Bytes --> Potential additional bytes to read depending on the header.
-    pub(crate) fn write_zdouble(
-        out: &mut impl DataOutput,
-        d: f64,
-    ) -> crate::util::error::lucene_error::Result<()> {
+    pub(crate) fn write_zdouble(out: &mut impl DataOutput, d: f64) -> Result<()> {
         let int_val = d as i32;
         let double_bits = d.to_bits(); // u64
 
@@ -210,10 +205,7 @@ pub mod lucene90_csfw_util {
     ///
     /// - Bytes --> Potential additional bytes to read depending on the header.
     // T for "timestamp"
-    pub(crate) fn write_tlong(
-        out: &mut impl DataOutput,
-        mut l: i64,
-    ) -> crate::util::error::lucene_error::Result<()> {
+    pub(crate) fn write_tlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {
         let mut header;
 
         if l % SECOND != 0 {
