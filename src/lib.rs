@@ -20,7 +20,7 @@ pub mod analysis;
 pub mod codecs;
 pub mod document;
 pub mod index;
-mod internal;
+pub mod internal;
 pub mod search;
 pub mod store;
 #[cfg(test)]

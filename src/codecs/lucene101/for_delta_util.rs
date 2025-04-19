@@ -229,7 +229,7 @@ impl ForDeltaUtil {
         Ok(())
     }
     /// Decode deltas, compute the prefix sum and add `base` to all decoded ints.
-    fn decode_and_prefix_sum<I: IndexInput>(
+    pub(crate) fn decode_and_prefix_sum<I: IndexInput>(
         &mut self,
         pdu: &mut PostingDecodingUtil<I>,
         base: i32,

@@ -56,6 +56,18 @@ impl DocIdSetIterator for ImpactsEnumEnum {
     fn next_doc(&mut self) -> Result<i32> {
         todo!()
     }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        todo!()
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        todo!()
+    }
+
+    fn cost(&self) -> Result<i64> {
+        todo!()
+    }
 }
 
 impl ImpactsSource for ImpactsEnumEnum {
