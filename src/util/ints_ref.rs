@@ -18,13 +18,10 @@ use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{Comparator, ToInt};
 use crate::with_other;
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
 /// A generic, slice-like reference over an integer array with offset and length.
 ///
 /// `IntsRef<AV>` provides a flexible abstraction for referencing a sub-slice of integers,
@@ -55,27 +52,6 @@ pub struct IntsRef<AV: AccessVec<i32>> {
     /// Length of used ints.
     pub length: i32,
 }
-macro_rules! impl_ints_ref {
-    (
-        $container:ty
-    ) => {
-        impl IntsRef<$container> {
-            /// This instance will directly reference ints w/o making a copy.
-            pub fn from_ints(ints: $container, offset: i32, length: i32) -> Self {
-                let instance = IntsRef {
-                    ints,
-                    offset,
-                    length,
-                };
-                debug_assert!(instance.is_valid().unwrap());
-                instance
-            }
-        }
-    };
-}
-impl_ints_ref!(Vec<i32>);
-impl_ints_ref!(Rc<RefCell<Vec<i32>>>);
-impl_ints_ref!(Arc<Mutex<Vec<i32>>>);
 impl<AV> Default for IntsRef<AV>
 where
     AV: AccessVec<i32>,
@@ -105,6 +81,15 @@ where
             offset: 0,
             length: 0,
         })
+    }
+    pub fn from_slice(ints: AV, offset: i32, length: i32) -> Self {
+        let instance = IntsRef {
+            ints,
+            offset,
+            length,
+        };
+        debug_assert!(instance.is_valid().unwrap());
+        instance
     }
     /// Performs internal consistency checks. Always returns true (or Error)
     pub fn is_valid(&self) -> Result<bool> {
@@ -280,7 +265,7 @@ mod tests {
     struct TestIntsRef;
     #[test]
     fn test_empty() {
-        let i = IntsRef::<Vec<i32>>::default();
+        let i: IntsRef<Vec<i32>> = IntsRef::default();
         assert!(i.ints.is_empty());
         assert_eq!(0, i.offset);
         assert_eq!(0, i.length);
@@ -290,13 +275,13 @@ mod tests {
     fn test_from_ints() {
         let ints = vec![1, 2, 3, 4];
         let rc_ints = ints.clone();
-        let i = IntsRef::<Vec<i32>>::from_ints(rc_ints.clone(), 0, 4);
+        let i = IntsRef::from_slice(rc_ints.clone(), 0, 4);
         assert_eq!(ints, *i.ints);
         assert_eq!(0, i.offset);
         assert_eq!(4, i.length);
 
-        let i2 = IntsRef::<Vec<i32>>::from_ints(rc_ints.clone(), 1, 3);
-        let expected = IntsRef::<Vec<i32>>::from_ints(vec![2, 3, 4], 0, 3);
+        let i2 = IntsRef::from_slice(rc_ints.clone(), 1, 3);
+        let expected = IntsRef::from_slice(vec![2, 3, 4], 0, 3);
         assert_eq!(expected, i2);
         assert_ne!(i, i2);
     }
@@ -305,7 +290,7 @@ mod tests {
     #[should_panic]
     fn test_invalid_deep_copy() {
         let rc_ints = vec![1, 2];
-        let mut from = IntsRef::<Vec<i32>>::from_ints(rc_ints, 0, 2);
+        let mut from = IntsRef::from_slice(rc_ints, 0, 2);
         from.offset += 1; // now invalid
         let _ = IntsRef::deep_copy_of(&from);
     }
