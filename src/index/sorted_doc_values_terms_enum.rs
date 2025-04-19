@@ -147,15 +147,15 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type ImpactsEnumType = DummyImpactsEnum;
+    type ImpactsEnum = DummyImpactsEnum;
 
-    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type TermStateType = TermStateEnum;
+    type TermState = TermStateEnum;
 
-    fn term_state(&self) -> Result<Self::TermStateType> {
+    fn term_state(&self) -> Result<Self::TermState> {
         let mut state = OrdTermState::default();
         state.ord = self.current_ord as i64;
         Ok(TermStateEnum::Ord(state))

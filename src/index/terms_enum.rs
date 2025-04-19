@@ -145,13 +145,13 @@ pub trait TermsEnum: BytesRefIterator {
         reuse: Option<impl PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnum>;
-    type ImpactsEnumType: ImpactsEnum;
+    type ImpactsEnum: ImpactsEnum;
     /// Return an `ImpactsEnum`.
     ///
     /// See also: [`postings_with_flags`](TermsEnum::postings_with_flags).
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType>;
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum>;
 
-    type TermStateType: TermState;
+    type TermState: TermState;
     /// Expert: Returns the [`TermsEnum`]'s internal state to position the enum without re-seeking
     /// the term dictionary.
     ///
@@ -159,7 +159,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// Callers must maintain [`AttributeSource`] states separately.
     ///
     /// See also: [`TermState`], [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
-    fn term_state(&self) -> Result<Self::TermStateType>;
+    fn term_state(&self) -> Result<Self::TermState>;
 }
 pub struct TermsEnumEmpty<I>
 where
@@ -235,17 +235,17 @@ where
         ))
     }
 
-    type ImpactsEnumType = DummyImpactsEnum;
+    type ImpactsEnum = DummyImpactsEnum;
 
-    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
     }
 
-    type TermStateType = TermStateEnum;
+    type TermState = TermStateEnum;
 
-    fn term_state(&self) -> Result<Self::TermStateType> {
+    fn term_state(&self) -> Result<Self::TermState> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))

@@ -105,15 +105,15 @@ where
         todo!()
     }
 
-    type ImpactsEnumType = ImpactsEnumEnum;
+    type ImpactsEnum = ImpactsEnumEnum;
 
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType> {
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
         todo!()
     }
 
-    type TermStateType = TermStateEnum;
+    type TermState = TermStateEnum;
 
-    fn term_state(&self) -> Result<Self::TermStateType> {
+    fn term_state(&self) -> Result<Self::TermState> {
         todo!()
     }
 }

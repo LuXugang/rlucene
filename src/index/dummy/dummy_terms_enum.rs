@@ -109,17 +109,17 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
-    type ImpactsEnumType = DummyImpactsEnum;
+    type ImpactsEnum = DummyImpactsEnum;
 
-    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnumType> {
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    type TermStateType = TermStateEnum;
+    type TermState = TermStateEnum;
 
-    fn term_state(&self) -> Result<Self::TermStateType> {
+    fn term_state(&self) -> Result<Self::TermState> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

@@ -117,15 +117,15 @@ where
         self.sub_terms_enum.postings_with_flags(reuse, flags)
     }
 
-    type ImpactsEnumType = ImpactsEnumEnum;
+    type ImpactsEnum = ImpactsEnumEnum;
 
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnumType> {
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
         self.sub_terms_enum.impacts(flags)
     }
 
-    type TermStateType = TermStateEnum;
+    type TermState = TermStateEnum;
 
-    fn term_state(&self) -> Result<Self::TermStateType> {
+    fn term_state(&self) -> Result<Self::TermState> {
         let sub = self.sub_terms_enum.term_state();
         match sub {
             Ok(s) => Ok(s),
