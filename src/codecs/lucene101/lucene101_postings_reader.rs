@@ -156,6 +156,7 @@ where
     // true if we shallow-advanced to a new block that we have not decoded yet
     needs_refilling: bool,
 }
+#[allow(unused)]
 impl<I> BlockPostingsEnum<I>
 where
     I: IndexInput,
@@ -1131,8 +1132,8 @@ pub struct ImpactsImpl {
 impl ImpactsImpl {
     fn read_impacts(
         &self,
-        serialized: BytesRef,
-        impacts_list: Rc<RefCell<MutableImpactList>>,
+        _serialized: BytesRef,
+        _impacts_list: Rc<RefCell<MutableImpactList>>,
     ) -> Vec<Impact> {
         todo!()
     }
@@ -1158,7 +1159,7 @@ impl Impacts for ImpactsImpl {
         }
     }
 
-    fn get_impacts(&self, level: i32) -> &[Impact] {
+    fn get_impacts(&self, _level: i32) -> &[Impact] {
         todo!()
     }
 }

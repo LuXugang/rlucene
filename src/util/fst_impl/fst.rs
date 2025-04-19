@@ -994,6 +994,7 @@ pub mod fst_util {
     /// # Returns
     ///
     /// The updated `arc` if `follow` is final, otherwise `None`
+    #[allow(unused)]
     fn read_end_arc<T: Clone + Hash>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
         if follow.is_final() {
             if follow.target() <= 0 {

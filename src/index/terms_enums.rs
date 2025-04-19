@@ -55,19 +55,19 @@ where
         todo!()
     }
 
-    fn seek_exact(&mut self, term: &BytesRef) -> Result<bool> {
+    fn seek_exact(&mut self, _term: &BytesRef) -> Result<bool> {
         todo!()
     }
 
-    fn seek_ceil(&mut self, term: &BytesRef) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
         todo!()
     }
 
-    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
         todo!()
     }
 
-    fn seek_exact_with_state(&mut self, term: &BytesRef, state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
         todo!()
     }
 
@@ -93,21 +93,21 @@ where
 
     type PostingsEnum = PostingsEnums;
 
-    fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnum> {
+    fn postings(&mut self, _reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnum> {
         todo!()
     }
 
     fn postings_with_flags(
         &mut self,
-        reuse: Option<impl PostingsEnum>,
-        flags: i32,
+        _reuse: Option<impl PostingsEnum>,
+        _flags: i32,
     ) -> Result<Self::PostingsEnum> {
         todo!()
     }
 
     type ImpactsEnum = ImpactsEnumEnum;
 
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
         todo!()
     }
 

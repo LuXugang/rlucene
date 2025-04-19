@@ -71,7 +71,7 @@ impl DocIdSetIterator for ImpactsEnumEnum {
 }
 
 impl ImpactsSource for ImpactsEnumEnum {
-    fn advance_shallow(&mut self, target: i32) -> Result<()> {
+    fn advance_shallow(&mut self, _target: i32) -> Result<()> {
         todo!()
     }
 

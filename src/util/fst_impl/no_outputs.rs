@@ -27,7 +27,7 @@ impl NoOutputs {
 }
 
 impl Display for NoOutputs {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -42,23 +42,23 @@ impl<T> Outputs<T> for NoOutputs
 where
     T: OutputsBound,
 {
-    fn common(&self, output1: &T, output2: &T) -> T {
+    fn common(&self, _output1: &T, _output2: &T) -> T {
         todo!()
     }
 
-    fn subtract(&self, output: &T, inc: &T) -> T {
+    fn subtract(&self, _output: &T, _inc: &T) -> T {
         todo!()
     }
 
-    fn add(&self, prefix: &T, output: &T) -> T {
+    fn add(&self, _prefix: &T, _output: &T) -> T {
         todo!()
     }
 
-    fn write(&self, output: &T, out: &mut impl DataOutput) -> Result<()> {
+    fn write(&self, _output: &T, _out: &mut impl DataOutput) -> Result<()> {
         todo!()
     }
 
-    fn read(&self, input: &mut impl DataInput) -> crate::util::error::lucene_error::Result<T> {
+    fn read(&self, _input: &mut impl DataInput) -> Result<T> {
         todo!()
     }
 
@@ -66,11 +66,11 @@ where
         todo!()
     }
 
-    fn output_to_string(&self, output: &T) -> String {
+    fn output_to_string(&self, _output: &T) -> String {
         todo!()
     }
 
-    fn ram_bytes_used(&self, output: &T) -> i64 {
+    fn ram_bytes_used(&self, _output: &T) -> i64 {
         todo!()
     }
 }

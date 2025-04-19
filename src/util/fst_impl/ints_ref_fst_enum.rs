@@ -32,12 +32,12 @@ where
     O: Outputs<T>,
     F: FstReader,
 {
-    pub(crate) current: Rc<RefCell<IntsRef<Vec<i32>>>>,
-    pub(crate) result: InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>,
+    pub(crate) current: RcIntsRef,
+    pub(crate) result: InputOutput<T, RcIntsRef>,
     pub(crate) target: IntsRef<Vec<i32>>,
     base: Option<FSTEnum<T, O, F>>,
 }
-
+#[allow(unused)]
 impl<T, O, F> IntsRefFSTEnum<T, O, F>
 where
     T: OutputsBound,
@@ -62,11 +62,11 @@ where
         })
     }
 
-    pub fn current(&self) -> &InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>> {
+    pub fn current(&self) -> &InputOutput<T, RcIntsRef> {
         &self.result
     }
 
-    pub fn next(&mut self) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
+    pub fn next(&mut self) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
         self.base.take_do_return(|base| base.do_next())?;
         self.set_result()
     }
@@ -74,7 +74,7 @@ where
     pub fn seek_ceil(
         &mut self,
         target: IntsRef<Vec<i32>>,
-    ) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
+    ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
@@ -93,7 +93,7 @@ where
     pub fn seek_floor(
         &mut self,
         target: IntsRef<Vec<i32>>,
-    ) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
+    ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
@@ -113,7 +113,7 @@ where
     pub fn seek_exact(
         &mut self,
         target: IntsRef<Vec<i32>>,
-    ) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
+    ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
@@ -131,7 +131,7 @@ where
         }
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<T, Rc<RefCell<IntsRef<Vec<i32>>>>>>> {
+    fn set_result(&mut self) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
@@ -178,3 +178,4 @@ where
         })
     }
 }
+pub type RcIntsRef = Rc<RefCell<IntsRef<Vec<i32>>>>;

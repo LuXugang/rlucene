@@ -87,9 +87,9 @@ impl Util {
     }
 
     pub fn binary_search<T, O, F>(
-        fst: &mut FST<T, O, F>,
-        arc: &Arc<T>,
-        target_label: i32,
+        _fst: &mut FST<T, O, F>,
+        _arc: &Arc<T>,
+        _target_label: i32,
     ) -> Result<i32>
     where
         T: OutputsBound,

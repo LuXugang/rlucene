@@ -85,7 +85,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        fn slow_advance(&mut self, _target: i32) -> Result<i32> {
             todo!()
         }
 
@@ -102,7 +102,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
+        fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef> {
             todo!()
         }
 
@@ -110,7 +110,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+        fn lookup_term(&mut self, _key: &BytesRef) -> Result<i32> {
             todo!()
         }
 
@@ -221,7 +221,7 @@ pub mod doc_values {
     where
         I: IndexInput,
     {
-        fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        fn advance_exact(&mut self, _target: i32) -> Result<bool> {
             todo!()
         }
     }
@@ -238,11 +238,11 @@ pub mod doc_values {
             todo!()
         }
 
-        fn advance(&mut self, target: i32) -> Result<i32> {
+        fn advance(&mut self, _target: i32) -> Result<i32> {
             todo!()
         }
 
-        fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        fn slow_advance(&mut self, _target: i32) -> Result<i32> {
             todo!()
         }
 
@@ -294,7 +294,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        fn slow_advance(&mut self, _target: i32) -> Result<i32> {
             todo!()
         }
 
@@ -410,7 +410,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        fn slow_advance(&mut self, _target: i32) -> Result<i32> {
             todo!()
         }
 
@@ -439,7 +439,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+        fn lookup_term(&mut self, _key: &BytesRef) -> Result<i64> {
             todo!()
         }
 

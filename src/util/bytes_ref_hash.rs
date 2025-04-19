@@ -505,6 +505,7 @@ where
     ///
     /// # Returns
     /// The `bytesStart` offset into the internally used `SingleThreadedByteBlockPool` for the given ID.
+    #[allow(dead_code)]
     #[cfg(feature = "test_only")]
     pub fn byte_start(&self, bytes_id: i32) -> Result<i32> {
         self.bytes_start_array.access(|bytes_start_array| {

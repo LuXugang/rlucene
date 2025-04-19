@@ -3069,8 +3069,8 @@ where
 
     fn postings_with_flags(
         &mut self,
-        reuse: Option<impl PostingsEnum>,
-        flags: i32,
+        _reuse: Option<impl PostingsEnum>,
+        _flags: i32,
     ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::unsupported_operation(""))
     }

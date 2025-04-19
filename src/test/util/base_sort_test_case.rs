@@ -18,8 +18,8 @@ use crate::test::util::base_sort_test_case::Strategy::{
     Random, RandomLowCardinality, RandomMediumCardinality,
 };
 use crate::test::util::lucene_test_case::rarely;
-use crate::util::error::lucene_error::Result;
 use crate::test::util::test_util::TestUtil;
+use crate::util::error::lucene_error::Result;
 use crate::util::{Comparator, Sorter, ToInt, COMPARATOR_TYPE};
 use rand::prelude::StdRng;
 use rand::Rng;
@@ -185,7 +185,7 @@ impl Entry {
 impl Comparator<Entry> for Entry {
     const TYPE: &'static str = COMPARATOR_TYPE;
 
-    fn compare(&self, a: &Entry, b: &Entry) -> Result<i32 >{
+    fn compare(&self, a: &Entry, b: &Entry) -> Result<i32> {
         Ok(a.value.cmp(&b.value).to_int())
     }
 }

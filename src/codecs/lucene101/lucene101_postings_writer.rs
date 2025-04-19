@@ -42,7 +42,6 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::SliceCopyOps;
-use byteorder::WriteBytesExt;
 use std::borrow::Cow;
 use std::default::Default;
 use std::rc::Rc;
@@ -115,6 +114,7 @@ where
     /// [`docCount`].
     level1_output: ByteBuffersDataOutput,
 }
+#[allow(unused)]
 impl<O, T, N> Lucene101PostingsWriter<O, T, N>
 where
     O: IndexOutput,

@@ -32,7 +32,6 @@ use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::SliceCopyOps;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
-use std::hash::Hasher;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -61,7 +60,7 @@ use std::rc::Rc;
 /// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to be saved at the
 ///   end). In order to use it, you need to construct the corresponding `DataInput` and use the FST
 ///   constructor to read it.
-pub struct FSTCompiler<T, O, D>
+pub(crate) struct FSTCompiler<T, O, D>
 where
     T: OutputsBound,
     O: Outputs<T>,
@@ -187,6 +186,7 @@ where
     /// that input is fully consumed after this method returns (so the caller is free to reuse), but
     /// output is not. So if your outputs are changeable (e.g. [`ByteSequenceOutputs`](crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs) or
     /// [`IntSequenceOutputs`](crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs)), then you cannot reuse them across calls.
+    #[allow(unused)]
     pub(crate) fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: T) -> Result<()> {
         let ints = &input.ints;
         let prefix_len_plus1;
@@ -317,9 +317,24 @@ where
         self.inner.borrow_mut().last_input.copy_ints_ref(input)?;
         Ok(())
     }
+    /// Returns the metadata of the final FST. NOTE: this will return null if nothing is accepted by
+    /// the FST themselves.
+    ///
+    /// To create the FST, you need to:
+    ///
+    /// - If a FSTReader DataOutput was used, such as the one returned by [`getOnHeapReaderWriter`](fst_compiler_util::get_on_heap_reader_writer)
+    ///
+    /// ```text
+    ///     fstMetadata = fstCompiler.compile();
+    ///     fst = FST.fromFSTReader(fstMetadata, fstCompiler.getFSTReader());
+    /// ```
+    ///
+    /// - If a non-FSTReader DataOutput was used, such as [`IndexOutput`](crate::store::index_output::IndexOutput),
+    ///   you need to first create the corresponding [`DataInput`](crate::store::data_input::DataInput), such as
+    ///   [`IndexInput`](crate::store::data_input::DataInput) then pass it to the FST construct
     pub fn compile(
         &mut self,
-        frontier: &mut [UnCompiledNode<T, O, D>],
+        _frontier: &mut [UnCompiledNode<T, O, D>],
     ) -> Result<Option<FSTMetadata<T, O>>> {
         let root = self.frontier[0].take().unwrap();
 
@@ -649,6 +664,7 @@ where
     /// Get the respective [`DataOutputEnum`]. To call this method, you need
     /// to use the default `DataOutput` or [`get_on_heap_reader_writer`](fst_compiler_util::get_on_heap_reader_writer), otherwise an
     /// error will be thrown.
+    #[allow(unused)]
     fn get_fst_reader(&mut self) -> Result<&mut DataOutputEnum<D>> {
         let is_fst_reader = match self.data_output {
             DataOutputEnum::FromDir(_) => false,
@@ -1203,6 +1219,7 @@ where
         Ok(self)
     }
     /// Creates a new {@link FSTCompiler}
+    #[allow(unused)]
     pub fn build(mut self) -> Result<FSTCompiler<T, O, D>> {
         if self.data_output.is_none() {
             self.data_output = Some(DataOutputEnum::ReadWriter(
@@ -1357,11 +1374,6 @@ where
 #[derive(Default)]
 pub(crate) struct CompiledNode {
     pub(crate) node: i64,
-}
-impl CompiledNode {
-    pub(crate) fn new() -> Self {
-        Self { node: 0 }
-    }
 }
 impl Node for CompiledNode {
     fn is_compiled(&self) -> bool {

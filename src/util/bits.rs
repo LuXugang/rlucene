@@ -70,7 +70,7 @@ impl Bits for MatchNoBits {
 
 pub enum BitsEnum {}
 impl Bits for BitsEnum {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, _index: i32) -> bool {
         todo!()
     }
 

@@ -50,11 +50,11 @@ impl Impacts for ImpactsEnums {
         todo!()
     }
 
-    fn get_doc_id_up_to(&self, level: i32) -> i32 {
+    fn get_doc_id_up_to(&self, _level: i32) -> i32 {
         todo!()
     }
 
-    fn get_impacts(&self, level: i32) -> &[Impact] {
+    fn get_impacts(&self, _level: i32) -> &[Impact] {
         todo!()
     }
 }

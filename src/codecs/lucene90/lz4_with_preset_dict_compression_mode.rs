@@ -61,9 +61,15 @@ impl CompressionModeBase for LZ4WithPresetDictCompressionMode {
 }
 
 #[derive(Clone)]
-pub(crate) struct LZ4WithPresetDictDecompressor {
+pub struct LZ4WithPresetDictDecompressor {
     compressed_lengths: Vec<i32>,
     buffer: Vec<u8>,
+}
+
+impl Default for LZ4WithPresetDictDecompressor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LZ4WithPresetDictDecompressor {

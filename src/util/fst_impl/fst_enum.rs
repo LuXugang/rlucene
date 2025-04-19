@@ -31,6 +31,7 @@ where
     pub(crate) fst: FST<T, O, F>,
     pub(crate) arcs: Vec<Option<Arc<T>>>,
     pub(crate) output: Vec<T>,
+    #[allow(unused)]
     pub(crate) no_output: T,
     pub(crate) fst_reader: F::FstBytesReader,
     pub(crate) upto: usize,
@@ -1090,6 +1091,7 @@ where
 
         Ok(())
     }
+    #[allow(unused)]
     fn get_arc_ref(&mut self, idx: usize) -> &mut Arc<T> {
         self.arcs[idx].as_mut().unwrap()
     }

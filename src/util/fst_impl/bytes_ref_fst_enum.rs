@@ -22,7 +22,6 @@ use crate::util::fst_impl::fst_enum::{FSTEnum, FSTEnumBase, InputOutput};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::OptionTakeExt;
-use std::io::Read;
 
 /// Enumerates all input (`BytesRc`) + output pairs in an FST.
 pub struct BytesRefFSTEnum<T, O, F>
@@ -37,6 +36,7 @@ where
     base: Option<FSTEnum<T, O, F>>,
 }
 
+#[allow(unused)]
 impl<T, O, F> BytesRefFSTEnum<T, O, F>
 where
     T: OutputsBound,

@@ -275,8 +275,6 @@ where
 #[cfg(test)]
 mod tests {
     use crate::util::ints_ref::IntsRef;
-    use std::cell::RefCell;
-    use std::rc::Rc;
 
     #[allow(dead_code)] // for quick search
     struct TestIntsRef;
