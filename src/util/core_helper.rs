@@ -132,7 +132,7 @@ impl<T> OptionTakeExt<T> for Option<T> {
 /// This trait ensures safe conversion from signed integers (`i16`, `i32`, `i64`)
 /// to `usize`, explicitly rejecting negative values to prevent unintended behavior.
 ///
-/// ⚠️ **Important:** In Rust, casting a negative value using `as` (e.g., `-1_i32 as usize`)
+/// **Important:** In Rust, casting a negative value using `as` (e.g., `-1_i32 as usize`)
 /// will not panic. Instead, it wraps around and produces a large `usize` value
 /// (e.g., `usize::MAX` on most platforms). This trait avoids that risk by returning an error.
 ///

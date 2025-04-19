@@ -18,7 +18,7 @@ use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 
-/// An ordinal-based [`TermState`](TermState)
+/// An ordinal-based [`TermState`]
 #[derive(Clone, Default)]
 pub struct OrdTermState {
     /// Term ordinal, i.e. its position in the full list of sorted terms.
