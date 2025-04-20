@@ -354,67 +354,64 @@ where
     delete_terms: HashMap<String, BytesRefIntMap<C, B, A, P>>,
     terms_size: i32,
 }
-
-impl MTDeletedTerms {
-    pub(crate) fn new_sync() -> Self {
-        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
-        let allocator =
-            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)));
-        Self::new_impl(pool, bytes_used)
-    }
-    /// Puts the newest document ID of the deleted term.
-    ///
-    /// Inserts the term and its corresponding document ID. If the term is new, increments the `terms_size`.
-    pub(crate) fn put_sync(&mut self, term: &Term, value: i32) -> Result<()> {
-        let hash = match self.delete_terms.entry(term.field.clone()) {
-            Vacant(vacant) => {
-                // TODO: memory calculation not implemented
-                self.bytes_used.access_mut(|bytes_used| {
-                    let _ = bytes_used.add_and_get(0);
-                });
-                let new_map = BytesRefIntMap::new_sync(self.pool.clone(), self.bytes_used.clone());
-                vacant.insert(new_map)
+macro_rules! impl_deleted_terms {
+    (
+        $Type:ident,
+        new = $new_fn:ident,
+        put = $put_fn:ident,
+        bytes_wrap = $bytes_wrap:expr,
+        pool_wrap  = $pool_wrap:expr,
+        pool_ctor  = $pool_ctor:ident,
+        map_ctor   = $map_ctor:ident
+    ) => {
+        impl $Type {
+            pub(crate) fn $new_fn() -> Self {
+                let bytes_used = $bytes_wrap(CounterEnum::new_counter(false));
+                let allocator =
+                    AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
+                let pool = $pool_wrap(ByteBlockPool::$pool_ctor(allocator));
+                Self::new_impl(pool, bytes_used)
             }
-            Occupied(occupied) => occupied.into_mut(),
-        };
-        if hash.put(&term.bytes, value)? {
-            self.terms_size += 1;
-        }
-        Ok(())
-    }
-}
-impl STDeletedTerms {
-    pub(crate) fn new() -> Self {
-        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        let allocator =
-            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
-        let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-        Self::new_impl(pool, bytes_used)
-    }
-    /// Puts the newest document ID of the deleted term.
-    ///
-    /// Inserts the term and its corresponding document ID. If the term is new, increments the `terms_size`.
-    #[allow(unused)]
-    pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<()> {
-        let hash = match self.delete_terms.entry(term.field.clone()) {
-            Vacant(vacant) => {
-                // TODO: memory calculation not implemented
-                self.bytes_used.access_mut(|bytes_used| {
-                    let _ = bytes_used.add_and_get(0);
-                });
-                let new_map = BytesRefIntMap::new(self.pool.clone(), self.bytes_used.clone());
-                vacant.insert(new_map)
+            pub(crate) fn $put_fn(&mut self, term: &Term, value: i32) -> Result<()> {
+                let hash = match self.delete_terms.entry(term.field.clone()) {
+                    Vacant(vacant) => {
+                        // TODO: memory calculation not implemented
+                        self.bytes_used.access_mut(|bytes_used| {
+                            let _ = bytes_used.add_and_get(0);
+                        });
+                        let new_map =
+                            BytesRefIntMap::$map_ctor(self.pool.clone(), self.bytes_used.clone());
+                        vacant.insert(new_map)
+                    }
+                    Occupied(occupied) => occupied.into_mut(),
+                };
+                if hash.put(&term.bytes, value)? {
+                    self.terms_size += 1;
+                }
+                Ok(())
             }
-            Occupied(occupied) => occupied.into_mut(),
-        };
-
-        if hash.put(&term.bytes, value)? {
-            self.terms_size += 1;
         }
-        Ok(())
-    }
+    };
 }
+impl_deleted_terms!(
+    STDeletedTerms,
+    new = new,
+    put = put,
+    bytes_wrap = |v| Rc::new(RefCell::new(v)),
+    pool_wrap = |p| Rc::new(RefCell::new(p)),
+    pool_ctor = new,
+    map_ctor = new
+);
+impl_deleted_terms!(
+    MTDeletedTerms,
+    new = new_sync,
+    put = put_sync,
+    bytes_wrap = |v| Arc::new(Mutex::new(v)),
+    pool_wrap = |p| Arc::new(Mutex::new(p)),
+    pool_ctor = new_sync,
+    map_ctor = new_sync
+);
+
 pub type MTDeletedTerms = DeletedTerms<
     CounterEnumLock,
     ByteBlockPoolLock,

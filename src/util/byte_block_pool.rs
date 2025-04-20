@@ -70,28 +70,23 @@ impl ByteBlockPool<Rc<RefCell<CounterEnum>>> {
     /// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
     pub(crate) const BYTE_BLOCK_MASK: i32 = ByteBlockPool::BYTE_BLOCK_SIZE - 1;
 }
-impl ByteBlockPool<CounterEnumLock> {
-    pub fn new_sync(allocator: MTAllocatorByteEnum) -> Self {
-        ByteBlockPool {
-            buffers: vec![],
-            buffer_upto: -1,
-            allocator,
-            byte_offset: -ByteBlockPool::BYTE_BLOCK_SIZE,
-            byte_upto: ByteBlockPool::BYTE_BLOCK_SIZE,
+macro_rules! impl_byte_block_pool {
+    ($enum_ty:ty, $alloc_ty:ty, $method:ident) => {
+        impl ByteBlockPool<$enum_ty> {
+            pub fn $method(allocator: $alloc_ty) -> Self {
+                ByteBlockPool {
+                    buffers: vec![],
+                    buffer_upto: -1,
+                    allocator,
+                    byte_offset: -ByteBlockPool::BYTE_BLOCK_SIZE,
+                    byte_upto: ByteBlockPool::BYTE_BLOCK_SIZE,
+                }
+            }
         }
-    }
+    };
 }
-impl ByteBlockPool<CounterEnumBorrow> {
-    pub fn new(allocator: STAllocatorByteEnum) -> Self {
-        ByteBlockPool {
-            buffers: vec![],
-            buffer_upto: -1,
-            allocator,
-            byte_offset: -ByteBlockPool::BYTE_BLOCK_SIZE,
-            byte_upto: ByteBlockPool::BYTE_BLOCK_SIZE,
-        }
-    }
-}
+impl_byte_block_pool!(CounterEnumBorrow, STAllocatorByteEnum, new);
+impl_byte_block_pool!(CounterEnumLock, MTAllocatorByteEnum, new_sync);
 
 impl<A> ByteBlockPool<A>
 where

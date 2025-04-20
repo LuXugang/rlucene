@@ -54,22 +54,32 @@ pub type STBytesRefArray = BytesRefArray<CounterEnumBorrow>;
 /// for multi-threaded scenarios
 pub type MTBytesRefArray = BytesRefArray<CounterEnumLock>;
 
-impl BytesRefArray<CounterEnumBorrow> {
-    /// for single-threaded scenarios
-    pub fn new(byte_used: CounterEnumBorrow) -> Result<STBytesRefArray> {
-        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let pool = ByteBlockPool::new(allocator);
-        BytesRefArray::new_impl(pool, byte_used)
-    }
+macro_rules! impl_bytes_ref_array {
+    ($enum_ty:ty, $method:ident, $pool_ctor:ident, $ret:ty, $doc:expr) => {
+        impl BytesRefArray<$enum_ty> {
+            #[doc = $doc]
+            pub fn $method(byte_used: $enum_ty) -> Result<$ret> {
+                let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+                let pool = ByteBlockPool::$pool_ctor(allocator);
+                BytesRefArray::new_impl(pool, byte_used)
+            }
+        }
+    };
 }
-impl BytesRefArray<CounterEnumLock> {
-    /// for multi-threaded scenarios
-    pub fn new_sync(byte_used: CounterEnumLock) -> Result<MTBytesRefArray> {
-        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let pool = ByteBlockPool::new_sync(allocator);
-        BytesRefArray::new_impl(pool, byte_used)
-    }
-}
+impl_bytes_ref_array!(
+    CounterEnumBorrow,
+    new,
+    new,
+    STBytesRefArray,
+    "for single-threaded scenarios"
+);
+impl_bytes_ref_array!(
+    CounterEnumLock,
+    new_sync,
+    new_sync,
+    MTBytesRefArray,
+    "for multi-threaded scenarios"
+);
 
 impl<A> BytesRefArray<A>
 where
