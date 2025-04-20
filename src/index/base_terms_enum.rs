@@ -59,7 +59,7 @@ impl<I> BytesRefIterator for BaseTermsEnum<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         self.sub_terms_enum.next()
     }
 }
@@ -73,7 +73,7 @@ where
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, term: &BytesRef) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         self.sub_terms_enum.seek_ceil(term)
     }
 
@@ -81,7 +81,11 @@ where
         self.sub_terms_enum.seek_exact_with_ord(ord)
     }
 
-    fn seek_exact_with_state(&mut self, term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<Vec<u8>>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
         if self.seek_exact(term)? {
             return Err(LuceneError::illegal_argument(format!(
                 "term= {} does not exist",
@@ -91,7 +95,7 @@ where
         Ok(())
     }
 
-    fn term(&self) -> Result<BytesRef> {
+    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
         self.sub_terms_enum.term()
     }
 

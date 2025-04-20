@@ -352,7 +352,7 @@ impl PackedLongValuesBuilder {
         }
         // TODO
         self.ram_bytes_used = 0;
-        ArrayUtil::grow_exact(&mut self.values, new_block_count)?;
+        ArrayUtil::grow_exact(&mut self.values, new_block_count as usize)?;
         Ok(())
     }
     pub fn size(&self) -> i64 {

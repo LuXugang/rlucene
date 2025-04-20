@@ -54,7 +54,7 @@ where
     /// * `ord` - Ordinal to lookup
     ///
     /// See also: [`next_ord`](SortedSetDocValues::next_ord)
-    fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef<Vec<u8>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -76,7 +76,7 @@ where
     ///
     /// # Returns
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
         let mut low = 0;
         let mut high = self.get_value_count()? - 1;
 

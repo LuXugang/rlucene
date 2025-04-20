@@ -196,7 +196,7 @@ impl FieldUpdatesBuffer {
         if self.fields[0] != field || fields_len != 1 {
             let mut bytes_used = self.bytes_used.lock();
             if fields_len <= ord as usize {
-                ArrayUtil::grow_with_len(&mut self.fields, ord + 1);
+                ArrayUtil::grow_with_len(&mut self.fields, (ord + 1) as usize);
                 if fields_len == 1 {
                     for i in 1..ord as usize {
                         self.fields[i] = self.fields[0].clone();
@@ -214,7 +214,7 @@ impl FieldUpdatesBuffer {
         let docs_up_to_len = self.docs_up_to.len();
         if self.docs_up_to[0] != doc_upto || docs_up_to_len != 1 {
             if docs_up_to_len <= ord as usize {
-                ArrayUtil::grow_with_len(&mut self.docs_up_to, ord + 1);
+                ArrayUtil::grow_with_len(&mut self.docs_up_to, (ord + 1) as usize);
                 if docs_up_to_len == 1 {
                     for i in 1..ord as usize {
                         self.docs_up_to[i] = self.docs_up_to[0];
@@ -256,7 +256,7 @@ impl FieldUpdatesBuffer {
         let numeric_values_len = numeric_values.len();
         if numeric_values[0] != value || numeric_values_len != 1 {
             if numeric_values_len <= ord as usize {
-                ArrayUtil::grow_with_len(numeric_values, ord + 1);
+                ArrayUtil::grow_with_len(numeric_values, (ord + 1) as usize);
                 if numeric_values_len == 1 {
                     for i in 1..ord as usize {
                         numeric_values[i] = numeric_values[0];
@@ -277,7 +277,7 @@ impl FieldUpdatesBuffer {
     pub(crate) fn add_update_with_bytes_ref(
         &mut self,
         term: &Term,
-        value: &BytesRef,
+        value: &BytesRef<Vec<u8>>,
         doc_up_to: i32,
     ) -> Result<()> {
         debug_assert!(!self.is_numeric);
@@ -511,7 +511,7 @@ impl<'a> BufferedUpdateIterator<'a> {
         }
     }
 
-    fn next_term(&mut self) -> Result<Option<BytesRef>> {
+    fn next_term(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
         if let Some(look_ahead_term_iterator) = &mut self.look_ahead_term_iterator {
             if self.buffered_update.term_value.is_none() {
                 look_ahead_term_iterator.next()?;
@@ -560,13 +560,13 @@ pub struct BufferedUpdate {
     /// a numeric value or 0 if this buffer holds binary updates.
     pub numeric_value: i64,
     /// a binary value or null if this buffer holds numeric updates.
-    pub binary_value: Option<BytesRef>,
+    pub binary_value: Option<BytesRef<Vec<u8>>>,
     /// true if this update has a value.
     pub has_value: bool,
     /// The update terms field. This will never be null.
     pub term_field: String,
     /// The update terms value. This will never be null.
-    pub term_value: Option<BytesRef>,
+    pub term_value: Option<BytesRef<Vec<u8>>>,
 }
 
 #[allow(unused)]
@@ -574,10 +574,10 @@ impl BufferedUpdate {
     pub fn new(
         doc_up_to: i32,
         numeric_value: i64,
-        binary_value: Option<BytesRef>,
+        binary_value: Option<BytesRef<Vec<u8>>>,
         has_value: bool,
         term_field: String,
-        term_value: Option<BytesRef>,
+        term_value: Option<BytesRef<Vec<u8>>>,
     ) -> Self {
         BufferedUpdate {
             doc_up_to,
@@ -1077,7 +1077,7 @@ mod tests {
         let mut updates = updates.to_owned();
         if term_sorted {
             updates.sort_by(|a, b| a.term.bytes.cmp(&b.term.bytes));
-            let mut by_terms: BTreeMap<BytesRef, DocValuesUpdate> = BTreeMap::new();
+            let mut by_terms: BTreeMap<BytesRef<Vec<u8>>, DocValuesUpdate> = BTreeMap::new();
 
             for update in updates.iter() {
                 by_terms

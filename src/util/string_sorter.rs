@@ -29,20 +29,20 @@ use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};
 pub(crate) struct StringSorter<T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     delegate_sorter: T,
-    scratch1: BytesRefBuilder,
-    scratch2: BytesRefBuilder,
-    scratch_bytes1: BytesRef,
-    scratch_bytes2: BytesRef,
+    scratch1: BytesRefBuilder<Vec<u8>>,
+    scratch2: BytesRefBuilder<Vec<u8>>,
+    scratch_bytes1: BytesRef<Vec<u8>>,
+    scratch_bytes2: BytesRef<Vec<u8>>,
     cmp: C,
 }
 
 impl<T, C> StringSorter<T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     pub(crate) fn new(delegate_sorter: T, cmp: C) -> StringSorter<T, C> {
         StringSorter {
@@ -64,7 +64,7 @@ where
 impl<T, C> Sorter for StringSorter<T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.delegate_sorter
@@ -96,17 +96,17 @@ where
 pub struct MSBStringRadixSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
-    scratch1: BytesRefBuilder,
-    scratch_bytes1: BytesRef,
+    scratch1: BytesRefBuilder<Vec<u8>>,
+    scratch_bytes1: BytesRef<Vec<u8>>,
     cmp: &'a mut C,
     delegate_sorter: &'a mut T,
 }
 impl<'a, T, C> MSBStringRadixSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringRadixSorter<'a, T, C> {
         MSBStringRadixSorter {
@@ -121,7 +121,7 @@ where
 impl<T, C> Sorter for MSBStringRadixSorter<'_, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
@@ -131,7 +131,7 @@ where
 impl<T, C> MSBRadixSorterBase for MSBStringRadixSorter<'_, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         self.delegate_sorter
@@ -148,14 +148,14 @@ where
 pub struct IntroSorterImpl<'a, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
-    pivot: BytesRef,
-    pivot_builder: BytesRefBuilder,
-    scratch1: BytesRefBuilder,
-    scratch2: BytesRefBuilder,
-    scratch_bytes1: BytesRef,
-    scratch_bytes2: BytesRef,
+    pivot: BytesRef<Vec<u8>>,
+    pivot_builder: BytesRefBuilder<Vec<u8>>,
+    scratch1: BytesRefBuilder<Vec<u8>>,
+    scratch2: BytesRefBuilder<Vec<u8>>,
+    scratch_bytes1: BytesRef<Vec<u8>>,
+    scratch_bytes2: BytesRef<Vec<u8>>,
     cmp: &'a mut C,
     delegate_sorter: &'a mut T,
     k: Option<i32>,
@@ -163,7 +163,7 @@ where
 impl<'a, T, C> IntroSorterImpl<'a, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     pub fn new(
         cmp: &'a mut C,
@@ -186,7 +186,7 @@ where
 impl<T, C> Sorter for IntroSorterImpl<'_, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.delegate_sorter
@@ -235,23 +235,28 @@ where
 impl<T, C> IntroSorter for IntroSorterImpl<'_, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
 }
 
 pub trait StringSorterBase {
-    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()>;
+    fn get(
+        &mut self,
+        builder: &mut BytesRefBuilder<Vec<u8>>,
+        result: &mut BytesRef<Vec<u8>>,
+        i: i32,
+    ) -> Result<()>;
     fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
     where
         T: Sorter + StringSorterBase,
-        C: BytesRefComparator + Comparator<BytesRef>,
+        C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
         Self: Sorter + Sized,
     {
         IntroSorterImpl::new(cmp, self, k)
     }
     fn radix_sorter<'a, C1>(&'a mut self, cmp: &'a mut C1) -> impl Sorter + 'a
     where
-        C1: BytesRefComparator + Comparator<BytesRef>,
+        C1: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
         Self: Sorter + Sized,
     {
         let length = cmp.compared_bytes_count();

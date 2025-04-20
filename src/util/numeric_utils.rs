@@ -312,7 +312,7 @@ mod tests {
     ///correct ordering of the encoded bytes and that values round-trip.
     #[test]
     fn test_long_conversion_and_ordering() -> Result<()> {
-        let mut previous: Option<BytesRef> = None;
+        let mut previous: Option<BytesRef<Vec<u8>>> = None;
         let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
         for value in -100_000..100_000 {
             NumericUtils::long_to_sortable_bytes(
@@ -343,7 +343,7 @@ mod tests {
     /// correct ordering of the encoded bytes and that values round-trip.
     #[test]
     fn test_int_conversion_and_ordering() -> Result<()> {
-        let mut previous: Option<BytesRef> = None;
+        let mut previous: Option<BytesRef<Vec<u8>>> = None;
         let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
 
         for value in -100_000..100_000 {
@@ -376,7 +376,7 @@ mod tests {
         let mut random = random();
         // Generate a random size between 3 and 16
         let size = TestUtil::next_int(&mut random, 3, 16) as usize;
-        let mut previous: Option<BytesRef> = None;
+        let mut previous: Option<BytesRef<Vec<u8>>> = None;
         let mut current = BytesRef::from_bytes(vec![0u8; size]);
 
         for value in -100_000..100_000 {
@@ -432,7 +432,7 @@ mod tests {
             i64::MAX,
         ];
 
-        let mut encoded: Vec<BytesRef> = values
+        let mut encoded: Vec<BytesRef<Vec<u8>>> = values
             .iter()
             .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]))
             .collect();
@@ -487,7 +487,7 @@ mod tests {
             i32::MAX,
         ];
 
-        let mut encoded: Vec<BytesRef> = values
+        let mut encoded: Vec<BytesRef<Vec<u8>>> = values
             .iter()
             .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]))
             .collect();
@@ -540,7 +540,7 @@ mod tests {
             BigInt::from_i32(i32::MAX - 1).unwrap(),
             BigInt::from_i32(i32::MAX).unwrap(),
         ];
-        let mut encoded: Vec<BytesRef> = values
+        let mut encoded: Vec<BytesRef<Vec<u8>>> = values
             .iter()
             .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]))
             .collect();

@@ -68,7 +68,7 @@ impl LongHeap {
         if self.size == self.heap.len() {
             let new_capacity = (self.size * 3).div_ceil(2);
             debug_assert!(new_capacity <= i32::MAX as usize);
-            ArrayUtil::grow_with_len(&mut self.heap, new_capacity as i32);
+            ArrayUtil::grow_with_len(&mut self.heap, new_capacity);
         }
         self.heap[self.size] = element;
         self.up_heap(self.size);

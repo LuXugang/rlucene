@@ -119,7 +119,7 @@ where
         Ok(1)
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef<Vec<u8>>> {
         self.inner.borrow_mut().lookup_ord(ord as i32)
     }
 
@@ -127,7 +127,7 @@ where
         Ok(self.inner.borrow_mut().get_value_count()? as i64)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
         Ok(self.inner.borrow_mut().lookup_term(key)? as i64)
     }
 

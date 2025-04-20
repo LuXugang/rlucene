@@ -365,7 +365,7 @@ where
     doc_id_merger: DocIDMergerEnum<BinaryDocValuesSub<I>>,
     final_cost: i64,
     // TODO: could we avoid copy here?
-    bytes: BytesRef,
+    bytes: BytesRef<Vec<u8>>,
 }
 
 impl<I> DocValuesIterator for BinaryDocValuesMerge<I>
@@ -412,7 +412,7 @@ impl<I> BinaryDocValues for BinaryDocValuesMerge<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self) -> Result<&BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
         match self.current {
             Some(ref current) => {
                 let mut current = current.borrow_mut();

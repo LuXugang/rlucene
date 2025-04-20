@@ -876,7 +876,7 @@ where
                         let base = DenseBinaryDocValuesBaseImpl {
                             bytes_slice,
                             length: entry.max_length,
-                            bytes: BytesRef::from_vec(vec, 0, entry.max_length),
+                            bytes: BytesRef::from_slice(vec, 0, entry.max_length as usize),
                         };
                         DenseBinaryDocValuesBaseEnum::Dense(base)
                     } else {
@@ -898,7 +898,7 @@ where
                                 let vec = vec![0u8; entry.max_length as usize];
                                 let base = DenseBinaryDocValuesBaseImpl1 {
                                     bytes_slice,
-                                    bytes: BytesRef::from_vec(vec, 0, entry.max_length),
+                                    bytes: BytesRef::from_slice(vec, 0, entry.max_length as usize),
                                     addresses,
                                 };
                                 DenseBinaryDocValuesBaseEnum::Dense1(base)
@@ -929,7 +929,11 @@ where
                         let length = entry.max_length;
                         SparseBinaryDocValuesBaseEnum::Sparse(SparseBinaryDocValuesBaseImpl {
                             bytes_slice,
-                            bytes: BytesRef::from_vec(vec![0u8; length as usize], 0, length),
+                            bytes: BytesRef::from_slice(
+                                vec![0u8; length as usize],
+                                0,
+                                length as usize,
+                            ),
                             length,
                         })
                     } else {
@@ -954,10 +958,10 @@ where
                         };
                         SparseBinaryDocValuesBaseEnum::Sparse1(SparseBinaryDocValuesBaseImpl1 {
                             bytes_slice,
-                            bytes: BytesRef::from_vec(
+                            bytes: BytesRef::from_slice(
                                 vec![0u8; entry.max_length as usize],
                                 0,
-                                entry.max_length,
+                                entry.max_length as usize,
                             ),
                             addresses,
                         })
@@ -1415,7 +1419,7 @@ impl<I> BinaryDocValues for DenseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self) -> Result<&BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
         self.sub.binary_value(self.doc)
     }
 }
@@ -1470,7 +1474,7 @@ impl<I> BinaryDocValues for SparseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self) -> Result<&BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
         self.sub.binary_value(&mut self.disi)
     }
 }
@@ -1980,7 +1984,7 @@ where
 }
 
 pub trait DenseBinaryDocValuesBase {
-    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef>;
+    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>>;
 }
 
 pub struct DenseBinaryDocValuesBaseImpl<I>
@@ -1989,13 +1993,13 @@ where
 {
     bytes_slice: I::RandomAccessSlice,
     length: i32,
-    bytes: BytesRef,
+    bytes: BytesRef<Vec<u8>>,
 }
 impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef> {
+    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>> {
         self.bytes_slice.read_bytes(
             (doc * self.length) as i64,
             &mut self.bytes.bytes,
@@ -2010,18 +2014,22 @@ where
     I: IndexInput,
 {
     bytes_slice: I::RandomAccessSlice,
-    bytes: BytesRef,
+    bytes: BytesRef<Vec<u8>>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
 impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef> {
+    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>> {
         let start_offset = self.addresses.get(doc as i64)?;
-        self.bytes.length = (self.addresses.get((doc + 1) as i64)? - start_offset) as i32;
-        self.bytes_slice
-            .read_bytes(start_offset, &mut self.bytes.bytes, 0, self.bytes.length)?;
+        self.bytes.length = (self.addresses.get((doc + 1) as i64)? - start_offset) as usize;
+        self.bytes_slice.read_bytes(
+            start_offset,
+            &mut self.bytes.bytes,
+            0,
+            self.bytes.length as i32,
+        )?;
         Ok(&self.bytes)
     }
 }
@@ -2030,21 +2038,21 @@ pub trait SparseBinaryDocValuesBase<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef>;
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef<Vec<u8>>>;
 }
 pub struct SparseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
     bytes_slice: I::RandomAccessSlice,
-    bytes: BytesRef,
+    bytes: BytesRef<Vec<u8>>,
     length: i32,
 }
 impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef> {
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef<Vec<u8>>> {
         let pos = (disi.index() * self.length) as i64;
         self.bytes_slice
             .read_bytes(pos, &mut self.bytes.bytes, 0, self.length)?;
@@ -2056,19 +2064,23 @@ where
     I: IndexInput,
 {
     bytes_slice: I::RandomAccessSlice,
-    bytes: BytesRef,
+    bytes: BytesRef<Vec<u8>>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
 impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef> {
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef<Vec<u8>>> {
         let index = disi.index() as i64;
         let start_offset = self.addresses.get(index)?;
-        self.bytes.length = (self.addresses.get(index + 1)? - start_offset) as i32;
-        self.bytes_slice
-            .read_bytes(start_offset, &mut self.bytes.bytes, 0, self.bytes.length)?;
+        self.bytes.length = (self.addresses.get(index + 1)? - start_offset) as usize;
+        self.bytes_slice.read_bytes(
+            start_offset,
+            &mut self.bytes.bytes,
+            0,
+            self.bytes.length as i32,
+        )?;
         Ok(&self.bytes)
     }
 }
@@ -2313,7 +2325,7 @@ where
         self.sub.ord_value()
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
         self.terms_enum.seek_exact_with_ord(ord as i64)?;
         self.terms_enum.term()
     }
@@ -2323,7 +2335,7 @@ where
         Ok(v)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         match self.terms_enum.seek_ceil(key)? {
             SeekStatus::Found => {
                 let v = self.terms_enum.ord()?.try_into()?;
@@ -2657,7 +2669,7 @@ where
         self.sub.doc_value_count()
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef<Vec<u8>>> {
         self.terms_enum.seek_exact_with_ord(ord)?;
         self.terms_enum.term()
     }
@@ -2671,7 +2683,7 @@ where
         }
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
         match self.terms_enum.seek_ceil(key)? {
             SeekStatus::Found => Ok(self.terms_enum.ord()?),
             SeekStatus::NotFound | SeekStatus::End => {
@@ -2698,9 +2710,9 @@ where
     pub block_mask: u64,
     pub index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     pub index_bytes: I::RandomAccessSlice,
-    pub term: BytesRef,
+    pub term: BytesRef<Vec<u8>>,
     pub ord: i64,
-    pub block_buffer: BytesRef,
+    pub block_buffer: BytesRef<Vec<u8>>,
     pub block_input: ByteArrayDataInput,
     pub current_compressed_block_start: i64,
     pub current_compressed_block_end: i64,
@@ -2754,13 +2766,14 @@ where
         let index_bytes =
             data.random_access_slice(entry.terms_index_offset, entry.terms_index_length)?;
 
-        let term = BytesRef::with_capacity(entry.max_term_length);
+        let term = BytesRef::with_capacity(entry.max_term_length as usize);
         // add the max term length for the dictionary
         // add 7 padding bytes can help decompression run faster.
         let buffer_size =
             entry.max_block_length + entry.max_term_length + Self::LZ4_DECOMPRESSOR_PADDING;
 
-        let block_buffer = BytesRef::from_vec(vec![0u8; buffer_size as usize], 0, buffer_size);
+        let block_buffer =
+            BytesRef::from_slice(vec![0u8; buffer_size as usize], 0, buffer_size as usize);
         let block_input = ByteArrayDataInput::new(); // assuming default constructor
 
         Ok(Self {
@@ -2779,7 +2792,7 @@ where
         })
     }
 
-    fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef> {
+    fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef<Vec<u8>>> {
         debug_assert!(
             index >= 0
                 && index
@@ -2792,13 +2805,13 @@ where
         let start = self.index_addresses.get(index)?;
         let end = self.index_addresses.get(index + 1)?;
         let len = (end - start) as i32;
-        self.term.length = len;
+        self.term.length = len as usize;
 
         self.index_bytes
             .read_bytes(start, &mut self.term.bytes, 0, len)?;
         Ok(&self.term)
     }
-    fn seek_terms_index(&mut self, text: &BytesRef) -> Result<i64> {
+    fn seek_terms_index(&mut self, text: &BytesRef<Vec<u8>>) -> Result<i64> {
         let mut lo: i64 = 0;
         let mut hi: i64 = (self.entry.terms_dict_size - 1) >> self.entry.terms_dict_index_shift;
 
@@ -2829,7 +2842,7 @@ where
         );
         Ok(hi)
     }
-    fn get_first_term_from_block(&mut self, block: i64) -> Result<&BytesRef> {
+    fn get_first_term_from_block(&mut self, block: i64) -> Result<&BytesRef<Vec<u8>>> {
         debug_assert!(
             block >= 0
                 && block
@@ -2842,12 +2855,12 @@ where
         self.bytes.seek(block_address)?;
 
         let len = self.bytes.read_vint()?;
-        self.term.length = len;
+        self.term.length = len as usize;
         self.bytes.read_bytes(&mut self.term.bytes, 0, len)?;
 
         Ok(&self.term)
     }
-    fn seek_block(&mut self, text: &BytesRef) -> Result<i64> {
+    fn seek_block(&mut self, text: &BytesRef<Vec<u8>>) -> Result<i64> {
         let index = self.seek_terms_index(text)?;
 
         if index == -1 {
@@ -2907,9 +2920,9 @@ where
     fn decompress_block(&mut self) -> Result<()> {
         // The first term is kept uncompressed, so no need to decompress block if only
         // look up the first term when doing seek block.
-        self.term.length = self.bytes.read_vint()?;
+        self.term.length = self.bytes.read_vint()? as usize;
         self.bytes
-            .read_bytes(&mut self.term.bytes, 0, self.term.length)?;
+            .read_bytes(&mut self.term.bytes, 0, self.term.length as i32)?;
         let offset = self.bytes.get_file_pointer();
         if offset < self.entry.terms_data_length - 1 {
             // Avoid decompressing again if reading the same block
@@ -2918,16 +2931,16 @@ where
                 let block_buffer_len = self.bytes.read_vint()?;
 
                 self.block_buffer.offset = block_buffer_offset;
-                self.block_buffer.length = block_buffer_len;
+                self.block_buffer.length = block_buffer_len as usize;
                 // Decompress the remaining of current block, using the first term as a dictionary
                 self.block_buffer
                     .bytes
-                    .copy_from(&self.term.bytes[..block_buffer_offset as usize], 0);
+                    .copy_from(&self.term.bytes[..block_buffer_offset], 0);
                 LZ4::decompress(
                     &mut self.bytes,
                     block_buffer_len,
                     &mut self.block_buffer.bytes,
-                    block_buffer_offset,
+                    block_buffer_offset as i32,
                 )?;
 
                 self.current_compressed_block_start = offset;
@@ -2940,8 +2953,8 @@ where
             // Reset buffer reader
             self.block_input = ByteArrayDataInput::with_range(
                 std::mem::take(&mut self.block_buffer.bytes),
-                self.block_buffer.offset,
-                self.block_buffer.length,
+                self.block_buffer.offset as i32,
+                self.block_buffer.length as i32,
             );
         }
 
@@ -2953,7 +2966,7 @@ impl<I> BytesRefIterator for TermsDict<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         self.ord += 1;
         if self.ord >= self.entry.terms_dict_size {
             return Ok(None);
@@ -2974,7 +2987,7 @@ where
                 suffix_length += input.read_vint()?;
             }
 
-            self.term.length = prefix_length + suffix_length;
+            self.term.length = (prefix_length + suffix_length) as usize;
             input.read_bytes(&mut self.term.bytes, prefix_length, suffix_length)?;
         }
         Ok(Some(Cow::Borrowed(&self.term)))
@@ -2989,7 +3002,7 @@ where
         Err(LuceneError::not_implemented(""))
     }
 
-    fn seek_ceil(&mut self, text: &BytesRef) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         let block = self.seek_block(text)?;
         if block == -2 {
             // empty terms dict
@@ -3039,11 +3052,15 @@ where
         Ok(())
     }
 
-    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        _term: &BytesRef<Vec<u8>>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn term_ref(&self) -> Result<&BytesRef> {
+    fn term_ref(&self) -> Result<&BytesRef<Vec<u8>>> {
         Ok(&self.term)
     }
 

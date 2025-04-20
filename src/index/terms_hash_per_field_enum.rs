@@ -140,7 +140,11 @@ impl TermsHashPerFieldEnum {
     }
     /// Called once per inverted token. This is the primary entry point (for first TermsHash); postings
     /// use this API.
-    pub(crate) fn add_with_bytes_ref(&mut self, term_bytes: &BytesRef, doc_id: i32) -> Result<()> {
+    pub(crate) fn add_with_bytes_ref(
+        &mut self,
+        term_bytes: &BytesRef<Vec<u8>>,
+        doc_id: i32,
+    ) -> Result<()> {
         let mut term_id;
         {
             let parent = match self {

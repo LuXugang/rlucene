@@ -27,7 +27,7 @@ use crate::util::error::lucene_error::Result;
 /// This trait is useful for codecs to optimize flush.
 pub trait MutablePointTree: PointTree {
     /// Set `packed_value` with a reference to the packed bytes of the i-th value.
-    fn get_value(&self, i: i32, packed_value: &mut BytesRef);
+    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>);
 
     /// Get the k-th byte of the i-th value.
     fn get_byte_at(&self, i: i32, k: i32) -> u8;
@@ -61,7 +61,7 @@ impl Clone for MutablePointTreeEnum {
     }
 }
 impl MutablePointTree for MutablePointTreeEnum {
-    fn get_value(&self, i: i32, packed_value: &mut BytesRef) {
+    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>) {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.get_value(i, packed_value),

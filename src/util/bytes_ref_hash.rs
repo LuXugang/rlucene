@@ -18,7 +18,7 @@ use crate::index::terms_hash_per_field::{
     MTPostingsArrayWrapper, PostingsArrayWrapper, PostingsBytesStartArray, STPostingsArrayWrapper,
 };
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::Access;
+use crate::util::access::{Access, AccessVec};
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::array_util::ArrayUtil;
@@ -143,7 +143,7 @@ where
     ///
     /// # Returns
     /// The given [`BytesRef`] instance populated with the bytes for the given `bytesID`.
-    pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef) {
+    pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef<Vec<u8>>) {
         self.bytes_start_array.access_mut(|bytes_start_array| {
             debug_assert!(
                 bytes_start_array.len() > 0,
@@ -273,7 +273,7 @@ where
     ///
     /// # Errors
     /// Returns `MaxBytesLengthExceededException` if the given bytes are greater than 2 + [`ByteBlockPool::BYTE_BLOCK_SIZE`].
-    pub fn add(&mut self, bytes: &BytesRef) -> Result<i32> {
+    pub fn add(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i32> {
         debug_assert!(
             self.bytes_start_array
                 .access(|bytes_start_array| bytes_start_array.len() > 0),
@@ -324,19 +324,18 @@ where
     ///
     /// # Returns
     /// The id of the given bytes, or `-1` if there is no mapping for the given bytes.
-    pub fn find(&self, bytes: &BytesRef) -> i32 {
+    pub fn find(&self, bytes: &BytesRef<Vec<u8>>) -> i32 {
         let hash_pos = self.find_hash(bytes);
         self.ids[hash_pos as usize]
     }
-    fn find_hash(&self, bytes: &BytesRef) -> i32 {
+    fn find_hash(&self, bytes: &BytesRef<Vec<u8>>) -> i32 {
         self.bytes_start_array.access_mut(|bytes_start_array| {
             debug_assert!(
                 bytes_start_array.len() > 0,
                 "bytesStart is null - not initialized"
             );
 
-            let mut code =
-                BytesRefHash::do_hash(&bytes.bytes, bytes.offset as usize, bytes.length as usize);
+            let mut code = BytesRefHash::do_hash(&bytes.bytes, bytes.offset, bytes.length);
 
             // final position
             let mut hash_pos = code & self.hash_mask;
@@ -666,7 +665,12 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn get(&mut self, _builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
+    fn get(
+        &mut self,
+        _builder: &mut BytesRefBuilder<Vec<u8>>,
+        result: &mut BytesRef<Vec<u8>>,
+        i: i32,
+    ) -> Result<()> {
         self.bytes_start_array.access(|bytes_start_array| {
             let start = bytes_start_array.get_value(self.compact[i as usize] as usize);
             self.pool.fill_bytes_ref(result, start);
@@ -676,7 +680,7 @@ where
 
     fn radix_sorter<'b, C1>(&'b mut self, cmp: &'b mut C1) -> impl Sorter + 'b
     where
-        C1: BytesRefComparator + Comparator<BytesRef>,
+        C1: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
         Self: Sorter + Sized,
     {
         let length = cmp.compared_bytes_count();
@@ -763,13 +767,13 @@ where
 {
     fn init(&mut self) {
         self.bytes_start =
-            vec![0; ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES as i32) as usize];
+            vec![0; ArrayUtil::oversize(self.init_size as usize, BitUtil::INT_BYTES)];
     }
 
     fn grow(&mut self) -> Result<()> {
         debug_assert!(!self.bytes_start.is_empty());
         let length = self.bytes_start.len() as i32;
-        ArrayUtil::grow_i32(&mut self.bytes_start, length + 1)?;
+        ArrayUtil::grow_i32(&mut self.bytes_start, length as usize + 1)?;
         Ok(())
     }
 
@@ -871,7 +875,7 @@ pub(crate) type BytesStartArrayEnumLock =
 pub struct MSBStringHashRadixSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     cmp: &'a mut C,
     delegate_sorter: &'a mut T,
@@ -879,7 +883,7 @@ where
 impl<'a, T, C> MSBStringHashRadixSorter<'a, T, C>
 where
     T: Sorter + StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
         MSBStringHashRadixSorter {
@@ -892,7 +896,7 @@ where
 impl<T, C> Sorter for MSBStringHashRadixSorter<'_, T, C>
 where
     T: Sorter + StringSorterBase + MSBRadixSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
@@ -902,7 +906,7 @@ where
 impl<T, C> MSBRadixSorterBase for MSBStringHashRadixSorter<'_, T, C>
 where
     T: Sorter + StringSorterBase + MSBRadixSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef>,
+    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         self.delegate_sorter.byte_at(i, k)
@@ -1385,7 +1389,7 @@ mod tests {
             let mut ref_bytes = BytesRef::new();
             ref_bytes.bytes = vec![0; size as usize];
             ref_bytes.offset = 0;
-            ref_bytes.length = size;
+            ref_bytes.length = size as usize;
 
             match hash.add(&ref_bytes) {
                 Ok(key) => {

@@ -44,12 +44,13 @@ impl StringHelper {
     /// # Returns
     ///
     /// The number of common elements (from the start of each).
-    pub fn bytes_difference(prior_term: &BytesRef, current_term: &BytesRef) -> Result<i32> {
+    pub fn bytes_difference(
+        prior_term: &BytesRef<Vec<u8>>,
+        current_term: &BytesRef<Vec<u8>>,
+    ) -> Result<i32> {
         let mismatch = CoreHelper::miss_match(
-            &prior_term.bytes
-                [prior_term.offset as usize..(prior_term.offset + prior_term.length) as usize],
-            &current_term.bytes[current_term.offset as usize
-                ..(current_term.offset + current_term.length) as usize],
+            &prior_term.bytes[prior_term.offset..(prior_term.offset + prior_term.length)],
+            &current_term.bytes[current_term.offset..(current_term.offset + current_term.length)],
         );
 
         if mismatch < 0 {
@@ -73,7 +74,10 @@ impl StringHelper {
     /// # Returns
     ///
     /// The length needed for the sort key.
-    pub fn sort_key_length(prior_term: &BytesRef, current_term: &BytesRef) -> Result<i32> {
+    pub fn sort_key_length(
+        prior_term: &BytesRef<Vec<u8>>,
+        current_term: &BytesRef<Vec<u8>>,
+    ) -> Result<i32> {
         let difference = Self::bytes_difference(prior_term, current_term)?;
         Ok(difference + 1)
     }
@@ -88,14 +92,13 @@ impl StringHelper {
     /// # Returns
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-    pub fn starts_with_byte_array(ref_bytes: &[u8], prefix: &BytesRef) -> bool {
+    pub fn starts_with_byte_array(ref_bytes: &[u8], prefix: &BytesRef<Vec<u8>>) -> bool {
         // Not long enough to start with the prefix
-        if ref_bytes.len() < prefix.length as usize {
+        if ref_bytes.len() < prefix.length {
             return false;
         }
-        let ref_slice = &ref_bytes[0..prefix.length as usize];
-        let prefix_slice =
-            &prefix.bytes[prefix.offset as usize..(prefix.offset + prefix.length) as usize];
+        let ref_slice = &ref_bytes[0..prefix.length];
+        let prefix_slice = &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)];
         ref_slice == prefix_slice
     }
     /// Returns `true` if the given `ref` starts with the given `prefix`. Otherwise returns `false`.
@@ -108,7 +111,7 @@ impl StringHelper {
     /// # Returns
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-    pub fn starts_with_byte_ref(ref_bytes: &BytesRef, prefix: &BytesRef) -> bool {
+    pub fn starts_with_byte_ref(ref_bytes: &BytesRef<Vec<u8>>, prefix: &BytesRef<Vec<u8>>) -> bool {
         Self::starts_with(
             &ref_bytes.bytes,
             ref_bytes.offset,
@@ -120,11 +123,11 @@ impl StringHelper {
     }
     pub fn starts_with(
         ref_bytes: &[u8],
-        ref_offset: i32,
-        ref_length: i32,
+        ref_offset: usize,
+        ref_length: usize,
         prefix: &[u8],
-        prefix_offset: i32,
-        prefix_length: i32,
+        prefix_offset: usize,
+        prefix_length: usize,
     ) -> bool {
         // Not long enough to start with the prefix
         if ref_length < prefix_length {
@@ -132,9 +135,8 @@ impl StringHelper {
         }
 
         // Check if the prefix matches
-        let ref_slice = &ref_bytes[ref_offset as usize..(ref_offset + prefix_length) as usize];
-        let prefix_slice =
-            &prefix[prefix_offset as usize..(prefix_offset + prefix_length) as usize];
+        let ref_slice = &ref_bytes[ref_offset..(ref_offset + prefix_length)];
+        let prefix_slice = &prefix[prefix_offset..(prefix_offset + prefix_length)];
 
         ref_slice == prefix_slice
     }
@@ -149,17 +151,16 @@ impl StringHelper {
     /// # Returns
     ///
     /// `True` if `ref` ends with the given `suffix`, otherwise `false`.
-    pub fn ends_with(ref_bytes: &BytesRef, suffix: &BytesRef) -> bool {
+    pub fn ends_with(ref_bytes: &BytesRef<Vec<u8>>, suffix: &BytesRef<Vec<u8>>) -> bool {
         let start_at = ref_bytes.length - suffix.length;
         // Not long enough to start with the suffix
         if start_at < 0 {
             return false;
         }
 
-        let ref_slice = &ref_bytes.bytes[ref_bytes.offset as usize + start_at as usize
-            ..(ref_bytes.offset + start_at + suffix.length) as usize];
-        let suffix_slice =
-            &suffix.bytes[suffix.offset as usize..(suffix.offset + suffix.length) as usize];
+        let ref_slice = &ref_bytes.bytes
+            [ref_bytes.offset + start_at..(ref_bytes.offset + start_at + suffix.length)];
+        let suffix_slice = &suffix.bytes[suffix.offset..(suffix.offset + suffix.length)];
         ref_slice == suffix_slice
     }
 
@@ -230,13 +231,13 @@ impl StringHelper {
         // Return the final hash value as i32
         h1 ^ ((h1 as u32 >> 16) as i32)
     }
-    pub fn murmurhash3_x86_32(bytes: &BytesRef, seed: i32) -> i32 {
-        Self::murmurhash3_x86_32_with_byte(
-            &bytes.bytes,
-            bytes.offset as usize,
-            bytes.length as usize,
-            seed,
-        )
+    pub fn murmurhash3_x86_32<AV>(bytes: &BytesRef<AV>, seed: i32) -> i32
+    where
+        AV: AccessVec<u8>,
+    {
+        bytes.bytes.access(|bytes_ref| {
+            Self::murmurhash3_x86_32_with_byte(bytes_ref, bytes.offset, bytes.length, seed)
+        })
     }
 
     pub const ID_LENGTH: i32 = 16;
@@ -261,7 +262,9 @@ impl StringHelper {
             "(null)".to_string()
         }
     }
-    pub fn ints_ref_to_bytes_ref<AW: AccessVec<i32>>(_ints: IntsRef<AW>) -> Result<BytesRef> {
+    pub fn ints_ref_to_bytes_ref<AW: AccessVec<i32>>(
+        _ints: IntsRef<AW>,
+    ) -> Result<BytesRef<Vec<u8>>> {
         unimplemented!()
     }
 }

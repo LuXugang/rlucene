@@ -102,7 +102,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef> {
+        fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef<Vec<u8>>> {
             todo!()
         }
 
@@ -110,7 +110,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, _key: &BytesRef) -> Result<i32> {
+        fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i32> {
             todo!()
         }
 
@@ -196,7 +196,7 @@ pub mod doc_values {
     where
         I: IndexInput,
     {
-        fn binary_value(&mut self) -> Result<&BytesRef> {
+        fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
             match self {
                 BinaryDocValuesEnum::Dense(dense) => dense.binary_value(),
                 BinaryDocValuesEnum::Sparse(sparse) => sparse.binary_value(),
@@ -354,7 +354,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef> {
+        fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef<Vec<u8>>> {
             todo!()
         }
 
@@ -362,7 +362,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+        fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
             todo!()
         }
 
@@ -431,7 +431,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef> {
+        fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef<Vec<u8>>> {
             todo!()
         }
 
@@ -439,7 +439,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, _key: &BytesRef) -> Result<i64> {
+        fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i64> {
             todo!()
         }
 

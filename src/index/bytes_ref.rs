@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::array_util::ArrayUtil;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{StringHelper, GOOD_FAST_HASH_SEED};
+use crate::with_other;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -25,108 +26,113 @@ use std::hash::Hash;
 /// The `bytes` member should never be `None`;
 ///
 /// # Important Note
-/// Unless otherwise noted, this struct is used to represent terms encoded as **UTF-8** bytes in the index.
-/// To convert them to a Rust `String` (which is UTF-8), use [`utf8_to_string`](#method.utf8_to_string).
-/// Using code like `String::from_utf8_lossy(&bytes[offset..offset+length])` is the correct way to handle this.
+/// To convert them to a Rust `String` (which is UTF-8), use `utf8_to_string`.
+/// Using code like `String::from_utf8_lossy(&bytes[offset.offset+length])` is the correct way to handle this.
 /// Avoid constructing strings incorrectly, as it may result in wrong results.
 ///
 /// # Sorting
 /// This struct implements `Ord`. The underlying byte arrays are sorted lexicographically, treating elements as unsigned.
 /// This is identical to Unicode codepoint order.
-#[derive(Debug)]
-pub struct BytesRef {
+#[derive(Debug, Default)]
+pub struct BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
     /// The contents of the BytesRef
-    pub bytes: Vec<u8>,
-    pub offset: i32,
-    pub length: i32,
-}
-impl Default for BytesRef {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub bytes: AV,
+    pub offset: usize,
+    pub length: usize,
 }
 
-impl BytesRef {
-    pub fn new() -> BytesRef {
+impl<AV> BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
+    pub fn new() -> Self {
         BytesRef {
-            bytes: Vec::new(),
+            bytes: AV::new(),
             offset: 0,
             length: 0,
         }
     }
-    pub fn from_vec(bytes: Vec<u8>, offset: i32, length: i32) -> BytesRef {
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        BytesRef {
+            bytes: AV::with_capacity(capacity),
+            offset: 0,
+            length: 0,
+        }
+    }
+    pub fn from_slice(bytes: AV, offset: usize, length: usize) -> Self {
         BytesRef {
             bytes,
             offset,
             length,
         }
     }
-    pub fn from_bytes(bytes: Vec<u8>) -> BytesRef {
-        debug_assert!(bytes.len() <= i32::MAX as usize);
-        let length = bytes.len() as i32;
+    /// This instance will directly share/ownership bytes w/o making a copy
+    pub fn from_bytes(bytes: AV) -> Self {
+        let len = bytes.len();
         BytesRef {
             bytes,
             offset: 0,
-            length,
+            length: len,
         }
     }
-    pub fn with_capacity(capacity: i32) -> BytesRef {
+    /// Initialize the `&[u8]` from the UTF-8 bytes for the provided `String`.
+    pub fn from_string(s: &str) -> Self {
+        let container = AV::from_vec(s.as_bytes().to_vec());
+        let len = s.len();
         BytesRef {
-            bytes: vec![0; capacity as usize],
+            bytes: container,
             offset: 0,
-            length: 0,
+            length: len,
         }
     }
-    pub fn from_string(s: &str) -> BytesRef {
-        debug_assert!(s.len() <= i32::MAX as usize);
-        BytesRef {
-            bytes: s.as_bytes().to_vec(),
-            offset: 0,
-            length: s.len() as i32,
-        }
-    }
+
     /// Expert: compares the bytes against another BytesRef, returning true if the bytes are equal.
     ///
     /// # Arguments
     /// * `other` - Another BytesRef
-    ///
-    /// # Note
-    /// This is an internal method.
-    pub fn bytes_equals(&self, other: &BytesRef) -> bool {
-        self.bytes[self.offset as usize..(self.offset + self.length) as usize]
-            == other.bytes[other.offset as usize..(other.offset + other.length) as usize]
+    pub fn bytes_equals(&self, other: &BytesRef<AV>) -> bool {
+        with_other!(self.bytes, other.bytes, |ints_bytes, other_bytes| {
+            let self_slice = &ints_bytes[self.offset..(self.offset + self.length)];
+            let other_slice = &other_bytes[other.offset..(other.offset + other.length)];
+            self_slice == other_slice
+        })
     }
     /// Interprets the stored bytes as UTF-8, returning the resulting string.
     pub fn utf8_to_string(&self) -> Result<String> {
-        std::str::from_utf8(&self.bytes[self.offset as usize..(self.offset + self.length) as usize])
-            .map(|s| s.to_owned())
-            .map_err(LuceneError::Utf8Error)
+        self.bytes.access(|bytes| {
+            std::str::from_utf8(&bytes[self.offset..(self.offset + self.length)])
+                .map(|s| s.to_owned())
+                .map_err(LuceneError::Utf8Error)
+        })
     }
-    /// Creates a new `BytesRef` that points to a copy of the bytes from `other`.
-    ///
-    /// The returned `BytesRef` will have a length equal to `other.length` and an offset of zero.
-    pub fn deep_copy_of(other: &BytesRef) -> BytesRef {
-        let bytes =
-            ArrayUtil::copy_of_sub_array(&other.bytes, other.offset, other.offset + other.length);
-        BytesRef::from_vec(bytes, 0, other.length)
+    pub fn deep_copy_of(other: &BytesRef<AV>) -> Self {
+        BytesRef::from_slice(
+            other.bytes.slice_clone(other.offset, other.length),
+            0,
+            other.length,
+        )
     }
     /// Performs internal consistency checks. Always returns `true` (or throws `IllegalStateError`).
     pub fn is_valid(&self) -> Result<bool> {
-        if self.length as usize > self.bytes.len() {
+        if self.length > self.bytes.len() {
             return Err(LuceneError::illegal_state(format!(
                 "length is out of bounds: {},bytes.length= {}",
                 self.length,
                 self.bytes.len()
             )));
         }
-        if self.offset as usize > self.bytes.len() {
+        if self.offset > self.bytes.len() {
             return Err(LuceneError::illegal_state(format!(
                 "offset out of bounds: {},bytes.length= {}",
                 self.offset,
                 self.bytes.len()
             )));
         }
-        if (self.offset + self.length) as usize > self.bytes.len() {
+        if (self.offset + self.length) > self.bytes.len() {
             return Err(LuceneError::illegal_state(format!(
                 "offset+length out of bounds: offset={},length={},bytes.length= {}",
                 self.offset,
@@ -137,22 +143,33 @@ impl BytesRef {
         Ok(true)
     }
 }
-impl PartialOrd for BytesRef {
+impl<AV> PartialOrd for BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Eq for BytesRef {}
+impl<AV> Eq for BytesRef<AV> where AV: AccessVec<u8> {}
 
-impl Ord for BytesRef {
+impl<AV> Ord for BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn cmp(&self, other: &Self) -> Ordering {
-        self.bytes[self.offset as usize..(self.offset + self.length) as usize]
-            .cmp(&other.bytes[other.offset as usize..(other.offset + other.length) as usize])
+        with_other!(self.bytes, other.bytes, |bytes, other_bytes| {
+            bytes[self.offset..(self.offset + self.length)]
+                .cmp(&other_bytes[other.offset..(other.offset + other.length)])
+        })
     }
 }
 
-impl Clone for BytesRef {
+impl<AV> Clone for BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn clone(&self) -> Self {
         BytesRef {
             bytes: self.bytes.clone(),
@@ -161,33 +178,41 @@ impl Clone for BytesRef {
         }
     }
 }
-impl Hash for BytesRef {
+impl<AV> Hash for BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let hash = StringHelper::murmurhash3_x86_32(self, *GOOD_FAST_HASH_SEED);
         hash.hash(state)
     }
 }
-impl PartialEq for BytesRef {
+impl<AV> PartialEq for BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn eq(&self, other: &Self) -> bool {
         self.bytes_equals(other)
     }
 }
-impl Display for BytesRef {
+impl<AV> Display for BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "[")?;
-        let end = self.offset + self.length;
+        self.bytes.access(|bytes| {
+            write!(f, "[")?;
+            let end = self.offset + self.length;
 
-        for (i, &byte) in self.bytes[self.offset as usize..end as usize]
-            .iter()
-            .enumerate()
-        {
-            if i > 0 {
-                write!(f, " ")?;
+            for (i, &byte) in bytes[self.offset..end].iter().enumerate() {
+                if i > 0 {
+                    write!(f, " ")?;
+                }
+                write!(f, "{:02x}", byte)?;
             }
-            write!(f, "{:02x}", byte)?;
-        }
-
-        write!(f, "]")
+            write!(f, "]")?;
+            Ok(())
+        })
     }
 }
 
@@ -196,6 +221,7 @@ mod tests {
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
+    use crate::util::error::lucene_error::Result;
     use rand::distr::Alphanumeric;
     use rand::Rng;
     use std::ptr;
@@ -205,13 +231,13 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        let b = BytesRef::new();
+        let b: BytesRef<Vec<u8>> = BytesRef::new();
         assert_eq!(b.bytes.len(), 0);
         assert_eq!(b.length, 0);
         assert_eq!(b.offset, 0);
     }
     #[test]
-    fn test_from_bytes() {
+    fn test_from_bytes() -> Result<()> {
         let mut bytes: Vec<u8> = "abcd".as_bytes().to_vec();
         let b = BytesRef::from_bytes(bytes.clone());
         assert_eq!(bytes, b.bytes);
@@ -219,15 +245,15 @@ mod tests {
         assert_eq!(b.offset, 0);
 
         bytes = "abcd".as_bytes().to_vec();
-        let b2 = BytesRef::from_vec(bytes, 1, 3);
-        let b2_value = b2.utf8_to_string();
-        assert!(b2_value.is_ok());
-        assert_eq!("bcd", b2_value.unwrap());
+        let b2 = BytesRef::from_slice(bytes, 1, 3);
+        let b2_value = b2.utf8_to_string()?;
+        assert_eq!("bcd", b2_value);
 
         assert!(!b.eq(&b2));
+        Ok(())
     }
     #[test]
-    fn test_from_chars() {
+    fn test_from_chars() -> Result<()> {
         let mut random = random();
         let length = random.random_range(1000..100000);
         for _i in 0..100 {
@@ -236,21 +262,23 @@ mod tests {
                 .take(length)
                 .map(char::from)
                 .collect::<String>();
-            let s2 = BytesRef::from_string(&s).utf8_to_string().unwrap();
+            let s2: String = BytesRef::<Vec<u8>>::from_string(&s).utf8_to_string()?;
             assert_eq!(s, s2);
         }
         let s = TestUtil::random_unicode_string(&mut random);
-        let s2 = BytesRef::from_string(&s).utf8_to_string().unwrap();
+        let s2 = BytesRef::<Vec<u8>>::from_string(&s).utf8_to_string()?;
         assert_eq!(s, s2);
+        Ok(())
     }
 
     #[test]
-    fn test_deep_copy() {
+    fn test_deep_copy() -> Result<()> {
         let from = BytesRef::from_bytes("abcd".as_bytes().to_vec());
         let copy = BytesRef::deep_copy_of(&from);
         let from_ref = &from;
         assert!(from.eq(&copy));
         assert_ne!(ptr::addr_of!(from), ptr::addr_of!(copy));
         assert!(ptr::addr_of!(from) == from_ref);
+        Ok(())
     }
 }

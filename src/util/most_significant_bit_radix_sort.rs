@@ -322,7 +322,7 @@ pub struct MSBRadixIntroSorterImpl<'a, T>
 where
     T: Sorter + MSBRadixSorterBase,
 {
-    pivot: BytesRefBuilder,
+    pivot: BytesRefBuilder<Vec<u8>>,
     max_length: i32,
     k: i32,
     delegate_sorter: &'a mut T,
@@ -366,19 +366,19 @@ where
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
-            let b2 = self.delegate_sorter.byte_at(j, self.k + o)?;
+            let b2 = self.delegate_sorter.byte_at(j, self.k + o as i32)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             }
         }
 
-        if self.k + self.pivot.length() == self.max_length {
+        if self.k + self.pivot.length() as i32 == self.max_length {
             Ok(0)
         } else {
             Ok(-1
                 - self
                     .delegate_sorter
-                    .byte_at(j, self.k + self.pivot.length())?)
+                    .byte_at(j, self.k + self.pivot.length() as i32)?)
         }
     }
 
@@ -493,13 +493,13 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestMSBRadixSorter;
 
-    fn test(refs: &mut [BytesRef], len: usize, random: &mut StdRng) -> Result<()> {
-        let mut expected: Vec<BytesRef> = refs[..len].to_vec();
+    fn test(refs: &mut [BytesRef<Vec<u8>>], len: usize, random: &mut StdRng) -> Result<()> {
+        let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
         expected.sort();
 
         let mut max_length: i32 = 0;
         for ref_item in &refs[..len] {
-            max_length = max_length.max(ref_item.length);
+            max_length = max_length.max(ref_item.length as i32);
         }
 
         match random.random_range(0..3) {
@@ -519,7 +519,7 @@ mod tests {
     #[test]
     fn test_empty() -> Result<()> {
         let mut random = random();
-        let mut refs: Vec<BytesRef> = vec![BytesRef::default(); random.random_range(0..5)];
+        let mut refs: Vec<BytesRef<Vec<u8>>> = vec![BytesRef::default(); random.random_range(0..5)];
         assert!(test(&mut refs, 0, &mut random).is_ok());
         test(&mut refs, 0, &mut random)
     }
@@ -546,7 +546,8 @@ mod tests {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.random_range(0..10000);
-        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.random_range(0..50));
+        let mut bytes: Vec<BytesRef<Vec<u8>>> =
+            Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
             let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len) as usize];
             random.fill_bytes(&mut b[common_prefix_len..]);
@@ -619,7 +620,7 @@ mod tests {
             substrings_set.insert(br);
         }
 
-        let substrings: Vec<BytesRef> = Vec::from_iter(substrings_set);
+        let substrings: Vec<BytesRef<Vec<u8>>> = Vec::from_iter(substrings_set);
         let mut chance = vec![0.0; substrings.len()];
         let mut sum = 0.0;
 
@@ -658,17 +659,17 @@ mod tests {
         }
 
         // Run test with generated strings
-        let strings: Vec<BytesRef> = strings_set.into_iter().collect();
+        let strings: Vec<BytesRef<Vec<u8>>> = strings_set.into_iter().collect();
         test(&mut strings.clone(), strings.len(), &mut random)
     }
 
     pub struct MSBRadixSorterImpl {
         final_max_length: i32,
-        refs: Vec<BytesRef>,
+        refs: Vec<BytesRef<Vec<u8>>>,
     }
 
     impl MSBRadixSorterImpl {
-        fn new(final_max_length: i32, refs: Vec<BytesRef>) -> Self {
+        fn new(final_max_length: i32, refs: Vec<BytesRef<Vec<u8>>>) -> Self {
             Self {
                 final_max_length,
                 refs,
@@ -686,10 +687,10 @@ mod tests {
             );
 
             let ref_item = &self.refs[i as usize];
-            if ref_item.length <= k {
+            if ref_item.length <= k as usize {
                 Ok(-1)
             } else {
-                Ok(ref_item.bytes[ref_item.offset as usize + k as usize] as i32)
+                Ok(ref_item.bytes[ref_item.offset + k as usize] as i32)
             }
         }
     }

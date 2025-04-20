@@ -56,7 +56,10 @@ impl Util {
         }
     }
     /// Looks up the output for this input, or `None` if the input is not accepted.
-    pub fn get_bytes<T, O, F>(fst: &mut FST<T, O, F>, input: &BytesRef) -> Result<Option<T>>
+    pub fn get_bytes<T, O, F>(
+        fst: &mut FST<T, O, F>,
+        input: &BytesRef<Vec<u8>>,
+    ) -> Result<Option<T>>
     where
         T: OutputsBound,
         O: Outputs<T>,
@@ -69,8 +72,8 @@ impl Util {
         fst.get_first_arc(&mut arc);
         let mut output = fst.outputs.get_no_output();
 
-        for i in 0..input.length as usize {
-            let label = input.bytes[input.offset as usize + i] as i32;
+        for i in 0..input.length {
+            let label = input.bytes[input.offset + i] as i32;
             let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);

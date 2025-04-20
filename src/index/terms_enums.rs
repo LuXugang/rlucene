@@ -42,7 +42,7 @@ impl<I> BytesRefIterator for TermsEnums<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         todo!()
     }
 }
@@ -55,11 +55,11 @@ where
         todo!()
     }
 
-    fn seek_exact(&mut self, _term: &BytesRef) -> Result<bool> {
+    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
         todo!()
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         todo!()
     }
 
@@ -67,15 +67,19 @@ where
         todo!()
     }
 
-    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        _term: &BytesRef<Vec<u8>>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
         todo!()
     }
 
-    fn term(&self) -> Result<BytesRef> {
+    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
         todo!()
     }
 
-    fn term_ref(&self) -> Result<&BytesRef> {
+    fn term_ref(&self) -> Result<&BytesRef<Vec<u8>>> {
         todo!()
     }
 

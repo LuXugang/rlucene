@@ -119,6 +119,7 @@ impl PostingsArrayBase for FreqProxPostingsArray {
     fn copy_to(&mut self, new_size: i32) -> Result<()> {
         self.parent_postings_array.copy_to(new_size)?;
         self.size = new_size;
+        let new_size = new_size as usize;
         ArrayUtil::grow_exact(&mut self.last_doc_ids, new_size)?;
         ArrayUtil::grow_exact(&mut self.last_doc_codes, new_size)?;
         if self.last_positions.is_some() {

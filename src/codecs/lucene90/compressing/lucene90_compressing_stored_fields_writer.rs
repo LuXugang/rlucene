@@ -624,7 +624,7 @@ where
     }
     fn finish_document(&mut self) -> Result<()> {
         if self.num_buffered_docs as usize == self.num_stored_fields.len() {
-            let new_len = ArrayUtil::oversize(self.num_buffered_docs + 1, 4);
+            let new_len = ArrayUtil::oversize(self.num_buffered_docs as usize + 1, 4);
             ArrayUtil::grow_exact(&mut self.num_stored_fields, new_len)?;
             ArrayUtil::grow_exact(&mut self.end_offsets, new_len)?;
         }
@@ -691,14 +691,17 @@ where
         Ok(())
     }
 
-    fn write_field_bytes(&mut self, info: &FieldInfo, value: &BytesRef) -> Result<()> {
+    fn write_field_bytes(&mut self, info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
         self.num_stored_fields_in_doc += 1;
         let info_and_bits =
             ((info.number as i64) << *TYPE_BITS) | lucene90_csfw_util::BYTE_ARR as i64;
         self.buffered_docs.write_vlong(info_and_bits)?;
-        self.buffered_docs.write_vint(value.length)?;
-        self.buffered_docs
-            .write_bytes_range(&value.bytes, value.offset, value.length)?;
+        self.buffered_docs.write_vint(value.length as i32)?;
+        self.buffered_docs.write_bytes_range(
+            &value.bytes,
+            value.offset as i32,
+            value.length as i32,
+        )?;
         Ok(())
     }
 

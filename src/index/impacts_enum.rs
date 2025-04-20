@@ -43,7 +43,7 @@ impl PostingsEnum for ImpactsEnumEnum {
         todo!()
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef>> {
+    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
         todo!()
     }
 }

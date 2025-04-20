@@ -206,8 +206,8 @@ pub mod indexed_disi_util {
         let mut total_cardinality = 0;
         let mut block_cardinality = 0;
         let mut buffer = FixedBitSet::new(1 << 16);
-        let jumps_len = ArrayUtil::oversize(1, (BitUtil::INT_BYTES * 2) as i32);
-        let mut jumps: Vec<i32> = vec![0; jumps_len as usize];
+        let jumps_len = ArrayUtil::oversize(1, BitUtil::INT_BYTES * 2);
+        let mut jumps: Vec<i32> = vec![0; jumps_len];
         let mut prev_block = -1;
         let mut jump_block_index = 0;
 
@@ -420,7 +420,7 @@ pub mod indexed_disi_util {
             offset < i32::MAX as i64,
             "Logically the offset should not exceed 2^30 but was >= i32::MAX"
         );
-        ArrayUtil::grow_i32(jumps, (end_block + 1) * 2)?;
+        ArrayUtil::grow_i32(jumps, ((end_block + 1) * 2) as usize)?;
         for b in start_block..end_block {
             let i = (b * 2) as usize;
             jumps[i] = index;

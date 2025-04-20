@@ -42,7 +42,7 @@ impl DummyTermsEnum {
     }
 }
 impl BytesRefIterator for DummyTermsEnum {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -55,7 +55,7 @@ impl TermsEnum for DummyTermsEnum {
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -67,13 +67,17 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
-    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        _term: &BytesRef<Vec<u8>>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn term(&self) -> Result<BytesRef> {
+    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

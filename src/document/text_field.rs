@@ -148,7 +148,7 @@ impl IndexableField for TextField {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
         self.parent_field.binary_value()
     }
 

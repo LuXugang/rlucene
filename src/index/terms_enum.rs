@@ -43,7 +43,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// Attempts to seek to the exact term.
     ///
     /// Returns `true` if the term is found; `false` if the enum is unpositioned.
-    fn seek_exact(&mut self, term: &BytesRef) -> Result<bool> {
+    fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
         Ok(self.seek_ceil(term)? == SeekStatus::Found)
     }
 
@@ -58,7 +58,10 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that the
     /// term may not exist without performing any I/O.
-    fn prepare_seek_exact(&mut self, text: BytesRef) -> Result<impl FnMut() -> Result<bool> + '_> {
+    fn prepare_seek_exact(
+        &mut self,
+        text: BytesRef<Vec<u8>>,
+    ) -> Result<impl FnMut() -> Result<bool> + '_> {
         Ok(move || self.seek_exact(&text))
     }
 
@@ -67,7 +70,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// a different term was found, or EOF was hit.
     /// The target term may be before or after the current term.
     /// If this returns `SeekStatus::End`, the enum is unpositioned.
-    fn seek_ceil(&mut self, term: &BytesRef) -> Result<SeekStatus>;
+    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus>;
 
     /// Seeks to the specified term by ordinal (position) as previously returned by [`ord()`](TermsEnum::ord).
     /// The target ordinal may be before or after the current ordinal, and must be within bounds.
@@ -88,13 +91,17 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// - `term`: the term the [`TermState`] corresponds to
     /// - `state`: the [`TermState`]
-    fn seek_exact_with_state(&mut self, term: &BytesRef, state: &TermStateEnum) -> Result<()>;
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<Vec<u8>>,
+        state: &TermStateEnum,
+    ) -> Result<()>;
 
     /// Returns current term. Do not call this when the enum is unpositioned.
-    fn term(&self) -> Result<BytesRef> {
+    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
         Err(LuceneError::need_implemented("this method need implement"))
     }
-    fn term_ref(&self) -> Result<&BytesRef> {
+    fn term_ref(&self) -> Result<&BytesRef<Vec<u8>>> {
         Err(LuceneError::need_implemented("this method need implement"))
     }
 
@@ -172,7 +179,7 @@ impl<I> BytesRefIterator for TermsEnumEmpty<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         Ok(None)
     }
 }
@@ -185,7 +192,7 @@ where
         todo!()
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         Ok(SeekStatus::End)
     }
 
@@ -193,13 +200,17 @@ where
         Ok(())
     }
 
-    fn seek_exact_with_state(&mut self, _term: &BytesRef, _state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        _term: &BytesRef<Vec<u8>>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
     }
 
-    fn term(&self) -> Result<BytesRef> {
+    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))

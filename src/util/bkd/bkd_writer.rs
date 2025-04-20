@@ -82,8 +82,8 @@ where
     max_mb_sort_in_heap: f64,
     scratch_diff: Vec<u8>,
     scratch: Vec<u8>,
-    scratch_bytes_ref1: BytesRef,
-    scratch_bytes_ref2: BytesRef,
+    scratch_bytes_ref1: BytesRef<Vec<u8>>,
+    scratch_bytes_ref2: BytesRef<Vec<u8>>,
     common_prefix_lengths: Vec<i32>,
     docs_seen: FixedBitSet,
     point_writer: Option<PointWriterEnum<D>>,
@@ -309,21 +309,21 @@ where
         }
         values.get_value(from, &mut self.scratch_bytes_ref1);
         min_packed_value.copy_from(
-            &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset as usize
-                ..(self.scratch_bytes_ref1.offset + self.config.packed_index_bytes_length())
-                    as usize],
+            &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
+                ..self.scratch_bytes_ref1.offset
+                    + self.config.packed_index_bytes_length() as usize],
             0,
         );
         max_packed_value.copy_from(
-            &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset as usize
-                ..(self.scratch_bytes_ref1.offset + self.config.packed_index_bytes_length())
-                    as usize],
+            &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
+                ..self.scratch_bytes_ref1.offset
+                    + self.config.packed_index_bytes_length() as usize],
             0,
         );
 
         for i in from + 1..to {
             values.get_value(i, &mut self.scratch_bytes_ref1);
-            let offset = self.scratch_bytes_ref1.offset as usize;
+            let offset = self.scratch_bytes_ref1.offset;
             for dim in 0..self.config.num_index_dims {
                 let start_offset = (dim * self.config.bytes_per_dim) as usize;
                 let end_offset = start_offset + self.config.bytes_per_dim as usize;
@@ -434,7 +434,7 @@ where
         );
 
         let split_packed_values =
-            BytesRef::from_vec(split_packed_values, self.config.bytes_per_dim, 0);
+            BytesRef::from_slice(split_packed_values, self.config.bytes_per_dim as usize, 0);
 
         self.make_writer(
             split_packed_values,
@@ -654,9 +654,9 @@ where
         }
 
         self.scratch_bytes_ref1.bytes = split_packed_values.clone();
-        self.scratch_bytes_ref1.length = self.config.bytes_per_dim;
+        self.scratch_bytes_ref1.length = self.config.bytes_per_dim as usize;
         let split_packed_values =
-            BytesRef::from_vec(split_packed_values, self.config.bytes_per_dim, 0);
+            BytesRef::from_slice(split_packed_values, self.config.bytes_per_dim as usize, 0);
 
         self.make_writer(
             split_packed_values,
@@ -668,7 +668,7 @@ where
 
     fn make_writer(
         &self,
-        split_packed_values: BytesRef,
+        split_packed_values: BytesRef<Vec<u8>>,
         split_dimension_values: Vec<u8>,
         leaf_block_fps: Vec<i64>,
         data_start_fp: i64,
@@ -1183,8 +1183,8 @@ where
                     suffix_length,
                 )?;
 
-                out.write_bytes_range(&min.bytes, min.offset, min.length)?;
-                out.write_bytes_range(&max.bytes, max.offset, max.length)?;
+                out.write_bytes_range(&min.bytes, min.offset as i32, min.length as i32)?;
+                out.write_bytes_range(&max.bytes, max.offset as i32, max.length as i32)?;
             }
         }
         Ok(())
@@ -1197,17 +1197,17 @@ where
         packed_values: &mut F,
         offset: i32,
         length: i32,
-    ) -> Result<(BytesRef, BytesRef)>
+    ) -> Result<(BytesRef<Vec<u8>>, BytesRef<Vec<u8>>)>
     where
         F: FnMut(i32) -> PackedValueResult,
     {
         debug_assert!(length > 0);
         let (bytes_ref, first_offset, _first_length) = packed_values(0)?;
-        let mut min = BytesRefBuilder::new();
-        let mut max = BytesRefBuilder::new();
+        let mut min: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
+        let mut max: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
         let bytes = bytes_ref.borrow();
-        min.copy_bytes_with_vec(&bytes, first_offset + offset, length);
-        max.copy_bytes_with_vec(&bytes, first_offset + offset, length);
+        min.copy_bytes_with_vec(&bytes, (first_offset + offset) as usize, length as usize);
+        max.copy_bytes_with_vec(&bytes, (first_offset + offset) as usize, length as usize);
 
         let length_usize = length as usize;
         let offset_usize = offset as usize;
@@ -1223,7 +1223,11 @@ where
                 .to_int()
                 > 0
             {
-                min.copy_bytes_with_vec(&candidate_bytes, candidate_offset + offset, length);
+                min.copy_bytes_with_vec(
+                    &candidate_bytes,
+                    (candidate_offset + offset) as usize,
+                    length as usize,
+                );
             } else if max.bytes_ref().bytes[0..length_usize]
                 .cmp(
                     &candidate_bytes[candidate_offset_usize + offset_usize
@@ -1232,10 +1236,14 @@ where
                 .to_int()
                 < 0
             {
-                max.copy_bytes_with_vec(&candidate_bytes, candidate_offset + offset, length)
+                max.copy_bytes_with_vec(
+                    &candidate_bytes,
+                    (candidate_offset + offset) as usize,
+                    length as usize,
+                )
             }
         }
-        Ok((min.get_bytes_owner(), max.get_bytes_owner()))
+        Ok((min.get_bytes(), max.get_bytes()))
     }
     fn write_leaf_block_packed_values_range<F>(
         &self,
@@ -1430,9 +1438,9 @@ where
                             .common_prefix_comparator
                             .compare(
                                 &self.scratch_bytes_ref1.bytes,
-                                self.scratch_bytes_ref1.offset as usize + offset,
+                                self.scratch_bytes_ref1.offset + offset,
                                 &self.scratch_bytes_ref2.bytes,
-                                self.scratch_bytes_ref2.offset as usize + offset,
+                                self.scratch_bytes_ref2.offset + offset,
                             )
                             .min(dimension_prefix_length);
                     }
@@ -1489,9 +1497,9 @@ where
                         let start = (dim * self.config.bytes_per_dim) as usize;
                         if !self.equals_predicate.test(
                             &collector.bytes,
-                            collector.offset as usize + start,
+                            collector.offset + start,
                             &comparator.bytes,
-                            comparator.offset as usize + start,
+                            comparator.offset + start,
                         ) {
                             leaf_cardinality += 1;
                             std::mem::swap(&mut collector, &mut comparator);
@@ -1512,8 +1520,8 @@ where
                 // Write the common prefixes:
                 reader_ref.get_value(from, &mut self.scratch_bytes_ref1);
                 self.scratch.copy_from(
-                    &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset as usize
-                        ..self.scratch_bytes_ref1.offset as usize
+                    &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
+                        ..self.scratch_bytes_ref1.offset
                             + self.config.packed_bytes_length() as usize],
                     0,
                 );
@@ -1526,7 +1534,11 @@ where
                 reader.borrow().get_value(i + from, &mut scratch);
 
                 let byte = std::mem::take(&mut scratch.bytes);
-                Ok((Rc::new(RefCell::new(byte)), scratch.offset, scratch.length))
+                Ok((
+                    Rc::new(RefCell::new(byte)),
+                    scratch.offset as i32,
+                    scratch.length as i32,
+                ))
             };
             debug_assert!(values_in_order_and_bounds(
                 self.config.clone(),
@@ -1605,7 +1617,7 @@ where
             split_dimension_values[split_offset as usize] = split_dim as u8;
             reader.borrow().get_value(mid, &mut self.scratch_bytes_ref1);
             let start =
-                (self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim)) as usize;
+                self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim) as usize;
             split_packed_values.copy_from(
                 &self.scratch_bytes_ref1.bytes[start..start + self.config.bytes_per_dim as usize],
                 address,
@@ -1614,16 +1626,16 @@ where
             let mut min_split_packed_value = ArrayUtil::copy_of_sub_array(
                 &self.min_packed_value,
                 0,
-                self.config.packed_index_bytes_length(),
+                self.config.packed_index_bytes_length() as usize,
             );
             let mut max_split_packed_value = ArrayUtil::copy_of_sub_array(
                 &self.max_packed_value,
                 0,
-                self.config.packed_index_bytes_length(),
+                self.config.packed_index_bytes_length() as usize,
             );
 
             let start =
-                (self.scratch_bytes_ref1.offset + split_dim * self.config.bytes_per_dim) as usize;
+                self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim) as usize;
             let end = start + self.config.bytes_per_dim as usize;
             let offset = (split_dim * self.config.bytes_per_dim) as usize;
             min_split_packed_value.copy_from(&self.scratch_bytes_ref1.bytes[start..end], offset);
@@ -2225,7 +2237,7 @@ where
         )?;
 
         self.bkd_writer.scratch_bytes_ref1.length =
-            self.bkd_writer.config.packed_index_bytes_length();
+            self.bkd_writer.config.packed_index_bytes_length() as usize;
         self.bkd_writer.scratch_bytes_ref1.bytes = self.leaf_values.clone();
 
         let scratch_bytes_ref_byte = Rc::new(RefCell::new(std::mem::take(
@@ -2239,7 +2251,7 @@ where
             Ok((
                 scratch_bytes_ref_byte.clone(),
                 packed_bytes_length * i,
-                length,
+                length as i32,
             ))
         };
         debug_assert!(values_in_order_and_bounds(
@@ -2336,10 +2348,10 @@ fn value_in_order(
                 false,
                 "values out of order: last value={:?} current value={:?} ord={}",
                 BytesRef::from_bytes(last_packed_value.to_vec()),
-                BytesRef::from_vec(
+                BytesRef::from_slice(
                     packed_value.to_vec(),
-                    packed_value_offset,
-                    config.packed_index_bytes_length()
+                    packed_value_offset as usize,
+                    config.packed_index_bytes_length() as usize
                 ),
                 ord
             );
@@ -2359,10 +2371,10 @@ fn value_in_order(
                     false,
                     "data values out of order: last value={:?} current value={:?} ord={}",
                     BytesRef::from_bytes(last_packed_value.to_vec()),
-                    BytesRef::from_vec(
+                    BytesRef::from_slice(
                         packed_value.to_vec(),
-                        packed_value_offset,
-                        config.packed_index_bytes_length()
+                        packed_value_offset as usize,
+                        config.packed_index_bytes_length() as usize
                     ),
                     ord
                 );
@@ -2565,8 +2577,8 @@ impl IntersectVisitor for MergeIntersectsVisitor {
     fn grow(&mut self, count: i32) -> Result<()> {
         debug_assert_eq!(self.docs_in_block, 0);
         if self.doc_ids.len() < count as usize {
-            ArrayUtil::grow_i32(&mut self.doc_ids, count)?;
-            let packed_values_size =
+            ArrayUtil::grow_i32(&mut self.doc_ids, count as usize)?;
+            let packed_values_size: i32 =
                 (self.doc_ids.len() * self.packed_bytes_length as usize).try_into()?;
             // TODO:
             // if packed_values_size > ArrayUtil::MAX_ARRAY_LENGTH {
@@ -2576,7 +2588,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
             //         packed_values_size
             //     )));
             // }
-            ArrayUtil::grow_exact(&mut self.packed_values, packed_values_size)?;
+            ArrayUtil::grow_exact(&mut self.packed_values, packed_values_size as usize)?;
         }
         Ok(())
     }
@@ -2659,7 +2671,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesOneDimension {
     }
 }
 struct BKDTreeLeafNodesImpl {
-    scratch_bytes_ref1: BytesRef,
+    scratch_bytes_ref1: BytesRef<Vec<u8>>,
     leaf_block_fps: Vec<i64>,
     split_dimension_values: Vec<u8>,
     bytes_per_dim: i32,
@@ -2677,7 +2689,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesImpl {
         (
             &self.scratch_bytes_ref1.bytes,
             index * self.bytes_per_dim,
-            self.scratch_bytes_ref1.length,
+            self.scratch_bytes_ref1.length as i32,
         )
     }
 

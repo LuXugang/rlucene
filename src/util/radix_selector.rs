@@ -307,7 +307,7 @@ where
 {
     d: i32,
     max_length: i32,
-    pivot: BytesRefBuilder,
+    pivot: BytesRefBuilder<Vec<u8>>,
     delegate_sorter: &'a mut T,
 }
 impl<T> IntroSelectorBaseDefault for IntroSelectorImpl<'_, T>
@@ -328,17 +328,17 @@ where
     fn compare_pivot(&mut self, j: i32) -> i32 {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
-            let b2 = self.delegate_sorter.byte_at(j, self.d + o);
+            let b2 = self.delegate_sorter.byte_at(j, self.d + o as i32);
             if b1 != b2 {
                 return b1 - b2;
             }
         }
-        if self.d + self.pivot.length() == self.max_length {
+        if self.d + self.pivot.length() as i32 == self.max_length {
             0
         } else {
             -1 - self
                 .delegate_sorter
-                .byte_at(j, self.d + self.pivot.length())
+                .byte_at(j, self.d + self.pivot.length() as i32)
         }
     }
 }
@@ -397,7 +397,7 @@ mod tests {
         let to = from + TestUtil::next_int(random, 1, 10000);
         let max_len = TestUtil::next_int(random, 1, 12);
         let arr_len = (from + to + random.random_range(0..5)) as usize;
-        let mut arr: Vec<BytesRef> = Vec::with_capacity(arr_len);
+        let mut arr: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(arr_len);
         for _ in 0..arr_len {
             let byte_len = TestUtil::next_int(random, 0, max_len);
             let mut bytes = vec![0u8; byte_len as usize];
@@ -421,18 +421,19 @@ mod tests {
         let to = from + TestUtil::next_int(random, 1, 10000);
         let max_len = TestUtil::next_int(random, 1, 12);
         let arr_len = (from + to + random.random_range(0..5)) as usize;
-        let mut arr: Vec<BytesRef> = Vec::with_capacity(arr_len);
+        let mut arr: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(arr_len);
         for _ in 0..arr_len {
             let byte_len = TestUtil::next_int(random, 0, max_len);
             let mut bytes = vec![0u8; byte_len as usize];
             random.fill_bytes(&mut bytes);
             arr.push(BytesRef::from_bytes(bytes));
         }
-        let shared_prefix_length = min(arr[0].length, TestUtil::next_int(random, 1, max_len));
+        let shared_prefix_length =
+            min(arr[0].length as i32, TestUtil::next_int(random, 1, max_len));
         for i in 1..arr.len() {
-            let copy_len = min(shared_prefix_length, arr[i].length) as usize;
-            let offset_1 = arr[i].offset as usize;
-            let offset_2 = arr[0].offset as usize;
+            let copy_len = min(shared_prefix_length, arr[i].length as i32) as usize;
+            let offset_1 = arr[i].offset;
+            let offset_2 = arr[0].offset;
             arr[i]
                 .bytes
                 .copy_within(offset_2..offset_2 + copy_len, offset_1);
@@ -442,7 +443,7 @@ mod tests {
 
     pub fn do_test(
         random: &mut StdRng,
-        arr: &[BytesRef],
+        arr: &[BytesRef<Vec<u8>>],
         from: i32,
         to: i32,
         max_len: i32,
@@ -483,7 +484,7 @@ mod tests {
 
     struct RadixSelectorMock {
         enforced_max_len: i32,
-        actual: Vec<BytesRef>,
+        actual: Vec<BytesRef<Vec<u8>>>,
     }
 
     impl Selector for RadixSelectorMock {
@@ -497,7 +498,7 @@ mod tests {
         fn byte_at(&self, i: i32, k: i32) -> i32 {
             assert!(k < self.enforced_max_len);
             let b = self.actual[i as usize].clone();
-            if k < b.length {
+            if k < b.length as i32 {
                 b.bytes[k as usize] as i32
             } else {
                 -1

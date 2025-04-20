@@ -151,7 +151,7 @@ where
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -159,7 +159,7 @@ where
         Ok(self.inner.get_value_count()? as i32)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
 }
@@ -223,7 +223,7 @@ impl<I: IndexInput> SortedDocValues<I> for MaxValue<I> {
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -231,7 +231,7 @@ impl<I: IndexInput> SortedDocValues<I> for MaxValue<I> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
 }
@@ -296,7 +296,7 @@ impl<I: IndexInput> SortedDocValues<I> for MiddleMinValue<I> {
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -304,7 +304,7 @@ impl<I: IndexInput> SortedDocValues<I> for MiddleMinValue<I> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
 }
@@ -369,7 +369,7 @@ impl<I: IndexInput> SortedDocValues<I> for MiddleMaxValue<I> {
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -377,7 +377,7 @@ impl<I: IndexInput> SortedDocValues<I> for MiddleMaxValue<I> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
 }
@@ -439,7 +439,7 @@ where
         }
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
         match self {
             SortedDocValuesEnum1::Min(inner) => inner.lookup_ord(ord),
             SortedDocValuesEnum1::Max(inner) => inner.lookup_ord(ord),
@@ -457,7 +457,7 @@ where
         }
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         match self {
             SortedDocValuesEnum1::Min(inner) => inner.lookup_term(key),
             SortedDocValuesEnum1::Max(inner) => inner.lookup_term(key),

@@ -190,11 +190,11 @@ pub trait DataOutput: Sized {
     /// # See Also
     /// [`DataInput::read_zlong`]
     fn write_string(&mut self, s: &str) -> Result<()> {
-        let utf8_result = BytesRef::from_string(s);
+        let utf8_result: BytesRef<Vec<u8>> = BytesRef::from_string(s);
         let len = utf8_result.length;
         let offset = utf8_result.offset;
-        self.write_vint(len)?;
-        self.write_bytes_range(&utf8_result.bytes, offset, len)
+        self.write_vint(len as i32)?;
+        self.write_bytes_range(&utf8_result.bytes, offset as i32, len as i32)
     }
 
     /// Copy numBytes bytes from input to ourselves.

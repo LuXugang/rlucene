@@ -33,7 +33,7 @@ pub enum StoredValue {
     /// Type of double values.
     Double(f64),
     /// Type of binary values.
-    Binary(Arc<BytesRef>),
+    Binary(Arc<BytesRef<Vec<u8>>>),
     /// Type of string values.
     String(Arc<String>),
 }
@@ -91,7 +91,7 @@ impl StoredValue {
     }
 
     /// Ctor for binary values.
-    pub fn new_binary(value: Arc<BytesRef>) -> Self {
+    pub fn new_binary(value: Arc<BytesRef<Vec<u8>>>) -> Self {
         StoredValue::Binary(value)
     }
 
@@ -165,7 +165,7 @@ impl StoredValue {
     }
 
     /// Set a binary value.
-    pub fn set_binary_value(&mut self, value: Arc<BytesRef>) -> Result<()> {
+    pub fn set_binary_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
         if let StoredValue::Binary(ref mut v) = self {
             *v = value;
             Ok(())
@@ -239,7 +239,7 @@ impl StoredValue {
     }
 
     /// Retrieve a binary value.
-    pub fn get_binary_value(&self) -> Result<&BytesRef> {
+    pub fn get_binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
         if let StoredValue::Binary(ref v) = self {
             Ok(v)
         } else {

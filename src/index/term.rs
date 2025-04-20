@@ -25,17 +25,20 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone, Debug)]
 pub struct Term {
     pub field: String,
-    pub bytes: BytesRef,
+    pub bytes: BytesRef<Vec<u8>>,
 }
 impl Term {
     /// Constructs a `Term` with the given field and bytes.
     /// The provided `BytesRef` is copied when it is non-`None`.
-    pub fn new(fld: String, bytes: BytesRef) -> Self {
+    pub fn new(fld: String, bytes: BytesRef<Vec<u8>>) -> Self {
         Term { field: fld, bytes }
     }
 
     /// Constructs a Term with the given field and the bytes from a builder.
-    pub fn from_bytes_ref_builder(fld: String, mut bytes_builder: BytesRefBuilder) -> Self {
+    pub fn from_bytes_ref_builder(
+        fld: String,
+        mut bytes_builder: BytesRefBuilder<Vec<u8>>,
+    ) -> Self {
         Self::new(fld, bytes_builder.get_bytes_ref_copy())
     }
 
@@ -60,7 +63,7 @@ impl Term {
 
     /// Returns a human-readable form of the term text. If the term is not valid UTF-8,
     /// the raw bytes will be printed instead.
-    pub fn get_string(term_text: &BytesRef) -> Result<String> {
+    pub fn get_string(term_text: &BytesRef<Vec<u8>>) -> Result<String> {
         term_text.utf8_to_string()
     }
 

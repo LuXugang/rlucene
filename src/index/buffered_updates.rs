@@ -633,7 +633,7 @@ where
             values,
         }
     }
-    fn key_set(&self) -> HashSet<BytesRef> {
+    fn key_set(&self) -> HashSet<BytesRef<Vec<u8>>> {
         let mut scratch = BytesRef::new();
         let mut set = HashSet::new();
 
@@ -643,7 +643,7 @@ where
         }
         set
     }
-    fn put(&mut self, key: &BytesRef, value: i32) -> Result<bool> {
+    fn put(&mut self, key: &BytesRef<Vec<u8>>, value: i32) -> Result<bool> {
         debug_assert!(value >= 0, "Value must be non-negative.");
         let e = self.bytes_ref_hash.add(key)?;
         if e < 0 {
@@ -652,7 +652,7 @@ where
         } else {
             if e as usize >= self.values.len() {
                 let origin_length = self.values.len();
-                ArrayUtil::grow_with_len(&mut self.values, e + 1);
+                ArrayUtil::grow_with_len(&mut self.values, (e + 1) as usize);
                 // TODO: memory calculation not implemented
                 self.counter
                     .access_mut(|c| c.add_and_get(origin_length as i64));
@@ -661,7 +661,7 @@ where
             Ok(true)
         }
     }
-    fn get(&self, key: &BytesRef) -> i32 {
+    fn get(&self, key: &BytesRef<Vec<u8>>) -> i32 {
         let e = self.bytes_ref_hash.find(key);
         if e == -1 {
             -1

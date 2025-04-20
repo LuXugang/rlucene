@@ -204,7 +204,7 @@ impl Decompressor for LZ4Decompressor {
         original_length: i32,
         offset: i32,
         length: i32,
-        bytes: &mut BytesRef,
+        bytes: &mut BytesRef<Vec<u8>>,
     ) -> Result<()> {
         debug_assert!(offset + length <= original_length);
 
@@ -219,8 +219,8 @@ impl Decompressor for LZ4Decompressor {
                 decompressed_length, original_length, input
             )));
         }
-        bytes.offset = offset;
-        bytes.length = length;
+        bytes.offset = offset as usize;
+        bytes.length = length as usize;
         Ok(())
     }
 }
@@ -255,7 +255,7 @@ impl Decompressor for DecompressorEnum {
         original_length: i32,
         offset: i32,
         length: i32,
-        bytes: &mut BytesRef,
+        bytes: &mut BytesRef<Vec<u8>>,
     ) -> Result<()> {
         match self {
             DecompressorEnum::LZ4(decompressor) => {
@@ -336,7 +336,7 @@ impl Decompressor for DeflateDecompressor {
         original_length: i32,
         offset: i32,
         length: i32,
-        bytes: &mut BytesRef,
+        bytes: &mut BytesRef<Vec<u8>>,
     ) -> Result<()> {
         if length == 0 {
             bytes.length = 0;
@@ -360,8 +360,8 @@ impl Decompressor for DeflateDecompressor {
             )));
         }
         bytes.bytes = decompressed;
-        bytes.offset = offset;
-        bytes.length = length;
+        bytes.offset = offset as usize;
+        bytes.length = length as usize;
         Ok(())
     }
 }
@@ -510,7 +510,7 @@ mod tests {
 
             compressor.compress(&mut input, &mut out)?;
             let compressed_len = out.get_position();
-            let result = ArrayUtil::copy_of_sub_array(&out.bytes, 0, compressed_len);
+            let result = ArrayUtil::copy_of_sub_array(&out.bytes, 0, compressed_len as usize);
             Ok(result)
         }
 
@@ -563,7 +563,7 @@ mod tests {
                 let compressed = self.compress(decompressed.as_slice(), off, len, limit)?;
                 let restored = self.decompress(compressed, len)?;
                 assert_eq!(
-                    ArrayUtil::copy_of_sub_array(&decompressed, off, off + len),
+                    ArrayUtil::copy_of_sub_array(&decompressed, off as usize, (off + len) as usize),
                     restored
                 );
             }
@@ -593,7 +593,11 @@ mod tests {
                 };
                 let restored = self.decompress_with_range(compressed, valid_len, offset, length)?;
                 assert_eq!(
-                    ArrayUtil::copy_of_sub_array(&decompressed, offset, offset + length),
+                    ArrayUtil::copy_of_sub_array(
+                        &decompressed,
+                        offset as usize,
+                        (offset + length) as usize
+                    ),
                     restored
                 );
             }
@@ -618,7 +622,11 @@ mod tests {
             let restored = self.decompress(compressed, limit)?;
             assert_eq!(limit as usize, restored.len());
             assert_eq!(
-                ArrayUtil::copy_of_sub_array(decompressed, off, off + std::cmp::min(len, limit)),
+                ArrayUtil::copy_of_sub_array(
+                    decompressed,
+                    off as usize,
+                    (off + std::cmp::min(len, limit)) as usize
+                ),
                 restored
             );
             Ok(compressed_copy)

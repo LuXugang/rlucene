@@ -36,7 +36,7 @@ use std::sync::Arc;
 pub(crate) struct BinaryDocValuesFieldUpdates {
     offsets: AbstractPagedMutable<PagedGrowableWriter>,
     lengths: AbstractPagedMutable<PagedGrowableWriter>,
-    values: BytesRefBuilder,
+    values: BytesRefBuilder<Vec<u8>>,
     lock: Mutex<()>,
 }
 impl BinaryDocValuesFieldUpdates {
@@ -68,7 +68,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         ))
     }
 
-    fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef, index: i32) -> Result<()> {
+    fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()> {
         let _guard = self.lock.lock();
         self.offsets
             .set(index as i64, self.values.length() as i64)?;
@@ -143,14 +143,14 @@ pub struct AbstractIteratorBaseImpl<'a> {
     offset: i32,
     lengths: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
     length: i32,
-    values: Option<&'a mut BytesRef>,
+    values: Option<&'a mut BytesRef<Vec<u8>>>,
 }
 #[allow(unused)]
 impl<'a> AbstractIteratorBaseImpl<'a> {
     pub fn new(
         offsets: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
         lengths: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
-        values: Option<&'a mut BytesRef>,
+        values: Option<&'a mut BytesRef<Vec<u8>>>,
     ) -> AbstractIteratorBaseImpl<'a> {
         AbstractIteratorBaseImpl {
             offsets,
@@ -178,10 +178,10 @@ impl AbstractIteratorBase for AbstractIteratorBaseImpl<'_> {
         ))
     }
 
-    fn binary_value(&mut self) -> Result<&BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
         debug_assert!(self.values.is_some());
-        self.values.as_mut().unwrap().offset = self.offset;
-        self.values.as_mut().unwrap().length = self.length;
+        self.values.as_mut().unwrap().offset = self.offset as usize;
+        self.values.as_mut().unwrap().length = self.length as usize;
         Ok(self.values.as_mut().unwrap())
     }
 }

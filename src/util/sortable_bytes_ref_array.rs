@@ -21,7 +21,7 @@ use crate::util::{BytesRefComparator, Comparator};
 
 pub trait SortableBytesRefArray<'a> {
     /// Append a new value
-    fn append(&mut self, bytes: &BytesRef) -> Result<i32>;
+    fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i32>;
     /// Clear all previously stored values
     fn clear(&mut self);
     /// Returns the number of values appended so far
@@ -30,6 +30,6 @@ pub trait SortableBytesRefArray<'a> {
     type Iter;
     fn iterator(
         &'a mut self,
-        comp: impl BytesRefComparator + Comparator<BytesRef>,
+        comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
     ) -> Result<Self::Iter>;
 }

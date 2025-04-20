@@ -90,7 +90,7 @@ where
         self.values.set(index as i64, value - self.min_value)
     }
 
-    fn add_byte_ref(&mut self, _doc: i32, _value: &BytesRef, _index: i32) -> Result<()> {
+    fn add_byte_ref(&mut self, _doc: i32, _value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
         Err(LuceneError::unreachable(
             "umericDocValuesFieldUpdates does not support add_byte_ref",
         ))
@@ -177,7 +177,7 @@ where
         Ok(self.value)
     }
 
-    fn binary_value(&mut self) -> Result<&BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
         unreachable!("NumericDocValuesFieldUpdatesIterator does not support binary_value")
     }
 }
@@ -193,7 +193,7 @@ impl SingleValueNumericDocValuesFieldUpdates {
     }
 }
 impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUpdates {
-    fn binary_value(&self) -> Result<&BytesRef> {
+    fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
         Err(LuceneError::unreachable(
             "SingleValueNumericDocValuesFieldUpdates does not support binary_value",
         ))

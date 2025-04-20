@@ -55,7 +55,10 @@ impl GrowableByteArrayDataOutput {
     /// Ensure we can write additional `capacity_to_write` bytes.
     fn ensure_capacity(&mut self, capacity_to_write: i32) {
         debug_assert!(capacity_to_write > 0);
-        ArrayUtil::grow_with_len(&mut self.bytes, self.next_write + capacity_to_write)
+        ArrayUtil::grow_with_len(
+            &mut self.bytes,
+            (self.next_write + capacity_to_write) as usize,
+        )
     }
     /// Writes all of our bytes to the target `Write`.
     pub(crate) fn write_to_data_output(&self, out: &mut impl DataOutput) -> Result<()> {

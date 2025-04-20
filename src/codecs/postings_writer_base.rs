@@ -52,7 +52,7 @@ pub trait PostingsWriterBase<T: TermsEnum, N: NormsProducer> {
     /// should return `None`, and the terms dict will skip the term.
     fn write_term(
         &mut self,
-        term: &BytesRef,
+        term: &BytesRef<Vec<u8>>,
         terms_enum: &mut T,
         docs_seen: &mut FixedBitSet,
         norms: &mut N,

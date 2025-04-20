@@ -107,7 +107,7 @@ where
 
     fn write_term(
         &mut self,
-        _term: &BytesRef,
+        _term: &BytesRef<Vec<u8>>,
         terms_enum: &mut T,
         docs_seen: &mut FixedBitSet,
         norms: &mut N,
@@ -244,7 +244,7 @@ pub trait PushPostingsWriterBaseAbstract<N: NormsProducer> {
     fn add_position(
         &mut self,
         position: i32,
-        payload: Option<&BytesRef>,
+        payload: Option<&BytesRef<Vec<u8>>>,
         start_offset: i32,
         end_offset: i32,
     ) -> Result<()>;

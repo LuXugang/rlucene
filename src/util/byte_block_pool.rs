@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::Access;
+use crate::util::access::{Access, AccessVec};
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum};
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -159,22 +159,22 @@ where
     ///
     /// However, we still retain the interface definitions from Java Lucene to maintain consistency
     /// with the original implementation as much as possible.
-    pub fn set_bytes_ref(
+    pub fn set_bytes_ref<AV: AccessVec<u8>>(
         &self,
-        _builder: &mut BytesRefBuilder,
-        result: &mut BytesRef,
+        _builder: &mut BytesRefBuilder<AV>,
+        result: &mut BytesRef<AV>,
         offset: i64,
         length: i32,
     ) -> Result<()> {
-        if result.length < length {
-            result.bytes = vec![0; length as usize];
+        if result.length < length as usize {
+            result.bytes = AV::from_vec(vec![0; length as usize]);
         }
-        result.length = length;
+        result.length = length as usize;
         let buffer_index = offset >> ByteBlockPool::BYTE_BLOCK_SHIFT;
         let pos = (offset & ByteBlockPool::BYTE_BLOCK_MASK as i64) as i32;
         if pos + length <= ByteBlockPool::BYTE_BLOCK_SIZE {
             // Common case: The slice lives in a single block.
-            result.bytes.copy_from(
+            result.bytes.copy(
                 &self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize],
                 0,
             );
@@ -182,14 +182,20 @@ where
         } else {
             // builder.grow_no_copy(length);
             result.offset = 0;
-            self.read_bytes(offset, &mut result.bytes, 0, length)?;
+            result.bytes.access_mut(|bytes| {
+                self.read_bytes(offset, bytes, 0, length)?;
+                // Help the compiler infer types.
+                Ok::<(), LuceneError>(())
+            })?;
             // builder.get().bytes.clone_from(&result.bytes);
         }
         Ok(())
     }
     /// Appends the bytes in the provided BytesRef at the current position.
-    pub fn append_bytes_ref(&mut self, bytes: &BytesRef) -> Result<()> {
-        self.append_range(&bytes.bytes, bytes.offset, bytes.length)
+    pub fn append_bytes_ref<AV: AccessVec<u8>>(&mut self, bytes: &BytesRef<AV>) -> Result<()> {
+        bytes.bytes.access(|bytes_ref| {
+            self.append_range(bytes_ref, bytes.offset as i32, bytes.length as i32)
+        })
     }
     /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and length.
     ///
@@ -427,10 +433,10 @@ mod tests {
         pool.next_buffer()?;
         let reuse_first = random.random_bool(0.5);
         for _j in 0..2 {
-            let mut list: Vec<BytesRef> = Vec::new();
+            let mut list: Vec<BytesRef<Vec<u8>>> = Vec::new();
             let max_length = at_least(&mut random, 500) as usize;
             let num_values = at_least(&mut random, 100) as usize;
-            let mut bytes_ref_builder = BytesRefBuilder::new();
+            let mut bytes_ref_builder: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
             for _i in 0..num_values {
                 let value = (&mut random)
                     .sample_iter(&Alphanumeric)
@@ -454,21 +460,21 @@ mod tests {
                             position,
                             &mut bytes_ref_builder.get_bytes_ref().bytes,
                             0,
-                            bytes_ref_builder_length,
+                            bytes_ref_builder_length as i32,
                         )?;
                     }
                     1 => {
                         let mut scratch = BytesRef::new();
-                        scratch.bytes = vec![0; bytes_ref_builder_length as usize];
+                        scratch.bytes = vec![0; bytes_ref_builder_length];
                         pool.set_bytes_ref(
                             &mut builder,
                             &mut scratch,
                             position,
-                            bytes_ref_builder.length(),
+                            bytes_ref_builder.length() as i32,
                         )?;
                         bytes_ref_builder.get_bytes_ref().bytes.copy_from(
-                            &scratch.bytes[scratch.offset as usize
-                                ..(scratch.offset + bytes_ref_builder_length) as usize],
+                            &scratch.bytes
+                                [scratch.offset..(scratch.offset + bytes_ref_builder_length)],
                             0,
                         );
                     }

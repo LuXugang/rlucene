@@ -979,8 +979,12 @@ mod tests {
             LZ4::decompress(&mut input, length, &mut restored, 0)?;
 
             assert!(off <= i32::MAX as usize);
-            let left = ArrayUtil::copy_of_sub_array(data.as_slice(), offset, offset + length);
-            let right = ArrayUtil::copy_of_sub_array(&restored, 0, length);
+            let left = ArrayUtil::copy_of_sub_array(
+                data.as_slice(),
+                offset as usize,
+                (offset + length) as usize,
+            );
+            let right = ArrayUtil::copy_of_sub_array(&restored, 0, length as usize);
             assert_eq!(left, right);
 
             // Now restore with an offset
@@ -990,9 +994,16 @@ mod tests {
             let mut input = ByteArrayDataInput::with_bytes(compressed_clone);
             LZ4::decompress(&mut input, length, &mut restored, restore_offset)?;
 
-            let left = ArrayUtil::copy_of_sub_array(data.as_slice(), offset, offset + length);
-            let right =
-                ArrayUtil::copy_of_sub_array(&restored, restore_offset, restore_offset + length);
+            let left = ArrayUtil::copy_of_sub_array(
+                data.as_slice(),
+                offset as usize,
+                (offset + length) as usize,
+            );
+            let right = ArrayUtil::copy_of_sub_array(
+                &restored,
+                restore_offset as usize,
+                (restore_offset + length) as usize,
+            );
             assert_eq!(left, right);
 
             Ok(())
@@ -1084,13 +1095,13 @@ mod tests {
 
             let left = ArrayUtil::copy_of_sub_array(
                 data.as_slice(),
-                dict_off + dict_len,
-                dict_off + dict_len + length,
+                (dict_off + dict_len) as usize,
+                (dict_off + dict_len + length) as usize,
             );
             let right = ArrayUtil::copy_of_sub_array(
                 &restored,
-                dict_len + restore_offset,
-                dict_len + restore_offset + length,
+                (dict_len + restore_offset) as usize,
+                (dict_len + restore_offset + length) as usize,
             );
             assert_eq!(left, right);
 

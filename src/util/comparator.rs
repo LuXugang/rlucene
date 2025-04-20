@@ -131,6 +131,6 @@ where
 /// The purpose of implementing BytesRefComparator is to
 /// allow it to be passed as the same parameter alongside other types
 /// that also implement BytesRefComparator, distinguishing its type by the TYPE constant.
-impl BytesRefComparator for NaturalOrder<BytesRef> {}
+impl BytesRefComparator for NaturalOrder<BytesRef<Vec<u8>>> {}
 
 pub const COMPARATOR_TYPE: &str = "Comparator";

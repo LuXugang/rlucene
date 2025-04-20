@@ -102,7 +102,7 @@ where
     pub fn grow(&mut self, new_length: i32) {
         self.ints_ref
             .ints
-            .access_mut(|ints_bytes| ArrayUtil::grow_with_len(ints_bytes, new_length))
+            .access_mut(|ints_bytes| ArrayUtil::grow_with_len(ints_bytes, new_length as usize))
     }
 
     /// Grows the reference array to at least `new_length`, without copying original data.
@@ -110,7 +110,7 @@ where
         let v = self
             .ints_ref
             .ints
-            .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length));
+            .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length as usize));
         if let Some(v) = v {
             self.ints_ref.ints = AV::from_vec(v);
         }
@@ -134,9 +134,9 @@ where
     }
 
     /// Copies the given UTF-8 bytes into this builder.
-    pub fn copy_utf8_bytes(&mut self, bytes: &BytesRef) {
-        self.grow_no_copy(bytes.length);
-        self.ints_ref.length = bytes.length;
+    pub fn copy_utf8_bytes(&mut self, bytes: &BytesRef<Vec<u8>>) {
+        self.grow_no_copy(bytes.length as i32);
+        self.ints_ref.length = bytes.length as i32;
     }
 
     /// Returns a reference to the internal [`IntsRef`] content.

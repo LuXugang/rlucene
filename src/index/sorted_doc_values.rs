@@ -49,7 +49,7 @@ where
     ///
     /// # Returns
     /// The dictionary value corresponding to the ordinal.
-    fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef<Vec<u8>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -70,7 +70,7 @@ where
     ///
     /// # Returns
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         let mut low = 0;
         let mut high = self.get_value_count()? - 1;
 

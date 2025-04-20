@@ -58,7 +58,7 @@ impl PostingsEnum for DummyPostingsEnum {
         ))
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef>> {
+    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

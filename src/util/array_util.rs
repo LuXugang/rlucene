@@ -29,7 +29,7 @@ use std::mem;
 pub struct ArrayUtil;
 impl ArrayUtil {
     // TODO:: MAX_ARRAY_LENGTH's definition should reconsider
-    pub const MAX_ARRAY_LENGTH: i32 = i32::MAX;
+    pub const MAX_ARRAY_LENGTH: usize = i32::MAX as usize;
     const MIN_RADIX: i32 = 2;
     const MAX_RADIX: i32 = 36;
     /// Parses a char array into an i32 with the default radix of 10.
@@ -126,22 +126,19 @@ impl ArrayUtil {
     ///
     /// # Returns
     /// The new capacity after resizing. If the result exceeds `i32::MAX`, `i32::MAX` is returned.
-    pub fn oversize(min_target_size: i32, _bytes_per_element: i32) -> i32 {
-        min_target_size.saturating_mul(2)
+    pub fn oversize(min_target_size: usize, _bytes_per_element: usize) -> usize {
+        // TODO: current we limit maxsize to i32::MAX to keep consistency with Java Lucene
+        let min_target_size: i32 = min_target_size as i32;
+        min_target_size.saturating_mul(2) as usize
     }
-    pub fn grow_exact<T>(vec: &mut Vec<T>, new_length: i32) -> Result<()>
+    pub fn grow_exact<T>(vec: &mut Vec<T>, new_length: usize) -> Result<()>
     where
         T: Default,
     {
-        debug_assert!(
-            new_length >= 0,
-            "size must be positive (got {}): likely integer overflow?",
-            new_length
-        );
         let current_length = vec.len();
-        match (new_length as usize).cmp(&current_length) {
+        match (new_length).cmp(&current_length) {
             Ordering::Greater => {
-                for _ in 0..(new_length as usize - current_length) {
+                for _ in 0..(new_length - current_length) {
                     vec.push(T::default());
                 }
             }
@@ -157,19 +154,14 @@ impl ArrayUtil {
         }
         Ok(())
     }
-    pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: i32)
+    pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: usize)
     where
         T: Default,
     {
-        debug_assert!(
-            min_size >= 0,
-            "size must be positive (got {}): likely integer overflow?",
-            min_size
-        );
         let current_length = vec.len();
-        let min_size = Self::oversize(min_size, BitUtil::LONG_BYTES as i32);
-        if min_size as usize > current_length {
-            let additional = min_size as usize - current_length;
+        let min_size = Self::oversize(min_size, BitUtil::LONG_BYTES);
+        if min_size > current_length {
+            let additional = min_size - current_length;
             vec.reserve(additional);
             let capacity = vec.capacity();
             // Fill the new slots with default values.
@@ -185,24 +177,14 @@ impl ArrayUtil {
         T: Default,
     {
         let bytes_per_element = mem::size_of::<T>();
-        debug_assert!(bytes_per_element <= i32::MAX as usize);
-        Self::grow_exact(
-            vec,
-            Self::oversize(vec.len() as i32 + 1, bytes_per_element as i32),
-        )
+        Self::grow_exact(vec, Self::oversize(vec.len() + 1, bytes_per_element))
     }
     /// Returns an array whose size is at least {@code minLength}, generally over-allocating
     /// exponentially, but never allocating more than {@code maxLength} elements.
-    pub fn grow_in_range<T>(vec: &mut Vec<T>, min_length: i32, max_length: i32) -> Result<()>
+    pub fn grow_in_range<T>(vec: &mut Vec<T>, min_length: usize, max_length: usize) -> Result<()>
     where
         T: Default,
     {
-        debug_assert!(
-            min_length >= 0,
-            "length must be positive (got {}): likely integer overflow?",
-            min_length
-        );
-
         if min_length > max_length {
             return Err(LuceneError::illegal_argument(format!(
                 "requested minimum array length {} is larger than requested maximum array length {}",
@@ -210,11 +192,11 @@ impl ArrayUtil {
             )));
         }
         let current_length = vec.len();
-        if current_length >= min_length as usize {
+        if current_length >= min_length {
             return Ok(());
         }
 
-        let potential_length = Self::oversize(min_length, BitUtil::INT_BYTES as i32);
+        let potential_length = Self::oversize(min_length, BitUtil::INT_BYTES);
         let final_length = std::cmp::min(max_length, potential_length);
         Self::grow_exact(vec, final_length)?;
 
@@ -222,25 +204,19 @@ impl ArrayUtil {
     }
     /// Returns a vector whose size is at least `min_size`, generally over-allocating
     /// exponentially, but never allocating more than `i32::MAX` elements.
-    pub fn grow_i32(vec: &mut Vec<i32>, min_size: i32) -> Result<()> {
-        Self::grow_in_range(vec, min_size, i32::MAX)
+    pub fn grow_i32(vec: &mut Vec<i32>, min_size: usize) -> Result<()> {
+        Self::grow_in_range(vec, min_size, i32::MAX as usize)
     }
     /// Returns a vector whose size is at least `min_size`, generally over-allocating
     /// exponentially, and it will not copy the original data to the new vector.
-    pub fn grow_no_copy<T>(vec: &[T], min_size: i32) -> Option<Vec<T>>
+    pub fn grow_no_copy<T>(vec: &[T], min_size: usize) -> Option<Vec<T>>
     where
         T: Default + Clone,
     {
-        debug_assert!(
-            min_size >= 0,
-            "size must be positive (got {}): likely integer overflow?",
-            min_size
-        );
-
         let current_size = vec.len();
-        if current_size < min_size as usize {
-            let new_size = Self::oversize(min_size, std::mem::size_of::<T>() as i32);
-            let new_vec = vec![T::default(); new_size as usize];
+        if current_size < min_size {
+            let new_size = Self::oversize(min_size, std::mem::size_of::<T>());
+            let new_vec = vec![T::default(); new_size];
             Option::from(new_vec)
         } else {
             None
@@ -378,9 +354,9 @@ impl ArrayUtil {
     /// Copies a slice into a new vector.
     pub fn copy_array<T>(array: &[T]) -> Vec<T>
     where
-        T: Copy + Default,
+        T: Clone + Default,
     {
-        Self::copy_of_sub_array(array, 0, array.len() as i32)
+        Self::copy_of_sub_array(array, 0, array.len())
     }
     /// Clone a slice into a new vector.
     pub fn clone_array<T>(array: &[T]) -> Vec<T>
@@ -417,13 +393,13 @@ impl ArrayUtil {
     ///
     /// # See Also
     /// `clone_of_sub_array` for deep copy of types that implement `Clone`.
-    pub fn copy_of_sub_array<T>(array: &[T], from: i32, to: i32) -> Vec<T>
+    pub fn copy_of_sub_array<T>(array: &[T], from: usize, to: usize) -> Vec<T>
     where
-        T: Copy + Default,
+        T: Clone + Default,
     {
-        debug_assert!(from >= 0 && to >= 0 && (to - from) >= 0 && to as usize <= array.len());
-        let mut copy = vec![Default::default(); (to - from) as usize];
-        copy.copy_from(&array[from as usize..to as usize], 0);
+        debug_assert!(to >= from && to <= array.len());
+        let mut copy = vec![Default::default(); to - from];
+        copy.copy_from(&array[from..to], 0);
         copy
     }
     /// Clone the specified range of the given array into a new sub-array by cloning each element.
@@ -630,8 +606,8 @@ mod tests {
     pub struct TestArrayUtil;
     #[test]
     fn test_growth() {
-        let mut current_size: i32 = 0;
-        let mut copy_cost: i32 = 0;
+        let mut current_size = 0;
+        let mut copy_cost = 0;
 
         while current_size != ArrayUtil::MAX_ARRAY_LENGTH {
             let next_size = ArrayUtil::oversize(1 + current_size, 0);
@@ -1135,19 +1111,19 @@ mod tests {
         assert_eq!(array, vec![1, 2, 3]);
 
         let min_length = 4;
-        let max_length = i32::MAX;
+        let max_length = i32::MAX as usize;
 
         let mut vec = vec![1, 2, 3];
         ArrayUtil::grow_in_range(&mut vec, min_length, max_length)?;
         assert_eq!(
-            ArrayUtil::oversize(min_length, std::mem::size_of::<i32>() as i32),
-            vec.len() as i32
+            ArrayUtil::oversize(min_length, std::mem::size_of::<i32>()),
+            vec.len()
         );
 
         // The array grows to maxLength if maxLength is limiting
         let mut vec = vec![1, 2, 3];
         ArrayUtil::grow_in_range(&mut vec, min_length, min_length)?;
-        assert_eq!(min_length, vec.len() as i32);
+        assert_eq!(min_length, vec.len());
         Ok(())
     }
     #[test]

@@ -65,7 +65,7 @@ impl StoredField {
     /// - `field_type`: Custom [`FieldType`] for this field.
     pub fn with_bytes_ref_and_type(
         name: &str,
-        bytes: Arc<BytesRef>,
+        bytes: Arc<BytesRef<Vec<u8>>>,
         file_type: FieldType,
     ) -> Result<Self> {
         let parent_field = Field::with_bytes_ref(name, bytes.clone(), Arc::new(file_type))?;
@@ -83,7 +83,7 @@ impl StoredField {
     pub fn with_binary(name: &str, value: Vec<u8>) -> Result<Self> {
         let len = value.len();
         debug_assert!(len <= i32::MAX as usize);
-        let bytes_ref = Arc::new(BytesRef::from_vec(value, 0, len as i32));
+        let bytes_ref = Arc::new(BytesRef::from_slice(value, 0, len));
         let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
     }
@@ -99,7 +99,11 @@ impl StoredField {
     /// - `offset`: Starting position in the byte array.
     /// - `length`: Valid length of the byte array.
     pub fn with_binary_range(name: &str, value: Vec<u8>, offset: i32, length: i32) -> Result<Self> {
-        let bytes_ref = Arc::new(BytesRef::from_vec(value, offset, length));
+        let bytes_ref = Arc::new(BytesRef::from_slice(
+            value,
+            offset as usize,
+            length as usize,
+        ));
         let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
     }
@@ -112,7 +116,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: [`BytesRef`] pointing to binary content (**not copied**).
-    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef>) -> Result<Self> {
+    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef<Vec<u8>>>) -> Result<Self> {
         let parent_field = Field::with_bytes_ref(name, value.clone(), Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
     }
@@ -209,7 +213,7 @@ impl IndexableField for StoredField {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
         self.parent_field.binary_value()
     }
 

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::array_util::ArrayUtil;
+use crate::util::SliceCopyOps;
 use parking_lot::{Mutex, MutexGuard};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -119,6 +121,7 @@ pub trait AccessVec<T>: Clone + Default {
     fn new() -> Self;
     fn with_capacity(capacity: usize) -> Self;
     fn from_vec(v: Vec<T>) -> Self;
+    fn copy(&mut self, src: &[T], offset: usize);
 }
 
 impl<T> AccessVec<T> for Vec<T>
@@ -140,9 +143,7 @@ where
     }
 
     fn slice_clone(&self, offset: usize, length: usize) -> Self {
-        let end = offset + length;
-        debug_assert!(end <= self.len(), "slice_clone out of bounds");
-        self[offset..end].to_vec()
+        ArrayUtil::copy_of_sub_array(self, offset, offset + length)
     }
 
     fn len(&self) -> usize {
@@ -159,6 +160,10 @@ where
 
     fn from_vec(v: Vec<T>) -> Self {
         v
+    }
+
+    fn copy(&mut self, src: &[T], offset: usize) {
+        self.copy_from(src, offset)
     }
 }
 
@@ -183,10 +188,12 @@ where
     }
 
     fn slice_clone(&self, offset: usize, length: usize) -> Self {
-        let borrow = self.borrow();
-        let end = offset + length;
-        debug_assert!(end <= borrow.len(), "slice_clone out of bounds");
-        Rc::new(RefCell::new(borrow[offset..end].to_vec()))
+        let borrow = &*self.borrow();
+        Rc::new(RefCell::new(ArrayUtil::copy_of_sub_array(
+            borrow,
+            offset,
+            offset + length,
+        )))
     }
 
     fn len(&self) -> usize {
@@ -203,6 +210,10 @@ where
 
     fn from_vec(v: Vec<T>) -> Self {
         Rc::new(RefCell::new(v))
+    }
+
+    fn copy(&mut self, src: &[T], offset: usize) {
+        self.borrow_mut().copy_from(src, offset)
     }
 }
 
@@ -228,9 +239,11 @@ where
 
     fn slice_clone(&self, offset: usize, length: usize) -> Self {
         let bytes = self.lock();
-        let end = offset + length;
-        debug_assert!(end <= bytes.len(), "slice_clone out of bounds");
-        Arc::new(Mutex::new(bytes[offset..end].to_vec()))
+        Arc::new(Mutex::new(ArrayUtil::copy_of_sub_array(
+            &bytes,
+            offset,
+            offset + length,
+        )))
     }
 
     fn len(&self) -> usize {
@@ -247,6 +260,10 @@ where
 
     fn from_vec(v: Vec<T>) -> Self {
         Arc::new(Mutex::new(v))
+    }
+
+    fn copy(&mut self, src: &[T], offset: usize) {
+        self.lock().copy_from(src, offset)
     }
 }
 

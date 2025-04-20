@@ -229,7 +229,7 @@ where
             if self.frontier.len() < (input.length + 1) as usize {
                 let old_len = self.frontier.len();
                 debug_assert!(old_len <= i32::MAX as usize);
-                ArrayUtil::grow_with_len(&mut self.frontier, old_len as i32 + 1);
+                ArrayUtil::grow_with_len(&mut self.frontier, old_len + 1);
                 debug_assert!(self.frontier.len() <= i32::MAX as usize);
                 for i in old_len..self.frontier.len() {
                     self.frontier[i] = Some(UnCompiledNode::new(self.inner.clone(), i as i32));
@@ -508,7 +508,7 @@ where
 
         let do_fixed_length_arcs = self.should_expand_node_with_fixed_length_arcs(node_in);
         if do_fixed_length_arcs && self.num_bytes_per_arc.len() < node_in.num_arcs as usize {
-            let new_len = ArrayUtil::oversize(node_in.num_arcs, BitUtil::INT_BYTES as i32) as usize;
+            let new_len = ArrayUtil::oversize(node_in.num_arcs as usize, BitUtil::INT_BYTES);
             self.num_bytes_per_arc = vec![0; new_len];
             self.num_label_bytes_per_arc = vec![0; new_len];
         }
@@ -1538,7 +1538,10 @@ impl FixedLengthArcsBuffer {
     /// Ensures the capacity of the internal byte array. Enlarges it if needed.
     pub(crate) fn ensure_capacity(&mut self, capacity: i32) -> Result<()> {
         if self.bado.bytes.len() < capacity as usize {
-            ArrayUtil::grow_with_len(&mut self.bado.bytes, ArrayUtil::oversize(capacity, 1));
+            ArrayUtil::grow_with_len(
+                &mut self.bado.bytes,
+                ArrayUtil::oversize(capacity as usize, 1),
+            );
             self.bado.reset()?;
         }
         Ok(())

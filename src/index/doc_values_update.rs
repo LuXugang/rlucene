@@ -97,7 +97,7 @@ pub trait DocValuesUpdateBase {
     }
     fn value_to_string(&self) -> String;
 
-    fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef) -> Result<()> {
+    fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef<Vec<u8>>) -> Result<()> {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     fn has_value(&self) -> bool;
@@ -107,15 +107,15 @@ pub trait DocValuesUpdateBase {
 /// An in-place update to a binary DocValues field.
 #[derive(Clone)]
 pub struct BinaryDocValuesUpdate {
-    value: Option<BytesRef>,
+    value: Option<BytesRef<Vec<u8>>>,
 }
 impl BinaryDocValuesUpdate {
     #[allow(unused)]
     const RAW_VALUE_SIZE_IN_BYTES: i32 = 0;
-    pub fn new(value: Option<BytesRef>) -> Self {
+    pub fn new(value: Option<BytesRef<Vec<u8>>>) -> Self {
         BinaryDocValuesUpdate { value }
     }
-    pub fn get_value(&self) -> BytesRef {
+    pub fn get_value(&self) -> BytesRef<Vec<u8>> {
         debug_assert!(self.value.is_some());
         self.value.as_ref().unwrap().clone()
     }

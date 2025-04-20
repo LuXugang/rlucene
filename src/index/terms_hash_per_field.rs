@@ -818,7 +818,7 @@ pub(crate) mod tests {
             }
         }
 
-        let mut posting_map: HashMap<BytesRef, Posting> = HashMap::new();
+        let mut posting_map: HashMap<BytesRef<Vec<u8>>, Posting> = HashMap::new();
         let num_strings = 1 + random.random_range(0..200);
 
         let random_length = random.random_range(1..100);

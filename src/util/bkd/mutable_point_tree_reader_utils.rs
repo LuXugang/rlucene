@@ -81,8 +81,8 @@ impl MutablePointTreeReaderUtils {
         reader: &mut MutablePointTreeEnum,
         from: i32,
         to: i32,
-        _scratch1: &mut BytesRef,
-        _scratch2: &mut BytesRef,
+        _scratch1: &mut BytesRef<Vec<u8>>,
+        _scratch2: &mut BytesRef<Vec<u8>>,
     ) -> Result<()> {
         // Get an unsigned comparator for the byte arrays.
         let comparator = ArrayUtil::get_unsigned_comparator(config.bytes_per_dim as usize);
@@ -113,8 +113,8 @@ impl MutablePointTreeReaderUtils {
         from: i32,
         to: i32,
         mid: i32,
-        _scratch1: &mut BytesRef,
-        _scratch2: &mut BytesRef,
+        _scratch1: &mut BytesRef<Vec<u8>>,
+        _scratch2: &mut BytesRef<Vec<u8>>,
     ) -> Result<()> {
         let dim_offset = split_dim * config.bytes_per_dim + common_prefix_len;
         let dim_cmp_bytes = config.bytes_per_dim - common_prefix_len;
@@ -175,8 +175,8 @@ impl StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
 struct IntroSorterImpl<'a> {
     reader: &'a mut MutablePointTreeEnum,
     config: Rc<BKDConfig>,
-    pivot: BytesRef,
-    scratch2: BytesRef,
+    pivot: BytesRef<Vec<u8>>,
+    scratch2: BytesRef<Vec<u8>>,
     pivot_doc: i32,
     comparator: ByteArrayComparatorEnum,
     start: i32,
@@ -203,19 +203,19 @@ impl Sorter for IntroSorterImpl<'_> {
 
         let cmp = self.comparator.compare(
             &self.pivot.bytes,
-            (self.pivot.offset + self.start) as usize,
+            self.pivot.offset + self.start as usize,
             &self.scratch2.bytes,
-            (self.scratch2.offset + self.start) as usize,
+            self.scratch2.offset + self.start as usize,
         );
 
         if cmp == 0 {
             let pivot_index_start =
-                (self.pivot.offset + self.config.packed_index_bytes_length()) as usize;
-            let pivot_index_end = (self.pivot.offset + self.config.packed_bytes_length()) as usize;
+                self.pivot.offset + self.config.packed_index_bytes_length() as usize;
+            let pivot_index_end = self.pivot.offset + self.config.packed_bytes_length() as usize;
             let scratch_index_start =
-                (self.scratch2.offset + self.config.packed_index_bytes_length()) as usize;
+                self.scratch2.offset + self.config.packed_index_bytes_length() as usize;
             let scratch_index_end =
-                (self.scratch2.offset + self.config.packed_bytes_length()) as usize;
+                self.scratch2.offset + self.config.packed_bytes_length() as usize;
 
             let pivot_slice = &self.pivot.bytes[pivot_index_start..pivot_index_end];
             let scratch_slice = &self.scratch2.bytes[scratch_index_start..scratch_index_end];
@@ -305,11 +305,11 @@ impl RadixSelectorBase for RadixSelectorImpl {
 struct IntroSelectorImpl {
     dim_cmp_bytes: i32,
     data_cmp_bytes: i32,
-    pivot: BytesRef,
+    pivot: BytesRef<Vec<u8>>,
     reader: Rc<RefCell<MutablePointTreeEnum>>,
     pivot_doc: i32,
     k: i32,
-    scratch2: BytesRef,
+    scratch2: BytesRef<Vec<u8>>,
     dim_comparator: ByteArrayComparatorEnum,
     dim_start: i32,
     data_start: i32,
@@ -329,9 +329,9 @@ impl IntroSelectorBaseDefault for IntroSelectorImpl {
             reader.get_value(j, &mut self.scratch2);
             let cmp = self.dim_comparator.compare(
                 &self.pivot.bytes,
-                (self.pivot.offset + self.dim_start) as usize,
+                self.pivot.offset + self.dim_start as usize,
                 &self.scratch2.bytes,
-                (self.scratch2.offset + self.dim_start) as usize,
+                self.scratch2.offset + self.dim_start as usize,
             );
             if cmp != 0 {
                 return cmp;
@@ -339,11 +339,10 @@ impl IntroSelectorBaseDefault for IntroSelectorImpl {
         }
         if self.k < self.data_cmp_bytes {
             reader.get_value(j, &mut self.scratch2);
-            let pivot_slice = &self.pivot.bytes[(self.pivot.offset + self.data_start) as usize
-                ..(self.pivot.offset + self.data_end) as usize];
-            let scratch_slice = &self.scratch2.bytes[(self.scratch2.offset + self.data_start)
-                as usize
-                ..(self.scratch2.offset + self.data_end) as usize];
+            let pivot_slice = &self.pivot.bytes[self.pivot.offset + self.data_start as usize
+                ..self.pivot.offset + self.data_end as usize];
+            let scratch_slice = &self.scratch2.bytes[self.scratch2.offset + self.data_start as usize
+                ..self.scratch2.offset + self.data_end as usize];
             let cmp = pivot_slice.cmp(scratch_slice).to_int();
             if cmp != 0 {
                 return cmp;
@@ -492,9 +491,9 @@ pub(crate) mod tests {
                     let previous_value = &reader.points[i - 1].packed_value;
                     let current_value = &reader.points[i].packed_value;
 
-                    let dim_start_prev = (previous_value.offset + offset) as usize;
+                    let dim_start_prev = previous_value.offset + offset as usize;
                     let dim_end_prev = dim_start_prev + config.bytes_per_dim as usize;
-                    let dim_start_curr = (current_value.offset + offset) as usize;
+                    let dim_start_curr = current_value.offset + offset as usize;
                     let dim_end_curr = dim_start_curr + config.bytes_per_dim as usize;
 
                     let mut cmp = compare_unsigned(
@@ -506,9 +505,9 @@ pub(crate) mod tests {
                         let data_dim_offset = config.packed_index_bytes_length();
                         let data_dims_length =
                             (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
-                        let data_start_prev = (previous_value.offset + data_dim_offset) as usize;
+                        let data_start_prev = previous_value.offset + data_dim_offset as usize;
                         let data_end_prev = data_start_prev + data_dims_length as usize;
-                        let data_start_curr = (current_value.offset + data_dim_offset) as usize;
+                        let data_start_curr = current_value.offset + data_dim_offset as usize;
                         let data_end_curr = data_start_curr + data_dims_length as usize;
 
                         cmp = compare_unsigned(
@@ -574,11 +573,11 @@ pub(crate) mod tests {
 
                 for i in 0..(points.len() as i32) {
                     let value = &reader.points[i as usize].packed_value;
-                    let dim_start = (value.offset + offset) as usize;
-                    let dim_end = (value.offset + offset + config.bytes_per_dim) as usize;
-                    let pivot_dim_start = (pivot_value.offset + offset) as usize;
+                    let dim_start = value.offset + offset as usize;
+                    let dim_end = value.offset + (offset + config.bytes_per_dim) as usize;
+                    let pivot_dim_start = pivot_value.offset + offset as usize;
                     let pivot_dim_end =
-                        (pivot_value.offset + offset + config.bytes_per_dim) as usize;
+                        pivot_value.offset + (offset + config.bytes_per_dim) as usize;
 
                     let mut cmp = compare_unsigned(
                         &value.bytes[dim_start..dim_end],
@@ -588,9 +587,9 @@ pub(crate) mod tests {
                         let data_dim_offset = config.packed_index_bytes_length();
                         let data_dims_length =
                             (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
-                        let data_start = (value.offset + data_dim_offset) as usize;
+                        let data_start = value.offset + data_dim_offset as usize;
                         let data_end = data_start + data_dims_length as usize;
-                        let pivot_data_start = (pivot_value.offset + data_dim_offset) as usize;
+                        let pivot_data_start = pivot_value.offset + data_dim_offset as usize;
                         let pivot_data_end = pivot_data_start + data_dims_length as usize;
                         cmp = compare_unsigned(
                             &value.bytes[data_start..data_end],
@@ -664,8 +663,8 @@ pub(crate) mod tests {
                 for dim in 0..config.num_dims {
                     let offset = (dim * config.bytes_per_dim) as usize;
                     let prefix_len = common_prefix_lengths[dim as usize] as usize;
-                    let src_start = (first_value.offset as usize) + offset;
-                    let dst_start = (point.packed_value.offset as usize) + offset;
+                    let src_start = first_value.offset + offset;
+                    let dst_start = point.packed_value.offset + offset;
                     point.packed_value.bytes.copy_from(
                         &first_value.bytes[src_start..src_start + prefix_len],
                         dst_start,
@@ -706,8 +705,8 @@ pub(crate) mod tests {
                 for dim in config.num_index_dims..config.num_dims {
                     let offset = (dim * config.bytes_per_dim) as usize;
                     let prefix_len = common_prefix_lengths[dim as usize] as usize;
-                    let src_start = (first_value.offset as usize) + offset;
-                    let dst_start = (point.packed_value.offset as usize) + offset;
+                    let src_start = first_value.offset + offset;
+                    let dst_start = point.packed_value.offset + offset;
                     point.packed_value.bytes.copy_from(
                         &first_value.bytes[src_start..src_start + prefix_len],
                         dst_start,
@@ -719,7 +718,7 @@ pub(crate) mod tests {
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
     struct Point {
-        pub packed_value: BytesRef,
+        pub packed_value: BytesRef<Vec<u8>>,
         pub doc: i32,
     }
 
@@ -732,7 +731,7 @@ pub(crate) mod tests {
                 packed_value: BytesRef {
                     bytes: vec,
                     offset: 1,
-                    length: packed_value.len() as i32,
+                    length: packed_value.len(),
                 },
                 doc,
             }
@@ -774,7 +773,7 @@ pub(crate) mod tests {
         }
     }
     impl MutablePointTree for DummyPointsReader {
-        fn get_value(&self, i: i32, packed_value: &mut BytesRef) {
+        fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>) {
             let point = &self.points[i as usize].packed_value;
             packed_value.bytes = point.bytes.clone();
             packed_value.offset = point.offset;
@@ -783,7 +782,7 @@ pub(crate) mod tests {
 
         fn get_byte_at(&self, i: i32, k: i32) -> u8 {
             let packed_value = &self.points[i as usize].packed_value;
-            packed_value.bytes[(packed_value.offset + k) as usize]
+            packed_value.bytes[packed_value.offset + k as usize]
         }
 
         fn get_doc_id(&self, i: i32) -> i32 {

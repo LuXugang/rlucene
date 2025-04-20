@@ -46,6 +46,7 @@ impl PostingsArrayBase for ParallelPostingsArray {
     }
     fn copy_to(&mut self, new_size: i32) -> Result<()> {
         self.size = new_size;
+        let new_size = new_size as usize;
         ArrayUtil::grow_exact(&mut self.text_starts, new_size)?;
         ArrayUtil::grow_exact(&mut self.address_offset, new_size)?;
         ArrayUtil::grow_exact(&mut self.byte_starts, new_size)?;
@@ -87,7 +88,7 @@ impl PostingsArrayEnum {
             PostingsArrayEnum::TermVectors(t) => t.bytes_per_posting(),
         };
         let size = self.get_size();
-        let new_size = ArrayUtil::oversize(size + 1, bytes_per_posting);
+        let new_size = ArrayUtil::oversize(size as usize + 1, bytes_per_posting as usize) as i32;
         match self {
             PostingsArrayEnum::Parallel(p) => p.copy_to(new_size)?,
             PostingsArrayEnum::FreqProx(f) => f.copy_to(new_size)?,

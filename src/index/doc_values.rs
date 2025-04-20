@@ -102,7 +102,7 @@ impl DocValues {
 /// An empty [`BinaryDocValues`] which returns no documents */
 pub struct EmptyBinary {
     doc: i32,
-    bytes: BytesRef,
+    bytes: BytesRef<Vec<u8>>,
 }
 impl Default for EmptyBinary {
     fn default() -> Self {
@@ -145,7 +145,7 @@ impl DocValuesIterator for EmptyBinary {
     }
 }
 impl BinaryDocValues for EmptyBinary {
-    fn binary_value(&mut self) -> Result<&BytesRef> {
+    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
         debug_assert!(
             false,
             "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
@@ -204,7 +204,7 @@ where
     I: IndexInput,
 {
     doc: i32,
-    empty: BytesRef,
+    empty: BytesRef<Vec<u8>>,
     _phantom: PhantomData<I>,
 }
 
@@ -275,7 +275,7 @@ where
         Ok(-1)
     }
 
-    fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef<Vec<u8>>> {
         Ok(std::mem::take(&mut self.empty))
     }
 

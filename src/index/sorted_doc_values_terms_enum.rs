@@ -36,7 +36,7 @@ where
 {
     values: SortedDocValuesEnum<I>,
     current_ord: i32,
-    bytes: BytesRef,
+    bytes: BytesRef<Vec<u8>>,
 }
 
 impl<I> SortedDocValuesTermsEnum<I>
@@ -57,7 +57,7 @@ impl<I> BytesRefIterator for SortedDocValuesTermsEnum<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         self.current_ord += 1;
         if self.current_ord >= self.values.get_value_count()? {
             Ok(None)
@@ -76,7 +76,7 @@ where
         Err(LuceneError::not_implemented(""))
     }
 
-    fn seek_exact(&mut self, text: &BytesRef) -> Result<bool> {
+    fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
         let ord = self.values.lookup_term(text)?;
         if ord >= 0 {
             self.current_ord = ord;
@@ -87,7 +87,7 @@ where
         }
     }
 
-    fn seek_ceil(&mut self, text: &BytesRef) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         let ord = self.values.lookup_term(text)?;
         if ord >= 0 {
             self.current_ord = ord;
@@ -112,7 +112,11 @@ where
         Ok(())
     }
 
-    fn seek_exact_with_state(&mut self, _term: &BytesRef, state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        _term: &BytesRef<Vec<u8>>,
+        state: &TermStateEnum,
+    ) -> Result<()> {
         debug_assert!({ matches!(state, TermStateEnum::Ord(_)) });
         match state {
             TermStateEnum::Ord(ord_term_state) => self.seek_exact_with_ord(ord_term_state.ord)?,
@@ -121,7 +125,7 @@ where
         Ok(())
     }
 
-    fn term(&self) -> Result<BytesRef> {
+    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
         Ok(self.bytes.clone())
     }
 

@@ -174,7 +174,7 @@ where
 
     fn grow(&mut self) -> Result<()> {
         self.base.take_do_return(|base| {
-            ArrayUtil::grow_with_len(&mut self.current.borrow_mut().ints, base.upto as i32 + 1);
+            ArrayUtil::grow_with_len(&mut self.current.borrow_mut().ints, base.upto + 1);
             Ok(())
         })
     }

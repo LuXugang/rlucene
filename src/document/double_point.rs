@@ -38,7 +38,7 @@ impl DoublePoint {
     pub fn new(name: &str, point: &[f64]) -> Result<DoublePoint> {
         let packed = Self::pack(point)?;
         let len = packed.len();
-        let value = Arc::new(BytesRef::from_vec(packed, 0, len as i32));
+        let value = Arc::new(BytesRef::from_slice(packed, 0, len));
         debug_assert!(len <= i32::MAX as usize);
         let field_type = Arc::new(Self::get_type(point.len() as i32)?);
         let parent_field = Field::with_bytes_ref(name, value, field_type.clone())?;
@@ -63,7 +63,7 @@ impl DoublePoint {
         }
         let packed = Self::pack(point)?;
         let len = packed.len();
-        let value = Arc::new(BytesRef::from_vec(packed, 0, len as i32));
+        let value = Arc::new(BytesRef::from_slice(packed, 0, len));
         debug_assert!(len <= i32::MAX as usize);
         self.parent_field.fields_data = Option::from(FieldDataEnum::Binary(value));
         Ok(())
@@ -118,7 +118,7 @@ impl IndexableField for DoublePoint {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
         self.parent_field.binary_value()
     }
 
@@ -140,8 +140,8 @@ impl IndexableField for DoublePoint {
         }
         match &self.parent_field.fields_data {
             Some(FieldDataEnum::Binary(bytes)) => {
-                debug_assert!(bytes.length == BitUtil::DOUBLE_BYTES as i32);
-                let value = Self::decode_dimension(&bytes.bytes, bytes.offset as usize);
+                debug_assert!(bytes.length == BitUtil::DOUBLE_BYTES);
+                let value = Self::decode_dimension(&bytes.bytes, bytes.offset);
                 Ok(Some(Number::F64(value)))
             }
             _ => {
@@ -172,7 +172,7 @@ impl fmt::Display for DoublePoint {
                     }
                     let value = Self::decode_dimension(
                         &bytes.bytes,
-                        bytes.offset as usize + dim as usize * BitUtil::DOUBLE_BYTES,
+                        bytes.offset + dim as usize * BitUtil::DOUBLE_BYTES,
                     );
                     write!(f, "{}", value)?;
                 }

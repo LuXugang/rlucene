@@ -107,7 +107,7 @@ where
     pub(crate) pos_in_util: Option<PostingDecodingUtil<I>>,
     pub(crate) pay_in: Option<Rc<RefCell<I>>>,
     pub(crate) pay_in_util: Option<PostingDecodingUtil<I>>,
-    pub(crate) payload: Option<BytesRef>,
+    pub(crate) payload: Option<BytesRef<Vec<u8>>>,
 
     pub(crate) options: IndexOptions,
     pub(crate) index_has_freq: bool,
@@ -144,14 +144,14 @@ where
     level0_pay_end_fp: i64,
     level0_block_pay_upto: i32,
     // TODO: 这里的BytesRef中的byte需要共享
-    level0_serialized_impacts: Option<BytesRef>,
+    level0_serialized_impacts: Option<BytesRef<Vec<u8>>>,
     level0_impacts: Option<Rc<RefCell<MutableImpactList>>>,
     /// level 1 skip data
     level1_pos_end_fp: i64,
     level1_block_pos_upto: i32,
     level1_pay_end_fp: i64,
     level1_block_pay_upto: i32,
-    level1_serialized_impacts: Option<BytesRef>,
+    level1_serialized_impacts: Option<BytesRef<Vec<u8>>>,
     level1_impacts: Option<Rc<RefCell<MutableImpactList>>>,
     // true if we shallow-advanced to a new block that we have not decoded yet
     needs_refilling: bool,
@@ -194,10 +194,10 @@ where
             if needs_freq && needs_impacts {
                 (
                     Some(BytesRef::with_capacity(
-                        reader.max_impact_num_bytes_at_level0,
+                        reader.max_impact_num_bytes_at_level0 as usize,
                     )),
                     Some(BytesRef::with_capacity(
-                        reader.max_impact_num_bytes_at_level1,
+                        reader.max_impact_num_bytes_at_level1 as usize,
                     )),
                     MutableImpactList::with_capacity(
                         reader.max_num_impacts_at_level0.to_usize_exact()?,
@@ -540,7 +540,7 @@ where
                 if self.needs_impacts && self.level1_last_doc_id >= target {
                     let byte_ref = self.level1_serialized_impacts.as_mut().unwrap();
                     doc_in.read_bytes(&mut byte_ref.bytes, 0, num_impact_bytes)?;
-                    byte_ref.length = num_impact_bytes;
+                    byte_ref.length = num_impact_bytes as usize;
                 } else {
                     IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
                 }
@@ -600,7 +600,7 @@ where
                     if self.needs_impacts {
                         let bi = self.level0_serialized_impacts.as_mut().unwrap();
                         doc_in.read_bytes(&mut bi.bytes, 0, num_impact_bytes)?;
-                        bi.length = num_impact_bytes;
+                        bi.length = num_impact_bytes as usize;
                     } else {
                         IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
                     }
@@ -710,7 +710,7 @@ where
                             if self.needs_impacts && found {
                                 let bytes = self.level0_serialized_impacts.as_mut().unwrap();
                                 doc_in.read_bytes(&mut bytes.bytes, 0, num_impact_bytes)?;
-                                bytes.length = num_impact_bytes;
+                                bytes.length = num_impact_bytes as usize;
                             } else {
                                 IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
                             }
@@ -835,7 +835,7 @@ where
                     if payload_length != 0 {
                         let need = self.payload_byte_upto + payload_length;
                         if need as usize > self.payload_bytes.len() {
-                            ArrayUtil::grow_with_len(&mut self.payload_bytes, need);
+                            ArrayUtil::grow_with_len(&mut self.payload_bytes, need as usize);
                         }
 
                         pos_in.read_bytes(
@@ -879,7 +879,7 @@ where
 
                 let num_bytes = self.pay_in.as_ref().unwrap().borrow_mut().read_vint()?;
                 if num_bytes as usize > self.payload_bytes.len() {
-                    ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes);
+                    ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes as usize);
                 }
 
                 self.pay_in.as_ref().unwrap().borrow_mut().read_bytes(
@@ -958,8 +958,8 @@ where
         if self.needs_payloads {
             self.payload_length = self.payload_length_buffer[self.pos_buffer_upto as usize];
             let payload = self.payload.as_mut().unwrap();
-            payload.offset = self.payload_byte_upto;
-            payload.length = self.payload_length;
+            payload.offset = self.payload_byte_upto as usize;
+            payload.length = self.payload_length as usize;
             // clone 128 is acceptable
             payload.bytes.copy_from(&self.payload_bytes, 0);
             self.payload_byte_upto += self.payload_length;
@@ -1037,7 +1037,7 @@ where
         }
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef>> {
+    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
         if !self.needs_payloads || self.payload_length == 0 {
             Ok(None)
         } else {
@@ -1122,17 +1122,17 @@ pub struct ImpactsImpl {
     index_has_freq: bool,
 
     level0_last_doc_id: i32,
-    level0_serialized_impacts: BytesRef,
+    level0_serialized_impacts: BytesRef<Vec<u8>>,
     level0_impacts: Option<Rc<RefCell<MutableImpactList>>>,
 
     level1_last_doc_id: i32,
-    level1_serialized_impacts: BytesRef,
+    level1_serialized_impacts: BytesRef<Vec<u8>>,
     level1_impacts: Option<Rc<RefCell<MutableImpactList>>>,
 }
 impl ImpactsImpl {
     fn read_impacts(
         &self,
-        _serialized: BytesRef,
+        _serialized: BytesRef<Vec<u8>>,
         _impacts_list: Rc<RefCell<MutableImpactList>>,
     ) -> Vec<Impact> {
         todo!()

@@ -91,7 +91,7 @@ where
     }
 
     /// Populates the given `BytesRef` with the term starting at `start`.
-    pub fn fill_bytes_ref(&self, term: &mut BytesRef, start: i32) {
+    pub fn fill_bytes_ref(&self, term: &mut BytesRef<Vec<u8>>, start: i32) {
         self.byte_block_pool.access_mut(|pool| {
             {
                 let block = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
@@ -112,7 +112,7 @@ where
                 term.bytes
                     .copy_from(&block[offset as usize..(offset + length) as usize], 0);
                 term.offset = 0;
-                term.length = length;
+                term.length = length as usize;
                 debug_assert!(term.length >= 0);
             };
         })
@@ -122,9 +122,9 @@ where
     ///
     /// # See Also
     /// * `fill_bytes_ref(BytesRef, int)`
-    pub fn add_bytes_ref(&mut self, bytes: &BytesRef) -> Result<i32> {
-        let length = bytes.length;
-        let len2 = 2 + bytes.length;
+    pub fn add_bytes_ref(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i32> {
+        let length = bytes.length as i32;
+        let len2 = 2 + bytes.length as i32;
         self.byte_block_pool.access_mut(|pool| {
             if len2 + pool.byte_upto > ByteBlockPool::BYTE_BLOCK_SIZE {
                 if len2 > ByteBlockPool::BYTE_BLOCK_SIZE {
@@ -149,7 +149,7 @@ where
                 buffer[buffer_upto as usize] = length as u8;
                 debug_assert!(length >= 0, "Length must be positive: {}", length);
                 buffer.copy_from(
-                    &bytes.bytes[bytes.offset as usize..(bytes.offset + length) as usize],
+                    &bytes.bytes[bytes.offset..bytes.offset + length as usize],
                     buffer_upto as usize + 1,
                 );
                 length + 1
@@ -157,7 +157,7 @@ where
                 // 2 byte to store length
                 BitUtil::set_i16_be(buffer, buffer_upto as usize, (length | 0x8000) as i16);
                 buffer.copy_from(
-                    &bytes.bytes[bytes.offset as usize..(bytes.offset + length) as usize],
+                    &bytes.bytes[bytes.offset..bytes.offset + length as usize],
                     buffer_upto as usize + 2,
                 );
                 length + 2
@@ -185,7 +185,7 @@ where
         })
     }
     /// Computes the equality between the BytesRef at the given start position and the provided BytesRef.
-    pub fn equals(&self, start: i32, b: &BytesRef) -> bool {
+    pub fn equals(&self, start: i32, b: &BytesRef<Vec<u8>>) -> bool {
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.access_mut(|pool| {
             let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
@@ -200,8 +200,7 @@ where
             };
 
             // Compare slices of bytes
-            bytes[offset..offset + length]
-                == b.bytes[b.offset as usize..(b.offset + b.length) as usize]
+            bytes[offset..offset + length] == b.bytes[b.offset..(b.offset + b.length)]
         })
     }
 }

@@ -43,6 +43,7 @@ impl<T> SliceCopyOps<T> for Vec<T> {
 }
 impl<T> SliceCopyOps<T> for [T] {
     fn copy_from(&mut self, src: &[T], offset: usize) {
+        let len = src.len();
         debug_assert!(
             offset + src.len() <= self.len(),
             "Copy out of bounds: offset={}, src_len={}, buffer_len={}",

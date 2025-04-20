@@ -119,7 +119,7 @@ where
         }
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
         match self {
             BaseSortedDocValuesEnum::Dense(sub) => sub.lookup_ord(ord),
             BaseSortedDocValuesEnum::Sparse(sub) => sub.lookup_ord(ord),
@@ -135,7 +135,7 @@ where
         }
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         match self {
             BaseSortedDocValuesEnum::Dense(sub) => sub.lookup_term(key),
             BaseSortedDocValuesEnum::Sparse(sub) => sub.lookup_term(key),
@@ -239,7 +239,7 @@ where
         }
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef<Vec<u8>>> {
         match self {
             BaseSortedSetDocValuesEnum::Dense(sub) => sub.lookup_ord(ord),
             BaseSortedSetDocValuesEnum::Sparse(sub) => sub.lookup_ord(ord),
@@ -255,7 +255,7 @@ where
         }
     }
 
-    fn lookup_term(&mut self, key: &BytesRef) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
         match self {
             BaseSortedSetDocValuesEnum::Dense(sub) => sub.lookup_term(key),
             BaseSortedSetDocValuesEnum::Sparse(sub) => sub.lookup_term(key),
@@ -284,7 +284,7 @@ impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef> {
+    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef<Vec<u8>>> {
         match self {
             SparseBinaryDocValuesBaseEnum::Sparse(sub) => sub.binary_value(disi),
             SparseBinaryDocValuesBaseEnum::Sparse1(sub) => sub.binary_value(disi),
@@ -304,7 +304,7 @@ impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseEnum<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef> {
+    fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>> {
         match self {
             DenseBinaryDocValuesBaseEnum::Dense(sub) => sub.binary_value(doc),
             DenseBinaryDocValuesBaseEnum::Dense1(sub) => sub.binary_value(doc),

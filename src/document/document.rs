@@ -87,7 +87,7 @@ impl Document {
     ///
     /// # Returns
     /// A `Vec<Arc<BytesRef>>` of binary field values.
-    pub fn get_binary_values(&self, name: &str) -> Result<Vec<Arc<BytesRef>>> {
+    pub fn get_binary_values(&self, name: &str) -> Result<Vec<Arc<BytesRef<Vec<u8>>>>> {
         let mut result = Vec::new();
 
         for field in &self.fields {
@@ -110,7 +110,7 @@ impl Document {
     ///
     /// # Returns
     /// A `Option<Arc<BytesRef>>` containing the binary field value, or `None` if no matching field is found.
-    pub fn get_binary_value(&self, name: &str) -> Result<Option<Arc<BytesRef>>> {
+    pub fn get_binary_value(&self, name: &str) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
         for field in &self.fields {
             if field.name() == name {
                 return match field.binary_value() {

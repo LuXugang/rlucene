@@ -186,7 +186,11 @@ impl Field {
         length: i32,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self> {
-        let value = Arc::new(BytesRef::from_vec(value, offset, length));
+        let value = Arc::new(BytesRef::from_slice(
+            value,
+            offset as usize,
+            length as usize,
+        ));
         Self::with_bytes_ref(name, value, indexable_field_type)
     }
     /// Creates a field with a binary value.
@@ -204,7 +208,7 @@ impl Field {
     /// - Returns an error if the field's type is `indexed()`.
     pub fn with_bytes_ref(
         name: &str,
-        bytes: Arc<BytesRef>,
+        bytes: Arc<BytesRef<Vec<u8>>>,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self> {
         if indexable_field_type
@@ -320,7 +324,7 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     ///
     /// NOTE: the provided [`BytesRef`] is not copied, so be sure not to change it until you're done with this field.
-    pub fn set_bytes_value(&mut self, value: Arc<BytesRef>) -> Result<()> {
+    pub fn set_bytes_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Binary(_)) => {}
             _ => {
@@ -457,7 +461,7 @@ impl IndexableField for Field {
         todo!()
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
         if let Some(FieldDataEnum::Binary(ref bytes)) = &self.fields_data {
             Ok(Some(bytes.clone()))
         } else {
@@ -545,7 +549,7 @@ impl Display for Field {
 }
 
 pub trait FieldBase {
-    fn set_bytes_value(&mut self, _value: Arc<BytesRef>) -> Result<()> {
+    fn set_bytes_value(&mut self, _value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_bytes_value is not implemented",
         ))
@@ -615,7 +619,7 @@ impl From<Store> for bool {
 #[derive(Debug, Clone)]
 pub enum FieldDataEnum {
     Number(Number),
-    Binary(Arc<BytesRef>),
+    Binary(Arc<BytesRef<Vec<u8>>>),
     String(Arc<String>),
     Reader(ReaderEnum),
     TokenStream(TokenStreamEnum),

@@ -101,6 +101,6 @@ impl MonotonicLongValuesBuilder {
 
     pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
         // TODO: memory calculation not implemented
-        ArrayUtil::grow_exact(&mut self.averages, new_block_count)
+        ArrayUtil::grow_exact(&mut self.averages, new_block_count as usize)
     }
 }

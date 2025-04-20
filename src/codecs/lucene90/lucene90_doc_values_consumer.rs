@@ -493,8 +493,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         values: &mut impl SortedNumericDocValues,
         gcd: i64,
     ) -> Result<i64> {
-        let mut offsets: Vec<i64> =
-            vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES as i32) as usize];
+        let mut offsets: Vec<i64> = vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES)];
         let mut offsets_index: usize = 0;
         let mut buffer = [0i64; Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize];
         let mut encode_buffer = ByteBuffersDataOutput::with_resettable_instance();
@@ -515,10 +514,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             }
             doc = values.next_doc()?;
         }
-
-        debug_assert!(offsets_index <= i32::MAX as usize);
         if up_to > 0 {
-            ArrayUtil::grow_with_len(&mut offsets, offsets_index as i32 + 1);
+            ArrayUtil::grow_with_len(&mut offsets, offsets_index);
             offsets[offsets_index] = self.data.get_file_pointer();
             offsets_index += 1;
             self.write_block(&buffer[..up_to], gcd, &mut encode_buffer)?;
@@ -631,6 +628,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         let mut dict_length = 0;
 
         while let Some(term) = iterator.next()? {
+            let length = term.length as i32;
+            let offset = term.offset as i32;
             if (ord & block_mask) == 0 {
                 if ord != 0 {
                     let uncompressed_length = Self::compress_and_get_terms_dict_block_length(
@@ -646,15 +645,15 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                 writer.add(data.get_file_pointer() - start)?;
                 // Write the first term both to the index output, and to the buffer where we'll use it as a
                 // dictionary for compression
-                data.write_vint(term.length)?;
-                data.write_bytes_range(&term.bytes, term.offset, term.length)?;
-                Self::maybe_grow_buffer(&mut buffered_output, term.length)?;
-                buffered_output.write_bytes_range(&term.bytes, term.offset, term.length)?;
-                dict_length = term.length;
+                data.write_vint(length)?;
+                data.write_bytes_range(&term.bytes, offset, length)?;
+                Self::maybe_grow_buffer(&mut buffered_output, length)?;
+                buffered_output.write_bytes_range(&term.bytes, offset, length)?;
+                dict_length = length;
             } else {
                 let prefix_length =
                     StringHelper::bytes_difference(previous.get_bytes_ref(), &term)?;
-                let suffix_length = term.length - prefix_length;
+                let suffix_length = length - prefix_length;
                 debug_assert!(suffix_length > 0);
                 // Will write (suffixLength + 1 byte + 2 vint) bytes. Grow the buffer in need.
                 Self::maybe_grow_buffer(&mut buffered_output, suffix_length + 11)?;
@@ -669,12 +668,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                 }
                 buffered_output.write_bytes_range(
                     &term.bytes,
-                    term.offset + prefix_length,
+                    offset + prefix_length,
                     suffix_length,
                 )?;
             }
 
-            max_length = max_length.max(term.length);
+            max_length = max_length.max(length);
             previous.copy_bytes_with_ref(&term);
             ord += 1;
         }
@@ -730,9 +729,9 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         let pos = buffered_output.get_position();
         let terms_dict_buffer = &mut buffered_output.bytes;
         debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
-        let original_length = terms_dict_buffer.len() as i32;
-        if pos + term_length >= original_length - 1 {
-            ArrayUtil::grow_with_len(terms_dict_buffer, original_length + term_length);
+        let original_length = terms_dict_buffer.len();
+        if (pos + term_length) as usize >= original_length - 1 {
+            ArrayUtil::grow_with_len(terms_dict_buffer, original_length + term_length as usize);
             debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
             let terms_dict_buffer_len = terms_dict_buffer.len() as i32;
             buffered_output.reset_with_range(pos, terms_dict_buffer_len - pos)?;
@@ -780,8 +779,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                         StringHelper::sort_key_length(previous.get_bytes_ref(), &term)?
                     };
                     offset += sort_key_length as i64;
-                    self.data
-                        .write_bytes_range(&term.bytes, term.offset, sort_key_length)?;
+                    self.data.write_bytes_range(
+                        &term.bytes,
+                        term.offset as i32,
+                        sort_key_length,
+                    )?;
                 } else if (ord & Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64)
                     == Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64
                 {
@@ -927,8 +929,9 @@ where
         while doc != NO_MORE_DOCS {
             num_docs_with_field += 1;
             let v = values.binary_value()?;
-            let length = v.length;
-            self.data.write_bytes_range(&v.bytes, v.offset, v.length)?;
+            let length = v.length as i32;
+            self.data
+                .write_bytes_range(&v.bytes, v.offset as i32, length)?;
             min_length = min_length.min(length);
             max_length = max_length.max(length);
             doc = values.next_doc()?;
@@ -1351,7 +1354,7 @@ where
         let doc = self.value.next_doc()?;
         if doc != NO_MORE_DOCS {
             self.doc_value_count = self.value.doc_value_count()?;
-            ArrayUtil::grow_with_len(&mut self.ords, self.doc_value_count);
+            ArrayUtil::grow_with_len(&mut self.ords, self.doc_value_count as usize);
             for i in 0..self.doc_value_count {
                 self.ords[i as usize] = self.value.next_ord()?;
             }

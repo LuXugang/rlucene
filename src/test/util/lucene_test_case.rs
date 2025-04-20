@@ -157,7 +157,7 @@ pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool>
 /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
 /// that sometimes uses a non-zero offset and non-zero end-padding to
 /// tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRef> {
+pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRef<Vec<u8>>> {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
 }
@@ -165,22 +165,28 @@ pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<
 /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero offset,
 /// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_from_bytes_ref(random: &mut StdRng, b: &BytesRef) -> Result<BytesRef> {
+pub(crate) fn new_bytes_ref_from_bytes_ref(
+    random: &mut StdRng,
+    b: &BytesRef<Vec<u8>>,
+) -> Result<BytesRef<Vec<u8>>> {
     assert!(b.is_valid()?);
-    new_bytes_ref(random, &b.bytes, b.offset, b.length)
+    new_bytes_ref(random, &b.bytes, b.offset as i32, b.length as i32)
 }
 
 /// Creates a random `BytesRef` from the incoming bytes, sometimes using a non-zero offset,
 /// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_from_bytes(random: &mut StdRng, bytes_in: &[u8]) -> Result<BytesRef> {
+pub(crate) fn new_bytes_ref_from_bytes(
+    random: &mut StdRng,
+    bytes_in: &[u8],
+) -> Result<BytesRef<Vec<u8>>> {
     new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
 }
 
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and non-zero
 /// end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef> {
+pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef<Vec<u8>>> {
     new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref` function
 }
 
@@ -188,7 +194,10 @@ pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef> {
 /// that sometimes uses a non-zero offset and non-zero end-padding to tickle latent bugs
 /// that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_with_length(byte_length: i32, random: &mut StdRng) -> Result<BytesRef> {
+pub(crate) fn new_bytes_ref_with_length(
+    byte_length: i32,
+    random: &mut StdRng,
+) -> Result<BytesRef<Vec<u8>>> {
     let bytes_in = vec![0u8; byte_length as usize];
     new_bytes_ref(random, &bytes_in, 0, byte_length)
 }
@@ -200,7 +209,7 @@ pub(crate) fn new_bytes_ref(
     bytes_in: &[u8],
     offset: i32,
     length: i32,
-) -> Result<BytesRef> {
+) -> Result<BytesRef<Vec<u8>>> {
     assert!(
         bytes_in.len() >= (offset + length) as usize,
         "got offset={} length={} bytesIn.length={}",
@@ -231,13 +240,13 @@ pub(crate) fn new_bytes_ref(
     // Create a BytesRef and return it
     let it = BytesRef {
         bytes,
-        offset: start_offset,
-        length,
+        offset: start_offset as usize,
+        length: length as usize,
     };
     assert!(it.is_valid()?);
 
     if random.random_range(1..=17) == 7 {
-        return new_bytes_ref(random, &it.bytes, it.offset, it.length);
+        return new_bytes_ref(random, &it.bytes, it.offset as i32, it.length as i32);
     };
     Ok(it)
 }

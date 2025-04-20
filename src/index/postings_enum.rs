@@ -40,7 +40,7 @@ pub trait PostingsEnum: DocIdSetIterator {
 
     /// Returns the payload at this position, or None if no payload was indexed.
     /// Do not modify the returned bytes.
-    fn get_payload(&self) -> Result<Option<&BytesRef>>;
+    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>>;
 }
 
 pub mod postings_enum_util {
@@ -85,7 +85,7 @@ impl PostingsEnum for PostingsEnums {
         todo!()
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef>> {
+    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
         todo!()
     }
 }

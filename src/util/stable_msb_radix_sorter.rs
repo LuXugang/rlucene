@@ -283,13 +283,13 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestStableMSBRadixSorter;
 
-    fn test(refs: &[BytesRef], len: usize, random: &mut StdRng) -> Result<()> {
-        let mut expected: Vec<BytesRef> = refs[..len].to_vec();
+    fn test(refs: &[BytesRef<Vec<u8>>], len: usize, random: &mut StdRng) -> Result<()> {
+        let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
         expected.sort();
 
         let mut max_length = 0;
         for ref_item in &refs[..len] {
-            max_length = max_length.max(ref_item.length);
+            max_length = max_length.max(ref_item.length as i32);
         }
 
         match random.random_range(0..3) {
@@ -311,7 +311,7 @@ mod tests {
     #[test]
     fn test_empty() -> Result<()> {
         let mut random = random();
-        let refs: Vec<BytesRef> = vec![BytesRef::default(); random.random_range(0..5)];
+        let refs: Vec<BytesRef<Vec<u8>>> = vec![BytesRef::default(); random.random_range(0..5)];
         test(&refs, 0, &mut random)
     }
     #[test]
@@ -339,7 +339,8 @@ mod tests {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.random_range(0..100_000);
-        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.random_range(0..50));
+        let mut bytes: Vec<BytesRef<Vec<u8>>> =
+            Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
             let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
             random.fill_bytes(&mut b[common_prefix_len..]);
@@ -410,7 +411,7 @@ mod tests {
             substrings_set.insert(BytesRef::from_bytes(bytes));
         }
 
-        let substrings: Vec<BytesRef> = substrings_set.into_iter().collect();
+        let substrings: Vec<BytesRef<Vec<u8>>> = substrings_set.into_iter().collect();
         let mut chance: Vec<f64> = Vec::with_capacity(substrings.len());
         let mut sum = 0.0;
 
@@ -452,17 +453,17 @@ mod tests {
             iters += 1;
         }
 
-        let strings_vec: Vec<BytesRef> = strings_set.into_iter().collect();
+        let strings_vec: Vec<BytesRef<Vec<u8>>> = strings_set.into_iter().collect();
         test(&strings_vec, strings_vec.len(), &mut random)
     }
 
     struct StableMSBRadixSorterTestImpl<'a> {
-        temp: Vec<BytesRef>,
+        temp: Vec<BytesRef<Vec<u8>>>,
         final_max_length: i32,
-        refs: &'a mut [BytesRef],
+        refs: &'a mut [BytesRef<Vec<u8>>],
     }
     impl<'a> StableMSBRadixSorterTestImpl<'a> {
-        fn new(final_max_length: i32, refs: &'a mut Vec<BytesRef>) -> Self {
+        fn new(final_max_length: i32, refs: &'a mut Vec<BytesRef<Vec<u8>>>) -> Self {
             StableMSBRadixSorterTestImpl {
                 temp: vec![BytesRef::default(); refs.len()],
                 final_max_length,
@@ -483,11 +484,11 @@ mod tests {
             assert!(k < self.final_max_length, "k is out of bounds");
             let ref_item = &self.refs[i as usize];
 
-            if ref_item.length <= k {
+            if ref_item.length as i32 <= k {
                 return Ok(-1);
             }
 
-            Ok(ref_item.bytes[ref_item.offset as usize + k as usize] as i32)
+            Ok(ref_item.bytes[ref_item.offset + k as usize] as i32)
         }
     }
     impl StableMSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {

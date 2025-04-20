@@ -37,6 +37,6 @@ pub trait Decompressor: crate::util::clone::TryClone {
         original_length: i32,
         offset: i32,
         length: i32,
-        bytes: &mut BytesRef,
+        bytes: &mut BytesRef<Vec<u8>>,
     ) -> Result<()>;
 }

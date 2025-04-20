@@ -80,11 +80,11 @@ impl Outputs<Rc<BytesRc>> for ByteSequenceOutputs {
 
         debug_assert!(StringHelper::starts_with(
             &output.bytes.borrow(),
-            output.offset,
-            output.length,
+            output.offset as usize,
+            output.length as usize,
             &inc.bytes.borrow(),
-            inc.offset,
-            inc.length
+            inc.offset as usize,
+            inc.length as usize
         ));
         if inc.length == output.length {
             NO_OUTPUT.with(|rc| rc.clone())

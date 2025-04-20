@@ -117,7 +117,7 @@ impl Accountable for PrefixCodedTerms {
 pub struct PrefixCodedTermsBuilder {
     output: ByteBuffersDataOutput,
     last_term: Term,
-    last_term_bytes: BytesRefBuilder,
+    last_term_bytes: BytesRefBuilder<Vec<u8>>,
     size: i64,
 }
 
@@ -142,7 +142,7 @@ impl PrefixCodedTermsBuilder {
         self.add(term.field.to_string(), &term.bytes)
     }
     /// Add a term. This fully consumes the incoming [`BytesRef`].
-    pub fn add(&mut self, field: String, bytes: &BytesRef) -> Result<()> {
+    pub fn add(&mut self, field: String, bytes: &BytesRef<Vec<u8>>) -> Result<()> {
         debug_assert!(
             self.last_term == Term::from_empty("".to_string())
                 || Term::new(field.clone(), bytes.clone()).cmp(&self.last_term)
@@ -161,11 +161,11 @@ impl PrefixCodedTermsBuilder {
             self.output.write_string(&field)?;
         }
 
-        let suffix = bytes.length - prefix;
+        let suffix = bytes.length as i32 - prefix;
+        let prefix = prefix as usize;
         self.output.write_vint(suffix)?;
         self.output.write_bytes_range(
-            &bytes.bytes
-                [(bytes.offset + prefix) as usize..(bytes.offset + prefix + suffix) as usize],
+            &bytes.bytes[(bytes.offset + prefix)..(bytes.offset + prefix + suffix as usize)],
             0,
             suffix,
         )?;
@@ -185,8 +185,8 @@ impl PrefixCodedTermsBuilder {
 /// An iterator over the list of terms stored in a [`PrefixCodedTerms`].
 pub struct TermIterator<'a> {
     input: ByteBuffersDataInput<'a>,
-    builder: BytesRefBuilder,
-    bytes: BytesRef,
+    builder: BytesRefBuilder<Vec<u8>>,
+    bytes: BytesRef<Vec<u8>>,
     end: i64,
     del_gen: i64,
     field: String,
@@ -208,21 +208,22 @@ impl<'a> TermIterator<'a> {
     }
     // TODO: maybe we should freeze to FST or automaton instead?
     pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<()> {
-        self.builder.grow(prefix + suffix);
+        let len = (prefix + suffix) as usize;
+        self.builder.grow(len);
         DataInput::read_bytes(
             &mut self.input,
             &mut self.builder.bytes_ref().bytes,
             prefix,
             suffix,
         )?;
-        self.builder.set_length(prefix + suffix);
+        self.builder.set_length(len);
         self.bytes = self.builder.get_bytes_ref_copy();
         Ok(())
     }
 }
 
 impl BytesRefIterator for TermIterator<'_> {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         if self.input.position() < self.end {
             let code = self.input.read_vint()?;
             let new_field = (code & 1) != 0;

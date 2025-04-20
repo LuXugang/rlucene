@@ -61,7 +61,7 @@ static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
 /// If sorting on this field is required, add a [`SortedDocValuesField`](crate::document::sorted_doc_values_field::SortedDocValuesField) separately to the document.
 pub struct StringField {
     parent_field: Field,
-    binary_value: Arc<BytesRef>,
+    binary_value: Arc<BytesRef<Vec<u8>>>,
     stored_value: Option<StoredValue>,
 }
 #[allow(unused)]
@@ -100,7 +100,7 @@ impl StringField {
     /// - `value`: `BytesRef` value. The provided value is **not cloned**, so it must not be modified
     ///   until the document(s) holding it have been indexed.
     /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef>, store: Store) -> Result<Self> {
+    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef<Vec<u8>>>, store: Store) -> Result<Self> {
         let store = store.into();
         let field_type = if store {
             Arc::clone(&TYPE_STORED)
@@ -122,7 +122,7 @@ impl StringField {
 }
 
 impl FieldBase for StringField {
-    fn set_bytes_value(&mut self, value: Arc<BytesRef>) -> Result<()> {
+    fn set_bytes_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
         self.parent_field.set_bytes_value(value.clone())?;
         if let Some(ref mut stored_value) = self.stored_value {
             stored_value.set_binary_value(value.clone())?;
@@ -167,7 +167,7 @@ impl IndexableField for StringField {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef>>> {
+    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
         Ok(Some(self.binary_value.clone()))
     }
 

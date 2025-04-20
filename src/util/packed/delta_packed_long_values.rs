@@ -115,7 +115,7 @@ impl DeltaPackedLongValuesBuilder {
         if let Some(ref mut builder) = self.sub_builder {
             builder.grow(new_block_count)?
         }
-        ArrayUtil::grow_exact(&mut self.mins, new_block_count)?;
+        ArrayUtil::grow_exact(&mut self.mins, new_block_count as usize)?;
         // TODO: memory calculation not implemented
         Ok(())
     }

@@ -479,7 +479,7 @@ where
 
     fn write_term(
         &mut self,
-        term: &BytesRef,
+        term: &BytesRef<Vec<u8>>,
         terms_enum: &mut T,
         docs_seen: &mut FixedBitSet,
         norms: &mut N,
@@ -733,7 +733,7 @@ where
     fn add_position(
         &mut self,
         position: i32,
-        payload: Option<&BytesRef>,
+        payload: Option<&BytesRef<Vec<u8>>>,
         start_offset: i32,
         end_offset: i32,
     ) -> Result<()> {
@@ -758,7 +758,7 @@ where
         if self.base.write_payloads {
             let len = payload
                 .filter(|p| p.length > 0)
-                .map(|p| p.length as usize)
+                .map(|p| p.length)
                 .unwrap_or(0);
             let len_i32: i32 = len.try_into()?;
             self.payload_length_buffer[idx] = len_i32;
@@ -766,16 +766,16 @@ where
                 if self.payload_byte_upto as usize + len > self.payload_bytes.len() {
                     ArrayUtil::grow_with_len(
                         &mut self.payload_bytes,
-                        self.payload_byte_upto + len_i32,
+                        (self.payload_byte_upto + len_i32) as usize,
                     );
                 }
                 let p = payload.unwrap();
-                let start = p.offset as usize;
+                let start = p.offset;
                 self.payload_bytes.copy_from(
                     &p.bytes[start..start + len],
                     self.payload_byte_upto as usize,
                 );
-                self.payload_byte_upto += p.length;
+                self.payload_byte_upto += p.length as i32;
             }
         }
 

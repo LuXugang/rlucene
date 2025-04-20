@@ -637,8 +637,8 @@ where
     offsets: Vec<i64>,
     num_stored_fields: Vec<i64>,
     start_pointer: i64,
-    spare: Option<BytesRef>,
-    bytes: Option<BytesRef>,
+    spare: Option<BytesRef<Vec<u8>>>,
+    bytes: Option<BytesRef<Vec<u8>>>,
     merging: bool,
     fields_stream: Rc<RefCell<I>>,
     decompressor: DecompressorEnum,
@@ -714,8 +714,8 @@ where
 
         self.sliced = (token & 1) != 0;
 
-        ArrayUtil::grow_no_copy(&mut self.offsets, self.chunk_docs + 1);
-        ArrayUtil::grow_no_copy(&mut self.num_stored_fields, self.chunk_docs);
+        ArrayUtil::grow_no_copy(&mut self.offsets, self.chunk_docs as usize + 1);
+        ArrayUtil::grow_no_copy(&mut self.num_stored_fields, self.chunk_docs as usize);
 
         if self.chunk_docs == 1 {
             self.num_stored_fields[0] = stream.read_vint()? as i64;
@@ -772,9 +772,8 @@ where
                         let new_len = bytes.length + spare.length;
                         ArrayUtil::grow_with_len(&mut bytes.bytes, new_len);
                         bytes.bytes.copy_from(
-                            &spare.bytes
-                                [spare.offset as usize..(spare.offset + spare.length) as usize],
-                            bytes.length as usize,
+                            &spare.bytes[spare.offset..(spare.offset + spare.length)],
+                            bytes.length,
                         );
                         bytes.length = new_len;
                         decompressed += to_decompress;
@@ -783,7 +782,7 @@ where
             } else if let Some(bytes) = &mut self.bytes {
                 self.decompressor
                     .decompress(&mut *stream, total_length, 0, total_length, bytes)?;
-                if bytes.length != total_length {
+                if bytes.length != total_length as usize {
                     return Err(LuceneError::corrupt_index(format!(
                         "Corrupted: expected chunk size = {}, got {} (resource={})",
                         total_length, bytes.length, stream
@@ -810,7 +809,7 @@ where
             match self.bytes {
                 Some(ref mut bytes) => CoreHelper::take_and_reset(bytes, |bytes| {
                     let vec = vec![0; bytes.bytes.len()];
-                    BytesRef::from_vec(vec, 0, 0)
+                    BytesRef::from_slice(vec, 0, 0)
                 }),
                 None => {
                     return Err(LuceneError::illegal_state(
@@ -827,7 +826,7 @@ where
         } else if self.merging {
             DataInputEnum::ByteArray(ByteArrayDataInput::with_range(
                 std::mem::take(&mut bytes.bytes),
-                bytes.offset + offset,
+                bytes.offset as i32 + offset,
                 length,
             ))
         } else {
@@ -857,11 +856,11 @@ where
                     length,
                     &mut bytes,
                 )?;
-                debug_assert_eq!(bytes.length, length);
+                debug_assert_eq!(bytes.length as i32, length);
                 DataInputEnum::ByteArray(ByteArrayDataInput::with_range(
                     std::mem::take(&mut bytes.bytes),
-                    bytes.offset,
-                    bytes.length,
+                    bytes.offset as i32,
+                    bytes.length as i32,
                 ))
             }
         };
@@ -911,7 +910,7 @@ where
     decompressor: &'a mut DecompressorEnum,
     chunk_size: i32,
     fields_stream: Rc<RefCell<I>>,
-    bytes: BytesRef,
+    bytes: BytesRef<Vec<u8>>,
 }
 impl<'a, I> DataInputImpl<'a, I>
 where
@@ -921,10 +920,10 @@ where
         decompressor: &'a mut DecompressorEnum,
         chunk_size: i32,
         fields_stream: Rc<RefCell<I>>,
-        bytes: BytesRef,
+        bytes: BytesRef<Vec<u8>>,
         length: i32,
     ) -> Self {
-        let decompressed = bytes.length;
+        let decompressed = bytes.length as i32;
         DataInputImpl {
             decompressed,
             length,
@@ -972,32 +971,34 @@ where
             self.fill_buffer()?;
         }
         self.bytes.length -= 1;
-        let b = self.bytes.bytes[self.bytes.offset as usize];
+        let b = self.bytes.bytes[self.bytes.offset];
         self.bytes.offset += 1;
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], mut offset: i32, mut len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+        let mut len = len as usize;
+        let mut offset = offset as usize;
         while len > self.bytes.length {
             b.copy_from(
-                &self.bytes.bytes
-                    [self.bytes.offset as usize..(self.bytes.offset + self.bytes.length) as usize],
-                offset as usize,
+                &self.bytes.bytes[self.bytes.offset..(self.bytes.offset + self.bytes.length)],
+                offset,
             );
             len -= self.bytes.length;
             offset += self.bytes.length;
             self.fill_buffer()?;
         }
         b.copy_from(
-            &self.bytes.bytes[self.bytes.offset as usize..(self.bytes.offset + len) as usize],
-            len as usize,
+            &self.bytes.bytes[self.bytes.offset..(self.bytes.offset + len)],
+            len,
         );
         self.bytes.offset += len;
         self.bytes.length -= len;
         Ok(())
     }
 
-    fn skip_bytes(&mut self, mut num_bytes: i64) -> Result<()> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        let mut num_bytes = num_bytes as usize;
         if num_bytes < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "num_bytes must be >= 0, got {}",
@@ -1005,12 +1006,12 @@ where
             )));
         }
 
-        while num_bytes > self.bytes.length as i64 {
-            num_bytes -= self.bytes.length as i64;
+        while num_bytes > self.bytes.length {
+            num_bytes -= self.bytes.length;
             self.fill_buffer()?;
         }
-        self.bytes.offset += num_bytes as i32;
-        self.bytes.length -= num_bytes as i32;
+        self.bytes.offset += num_bytes;
+        self.bytes.length -= num_bytes;
         Ok(())
     }
 }

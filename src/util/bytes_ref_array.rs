@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::Access;
+use crate::util::access::{Access, AccessVec};
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bit_util::BitUtil;
@@ -109,7 +109,11 @@ where
     /// # Errors
     /// Returns [`LuceneError::array_index_out_of_bounds`] if the index is invalid.
     ///
-    pub fn get(&self, spare: &mut BytesRefBuilder, index: i32) -> Result<BytesRef> {
+    pub fn get(
+        &self,
+        spare: &mut BytesRefBuilder<Vec<u8>>,
+        index: i32,
+    ) -> Result<BytesRef<Vec<u8>>> {
         if index < 0 || index >= self.last_element {
             return Err(LuceneError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
@@ -124,15 +128,15 @@ where
             self.offsets[index as usize + 1] - offset
         };
 
-        spare.grow_no_copy(length);
-        spare.set_length(length);
+        spare.grow_no_copy(length as usize);
+        spare.set_length(length as usize);
 
-        self.pool.read_bytes(
-            offset as i64,
-            spare.bytes_ref().bytes.as_mut_slice(),
-            0,
-            length,
-        )?;
+        spare.bytes_ref().bytes.access_mut(|bytes| {
+            self.pool.read_bytes(offset as i64, bytes, 0, length)?;
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
+        })?;
+
         // TODO: should we avoid Clone here?
         Ok(std::mem::take(spare.bytes_ref()))
     }
@@ -142,8 +146,8 @@ where
     /// in the byte block pool.
     fn set_bytes_ref(
         &self,
-        spare: &mut BytesRefBuilder,
-        result: &mut BytesRef,
+        spare: &mut BytesRefBuilder<Vec<u8>>,
+        result: &mut BytesRef<Vec<u8>>,
         index: i32,
     ) -> Result<()> {
         if index < 0 || index >= self.last_element {
@@ -178,7 +182,7 @@ where
     ///
     pub fn sort(
         &mut self,
-        comp: impl BytesRefComparator + Comparator<BytesRef>,
+        comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
         stable: bool,
     ) -> Result<SortState> {
         let size = self.size();
@@ -240,11 +244,11 @@ impl<'a, A> SortableBytesRefArray<'a> for BytesRefArray<A>
 where
     A: Access<CounterEnum> + 'a,
 {
-    fn append(&mut self, bytes: &BytesRef) -> Result<i32> {
+    fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i32> {
         self.pool.append_bytes_ref(bytes)?;
         self.offsets.push(self.current_offset);
         self.last_element += 1;
-        self.current_offset += bytes.length;
+        self.current_offset += bytes.length as i32;
         self.byte_used
             .access_mut(|b| b.add_and_get(BitUtil::INT_BYTES as i64));
         Ok(self.last_element - 1)
@@ -271,9 +275,10 @@ where
     /// # Note
     /// - This is a non-destructive operation.
     type Iter = IndexedBytesRefIteratorImpl<'a, A>;
+
     fn iterator(
         &'a mut self,
-        comp: impl BytesRefComparator + Comparator<BytesRef>,
+        comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
     ) -> Result<Self::Iter> {
         let ords = self.sort(comp, false)?;
         Ok(self.iterator_with_state(Arc::from(ords)))
@@ -302,13 +307,15 @@ where
     pos: i32,
     pub(crate) ord: i32,
     sort_state: Arc<SortState>,
-    spare: BytesRefBuilder,
+    spare: BytesRefBuilder<Vec<u8>>,
     size: i32,
     bytes_ref_array: &'a BytesRefArray<A>,
 }
 impl<'a, A> IndexedBytesRefIteratorImpl<'a, A>
 where
     A: Access<CounterEnum>,
+
+    BytesRefArray<A>: SortableBytesRefArray<'a>,
 {
     fn new(
         sort_state: Arc<SortState>,
@@ -331,7 +338,7 @@ impl<A> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
@@ -389,7 +396,12 @@ impl<A> StringSorterBase for StableStringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
+    fn get(
+        &mut self,
+        builder: &mut BytesRefBuilder<Vec<u8>>,
+        result: &mut BytesRef<Vec<u8>>,
+        i: i32,
+    ) -> Result<()> {
         self.bytes_ref_array
             .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
@@ -429,7 +441,12 @@ impl<A> StringSorterBase for StringSorterImpl<'_, A>
 where
     A: Access<CounterEnum>,
 {
-    fn get(&mut self, builder: &mut BytesRefBuilder, result: &mut BytesRef, i: i32) -> Result<()> {
+    fn get(
+        &mut self,
+        builder: &mut BytesRefBuilder<Vec<u8>>,
+        result: &mut BytesRef<Vec<u8>>,
+        i: i32,
+    ) -> Result<()> {
         self.bytes_ref_array
             .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
@@ -617,7 +634,7 @@ mod tests {
             let mut iter = list.iterator_with_state(Arc::new(sort_state));
             let mut i = 0;
             let mut last_ord = -1;
-            let mut last: Option<BytesRef> = None;
+            let mut last = None;
 
             while let Some(next) = iter.next()? {
                 let next = next.into_owned();

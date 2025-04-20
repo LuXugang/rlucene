@@ -97,6 +97,7 @@ mod tests {
 
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
+    use crate::util::access::AccessVec;
     use crate::util::error::lucene_error::Result;
     use crate::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
     use crate::util::{
@@ -107,7 +108,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestStringSorter;
 
-    fn test(refs: Vec<BytesRef>, len: usize) -> Result<()> {
+    fn test(refs: Vec<BytesRef<Vec<u8>>>, len: usize) -> Result<()> {
         test_impl(refs.clone(), len, Natural::default())?;
         test_impl(refs.clone(), len, NaturalOrder::default())?;
         test_stable(refs.clone(), len, Natural::default())?;
@@ -116,11 +117,11 @@ mod tests {
     }
 
     fn test_impl(
-        refs: Vec<BytesRef>,
+        refs: Vec<BytesRef<Vec<u8>>>,
         len: usize,
-        comparator: impl BytesRefComparator + Comparator<BytesRef>,
+        comparator: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
     ) -> Result<()> {
-        let mut expected: Vec<BytesRef> = refs.clone();
+        let mut expected: Vec<BytesRef<Vec<u8>>> = refs.clone();
         expected.sort();
         let delegate_sorter = StringSorterTestImpl::new(refs.clone());
         let mut string_sorter = StringSorter::new(delegate_sorter, comparator);
@@ -131,11 +132,11 @@ mod tests {
     }
 
     fn test_stable(
-        refs: Vec<BytesRef>,
+        refs: Vec<BytesRef<Vec<u8>>>,
         len: usize,
-        comparator: impl BytesRefComparator + Comparator<BytesRef>,
+        comparator: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
     ) -> Result<()> {
-        let mut expected: Vec<BytesRef> = refs[..len].to_vec();
+        let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
         let mut actual = refs[..len].to_vec();
         expected.sort();
 
@@ -176,7 +177,7 @@ mod tests {
     fn test_empty() -> Result<()> {
         let mut random = random();
         let len = random.random_range(0..5);
-        let refs: Vec<BytesRef> = (0..len).map(|_| BytesRef::default()).collect();
+        let refs: Vec<BytesRef<Vec<u8>>> = (0..len).map(|_| BytesRef::default()).collect();
         test(refs, 0)
     }
 
@@ -204,7 +205,8 @@ mod tests {
         random.fill_bytes(&mut common_prefix);
         let len = random.random_range(0..100000);
 
-        let mut bytes: Vec<BytesRef> = Vec::with_capacity(len + random.random_range(0..50));
+        let mut bytes: Vec<BytesRef<Vec<u8>>> =
+            Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
             let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
             random.fill_bytes(&mut b[common_prefix_len..]);
@@ -254,11 +256,11 @@ mod tests {
     }
 
     struct StringSorterTestImpl {
-        refs: Vec<BytesRef>,
+        refs: Vec<BytesRef<Vec<u8>>>,
     }
 
     impl StringSorterTestImpl {
-        fn new(refs: Vec<BytesRef>) -> Self {
+        fn new(refs: Vec<BytesRef<Vec<u8>>>) -> Self {
             Self { refs }
         }
     }
@@ -271,8 +273,8 @@ mod tests {
     impl StringSorterBase for StringSorterTestImpl {
         fn get(
             &mut self,
-            _builder: &mut BytesRefBuilder,
-            result: &mut BytesRef,
+            _builder: &mut BytesRefBuilder<Vec<u8>>,
+            result: &mut BytesRef<Vec<u8>>,
             i: i32,
         ) -> Result<()> {
             let ref_item = &self.refs[i as usize];
@@ -286,14 +288,14 @@ mod tests {
     struct StableStringSorterTestImpl<'a> {
         tmp: Vec<i32>,
         ord: &'a mut Vec<i32>,
-        refs: &'a mut [BytesRef],
+        refs: &'a mut [BytesRef<Vec<u8>>],
     }
 
     impl StringSorterBase for StableStringSorterTestImpl<'_> {
         fn get(
             &mut self,
-            _builder: &mut BytesRefBuilder,
-            result: &mut BytesRef,
+            _builder: &mut BytesRefBuilder<Vec<u8>>,
+            result: &mut BytesRef<Vec<u8>>,
             i: i32,
         ) -> Result<()> {
             let ref_item = &self.refs[self.ord[i as usize] as usize];
