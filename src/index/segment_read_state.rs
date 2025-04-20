@@ -18,8 +18,9 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
+use parking_lot::Mutex;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// Holder struct for common parameters used during read.
 ///

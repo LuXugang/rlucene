@@ -79,70 +79,64 @@ where
     }
 
     /// Sets the int at the given offset.
-    pub fn set_int_at(&mut self, offset: i32, value: i32) -> Result<()> {
+    pub fn set_int_at(&mut self, offset: i32, value: i32) {
         self.ints_ref.ints.access_mut(|ints_bytes| {
             ints_bytes[offset as usize] = value;
-            Ok(())
         })
     }
 
     /// Appends the provided int to this buffer.
-    pub fn append(&mut self, i: i32) -> Result<()> {
+    pub fn append(&mut self, i: i32) {
         let mut len = self.ints_ref.length;
-        self.grow(len + 1)?;
+        self.grow(len + 1);
         len = self.ints_ref.length;
         self.ints_ref.ints.access_mut(|ints_bytes| {
             ints_bytes[len as usize] = i;
-            Ok(())
-        })?;
+        });
         self.ints_ref.length += 1;
-        Ok(())
     }
 
     /// Grows the reference array to at least `new_length`.
     ///
     /// In general, this should not be used directly, as it does not take offset into account.
-    pub fn grow(&mut self, new_length: i32) -> Result<()> {
+    pub fn grow(&mut self, new_length: i32) {
         self.ints_ref
             .ints
             .access_mut(|ints_bytes| ArrayUtil::grow_with_len(ints_bytes, new_length))
     }
 
     /// Grows the reference array to at least `new_length`, without copying original data.
-    pub fn grow_no_copy(&mut self, new_length: i32) -> Result<()> {
+    pub fn grow_no_copy(&mut self, new_length: i32) {
         let v = self
             .ints_ref
             .ints
-            .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length))?;
+            .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length));
         if let Some(v) = v {
             self.ints_ref.ints = AV::from_vec(v);
         }
-        Ok(())
     }
 
     /// Copies the given slice into this instance.
-    pub fn copy_ints(&mut self, other: &[i32], other_offset: i32, other_length: i32) -> Result<()> {
-        self.grow_no_copy(other_length)?;
+    pub fn copy_ints(&mut self, other: &[i32], other_offset: i32, other_length: i32) {
+        self.grow_no_copy(other_length);
         self.ints_ref.ints.access_mut(|ints_bytes| {
             ints_bytes.copy_from(
                 &other[other_offset as usize..(other_offset + other_length) as usize],
                 0,
             );
             self.ints_ref.length = other_length;
-            Ok(())
-        })
+        });
     }
     /// Copies the given [`IntsRef`] into this instance.
-    pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) -> Result<()> {
+    pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) {
         ints.ints
             .access(|ints_bytes| self.copy_ints(ints_bytes, ints.offset, ints.length))
     }
 
     /// Copies the given UTF-8 bytes into this builder.
-    pub fn copy_utf8_bytes(&mut self, bytes: &BytesRef) -> Result<()> {
-        self.grow_no_copy(bytes.length)?;
+    pub fn copy_utf8_bytes(&mut self, bytes: &BytesRef) {
+        self.grow_no_copy(bytes.length);
         self.ints_ref.length = bytes.length;
-        Ok(())
     }
 
     /// Returns a reference to the internal [`IntsRef`] content.
@@ -157,7 +151,7 @@ where
     }
 
     /// Builds a new [`IntsRef`] that has the same content as this builder.
-    pub fn to_ints_ref(&self) -> Result<IntsRef<AV>> {
+    pub fn to_ints_ref(&self) -> IntsRef<AV> {
         IntsRef::deep_copy_of(&self.ints_ref)
     }
 }

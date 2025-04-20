@@ -136,10 +136,7 @@ where
             Lucene101PostingsFormat::DOC_EXTENSION,
         );
 
-        let mut directory = state
-            .directory
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
+        let mut directory = state.directory.lock();
         let mut meta_out = directory.create_output(&meta_file, &state.context)?;
         let mut doc_out = directory.create_output(&doc_file, &state.context)?;
         CodecUtil::write_index_header(
@@ -770,7 +767,7 @@ where
                     ArrayUtil::grow_with_len(
                         &mut self.payload_bytes,
                         self.payload_byte_upto + len_i32,
-                    )?;
+                    );
                 }
                 let p = payload.unwrap();
                 let start = p.offset as usize;

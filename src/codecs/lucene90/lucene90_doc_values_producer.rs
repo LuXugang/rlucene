@@ -120,10 +120,7 @@ where
         let mut skippers = HashMap::new();
 
         {
-            let dir = state
-                .directory
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let dir = state.directory.lock();
             let mut input = dir.open_checksum_input(&meta_name)?;
 
             let mut prior_error = None;
@@ -170,10 +167,7 @@ where
         // readahead.
         let mut data;
         {
-            let dir = state
-                .directory
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+            let dir = state.directory.lock();
             data = dir.open_input(
                 &data_name,
                 &state.context.with_read_advice(ReadAdvice::Normal)?,

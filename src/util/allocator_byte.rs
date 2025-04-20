@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 use crate::util::access::Access;
-use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{ByteBlockPool, Counter, CounterEnum};
+use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is in use. */
 pub struct DirectTrackingAllocatorByte<C: Access<CounterEnum>> {
@@ -37,17 +37,16 @@ impl<C: Access<CounterEnum>> DirectTrackingAllocatorByte<C> {
 }
 
 impl<C: Access<CounterEnum>> AllocatorByte for DirectTrackingAllocatorByte<C> {
-    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: i32, end: i32) -> Result<()> {
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: i32, end: i32) {
         let delta = -(end - start) as i64 * self.block_size as i64;
         self.byte_used
-            .access_mut(|byte_used| Ok(byte_used.add_and_get(delta)))?;
-        Ok(())
+            .access_mut(|byte_used| byte_used.add_and_get(delta));
     }
 
-    fn get_byte_block(&mut self) -> Result<Vec<u8>> {
+    fn get_byte_block(&mut self) -> Vec<u8> {
         self.byte_used
-            .access_mut(|byte_used| Ok(byte_used.add_and_get(self.block_size as i64)))?;
-        Ok(vec![0; self.block_size as usize])
+            .access_mut(|byte_used| byte_used.add_and_get(self.block_size as i64));
+        vec![0; self.block_size as usize]
     }
 
     fn get_block_size(&self) -> i32 {
@@ -57,8 +56,8 @@ impl<C: Access<CounterEnum>> AllocatorByte for DirectTrackingAllocatorByte<C> {
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorByte {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) -> Result<()>;
-    fn get_byte_block(&mut self) -> Result<Vec<u8>>;
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32);
+    fn get_byte_block(&mut self) -> Vec<u8>;
     fn get_block_size(&self) -> i32;
 }
 
@@ -82,12 +81,10 @@ impl DirectAllocatorByte {
 }
 
 impl AllocatorByte for DirectAllocatorByte {
-    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: i32, _end: i32) -> Result<()> {
-        Ok(())
-    }
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: i32, _end: i32) {}
 
-    fn get_byte_block(&mut self) -> Result<Vec<u8>> {
-        Ok(vec![0; self.block_size as usize])
+    fn get_byte_block(&mut self) -> Vec<u8> {
+        vec![0; self.block_size as usize]
     }
 
     fn get_block_size(&self) -> i32 {
@@ -106,15 +103,13 @@ impl<C> AllocatorByteEnum<C>
 where
     C: Access<CounterEnum>,
 {
-    pub fn get_used(&self) -> Result<i64> {
+    pub fn get_used(&self) -> i64 {
         match self {
-            AllocatorByteEnum::DA(_da) => Ok(0),
-            AllocatorByteEnum::DTA(dta) => {
-                dta.byte_used.access_mut(|byte_used| Ok(byte_used.get()))
-            }
+            AllocatorByteEnum::DA(_da) => 0,
+            AllocatorByteEnum::DTA(dta) => dta.byte_used.access_mut(|byte_used| byte_used.get()),
         }
     }
-    pub fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) -> Result<()> {
+    pub fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
         match self {
             AllocatorByteEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
             AllocatorByteEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
@@ -126,7 +121,7 @@ where
             AllocatorByteEnum::DTA(dta) => dta.get_block_size(),
         }
     }
-    pub fn get_byte_block(&mut self) -> Result<Vec<u8>> {
+    pub fn get_byte_block(&mut self) -> Vec<u8> {
         match self {
             AllocatorByteEnum::DA(da) => da.get_byte_block(),
             AllocatorByteEnum::DTA(dta) => dta.get_byte_block(),
@@ -144,10 +139,10 @@ where
 {
     type Handle: Clone;
     fn new_allocator(allocator: AllocatorByteEnum<C>) -> Self::Handle;
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) -> Result<()>;
-    fn get_byte_block(&mut self) -> Result<Vec<u8>>;
-    fn get_block_size(&self) -> Result<i32>;
-    fn get_used(&self) -> Result<i64>;
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32);
+    fn get_byte_block(&mut self) -> Vec<u8>;
+    fn get_block_size(&self) -> i32;
+    fn get_used(&self) -> i64;
 }
 impl<C> Allocator<C> for Rc<RefCell<AllocatorByteEnum<C>>>
 where
@@ -159,19 +154,19 @@ where
         Rc::new(RefCell::new(allocator))
     }
 
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) -> Result<()> {
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
         self.borrow_mut().recycle_byte_blocks(blocks, start, end)
     }
 
-    fn get_byte_block(&mut self) -> Result<Vec<u8>> {
+    fn get_byte_block(&mut self) -> Vec<u8> {
         self.borrow_mut().get_byte_block()
     }
 
-    fn get_block_size(&self) -> Result<i32> {
-        Ok(self.borrow().get_block_size())
+    fn get_block_size(&self) -> i32 {
+        self.borrow().get_block_size()
     }
 
-    fn get_used(&self) -> Result<i64> {
+    fn get_used(&self) -> i64 {
         self.borrow().get_used()
     }
 }
@@ -185,28 +180,19 @@ where
         Arc::new(Mutex::new(allocator))
     }
 
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) -> Result<()> {
-        self.lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .recycle_byte_blocks(blocks, start, end)
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
+        self.lock().recycle_byte_blocks(blocks, start, end)
     }
 
-    fn get_byte_block(&mut self) -> Result<Vec<u8>> {
-        self.lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .get_byte_block()
+    fn get_byte_block(&mut self) -> Vec<u8> {
+        self.lock().get_byte_block()
     }
 
-    fn get_block_size(&self) -> Result<i32> {
-        Ok(self
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .get_block_size())
+    fn get_block_size(&self) -> i32 {
+        self.lock().get_block_size()
     }
 
-    fn get_used(&self) -> Result<i64> {
-        self.lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?
-            .get_used()
+    fn get_used(&self) -> i64 {
+        self.lock().get_used()
     }
 }

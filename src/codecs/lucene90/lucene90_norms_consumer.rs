@@ -57,10 +57,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             &state.segment_suffix,
             data_extension,
         );
-        let mut dir = state
-            .directory
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
+        let mut dir = state.directory.lock();
         let mut data = dir.create_output(&data_name, &state.context)?;
         CodecUtil::write_index_header(
             &mut data,

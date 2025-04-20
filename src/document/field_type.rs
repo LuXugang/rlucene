@@ -22,10 +22,11 @@ use crate::index::point_values::point_values_util;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// Describes the properties of a field.
 #[derive(Clone, Debug)]
@@ -86,9 +87,7 @@ impl FieldType {
         // Copy attributes if available; otherwise use an empty map.
         let attributes = {
             let ref_attrs = ref_field.get_attributes();
-            let lock = ref_attrs
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+            let lock = ref_attrs.lock();
             if lock.is_empty() {
                 HashMap::new()
             } else {
@@ -334,10 +333,7 @@ impl FieldType {
     /// If a value already exists for the field, it will be replaced with the new value.
     pub fn put_attribute(&mut self, key: String, value: String) -> Result<Option<String>> {
         self.check_if_frozen()?;
-        let mut attrs = self
-            .attributes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut attrs = self.attributes.lock();
         Ok(attrs.insert(key, value))
     }
 
@@ -637,7 +633,7 @@ mod tests {
         ft.put_attribute("dummy".to_string(), "d".to_string())?;
         ft.put_attribute("dummy".to_string(), "a".to_string())?;
         let attributes = ft.get_attributes();
-        let attrs = attributes.lock().unwrap();
+        let attrs = attributes.lock();
         let len = attrs.len();
         assert_eq!(len, 1);
         match attrs.get("dummy") {

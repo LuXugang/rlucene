@@ -29,11 +29,12 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::output_enum::OutputEnum;
 use crate::util::{IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR};
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::Write;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
 
@@ -231,9 +232,7 @@ where
         let generation = generation_from_segments_file_name(segment_file_name)?;
         let mut input;
         {
-            let dir = directory.lock().map_err(|_| {
-                LuceneError::illegal_argument("Failed to acquire  lock.".to_string())
-            })?;
+            let dir = directory.lock();
             input = match dir.open_checksum_input(segment_file_name) {
                 Ok(input) => input,
                 Err(e) => {
@@ -1093,11 +1092,11 @@ where
             if i > 0 {
                 write!(f, " ")?;
             }
-            let result = segment_commit_info.to_string_with_pending_del_count(0);
-            match result {
-                Ok(s) => write!(f, "{}", s)?,
-                Err(e) => write!(f, "fmt Error: {}", e)?,
-            }
+            write!(
+                f,
+                "{}",
+                segment_commit_info.to_string_with_pending_del_count(0)
+            )?
         }
         Ok(())
     }
@@ -1152,9 +1151,7 @@ where
             let mut files;
             let mut files2;
             {
-                let dir = self.directory.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock".to_string())
-                })?;
+                let dir = self.directory.lock();
                 files = dir.list_all()?;
                 files2 = dir.list_all()?;
             }
@@ -1170,7 +1167,7 @@ where
             if gen == -1 {
                 return Err(LuceneError::index_not_found(format!(
                     "No segments* file found in the {}: files: {:?}",
-                    self.directory.lock().unwrap(),
+                    self.directory.lock(),
                     files
                 )));
             } else if gen > last_gen {
@@ -1243,32 +1240,24 @@ where
 }
 /// Sets the global INFO_STREAM to the given `OutputEnum`.
 pub fn set_info_stream(output: OutputEnum) -> Result<()> {
-    let mut info_stream = INFO_STREAM
-        .lock()
-        .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+    let mut info_stream = INFO_STREAM.lock();
     *info_stream = Some(Arc::new(Mutex::new(output)));
     Ok(())
 }
 
 /// Returns the current global INFO_STREAM as an `Option<Arc<Mutex<OutputEnum>>>`.
 pub fn get_info_stream() -> Result<Option<Arc<Mutex<OutputEnum>>>> {
-    let info_stream = INFO_STREAM
-        .lock()
-        .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+    let info_stream = INFO_STREAM.lock();
     Ok(info_stream.clone())
 }
 
 /// Prints a message to the INFO_STREAM if it is set.
 /// This function assumes the caller has checked whether INFO_STREAM is `Some`.
 pub fn message(msg: &str) -> Result<()> {
-    let info_stream = INFO_STREAM
-        .lock()
-        .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+    let info_stream = INFO_STREAM.lock();
 
     if let Some(ref stream) = *info_stream {
-        let mut stream = stream
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut stream = stream.lock();
         writeln!(stream, "SIS: {}", msg)
             .map_err(|e| LuceneError::io_with_path("Failed to acquire lock".to_string(), e))?;
     }
@@ -1386,10 +1375,11 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
+    use parking_lot::Mutex;
     use rand::Rng;
     use std::collections::{HashMap, HashSet};
     use std::rc::Rc;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     pub struct TestSegmentInfos;
@@ -1422,7 +1412,7 @@ mod tests {
         let mut random = random();
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut sis = SegmentInfos::new(LATEST.major)?;
-        sis.commit(&mut *directory.lock().unwrap())?;
+        sis.commit(&mut *directory.lock())?;
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
@@ -1455,11 +1445,9 @@ mod tests {
             None,
         )?;
         info.set_files(HashSet::new());
-        codec.segment_info_format().write(
-            &mut *directory.lock().unwrap(),
-            &mut info,
-            &io_context,
-        )?;
+        codec
+            .segment_info_format()
+            .write(&mut *directory.lock(), &mut info, &io_context)?;
 
         let commit_info = SegmentCommitInfo::new(
             Rc::new(info),
@@ -1472,7 +1460,7 @@ mod tests {
         )?;
 
         sis.add(commit_info)?;
-        sis.commit(&mut *directory.lock().unwrap())?;
+        sis.commit(&mut *directory.lock())?;
 
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
@@ -1510,11 +1498,9 @@ mod tests {
             None,
         )?;
         info_0.set_files(HashSet::new());
-        codec.segment_info_format().write(
-            &mut *directory.lock().unwrap(),
-            &mut info_0,
-            &io_context,
-        )?;
+        codec
+            .segment_info_format()
+            .write(&mut *directory.lock(), &mut info_0, &io_context)?;
 
         let commit_info_0 = SegmentCommitInfo::new(
             Rc::new(info_0),
@@ -1542,11 +1528,9 @@ mod tests {
             None,
         )?;
         info_1.set_files(HashSet::new());
-        codec.segment_info_format().write(
-            &mut *directory.lock().unwrap(),
-            &mut info_1,
-            &io_context,
-        )?;
+        codec
+            .segment_info_format()
+            .write(&mut *directory.lock(), &mut info_1, &io_context)?;
 
         let commit_info_1 = SegmentCommitInfo::new(
             Rc::new(info_1),
@@ -1558,7 +1542,7 @@ mod tests {
             Some(Vec::from(StringHelper::random_id())),
         )?;
         sis.add(commit_info_1)?;
-        sis.commit(&mut *directory.lock().unwrap())?;
+        sis.commit(&mut *directory.lock())?;
 
         let commit_info_id_0 = sis.info(0).unwrap().get_id().clone();
         let commit_info_id_1 = sis.info(1).unwrap().get_id().clone();
@@ -1790,7 +1774,7 @@ mod tests {
         info_0.set_files(HashSet::new());
         codec
             .segment_info_format()
-            .write(&mut *dir.lock().unwrap(), &mut info_0, &io_context)?;
+            .write(&mut *dir.lock(), &mut info_0, &io_context)?;
         let commit_info_0 = SegmentCommitInfo::new(
             Rc::new(info_0),
             0,
@@ -1819,7 +1803,7 @@ mod tests {
         info_1.set_files(HashSet::new());
         codec
             .segment_info_format()
-            .write(&mut *dir.lock().unwrap(), &mut info_1, &io_context)?;
+            .write(&mut *dir.lock(), &mut info_1, &io_context)?;
         let commit_info_1 = SegmentCommitInfo::new(
             Rc::new(info_1),
             0,
@@ -1831,15 +1815,15 @@ mod tests {
         )?;
         sis.add(commit_info_1)?;
 
-        sis.commit(&mut *dir.lock().unwrap())?;
+        sis.commit(&mut *dir.lock())?;
 
         // Create a corrupt directory
         let corrupt_dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut corrupt = false;
         let io_context = IOContext::read_once_io_context()?;
         {
-            let mut corrupt_directory = corrupt_dir.lock().unwrap();
-            let directory = dir.lock().unwrap();
+            let mut corrupt_directory = corrupt_dir.lock();
+            let directory = dir.lock();
             for file in directory.list_all()? {
                 if file.starts_with(IndexFileNames::SEGMENTS) {
                     {

@@ -401,7 +401,8 @@ where
         let mut buf = vec![0u8; length as usize];
         self.copied_nodes.access_mut(|copied_nodes| {
             copied_nodes.read_bytes(address - length as i64 + 1, &mut buf, 0, length)?;
-            Ok(())
+            // Help the compiler infer types
+            Ok::<(), LuceneError>(())
         })?;
         Ok(buf)
     }
@@ -461,7 +462,8 @@ where
                 fallback_start_address,
                 node_length,
             )?;
-            Ok(copied_nodes.get_position())
+            // Help the compiler infer types
+            Ok::<i64, LuceneError>(copied_nodes.get_position())
         })?;
         self.inner
             .copied_node_address

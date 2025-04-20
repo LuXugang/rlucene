@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::{LuceneError, Result};
 use once_cell::sync::Lazy;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 /// Debugging API for Lucene classes such as [`IndexWriter`](crate::index::index_writer::IndexWriter)
 /// and [`SegmentInfos`](crate::index::segment_infos::SegmentInfos).
@@ -63,12 +63,9 @@ pub fn get_default_info_stream() -> Arc<Mutex<InfoStreamEnum>> {
 }
 
 /// Sets the default [`InfoStream`] used by a newly instantiated classes.
-pub fn set_default(info_stream: InfoStreamEnum) -> Result<()> {
-    let mut lock = DEFAULT_INFOSTREAM
-        .lock()
-        .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+pub fn set_default(info_stream: InfoStreamEnum) {
+    let mut lock = DEFAULT_INFOSTREAM.lock();
     *lock = info_stream;
-    Ok(())
 }
 #[derive(Clone)]
 pub enum InfoStreamEnum {

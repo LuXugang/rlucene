@@ -75,7 +75,7 @@ where
     #[allow(clippy::too_many_arguments)]
     /// # Parameters
     /// - `field_info`: It is just a placeholder value; it should be initialized as None, but I don't want to add extra wrapping around it.
-    /// It would be set in [`set_field`](Self::set_field) before used
+    ///   It would be set in [`set_field`](Self::set_field) before used
     pub fn new(field_info: FieldInfo) -> Self {
         PushPostingsWriterBase {
             postings_enum: None,

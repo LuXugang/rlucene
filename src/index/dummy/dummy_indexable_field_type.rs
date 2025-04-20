@@ -20,8 +20,9 @@ use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
+use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct DummyIndexableFieldType;
 impl IndexableFieldType for DummyIndexableFieldType {

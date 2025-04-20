@@ -44,7 +44,7 @@ impl ByteBlockPoolReverseBytesReader {
 
 impl DataInput for ByteBlockPoolReverseBytesReader {
     fn read_byte(&mut self) -> Result<u8> {
-        let b = self.buf.access_mut(|buf| Ok(buf.read_byte(self.pos)))?;
+        let b = self.buf.access_mut(|buf| buf.read_byte(self.pos));
         self.pos -= 1;
         Ok(b)
     }
@@ -57,8 +57,7 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
                 b[offset + i] = buf.read_byte(self.pos);
                 self.pos -= 1;
             }
-            Ok(())
-        })?;
+        });
         Ok(())
     }
 

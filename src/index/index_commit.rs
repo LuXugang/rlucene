@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub trait IndexCommit {
     fn get_directory<D>(&self) -> Arc<Mutex<D>>

@@ -78,7 +78,7 @@ where
     fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A>> {
         pool.next_buffer()?;
         let offsets = Vec::new();
-        byte_used.access_mut(|b| Ok(b.add_and_get(BitUtil::INT_BYTES as i64)))?;
+        byte_used.access_mut(|b| b.add_and_get(BitUtil::INT_BYTES as i64));
         Ok(BytesRefArray {
             pool,
             offsets,
@@ -114,7 +114,7 @@ where
             self.offsets[index as usize + 1] - offset
         };
 
-        spare.grow_no_copy(length)?;
+        spare.grow_no_copy(length);
         spare.set_length(length);
 
         self.pool.read_bytes(
@@ -236,11 +236,11 @@ where
         self.last_element += 1;
         self.current_offset += bytes.length;
         self.byte_used
-            .access_mut(|b| Ok(b.add_and_get(BitUtil::INT_BYTES as i64)))?;
+            .access_mut(|b| b.add_and_get(BitUtil::INT_BYTES as i64));
         Ok(self.last_element - 1)
     }
 
-    fn clear(&mut self) -> Result<()> {
+    fn clear(&mut self) {
         self.last_element = 0;
         self.current_offset = 0;
         self.offsets.clear();
@@ -449,7 +449,7 @@ mod tests {
 
         for j in 0..2 {
             if j > 0 && random.random_bool(0.5) {
-                list.clear()?;
+                list.clear();
                 string_list.clear();
             }
 
@@ -460,7 +460,7 @@ mod tests {
             for i in 0..entries {
                 let random_realistic_unicode_string =
                     TestUtil::random_realistic_unicode_string(&mut random);
-                spare.copy_chars_with_string(&random_realistic_unicode_string)?;
+                spare.copy_chars_with_string(&random_realistic_unicode_string);
                 assert_eq!(i + init_size, list.append(spare.get_bytes_ref())?);
                 string_list.push(random_realistic_unicode_string);
             }
@@ -506,7 +506,7 @@ mod tests {
 
         for j in 0..5 {
             if j > 0 && random.random_bool(0.5) {
-                list.clear()?;
+                list.clear();
                 string_list.clear();
             }
 
@@ -517,7 +517,7 @@ mod tests {
             for i in 0..entries {
                 let random_realistic_unicode_string =
                     TestUtil::random_realistic_unicode_string(&mut random);
-                spare.copy_chars_with_string(&random_realistic_unicode_string)?;
+                spare.copy_chars_with_string(&random_realistic_unicode_string);
                 assert_eq!(init_size + i, list.append(spare.get_bytes_ref())?);
                 string_list.push(random_realistic_unicode_string);
             }
@@ -576,7 +576,7 @@ mod tests {
 
         for j in 0..5 {
             if j > 0 && random.random_bool(0.5) {
-                list.clear()?;
+                list.clear();
                 string_list.clear();
             }
 
@@ -592,7 +592,7 @@ mod tests {
             for i in 0..entries {
                 let random_realistic_unicode_string =
                     values[random.random_range(0..values.len())].clone();
-                spare.copy_chars_with_string(&random_realistic_unicode_string)?;
+                spare.copy_chars_with_string(&random_realistic_unicode_string);
                 assert_eq!(init_size + i, list.append(spare.get_bytes_ref())?);
                 string_list.push(random_realistic_unicode_string);
             }

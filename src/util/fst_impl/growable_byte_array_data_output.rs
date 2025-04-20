@@ -44,17 +44,16 @@ impl GrowableByteArrayDataOutput {
     }
 
     /// Set the position of the byte array, increasing the capacity if needed.
-    pub(crate) fn set_position(&mut self, new_len: i32) -> Result<()> {
+    pub(crate) fn set_position(&mut self, new_len: i32) {
         debug_assert!(new_len >= 0);
         if new_len > self.next_write {
-            self.ensure_capacity(new_len - self.next_write)?;
+            self.ensure_capacity(new_len - self.next_write);
         }
         self.next_write = new_len;
-        Ok(())
     }
 
     /// Ensure we can write additional `capacity_to_write` bytes.
-    fn ensure_capacity(&mut self, capacity_to_write: i32) -> Result<()> {
+    fn ensure_capacity(&mut self, capacity_to_write: i32) {
         debug_assert!(capacity_to_write > 0);
         ArrayUtil::grow_with_len(&mut self.bytes, self.next_write + capacity_to_write)
     }
@@ -75,7 +74,7 @@ impl GrowableByteArrayDataOutput {
 
 impl DataOutput for GrowableByteArrayDataOutput {
     fn write_byte(&mut self, b: u8) -> Result<()> {
-        self.ensure_capacity(1)?;
+        self.ensure_capacity(1);
         self.bytes[self.next_write as usize] = b;
         self.next_write += 1;
         Ok(())
@@ -85,7 +84,7 @@ impl DataOutput for GrowableByteArrayDataOutput {
         if len == 0 {
             return Ok(());
         }
-        self.ensure_capacity(len)?;
+        self.ensure_capacity(len);
         let start = offset as usize;
         let end = start + len as usize;
         self.bytes
@@ -165,7 +164,7 @@ mod tests {
                 if pos > 0 && random.random_range(0..50) == 17 {
                     let len = TestUtil::next_int(&mut random, 1, std::cmp::min(pos, 100));
                     pos -= len;
-                    bytes.set_position(pos)?;
+                    bytes.set_position(pos);
                     for i in pos..pos + len {
                         expected[i as usize] = 0;
                     }

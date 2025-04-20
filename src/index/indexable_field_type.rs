@@ -19,8 +19,9 @@ use crate::index::doc_values_type::DocValuesType;
 use crate::index::index_options::IndexOptions;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
+use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// Describes the properties of a field.
 ///

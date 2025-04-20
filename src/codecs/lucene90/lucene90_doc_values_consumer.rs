@@ -86,10 +86,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             &state.segment_suffix,
             data_extension,
         );
-        let mut dir = state
-            .directory
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
+        let mut dir = state.directory.lock();
         let mut data = dir.create_output(&data_name, &state.context)?;
         CodecUtil::write_index_header(
             &mut data,
@@ -521,7 +518,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
         debug_assert!(offsets_index <= i32::MAX as usize);
         if up_to > 0 {
-            ArrayUtil::grow_with_len(&mut offsets, offsets_index as i32 + 1)?;
+            ArrayUtil::grow_with_len(&mut offsets, offsets_index as i32 + 1);
             offsets[offsets_index] = self.data.get_file_pointer();
             offsets_index += 1;
             self.write_block(&buffer[..up_to], gcd, &mut encode_buffer)?;
@@ -678,7 +675,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             }
 
             max_length = max_length.max(term.length);
-            previous.copy_bytes_with_ref(&term)?;
+            previous.copy_bytes_with_ref(&term);
             ord += 1;
         }
         // Compress and write out the last block
@@ -735,7 +732,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
         let original_length = terms_dict_buffer.len() as i32;
         if pos + term_length >= original_length - 1 {
-            ArrayUtil::grow_with_len(terms_dict_buffer, original_length + term_length)?;
+            ArrayUtil::grow_with_len(terms_dict_buffer, original_length + term_length);
             debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
             let terms_dict_buffer_len = terms_dict_buffer.len() as i32;
             buffered_output.reset_with_range(pos, terms_dict_buffer_len - pos)?;
@@ -788,7 +785,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                 } else if (ord & Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64)
                     == Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64
                 {
-                    previous.copy_bytes_with_ref(&term)?;
+                    previous.copy_bytes_with_ref(&term);
                 }
                 ord += 1;
             }
@@ -1354,7 +1351,7 @@ where
         let doc = self.value.next_doc()?;
         if doc != NO_MORE_DOCS {
             self.doc_value_count = self.value.doc_value_count()?;
-            ArrayUtil::grow_with_len(&mut self.ords, self.doc_value_count)?;
+            ArrayUtil::grow_with_len(&mut self.ords, self.doc_value_count);
             for i in 0..self.doc_value_count {
                 self.ords[i as usize] = self.value.next_ord()?;
             }

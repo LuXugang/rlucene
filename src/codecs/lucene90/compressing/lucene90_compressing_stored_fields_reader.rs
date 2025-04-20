@@ -714,8 +714,8 @@ where
 
         self.sliced = (token & 1) != 0;
 
-        ArrayUtil::grow_no_copy(&mut self.offsets, self.chunk_docs + 1)?;
-        ArrayUtil::grow_no_copy(&mut self.num_stored_fields, self.chunk_docs)?;
+        ArrayUtil::grow_no_copy(&mut self.offsets, self.chunk_docs + 1);
+        ArrayUtil::grow_no_copy(&mut self.num_stored_fields, self.chunk_docs);
 
         if self.chunk_docs == 1 {
             self.num_stored_fields[0] = stream.read_vint()? as i64;
@@ -770,7 +770,7 @@ where
                         )?;
 
                         let new_len = bytes.length + spare.length;
-                        ArrayUtil::grow_with_len(&mut bytes.bytes, new_len)?;
+                        ArrayUtil::grow_with_len(&mut bytes.bytes, new_len);
                         bytes.bytes.copy_from(
                             &spare.bytes
                                 [spare.offset as usize..(spare.offset + spare.length) as usize],

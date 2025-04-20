@@ -33,10 +33,11 @@ use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{StringHelper, Version};
 use num_bigint::BigInt;
+use parking_lot::Mutex;
 use rand::rngs::StdRng;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     /// Test files map
@@ -58,11 +59,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            &mut *dir.lock().unwrap(),
-            &mut info,
-            &io_context,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(&mut *dir.lock(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -92,11 +91,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            &mut *dir.lock().unwrap(),
-            &mut info,
-            &io_context,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(&mut *dir.lock(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -128,17 +125,15 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         )?;
         let original_files: HashSet<String> = ["_123.a".to_string()].iter().cloned().collect();
         info.set_files(original_files.clone());
-        LATEST_CODEC.segment_info_format().write(
-            &mut *dir.lock().unwrap(),
-            &mut info,
-            &io_context,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(&mut *dir.lock(), &mut info, &io_context)?;
         let files = info.files()?;
         let modified_files = files.borrow();
         assert!(modified_files.is_superset(&original_files));
         assert!(
             modified_files.len() > original_files.len(),
-            "did you forget to add yourself to files()?"
+            "did you forget to add yourself to files()"
         );
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
@@ -180,11 +175,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            &mut *dir.lock().unwrap(),
-            &mut info,
-            &io_context,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(&mut *dir.lock(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -224,11 +217,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            &mut *dir.lock().unwrap(),
-            &mut info,
-            &io_context,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(&mut *dir.lock(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -236,7 +227,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             &io_context,
         )?;
         let info2_attributes = info2.get_attributes()?;
-        let info2_values = info2_attributes.lock().unwrap();
+        let info2_values = info2_attributes.lock();
         assert_eq!(attributes, *info2_values);
         // 在 Rust Lucene 中，attributes 的返回值是不可变的，因此不需要检查修改是否被禁止。
         // 如果需要，可以解除注释并尝试修改
@@ -270,11 +261,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC.segment_info_format().write(
-            &mut *dir.lock().unwrap(),
-            &mut info,
-            &io_context,
-        )?;
+        LATEST_CODEC
+            .segment_info_format()
+            .write(&mut *dir.lock(), &mut info, &io_context)?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -308,7 +297,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 )?;
                 info.set_files(HashSet::new());
                 LATEST_CODEC.segment_info_format().write(
-                    &mut *dir.lock().unwrap(),
+                    &mut *dir.lock(),
                     &mut info,
                     &io_context,
                 )?;
@@ -490,11 +479,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 sort,
             )?;
             info.set_files(HashSet::new());
-            LATEST_CODEC.segment_info_format().write(
-                &mut *dir.lock().unwrap(),
-                &mut info,
-                &io_context,
-            )?;
+            LATEST_CODEC
+                .segment_info_format()
+                .write(&mut *dir.lock(), &mut info, &io_context)?;
             let info2 = LATEST_CODEC.segment_info_format().read(
                 dir.clone(),
                 "_123",
@@ -549,7 +536,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             for j in 0..num_files {
                 let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
                 files.insert(file.clone());
-                let mut directory = dir.lock().unwrap();
+                let mut directory = dir.lock();
                 directory.create_output(&file, &io_context)?;
             }
             let mut diagnostics = HashMap::new();
@@ -584,11 +571,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 None,
             )?;
             info.set_files(files.clone());
-            LATEST_CODEC.segment_info_format().write(
-                &mut *dir.lock().unwrap(),
-                &mut info,
-                &io_context,
-            )?;
+            LATEST_CODEC
+                .segment_info_format()
+                .write(&mut *dir.lock(), &mut info, &io_context)?;
             let info2 = LATEST_CODEC.segment_info_format().read(
                 dir.clone(),
                 &name,
@@ -635,8 +620,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             "Versions do not match"
         );
         assert_eq!(
-            *expected.get_attributes()?.lock().unwrap(),
-            *actual.get_attributes()?.lock().unwrap(),
+            *expected.get_attributes()?.lock(),
+            *actual.get_attributes()?.lock(),
             "Attributes do not match"
         );
         Ok(())

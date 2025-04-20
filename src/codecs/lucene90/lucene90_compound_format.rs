@@ -217,9 +217,10 @@ mod tests {
     use crate::test::util::lucene_test_case::random;
 
     use crate::util::error::lucene_error::Result;
+    use parking_lot::Mutex;
     use rand::prelude::SliceRandom;
     use rand::Rng;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
 
     pub struct TestLucene90CompoundFormat;
     impl BaseCompoundFormatTestCase for TestLucene90CompoundFormat {}
@@ -374,7 +375,7 @@ mod tests {
             let filename = format!("{}.{}", segment, i);
             create_random_file(
                 &mut random,
-                &mut *dir.lock().unwrap(),
+                &mut *dir.lock(),
                 &filename,
                 random_file_size,
                 &seg_id,
@@ -389,7 +390,7 @@ mod tests {
         si.set_files(files);
 
         {
-            let mut directory = dir.lock().unwrap();
+            let mut directory = dir.lock();
             LATEST_CODEC
                 .compound_format()
                 .write(&mut *directory, &si, &IO_CONTEXT_DEFAULT)?;
@@ -401,10 +402,7 @@ mod tests {
             "",
             Lucene90CompoundFormat::ENTRIES_EXTENSION,
         );
-        let mut entries_stream = dir
-            .lock()
-            .unwrap()
-            .open_checksum_input(&entries_file_name)?;
+        let mut entries_stream = dir.lock().open_checksum_input(&entries_file_name)?;
 
         let mut prior_e = None;
         let result: Result<()> = (|| {

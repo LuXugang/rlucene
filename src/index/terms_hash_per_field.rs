@@ -29,9 +29,10 @@ use crate::util::bytes_ref_hash::{
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, SliceCopyOps};
+use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// This struct stores streams of information per term without knowing the size of the stream ahead of
 /// time. Each stream typically encodes one level of information, like term frequency per document or
@@ -99,7 +100,7 @@ impl TermsHashPerField {
         field_name: String,
         index_options: IndexOptions,
         postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
-    ) -> Result<Self> {
+    ) -> Self {
         // In the original Java code, we assert that indexOptions != IndexOptions.NONE.
         debug_assert!(index_options != IndexOptions::None);
         let slice_pool = ByteSlicePool::new(byte_pool.clone());
@@ -114,9 +115,9 @@ impl TermsHashPerField {
             term_byte_pool,
             TermsHashPerField::HASH_INIT_SIZE,
             byte_starts,
-        )?;
+        );
 
-        Ok(TermsHashPerField {
+        TermsHashPerField {
             next_per_field,
             int_pool,
             byte_pool,
@@ -131,7 +132,7 @@ impl TermsHashPerField {
             sorted_term_ids: false,
             do_next_call: false,
             postings_array_wrapper,
-        })
+        }
     }
     pub(crate) fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
         debug_assert!(stream < self.stream_count);
@@ -294,7 +295,7 @@ impl TermsHashPerField {
         }
     }
 
-    pub(crate) fn reinit_hash(&mut self) -> Result<()> {
+    pub(crate) fn reinit_hash(&mut self) {
         self.sorted_term_ids = false;
         self.bytes_hash.reinit()
     }
@@ -437,7 +438,7 @@ where
     C: Access<CounterEnum>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn init(&mut self) -> Result<()> {
+    fn init(&mut self) {
         self.per_field.access_mut(|postings_array_wrapper| {
             if postings_array_wrapper.postings_array.is_none() {
                 postings_array_wrapper.postings_array = Option::from(
@@ -447,11 +448,11 @@ where
                 );
                 if let Some(ref mut postings_array) = postings_array_wrapper.postings_array {
                     let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                    self.bytes_used
-                        .access_mut(|bytes_used| Ok(bytes_used.add_and_get(byte_used as i64)))?;
+                    let _ = self
+                        .bytes_used
+                        .access_mut(|bytes_used| bytes_used.add_and_get(byte_used as i64));
                 }
             }
-            Ok(())
         })
     }
 
@@ -462,25 +463,25 @@ where
             let old_size = postings_array.get_size();
             postings_array.grow()?;
             self.bytes_used.access_mut(|bytes_used| {
-                Ok(bytes_used.add_and_get(
+                bytes_used.add_and_get(
                     (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
                         as i64,
-                ))
-            })?;
+                )
+            });
             Ok(())
         })
     }
 
-    fn clear(&mut self) -> Result<()> {
+    fn clear(&mut self) {
         self.per_field.access_mut(|postings_array_wrapper| {
             if postings_array_wrapper.postings_array.is_some() {
                 let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
                 let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                self.bytes_used
-                    .access_mut(|bytes_used| Ok(bytes_used.add_and_get(-byte_used as i64)))?;
+                let _ = self
+                    .bytes_used
+                    .access_mut(|bytes_used| bytes_used.add_and_get(-byte_used as i64));
                 postings_array_wrapper.postings_array = None;
             }
-            Ok(())
         })
     }
 
@@ -490,38 +491,37 @@ where
         self.bytes_used.clone()
     }
 
-    fn get_value(&self, index: usize) -> Result<i32> {
+    fn get_value(&self, index: usize) -> i32 {
         self.per_field.access_mut(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
-            Ok(postings_array_wrapper
+            postings_array_wrapper
                 .postings_array
                 .as_ref()
                 .unwrap()
-                .get_text_starts()[index])
+                .get_text_starts()[index]
         })
     }
 
-    fn set_value(&mut self, index: usize, value: i32) -> Result<()> {
+    fn set_value(&mut self, index: usize, value: i32) {
         self.per_field.access_mut(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             postings_array_wrapper
                 .postings_array
                 .as_mut()
                 .unwrap()
-                .set_text_starts(index, value);
-            Ok(())
+                .set_text_starts(index, value)
         })
     }
 
-    fn len(&self) -> Result<usize> {
+    fn len(&self) -> usize {
         self.per_field.access_mut(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
-            Ok(postings_array_wrapper
+            postings_array_wrapper
                 .postings_array
                 .as_ref()
                 .unwrap()
                 .get_text_starts()
-                .len())
+                .len()
         })
     }
 }
@@ -985,7 +985,7 @@ pub(crate) mod tests {
                 "field_name".to_string(),
                 IndexOptions::DocsAndFreqs,
                 postings_array_wrapper.clone(),
-            )?;
+            );
             Ok(TermsHashPerFieldEnum::Mock(TermsHashPerFieldMock {
                 postings_array_wrapper,
                 parent_per_field: parent_per_filed,

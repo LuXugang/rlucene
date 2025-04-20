@@ -121,15 +121,21 @@ pub struct PrefixCodedTermsBuilder {
     size: i64,
 }
 
+impl Default for PrefixCodedTermsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PrefixCodedTermsBuilder {
     /// Sole constructor.
-    pub fn new() -> Result<Self> {
-        Ok(Self {
+    pub fn new() -> Self {
+        Self {
             output: ByteBuffersDataOutput::with_resettable_instance(),
             last_term: Term::from_empty("".to_string()),
             last_term_bytes: BytesRefBuilder::new(),
             size: 0,
-        })
+        }
     }
     /// add a term.
     pub fn add_term(&mut self, term: &Term) -> Result<()> {
@@ -163,7 +169,7 @@ impl PrefixCodedTermsBuilder {
             0,
             suffix,
         )?;
-        self.last_term_bytes.copy_bytes_with_ref(bytes)?;
+        self.last_term_bytes.copy_bytes_with_ref(bytes);
         self.last_term.bytes = self.last_term_bytes.get_bytes_ref_copy();
         self.last_term.field = field;
         self.size += 1;
@@ -171,9 +177,9 @@ impl PrefixCodedTermsBuilder {
         Ok(())
     }
     /// return finalized form.
-    pub fn finish(&mut self) -> Result<PrefixCodedTerms> {
+    pub fn finish(&mut self) -> PrefixCodedTerms {
         let content = self.output.to_buffer_list_owner();
-        Ok(PrefixCodedTerms::new(content.1, content.0, self.size))
+        PrefixCodedTerms::new(content.1, content.0, self.size)
     }
 }
 /// An iterator over the list of terms stored in a [`PrefixCodedTerms`].
@@ -202,7 +208,7 @@ impl<'a> TermIterator<'a> {
     }
     // TODO: maybe we should freeze to FST or automaton instead?
     pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<()> {
-        self.builder.grow(prefix + suffix)?;
+        self.builder.grow(prefix + suffix);
         DataInput::read_bytes(
             &mut self.input,
             &mut self.builder.bytes_ref().bytes,
@@ -264,8 +270,8 @@ mod tests {
 
     #[test]
     fn test_empty() -> Result<()> {
-        let mut builder = PrefixCodedTermsBuilder::new()?;
-        let prefix_coded_terms = builder.finish()?;
+        let mut builder = PrefixCodedTermsBuilder::new();
+        let prefix_coded_terms = builder.finish();
         let mut iter = prefix_coded_terms.iterator();
         assert!(iter.next()?.is_none());
         Ok(())
@@ -273,9 +279,9 @@ mod tests {
     #[test]
     fn test_one() -> Result<()> {
         let term = Term::from_text("foo".to_string(), "bogus");
-        let mut builder = PrefixCodedTermsBuilder::new()?;
+        let mut builder = PrefixCodedTermsBuilder::new();
         builder.add_term(&term)?;
-        let prefix_coded_terms = builder.finish()?;
+        let prefix_coded_terms = builder.finish();
         let mut iter = prefix_coded_terms.iterator();
         let first_term = iter.next()?.expect("Expected a term, but got None");
         assert_eq!(first_term.utf8_to_string()?, "bogus");
@@ -297,11 +303,11 @@ mod tests {
             let term = Term::from_text(field, &text);
             terms.insert(term);
         }
-        let mut builder = PrefixCodedTermsBuilder::new()?;
+        let mut builder = PrefixCodedTermsBuilder::new();
         for term in &terms {
             builder.add_term(term)?;
         }
-        let pb = builder.finish()?;
+        let pb = builder.finish();
         let mut iter = pb.iterator();
         let mut expected = terms.iter();
 

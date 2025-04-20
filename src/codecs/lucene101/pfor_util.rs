@@ -40,7 +40,7 @@ impl PForUtil {
     pub(crate) fn encode<O: DataOutput>(&mut self, ints: &mut [i32], out: &mut O) -> Result<()> {
         let mut top = LongHeap::new(Self::MAX_EXCEPTIONS as i32 + 1)?;
         for &v in &ints[..=Self::MAX_EXCEPTIONS] {
-            top.push(v as i64)?;
+            top.push(v as i64);
         }
 
         let mut top_value = top.top();

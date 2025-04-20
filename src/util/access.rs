@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::SliceCopyOps;
+use parking_lot::{Mutex, MutexGuard};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 
 /// Provides a unified interface for accessing shared data, abstracting over
 /// single-threaded (`Rc<RefCell<T>>`) and multi-threaded (`Arc<Mutex<T>>`) containers.
@@ -37,7 +36,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 /// ### Example
 /// ```rust
 /// use rlucene::util::access::Access;
-/// use rlucene::util::error::lucene_error::Result;
+/// use rlucene::util::error::lucene_error::{LuceneError, Result};
 /// struct MyStruct;
 /// impl MyStruct{
 ///    fn do_something(&self) {
@@ -47,11 +46,13 @@ use std::sync::{Arc, Mutex, MutexGuard};
 /// fn update_state<S: Access<MyStruct>>(state: &mut S) -> Result<()> {
 ///     state.access_mut(|s| {
 ///         s.do_something();
-///         Ok(())
+///        // Help the compiler infer types.
+///         Ok::<(), LuceneError>(())
 ///     })?;
 ///     state.access(|s| {
 ///         s.do_something();
-///         Ok(())
+///        // Help the compiler infer types.
+///         Ok::<(), LuceneError>(())
 ///     })
 /// }
 /// ```
@@ -60,27 +61,27 @@ use std::sync::{Arc, Mutex, MutexGuard};
 /// - `Rc<RefCell<MyStruct>>` can implement `Access<MyStruct>` for local use
 /// - `Arc<Mutex<MyStruct>>` can implement `Access<MyStruct>` for concurrent use
 pub trait Access<T>: Clone {
-    fn access<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&T) -> Result<R>;
+        F: FnOnce(&T) -> R;
 
-    fn access_mut<F, R>(&self, f: F) -> Result<R>
+    fn access_mut<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&mut T) -> Result<R>;
+        F: FnOnce(&mut T) -> R;
 }
 
 impl<T> Access<T> for Rc<RefCell<T>> {
-    fn access<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&T) -> Result<R>,
+        F: FnOnce(&T) -> R,
     {
         let borrow = self.borrow();
         f(&*borrow)
     }
 
-    fn access_mut<F, R>(&self, f: F) -> Result<R>
+    fn access_mut<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&mut T) -> Result<R>,
+        F: FnOnce(&mut T) -> R,
     {
         let mut borrow = self.borrow_mut();
         f(&mut *borrow)
@@ -88,66 +89,64 @@ impl<T> Access<T> for Rc<RefCell<T>> {
 }
 
 impl<T> Access<T> for Arc<Mutex<T>> {
-    fn access<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&T) -> Result<R>,
+        F: FnOnce(&T) -> R,
     {
-        let guard: MutexGuard<T> = self
-            .lock()
-            .map_err(|e| LuceneError::LockError(format!("{:?}", e)))?;
+        let guard: MutexGuard<'_, T> = self.lock();
         f(&*guard)
     }
 
-    fn access_mut<F, R>(&self, f: F) -> Result<R>
+    fn access_mut<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&mut T) -> Result<R>,
+        F: FnOnce(&mut T) -> R,
     {
-        let mut guard: MutexGuard<T> = self
-            .lock()
-            .map_err(|e| LuceneError::LockError(format!("{:?}", e)))?;
+        let mut guard: MutexGuard<'_, T> = self.lock();
         f(&mut *guard)
     }
 }
 
 /// Similar to the `Access` trait, but specifically for `Vec<T>`.
 pub trait AccessVec<T>: Clone + Default {
-    fn access<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&Vec<T>) -> Result<R>;
-
-    fn access_mut<F, R>(&mut self, f: F) -> Result<R>
+        F: FnOnce(&Vec<T>) -> R;
+    fn access_mut<F, R>(&mut self, f: F) -> R
     where
-        F: FnOnce(&mut Vec<T>) -> Result<R>;
-    fn slice_clone(&self, offset: usize, length: usize) -> Result<Self>;
+        F: FnOnce(&mut Vec<T>) -> R;
+    fn slice_clone(&self, offset: usize, length: usize) -> Self;
+    fn len(&self) -> usize;
     fn new() -> Self;
     fn with_capacity(capacity: usize) -> Self;
     fn from_vec(v: Vec<T>) -> Self;
-    fn len(&self) -> usize {
-        self.access(|v| Ok(v.len())).unwrap()
-    }
 }
 
 impl<T> AccessVec<T> for Vec<T>
 where
     T: Clone + Default,
 {
-    fn access<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&Vec<T>) -> Result<R>,
+        F: FnOnce(&Vec<T>) -> R,
     {
         f(self)
     }
 
-    fn access_mut<F, R>(&mut self, f: F) -> Result<R>
+    fn access_mut<F, R>(&mut self, f: F) -> R
     where
-        F: FnOnce(&mut Vec<T>) -> Result<R>,
+        F: FnOnce(&mut Vec<T>) -> R,
     {
         f(self)
     }
-    fn slice_clone(&self, offset: usize, length: usize) -> Result<Self> {
-        let mut sub = Vec::with_capacity(length);
-        sub.copy_from(&self[offset..offset + length], 0);
-        Ok(sub)
+
+    fn slice_clone(&self, offset: usize, length: usize) -> Self {
+        let end = offset + length;
+        debug_assert!(end <= self.len(), "slice_clone out of bounds");
+        self[offset..end].to_vec()
+    }
+
+    fn len(&self) -> usize {
+        Vec::len(self)
     }
 
     fn new() -> Self {
@@ -155,7 +154,7 @@ where
     }
 
     fn with_capacity(capacity: usize) -> Self {
-        vec![T::default(); capacity]
+        Vec::with_capacity(capacity)
     }
 
     fn from_vec(v: Vec<T>) -> Self {
@@ -167,27 +166,31 @@ impl<T> AccessVec<T> for Rc<RefCell<Vec<T>>>
 where
     T: Clone + Default,
 {
-    fn access<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&Vec<T>) -> Result<R>,
+        F: FnOnce(&Vec<T>) -> R,
     {
         let borrow = self.borrow();
         f(&*borrow)
     }
 
-    fn access_mut<F, R>(&mut self, f: F) -> Result<R>
+    fn access_mut<F, R>(&mut self, f: F) -> R
     where
-        F: FnOnce(&mut Vec<T>) -> Result<R>,
+        F: FnOnce(&mut Vec<T>) -> R,
     {
         let mut borrow = self.borrow_mut();
         f(&mut *borrow)
     }
 
-    fn slice_clone(&self, offset: usize, length: usize) -> Result<Self> {
-        let mut sub = Vec::with_capacity(length);
-        sub.copy_from(&self.borrow()[offset..offset + length], 0);
-        let new_vec = Rc::new(RefCell::new(sub));
-        Ok(new_vec)
+    fn slice_clone(&self, offset: usize, length: usize) -> Self {
+        let borrow = self.borrow();
+        let end = offset + length;
+        debug_assert!(end <= borrow.len(), "slice_clone out of bounds");
+        Rc::new(RefCell::new(borrow[offset..end].to_vec()))
+    }
+
+    fn len(&self) -> usize {
+        self.borrow().len()
     }
 
     fn new() -> Self {
@@ -202,40 +205,36 @@ where
         Rc::new(RefCell::new(v))
     }
 }
+
 impl<T> AccessVec<T> for Arc<Mutex<Vec<T>>>
 where
     T: Clone + Default,
 {
-    fn access<F, R>(&self, f: F) -> Result<R>
+    fn access<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&Vec<T>) -> Result<R>,
+        F: FnOnce(&Vec<T>) -> R,
     {
-        let guard: MutexGuard<Vec<T>> = self
-            .lock()
-            .map_err(|e| LuceneError::LockError(format!("{:?}", e)))?;
+        let guard: MutexGuard<'_, Vec<T>> = self.lock();
         f(&*guard)
     }
 
-    fn access_mut<F, R>(&mut self, f: F) -> Result<R>
+    fn access_mut<F, R>(&mut self, f: F) -> R
     where
-        F: FnOnce(&mut Vec<T>) -> Result<R>,
+        F: FnOnce(&mut Vec<T>) -> R,
     {
-        let mut guard: MutexGuard<Vec<T>> = self
-            .lock()
-            .map_err(|e| LuceneError::LockError(format!("{:?}", e)))?;
+        let mut guard: MutexGuard<'_, Vec<T>> = self.lock();
         f(&mut *guard)
     }
-    fn slice_clone(&self, offset: usize, length: usize) -> Result<Self> {
-        let mut sub = Vec::with_capacity(length);
-        sub.copy_from(
-            &self
-                .lock()
-                .map_err(|e| LuceneError::LockError(format!("Mutex poisoned: {:?}", e)))?
-                [offset..offset + length],
-            0,
-        );
-        let new_vec = Arc::new(Mutex::new(sub));
-        Ok(new_vec)
+
+    fn slice_clone(&self, offset: usize, length: usize) -> Self {
+        let bytes = self.lock();
+        let end = offset + length;
+        debug_assert!(end <= bytes.len(), "slice_clone out of bounds");
+        Arc::new(Mutex::new(bytes[offset..end].to_vec()))
+    }
+
+    fn len(&self) -> usize {
+        self.lock().len()
     }
 
     fn new() -> Self {
@@ -250,6 +249,7 @@ where
         Arc::new(Mutex::new(v))
     }
 }
+
 #[macro_export]
 macro_rules! with_other {
     (mut, $x:expr, $y:expr, |$ia:ident, $ib:ident| $body:expr) => {

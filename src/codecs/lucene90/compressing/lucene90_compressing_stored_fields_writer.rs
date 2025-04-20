@@ -43,11 +43,12 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::PackedInts;
 
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::env;
 use std::mem::discriminant;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// [`StoredFieldsWriter`] implementation for [`Lucene90CompressingStoredFieldsFormat`](crate::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
 pub(crate) static TYPE_BITS: Lazy<i32> =
@@ -268,9 +269,7 @@ where
         let mut meta_stream;
         let mut fields_stream;
         {
-            let mut dir = directory
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
+            let mut dir = directory.lock();
             meta_stream = dir.create_output(&meta_file, context)?;
 
             let fields_file = IndexFileNames::segment_file_name(

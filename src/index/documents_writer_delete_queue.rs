@@ -24,9 +24,10 @@ use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStreamEnum, InfoStreamLock};
+use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockWriteGuard};
 
 /// [`DocumentsWriterDeleteQueue`] is a non-blocking linked pending deletes queue. Unlike other
 /// queue implementations, we only maintain the tail of the queue. The delete queue is always used
@@ -179,10 +180,7 @@ where
 
         self.ensure_open(global_state.closed)?;
         {
-            let mut tail_next_guard =
-                global_state.tail.next.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock".to_string())
-                })?;
+            let mut tail_next_guard = global_state.tail.next.lock();
             *tail_next_guard = Option::from(new_node.clone());
         }
         global_state.tail = new_node;
@@ -195,24 +193,20 @@ where
             .global_buffer_lock
             .write()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        self.any_changes_with_lock(&global_state)
+        Ok(self.any_changes_with_lock(&global_state))
     }
     pub(crate) fn any_changes_with_lock(
         &self,
         global_state: &RwLockWriteGuard<GlobalState<Q>>,
-    ) -> Result<bool> {
+    ) -> bool {
         //  Check if all items in the global slice were applied,
         //  if the global slice is up-to-date,
         //  and if `global_buffered_updates` has changes.
-        let tail_next = global_state
-            .tail
-            .next
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
-        Ok(global_state.global_buffered_updates.any()
+        let tail_next = global_state.tail.next.lock();
+        global_state.global_buffered_updates.any()
             || !global_state.global_slice.is_empty()
             || !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail)
-            || tail_next.is_some())
+            || tail_next.is_some()
     }
     pub(crate) fn try_apply_global_slice(&self) -> Result<()> {
         match self.global_buffer_lock.try_write() {
@@ -280,7 +274,7 @@ where
             self.freeze_global_buffer_internal(&mut global_state, current_tail)
         } else {
             debug_assert!(
-                !self.any_changes_with_lock(&global_state)?,
+                !self.any_changes_with_lock(&global_state),
                 "We are closed but have changes"
             );
             Ok(None)
@@ -307,7 +301,7 @@ where
                 None,
             )?;
 
-            global_state.global_buffered_updates.clear()?;
+            global_state.global_buffered_updates.clear();
             Ok(Some(packet))
         } else {
             Ok(None)
@@ -380,7 +374,7 @@ where
             .write()
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
 
-        if self.any_changes_with_lock(&global_state)? {
+        if self.any_changes_with_lock(&global_state) {
             return Err(LuceneError::illegal_state(
                 "Can't close queue unless all changes are applied".to_string(),
             ));
@@ -413,7 +407,7 @@ where
             .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
         global_state.global_slice.slice_head = global_state.tail.clone();
         global_state.global_slice.slice_tail = global_state.tail.clone();
-        global_state.global_buffered_updates.clear()?;
+        global_state.global_buffered_updates.clear();
         Ok(())
     }
     pub(crate) fn get_buffered_updates_terms_size(&self) -> Result<i32> {
@@ -627,9 +621,7 @@ where
         {
             let mut current = self.slice_head.clone();
             loop {
-                let next_node_guard = current.next.lock().map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock".to_string())
-                })?;
+                let next_node_guard = current.next.lock();
                 debug_assert!(
                     next_node_guard.is_some(),
                     "slice property violated between the head on the tail must not be a null node"
@@ -645,7 +637,6 @@ where
                 current = next_node;
             }
         }
-
         self.reset();
         Ok(())
     }
@@ -780,7 +771,7 @@ where
     Q: Query,
 {
     fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
-        buffered_deletes.add_query(self.item.clone(), doc_id_upto)?;
+        buffered_deletes.add_query(self.item.clone(), doc_id_upto);
         Ok(())
     }
 }
@@ -813,7 +804,7 @@ where
 {
     fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
         for query in &self.item {
-            buffered_deletes.add_query(query.clone(), doc_id_upto)?;
+            buffered_deletes.add_query(query.clone(), doc_id_upto);
         }
         Ok(())
     }
@@ -1008,10 +999,11 @@ mod tests {
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::{get_default_info_stream, InfoStreamLock};
 
+    use parking_lot::Mutex;
     use rand::Rng;
     use std::collections::HashSet;
     use std::sync::atomic::{AtomicI32, Ordering};
-    use std::sync::{Arc, Barrier, Mutex};
+    use std::sync::{Arc, Barrier};
     use std::{thread, vec};
 
     #[allow(dead_code)]
@@ -1064,8 +1056,8 @@ mod tests {
             assert_eq!(unique_values.len(), num_deletes);
         }
 
-        let bd1_terms_set: HashSet<Term> = bd1.delete_terms.key_set()?;
-        let bd2_terms_set: HashSet<Term> = bd2.delete_terms.key_set()?;
+        let bd1_terms_set: HashSet<Term> = bd1.delete_terms.key_set();
+        let bd2_terms_set: HashSet<Term> = bd2.delete_terms.key_set();
         assert_eq!(unique_values, bd1_terms_set);
         assert_eq!(unique_values, bd2_terms_set);
 
@@ -1075,7 +1067,7 @@ mod tests {
         let mut frozen_set: HashSet<Term> = HashSet::new();
         let mut bytes_ref = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
-            bytes_ref.copy_bytes_with_ref(&byte_ref)?;
+            bytes_ref.copy_bytes_with_ref(&byte_ref);
             let term = Term::new(iter.field().to_string(), bytes_ref.get_bytes_ref_copy());
             frozen_set.insert(term.clone());
         }
@@ -1097,7 +1089,7 @@ mod tests {
     {
         for i in start..=end {
             let term = Term::from_text("id".to_string(), &ids[i as usize].to_string());
-            assert_eq!(end, deletes.delete_terms.get(&term)?);
+            assert_eq!(end, deletes.delete_terms.get(&term));
         }
         Ok(())
     }
@@ -1164,17 +1156,17 @@ mod tests {
         let queue_: DocumentsWriterDeleteQueue<DummyQuery> =
             DocumentsWriterDeleteQueue::new(get_default_info_stream());
         let queue = Arc::new(Mutex::new(queue_));
-        let lock = queue.lock().unwrap();
+        let lock = queue.lock();
         let handle = thread::spawn({
             let queue = queue.clone();
             move || {
                 let term = Term::from_text("foo".to_string(), "bar");
-                queue.lock().unwrap().add_delete_term(vec![term]).unwrap();
+                queue.lock().add_delete_term(vec![term]).unwrap();
             }
         });
         drop(lock);
         handle.join().unwrap();
-        let queue = queue.lock().unwrap();
+        let queue = queue.lock();
         assert!(queue.any_changes()?);
         queue.try_apply_global_slice()?;
         assert!(queue.any_changes()?);
@@ -1218,7 +1210,7 @@ mod tests {
         for thread in &threads {
             let thread = Arc::clone(thread);
             handles.push(thread::spawn(move || {
-                let mut thread = thread.lock().unwrap();
+                let mut thread = thread.lock();
                 thread.run().expect("Thread execution failed");
             }));
         }
@@ -1226,14 +1218,14 @@ mod tests {
             handle.join().expect("Thread join failed");
         }
         for thread in threads {
-            let mut guard = thread.lock().unwrap();
+            let mut guard = thread.lock();
             queue.update_slice(&mut guard.slice)?;
             let deletes = guard.deletes.clone();
-            let mut deletes_guard = deletes.lock().unwrap();
+            let mut deletes_guard = deletes.lock();
             guard
                 .slice
                 .apply(&mut deletes_guard, buffered_updates_util::MAX_INT)?;
-            assert_eq!(unique_values, deletes_guard.delete_terms.key_set()?);
+            assert_eq!(unique_values, deletes_guard.delete_terms.key_set());
         }
 
         queue.try_apply_global_slice()?;
@@ -1242,7 +1234,7 @@ mod tests {
         let mut iter = frozen.delete_terms.iterator();
         let mut builder = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
-            builder.copy_bytes_with_ref(&byte_ref)?;
+            builder.copy_bytes_with_ref(&byte_ref);
             let term = Term::new(iter.field().to_string(), builder.get_bytes_ref_copy());
             frozen_set.insert(term);
         }
@@ -1348,7 +1340,7 @@ mod tests {
                     .add_with_slice(term_node.clone(), &mut self.slice)?;
                 assert!(self.slice.is_tail(&term_node));
 
-                let mut guard = self.deletes.lock().unwrap();
+                let mut guard = self.deletes.lock();
                 self.slice
                     .apply(&mut *guard, buffered_updates_util::MAX_INT)?;
 

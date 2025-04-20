@@ -35,13 +35,14 @@ use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumBorrow,
     CounterEnumLock,
 };
+use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::rc::Rc;
 use std::sync::atomic::AtomicI32;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 //TODO
 #[allow(unused)]
@@ -170,7 +171,7 @@ where
         Ok(())
     }
     pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<()> {
-        let current = self.delete_terms.get(term)?;
+        let current = self.delete_terms.get(term);
         if current != -1 && doc_id_upto < current {
             // Only record the new number if it's greater than the
             // current one.
@@ -183,8 +184,7 @@ where
             // incorrectly get both docs indexed.
             return Ok(());
         }
-        self.delete_terms.put_sync(term, doc_id_upto)?;
-        Ok(())
+        self.delete_terms.put_sync(term, doc_id_upto)
     }
 }
 #[allow(unused)]
@@ -217,7 +217,7 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) -> Result<()> {
+    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) {
         if self
             .delete_queries
             .insert(query.clone(), doc_id_upto)
@@ -225,15 +225,14 @@ where
         {
             let mut bytes_used_guard = self
                 .bytes_used
-                .access_mut(|bytes_used| Ok(bytes_used.add_and_get(BYTES_PER_DEL_QUERY)))?;
+                .access_mut(|bytes_used| bytes_used.add_and_get(BYTES_PER_DEL_QUERY));
         }
-        Ok(())
     }
-    pub(crate) fn clear_delete_terms(&mut self) -> Result<()> {
+    pub(crate) fn clear_delete_terms(&mut self) {
         self.delete_terms.clear()
     }
-    pub(crate) fn clear(&mut self) -> Result<()> {
-        self.delete_terms.clear()?;
+    pub(crate) fn clear(&mut self) {
+        self.delete_terms.clear();
         self.delete_queries.clear();
         self.num_field_updates
             .store(0, std::sync::atomic::Ordering::SeqCst);
@@ -241,14 +240,13 @@ where
 
         self.bytes_used.access_mut(|bytes_used| {
             let used = -bytes_used.get();
-            Ok(bytes_used.add_and_get(used))
-        })?;
+            bytes_used.add_and_get(used)
+        });
 
         self.field_updates_bytes_used
             .access_mut(|field_updates_bytes_used| {
                 let used = -field_updates_bytes_used.get();
                 field_updates_bytes_used.add_and_get(used);
-                Ok(())
             })
     }
     pub(crate) fn any(&self) -> bool {
@@ -283,13 +281,7 @@ where
     P: Access<PostingsArrayWrapper>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let bytes_used = self.bytes_used.access(|bytes_used| Ok(bytes_used.get()));
-        if bytes_used.is_err() {
-            return write!(
-                f,
-                "Failed to acquire lock for bytes_used, can not call to_string()."
-            );
-        }
+        let bytes_used = self.bytes_used.access(|bytes_used| bytes_used.get());
         if self.verbose_deletes {
             write!(
                 f,
@@ -298,7 +290,7 @@ where
                 self.delete_terms,
                 self.delete_queries.len(),
                 self.field_updates.len(),
-                bytes_used.unwrap()
+                bytes_used
             )
         } else {
             let mut s = format!("gen={}", self.gen);
@@ -322,7 +314,6 @@ where
                         .load(std::sync::atomic::Ordering::SeqCst)
                 ));
             }
-            let bytes_used = bytes_used.unwrap();
             if bytes_used != 0 {
                 s.push_str(&format!(" bytesUsed={}", bytes_used));
             }
@@ -381,9 +372,8 @@ impl MTDeletedTerms {
                 // TODO: memory calculation not implemented
                 self.bytes_used.access_mut(|bytes_used| {
                     let _ = bytes_used.add_and_get(0);
-                    Ok(())
-                })?;
-                let new_map = BytesRefIntMap::new_sync(self.pool.clone(), self.bytes_used.clone())?;
+                });
+                let new_map = BytesRefIntMap::new_sync(self.pool.clone(), self.bytes_used.clone());
                 vacant.insert(new_map)
             }
             Occupied(occupied) => occupied.into_mut(),
@@ -412,9 +402,8 @@ impl STDeletedTerms {
                 // TODO: memory calculation not implemented
                 self.bytes_used.access_mut(|bytes_used| {
                     let _ = bytes_used.add_and_get(0);
-                    Ok(())
-                })?;
-                let new_map = BytesRefIntMap::new(self.pool.clone(), self.bytes_used.clone())?;
+                });
+                let new_map = BytesRefIntMap::new(self.pool.clone(), self.bytes_used.clone());
                 vacant.insert(new_map)
             }
             Occupied(occupied) => occupied.into_mut(),
@@ -459,24 +448,22 @@ where
     /// Gets the newest document ID of the deleted term.
     ///
     /// Returns the newest document ID if the term exists, otherwise returns `-1`.
-    pub(crate) fn get(&self, term: &Term) -> Result<i32> {
+    pub(crate) fn get(&self, term: &Term) -> i32 {
         if let Some(hash) = self.delete_terms.get(&term.field) {
             hash.get(&term.bytes)
         } else {
-            Ok(-1)
+            -1
         }
     }
-    pub(crate) fn clear(&mut self) -> Result<()> {
-        let mut pool = self.pool.access_mut(|p| Ok(p.reset(false, false)))?;
+    pub(crate) fn clear(&mut self) {
+        self.pool.access_mut(|p| p.reset(false, false));
 
         self.bytes_used.access_mut(|bytes_used| {
             let used = -bytes_used.get();
             let _ = bytes_used.add_and_get(used);
-            Ok(())
-        })?;
+        });
         self.delete_terms.clear();
         self.terms_size = 0;
-        Ok(())
     }
 
     pub(crate) fn size(&self) -> i32 {
@@ -487,14 +474,14 @@ where
         self.terms_size == 0
     }
     /// Just for test, not efficient.
-    pub(crate) fn key_set(&self) -> Result<HashSet<Term>> {
+    pub(crate) fn key_set(&self) -> HashSet<Term> {
         let mut set = HashSet::new();
         for (field, hash) in &self.delete_terms {
-            for bytes in hash.key_set()? {
+            for bytes in hash.key_set() {
                 set.insert(Term::new(field.clone(), bytes));
             }
         }
-        Ok(set)
+        set
     }
 
     /// Consume all terms in a sorted order.
@@ -516,7 +503,7 @@ where
             let indices = &terms.bytes_ref_hash.ids;
             for i in 0..terms.bytes_ref_hash.count {
                 let index = indices[i as usize];
-                terms.bytes_ref_hash.get(index, &mut scratch.bytes)?;
+                terms.bytes_ref_hash.get(index, &mut scratch.bytes);
                 consumer(&scratch, terms.values[index as usize]);
             }
         }
@@ -552,17 +539,9 @@ where
 {
     /// Used for `BufferedUpdates::VERBOSE_DELETES`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let key_set = match self.key_set() {
-            Ok(ks) => ks,
-            Err(e) => return write!(f, "Error retrieving key_set: {}", e),
-        };
         let mut entries = Vec::new();
-        for term in key_set.iter() {
-            let value = match self.get(term) {
-                Ok(v) => v,
-                Err(e) => return write!(f, "Error retrieving value for {}: {}", term, e),
-            };
-            entries.push(format!("{}={}", term, value));
+        for term in self.key_set().iter() {
+            entries.push(format!("{}={}", term, self.get(term)));
         }
 
         write!(f, "{{{}}}", entries.join(", "))
@@ -601,7 +580,7 @@ impl
         MTPostingsArrayWrapper,
     >
 {
-    fn new_sync(pool: ByteBlockPoolLock, counter: CounterEnumLock) -> Result<Self> {
+    fn new_sync(pool: ByteBlockPoolLock, counter: CounterEnumLock) -> Self {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
@@ -611,7 +590,7 @@ impl
                     counter.clone(),
                 ),
             ))),
-        )?;
+        );
         Self::new_impl(counter, bytes_ref_hash)
     }
 }
@@ -623,7 +602,7 @@ impl
         STPostingsArrayWrapper,
     >
 {
-    fn new(pool: ByteBlockPoolBorrow, counter: CounterEnumBorrow) -> Result<Self> {
+    fn new(pool: ByteBlockPoolBorrow, counter: CounterEnumBorrow) -> Self {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
@@ -633,7 +612,7 @@ impl
                     counter.clone(),
                 ),
             ))),
-        )?;
+        );
         Self::new_impl(counter, bytes_ref_hash)
     }
 }
@@ -646,26 +625,26 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, A, P>) -> Result<Self> {
+    fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, A, P>) -> Self {
         let values = vec![0; BytesRefHash::DEFAULT_CAPACITY as usize];
 
-        counter.access_mut(|c| Ok(c.add_and_get(BytesRefIntMap::INIT_RAM_BYTES)))?;
+        counter.access_mut(|c| c.add_and_get(BytesRefIntMap::INIT_RAM_BYTES));
 
-        Ok(Self {
+        Self {
             counter,
             bytes_ref_hash,
             values,
-        })
+        }
     }
-    fn key_set(&self) -> Result<HashSet<BytesRef>> {
+    fn key_set(&self) -> HashSet<BytesRef> {
         let mut scratch = BytesRef::new();
         let mut set = HashSet::new();
 
         for i in 0..self.bytes_ref_hash.size() {
-            self.bytes_ref_hash.get(i, &mut scratch)?;
+            self.bytes_ref_hash.get(i, &mut scratch);
             set.insert(BytesRef::deep_copy_of(&scratch));
         }
-        Ok(set)
+        set
     }
     fn put(&mut self, key: &BytesRef, value: i32) -> Result<bool> {
         debug_assert!(value >= 0, "Value must be non-negative.");
@@ -676,21 +655,21 @@ where
         } else {
             if e as usize >= self.values.len() {
                 let origin_length = self.values.len();
-                ArrayUtil::grow_with_len(&mut self.values, e + 1)?;
+                ArrayUtil::grow_with_len(&mut self.values, e + 1);
                 // TODO: memory calculation not implemented
                 self.counter
-                    .access_mut(|c| Ok(c.add_and_get(origin_length as i64)))?;
+                    .access_mut(|c| c.add_and_get(origin_length as i64));
             }
             self.values[e as usize] = value;
             Ok(true)
         }
     }
-    fn get(&self, key: &BytesRef) -> Result<i32> {
-        let e = self.bytes_ref_hash.find(key)?;
+    fn get(&self, key: &BytesRef) -> i32 {
+        let e = self.bytes_ref_hash.find(key);
         if e == -1 {
-            Ok(-1)
+            -1
         } else {
-            Ok(self.values[e as usize])
+            self.values[e as usize]
         }
     }
 }
@@ -729,7 +708,7 @@ mod tests {
             };
             let value = format!("{}", random.random_range(0..100));
             let term = Term::new("id".to_string(), BytesRef::from_string(&value));
-            bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto)?;
+            bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto);
         }
 
         let terms = at_least(&mut random, 1);
@@ -753,7 +732,7 @@ mod tests {
         // let total_used = bu.ram_bytes_used();
         // assert!(total_used > 0);
 
-        bu.clear_delete_terms()?;
+        bu.clear_delete_terms();
         assert!(
             bu.any(),
             "Only terms and docIds are cleaned, the queries should still be in memory."
@@ -764,7 +743,7 @@ mod tests {
         //     "Terms are cleaned, so memory usage should decrease."
         // );
 
-        bu.clear()?;
+        bu.clear();
         assert!(!bu.any());
         // TODO
         // assert_eq!(bu.ram_bytes_used()?, 0);
@@ -801,7 +780,7 @@ mod tests {
             assert_eq!(expected.len(), actual.size() as usize);
 
             for (term, expected_value) in &expected {
-                assert_eq!(*expected_value, actual.get(term)?);
+                assert_eq!(*expected_value, actual.get(term));
             }
 
             let mut expected_sorted: Vec<(Term, i32)> = expected
@@ -811,15 +790,15 @@ mod tests {
             expected_sorted.sort_by_key(|entry| entry.0.clone());
 
             let mut actual_sorted: Vec<_> = Vec::new();
-            actual.for_each_ordered(|term, doc_id| {
+            let _ = actual.for_each_ordered(|term, doc_id| {
                 let copy = Term::new(term.field.clone(), term.bytes.clone());
                 actual_sorted.push((copy, doc_id));
                 Ok(())
-            })?;
+            });
 
             assert_eq!(expected_sorted, actual_sorted);
 
-            actual.clear()?;
+            actual.clear();
             assert_eq!(actual.size(), 0);
             assert_eq!(actual.ram_bytes_used()?, 0);
             let pool_guard = actual.get_pool();

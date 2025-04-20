@@ -22,11 +22,12 @@ use crate::store::directory::Directory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::Version;
 use crate::util::StringHelper;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// Information about a segment such as its name, directory, and files related to the segment.
 ///
@@ -224,15 +225,17 @@ where
 
     /// Returns all files referenced by this SegmentInfo
     pub fn files(&self) -> Result<Rc<RefCell<HashSet<String>>>> {
-        if self.set_files.is_none() {
-            debug_assert!(self.max_doc.is_some());
-            return Err(LuceneError::illegal_argument(format!(
-                "files were not computed yet; segment={} maxDoc={}",
-                self.name,
-                self.max_doc.unwrap()
-            )));
+        match self.set_files {
+            Some(ref set_files) => Ok(self.set_files.as_ref().unwrap().clone()),
+            None => {
+                debug_assert!(self.max_doc.is_some());
+                Err(LuceneError::illegal_argument(format!(
+                    "files were not computed yet; segment={} maxDoc={}",
+                    self.name,
+                    self.max_doc.unwrap()
+                )))
+            }
         }
-        Ok(self.set_files.as_ref().unwrap().clone())
     }
 
     /// Sets the files for this segment
@@ -255,7 +258,7 @@ where
     /// - `45`: Number of documents in the segment.
     /// - `/4`: Number of deletions (only present if deletions exist).
     /// - `[sorter=<long: "timestamp">!]`: Indicates the segment is sorted by the `timestamp` field in descending order (optional, omitted for unsorted segments).
-    pub fn to_string(&self, del_count: i32) -> Result<String> {
+    pub fn to_string(&self, del_count: i32) -> String {
         let mut s = String::new();
         s.push_str(&self.name);
 
@@ -293,16 +296,13 @@ where
             s.push(']');
         }
 
-        let attributes = self
-            .attributes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let attributes = self.attributes.lock();
         if !attributes.is_empty() {
             s.push_str(":[attributes=");
             s.push_str(&format!("{:?}", *attributes));
             s.push(']');
         }
-        Ok(s)
+        s
     }
     /// Returns the version of the code which wrote the segment.
     pub fn get_version(&self) -> Option<&Version> {
@@ -370,12 +370,9 @@ where
         format!("{}{}", self.name, IndexFileNames::strip_segment_name(&file))
     }
     /// Get a codec attribute value, or None if it does not exist.
-    pub fn get_attribute(&self, key: &str) -> Result<Option<String>> {
-        let attributes = self
-            .attributes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
-        Ok(attributes.get(key).cloned())
+    pub fn get_attribute(&self, key: &str) -> Option<String> {
+        let attributes = self.attributes.lock();
+        attributes.get(key).cloned()
     }
     /// Puts a codec attribute value.
     ///
@@ -384,15 +381,12 @@ where
     ///
     /// If a value already exists for the field, it will be replaced with the new value. This method
     /// ensures thread safety by making a copy-on-write for every attribute change.
-    pub fn put_attribute(&self, key: String, value: String) -> Result<Option<String>> {
+    pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
         // This needs to be thread-safe because multiple threads may be updating (different) attributes
         // at the same time due to concurrent merging, plus some threads may be calling toString() on
         // segment info while other threads are updating attributes.
-        let mut attributes = self
-            .attributes
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
-        Ok(attributes.insert(key, value))
+        let mut attributes = self.attributes.lock();
+        attributes.insert(key, value)
     }
     /// Returns the internal codec attributes map.
     pub fn get_attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>> {
@@ -409,11 +403,7 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let result = self.to_string(0);
-        match result {
-            Ok(s) => write!(f, "{}", s),
-            Err(e) => write!(f, "fmt Error: {}", e),
-        }
+        write!(f, "{}", self.to_string(0))
     }
 }
 impl<D> PartialEq for SegmentInfo<D>

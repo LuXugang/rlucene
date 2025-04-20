@@ -25,8 +25,10 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::Mutex;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
 /// Lucene 9.0 stored fields format.
 ///
 /// # Principle
@@ -144,7 +146,7 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
     where
         D: Directory,
     {
-        let value = segment_info.get_attribute(Self::MODE_KEY)?;
+        let value = segment_info.get_attribute(Self::MODE_KEY);
         let mode_name = value.ok_or_else(|| {
             LuceneError::illegal_state(format!(
                 "missing value for {} for segment: {}",
@@ -169,7 +171,7 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
         D: Directory,
     {
         let previous =
-            segment_info.put_attribute(Self::MODE_KEY.to_string(), self.mode.name().to_string())?;
+            segment_info.put_attribute(Self::MODE_KEY.to_string(), self.mode.name().to_string());
 
         if let Some(prev) = previous {
             if prev != *self.mode.name() {

@@ -149,15 +149,15 @@ where
     /// Creates a new IntsRef that points to a copy of the ints from `other`
     ///
     /// The returned IntsRef will have a length of `other.length` and an offset of zero.
-    pub fn deep_copy_of(other: &IntsRef<AV>) -> Result<Self> {
+    pub fn deep_copy_of(other: &IntsRef<AV>) -> Self {
         let ints = other
             .ints
-            .slice_clone(other.offset as usize, other.length as usize)?;
-        Ok(IntsRef {
+            .slice_clone(other.offset as usize, other.length as usize);
+        IntsRef {
             ints,
             offset: 0,
             length: other.length,
-        })
+        }
     }
 }
 impl<AV> Clone for IntsRef<AV>
@@ -192,9 +192,8 @@ where
                 &ints_bytes[self.offset as usize..(self.offset + self.length) as usize];
             let other_slice =
                 &other_bytes[other.offset as usize..(other.offset + other.length) as usize];
-            Ok(self_slice.cmp(other_slice))
+            self_slice.cmp(other_slice)
         })
-        .expect("IntsRef Ord#cmp failed")
     }
 }
 impl<AV> PartialEq for IntsRef<AV>
@@ -212,13 +211,10 @@ where
     AV: AccessVec<i32>,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.ints
-            .access(|ints| {
-                let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
-                slice.hash(state);
-                Ok(())
-            })
-            .expect("IntsRef Hash failed");
+        self.ints.access(|ints| {
+            let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
+            slice.hash(state);
+        });
     }
 }
 impl<AV> Comparator<IntsRef<AV>> for IntsRef<AV>
@@ -240,20 +236,18 @@ where
     AV: AccessVec<i32>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.ints
-            .access(|ints| {
-                let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
-                write!(f, "[")?;
-                for (i, v) in slice.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", v)?;
+        self.ints.access(|ints| {
+            let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
+            write!(f, "[")?;
+            for (i, v) in slice.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
                 }
-                write!(f, "]")?;
-                Ok(())
-            })
-            .map_err(|_| fmt::Error)
+                write!(f, "{}", v)?;
+            }
+            write!(f, "]")?;
+            Ok(())
+        })
     }
 }
 

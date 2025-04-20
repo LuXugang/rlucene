@@ -16,7 +16,7 @@
  */
 use crate::index::merge_state::MergeState;
 use crate::store::IndexInput;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::InfoStream;
 
 /// Computes which segments have identical field name to number mappings,
@@ -55,10 +55,7 @@ impl MatchingReaders {
             matching_readers[i] = true;
             matched_count += 1;
         }
-        let mut info_stream = merge_state
-            .info_stream
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut info_stream = merge_state.info_stream.lock();
         if info_stream.enabled("SM") {
             info_stream.message(
                 "SM",

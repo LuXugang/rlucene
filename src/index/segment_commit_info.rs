@@ -237,11 +237,7 @@ where
             return Ok(current_size);
         }
         let mut sum = 0;
-        let directory = self
-            .info
-            .dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
+        let directory = self.info.dir.lock();
         for file_name in self.files()? {
             sum += directory.file_length(&file_name)?;
         }
@@ -377,8 +373,8 @@ where
         Ok(())
     }
     /// Returns a description of this segment.
-    pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> Result<String> {
-        let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count)?;
+    pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> String {
+        let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count);
 
         if self.del_gen != -1 {
             s.push_str(&format!(":delGen={}", self.del_gen));
@@ -398,7 +394,7 @@ where
                 StringHelper::id_to_string(Option::from(self.id.as_ref().unwrap().as_slice()))
             ));
         }
-        Ok(s)
+        s
     }
     /// Returns the number of deleted documents in the segment.
     /// If `include_soft_deletes` is `true`, it includes soft-deleted documents.
@@ -433,11 +429,7 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let result = self.to_string_with_pending_del_count(0);
-        match result {
-            Ok(s) => write!(f, "{}", s),
-            Err(e) => write!(f, "fmt Error {}", e),
-        }
+        write!(f, "{}", self.to_string_with_pending_del_count(0))
     }
 }
 impl<D> Clone for SegmentCommitInfo<D>

@@ -86,8 +86,9 @@ impl FieldUpdatesBuffer {
             if !initial_value.has_value {
                 bytes_used_guard.add_and_get(has_values.as_ref().unwrap().ram_bytes_used()?);
             }
-            Ok(())
-        })?;
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
+        });
         let mut buffer = FieldUpdatesBuffer {
             bytes_used: bytes_used.clone(),
             num_updates: 1,
@@ -135,9 +136,6 @@ impl FieldUpdatesBuffer {
             let mut bytes_used_guard = buffer
                 .bytes_used
                 .lock()
-                .map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock for bytes_used".to_string())
-                })?
                 .add_and_get(BitUtil::LONG_BYTES as i64);
         }
         Ok(buffer)
@@ -196,11 +194,9 @@ impl FieldUpdatesBuffer {
         debug_assert!(!self.finished, "buffer was finished already");
         let fields_len = self.fields.len();
         if self.fields[0] != field || fields_len != 1 {
-            let mut bytes_used = self.bytes_used.lock().map_err(|_| {
-                LuceneError::illegal_state("Failed to acquire lock for bytes_used".to_string())
-            })?;
+            let mut bytes_used = self.bytes_used.lock();
             if fields_len <= ord as usize {
-                ArrayUtil::grow_with_len(&mut self.fields, ord + 1)?;
+                ArrayUtil::grow_with_len(&mut self.fields, ord + 1);
                 if fields_len == 1 {
                     for i in 1..ord as usize {
                         self.fields[i] = self.fields[0].clone();
@@ -218,30 +214,20 @@ impl FieldUpdatesBuffer {
         let docs_up_to_len = self.docs_up_to.len();
         if self.docs_up_to[0] != doc_upto || docs_up_to_len != 1 {
             if docs_up_to_len <= ord as usize {
-                ArrayUtil::grow_with_len(&mut self.docs_up_to, ord + 1)?;
+                ArrayUtil::grow_with_len(&mut self.docs_up_to, ord + 1);
                 if docs_up_to_len == 1 {
                     for i in 1..ord as usize {
                         self.docs_up_to[i] = self.docs_up_to[0];
                     }
                 }
                 // TODO: memory calculation not implemented
-                let mut bytes_used = self
-                    .bytes_used
-                    .lock()
-                    .map_err(|_| {
-                        LuceneError::illegal_state(
-                            "Failed to acquire lock for bytes_used".to_string(),
-                        )
-                    })?
-                    .add_and_get(0);
+                let mut bytes_used = self.bytes_used.lock().add_and_get(0);
             }
             self.docs_up_to[ord as usize] = doc_upto;
         }
 
         if !has_value || self.has_values.is_some() {
-            let mut bytes_used = self.bytes_used.lock().map_err(|_| {
-                LuceneError::illegal_state("Failed to acquire lock for bytes_used".to_string())
-            })?;
+            let mut bytes_used = self.bytes_used.lock();
             if self.has_values.is_none() {
                 let mut new_bitset = FixedBitSet::new(ord + 1);
                 new_bitset.set_with_range(0, ord);
@@ -249,7 +235,7 @@ impl FieldUpdatesBuffer {
                 self.has_values = Some(new_bitset);
             } else if self.has_values.as_ref().unwrap().length() <= ord {
                 let bitset = self.has_values.as_mut().unwrap();
-                FixedBitSet::ensure_capacity(bitset, ord + 1)?;
+                FixedBitSet::ensure_capacity(bitset, ord + 1);
                 // TODO: memory calculation not implemented
                 bytes_used.add_and_get(0);
             }
@@ -270,22 +256,14 @@ impl FieldUpdatesBuffer {
         let numeric_values_len = numeric_values.len();
         if numeric_values[0] != value || numeric_values_len != 1 {
             if numeric_values_len <= ord as usize {
-                ArrayUtil::grow_with_len(numeric_values, ord + 1)?;
+                ArrayUtil::grow_with_len(numeric_values, ord + 1);
                 if numeric_values_len == 1 {
                     for i in 1..ord as usize {
                         numeric_values[i] = numeric_values[0];
                     }
                 }
                 // TODO: memory calculation not implemented
-                let mut bytes_used = self
-                    .bytes_used
-                    .lock()
-                    .map_err(|_| {
-                        LuceneError::illegal_state(
-                            "Failed to acquire lock for bytes_used".to_string(),
-                        )
-                    })?
-                    .add_and_get(0);
+                let mut bytes_used = self.bytes_used.lock().add_and_get(0);
             }
             numeric_values[ord as usize] = value;
         }
@@ -329,12 +307,7 @@ impl FieldUpdatesBuffer {
             self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder::default(), true)?);
             debug_assert!(self.assert_term_and_doc_in_order());
             // TODO: memory calculation not implemented
-            self.bytes_used
-                .lock()
-                .map_err(|_| {
-                    LuceneError::illegal_state("Failed to acquire lock for bytes_used".to_string())
-                })?
-                .add_and_get(0);
+            self.bytes_used.lock().add_and_get(0);
         }
 
         Ok(())
@@ -648,7 +621,8 @@ mod tests {
     use rand::Rng;
     use std::collections::BTreeMap;
 
-    use std::sync::{Arc, Mutex};
+    use parking_lot::Mutex;
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     pub struct TestFieldUpdatesBuffer;

@@ -91,7 +91,7 @@ impl LZ4WithPresetDictDecompressor {
         let mut total_length = dict_length;
         let mut i = 0;
         if let Some(new_array) =
-            ArrayUtil::grow_no_copy(&self.compressed_lengths, original_length / block_length + 1)?
+            ArrayUtil::grow_no_copy(&self.compressed_lengths, original_length / block_length + 1)
         {
             self.compressed_lengths = new_array
         };
@@ -135,8 +135,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
             self.read_compressed_lengths(input, original_length, dict_length, block_length)?;
 
         // Grow the buffer to fit the dictionary and block length
-        if let Some(new_array) = ArrayUtil::grow_no_copy(&self.buffer, dict_length + block_length)?
-        {
+        if let Some(new_array) = ArrayUtil::grow_no_copy(&self.buffer, dict_length + block_length) {
             self.buffer = new_array
         }
         bytes.length = 0;
@@ -170,7 +169,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
             input.skip_bytes(num_bytes_to_skip as i64)?;
         } else {
             // The dictionary contains some bytes we need, copy its content to the BytesRef
-            if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, dict_length)? {
+            if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, dict_length) {
                 bytes.bytes = new_array
             }
             bytes
@@ -184,7 +183,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
             ArrayUtil::grow_with_len(
                 &mut bytes.bytes,
                 bytes.length + offset + length - offset_in_block,
-            )?;
+            );
         }
 
         while offset_in_block < offset + length {
@@ -254,8 +253,7 @@ impl Compressor for LZ4WithPresetDictCompressor {
             - 1)
             / LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS;
 
-        if let Some(new_array) = ArrayUtil::grow_no_copy(&self.buffer, dict_length + block_length)?
-        {
+        if let Some(new_array) = ArrayUtil::grow_no_copy(&self.buffer, dict_length + block_length) {
             self.buffer = new_array
         }
 

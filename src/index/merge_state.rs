@@ -29,8 +29,9 @@ use crate::store::IndexInput;
 use crate::test::util::bkd::test_bkd::DocMapMock;
 use crate::util::bits::BitsEnum;
 use crate::util::info_stream::InfoStreamEnum;
+use parking_lot::Mutex;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct MergeState<I>
 where

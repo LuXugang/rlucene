@@ -22,8 +22,10 @@ use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::InfoStreamLock;
+use parking_lot::Mutex;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
 /// Holder struct for common parameters used during write.
 ///
 /// @lucene.experimental

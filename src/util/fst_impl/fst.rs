@@ -27,7 +27,7 @@ use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::hash::Hash;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 pub struct FST<T, O, F>
@@ -122,7 +122,7 @@ where
         Ok(())
     }
     /// Reads the automaton from a file.
-    pub fn read_from_path(_path: &PathBuf, _outputs: Rc<RefCell<O>>) -> Result<Self> {
+    pub fn read_from_path(_path: &Path, _outputs: Rc<RefCell<O>>) -> Result<Self> {
         todo!()
     }
     /// Reads one BYTE1/2/4 label from the provided DataInput.

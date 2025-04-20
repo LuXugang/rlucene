@@ -63,31 +63,31 @@ impl LongHeap {
     }
     /// Adds a value in O(log(n)) time. Grows unbounded as needed to accommodate new values.
     /// Returns the new top element.
-    pub fn push(&mut self, element: i64) -> Result<i64> {
+    pub fn push(&mut self, element: i64) -> i64 {
         self.size += 1;
         if self.size == self.heap.len() {
             let new_capacity = (self.size * 3).div_ceil(2);
             debug_assert!(new_capacity <= i32::MAX as usize);
-            ArrayUtil::grow_with_len(&mut self.heap, new_capacity as i32)?;
+            ArrayUtil::grow_with_len(&mut self.heap, new_capacity as i32);
         }
         self.heap[self.size] = element;
         self.up_heap(self.size);
-        Ok(self.heap[1])
+        self.heap[1]
     }
     /// Adds a value in O(log(n)) time. If the number of values would exceed `max_size`,
     /// the least value is discarded.
     ///
     /// Returns whether the value was added.
-    pub fn insert_with_overflow(&mut self, value: i64) -> Result<bool> {
+    pub fn insert_with_overflow(&mut self, value: i64) -> bool {
         if self.size >= self.max_size {
             if value < self.heap[1] {
-                return Ok(false);
+                return false;
             }
             self.update_top(value);
-            return Ok(true);
+            return true;
         }
-        self.push(value)?;
-        Ok(true)
+        self.push(value);
+        true
     }
     /// Returns the least element of the heap in constant time.
     /// The caller must ensure the heap is not empty.
@@ -225,7 +225,7 @@ mod tests {
         for _ in 0..count {
             let next = random.random();
             sum += next;
-            pq.push(next)?;
+            pq.push(next);
             check_validity(&pq);
         }
 
@@ -248,9 +248,9 @@ mod tests {
     #[test]
     fn test_clear() -> Result<()> {
         let mut pq = LongHeap::new(3)?;
-        pq.push(2)?;
-        pq.push(3)?;
-        pq.push(1)?;
+        pq.push(2);
+        pq.push(3);
+        pq.push(1);
         assert_eq!(3, pq.size());
         pq.clear();
         assert_eq!(0, pq.size());
@@ -259,8 +259,8 @@ mod tests {
     #[test]
     fn test_exceed_bounds() -> Result<()> {
         let mut pq = LongHeap::new(1)?;
-        pq.push(2)?;
-        pq.push(0)?;
+        pq.push(2);
+        pq.push(0);
         assert_eq!(2, pq.size());
         assert_eq!(0, pq.top());
         Ok(())
@@ -268,12 +268,12 @@ mod tests {
     #[test]
     fn test_fixed_size() -> Result<()> {
         let mut pq = LongHeap::new(3)?;
-        pq.insert_with_overflow(2)?;
-        pq.insert_with_overflow(3)?;
-        pq.insert_with_overflow(1)?;
-        pq.insert_with_overflow(5)?;
-        pq.insert_with_overflow(7)?;
-        pq.insert_with_overflow(1)?;
+        pq.insert_with_overflow(2);
+        pq.insert_with_overflow(3);
+        pq.insert_with_overflow(1);
+        pq.insert_with_overflow(5);
+        pq.insert_with_overflow(7);
+        pq.insert_with_overflow(1);
         assert_eq!(3, pq.size());
         assert_eq!(3, pq.top());
         Ok(())
@@ -282,9 +282,9 @@ mod tests {
     #[test]
     fn test_duplicate_values() -> Result<()> {
         let mut pq = LongHeap::new(3)?;
-        pq.push(2)?;
-        pq.push(3)?;
-        pq.push(1)?;
+        pq.push(2);
+        pq.push(3);
+        pq.push(1);
         assert_eq!(1, pq.top());
         pq.update_top(3);
         assert_eq!(3, pq.size());
@@ -301,7 +301,7 @@ mod tests {
 
         for _ in 0..(num_docs_in_pq * 10) {
             let new_entry = random.random();
-            pq.insert_with_overflow(new_entry)?;
+            pq.insert_with_overflow(new_entry);
             check_validity(&pq);
             let new_least = pq.top();
             if let Some(last) = last_least {
@@ -345,11 +345,11 @@ mod tests {
         for _ in 0..num {
             let value: i64 = random.random();
             if random.random_bool(0.5) {
-                pq.push(value)?;
+                pq.push(value);
                 count += 1;
             } else {
                 let full = pq.size() >= initial_size;
-                if pq.insert_with_overflow(value)? && !full {
+                if pq.insert_with_overflow(value) && !full {
                     count += 1;
                 }
             }

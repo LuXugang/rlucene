@@ -14,20 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::buffered_updates::BufferedUpdates;
+use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::segment_commit_info::SegmentCommitInfo;
-use crate::index::terms_hash_per_field::MTPostingsArrayWrapper;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
-use crate::util::bytes_ref_hash::BytesStartArrayEnumLock;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStream, InfoStreamEnum};
-use crate::util::{ByteBlockPoolLock, CounterEnumLock};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -70,13 +67,7 @@ where
 
     pub fn new_sync(
         info_stream: I,
-        updates: &mut BufferedUpdates<
-            Q,
-            CounterEnumLock,
-            ByteBlockPoolLock,
-            BytesStartArrayEnumLock,
-            MTPostingsArrayWrapper,
-        >,
+        updates: &mut MTBufferedUpdates<Q>,
         private_segment: Option<Arc<SegmentCommitInfo<D>>>,
     ) -> Result<Self> {
         assert!(
@@ -84,11 +75,11 @@ where
             "segment private packet should only have del queries"
         );
 
-        let mut builder = PrefixCodedTermsBuilder::new()?;
+        let mut builder = PrefixCodedTermsBuilder::new();
         updates
             .delete_terms
-            .for_each_ordered(|term, _| builder.add_term(term))?;
-        let delete_terms = builder.finish()?;
+            .for_each_ordered(|term, _| builder.add_term(term));
+        let delete_terms = builder.finish();
 
         let (delete_queries, delete_query_limits) = {
             let mut queries = Vec::with_capacity(updates.delete_queries.len());
@@ -130,7 +121,8 @@ where
                     ),
                 );
             }
-            Ok(())
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
         });
 
         Ok(Self {

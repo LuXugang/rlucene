@@ -157,7 +157,7 @@ impl ArrayUtil {
         }
         Ok(())
     }
-    pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: i32) -> Result<()>
+    pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: i32)
     where
         T: Default,
     {
@@ -179,7 +179,6 @@ impl ArrayUtil {
                 vec.push(T::default());
             }
         }
-        Ok(())
     }
     pub fn grow<T>(vec: &mut Vec<T>) -> Result<()>
     where
@@ -228,7 +227,7 @@ impl ArrayUtil {
     }
     /// Returns a vector whose size is at least `min_size`, generally over-allocating
     /// exponentially, and it will not copy the original data to the new vector.
-    pub fn grow_no_copy<T>(vec: &[T], min_size: i32) -> Result<Option<Vec<T>>>
+    pub fn grow_no_copy<T>(vec: &[T], min_size: i32) -> Option<Vec<T>>
     where
         T: Default + Clone,
     {
@@ -242,9 +241,9 @@ impl ArrayUtil {
         if current_size < min_size as usize {
             let new_size = Self::oversize(min_size, std::mem::size_of::<T>() as i32);
             let new_vec = vec![T::default(); new_size as usize];
-            Ok(Option::from(new_vec))
+            Option::from(new_vec)
         } else {
-            Ok(None)
+            None
         }
     }
     /// Returns the hash of chars in the range from `start` (inclusive) to `end` (inclusive).

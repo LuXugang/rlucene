@@ -229,7 +229,7 @@ where
             if self.frontier.len() < (input.length + 1) as usize {
                 let old_len = self.frontier.len();
                 debug_assert!(old_len <= i32::MAX as usize);
-                ArrayUtil::grow_with_len(&mut self.frontier, old_len as i32 + 1)?;
+                ArrayUtil::grow_with_len(&mut self.frontier, old_len as i32 + 1);
                 debug_assert!(self.frontier.len() <= i32::MAX as usize);
                 for i in old_len..self.frontier.len() {
                     self.frontier[i] = Some(UnCompiledNode::new(self.inner.clone(), i as i32));
@@ -314,7 +314,7 @@ where
         }
 
         // Save last input
-        self.inner.borrow_mut().last_input.copy_ints_ref(input)?;
+        self.inner.borrow_mut().last_input.copy_ints_ref(input);
         Ok(())
     }
     /// Returns the metadata of the final FST. NOTE: this will return null if nothing is accepted by
@@ -504,7 +504,7 @@ where
             });
         }
         // reset the scratch writer to prepare for new write
-        self.scratch_bytes.set_position(0)?;
+        self.scratch_bytes.set_position(0);
 
         let do_fixed_length_arcs = self.should_expand_node_with_fixed_length_arcs(node_in);
         if do_fixed_length_arcs && self.num_bytes_per_arc.len() < node_in.num_arcs as usize {
@@ -803,7 +803,7 @@ where
         debug_assert!(dest_pos >= src_pos);
 
         if dest_pos > src_pos {
-            self.scratch_bytes.set_position(dest_pos)?;
+            self.scratch_bytes.set_position(dest_pos);
             let scratch_bytes = self.scratch_bytes.get_bytes();
             let arc_bytes = &self.num_bytes_per_arc;
             let mut src_pos = src_pos as usize;
@@ -934,7 +934,7 @@ where
             .write_vint(max_bytes_per_arc_without_label)?; // maxBytesPerArcWithoutLabel instead of maxBytesPerArc.
         let header_len = self.fixed_length_arcs_buffer.get_position();
 
-        self.scratch_bytes.set_position(0)?;
+        self.scratch_bytes.set_position(0);
         self.scratch_bytes.write_bytes_range(
             self.fixed_length_arcs_buffer.get_bytes(),
             0,
@@ -1538,7 +1538,7 @@ impl FixedLengthArcsBuffer {
     /// Ensures the capacity of the internal byte array. Enlarges it if needed.
     pub(crate) fn ensure_capacity(&mut self, capacity: i32) -> Result<()> {
         if self.bado.bytes.len() < capacity as usize {
-            ArrayUtil::grow_with_len(&mut self.bado.bytes, ArrayUtil::oversize(capacity, 1))?;
+            ArrayUtil::grow_with_len(&mut self.bado.bytes, ArrayUtil::oversize(capacity, 1));
             self.bado.reset()?;
         }
         Ok(())

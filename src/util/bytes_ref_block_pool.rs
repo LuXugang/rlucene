@@ -25,10 +25,11 @@ use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum, CounterEnumBorrow,
     CounterEnumLock, SliceCopyOps,
 };
+use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct BytesRefBlockPool<C, B>
 where
@@ -84,14 +85,13 @@ where
         self.byte_block_pool.clone()
     }
     /// Resets this buffer to the empty state.
-    pub fn reset(&mut self) -> Result<()> {
+    pub fn reset(&mut self) {
         self.byte_block_pool
-            .access_mut(|byte_block_pool| byte_block_pool.reset(false, false))?;
-        Ok(())
+            .access_mut(|byte_block_pool| byte_block_pool.reset(false, false))
     }
 
     /// Populates the given `BytesRef` with the term starting at `start`.
-    pub fn fill_bytes_ref(&self, term: &mut BytesRef, start: i32) -> Result<()> {
+    pub fn fill_bytes_ref(&self, term: &mut BytesRef, start: i32) {
         self.byte_block_pool.access_mut(|pool| {
             {
                 let block = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
@@ -115,7 +115,6 @@ where
                 term.length = length;
                 debug_assert!(term.length >= 0);
             };
-            Ok(())
         })
     }
     /// Add a term, returning the start position on the underlying `ByteBlockPool`.
@@ -168,7 +167,7 @@ where
         })
     }
     /// Computes the hash of the BytesRef at the given start.
-    pub fn hash(&mut self, start: i32) -> Result<i32> {
+    pub fn hash(&mut self, start: i32) -> i32 {
         let offset = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.access_mut(|pool| {
             let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
@@ -182,11 +181,11 @@ where
                 (len as usize, offset + 2)
             };
 
-            Ok(BytesRefHash::do_hash(bytes, pos, len))
+            BytesRefHash::do_hash(bytes, pos, len)
         })
     }
     /// Computes the equality between the BytesRef at the given start position and the provided BytesRef.
-    pub fn equals(&self, start: i32, b: &BytesRef) -> Result<bool> {
+    pub fn equals(&self, start: i32, b: &BytesRef) -> bool {
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.access_mut(|pool| {
             let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
@@ -201,8 +200,8 @@ where
             };
 
             // Compare slices of bytes
-            Ok(bytes[offset..offset + length]
-                == b.bytes[b.offset as usize..(b.offset + b.length) as usize])
+            bytes[offset..offset + length]
+                == b.bytes[b.offset as usize..(b.offset + b.length) as usize]
         })
     }
 }
@@ -212,14 +211,12 @@ where
     B: Access<ByteBlockPool<C>>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
-        let result = self
-            .byte_block_pool
-            .access(|pool| Ok(pool.ram_bytes_used()));
+        let result = self.byte_block_pool.access(|pool| pool.ram_bytes_used());
         if result.is_err() {
             // TODO:
             Ok(0)
         } else {
-            result?
+            result
         }
     }
 }

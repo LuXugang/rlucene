@@ -511,8 +511,7 @@ mod tests {
             // We don't rely on the buffers being filled with zeros because the SliceWriter keeps the
             // slice length as state, but ByteSlicePool.allocKnownSizeSlice asserts on zeros in the
             // buffer.
-            pool.borrow_mut()
-                .reset(true, rand::rng().random_bool(0.5))?;
+            pool.borrow_mut().reset(true, rand::rng().random_bool(0.5));
         }
 
         Ok(())

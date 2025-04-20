@@ -26,7 +26,8 @@ use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::PackedInts;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 /// A [`DocValuesFieldUpdates`](crate::index::doc_values_field_updates::DocValuesFieldUpdates) which holds updates for documents of a single `BinaryDocValuesField`.
 ///
@@ -68,10 +69,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     }
 
     fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef, index: i32) -> Result<()> {
-        let _guard = self
-            .lock
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let _guard = self.lock.lock();
         self.offsets
             .set(index as i64, self.values.length() as i64)?;
         self.lengths.set(index as i64, value.length as i64)?;

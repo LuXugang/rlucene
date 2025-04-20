@@ -20,12 +20,13 @@ use crate::store::lock_factory::LockFactory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use chrono::{DateTime, Utc};
 use fs2::FileExt;
+use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::fs::{File, Metadata, OpenOptions};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
 /// Implements [`lock_factory`](crate::store::lock_factory) using native OS file locks.
@@ -120,10 +121,7 @@ impl FSLockFactory for NativeFSLockFactory {
             .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
         let real_path_str = real_path.to_string_lossy().to_string();
 
-        let mut lock_held = self
-            .lock_held
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut lock_held = self.lock_held.lock();
         if !lock_held.insert(real_path_str.clone()) {
             return Err(LuceneError::lock_already_held(format!(
                 "Lock held by another program: {}",
@@ -156,18 +154,7 @@ impl Drop for NativeFSLock {
     fn drop(&mut self) {
         let real_path_str = self.path.to_string_lossy().to_string();
         let locks = get_lock_held();
-        let lock_result = locks.lock();
-
-        match lock_result {
-            Ok(mut lock_held) => {
-                lock_held.remove(&real_path_str);
-            }
-            Err(poisoned) => {
-                eprintln!("Mutex is poisoned. Attempting to recover during drop.");
-                let mut lock_held = poisoned.into_inner();
-                lock_held.remove(&real_path_str);
-            }
-        }
+        locks.lock().remove(&real_path_str);
     }
 }
 
@@ -228,9 +215,7 @@ impl Lock for NativeFSLock {
     ///   - The lock file has been deleted or is inaccessible.
     fn ensure_valid(&self) -> Result<()> {
         let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
-        let lock_held = lock_held
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let lock_held = lock_held.lock();
         if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
             return Err(LuceneError::illegal_state(format!(
                 "Lock path unexpectedly cleared from map: {:?}",

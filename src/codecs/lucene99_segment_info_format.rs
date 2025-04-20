@@ -27,7 +27,8 @@ use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::Version;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 /// Lucene 9.9 Segment info format.
 ///
@@ -215,9 +216,7 @@ impl Lucene99SegmentInfoFormat {
         }
         {
             let attributes = si.get_attributes()?;
-            let values = attributes
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+            let values = attributes.lock();
             output.write_map_of_strings(&values)?;
         }
 
@@ -256,9 +255,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         D: Directory,
     {
         let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
-        let directory = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
+        let directory = dir.lock();
         let mut input = directory.open_checksum_input(&file_name)?;
 
         let mut prior_e: Option<LuceneError> = None;

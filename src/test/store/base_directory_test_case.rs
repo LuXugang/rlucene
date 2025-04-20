@@ -30,17 +30,17 @@ use crate::test::util::lucene_test_case::{
 use crate::test::util::test_util::TestUtil;
 use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::error::IllegalStateError;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::packed::PackedInts;
 use crate::util::SliceCopyOps;
+use parking_lot::Mutex;
 use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Barrier, Mutex};
+use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Duration;
 use tempfile::Builder;
@@ -73,7 +73,7 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
         random.fill(&mut bytes[..]);
         {
-            let mut source_dir = source.lock().unwrap();
+            let mut source_dir = source.lock();
             let mut output = source_dir.create_output("foobar", &io_context)?;
 
             output.write_bytes_with_len(&bytes, bytes.len() as i32)?;
@@ -754,16 +754,11 @@ pub trait BaseDirectoryTestCase {
             let io_context = IOContext::default_io_context()?;
             for i in 0..file_count {
                 let file_name = format!("file-{}", i);
-                if let Ok(mut dir) = dir_writer.lock() {
-                    if let Ok(_output) = dir.create_output(&file_name, &io_context) {
-                        thread::yield_now();
-                    }
-                    assert!(slow_file_exists(&*dir, &file_name)?);
-                } else {
-                    return Err(LuceneError::IllegalState(IllegalStateError::new(
-                        "Failed to acquire lock in writer",
-                    )));
+                let mut dir = dir_writer.lock();
+                if let Ok(_output) = dir.create_output(&file_name, &io_context) {
+                    thread::yield_now();
                 }
+                assert!(slow_file_exists(&*dir, &file_name)?);
             }
 
             stop_writer.store(true, Ordering::SeqCst);
@@ -778,7 +773,7 @@ pub trait BaseDirectoryTestCase {
 
             while !stop_reader.load(Ordering::SeqCst) {
                 let files: Vec<String> = {
-                    let dir = dir_reader.lock().unwrap();
+                    let dir = dir_reader.lock();
                     dir.list_all()?
                         .into_iter()
                         .filter(|name| !name.eq(EXTRA_FILE_NAME))
@@ -790,7 +785,6 @@ pub trait BaseDirectoryTestCase {
                         let file = files[rng.random_range(0..files.len())].as_str();
                         match dir_reader
                             .lock()
-                            .unwrap()
                             .open_input(file, &new_io_context(&mut rng)?)
                         {
                             Ok(_input) => {
@@ -1117,7 +1111,7 @@ pub trait BaseDirectoryTestCase {
                 let handle = thread::spawn(move || {
                     barrier_clone.wait();
                     let file_name = format!("copy{}", i);
-                    let mut dir_guard = dir_clone.lock().unwrap();
+                    let mut dir_guard = dir_clone.lock();
                     let mut dst = dir_guard.create_output(&file_name, &io_context).unwrap();
                     let src_length = IndexInput::length(&src);
                     dst.copy_bytes(&mut src, src_length - header_len as i64)

@@ -56,7 +56,7 @@ impl TermsHashPerFieldEnum {
             }
         }
     }
-    fn reinit_hash(&mut self) -> Result<()> {
+    fn reinit_hash(&mut self) {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.reinit_hash()

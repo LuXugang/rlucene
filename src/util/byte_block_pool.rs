@@ -20,9 +20,10 @@ use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps};
+use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// This struct enables the allocation of fixed-size buffers and their management as part of a buffer array.
 /// Allocation is done through the use of an [`AllocatorByte`](crate::util::allocator_byte::AllocatorByte) which can be customized,
@@ -105,7 +106,7 @@ where
     /// * `zero_fill_buffers` - If `true`, the buffers are filled with `0`. This should be set to `true` if this pool is used with slices.
     /// * `reuse_first` - If `true`, the first buffer will be reused, and calling [`ByteBlockPool::next_buffer`](#method.next_buffer) is not needed after reset,
     ///   if the block pool was used before (i.e., [`ByteBlockPool::next_buffer`](#method.next_buffer) was called before).
-    pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) -> Result<()> {
+    pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) {
         if self.buffer_upto != -1 {
             if zero_fill_buffers {
                 for i in 0..(self.buffer_upto + 1) as usize {
@@ -115,7 +116,7 @@ where
             if self.buffer_upto > 0 || !reuse_first {
                 let offset = if reuse_first { 1 } else { 0 };
                 self.allocator
-                    .recycle_byte_blocks(&self.buffers, offset, self.buffer_upto + 1)?;
+                    .recycle_byte_blocks(&self.buffers, offset, self.buffer_upto + 1);
                 for _i in offset as usize..(self.buffer_upto + 1) as usize {
                     self.buffers.pop();
                 }
@@ -131,7 +132,6 @@ where
                 self.byte_offset = -ByteBlockPool::BYTE_BLOCK_SIZE;
             }
         }
-        Ok(())
     }
     /// Allocates a new buffer and advances the pool to it. This method should be called once after the
     /// constructor to initialize the pool. In contrast to the constructor, a
@@ -139,7 +139,7 @@ where
     /// immediately.
     pub fn next_buffer(&mut self) -> Result<()> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
-            self.buffers.push(self.allocator.get_byte_block()?);
+            self.buffers.push(self.allocator.get_byte_block());
         }
         // Allocate new buffer and advance the pool to it
         self.buffer_upto += 1;
@@ -342,7 +342,7 @@ where
     pub fn get_buffer(&mut self, buffer_index: i32) -> &mut Vec<u8> {
         &mut self.buffers[buffer_index as usize]
     }
-    pub fn get_bytes_used(&self) -> Result<i64> {
+    pub fn get_bytes_used(&self) -> i64 {
         self.allocator.get_used()
     }
 }
@@ -444,7 +444,7 @@ mod tests {
                     .collect::<String>();
                 let value_copy = value.clone();
                 list.push(BytesRef::from_string(&value));
-                bytes_ref_builder.copy_chars_with_string(&value_copy)?;
+                bytes_ref_builder.copy_chars_with_string(&value_copy);
                 pool.append_bytes_ref(bytes_ref_builder.get_bytes_ref())?;
             }
             let mut position = 0;
@@ -484,14 +484,11 @@ mod tests {
                 assert!(bytes_ref_builder.get_bytes_ref().bytes_equals(expected));
                 position += bytes_ref_builder.length() as i64;
             }
-            pool.reset(random.random_bool(0.5), reuse_first)?;
+            pool.reset(random.random_bool(0.5), reuse_first);
             if reuse_first {
-                assert_eq!(
-                    ByteBlockPool::BYTE_BLOCK_SIZE as i64,
-                    pool.get_bytes_used()?
-                )
+                assert_eq!(ByteBlockPool::BYTE_BLOCK_SIZE as i64, pool.get_bytes_used())
             } else {
-                assert_eq!(0, pool.get_bytes_used()?);
+                assert_eq!(0, pool.get_bytes_used());
                 pool.next_buffer()?;
             }
         }

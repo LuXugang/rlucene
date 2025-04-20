@@ -27,7 +27,8 @@ use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, Abstract
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::paged_mutable::PagedMutable;
 use crate::util::packed::PackedInts;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub(crate) struct NumericDocValuesFieldUpdates<T>
 where
@@ -85,10 +86,7 @@ where
     T: AbstractPagedMutableBase<PagedMutableBase = T> + Default,
 {
     fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<()> {
-        let _guard = self
-            .lock
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let _guard = self.lock.lock();
         self.values.set(index as i64, value - self.min_value)
     }
 

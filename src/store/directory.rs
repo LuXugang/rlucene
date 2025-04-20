@@ -20,10 +20,11 @@ use crate::store::data_output::DataOutput;
 use crate::store::index_input::IndexInput;
 use crate::store::lock::Lock;
 use crate::store::{IOContext, IndexOutput};
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
+use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// A `Directory` provides an abstraction layer for storing a list of files.
 /// A directory contains only files (no subfolder hierarchy).
@@ -191,9 +192,7 @@ pub trait Directory: Display + Sized {
         let mut success = false;
 
         let result = (|| -> Result<()> {
-            let dir = from
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+            let dir = from.lock();
             let mut is = dir.open_input(src, &IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context)?;
             let length = IndexInput::length(&is);

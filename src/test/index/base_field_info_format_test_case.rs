@@ -38,11 +38,12 @@ use std::cell::RefCell;
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{StringHelper, LATEST};
+use parking_lot::Mutex;
 use rand::rngs::StdRng;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use strum::EnumCount;
 
 pub trait BaseFieldInfoFormatTestCase {
@@ -63,14 +64,14 @@ pub trait BaseFieldInfoFormatTestCase {
             .finish()?;
 
         codec.field_infos_format().write(
-            &mut *dir.lock().unwrap(),
+            &mut *dir.lock(),
             &segment_info,
             "",
             &infos,
             &IOContext::default_io_context()?,
         )?;
         let infos2 = codec.field_infos_format().read(
-            &mut *dir.lock().unwrap(),
+            &mut *dir.lock(),
             &segment_info,
             "",
             &IOContext::default_io_context()?,
@@ -219,7 +220,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
         // Write the FieldInfos to the directory.
         codec.field_infos_format().write(
-            &mut *dir.lock().unwrap(),
+            &mut *dir.lock(),
             &segment_info,
             "",
             &infos,
@@ -228,7 +229,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
         // Read the FieldInfos back from the directory.
         let infos2 = codec.field_infos_format().read(
-            &mut *dir.lock().unwrap(),
+            &mut *dir.lock(),
             &segment_info,
             "",
             &IOContext::default_io_context()?,

@@ -28,11 +28,12 @@ use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{StringHelper, LATEST};
+use parking_lot::Mutex;
 use rand::rngs::StdRng;
 use rand::Rng;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub trait BaseLiveDocsFormatTestCase {
     fn test_dense_live_docs(&self, random: &mut StdRng) -> Result<()> {
@@ -128,7 +129,7 @@ pub trait BaseLiveDocsFormatTestCase {
         )?;
         format.write_live_docs(
             &bits,
-            &mut *dir.lock().unwrap(),
+            &mut *dir.lock(),
             &sci,
             max_doc - num_live_docs,
             &io_context,
@@ -144,7 +145,7 @@ pub trait BaseLiveDocsFormatTestCase {
             Option::from(StringHelper::random_id().to_vec()),
         )?;
         let io_context = IOContext::read_once_io_context()?;
-        let mut dir = dir.lock().unwrap();
+        let mut dir = dir.lock();
         let bits2 = format.read_live_docs(&mut *dir, &sci, &io_context)?;
 
         assert_eq!(max_doc, bits2.length());

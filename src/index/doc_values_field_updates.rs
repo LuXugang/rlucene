@@ -35,7 +35,8 @@ use crate::util::packed::{Mutable, PackedInts, Reader};
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::{Sorter, ToInt};
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub(crate) const PAGE_SIZE: i32 = 1024;
 const HAS_VALUE_MASK: i64 = 1;
@@ -121,10 +122,7 @@ where
     }
     #[allow(unused)]
     fn get_finished(&self) -> Result<bool> {
-        let inner = self
-            .inner
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let inner = self.inner.lock();
         Ok(inner.finished)
     }
     /// # Warning
@@ -162,10 +160,7 @@ where
         self.sub_update.add_iterator(doc_id, iterator)
     }
     pub(crate) fn finish(&mut self) -> Result<()> {
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut inner = self.inner.lock();
         if inner.finished {
             return Err(LuceneError::illegal_argument(
                 "already finished".to_string(),
@@ -206,10 +201,7 @@ where
     }
     /// Returns true if this instance contains any updates.
     pub(crate) fn any(&self) -> Result<bool> {
-        let inner = self
-            .inner
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let inner = self.inner.lock();
         let result = inner.size > 0;
         if self.sub_update.need_any() {
             self.sub_update.any(result)
@@ -230,10 +222,7 @@ where
         self.add_internal(doc, HAS_VALUE_MASK)
     }
     fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<i32> {
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut inner = self.inner.lock();
         if inner.finished {
             return Err(LuceneError::illegal_argument(
                 "already finished".to_string(),
@@ -259,35 +248,24 @@ where
     }
     // pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<()> {
     //     self.sub_update.swap(i, j)?;
-    //     let mut inner = self.inner.lock().map_err(|_| {
-    //             LuceneError::illegal_state("Failed to acquire lock".to_string())
-    //         })?;
+    //     let mut inner = self.inner.lock();
     //     inner.swap(i, j)?;
     //     Ok(())
     // }
     pub(crate) fn grow(&mut self, size: i32) -> Result<()> {
         self.sub_update.grow(size)?;
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut inner = self.inner.lock();
         inner.grow(size)?;
         Ok(())
     }
     pub(crate) fn resize(&mut self, size: i32) -> Result<()> {
         self.sub_update.resize(size)?;
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut inner = self.inner.lock();
         inner.resize(size)?;
         Ok(())
     }
     pub(crate) fn ensure_finished(&self) -> Result<()> {
-        let inner = self
-            .inner
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let inner = self.inner.lock();
         if !inner.finished {
             return Err(LuceneError::illegal_state("call finish first".to_string()));
         }
@@ -735,10 +713,7 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut inner = self.inner.lock();
         if self.idx >= inner.size as i64 {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
@@ -892,10 +867,7 @@ where
     }
 
     fn reset(&mut self, doc: i32) -> Result<()> {
-        let _guide = self
-            .lock
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let _guide = self.lock.lock();
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_none() {
@@ -910,10 +882,7 @@ where
     }
 
     fn any(&self, super_any: bool) -> Result<bool> {
-        let _guide = self
-            .lock
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let _guide = self.lock.lock();
         Ok(super_any || self.has_at_least_one_value)
     }
 

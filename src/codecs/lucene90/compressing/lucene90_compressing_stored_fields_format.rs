@@ -27,9 +27,11 @@ use crate::store::IOContext;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::direct_monotonic_writer::direct_monotonic_writer_util;
+use parking_lot::Mutex;
 use std::fmt;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
 /// A [`StoredFieldsFormat`] that compresses documents in chunks in order to improve the
 /// compression ratio.
 ///

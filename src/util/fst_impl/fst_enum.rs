@@ -69,10 +69,10 @@ where
         // let fst = self.fst.borrow_mut();
         if self.upto == 0 {
             self.upto = 1;
-            let mut arc0 = self.get_arc_ownership(0);
+            let arc0 = self.get_arc_ownership(0);
             let mut arc1 = self.get_arc_ownership(1);
             self.fst
-                .read_first_target_arc(&mut arc0, &mut arc1, &mut self.fst_reader)?;
+                .read_first_target_arc(&arc0, &mut arc1, &mut self.fst_reader)?;
             self.arcs[0] = Some(arc0);
             self.arcs[1] = Some(arc1);
             return Ok(());
@@ -834,7 +834,7 @@ where
 
         Ok(())
     }
-    fn do_seek_floor_array_packed<'a>(
+    fn do_seek_floor_array_packed(
         &mut self,
         arc_index: usize,
         target_label: i32,
@@ -926,11 +926,11 @@ where
             // doesn't need this because it reads the next arc
             // instead:
             loop {
-                let mut prev_arc = self.get_arc_ownership(self.upto - 1);
+                let prev_arc = self.get_arc_ownership(self.upto - 1);
                 // First, walk backwards until we find a first arc
                 // that's before our target label:
                 self.fst
-                    .read_first_target_arc(&mut prev_arc, &mut arc, &mut self.fst_reader)?;
+                    .read_first_target_arc(&prev_arc, &mut arc, &mut self.fst_reader)?;
                 if arc.label() < target_label {
                     // Then, scan forwards to the arc just before
                     // the targetLabel:
@@ -1023,11 +1023,11 @@ where
         sub.grow()?;
         debug_assert!(self.upto <= i32::MAX as usize);
         if self.arcs.len() <= self.upto {
-            ArrayUtil::grow_with_len(&mut self.arcs, self.upto as i32 + 1)?;
+            ArrayUtil::grow_with_len(&mut self.arcs, self.upto as i32 + 1);
         }
 
         if self.output.len() <= self.upto {
-            ArrayUtil::grow_with_len(&mut self.output, self.upto as i32 + 1)?;
+            ArrayUtil::grow_with_len(&mut self.output, self.upto as i32 + 1);
         }
         Ok(())
     }

@@ -21,7 +21,8 @@ use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::IOUtils;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 #[allow(unused)]
 pub(crate) struct FieldsIndexWriter<D>
@@ -65,9 +66,7 @@ where
         block_shift: i32,
         io_context: IOContext,
     ) -> Result<Self> {
-        let mut dir_guard = dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?;
+        let mut dir_guard = dir.lock();
         let mut docs_out =
             dir_guard.create_temp_output(name, &format!("{}-doc_ids", codec_name), &io_context)?;
         CodecUtil::write_header(
@@ -144,14 +143,11 @@ where
         let _ = std::mem::take(&mut self.docs_out);
         let _ = std::mem::take(&mut self.file_pointers_out);
 
-        let mut data_out = self
-            .dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
-            .create_output(
-                &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
-                &self.io_context,
-            )?;
+        let mut dir = self.dir.lock();
+        let mut data_out = dir.create_output(
+            &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
+            &self.io_context,
+        )?;
         CodecUtil::write_index_header(
             &mut data_out,
             &format!("{}Idx", self.codec_name),
@@ -166,11 +162,7 @@ where
         meta_out.write_long(data_out.get_file_pointer())?;
 
         {
-            let mut docs_in = self
-                .dir
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
-                .open_checksum_input(&docs_out_file_name)?;
+            let mut docs_in = dir.open_checksum_input(&docs_out_file_name)?;
             let mut prior_e = None;
             let result: Result<()> = (|| {
                 CodecUtil::check_header(
@@ -209,17 +201,10 @@ where
                 CodecUtil::check_footer(&mut docs_in)?;
             }
         }
-        self.dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
-            .delete_file(&docs_out_file_name)?;
+        dir.delete_file(&docs_out_file_name)?;
         meta_out.write_long(data_out.get_file_pointer())?;
         {
-            let mut file_pointers_in = self
-                .dir
-                .lock()
-                .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
-                .open_checksum_input(&file_pointers_out_file_name)?;
+            let mut file_pointers_in = dir.open_checksum_input(&file_pointers_out_file_name)?;
             let mut prior_e = None;
             let result = (|| {
                 CodecUtil::check_header(
@@ -258,10 +243,7 @@ where
                 CodecUtil::check_footer(&mut file_pointers_in)?;
             }
         }
-        self.dir
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock".to_string()))?
-            .delete_file(&file_pointers_out_file_name)?;
+        dir.delete_file(&file_pointers_out_file_name)?;
         meta_out.write_long(data_out.get_file_pointer())?;
         meta_out.write_long(max_pointer)?;
         CodecUtil::write_footer(&mut data_out)?;
@@ -288,13 +270,10 @@ where
             );
             let _ = self.file_pointers_out.take();
         }
-        if let Ok(mut dir) = self.dir.lock() {
-            match IOUtils::delete_files(&mut *dir, files) {
-                Ok(_) => (),
-                Err(e) => eprintln!("Failed to delete files: {:?}", e),
-            }
-        } else {
-            eprintln!("Failed to acquire lock in Drop.");
+        let mut dir = self.dir.lock();
+        match IOUtils::delete_files(&mut *dir, files) {
+            Ok(_) => (),
+            Err(e) => eprintln!("Failed to delete files: {:?}", e),
         }
     }
 }

@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 use crate::util::dummy::dummy_counter::DummyCounter;
+use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::AtomicI64;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub trait Counter {
     /// Adds the given delta to the counter's current value.
