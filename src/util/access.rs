@@ -122,6 +122,9 @@ pub trait AccessVec<T>: Clone + Default {
     fn new() -> Self;
     fn with_capacity(capacity: usize) -> Self;
     fn from_vec(v: Vec<T>) -> Self;
+    fn len(&self) -> usize {
+        self.access(|v| Ok(v.len())).unwrap()
+    }
 }
 
 impl<T> AccessVec<T> for Vec<T>
