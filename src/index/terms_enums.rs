@@ -95,7 +95,7 @@ where
         todo!()
     }
 
-    type PostingsEnum = PostingsEnums;
+    type PostingsEnum = PostingsEnums<I>;
 
     fn postings(&mut self, _reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnum> {
         todo!()

@@ -581,8 +581,7 @@ impl CodecUtil {
     ///
     /// # Errors
     /// - `IoError`: If the footer is invalid.
-    #[allow(unused)]
-    fn retrieve_checksum_with_expected(
+    pub(crate) fn retrieve_checksum_with_expected(
         input: &mut impl IndexInput,
         expected_length: i64,
     ) -> Result<i64> {

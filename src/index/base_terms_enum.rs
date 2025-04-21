@@ -111,7 +111,7 @@ where
         self.sub_terms_enum.total_term_freq()
     }
 
-    type PostingsEnum = PostingsEnums;
+    type PostingsEnum = PostingsEnums<I>;
 
     fn postings_with_flags(
         &mut self,

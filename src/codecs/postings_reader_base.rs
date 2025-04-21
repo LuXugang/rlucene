@@ -16,13 +16,14 @@
  */
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::index::field_info::FieldInfo;
+use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::PostingsEnums;
 use crate::index::segment_read_state::SegmentReadState;
-use crate::index::terms_enum::TermsEnum;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
+
 /// The core terms dictionaries (BlockTermsReader, BlockTreeTermsReader) interact with a single
 /// instance of this class to manage creation of [`PostingsEnum`](crate::index::postings_enum::PostingsEnum) and
 /// [`ImpactsEnum`](crate::index::impacts_enum::ImpactsEnum) instances. It provides an IndexInput (`termsIn`) where
@@ -32,9 +33,9 @@ use std::rc::Rc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub trait PostingsReaderBase<T>
+pub trait PostingsReaderBase<I>
 where
-    T: TermsEnum,
+    I: IndexInput,
 {
     /// Performs any initialization, such as reading and verifying the header from the provided
     /// terms dictionary [`IndexInput`].
@@ -66,10 +67,11 @@ where
         &mut self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
-        reuse: Option<PostingsEnums>,
+        reuse: Option<&mut PostingsEnums<I>>,
         flags: i32,
-    ) -> Result<PostingsEnums>;
+    ) -> Result<Option<PostingsEnums<I>>>;
 
+    type ImpactsEnum: ImpactsEnum;
     /// Return an [`ImpactsEnum`](TermsEnum::ImpactsEnum) that computes impacts with `scorer`.
     ///
     /// See also:
@@ -79,7 +81,7 @@ where
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
         flags: i32,
-    ) -> Result<T::ImpactsEnum>;
+    ) -> Result<Self::ImpactsEnum>;
 
     /// Checks consistency of this reader.
     ///

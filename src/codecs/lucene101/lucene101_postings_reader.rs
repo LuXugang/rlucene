@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::codecs::lucene101::for_util::ForUtil;
 use crate::codecs::lucene101::lucene101_postings_format::{
@@ -21,21 +22,27 @@ use crate::codecs::lucene101::lucene101_postings_format::{
 };
 use crate::codecs::lucene101::pfor_util::PForUtil;
 use crate::codecs::lucene101::postings_util::PostingsUtil;
+use crate::codecs::postings_reader_base::PostingsReaderBase;
+use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
 use crate::index::impact::Impact;
 use crate::index::impacts::Impacts;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
-use crate::index::BytesRef;
+use crate::index::postings_enum::{postings_enum_util, PostingsEnum, PostingsEnums};
+use crate::index::segment_read_state::SegmentReadState;
+use crate::index::terms_enum::TermsEnum;
+use crate::index::{BytesRef, IndexFileNames};
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::internal::vectorization::vectorization_provider::vectorization_provider_util;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::{ByteArrayDataInput, IndexInput};
+use crate::store::directory::Directory;
+use crate::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::Result;
+use crate::util::bit_util::BitUtil;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{SliceCopyOps, ToUsizeExact};
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
@@ -47,12 +54,306 @@ where
     I: IndexInput,
 {
     doc_in: I,
-    pos_in: I,
-    pay_in: I,
+    pos_in: Option<I>,
+    pay_in: Option<I>,
     max_num_impacts_at_level0: i32,
     max_impact_num_bytes_at_level0: i32,
     max_num_impacts_at_level1: i32,
     max_impact_num_bytes_at_level1: i32,
+}
+impl<I> Lucene101PostingsReader<I>
+where
+    I: IndexInput,
+{
+    pub fn new<D>(state: &SegmentReadState<D>) -> Result<Self>
+    where
+        D: Directory<IndexInputType = I>,
+    {
+        let meta_name = IndexFileNames::segment_file_name(
+            &state.segment_info.name,
+            &state.segment_suffix,
+            Lucene101PostingsFormat::META_EXTENSION,
+        );
+        let mut max_num_impacts_at_level0 = 0;
+        let mut max_impact_num_bytes_at_level0 = 0;
+        let mut max_num_impacts_at_level1 = 0;
+        let mut max_impact_num_bytes_at_level1 = 0;
+        let mut expected_doc_file_length = 0;
+        let mut version = 0;
+        let mut expected_pos_file_length = 0;
+        let mut expected_pay_file_length = 0;
+        let mut meta_in_opt = None;
+        let result = (|| {
+            let meta_in = state.directory.lock().open_checksum_input(&meta_name)?;
+            meta_in_opt = Some(meta_in);
+            if let Some(ref mut meta_in) = meta_in_opt {
+                version = CodecUtil::check_index_header(
+                    meta_in,
+                    Lucene101PostingsFormat::META_CODEC,
+                    Lucene101PostingsFormat::VERSION_START,
+                    Lucene101PostingsFormat::VERSION_CURRENT,
+                    &state.segment_info.get_id(),
+                    &state.segment_suffix,
+                )?;
+                max_num_impacts_at_level0 = meta_in.read_int()?;
+                max_impact_num_bytes_at_level0 = meta_in.read_int()?;
+                max_num_impacts_at_level1 = meta_in.read_int()?;
+                max_impact_num_bytes_at_level1 = meta_in.read_int()?;
+                expected_doc_file_length = meta_in.read_long()?;
+                (expected_pos_file_length, expected_pay_file_length) =
+                    if state.field_infos.has_prox() {
+                        let pos_len = meta_in.read_long()?;
+                        let pay_len = if state.field_infos.has_payloads()
+                            || state.field_infos.has_offsets()
+                        {
+                            meta_in.read_long()?
+                        } else {
+                            -1
+                        };
+                        (pos_len, pay_len)
+                    } else {
+                        (-1, -1)
+                    };
+                CodecUtil::check_footer(meta_in)?;
+            }
+            Ok(())
+        })();
+        match result {
+            Ok(_) => {}
+            Err(mut e) => {
+                return match meta_in_opt {
+                    Some(ref mut meta_in) => {
+                        Err(CodecUtil::check_footer_with_error(meta_in, &mut e))
+                    }
+                    None => Err(e),
+                };
+            }
+        }
+        // NOTE: these data files are too costly to verify checksum against all the bytes on open,
+        // but for now we at least verify proper structure of the checksum footer: which looks
+        // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
+        // such as file truncation.
+        let doc_name = IndexFileNames::segment_file_name(
+            &state.segment_info.name,
+            &state.segment_suffix,
+            Lucene101PostingsFormat::DOC_EXTENSION,
+        );
+        // Postings have a forward-only access pattern, so pass ReadAdvice.NORMAL to perform
+        // readahead.
+        let mut doc_in = state.directory.lock().open_input(
+            &doc_name,
+            &state.context.with_read_advice(ReadAdvice::Normal)?,
+        )?;
+        CodecUtil::check_index_header(
+            &mut doc_in,
+            Lucene101PostingsFormat::DOC_CODEC,
+            version,
+            version,
+            &state.segment_info.get_id(),
+            &state.segment_suffix,
+        )?;
+        CodecUtil::retrieve_checksum_with_expected(&mut doc_in, expected_doc_file_length)?;
+
+        let mut pos_in_opt: Option<I> = None;
+        let mut pay_in_opt: Option<I> = None;
+        if state.field_infos.has_prox() {
+            let pos_name = IndexFileNames::segment_file_name(
+                &state.segment_info.name,
+                &state.segment_suffix,
+                Lucene101PostingsFormat::POS_EXTENSION,
+            );
+            let mut pos_in = state
+                .directory
+                .lock()
+                .open_input(&pos_name, &state.context)?;
+            CodecUtil::check_index_header(
+                &mut pos_in,
+                Lucene101PostingsFormat::POS_CODEC,
+                version,
+                version,
+                &state.segment_info.get_id(),
+                &state.segment_suffix,
+            )?;
+            CodecUtil::retrieve_checksum_with_expected(&mut pos_in, expected_pos_file_length)?;
+            pos_in_opt = Some(pos_in);
+
+            if state.field_infos.has_payloads() || state.field_infos.has_offsets() {
+                let pay_name = IndexFileNames::segment_file_name(
+                    &state.segment_info.name,
+                    &state.segment_suffix,
+                    Lucene101PostingsFormat::PAY_EXTENSION,
+                );
+                let mut pay = state
+                    .directory
+                    .lock()
+                    .open_input(&pay_name, &state.context)?;
+                CodecUtil::check_index_header(
+                    &mut pay,
+                    Lucene101PostingsFormat::PAY_CODEC,
+                    version,
+                    version,
+                    &state.segment_info.get_id(),
+                    &state.segment_suffix,
+                )?;
+                CodecUtil::retrieve_checksum_with_expected(&mut pay, expected_pay_file_length)?;
+                pay_in_opt = Some(pay);
+            }
+        }
+
+        Ok(Self {
+            doc_in,
+            pos_in: pos_in_opt,
+            pay_in: pay_in_opt,
+            max_num_impacts_at_level0,
+            max_impact_num_bytes_at_level0,
+            max_num_impacts_at_level1,
+            max_impact_num_bytes_at_level1,
+        })
+    }
+}
+impl<I> PostingsReaderBase<I> for Lucene101PostingsReader<I>
+where
+    I: IndexInput,
+{
+    fn init<D>(&mut self, terms_in: &mut impl IndexInput, state: &SegmentReadState<D>) -> Result<()>
+    where
+        D: Directory,
+    {
+        // Make sure we are talking to the matching postings writer
+        CodecUtil::check_index_header(
+            terms_in,
+            Lucene101PostingsFormat::TERMS_CODEC,
+            Lucene101PostingsFormat::VERSION_START,
+            Lucene101PostingsFormat::VERSION_CURRENT,
+            &state.segment_info.get_id(),
+            &state.segment_suffix,
+        )?;
+        let index_block_size = terms_in.read_vint()?;
+        if index_block_size as usize != ForUtil::BLOCK_SIZE {
+            return Err(LuceneError::illegal_state(format!(
+                "index-time BLOCK_SIZE ({}) != read-time BLOCK_SIZE ({})",
+                index_block_size,
+                ForUtil::BLOCK_SIZE
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn new_term_state(&mut self) -> Result<BlockTermStateEnum> {
+        Ok(BlockTermStateEnum::Int(IntBlockTermState::default()))
+    }
+
+    fn decode_term(
+        &mut self,
+        input: &mut impl DataInput,
+        field_info: &Rc<FieldInfo>,
+        state: &mut BlockTermStateEnum,
+        absolute: bool,
+    ) -> Result<()> {
+        let term_state = match state {
+            BlockTermStateEnum::Int(ref mut state) => state,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "BlockTermStateEnum's type is not Int",
+                ))
+            }
+        };
+        if absolute {
+            term_state.doc_start_fp = 0;
+            term_state.pos_start_fp = 0;
+            term_state.pay_start_fp = 0;
+        }
+
+        let l = input.read_vlong()?;
+        if (l & 0x1) == 0 {
+            term_state.doc_start_fp += ((l as u64) >> 1) as i64;
+            if term_state.base.doc_freq == 1 {
+                term_state.singleton_doc_id = input.read_vint()?;
+            } else {
+                term_state.singleton_doc_id = -1;
+            }
+        } else {
+            debug_assert!(!absolute);
+            debug_assert_ne!(term_state.singleton_doc_id, -1);
+            let delta = BitUtil::zig_zag_decode_i64((l as u64) >> 1);
+            term_state.singleton_doc_id += delta as i32;
+        }
+
+        if *field_info.get_index_options() >= IndexOptions::DocsAndFreqsAndPositions {
+            term_state.pos_start_fp += input.read_vlong()?;
+
+            if *field_info.get_index_options() >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets
+                || field_info.has_payloads()
+            {
+                term_state.pay_start_fp += input.read_vlong()?;
+            }
+            if term_state.base.total_term_freq > ForUtil::BLOCK_SIZE as i64 {
+                term_state.last_pos_block_offset = input.read_vlong()?;
+            } else {
+                term_state.last_pos_block_offset = -1;
+            }
+        }
+        Ok(())
+    }
+
+    fn postings(
+        &mut self,
+        field_info: &FieldInfo,
+        state: &BlockTermStateEnum,
+        reuse: Option<&mut PostingsEnums<I>>,
+        flags: i32,
+    ) -> Result<Option<PostingsEnums<I>>> {
+        let reuse_enum = reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
+        if let PostingsEnums::Block(ref mut everything_enum) = reuse_enum {
+            if everything_enum.can_reuse(&self.doc_in, field_info, flags, false, self) {
+                return Ok(None);
+            }
+        }
+        let mut block = BlockPostingsEnum::new(field_info, flags, false, self)?;
+        match state {
+            BlockTermStateEnum::Int(ref term_state) => {
+                block.reset(term_state, flags, self)?;
+            }
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "BlockTermStateEnum's type is not Int",
+                ))
+            }
+        }
+        Ok(Some(PostingsEnums::Block(block)))
+    }
+
+    type ImpactsEnum = BlockPostingsEnum<I>;
+
+    fn impacts(
+        &mut self,
+        field_info: &FieldInfo,
+        state: &BlockTermStateEnum,
+        flags: i32,
+    ) -> Result<Self::ImpactsEnum> {
+        match state {
+            BlockTermStateEnum::Int(ref term_state) => {
+                let mut block = BlockPostingsEnum::new(field_info, flags, true, self)?;
+                block.reset(term_state, flags, self)?;
+                Ok(block)
+            }
+            _ => Err(LuceneError::illegal_state(
+                "BlockTermStateEnum's type is not Int",
+            )),
+        }
+    }
+
+    fn check_integrity(&mut self) -> Result<()> {
+        CodecUtil::checksum_entire_file(&mut self.doc_in)?;
+        if let Some(ref mut pos_in) = self.pos_in {
+            CodecUtil::checksum_entire_file(pos_in)?;
+        };
+        if let Some(ref mut pay_in) = self.pay_in {
+            CodecUtil::checksum_entire_file(pay_in)?;
+        }
+        Ok(())
+    }
 }
 pub struct BlockPostingsEnum<I>
 where
@@ -216,7 +517,7 @@ where
             };
 
         let (pos_in, pos_in_util, pos_delta_buffer) = if needs_pos {
-            let pi = Rc::new(RefCell::new(reader.pos_in.try_clone()?));
+            let pi = Rc::new(RefCell::new(reader.pos_in.as_ref().unwrap().try_clone()?));
             let util = vectorization_provider_util::new_posting_decoding_util(pi.clone());
             (Some(pi), Some(util), vec![0; ForUtil::BLOCK_SIZE])
         } else {
@@ -224,7 +525,7 @@ where
         };
 
         let (pay_in, pay_in_util) = if needs_offsets_or_payloads {
-            let pi = Rc::new(RefCell::new(reader.pay_in.try_clone()?));
+            let pi = Rc::new(RefCell::new(reader.pay_in.as_ref().unwrap().try_clone()?));
             let util = vectorization_provider_util::new_posting_decoding_util(pi.clone());
             (Some(pi), Some(util))
         } else {
@@ -1121,6 +1422,7 @@ where
         Ok(ImpactsImpl { impacts_enum: self })
     }
 }
+impl<I> ImpactsEnum for BlockPostingsEnum<I> where I: IndexInput {}
 
 pub struct ImpactsImpl<'a, I>
 where
@@ -1197,8 +1499,6 @@ where
         }
     }
 }
-
-impl<I> ImpactsEnum for BlockPostingsEnum<I> where I: IndexInput {}
 
 pub mod lucene101_pr_util {
     use crate::codecs::lucene101::lucene101_postings_format::IntBlockTermState;
