@@ -33,7 +33,7 @@ use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::internal::vectorization::vectorization_provider::vectorization_provider_util;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::IndexInput;
+use crate::store::{ByteArrayDataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{SliceCopyOps, ToUsizeExact};
@@ -145,14 +145,14 @@ where
     level0_block_pay_upto: i32,
     // TODO: 这里的BytesRef中的byte需要共享
     level0_serialized_impacts: Option<BytesRef<Vec<u8>>>,
-    level0_impacts: Option<Rc<RefCell<MutableImpactList>>>,
+    level0_impacts: Option<MutableImpactList>,
     /// level 1 skip data
     level1_pos_end_fp: i64,
     level1_block_pos_upto: i32,
     level1_pay_end_fp: i64,
     level1_block_pay_upto: i32,
     level1_serialized_impacts: Option<BytesRef<Vec<u8>>>,
-    level1_impacts: Option<Rc<RefCell<MutableImpactList>>>,
+    level1_impacts: Option<MutableImpactList>,
     // true if we shallow-advanced to a new block that we have not decoded yet
     needs_refilling: bool,
 }
@@ -320,14 +320,14 @@ where
             level0_pay_end_fp: 0,
             level0_block_pay_upto: 0,
             level0_serialized_impacts,
-            level0_impacts: Some(Rc::new(RefCell::new(level0_impacts))),
+            level0_impacts: Some(level0_impacts),
 
             level1_pos_end_fp: 0,
             level1_block_pos_upto: 0,
             level1_pay_end_fp: 0,
             level1_block_pay_upto: 0,
             level1_serialized_impacts,
-            level1_impacts: Some(Rc::new(RefCell::new(level1_impacts))),
+            level1_impacts: Some(level1_impacts),
 
             needs_refilling: false,
         })
@@ -1112,35 +1112,43 @@ where
         Ok(())
     }
 
-    type ImpactsType = ImpactsImpl;
+    type ImpactsType<'a>
+        = ImpactsImpl<'a, I>
+    where
+        I: 'a;
 
-    fn get_impacts(&self) -> Result<&Self::ImpactsType> {
-        todo!()
+    fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
+        Ok(ImpactsImpl { impacts_enum: self })
     }
 }
-pub struct ImpactsImpl {
-    index_has_freq: bool,
 
-    level0_last_doc_id: i32,
-    level0_serialized_impacts: BytesRef<Vec<u8>>,
-    level0_impacts: Option<Rc<RefCell<MutableImpactList>>>,
-
-    level1_last_doc_id: i32,
-    level1_serialized_impacts: BytesRef<Vec<u8>>,
-    level1_impacts: Option<Rc<RefCell<MutableImpactList>>>,
+pub struct ImpactsImpl<'a, I>
+where
+    I: IndexInput,
+{
+    impacts_enum: &'a mut BlockPostingsEnum<I>,
 }
-impl ImpactsImpl {
+impl<I> ImpactsImpl<'_, I>
+where
+    I: IndexInput,
+{
     fn read_impacts(
-        &self,
-        _serialized: BytesRef<Vec<u8>>,
-        _impacts_list: Rc<RefCell<MutableImpactList>>,
-    ) -> Vec<Impact> {
-        todo!()
+        serialized: Vec<u8>,
+        impacts_list: &mut MutableImpactList,
+    ) -> Result<(&[Impact], Vec<u8>)> {
+        let len = serialized.len() as i32;
+        let mut scratch = ByteArrayDataInput::with_range(serialized, 0, len);
+        let r = lucene101_pr_util::read_impacts(&mut scratch, impacts_list)?;
+        Ok((r, std::mem::take(&mut scratch.bytes)))
     }
 }
-impl Impacts for ImpactsImpl {
+impl<I> Impacts for ImpactsImpl<'_, I>
+where
+    I: IndexInput,
+{
     fn num_levels(&self) -> i32 {
-        if !self.index_has_freq || self.level1_last_doc_id == NO_MORE_DOCS {
+        if !self.impacts_enum.index_has_freq || self.impacts_enum.level1_last_doc_id == NO_MORE_DOCS
+        {
             1
         } else {
             2
@@ -1148,19 +1156,45 @@ impl Impacts for ImpactsImpl {
     }
 
     fn get_doc_id_up_to(&self, level: i32) -> i32 {
-        if !self.index_has_freq {
+        if !self.impacts_enum.index_has_freq {
             NO_MORE_DOCS
         } else if level == 0 {
-            self.level0_last_doc_id
+            self.impacts_enum.level0_last_doc_id
         } else if level == 1 {
-            self.level1_last_doc_id
+            self.impacts_enum.level1_last_doc_id
         } else {
             NO_MORE_DOCS
         }
     }
 
-    fn get_impacts(&self, _level: i32) -> &[Impact] {
-        todo!()
+    fn get_impacts(&mut self, level: i32) -> Result<&[Impact]> {
+        if self.impacts_enum.index_has_freq {
+            if level == 0 && self.impacts_enum.level0_last_doc_id != NO_MORE_DOCS {
+                let mut v = self.impacts_enum.level0_serialized_impacts.take().unwrap();
+                let (impact, bytes) = ImpactsImpl::<I>::read_impacts(
+                    // take ownership
+                    std::mem::take(&mut v.bytes),
+                    self.impacts_enum.level0_impacts.as_mut().unwrap(),
+                )?;
+                // return ownership
+                v.bytes = bytes;
+                self.impacts_enum.level0_serialized_impacts = Some(v);
+                Ok(impact)
+            } else {
+                let mut v = self.impacts_enum.level1_serialized_impacts.take().unwrap();
+                let (impact, bytes) = ImpactsImpl::<I>::read_impacts(
+                    // take ownership
+                    std::mem::take(&mut v.bytes),
+                    self.impacts_enum.level1_impacts.as_mut().unwrap(),
+                )?;
+                // return ownership
+                v.bytes = bytes;
+                self.impacts_enum.level1_serialized_impacts = Some(v);
+                Ok(impact)
+            }
+        } else {
+            Ok(DUMMY_IMPACTS.as_slice())
+        }
     }
 }
 

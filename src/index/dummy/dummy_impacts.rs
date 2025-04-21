@@ -16,7 +16,9 @@
  */
 use crate::index::impact::Impact;
 use crate::index::impacts::Impacts;
+use crate::util::error::lucene_error::Result;
 
+#[derive(Clone)]
 pub struct DummyImpacts;
 impl Impacts for DummyImpacts {
     fn num_levels(&self) -> i32 {
@@ -27,7 +29,7 @@ impl Impacts for DummyImpacts {
         unreachable!("this method should never be called")
     }
 
-    fn get_impacts(&self, _level: i32) -> &[Impact] {
+    fn get_impacts(&mut self, _level: i32) -> Result<&[Impact]> {
         unreachable!("this method should never be called")
     }
 }

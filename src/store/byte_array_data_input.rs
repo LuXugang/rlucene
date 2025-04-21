@@ -29,7 +29,7 @@ use std::fmt::{Display, Formatter};
 /// # Note
 /// This is an experimental API.
 pub struct ByteArrayDataInput {
-    bytes: Vec<u8>,
+    pub(crate) bytes: Vec<u8>,
     pos: i32,
     limit: i32,
 }

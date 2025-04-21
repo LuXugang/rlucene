@@ -75,9 +75,9 @@ impl ImpactsSource for ImpactsEnumEnum {
         todo!()
     }
 
-    type ImpactsType = ImpactsEnums;
+    type ImpactsType<'a> = ImpactsEnums;
 
-    fn get_impacts(&self) -> Result<&Self::ImpactsType> {
+    fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
         todo!()
     }
 }

@@ -34,7 +34,9 @@ pub trait ImpactsSource {
     /// that are less than `target`.
     fn advance_shallow(&mut self, target: i32) -> Result<()>;
 
-    type ImpactsType: Impacts;
+    type ImpactsType<'a>: Impacts
+    where
+        Self: 'a;
     /// Get information about upcoming impacts for doc IDs greater than or equal to the max of
     /// the current [`doc_id()`](crate::search::doc_id_set_iterator::DocIdSetIterator::doc_id) and the last target passed to [`advance_shallow()`](ImpactsSource::advance_shallow).
     ///
@@ -42,5 +44,5 @@ pub trait ImpactsSource {
     /// #Note :
     ///  advancing this iterator may
     ///   invalidate the returned impacts, so they should not be used after the iterator has been advanced.
-    fn get_impacts(&self) -> Result<&Self::ImpactsType>;
+    fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>>;
 }

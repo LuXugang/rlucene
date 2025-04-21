@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::impact::Impact;
+use crate::util::error::lucene_error::Result;
 
 /// Information about upcoming impacts, i.e., (freq, norm) pairs.
 pub trait Impacts {
@@ -41,7 +42,7 @@ pub trait Impacts {
     /// NOTE: There is no guarantee that these impacts actually appear in postings,
     /// only that they trigger scores that are greater than or equal to the impacts
     /// that actually appear in postings.
-    fn get_impacts(&self, level: i32) -> &[Impact];
+    fn get_impacts(&mut self, level: i32) -> Result<&[Impact]>;
 }
 
 pub enum ImpactsEnums {}
@@ -54,7 +55,7 @@ impl Impacts for ImpactsEnums {
         todo!()
     }
 
-    fn get_impacts(&self, _level: i32) -> &[Impact] {
+    fn get_impacts(&mut self, _level: i32) -> Result<&[Impact]> {
         todo!()
     }
 }

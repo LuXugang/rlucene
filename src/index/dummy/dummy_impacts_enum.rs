@@ -75,9 +75,9 @@ impl ImpactsSource for DummyImpactsEnum {
         ))
     }
 
-    type ImpactsType = DummyImpacts;
+    type ImpactsType<'a> = DummyImpacts;
 
-    fn get_impacts(&self) -> Result<&Self::ImpactsType> {
+    fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
