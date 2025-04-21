@@ -118,6 +118,7 @@ pub trait AccessVec<T>: Clone + Default {
         F: FnOnce(&mut Vec<T>) -> R;
     fn slice_clone(&self, offset: usize, length: usize) -> Self;
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
     fn new() -> Self;
     fn with_capacity(capacity: usize) -> Self;
     fn from_vec(v: Vec<T>) -> Self;
@@ -148,6 +149,10 @@ where
 
     fn len(&self) -> usize {
         Vec::len(self)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.is_empty()
     }
 
     fn new() -> Self {
@@ -200,6 +205,10 @@ where
         self.borrow().len()
     }
 
+    fn is_empty(&self) -> bool {
+        self.borrow().is_empty()
+    }
+
     fn new() -> Self {
         Rc::new(RefCell::new(Vec::new()))
     }
@@ -248,6 +257,10 @@ where
 
     fn len(&self) -> usize {
         self.lock().len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.lock().is_empty()
     }
 
     fn new() -> Self {
