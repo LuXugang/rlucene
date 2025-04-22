@@ -28,6 +28,7 @@ pub mod allocator_byte;
 pub mod array_tim_sorter;
 pub mod array_util;
 pub mod attribute_source;
+mod automation;
 pub mod bit_doc_id_set;
 pub mod bit_set;
 pub mod bit_set_iterator;
