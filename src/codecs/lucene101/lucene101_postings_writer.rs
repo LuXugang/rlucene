@@ -37,6 +37,7 @@ use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::store::directory::Directory;
 use crate::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
+use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -47,13 +48,14 @@ use std::default::Default;
 use std::rc::Rc;
 
 /// Writer for [`Lucene101PostingsFormat`](crate::codecs::lucene101::lucene101_postings_format)
-pub struct Lucene101PostingsWriter<O, T, N>
+pub struct Lucene101PostingsWriter<O, T, N, AV>
 where
     O: IndexOutput,
-    T: TermsEnum,
+    T: TermsEnum<AV>,
     N: NormsProducer,
+    AV: AccessVec<u8>,
 {
-    pub(crate) base: PushPostingsWriterBase<T, N>,
+    pub(crate) base: PushPostingsWriterBase<T, N, AV>,
     pub(crate) meta_out: O,
     pub(crate) doc_out: O,
     pub(crate) pos_out: Option<O>,
@@ -115,11 +117,12 @@ where
     level1_output: ByteBuffersDataOutput,
 }
 #[allow(unused)]
-impl<O, T, N> Lucene101PostingsWriter<O, T, N>
+impl<O, T, N, AV> Lucene101PostingsWriter<O, T, N, AV>
 where
     O: IndexOutput,
-    T: TermsEnum,
+    T: TermsEnum<AV>,
     N: NormsProducer,
+    AV: AccessVec<u8>,
 {
     pub fn new<D>(state: &SegmentWriteState<D>) -> Result<Self>
     where
@@ -445,21 +448,23 @@ where
         }
     }
 }
-impl<O, T, N> Drop for Lucene101PostingsWriter<O, T, N>
+impl<O, T, N, AV> Drop for Lucene101PostingsWriter<O, T, N, AV>
 where
     O: IndexOutput,
-    T: TermsEnum,
+    T: TermsEnum<AV>,
     N: NormsProducer,
+    AV: AccessVec<u8>,
 {
     fn drop(&mut self) {
         self.close();
     }
 }
-impl<O, T, N> PostingsWriterBase<T, N> for Lucene101PostingsWriter<O, T, N>
+impl<O, T, N, AV> PostingsWriterBase<T, N, AV> for Lucene101PostingsWriter<O, T, N, AV>
 where
     O: IndexOutput,
-    T: TermsEnum,
+    T: TermsEnum<AV>,
     N: NormsProducer,
+    AV: AccessVec<u8>,
 {
     fn init<D: Directory>(
         &mut self,
@@ -551,11 +556,12 @@ where
         self.field_has_norms = field_info.has_norms();
     }
 }
-impl<O, T, N> PushPostingsWriterBaseAbstract<N> for Lucene101PostingsWriter<O, T, N>
+impl<O, T, N, AV> PushPostingsWriterBaseAbstract<N> for Lucene101PostingsWriter<O, T, N, AV>
 where
     O: IndexOutput,
-    T: TermsEnum,
+    T: TermsEnum<AV>,
     N: NormsProducer,
+    AV: AccessVec<u8>,
 {
     fn new_term_state(&mut self) -> Result<BlockTermStateEnum> {
         Ok(BlockTermStateEnum::Int(IntBlockTermState::default()))

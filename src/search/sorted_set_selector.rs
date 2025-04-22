@@ -25,17 +25,20 @@ use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
+
 /// Selects a value from the document's set to use as the representative value.
 pub struct SortedSetSelector;
 impl SortedSetSelector {
     /// Wraps a multi-valued SortedSetDocValues as a single-valued view, using the specified selector.
-    pub fn wrap<I: IndexInput>(
-        sorted_set: SortedSetDocValuesEnum<I>,
+    pub fn wrap<I: IndexInput, AV: AccessVec<u8>>(
+        sorted_set: SortedSetDocValuesEnum<I, AV>,
         selector: SortedSetSelectorType,
-    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I, AV>>>> {
         if sorted_set.get_value_count()? >= i32::MAX as i64 {
             return Err(LuceneError::unsupported_operation(format!(
                 "fields containing more than {} unique terms are unsupported",
@@ -82,19 +85,21 @@ pub enum SortedSetSelectorType {
     MiddleMax,
 }
 /// Wraps a SortedSetDocValues and returns the first ordinal (min)
-pub struct MinValue<I>
+pub struct MinValue<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    inner: Box<SortedSetDocValuesWrapper<I>>,
+    inner: Box<SortedSetDocValuesWrapper<I, AV>>,
     ord: i32,
 }
 
-impl<I> MinValue<I>
+impl<I, AV> MinValue<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn new(inner: Box<SortedSetDocValuesWrapper<I>>) -> Self {
+    fn new(inner: Box<SortedSetDocValuesWrapper<I, AV>>) -> Self {
         Self { inner, ord: 0 }
     }
     fn set_ord(&mut self) -> Result<()> {
@@ -105,9 +110,10 @@ where
     }
 }
 
-impl<I> DocValuesIterator for MinValue<I>
+impl<I, AV> DocValuesIterator for MinValue<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         if self.inner.advance_exact(target)? {
@@ -118,9 +124,10 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for MinValue<I>
+impl<I, AV> DocIdSetIterator for MinValue<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.inner.doc_id()
@@ -143,15 +150,16 @@ where
     }
 }
 
-impl<I> SortedDocValues<I> for MinValue<I>
+impl<I, AV> SortedDocValues<I, AV> for MinValue<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<AV>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -159,18 +167,18 @@ where
         Ok(self.inner.get_value_count()? as i32)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
 }
 /// Wraps a SortedSetDocValues and returns the last ordinal (max)
-pub struct MaxValue<I: IndexInput> {
-    inner: Box<SortedSetDocValuesWrapper<I>>,
+pub struct MaxValue<I: IndexInput, AV: AccessVec<u8>> {
+    inner: Box<SortedSetDocValuesWrapper<I, AV>>,
     ord: i32,
 }
 
-impl<I: IndexInput> MaxValue<I> {
-    fn new(inner: Box<SortedSetDocValuesWrapper<I>>) -> Self {
+impl<I: IndexInput, AV: AccessVec<u8>> MaxValue<I, AV> {
+    fn new(inner: Box<SortedSetDocValuesWrapper<I, AV>>) -> Self {
         Self { inner, ord: 0 }
     }
 
@@ -186,7 +194,7 @@ impl<I: IndexInput> MaxValue<I> {
     }
 }
 
-impl<I: IndexInput> DocValuesIterator for MaxValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> DocValuesIterator for MaxValue<I, AV> {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         if self.inner.advance_exact(target)? {
             self.set_ord()?;
@@ -196,7 +204,7 @@ impl<I: IndexInput> DocValuesIterator for MaxValue<I> {
     }
 }
 
-impl<I: IndexInput> DocIdSetIterator for MaxValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> DocIdSetIterator for MaxValue<I, AV> {
     fn doc_id(&self) -> i32 {
         self.inner.doc_id()
     }
@@ -218,12 +226,12 @@ impl<I: IndexInput> DocIdSetIterator for MaxValue<I> {
     }
 }
 
-impl<I: IndexInput> SortedDocValues<I> for MaxValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> SortedDocValues<I, AV> for MaxValue<I, AV> {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<AV>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -231,18 +239,18 @@ impl<I: IndexInput> SortedDocValues<I> for MaxValue<I> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the two)
-pub struct MiddleMinValue<I: IndexInput> {
-    inner: Box<SortedSetDocValuesWrapper<I>>,
+pub struct MiddleMinValue<I: IndexInput, AV: AccessVec<u8>> {
+    inner: Box<SortedSetDocValuesWrapper<I, AV>>,
     ord: i32,
 }
 
-impl<I: IndexInput> MiddleMinValue<I> {
-    fn new(inner: Box<SortedSetDocValuesWrapper<I>>) -> Self {
+impl<I: IndexInput, AV: AccessVec<u8>> MiddleMinValue<I, AV> {
+    fn new(inner: Box<SortedSetDocValuesWrapper<I, AV>>) -> Self {
         Self { inner, ord: 0 }
     }
 
@@ -259,7 +267,7 @@ impl<I: IndexInput> MiddleMinValue<I> {
     }
 }
 
-impl<I: IndexInput> DocValuesIterator for MiddleMinValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> DocValuesIterator for MiddleMinValue<I, AV> {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         if self.inner.advance_exact(target)? {
             self.set_ord()?;
@@ -269,7 +277,7 @@ impl<I: IndexInput> DocValuesIterator for MiddleMinValue<I> {
     }
 }
 
-impl<I: IndexInput> DocIdSetIterator for MiddleMinValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> DocIdSetIterator for MiddleMinValue<I, AV> {
     fn doc_id(&self) -> i32 {
         self.inner.doc_id()
     }
@@ -291,12 +299,12 @@ impl<I: IndexInput> DocIdSetIterator for MiddleMinValue<I> {
     }
 }
 
-impl<I: IndexInput> SortedDocValues<I> for MiddleMinValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> SortedDocValues<I, AV> for MiddleMinValue<I, AV> {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<AV>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -304,18 +312,22 @@ impl<I: IndexInput> SortedDocValues<I> for MiddleMinValue<I> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the two)
-pub struct MiddleMaxValue<I: IndexInput> {
-    inner: Box<SortedSetDocValuesWrapper<I>>,
+pub struct MiddleMaxValue<I, AV>
+where
+    I: IndexInput,
+    AV: AccessVec<u8>,
+{
+    inner: Box<SortedSetDocValuesWrapper<I, AV>>,
     ord: i32,
 }
 
-impl<I: IndexInput> MiddleMaxValue<I> {
-    fn new(inner: Box<SortedSetDocValuesWrapper<I>>) -> Self {
+impl<I: IndexInput, AV: AccessVec<u8>> MiddleMaxValue<I, AV> {
+    fn new(inner: Box<SortedSetDocValuesWrapper<I, AV>>) -> Self {
         Self { inner, ord: 0 }
     }
 
@@ -332,7 +344,7 @@ impl<I: IndexInput> MiddleMaxValue<I> {
     }
 }
 
-impl<I: IndexInput> DocValuesIterator for MiddleMaxValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> DocValuesIterator for MiddleMaxValue<I, AV> {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         if self.inner.advance_exact(target)? {
             self.set_ord()?;
@@ -342,7 +354,7 @@ impl<I: IndexInput> DocValuesIterator for MiddleMaxValue<I> {
     }
 }
 
-impl<I: IndexInput> DocIdSetIterator for MiddleMaxValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> DocIdSetIterator for MiddleMaxValue<I, AV> {
     fn doc_id(&self) -> i32 {
         self.inner.doc_id()
     }
@@ -364,12 +376,12 @@ impl<I: IndexInput> DocIdSetIterator for MiddleMaxValue<I> {
     }
 }
 
-impl<I: IndexInput> SortedDocValues<I> for MiddleMaxValue<I> {
+impl<I: IndexInput, AV: AccessVec<u8>> SortedDocValues<I, AV> for MiddleMaxValue<I, AV> {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<AV>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -377,21 +389,22 @@ impl<I: IndexInput> SortedDocValues<I> for MiddleMaxValue<I> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
 }
 
-pub enum SortedDocValuesEnum1<I: IndexInput> {
-    Min(MinValue<I>),
-    Max(MaxValue<I>),
-    MiddleMin(MiddleMinValue<I>),
-    MiddleMax(MiddleMaxValue<I>),
+pub enum SortedDocValuesEnum1<I: IndexInput, AV: AccessVec<u8>> {
+    Min(MinValue<I, AV>),
+    Max(MaxValue<I, AV>),
+    MiddleMin(MiddleMinValue<I, AV>),
+    MiddleMax(MiddleMaxValue<I, AV>),
 }
 
-impl<I> DocValuesIterator for SortedDocValuesEnum1<I>
+impl<I, AV> DocValuesIterator for SortedDocValuesEnum1<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
@@ -403,9 +416,10 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for SortedDocValuesEnum1<I>
+impl<I, AV> DocIdSetIterator for SortedDocValuesEnum1<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         match self {
@@ -426,9 +440,10 @@ where
     }
 }
 
-impl<I> SortedDocValues<I> for SortedDocValuesEnum1<I>
+impl<I, AV> SortedDocValues<I, AV> for SortedDocValuesEnum1<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
         match self {
@@ -439,7 +454,7 @@ where
         }
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<AV>>> {
         match self {
             SortedDocValuesEnum1::Min(inner) => inner.lookup_ord(ord),
             SortedDocValuesEnum1::Max(inner) => inner.lookup_ord(ord),
@@ -457,7 +472,7 @@ where
         }
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
         match self {
             SortedDocValuesEnum1::Min(inner) => inner.lookup_term(key),
             SortedDocValuesEnum1::Max(inner) => inner.lookup_term(key),
@@ -466,7 +481,7 @@ where
         }
     }
 
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+    fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
         match self {
             SortedDocValuesEnum1::Min(inner) => inner.terms_enum(),
             SortedDocValuesEnum1::Max(inner) => inner.terms_enum(),

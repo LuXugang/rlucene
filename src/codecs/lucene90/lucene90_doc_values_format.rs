@@ -218,7 +218,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
         )
     }
 
-    type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T>;
+    type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T, Vec<u8>>;
 
     fn fields_producer<D>(
         &self,

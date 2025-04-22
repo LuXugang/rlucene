@@ -23,27 +23,32 @@ use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
+
 /// Exposes a multi-valued iterator view over a single-valued iterator.
 ///
 /// This can be used if you want to have one multi-valued implementation that works for both
 /// single-valued and multi-valued types.
-pub struct SingletonSortedSetDocValues<I>
+pub struct SingletonSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    inner: Rc<RefCell<SortedDocValuesEnum<I>>>,
+    inner: Rc<RefCell<SortedDocValuesEnum<I, AV>>>,
     ord: i64,
 }
 
-impl<I> SingletonSortedSetDocValues<I>
+impl<I, AV> SingletonSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     /// Creates a multi-valued view over the provided SortedDocValues.
-    pub fn new(inner: Rc<RefCell<SortedDocValuesEnum<I>>>) -> Result<Self> {
+    pub fn new(inner: Rc<RefCell<SortedDocValuesEnum<I, AV>>>) -> Result<Self> {
         if inner.borrow().doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
@@ -53,7 +58,7 @@ where
         Ok(Self { inner, ord: -1 })
     }
 
-    pub fn get_numeric_doc_values(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    pub fn get_numeric_doc_values(&self) -> Result<Rc<RefCell<SortedDocValuesEnum<I, AV>>>> {
         if self.inner.borrow().doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
@@ -64,9 +69,10 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for SingletonSortedSetDocValues<I>
+impl<I, AV> DocIdSetIterator for SingletonSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.inner.borrow().doc_id()
@@ -93,9 +99,10 @@ where
     }
 }
 
-impl<I> DocValuesIterator for SingletonSortedSetDocValues<I>
+impl<I, AV> DocValuesIterator for SingletonSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         if self.inner.borrow_mut().advance_exact(target)? {
@@ -107,9 +114,10 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for SingletonSortedSetDocValues<I>
+impl<I, AV> SortedSetDocValues<I, AV> for SingletonSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_ord(&mut self) -> Result<i64> {
         Ok(self.ord)
@@ -119,23 +127,24 @@ where
         Ok(1)
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef<Vec<u8>>> {
-        self.inner.borrow_mut().lookup_ord(ord as i32)
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<AV>>> {
+        todo!()
+        // self.inner.borrow_mut().lookup_ord(ord as i32)
     }
 
     fn get_value_count(&self) -> Result<i64> {
         Ok(self.inner.borrow_mut().get_value_count()? as i64)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i64> {
         Ok(self.inner.borrow_mut().lookup_term(key)? as i64)
     }
 
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+    fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
         self.inner.borrow_mut().terms_enum()
     }
 
-    fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>> {
+    fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I, AV>>>>> {
         Ok(Some(self.get_numeric_doc_values()?))
     }
 }

@@ -23,43 +23,43 @@ use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum, TermsEnumEmpty};
 use crate::index::BytesRef;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
-pub enum TermsEnums<I>
+pub enum TermsEnums<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     Dummy(DummyTermsEnum),
-    Empty(TermsEnumEmpty<I>),
-    SortedDocValues(Box<SortedDocValuesTermsEnum<I>>),
-    TermsDict(Box<TermsDict<I>>),
+    Empty(TermsEnumEmpty<I, AV>),
+    SortedDocValues(Box<SortedDocValuesTermsEnum<I, AV>>),
+    TermsDict(Box<TermsDict<I, AV>>),
 }
 
-impl<I> BytesRefIterator for TermsEnums<I>
+impl<I, AV> BytesRefIterator<AV> for TermsEnums<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
         todo!()
     }
 }
 
-impl<I> TermsEnum for TermsEnums<I>
+impl<I, AV> TermsEnum<AV> for TermsEnums<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         todo!()
     }
 
-    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        todo!()
-    }
-
-    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, term: &BytesRef<AV>) -> Result<SeekStatus> {
         todo!()
     }
 
@@ -69,17 +69,9 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<Vec<u8>>,
+        _term: &BytesRef<AV>,
         _state: &TermStateEnum,
     ) -> Result<()> {
-        todo!()
-    }
-
-    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
-        todo!()
-    }
-
-    fn term_ref(&self) -> Result<&BytesRef<Vec<u8>>> {
         todo!()
     }
 
@@ -96,10 +88,6 @@ where
     }
 
     type PostingsEnum = PostingsEnums<I>;
-
-    fn postings(&mut self, _reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnum> {
-        todo!()
-    }
 
     fn postings_with_flags(
         &mut self,

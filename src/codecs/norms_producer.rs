@@ -39,23 +39,25 @@ pub trait NormsProducer {
     /// for example it might compute a checksum over large data files.
     fn check_integrity(&mut self) -> Result<()>;
 
-    type NormsProducer<'a, I: IndexInput>: NormsProducer
-    where
-        Self: 'a,
-        I: 'a;
-    /// Returns an instance optimized for merging.
-    ///
-    /// This instance may only be used from the thread that acquires it.
-    ///
-    /// By default, this method returns `None`, which indicates that no new
-    /// `NormsProducerEnum` is required for merging, and the current instance
-    /// should be used directly during merge operations.
-    fn get_merge_instance<I>(&self) -> Result<Option<Self::NormsProducer<'_, I>>>
-    where
-        I: IndexInput,
-    {
-        Ok(None)
-    }
+    // type NormsProducer<'a, I: IndexInput,AV:AccessVec<u8>>: NormsProducer
+    // where
+    //     Self: 'a,
+    //     I: 'a,
+    //      AV:'a;
+    // /// Returns an instance optimized for merging.
+    // ///
+    // /// This instance may only be used from the thread that acquires it.
+    // ///
+    // /// By default, this method returns `None`, which indicates that no new
+    // /// `NormsProducerEnum` is required for merging, and the current instance
+    // /// should be used directly during merge operations.
+    // fn get_merge_instance<I,AV>(&self) -> Result<Option<Self::NormsProducer<'_, I, AV>>>
+    // where
+    //     I: IndexInput,
+    //     AV: AccessVec<u8>,
+    // {
+    //     Ok(None)
+    // }
 }
 
 pub enum NormsProducerEnum<I>
@@ -82,21 +84,22 @@ where
         }
     }
 
-    type NormsProducer<'a, T: IndexInput + 'a>
-        = NormsProducerEnum<I>
-    where
-        I: 'a;
-
-    fn get_merge_instance<T>(&self) -> Result<Option<Self::NormsProducer<'_, I>>> {
-        match self {
-            NormsProducerEnum::Lucene90(producer) => {
-                let merge_instance = producer.get_merge_instance::<I>()?;
-                if merge_instance.is_none() {
-                    Ok(None)
-                } else {
-                    Ok(merge_instance)
-                }
-            }
-        }
-    }
+    // type NormsProducer<'a, T: IndexInput , AV1:AccessVec<u8>+ 'a>
+    //     = NormsProducerEnum<I>
+    // where
+    //     I: 'a,
+    //     AV1: 'a;
+    //
+    // fn get_merge_instance<T>(&self) -> Result<Option<Self::NormsProducer<'_, I>>> {
+    //     match self {
+    //         NormsProducerEnum::Lucene90(producer) => {
+    //             let merge_instance = producer.get_merge_instance::<I>()?;
+    //             if merge_instance.is_none() {
+    //                 Ok(None)
+    //             } else {
+    //                 Ok(merge_instance)
+    //             }
+    //         }
+    //     }
+    // }
 }

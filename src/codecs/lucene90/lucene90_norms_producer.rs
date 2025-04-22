@@ -18,7 +18,7 @@ use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::indexed_disi::indexed_disi_util;
 use crate::codecs::lucene90::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
-use crate::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
+use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::CodecUtil;
 use crate::index::doc_values::EmptyNumeric;
 use crate::index::doc_values_iterator::DocValuesIterator;
@@ -571,26 +571,26 @@ where
         Ok(())
     }
 
-    type NormsProducer<'a, T: IndexInput + 'a>
-        = NormsProducerEnum<I>
-    where
-        I: 'a;
-
-    fn get_merge_instance<T>(&self) -> Result<Option<NormsProducerEnum<I>>>
-    where
-        I: IndexInput,
-    {
-        let result = Self {
-            norms: self.norms.clone(),
-            max_doc: self.max_doc,
-            data: self.data.try_clone()?,
-            merging: true,
-            disi_inputs: HashMap::new(),
-            disi_jump_tables: HashMap::new(),
-            data_inputs: HashMap::new(),
-        };
-        Ok(Some(NormsProducerEnum::Lucene90(result)))
-    }
+    // type NormsProducer<'a, T: IndexInput + 'a>
+    //     = NormsProducerEnum<I>
+    // where
+    //     I: 'a;
+    //
+    // fn get_merge_instance<T>(&self) -> Result<Option<NormsProducerEnum<I>>>
+    // where
+    //     I: IndexInput,
+    // {
+    //     let result = Self {
+    //         norms: self.norms.clone(),
+    //         max_doc: self.max_doc,
+    //         data: self.data.try_clone()?,
+    //         merging: true,
+    //         disi_inputs: HashMap::new(),
+    //         disi_jump_tables: HashMap::new(),
+    //         data_inputs: HashMap::new(),
+    //     };
+    //     Ok(Some(NormsProducerEnum::Lucene90(result)))
+    // }
 }
 
 #[derive(Clone)]

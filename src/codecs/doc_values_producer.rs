@@ -23,14 +23,16 @@ use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted numeric doc values.
-pub trait DocValuesProducer<I>
+pub trait DocValuesProducer<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     type NumericDocValues: NumericDocValues;
     /// Returns [`NumericDocValues`] for this field. The returned instance need not be thread-safe:
@@ -53,7 +55,7 @@ where
     fn get_sorted(
         &mut self,
         _field: &Rc<FieldInfo>,
-    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I, AV>>>> {
         Err(LuceneError::need_implemented(""))
     }
     type SortedNumericDocValues: SortedNumericDocValues;
@@ -72,7 +74,7 @@ where
     /// thread-safe: it will only be used by a single thread. The behavior is undefined if the doc
     /// values type of the given field is not [`DocValuesType::SORTED_SET`](crate::index::doc_values_type::DocValuesType::SortedSet). The return value is
     /// never `null`.
-    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
+    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I, AV>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Returns a [`DocValuesSkipper`](crate::index::doc_values_skipper::DocValuesSkipper) for this field. The returned instance need not be
@@ -96,23 +98,25 @@ where
     /// The default implementation returns `self`.
     /// # Note
     /// Returning None means returning itself.
-    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
+    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I, AV>>> {
         Ok(None)
     }
 }
-pub enum DocValuesProducerEnum<I>
+pub enum DocValuesProducerEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    Lucene90(Lucene90DocValuesProducer<I>),
+    Lucene90(Lucene90DocValuesProducer<I, AV>),
 }
-impl<I> DocValuesProducer<I> for DocValuesProducerEnum<I>
+impl<I, AV> DocValuesProducer<I, AV> for DocValuesProducerEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    type NumericDocValues = NumericDocValuesEnum<I>;
+    type NumericDocValues = NumericDocValuesEnum<I, AV>;
 
-    fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+    fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I, AV>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_numeric(field),
         }
@@ -124,24 +128,27 @@ where
         }
     }
 
-    fn get_sorted(&mut self, field: &Rc<FieldInfo>) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    fn get_sorted(
+        &mut self,
+        field: &Rc<FieldInfo>,
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I, AV>>>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted(field),
         }
     }
 
-    type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
+    type SortedNumericDocValues = SortedNumericDocValuesEnum<I, AV>;
 
     fn get_sorted_numeric(
         &mut self,
         field: &Rc<FieldInfo>,
-    ) -> Result<SortedNumericDocValuesEnum<I>> {
+    ) -> Result<SortedNumericDocValuesEnum<I, AV>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted_numeric(field),
         }
     }
 
-    fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
+    fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I, AV>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted_set(field),
         }
@@ -159,7 +166,7 @@ where
         }
     }
 
-    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
+    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I, AV>>> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene) => lucene.get_merge_instance(),
         }

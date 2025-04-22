@@ -20,6 +20,7 @@ use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
+use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -41,21 +42,27 @@ impl DummyTermsEnum {
         }
     }
 }
-impl BytesRefIterator for DummyTermsEnum {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+impl<AV> BytesRefIterator<AV> for DummyTermsEnum
+where
+    AV: AccessVec<u8>,
+{
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 }
 
-impl TermsEnum for DummyTermsEnum {
+impl<AV> TermsEnum<AV> for DummyTermsEnum
+where
+    AV: AccessVec<u8>,
+{
     fn attributes(&self) -> Result<&AttributeSource> {
         debug_assert!(false, "should never be called");
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, term: &BytesRef<AV>) -> Result<SeekStatus> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -67,17 +74,13 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
-    fn seek_exact_with_state(
-        &mut self,
-        _term: &BytesRef<Vec<u8>>,
-        _state: &TermStateEnum,
-    ) -> Result<()> {
+    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
+    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

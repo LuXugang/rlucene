@@ -21,6 +21,7 @@ use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::terms_enums::TermsEnums;
 use crate::index::BytesRef;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -36,18 +37,20 @@ use std::fmt::{Debug, Display, Formatter};
 ///
 /// In some cases, the default implementation may be slow and consume large amounts of memory,
 /// so subclasses SHOULD provide their own implementation if possible.
-pub struct BaseTermsEnum<I>
+pub struct BaseTermsEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     atts: AttributeSource,
-    sub_terms_enum: TermsEnums<I>,
+    sub_terms_enum: TermsEnums<I, AV>,
 }
-impl<I> BaseTermsEnum<I>
+impl<I, AV> BaseTermsEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    pub fn new(sub_terms_enum: TermsEnums<I>) -> Self {
+    pub fn new(sub_terms_enum: TermsEnums<I, AV>) -> Self {
         Self {
             atts: AttributeSource::new(),
             sub_terms_enum,
@@ -55,25 +58,27 @@ where
     }
 }
 
-impl<I> BytesRefIterator for BaseTermsEnum<I>
+impl<I, AV> BytesRefIterator<AV> for BaseTermsEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
         self.sub_terms_enum.next()
     }
 }
 
-impl<I> TermsEnum for BaseTermsEnum<I>
+impl<I, AV> TermsEnum<AV> for BaseTermsEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         // TODO: 参考BaseTermsEnum中prepare_seek_exact方法 来选择使用父或子的实现
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, term: &BytesRef<AV>) -> Result<SeekStatus> {
         self.sub_terms_enum.seek_ceil(term)
     }
 
@@ -81,11 +86,7 @@ where
         self.sub_terms_enum.seek_exact_with_ord(ord)
     }
 
-    fn seek_exact_with_state(
-        &mut self,
-        term: &BytesRef<Vec<u8>>,
-        _state: &TermStateEnum,
-    ) -> Result<()> {
+    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
         if self.seek_exact(term)? {
             return Err(LuceneError::illegal_argument(format!(
                 "term= {} does not exist",
@@ -95,7 +96,7 @@ where
         Ok(())
     }
 
-    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
+    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
         self.sub_terms_enum.term()
     }
 

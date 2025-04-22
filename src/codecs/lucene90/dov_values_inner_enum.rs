@@ -33,25 +33,27 @@ use crate::codecs::lucene90_doc_values_producer::{
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::index::terms_enums::TermsEnums;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 
-pub enum BaseSortedDocValuesEnum<I>
+pub enum BaseSortedDocValuesEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     Dense(DenseBaseSortedDocValues<I>),
     Sparse(SparseBaseSortedDocValues<I>),
-    Impl(BaseSortedDocValuesImpl<I>),
+    Impl(BaseSortedDocValuesImpl<I, AV>),
 }
 
-impl<I> DocValuesIterator for BaseSortedDocValuesEnum<I>
+impl<I, AV> DocValuesIterator for BaseSortedDocValuesEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         match self {
@@ -62,9 +64,10 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedDocValuesEnum<I>
+impl<I, AV> DocIdSetIterator for BaseSortedDocValuesEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         match self {
@@ -107,63 +110,30 @@ where
     }
 }
 
-impl<I> SortedDocValues<I> for BaseSortedDocValuesEnum<I>
+impl<I, AV> SortedDocValues<I, AV> for BaseSortedDocValuesEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        match self {
-            BaseSortedDocValuesEnum::Dense(sub) => sub.ord_value(),
-            BaseSortedDocValuesEnum::Sparse(sub) => sub.ord_value(),
-            BaseSortedDocValuesEnum::Impl(sub) => sub.ord_value(),
-        }
-    }
-
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
-        match self {
-            BaseSortedDocValuesEnum::Dense(sub) => sub.lookup_ord(ord),
-            BaseSortedDocValuesEnum::Sparse(sub) => sub.lookup_ord(ord),
-            BaseSortedDocValuesEnum::Impl(sub) => sub.lookup_ord(ord),
-        }
-    }
-
-    fn get_value_count(&self) -> Result<i32> {
-        match self {
-            BaseSortedDocValuesEnum::Dense(sub) => sub.get_value_count(),
-            BaseSortedDocValuesEnum::Sparse(sub) => sub.get_value_count(),
-            BaseSortedDocValuesEnum::Impl(sub) => sub.get_value_count(),
-        }
-    }
-
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
-        match self {
-            BaseSortedDocValuesEnum::Dense(sub) => sub.lookup_term(key),
-            BaseSortedDocValuesEnum::Sparse(sub) => sub.lookup_term(key),
-            BaseSortedDocValuesEnum::Impl(sub) => sub.lookup_term(key),
-        }
-    }
-
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
-        match self {
-            BaseSortedDocValuesEnum::Dense(sub) => sub.terms_enum(),
-            BaseSortedDocValuesEnum::Sparse(sub) => sub.terms_enum(),
-            BaseSortedDocValuesEnum::Impl(sub) => sub.terms_enum(),
-        }
+        todo!()
     }
 }
 
-pub enum BaseSortedSetDocValuesEnum<I>
+pub enum BaseSortedSetDocValuesEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     Dense(DenseBaseSortedSetDocValues<I>),
     Sparse(SparseBaseSortedSetDocValues<I>),
-    Impl(BaseSortedSetDocValuesImpl<I>),
+    Impl(BaseSortedSetDocValuesImpl<I, AV>),
 }
 
-impl<I> DocValuesIterator for BaseSortedSetDocValuesEnum<I>
+impl<I, AV> DocValuesIterator for BaseSortedSetDocValuesEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
@@ -174,9 +144,10 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedSetDocValuesEnum<I>
+impl<I, AV> DocIdSetIterator for BaseSortedSetDocValuesEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         match self {
@@ -219,56 +190,17 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesEnum<I>
+impl<I, AV> SortedSetDocValues<I, AV> for BaseSortedSetDocValuesEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_ord(&mut self) -> Result<i64> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.next_ord(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.next_ord(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.next_ord(),
-        }
+        todo!()
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.doc_value_count(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.doc_value_count(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
-        }
-    }
-
-    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef<Vec<u8>>> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.lookup_ord(ord),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.lookup_ord(ord),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.lookup_ord(ord),
-        }
-    }
-
-    fn get_value_count(&self) -> Result<i64> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.get_value_count(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.get_value_count(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.get_value_count(),
-        }
-    }
-
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.lookup_term(key),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.lookup_term(key),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.lookup_term(key),
-        }
-    }
-
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.terms_enum(),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.terms_enum(),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.terms_enum(),
-        }
+        todo!()
     }
 }
 

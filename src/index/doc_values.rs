@@ -28,7 +28,9 @@ use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -36,36 +38,40 @@ use std::rc::Rc;
 pub struct DocValues;
 impl DocValues {
     /// Returns a multi-valued view over the provided NumericDocValues.
-    pub fn singleton_numeric<I>(
-        dv: NumericDocValuesEnum<I>,
-    ) -> Result<SingletonSortedNumericDocValues<I>>
+    pub fn singleton_numeric<I, AV>(
+        dv: NumericDocValuesEnum<I, AV>,
+    ) -> Result<SingletonSortedNumericDocValues<I, AV>>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         SingletonSortedNumericDocValues::new(dv)
     }
     /// Returns a multi-valued view over the provided SortedDocValues.
-    pub fn singleton_sorted<I>(
-        dv: Rc<RefCell<SortedDocValuesEnum<I>>>,
-    ) -> Result<SortedSetDocValuesEnum<I>>
+    pub fn singleton_sorted<I, AV>(
+        dv: Rc<RefCell<SortedDocValuesEnum<I, AV>>>,
+    ) -> Result<SortedSetDocValuesEnum<I, AV>>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         Ok(SortedSetDocValuesEnum::Singleton(
             SingletonSortedSetDocValues::new(dv)?,
         ))
     }
     /// An empty SortedNumericDocValues which returns zero values for every document.
-    pub fn empty_sorted_numeric<I>() -> Result<SingletonSortedNumericDocValues<I>>
+    pub fn empty_sorted_numeric<I, AV>() -> Result<SingletonSortedNumericDocValues<I, AV>>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         Self::singleton_numeric(NumericDocValuesEnum::Empty(EmptyNumeric::new()))
     }
     /// An empty SortedDocValues which returns empty [`BytesRef`] for every document.
-    pub fn empty_sorted_set<I>() -> Result<SortedSetDocValuesEnum<I>>
+    pub fn empty_sorted_set<I, AV>() -> Result<SortedSetDocValuesEnum<I, AV>>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         Self::singleton_sorted(Rc::new(RefCell::new(SortedDocValuesEnum::Empty(
             EmptySorted::new(),
@@ -74,21 +80,23 @@ impl DocValues {
 
     /// Returns a single-valued view of the SortedSetDocValues, if it was previously wrapped with
     /// [`singleton_sorted`](DocValues::singleton_sorted), or null.
-    pub fn unwrap_singleton_sorted_set_doc_values<I>(
-        dv: &impl SortedSetDocValues<I>,
-    ) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>>
+    pub fn unwrap_singleton_sorted_set_doc_values<I, AV>(
+        dv: &impl SortedSetDocValues<I, AV>,
+    ) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I, AV>>>>>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         dv.unwrap_singleton()
     }
     /// Returns a single-valued view of the SortedNumericDocValues, if it was previously wrapped with
     /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
-    pub fn unwrap_singleton_sorted_numeric_doc_values<I>(
-        dv: &SortedNumericDocValuesEnum<I>,
-    ) -> Result<Option<Rc<RefCell<NumericDocValuesEnum<I>>>>>
+    pub fn unwrap_singleton_sorted_numeric_doc_values<I, AV>(
+        dv: &SortedNumericDocValuesEnum<I, AV>,
+    ) -> Result<Option<Rc<RefCell<NumericDocValuesEnum<I, AV>>>>>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         match dv {
             SortedNumericDocValuesEnum::Singleton(singleton) => {
@@ -199,27 +207,30 @@ impl NumericDocValues for EmptyNumeric {
 }
 
 /// An empty SortedDocValues which returns empty [`BytesRef`] for every document.
-pub struct EmptySorted<I>
+pub struct EmptySorted<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     doc: i32,
-    empty: BytesRef<Vec<u8>>,
+    empty: BytesRef<AV>,
     _phantom: PhantomData<I>,
 }
 
-impl<I> Default for EmptySorted<I>
+impl<I, AV> Default for EmptySorted<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<I> EmptySorted<I>
+impl<I, AV> EmptySorted<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     pub fn new() -> Self {
         Self {
@@ -230,9 +241,10 @@ where
     }
 }
 
-impl<I> DocValuesIterator for EmptySorted<I>
+impl<I, AV> DocValuesIterator for EmptySorted<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.doc = target;
@@ -240,9 +252,10 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for EmptySorted<I>
+impl<I, AV> DocIdSetIterator for EmptySorted<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -263,9 +276,10 @@ where
     }
 }
 
-impl<I> SortedDocValues<I> for EmptySorted<I>
+impl<I, AV> SortedDocValues<I, AV> for EmptySorted<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
         debug_assert!(
@@ -275,8 +289,8 @@ where
         Ok(-1)
     }
 
-    fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef<Vec<u8>>> {
-        Ok(std::mem::take(&mut self.empty))
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<AV>>> {
+        Ok(Cow::Owned(std::mem::take(&mut self.empty)))
     }
 
     fn get_value_count(&self) -> Result<i32> {

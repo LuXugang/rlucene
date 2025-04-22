@@ -20,6 +20,7 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
 use crate::util::CoreHelper;
+use crate::with_other;
 use once_cell::sync::Lazy;
 use rand::Rng;
 use std::env;
@@ -44,23 +45,29 @@ impl StringHelper {
     /// # Returns
     ///
     /// The number of common elements (from the start of each).
-    pub fn bytes_difference(
-        prior_term: &BytesRef<Vec<u8>>,
-        current_term: &BytesRef<Vec<u8>>,
+    pub fn bytes_difference<AV: AccessVec<u8>>(
+        prior_term: &BytesRef<AV>,
+        current_term: &BytesRef<AV>,
     ) -> Result<i32> {
-        let mismatch = CoreHelper::miss_match(
-            &prior_term.bytes[prior_term.offset..(prior_term.offset + prior_term.length)],
-            &current_term.bytes[current_term.offset..(current_term.offset + current_term.length)],
-        );
+        with_other!(
+            prior_term.bytes,
+            current_term.bytes,
+            |prior_term_bytes, current_term_bytes| {
+                let mismatch = CoreHelper::miss_match(
+                    &prior_term_bytes[prior_term.offset..(prior_term.offset + prior_term.length)],
+                    &current_term_bytes
+                        [current_term.offset..(current_term.offset + current_term.length)],
+                );
 
-        if mismatch < 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "terms out of order: priorTerm={:?}, currentTerm={:?}",
-                prior_term, current_term
-            )));
-        }
-
-        Ok(mismatch)
+                if mismatch < 0 {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "terms out of order: priorTerm={}, currentTerm={}",
+                        prior_term, current_term
+                    )));
+                }
+                Ok(mismatch)
+            }
+        )
     }
     /// Returns the length of `current_term` needed for use as a sort key so that
     /// `BytesRef::compare_to()` still returns the same result.
@@ -74,9 +81,9 @@ impl StringHelper {
     /// # Returns
     ///
     /// The length needed for the sort key.
-    pub fn sort_key_length(
-        prior_term: &BytesRef<Vec<u8>>,
-        current_term: &BytesRef<Vec<u8>>,
+    pub fn sort_key_length<AV: AccessVec<u8>>(
+        prior_term: &BytesRef<AV>,
+        current_term: &BytesRef<AV>,
     ) -> Result<i32> {
         let difference = Self::bytes_difference(prior_term, current_term)?;
         Ok(difference + 1)

@@ -20,9 +20,10 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::util::access::AccessVec;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::StringHelper;
 use std::borrow::Cow;
 use std::cmp::Ordering;
@@ -63,7 +64,8 @@ impl PrefixCodedTerms {
     pub fn size(&self) -> i64 {
         self.size
     }
-    pub fn iterator(&self) -> TermIterator {
+
+    pub fn iterator<AV: AccessVec<u8>>(&self) -> TermIterator<AV> {
         let content = self
             .content
             .iter()
@@ -183,16 +185,22 @@ impl PrefixCodedTermsBuilder {
     }
 }
 /// An iterator over the list of terms stored in a [`PrefixCodedTerms`].
-pub struct TermIterator<'a> {
+pub struct TermIterator<'a, AV>
+where
+    AV: AccessVec<u8>,
+{
     input: ByteBuffersDataInput<'a>,
-    builder: BytesRefBuilder<Vec<u8>>,
-    bytes: BytesRef<Vec<u8>>,
+    builder: BytesRefBuilder<AV>,
+    bytes: BytesRef<AV>,
     end: i64,
     del_gen: i64,
     field: String,
 }
 
-impl<'a> TermIterator<'a> {
+impl<'a, AV> TermIterator<'a, AV>
+where
+    AV: AccessVec<u8>,
+{
     pub fn new(del_gen: i64, input: ByteBuffersDataInput<'a>) -> Self {
         let mut builder = BytesRefBuilder::new();
         let bytes = builder.get_bytes_ref_copy();
@@ -210,20 +218,23 @@ impl<'a> TermIterator<'a> {
     pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<()> {
         let len = (prefix + suffix) as usize;
         self.builder.grow(len);
-        DataInput::read_bytes(
-            &mut self.input,
-            &mut self.builder.bytes_ref().bytes,
-            prefix,
-            suffix,
-        )?;
+        self.builder.bytes_ref().bytes.access_mut(|bytes| {
+            DataInput::read_bytes(&mut self.input, bytes, prefix, suffix)?;
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
+        })?;
+
         self.builder.set_length(len);
         self.bytes = self.builder.get_bytes_ref_copy();
         Ok(())
     }
 }
 
-impl BytesRefIterator for TermIterator<'_> {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+impl<AV> BytesRefIterator<AV> for TermIterator<'_, AV>
+where
+    AV: AccessVec<u8>,
+{
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
         if self.input.position() < self.end {
             let code = self.input.read_vint()?;
             let new_field = (code & 1) != 0;
@@ -241,7 +252,10 @@ impl BytesRefIterator for TermIterator<'_> {
     }
 }
 
-impl FieldTermIterator for TermIterator<'_> {
+impl<AV> FieldTermIterator<AV> for TermIterator<'_, AV>
+where
+    AV: AccessVec<u8>,
+{
     /// Returns current field. This method should not be called after iteration is done. Note that
     /// you may use == to detect a change in field.
     fn field(&self) -> &str {
@@ -257,7 +271,7 @@ impl FieldTermIterator for TermIterator<'_> {
 #[cfg(test)]
 mod tests {
     use crate::index::field_term_iterator::FieldTermIterator;
-    use crate::index::prefix_coded_terms::PrefixCodedTermsBuilder;
+    use crate::index::prefix_coded_terms::{PrefixCodedTermsBuilder, TermIterator};
     use crate::index::term::Term;
     use crate::test::util::lucene_test_case::{at_least, random};
 
@@ -273,7 +287,7 @@ mod tests {
     fn test_empty() -> Result<()> {
         let mut builder = PrefixCodedTermsBuilder::new();
         let prefix_coded_terms = builder.finish();
-        let mut iter = prefix_coded_terms.iterator();
+        let mut iter: TermIterator<Vec<u8>> = prefix_coded_terms.iterator();
         assert!(iter.next()?.is_none());
         Ok(())
     }
@@ -283,7 +297,7 @@ mod tests {
         let mut builder = PrefixCodedTermsBuilder::new();
         builder.add_term(&term)?;
         let prefix_coded_terms = builder.finish();
-        let mut iter = prefix_coded_terms.iterator();
+        let mut iter: TermIterator<Vec<u8>> = prefix_coded_terms.iterator();
         let first_term = iter.next()?.expect("Expected a term, but got None");
         assert_eq!(first_term.utf8_to_string()?, "bogus");
         assert_eq!(iter.field(), "foo");

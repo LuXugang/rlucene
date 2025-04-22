@@ -27,6 +27,7 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexOutput};
+use crate::util::access::AccessVec;
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
@@ -42,7 +43,7 @@ use std::rc::Rc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub struct PushPostingsWriterBase<T: TermsEnum, N: NormsProducer> {
+pub struct PushPostingsWriterBase<T: TermsEnum<AV>, N: NormsProducer, AV: AccessVec<u8>> {
     /// Reused in `write_term`
     postings_enum: Option<T::PostingsEnum>,
     enum_flags: i32,
@@ -65,12 +66,14 @@ pub struct PushPostingsWriterBase<T: TermsEnum, N: NormsProducer> {
     /// True if the current field writes offsets.
     pub(crate) write_offsets: bool,
     phantom2: PhantomData<N>,
+    phantom1: PhantomData<AV>,
 }
 
-impl<T, N> PushPostingsWriterBase<T, N>
+impl<T, N, AV> PushPostingsWriterBase<T, N, AV>
 where
-    T: TermsEnum,
+    T: TermsEnum<AV>,
     N: NormsProducer,
+    AV: AccessVec<u8>,
 {
     #[allow(clippy::too_many_arguments)]
     /// # Parameters
@@ -87,13 +90,15 @@ where
             write_payloads: false,
             write_offsets: false,
             phantom2: PhantomData,
+            phantom1: PhantomData,
         }
     }
 }
-impl<T, N> PostingsWriterBase<T, N> for PushPostingsWriterBase<T, N>
+impl<T, N, AV> PostingsWriterBase<T, N, AV> for PushPostingsWriterBase<T, N, AV>
 where
-    T: TermsEnum,
+    T: TermsEnum<AV>,
     N: NormsProducer,
+    AV: AccessVec<u8>,
 {
     fn init<D: Directory>(
         &mut self,

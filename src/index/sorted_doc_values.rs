@@ -18,8 +18,10 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::terms_enums::TermsEnums;
 use crate::index::BytesRef;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
+use std::borrow::Cow;
 
 /// A per-document `byte[]` with presorted values. This is fundamentally an iterator over the `int`
 /// ord values per document, with random access APIs to resolve an `int` ord to `BytesRef`.
@@ -27,9 +29,10 @@ use crate::util::ToInt;
 /// Per-document values in a `SortedDocValues` are deduplicated, dereferenced, and sorted into a
 /// dictionary of unique values. A pointer to the dictionary value (ordinal) can be retrieved for
 /// each document. Ordinals are dense and in increasing sorted order.
-pub trait SortedDocValues<I>: DocValuesIterator
+pub trait SortedDocValues<I, AV>: DocValuesIterator
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     /// Returns the ordinal for the current docID.
     ///
@@ -49,7 +52,7 @@ where
     ///
     /// # Returns
     /// The dictionary value corresponding to the ordinal.
-    fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef<Vec<u8>>> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<AV>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -70,14 +73,14 @@ where
     ///
     /// # Returns
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
         let mut low = 0;
         let mut high = self.get_value_count()? - 1;
 
         while low <= high {
             let mid = (low + high) >> 1;
             let term = self.lookup_ord(mid)?;
-            let cmp = term.cmp(key).to_int();
+            let cmp = term.as_ref().cmp(key).to_int();
             if cmp < 0 {
                 low = mid + 1;
             } else if cmp > 0 {
@@ -90,7 +93,7 @@ where
     }
     /// Returns a [`TermsEnum`](crate::index::terms_enum::TermsEnum) over the values.
     /// The enum supports [`TermsEnum::ord()`](crate::index::terms_enum::TermsEnum::ord) and [`TermsEnum::seek_exact_with_ord()`](crate::index::terms_enum::TermsEnum::seek_exact_with_ord).
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+    fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
         Err(LuceneError::not_implemented(""))
     }
     // TODO:

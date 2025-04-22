@@ -42,6 +42,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::PackedInts;
 
+use crate::util::access::AccessVec;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::cell::RefCell;
@@ -447,9 +448,9 @@ where
 
         Ok(())
     }
-    fn copy_chunks<I: IndexInput>(
+    fn copy_chunks<I: IndexInput, AV: AccessVec<u8>>(
         &mut self,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<I, AV>,
         sub: &CompressingStoredFieldsMergeSub,
         from_doc_id: i32,
         to_doc_id: i32,
@@ -566,14 +567,15 @@ where
                 && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,
         )
     }
-    fn get_merge_strategy<I>(
+    fn get_merge_strategy<I, AV>(
         &self,
-        merge_state: &MergeState<I>,
+        merge_state: &MergeState<I, AV>,
         matching_readers: &MatchingReaders,
         reader_index: usize,
     ) -> Result<MergeStrategy>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         let candidate = &merge_state.stored_fields_readers[reader_index];
         let (is_lucene90_compressing_stored_fields_reader, same_version) = match &candidate {
@@ -745,9 +747,10 @@ where
         Ok(())
     }
 
-    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<i32>
+    fn merge<I, AV>(&mut self, merge_state: &mut MergeState<I, AV>) -> Result<i32>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
         Self: Sized,
     {
         let matching_readers = MatchingReaders::new(merge_state)?;
@@ -857,8 +860,8 @@ struct CompressingStoredFieldsMergeSub {
 }
 
 impl CompressingStoredFieldsMergeSub {
-    fn new<I: IndexInput>(
-        merge_state: &MergeState<I>,
+    fn new<I: IndexInput, AV: AccessVec<u8>>(
+        merge_state: &MergeState<I, AV>,
         merge_strategy: MergeStrategy,
         reader_index: usize,
     ) -> Self {

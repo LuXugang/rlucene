@@ -25,6 +25,7 @@ use crate::index::{doc_id_merger_util, DocIDMerger, DocIDMergerEnum, Sub, SubBas
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::{IndexInput, IndexOutput};
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -61,9 +62,10 @@ pub trait NormsConsumer {
     /// filling segments with missing norms for the field with zeros.
     ///
     /// Implementations can override this method for more sophisticated merging (e.g. bulk-byte copying).
-    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<()>
+    fn merge<I, AV>(&mut self, merge_state: &mut MergeState<I, AV>) -> Result<()>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         for producer in merge_state.norms_producers.iter_mut().flatten() {
             producer.check_integrity()?;
@@ -81,13 +83,14 @@ pub trait NormsConsumer {
     ///
     /// The default implementation calls [`add_norms_field`](NormsConsumer::add_norms_field), passing an iterator
     /// that merges and filters deleted documents on the fly.
-    fn merge_norms_field<I>(
+    fn merge_norms_field<I, AV>(
         &mut self,
         merge_field_info: &Rc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<I, AV>,
     ) -> Result<()>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         let mut norms_producer = NormsProducerMerge {
             merge_field_info: merge_field_info.clone(),
@@ -99,16 +102,18 @@ pub trait NormsConsumer {
     }
 }
 
-struct NormsProducerMerge<'a, I>
+struct NormsProducerMerge<'a, I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     merge_field_info: Rc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<I, AV>,
 }
-impl<'a, I> NormsProducer for NormsProducerMerge<'a, I>
+impl<I, AV> NormsProducer for NormsProducerMerge<'_, I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     type NumericDocValues = NumericDocValuesMerge<I>;
 
@@ -154,11 +159,12 @@ where
         Ok(())
     }
 
-    type NormsProducer<'b, T: IndexInput>
-        = NormsProducerMerge<'a, I>
-    where
-        Self: 'b,
-        T: 'b;
+    // type NormsProducer<'b, T: IndexInput,AV1:AccessVec<u8>>
+    //     = NormsProducerMerge<'a, I, AV>
+    // where
+    //     Self: 'b,
+    //     T: 'b,
+    //     AV1: 'b,;
 }
 
 pub struct NumericDocValuesMerge<I>

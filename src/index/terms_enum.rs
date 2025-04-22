@@ -21,6 +21,7 @@ use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -36,14 +37,17 @@ use std::marker::PhantomData;
 ///
 /// The `TermsEnum` is unpositioned when you first obtain it, and you must first successfully call
 /// [`next()`](BytesRefIterator::next) or one of the `seek` methods.
-pub trait TermsEnum: BytesRefIterator {
+pub trait TermsEnum<AV>: BytesRefIterator<AV>
+where
+    AV: AccessVec<u8>,
+{
     /// Returns the related attribute source.
     fn attributes(&self) -> Result<&AttributeSource>;
 
     /// Attempts to seek to the exact term.
     ///
     /// Returns `true` if the term is found; `false` if the enum is unpositioned.
-    fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    fn seek_exact(&mut self, term: &BytesRef<AV>) -> Result<bool> {
         Ok(self.seek_ceil(term)? == SeekStatus::Found)
     }
 
@@ -58,19 +62,19 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that the
     /// term may not exist without performing any I/O.
-    fn prepare_seek_exact(
-        &mut self,
-        text: BytesRef<Vec<u8>>,
-    ) -> Result<impl FnMut() -> Result<bool> + '_> {
-        Ok(move || self.seek_exact(&text))
-    }
+    // fn prepare_seek_exact(
+    //     &mut self,
+    //     text: BytesRef<AV>,
+    // ) -> Result<impl FnMut() -> Result<bool> + '_> {
+    //     Ok(move || self.seek_exact(&text))
+    // }
 
     /// Seeks to the specified term, if it exists, or to the next (ceiling) term.
     /// Returns `SeekStatus` to indicate whether the exact term was found,
     /// a different term was found, or EOF was hit.
     /// The target term may be before or after the current term.
     /// If this returns `SeekStatus::End`, the enum is unpositioned.
-    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus>;
+    fn seek_ceil(&mut self, term: &BytesRef<AV>) -> Result<SeekStatus>;
 
     /// Seeks to the specified term by ordinal (position) as previously returned by [`ord()`](TermsEnum::ord).
     /// The target ordinal may be before or after the current ordinal, and must be within bounds.
@@ -91,20 +95,12 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// - `term`: the term the [`TermState`] corresponds to
     /// - `state`: the [`TermState`]
-    fn seek_exact_with_state(
-        &mut self,
-        term: &BytesRef<Vec<u8>>,
-        state: &TermStateEnum,
-    ) -> Result<()>;
+    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()>;
 
     /// Returns current term. Do not call this when the enum is unpositioned.
-    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
+    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
         Err(LuceneError::need_implemented("this method need implement"))
     }
-    fn term_ref(&self) -> Result<&BytesRef<Vec<u8>>> {
-        Err(LuceneError::need_implemented("this method need implement"))
-    }
-
     /// Returns ordinal position for the current term.
     /// This is an optional method (the codec may return an error or indicate unsupported).
     /// Do not call this when the enum is unpositioned.
@@ -168,31 +164,35 @@ pub trait TermsEnum: BytesRefIterator {
     /// See also: [`TermState`], [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
     fn term_state(&self) -> Result<Self::TermState>;
 }
-pub struct TermsEnumEmpty<I>
+pub struct TermsEnumEmpty<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    phantom: PhantomData<I>,
+    _phantom1: PhantomData<I>,
+    _phantom2: PhantomData<AV>,
 }
 
-impl<I> BytesRefIterator for TermsEnumEmpty<I>
+impl<I, AV> BytesRefIterator<AV> for TermsEnumEmpty<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
         Ok(None)
     }
 }
 
-impl<I> TermsEnum for TermsEnumEmpty<I>
+impl<I, AV> TermsEnum<AV> for TermsEnumEmpty<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         todo!()
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<AV>) -> Result<SeekStatus> {
         Ok(SeekStatus::End)
     }
 
@@ -202,7 +202,7 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<Vec<u8>>,
+        _term: &BytesRef<AV>,
         _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::not_implemented(
@@ -210,7 +210,7 @@ where
         ))
     }
 
-    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
+    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))

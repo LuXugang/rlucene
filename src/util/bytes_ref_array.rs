@@ -28,6 +28,7 @@ use crate::util::{
     StableStringSorterBase, StringSorter, StringSorterBase,
 };
 use std::borrow::Cow;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A simple append-only random-access array that stores full copies of the appended
@@ -144,10 +145,10 @@ where
     /// Used only by the sorting function below to set a [`BytesRef`] with the specified slice,
     /// avoiding copying bytes in the common case when the slice is contained in a single block
     /// in the byte block pool.
-    fn set_bytes_ref(
+    fn set_bytes_ref<AV: AccessVec<u8>>(
         &self,
-        spare: &mut BytesRefBuilder<Vec<u8>>,
-        result: &mut BytesRef<Vec<u8>>,
+        spare: &mut BytesRefBuilder<AV>,
+        result: &mut BytesRef<AV>,
         index: i32,
     ) -> Result<()> {
         if index < 0 || index >= self.last_element {
@@ -206,7 +207,7 @@ where
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
-    pub fn iterator(&self) -> IndexedBytesRefIteratorImpl<A> {
+    pub fn iterator(&self) -> IndexedBytesRefIteratorImpl<A, Vec<u8>> {
         self.iterator_with_state(Arc::from(SortState::new(None)))
     }
     /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
@@ -225,7 +226,7 @@ where
     pub fn iterator_with_state(
         &self,
         sort_state: Arc<SortState>,
-    ) -> IndexedBytesRefIteratorImpl<A> {
+    ) -> IndexedBytesRefIteratorImpl<A, Vec<u8>> {
         IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
@@ -274,7 +275,7 @@ where
     ///
     /// # Note
     /// - This is a non-destructive operation.
-    type Iter = IndexedBytesRefIteratorImpl<'a, A>;
+    type Iter = IndexedBytesRefIteratorImpl<'a, A, Vec<u8>>;
 
     fn iterator(
         &'a mut self,
@@ -300,27 +301,29 @@ impl Accountable for SortState {
     }
 }
 
-pub struct IndexedBytesRefIteratorImpl<'a, A>
+pub struct IndexedBytesRefIteratorImpl<'a, A, AV>
 where
     A: Access<CounterEnum>,
+    AV: AccessVec<u8>,
 {
     pos: i32,
     pub(crate) ord: i32,
     sort_state: Arc<SortState>,
-    spare: BytesRefBuilder<Vec<u8>>,
+    spare: BytesRefBuilder<AV>,
     size: i32,
     bytes_ref_array: &'a BytesRefArray<A>,
+    phantom: PhantomData<AV>,
 }
-impl<'a, A> IndexedBytesRefIteratorImpl<'a, A>
+impl<'a, A, AV> IndexedBytesRefIteratorImpl<'a, A, AV>
 where
     A: Access<CounterEnum>,
-
+    AV: AccessVec<u8>,
     BytesRefArray<A>: SortableBytesRefArray<'a>,
 {
     fn new(
         sort_state: Arc<SortState>,
         bytes_ref_array: &'a BytesRefArray<A>,
-    ) -> IndexedBytesRefIteratorImpl<'a, A> {
+    ) -> IndexedBytesRefIteratorImpl<'a, A, AV> {
         Self {
             pos: -1,
             ord: -1,
@@ -328,17 +331,19 @@ where
             spare: BytesRefBuilder::new(),
             size: bytes_ref_array.size(),
             bytes_ref_array,
+            phantom: PhantomData,
         }
     }
     pub fn ord(&self) -> i32 {
         self.ord
     }
 }
-impl<A> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
+impl<A, AV> BytesRefIterator<AV> for IndexedBytesRefIteratorImpl<'_, A, AV>
 where
     A: Access<CounterEnum>,
+    AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
@@ -355,16 +360,17 @@ where
         }
     }
 }
-impl<A> IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
+impl<A, AV> IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_, A, AV>
 where
     A: Access<CounterEnum>,
+    AV: AccessVec<u8>,
 {
     fn ord(&self) -> i32 {
         self.ord
     }
 }
 
-pub trait IndexedBytesRefIterator: BytesRefIterator {
+pub trait IndexedBytesRefIterator {
     /// Returns the ordinal position of the element that was returned in the latest call to [`next`](BytesRefIterator::next).
     ///
     /// # Warning

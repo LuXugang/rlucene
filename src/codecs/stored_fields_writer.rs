@@ -25,9 +25,11 @@ use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, Sub, SubBase};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
+
 /// Codec API for writing stored fields:
 ///
 /// 1. For every document, [`startDocument()`](StoredFieldsWriter::start_document) is called, informing the Codec that a new
@@ -92,9 +94,10 @@ pub trait StoredFieldsWriter {
     /// and [`finish(int)`](StoredFieldsWriter::finish), returning the number of documents that were written.
     /// Implementations can override this method for more sophisticated merging (bulk-byte copying,
     /// etc).
-    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<i32>
+    fn merge<I, AV>(&mut self, merge_state: &mut MergeState<I, AV>) -> Result<i32>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
         Self: Sized,
     {
         let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
@@ -191,9 +194,10 @@ pub(crate) struct MergeVisitor {
     remapper: Option<Rc<FieldInfos>>,
 }
 impl MergeVisitor {
-    pub(crate) fn new<I>(merge_state: &MergeState<I>, reader_index: usize) -> Result<Self>
+    pub(crate) fn new<I, AV>(merge_state: &MergeState<I, AV>, reader_index: usize) -> Result<Self>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         for fi in &*merge_state.field_infos[reader_index] {
             if let Some(other) = merge_state

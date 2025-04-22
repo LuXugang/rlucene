@@ -24,27 +24,30 @@ use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
 /// Implements a [`TermsEnum`](TermsEnum) wrapping a provided [`SortedDocValues`](SortedDocValues).
-pub struct SortedDocValuesTermsEnum<I>
+pub struct SortedDocValuesTermsEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    values: SortedDocValuesEnum<I>,
+    values: SortedDocValuesEnum<I, AV>,
     current_ord: i32,
-    bytes: BytesRef<Vec<u8>>,
+    bytes: BytesRef<AV>,
 }
 
-impl<I> SortedDocValuesTermsEnum<I>
+impl<I, AV> SortedDocValuesTermsEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     /// Creates a new TermsEnum over the provided values.
-    pub fn new(values: SortedDocValuesEnum<I>) -> Self {
+    pub fn new(values: SortedDocValuesEnum<I, AV>) -> Self {
         Self {
             values,
             current_ord: -1,
@@ -53,30 +56,39 @@ where
     }
 }
 
-impl<I> BytesRefIterator for SortedDocValuesTermsEnum<I>
+impl<I, AV> BytesRefIterator<AV> for SortedDocValuesTermsEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
         self.current_ord += 1;
         if self.current_ord >= self.values.get_value_count()? {
             Ok(None)
         } else {
-            self.bytes = self.values.lookup_ord(self.current_ord)?;
+            match self.values.lookup_ord(self.current_ord)? {
+                Cow::Owned(bytes) => {
+                    self.bytes = bytes;
+                }
+                Cow::Borrowed(bytes) => {
+                    self.bytes = bytes.clone();
+                }
+            }
             Ok(Some(Cow::Borrowed(&self.bytes)))
         }
     }
 }
 
-impl<I> TermsEnum for SortedDocValuesTermsEnum<I>
+impl<I, AV> TermsEnum<AV> for SortedDocValuesTermsEnum<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
+    fn seek_exact(&mut self, text: &BytesRef<AV>) -> Result<bool> {
         let ord = self.values.lookup_term(text)?;
         if ord >= 0 {
             self.current_ord = ord;
@@ -87,7 +99,7 @@ where
         }
     }
 
-    fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, text: &BytesRef<AV>) -> Result<SeekStatus> {
         let ord = self.values.lookup_term(text)?;
         if ord >= 0 {
             self.current_ord = ord;
@@ -99,7 +111,14 @@ where
                 Ok(SeekStatus::End)
             } else {
                 // TODO: hmm, can we avoid this extra lookup?
-                self.bytes = self.values.lookup_ord(self.current_ord)?.clone();
+                match self.values.lookup_ord(self.current_ord)? {
+                    Cow::Owned(bytes) => {
+                        self.bytes = bytes;
+                    }
+                    Cow::Borrowed(bytes) => {
+                        self.bytes = bytes.clone();
+                    }
+                }
                 Ok(SeekStatus::NotFound)
             }
         }
@@ -108,15 +127,18 @@ where
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
         debug_assert!(ord >= 0 && ord < self.values.get_value_count()? as i64);
         self.current_ord = ord as i32;
-        self.bytes = self.values.lookup_ord(self.current_ord)?.clone();
+        match self.values.lookup_ord(self.current_ord)? {
+            Cow::Owned(bytes) => {
+                self.bytes = bytes;
+            }
+            Cow::Borrowed(bytes) => {
+                self.bytes = bytes.clone();
+            }
+        }
         Ok(())
     }
 
-    fn seek_exact_with_state(
-        &mut self,
-        _term: &BytesRef<Vec<u8>>,
-        state: &TermStateEnum,
-    ) -> Result<()> {
+    fn seek_exact_with_state(&mut self, _term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
         debug_assert!({ matches!(state, TermStateEnum::Ord(_)) });
         match state {
             TermStateEnum::Ord(ord_term_state) => self.seek_exact_with_ord(ord_term_state.ord)?,
@@ -125,8 +147,8 @@ where
         Ok(())
     }
 
-    fn term(&self) -> Result<BytesRef<Vec<u8>>> {
-        Ok(self.bytes.clone())
+    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
+        Ok(Cow::Borrowed(&self.bytes))
     }
 
     fn ord(&self) -> Result<i64> {

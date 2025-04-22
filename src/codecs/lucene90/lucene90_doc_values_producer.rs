@@ -54,6 +54,7 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
+use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -73,9 +74,10 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub struct Lucene90DocValuesProducer<I>
+pub struct Lucene90DocValuesProducer<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     numerics: HashMap<i32, Rc<NumericEntry>>,
     binaries: HashMap<i32, Rc<BinaryEntry>>,
@@ -87,11 +89,13 @@ where
     max_doc: i32,
     version: i32,
     merging: bool,
+    phantom_data: PhantomData<AV>,
 }
 
-impl<I> Lucene90DocValuesProducer<I>
+impl<I, AV> Lucene90DocValuesProducer<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     pub fn new<D>(
         state: &SegmentReadState<D>,
@@ -206,6 +210,7 @@ where
             max_doc,
             version,
             merging: false,
+            phantom_data: PhantomData,
         })
     }
     #[allow(clippy::too_many_arguments)]
@@ -231,6 +236,7 @@ where
             max_doc,
             version,
             merging: true,
+            phantom_data: PhantomData,
         })
     }
 
@@ -512,32 +518,8 @@ where
         }
         Ok(())
     }
-    fn get_direct_reader_instance(
-        merging: bool,
-        slice: Rc<RefCell<I::RandomAccessSlice>>,
-        bits_per_value: i32,
-        offset: i64,
-        num_values: i64,
-    ) -> Result<DirectPackedEnum<I::RandomAccessSlice>>
-    where
-        I: IndexInput,
-    {
-        if merging {
-            Ok(DirectReader::get_merge_instance_with_base_offset(
-                slice,
-                bits_per_value,
-                offset,
-                num_values,
-            ))
-        } else {
-            Ok(DirectReader::get_instance_with_offset(
-                slice,
-                bits_per_value,
-                offset,
-            ))
-        }
-    }
-    fn get_numeric(&mut self, entry: Rc<NumericEntry>) -> Result<NumericDocValuesEnum<I>> {
+
+    fn get_numeric(&mut self, entry: Rc<NumericEntry>) -> Result<NumericDocValuesEnum<I, AV>> {
         if entry.docs_with_field_offset == -2 {
             // empty
             Ok(NumericDocValuesEnum::Empty(EmptyNumeric::new()))
@@ -563,7 +545,7 @@ where
                         vbpv_reader,
                     })
                 } else {
-                    let values = Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+                    let values = lucene90_dvp_util::get_direct_reader_instance::<I>(
                         self.merging,
                         Rc::new(RefCell::new(slice)),
                         entry.bits_per_value as i32,
@@ -632,7 +614,7 @@ where
                         )?,
                     })
                 } else {
-                    let values = Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+                    let values = lucene90_dvp_util::get_direct_reader_instance::<I>(
                         self.merging,
                         Rc::new(RefCell::new(slice)),
                         entry.bits_per_value as i32,
@@ -695,7 +677,7 @@ where
                     )?,
                 })
             } else {
-                let values = Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+                let values = lucene90_dvp_util::get_direct_reader_instance::<I>(
                     self.merging,
                     Rc::new(RefCell::new(slice)),
                     entry.bits_per_value as i32,
@@ -727,7 +709,7 @@ where
         Ok(long_values)
     }
 
-    fn get_sorted(&mut self, entry: Rc<SortedEntry>) -> Result<SortedDocValuesEnum<I>> {
+    fn get_sorted(&mut self, entry: Rc<SortedEntry>) -> Result<SortedDocValuesEnum<I, AV>> {
         let ords_entry = &entry.ords_entry;
 
         if ords_entry.block_shift < 0 && ords_entry.bits_per_value > 0 {
@@ -744,7 +726,7 @@ where
                 slice.prefetch(0, 1)?;
             }
 
-            let values = Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+            let values = lucene90_dvp_util::get_direct_reader_instance::<I>(
                 self.merging,
                 Rc::new(RefCell::new(slice)),
                 ords_entry.bits_per_value as i32,
@@ -781,7 +763,7 @@ where
     fn get_sorted_numeric(
         &mut self,
         entry: &SortedNumericEntry,
-    ) -> Result<SortedNumericDocValuesEnum<I>>
+    ) -> Result<SortedNumericDocValuesEnum<I, AV>>
     where
         I: IndexInput,
     {
@@ -837,13 +819,47 @@ where
         }
     }
 }
-impl<I> DocValuesProducer<I> for Lucene90DocValuesProducer<I>
+pub mod lucene90_dvp_util {
+    use crate::store::IndexInput;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    pub(super) fn get_direct_reader_instance<I: IndexInput>(
+        merging: bool,
+        slice: Rc<RefCell<I::RandomAccessSlice>>,
+        bits_per_value: i32,
+        offset: i64,
+        num_values: i64,
+    ) -> Result<DirectPackedEnum<I::RandomAccessSlice>>
+    where
+        I: IndexInput,
+    {
+        if merging {
+            Ok(DirectReader::get_merge_instance_with_base_offset(
+                slice,
+                bits_per_value,
+                offset,
+                num_values,
+            ))
+        } else {
+            Ok(DirectReader::get_instance_with_offset(
+                slice,
+                bits_per_value,
+                offset,
+            ))
+        }
+    }
+}
+impl<I, AV> DocValuesProducer<I, AV> for Lucene90DocValuesProducer<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    type NumericDocValues = NumericDocValuesEnum<I>;
+    type NumericDocValues = NumericDocValuesEnum<I, AV>;
 
-    fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I>> {
+    fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I, AV>> {
         let entry = self.numerics.get(&field.number);
         match entry {
             Some(entry) => self.get_numeric(entry.clone()),
@@ -978,7 +994,10 @@ where
         }
     }
 
-    fn get_sorted(&mut self, field: &Rc<FieldInfo>) -> Result<Rc<RefCell<SortedDocValuesEnum<I>>>> {
+    fn get_sorted(
+        &mut self,
+        field: &Rc<FieldInfo>,
+    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I, AV>>>> {
         let entry = self.sorted.get(&field.number);
         match entry {
             Some(entry) => Ok(Rc::new(RefCell::new(self.get_sorted(entry.clone())?))),
@@ -990,12 +1009,12 @@ where
     }
 
     // TODO: 应该将Single Dense sparse生成一个enum作为Lucene90
-    type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
+    type SortedNumericDocValues = SortedNumericDocValuesEnum<I, AV>;
 
     fn get_sorted_numeric(
         &mut self,
         field: &Rc<FieldInfo>,
-    ) -> Result<SortedNumericDocValuesEnum<I>> {
+    ) -> Result<SortedNumericDocValuesEnum<I, AV>> {
         let entry = self.sorted_numerics.get(&field.number);
         match entry {
             Some(entry) => self.get_sorted_numeric(&entry.clone()),
@@ -1006,7 +1025,7 @@ where
         }
     }
 
-    fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I>> {
+    fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I, AV>> {
         let field_number = field.number;
         let entry = self.sorted_sets.get(&field_number);
         match entry {
@@ -1143,7 +1162,7 @@ where
         Ok(())
     }
 
-    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
+    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I, AV>>> {
         Ok(Some(DocValuesProducerEnum::Lucene90(
             Lucene90DocValuesProducer::new_with_merging(
                 self.numerics.clone(),
@@ -1596,7 +1615,7 @@ where
                     self.values = if bits_per_value == 0 {
                         Some(DirectPackedEnum::Zeroes(Zeroes))
                     } else {
-                        Some(Lucene90DocValuesProducer::<I>::get_direct_reader_instance(
+                        Some(lucene90_dvp_util::get_direct_reader_instance::<I>(
                             self.merging,
                             Rc::clone(&self.slice),
                             bits_per_value,
@@ -2142,9 +2161,10 @@ where
     }
 }
 
-impl<I> SortedDocValues<I> for DenseBaseSortedDocValues<I>
+impl<I, AV> SortedDocValues<I, AV> for DenseBaseSortedDocValues<I>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.value.get(self.doc as i64)? as i32)
@@ -2197,41 +2217,46 @@ where
     }
 }
 
-impl<I> SortedDocValues<I> for SparseBaseSortedDocValues<I>
+impl<I, AV> SortedDocValues<I, AV> for SparseBaseSortedDocValues<I>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.value.get(self.disi.index() as i64)? as i32)
     }
 }
-pub struct BaseSortedDocValuesImpl<I>
+pub struct BaseSortedDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    ords: NumericDocValuesEnum<I>,
+    ords: NumericDocValuesEnum<I, AV>,
 }
-impl<I> BaseSortedDocValuesImpl<I>
+impl<I, AV> BaseSortedDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn new(ords: NumericDocValuesEnum<I>) -> Self {
+    fn new(ords: NumericDocValuesEnum<I, AV>) -> Self {
         Self { ords }
     }
 }
 
-impl<I> DocValuesIterator for BaseSortedDocValuesImpl<I>
+impl<I, AV> DocValuesIterator for BaseSortedDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.ords.advance_exact(target)
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedDocValuesImpl<I>
+impl<I, AV> DocIdSetIterator for BaseSortedDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.ords.doc_id()
@@ -2250,32 +2275,35 @@ where
     }
 }
 
-impl<I> SortedDocValues<I> for BaseSortedDocValuesImpl<I>
+impl<I, AV> SortedDocValues<I, AV> for BaseSortedDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ords.long_value()? as i32)
     }
 }
 
-pub struct BaseSortedDocValues<I>
+pub struct BaseSortedDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     entry: Rc<SortedEntry>,
-    terms_enum: TermsDict<I>,
-    sub: BaseSortedDocValuesEnum<I>,
+    terms_enum: TermsDict<I, AV>,
+    sub: BaseSortedDocValuesEnum<I, AV>,
 }
 
-impl<I> BaseSortedDocValues<I>
+impl<I, AV> BaseSortedDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn new(
         entry: Rc<SortedEntry>,
         data: &mut I,
-        sub: BaseSortedDocValuesEnum<I>,
+        sub: BaseSortedDocValuesEnum<I, AV>,
         merging: bool,
     ) -> Result<Self> {
         let terms_enum = TermsDict::new(entry.terms_dict_entry.clone(), data, merging)?;
@@ -2287,18 +2315,20 @@ where
     }
 }
 
-impl<I> DocValuesIterator for BaseSortedDocValues<I>
+impl<I, AV> DocValuesIterator for BaseSortedDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.sub.advance_exact(target)
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedDocValues<I>
+impl<I, AV> DocIdSetIterator for BaseSortedDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.sub.doc_id()
@@ -2317,15 +2347,16 @@ where
     }
 }
 
-impl<I> SortedDocValues<I> for BaseSortedDocValues<I>
+impl<I, AV> SortedDocValues<I, AV> for BaseSortedDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
         self.sub.ord_value()
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<BytesRef<Vec<u8>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<AV>>> {
         self.terms_enum.seek_exact_with_ord(ord as i64)?;
         self.terms_enum.term()
     }
@@ -2335,7 +2366,7 @@ where
         Ok(v)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
         match self.terms_enum.seek_ceil(key)? {
             SeekStatus::Found => {
                 let v = self.terms_enum.ord()?.try_into()?;
@@ -2348,7 +2379,7 @@ where
         }
     }
 
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+    fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
         Err(LuceneError::unreachable("should no be called "))
     }
 }
@@ -2427,9 +2458,10 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for DenseBaseSortedSetDocValues<I>
+impl<I, AV> SortedSetDocValues<I, AV> for DenseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_ord(&mut self) -> Result<i64> {
         let ord = self.value.get(self.curr)?;
@@ -2516,9 +2548,10 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for SparseBaseSortedSetDocValues<I>
+impl<I, AV> SortedSetDocValues<I, AV> for SparseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_ord(&mut self) -> Result<i64> {
         self.set()?;
@@ -2533,33 +2566,37 @@ where
     }
 }
 
-pub struct BaseSortedSetDocValuesImpl<I>
+pub struct BaseSortedSetDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    ords: SortedNumericDocValuesEnum<I>,
+    ords: SortedNumericDocValuesEnum<I, AV>,
 }
-impl<I> BaseSortedSetDocValuesImpl<I>
+impl<I, AV> BaseSortedSetDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn new(ords: SortedNumericDocValuesEnum<I>) -> Self {
+    fn new(ords: SortedNumericDocValuesEnum<I, AV>) -> Self {
         Self { ords }
     }
 }
 
-impl<I> DocValuesIterator for BaseSortedSetDocValuesImpl<I>
+impl<I, AV> DocValuesIterator for BaseSortedSetDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.ords.advance_exact(target)
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedSetDocValuesImpl<I>
+impl<I, AV> DocIdSetIterator for BaseSortedSetDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.ords.doc_id()
@@ -2578,9 +2615,10 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for BaseSortedSetDocValuesImpl<I>
+impl<I, AV> SortedSetDocValues<I, AV> for BaseSortedSetDocValuesImpl<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_ord(&mut self) -> Result<i64> {
         self.ords.next_value()
@@ -2591,23 +2629,25 @@ where
     }
 }
 
-pub struct BaseSortedSetDocValues<I>
+pub struct BaseSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     entry: Rc<SortedSetEntry>,
-    terms_enum: TermsDict<I>,
-    sub: BaseSortedSetDocValuesEnum<I>,
+    terms_enum: TermsDict<I, AV>,
+    sub: BaseSortedSetDocValuesEnum<I, AV>,
 }
 
-impl<I> BaseSortedSetDocValues<I>
+impl<I, AV> BaseSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn new(
         entry: Rc<SortedSetEntry>,
         data: &mut I,
-        sub: BaseSortedSetDocValuesEnum<I>,
+        sub: BaseSortedSetDocValuesEnum<I, AV>,
         merging: bool,
     ) -> Result<Self> {
         let terms_dict_entry = match entry.terms_dict_entry {
@@ -2627,18 +2667,20 @@ where
     }
 }
 
-impl<I> DocValuesIterator for BaseSortedSetDocValues<I>
+impl<I, AV> DocValuesIterator for BaseSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.sub.advance_exact(target)
     }
 }
 
-impl<I> DocIdSetIterator for BaseSortedSetDocValues<I>
+impl<I, AV> DocIdSetIterator for BaseSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.sub.doc_id()
@@ -2657,9 +2699,10 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<I> for BaseSortedSetDocValues<I>
+impl<I, AV> SortedSetDocValues<I, AV> for BaseSortedSetDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_ord(&mut self) -> Result<i64> {
         self.sub.next_ord()
@@ -2669,7 +2712,7 @@ where
         self.sub.doc_value_count()
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<BytesRef<Vec<u8>>> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<AV>>> {
         self.terms_enum.seek_exact_with_ord(ord)?;
         self.terms_enum.term()
     }
@@ -2683,7 +2726,7 @@ where
         }
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i64> {
         match self.terms_enum.seek_ceil(key)? {
             SeekStatus::Found => Ok(self.terms_enum.ord()?),
             SeekStatus::NotFound | SeekStatus::End => {
@@ -2693,16 +2736,17 @@ where
         }
     }
 
-    fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+    fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
         Err(LuceneError::unreachable(
             "terms_enum() should not be called on BaseSortedSetDocValues",
         ))
     }
 }
 
-pub struct TermsDict<I>
+pub struct TermsDict<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     pub entry: Rc<TermsDictEntry>,
     pub block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
@@ -2710,17 +2754,18 @@ where
     pub block_mask: u64,
     pub index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     pub index_bytes: I::RandomAccessSlice,
-    pub term: BytesRef<Vec<u8>>,
+    pub term: BytesRef<AV>,
     pub ord: i64,
-    pub block_buffer: BytesRef<Vec<u8>>,
-    pub block_input: ByteArrayDataInput,
+    pub block_buffer: BytesRef<AV>,
+    pub block_input: ByteArrayDataInput<AV>,
     pub current_compressed_block_start: i64,
     pub current_compressed_block_end: i64,
 }
 
-impl<I> TermsDict<I>
+impl<I, AV> TermsDict<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
@@ -2772,8 +2817,11 @@ where
         let buffer_size =
             entry.max_block_length + entry.max_term_length + Self::LZ4_DECOMPRESSOR_PADDING;
 
-        let block_buffer =
-            BytesRef::from_slice(vec![0u8; buffer_size as usize], 0, buffer_size as usize);
+        let block_buffer = BytesRef::from_slice(
+            AV::from_vec(vec![0u8; buffer_size as usize]),
+            0,
+            buffer_size as usize,
+        );
         let block_input = ByteArrayDataInput::new(); // assuming default constructor
 
         Ok(Self {
@@ -2792,7 +2840,7 @@ where
         })
     }
 
-    fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef<Vec<u8>>> {
+    fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef<AV>> {
         debug_assert!(
             index >= 0
                 && index
@@ -2807,11 +2855,15 @@ where
         let len = (end - start) as i32;
         self.term.length = len as usize;
 
-        self.index_bytes
-            .read_bytes(start, &mut self.term.bytes, 0, len)?;
+        self.term.bytes.access_mut(|bytes| {
+            self.index_bytes.read_bytes(start, bytes, 0, len)?;
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
+        })?;
+
         Ok(&self.term)
     }
-    fn seek_terms_index(&mut self, text: &BytesRef<Vec<u8>>) -> Result<i64> {
+    fn seek_terms_index(&mut self, text: &BytesRef<AV>) -> Result<i64> {
         let mut lo: i64 = 0;
         let mut hi: i64 = (self.entry.terms_dict_size - 1) >> self.entry.terms_dict_index_shift;
 
@@ -2842,7 +2894,7 @@ where
         );
         Ok(hi)
     }
-    fn get_first_term_from_block(&mut self, block: i64) -> Result<&BytesRef<Vec<u8>>> {
+    fn get_first_term_from_block(&mut self, block: i64) -> Result<&BytesRef<AV>> {
         debug_assert!(
             block >= 0
                 && block
@@ -2856,11 +2908,15 @@ where
 
         let len = self.bytes.read_vint()?;
         self.term.length = len as usize;
-        self.bytes.read_bytes(&mut self.term.bytes, 0, len)?;
+        self.term.bytes.access_mut(|bytes| {
+            self.bytes.read_bytes(bytes, 0, len)?;
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
+        })?;
 
         Ok(&self.term)
     }
-    fn seek_block(&mut self, text: &BytesRef<Vec<u8>>) -> Result<i64> {
+    fn seek_block(&mut self, text: &BytesRef<AV>) -> Result<i64> {
         let index = self.seek_terms_index(text)?;
 
         if index == -1 {
@@ -2921,8 +2977,11 @@ where
         // The first term is kept uncompressed, so no need to decompress block if only
         // look up the first term when doing seek block.
         self.term.length = self.bytes.read_vint()? as usize;
-        self.bytes
-            .read_bytes(&mut self.term.bytes, 0, self.term.length as i32)?;
+        self.term.bytes.access_mut(|bytes| {
+            self.bytes.read_bytes(bytes, 0, self.term.length as i32)?;
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
+        })?;
         let offset = self.bytes.get_file_pointer();
         if offset < self.entry.terms_data_length - 1 {
             // Avoid decompressing again if reading the same block
@@ -2933,15 +2992,21 @@ where
                 self.block_buffer.offset = block_buffer_offset;
                 self.block_buffer.length = block_buffer_len as usize;
                 // Decompress the remaining of current block, using the first term as a dictionary
-                self.block_buffer
-                    .bytes
-                    .copy_from(&self.term.bytes[..block_buffer_offset], 0);
-                LZ4::decompress(
-                    &mut self.bytes,
-                    block_buffer_len,
-                    &mut self.block_buffer.bytes,
-                    block_buffer_offset as i32,
-                )?;
+                self.block_buffer.bytes.access_mut(|buffer_bytes| {
+                    self.term.bytes.access(|term_bytes| {
+                        buffer_bytes.copy_from(&term_bytes[..block_buffer_offset], 0);
+                    })
+                });
+                self.block_buffer.bytes.access_mut(|buffer_bytes| {
+                    LZ4::decompress(
+                        &mut self.bytes,
+                        block_buffer_len,
+                        buffer_bytes,
+                        block_buffer_offset as i32,
+                    )?;
+                    // Help the compiler infer types.
+                    Ok::<(), LuceneError>(())
+                })?;
 
                 self.current_compressed_block_start = offset;
                 self.current_compressed_block_end = self.bytes.get_file_pointer();
@@ -2962,11 +3027,12 @@ where
     }
 }
 
-impl<I> BytesRefIterator for TermsDict<I>
+impl<I, AV> BytesRefIterator<AV> for TermsDict<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
         self.ord += 1;
         if self.ord >= self.entry.terms_dict_size {
             return Ok(None);
@@ -2988,21 +3054,26 @@ where
             }
 
             self.term.length = (prefix_length + suffix_length) as usize;
-            input.read_bytes(&mut self.term.bytes, prefix_length, suffix_length)?;
+            self.term.bytes.access_mut(|bytes| {
+                input.read_bytes(bytes, prefix_length, suffix_length)?;
+                // Help the compiler infer types.
+                Ok::<(), LuceneError>(())
+            })?;
         }
         Ok(Some(Cow::Borrowed(&self.term)))
     }
 }
 
-impl<I> TermsEnum for TermsDict<I>
+impl<I, AV> TermsEnum<AV> for TermsDict<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, text: &BytesRef<AV>) -> Result<SeekStatus> {
         let block = self.seek_block(text)?;
         if block == -2 {
             // empty terms dict
@@ -3054,14 +3125,14 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<Vec<u8>>,
+        _term: &BytesRef<AV>,
         _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn term_ref(&self) -> Result<&BytesRef<Vec<u8>>> {
-        Ok(&self.term)
+    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
+        Ok(Cow::Borrowed(&self.term))
     }
 
     fn ord(&self) -> Result<i64> {

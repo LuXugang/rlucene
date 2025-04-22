@@ -16,6 +16,7 @@
  */
 use crate::index::merge_state::MergeState;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::InfoStream;
 
@@ -31,9 +32,10 @@ pub struct MatchingReaders {
 }
 
 impl MatchingReaders {
-    pub fn new<I>(merge_state: &MergeState<I>) -> Result<Self>
+    pub fn new<I, AV>(merge_state: &MergeState<I, AV>) -> Result<Self>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         // If the i'th reader is a SegmentReader and has
         // identical fieldName -> number mapping, then this

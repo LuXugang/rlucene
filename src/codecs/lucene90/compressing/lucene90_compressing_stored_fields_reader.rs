@@ -1019,7 +1019,7 @@ pub enum DataInputEnum<'a, I>
 where
     I: IndexInput,
 {
-    ByteArray(ByteArrayDataInput),
+    ByteArray(ByteArrayDataInput<Vec<u8>>),
     Impl(DataInputImpl<'a, I>),
 }
 

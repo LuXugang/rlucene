@@ -34,14 +34,15 @@ use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, DocIDMergerEnum, S
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub trait DocValuesConsumer {
+pub trait DocValuesConsumer<AV: AccessVec<u8>> {
     fn add_numeric_field<
         I: IndexInput,
-        P: DocValuesProducer<I, NumericDocValues = NumericDocValuesEnum<I>>,
+        P: DocValuesProducer<I, AV, NumericDocValues = NumericDocValuesEnum<I, AV>>,
     >(
         &mut self,
         field: &Rc<FieldInfo>,
@@ -50,28 +51,28 @@ pub trait DocValuesConsumer {
     fn add_binary_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<I>,
+        values_producer: &mut impl DocValuesProducer<I, AV>,
     ) -> Result<()>;
     fn add_sorted_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<I>,
+        values_producer: &mut impl DocValuesProducer<I, AV>,
     ) -> Result<()>;
     fn add_sorted_numeric_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<I>,
+        values_producer: &mut impl DocValuesProducer<I, AV>,
     ) -> Result<()>;
     fn add_sorted_set_field<I: IndexInput>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<I>,
+        values_producer: &mut impl DocValuesProducer<I, AV>,
     ) -> Result<()>;
 
     fn merge_numeric_field<I: IndexInput>(
         &mut self,
         merge_field_info: &Rc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<I, AV>,
     ) -> Result<()>
     where
         I: IndexInput,
@@ -85,7 +86,7 @@ pub trait DocValuesConsumer {
     fn merge_binary_filed<I: IndexInput>(
         &mut self,
         merge_field_info: &Rc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<I, AV>,
     ) -> Result<()> {
         let mut producer = EmptyDocValuesProducerMerge2 {
             merge_field_info: merge_field_info.clone(),
@@ -96,7 +97,7 @@ pub trait DocValuesConsumer {
     fn merge_sorted_numeric_field<I: IndexInput>(
         &mut self,
         merge_field_info: &Rc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<I, AV>,
     ) -> Result<()> {
         let mut producer = EmptyDocValuesProducerMerge3 {
             merge_field_info: merge_field_info.clone(),
@@ -107,14 +108,14 @@ pub trait DocValuesConsumer {
     fn merge_sorted_field<I: IndexInput>(
         &mut self,
         _merge_field_info: &Rc<FieldInfo>,
-        _merge_state: &mut MergeState<I>,
+        _merge_state: &mut MergeState<I, AV>,
     ) -> Result<()> {
         todo!()
     }
     fn merge_sorted_set_field<I: IndexInput>(
         &mut self,
         _merge_field_info: &Rc<FieldInfo>,
-        _merge_state: &mut MergeState<I>,
+        _merge_state: &mut MergeState<I, AV>,
     ) -> Result<()> {
         todo!()
     }
@@ -124,16 +125,18 @@ mod doc_values_consumer_util {
     use crate::index::{doc_id_merger_util, Sub};
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::IndexInput;
+    use crate::util::access::AccessVec;
     use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    pub(crate) fn merge_numeric_values<I>(
-        mut subs: Vec<Rc<RefCell<Sub<NumericDocValuesSub<I>>>>>,
+    pub(crate) fn merge_numeric_values<I, AV>(
+        mut subs: Vec<Rc<RefCell<Sub<NumericDocValuesSub<I, AV>>>>>,
         index_is_sorted: bool,
-    ) -> Result<NumericDocValuesMerge<I>>
+    ) -> Result<NumericDocValuesMerge<I, AV>>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         let mut cost = 0;
         for sub in &mut subs {
@@ -151,26 +154,29 @@ mod doc_values_consumer_util {
 
 // 1. NumericDocValues
 /// Tracks state of one numeric sub-reader that we are merging.
-struct NumericDocValuesSub<I>
+struct NumericDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    values: Rc<RefCell<NumericDocValuesEnum<I>>>,
+    values: Rc<RefCell<NumericDocValuesEnum<I, AV>>>,
     doc_map: Rc<DocMapEnum>,
 }
 #[allow(unused)]
-impl<I> NumericDocValuesSub<I>
+impl<I, AV> NumericDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: Rc<RefCell<NumericDocValuesEnum<I>>>) -> Self {
+    fn new(doc_map: Rc<DocMapEnum>, values: Rc<RefCell<NumericDocValuesEnum<I, AV>>>) -> Self {
         debug_assert!(values.borrow().doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }
 }
-impl<I> SubBase for NumericDocValuesSub<I>
+impl<I, AV> SubBase for NumericDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.borrow_mut().next_doc()
@@ -180,9 +186,10 @@ where
         Ok(&self.doc_map)
     }
 }
-impl<I> Default for NumericDocValuesSub<I>
+impl<I, AV> Default for NumericDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn default() -> Self {
         NumericDocValuesSub {
@@ -193,28 +200,31 @@ where
         }
     }
 }
-pub struct NumericDocValuesMerge<I>
+pub struct NumericDocValuesMerge<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     doc_id: i32,
-    current: Option<Rc<RefCell<Sub<NumericDocValuesSub<I>>>>>,
-    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<I>>,
+    current: Option<Rc<RefCell<Sub<NumericDocValuesSub<I, AV>>>>>,
+    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<I, AV>>,
     final_cost: i64,
 }
 
-impl<I> DocValuesIterator for NumericDocValuesMerge<I>
+impl<I, AV> DocValuesIterator for NumericDocValuesMerge<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<I> DocIdSetIterator for NumericDocValuesMerge<I>
+impl<I, AV> DocIdSetIterator for NumericDocValuesMerge<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -243,9 +253,10 @@ where
     }
 }
 
-impl<I> NumericDocValues for NumericDocValuesMerge<I>
+impl<I, AV> NumericDocValues for NumericDocValuesMerge<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn long_value(&mut self) -> Result<i64> {
         match self.current {
@@ -258,18 +269,20 @@ where
         }
     }
 }
-pub(crate) struct EmptyDocValuesProducerMerge1<'a, I>
+pub(crate) struct EmptyDocValuesProducerMerge1<'a, I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     merge_field_info: Rc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<I, AV>,
 }
-impl<I> DocValuesProducer<I> for EmptyDocValuesProducerMerge1<'_, I>
+impl<I, AV> DocValuesProducer<I, AV> for EmptyDocValuesProducerMerge1<'_, I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    type NumericDocValues = NumericDocValuesEnum<I>;
+    type NumericDocValues = NumericDocValuesEnum<I, AV>;
 
     fn get_numeric(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if Rc::ptr_eq(field_info, &self.merge_field_info) {
@@ -281,7 +294,7 @@ where
             self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len()
         );
         for i in 0..self.merge_state.doc_values_producers.len() {
-            let mut values: Option<NumericDocValuesEnum<I>> = None;
+            let mut values: Option<NumericDocValuesEnum<I, AV>> = None;
             let doc_values_producer_opt = &mut self.merge_state.doc_values_producers[i];
             if let Some(doc_values_producer) = doc_values_producer_opt {
                 let reader_field_info =
@@ -425,16 +438,18 @@ where
         }
     }
 }
-pub(crate) struct EmptyDocValuesProducerMerge2<'a, I>
+pub(crate) struct EmptyDocValuesProducerMerge2<'a, I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     merge_field_info: Rc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<I, AV>,
 }
-impl<I> DocValuesProducer<I> for EmptyDocValuesProducerMerge2<'_, I>
+impl<I, AV> DocValuesProducer<I, AV> for EmptyDocValuesProducerMerge2<'_, I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     type NumericDocValues = DummyNumericDocValues;
 
@@ -486,27 +501,30 @@ where
 }
 // 3. SortedNumericDocValues
 /// Tracks state of one sorted numeric sub-reader that we are merging.
-struct SortedNumericDocValuesSub<I>
+struct SortedNumericDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    values: SortedNumericDocValuesEnum<I>,
+    values: SortedNumericDocValuesEnum<I, AV>,
     doc_map: Rc<DocMapEnum>,
 }
 
-impl<I> SortedNumericDocValuesSub<I>
+impl<I, AV> SortedNumericDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: SortedNumericDocValuesEnum<I>) -> Self {
+    fn new(doc_map: Rc<DocMapEnum>, values: SortedNumericDocValuesEnum<I, AV>) -> Self {
         debug_assert!(values.doc_id() == -1);
         SortedNumericDocValuesSub { values, doc_map }
     }
 }
 
-impl<I> SubBase for SortedNumericDocValuesSub<I>
+impl<I, AV> SubBase for SortedNumericDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()
@@ -516,9 +534,10 @@ where
         Ok(&self.doc_map)
     }
 }
-impl<I> Default for SortedNumericDocValuesSub<I>
+impl<I, AV> Default for SortedNumericDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     // for padding use
     fn default() -> Self {
@@ -530,28 +549,31 @@ where
         }
     }
 }
-pub struct SortedNumericDocValuesMerge<I>
+pub struct SortedNumericDocValuesMerge<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     doc_id: i32,
-    current_sub: Option<Rc<RefCell<Sub<SortedNumericDocValuesSub<I>>>>>,
-    doc_id_merger: DocIDMergerEnum<SortedNumericDocValuesSub<I>>,
+    current_sub: Option<Rc<RefCell<Sub<SortedNumericDocValuesSub<I, AV>>>>>,
+    doc_id_merger: DocIDMergerEnum<SortedNumericDocValuesSub<I, AV>>,
     final_cost: i64,
 }
 
-impl<I> DocValuesIterator for SortedNumericDocValuesMerge<I>
+impl<I, AV> DocValuesIterator for SortedNumericDocValuesMerge<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<I> DocIdSetIterator for SortedNumericDocValuesMerge<I>
+impl<I, AV> DocIdSetIterator for SortedNumericDocValuesMerge<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -580,9 +602,10 @@ where
     }
 }
 
-impl<I> SortedNumericDocValues for SortedNumericDocValuesMerge<I>
+impl<I, AV> SortedNumericDocValues for SortedNumericDocValuesMerge<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_value(&mut self) -> Result<i64> {
         match self.current_sub {
@@ -604,24 +627,26 @@ where
         }
     }
 }
-pub(crate) struct EmptyDocValuesProducerMerge3<'a, I>
+pub(crate) struct EmptyDocValuesProducerMerge3<'a, I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     merge_field_info: Rc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<I, AV>,
 }
-impl<I> DocValuesProducer<I> for EmptyDocValuesProducerMerge3<'_, I>
+impl<I, AV> DocValuesProducer<I, AV> for EmptyDocValuesProducerMerge3<'_, I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     type NumericDocValues = DummyNumericDocValues;
-    type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
+    type SortedNumericDocValues = SortedNumericDocValuesEnum<I, AV>;
 
     fn get_sorted_numeric(
         &mut self,
         field_info: &Rc<FieldInfo>,
-    ) -> Result<SortedNumericDocValuesEnum<I>> {
+    ) -> Result<SortedNumericDocValuesEnum<I, AV>> {
         if Rc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong FieldInfo"));
         }
@@ -702,23 +727,25 @@ where
 
 // 4. SortedDocValues
 /// Tracks state of one sorted sub-reader that we are merging.
-struct SortedDocValuesSub<I>
+struct SortedDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    values: SortedDocValuesEnum<I>,
+    values: SortedDocValuesEnum<I, AV>,
     map: Rc<LongValuesEnum<I>>,
     doc_map: Rc<DocMapEnum>,
 }
 
 #[allow(unused)]
-impl<I> SortedDocValuesSub<I>
+impl<I, AV> SortedDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn new(
         doc_map: Rc<DocMapEnum>,
-        values: SortedDocValuesEnum<I>,
+        values: SortedDocValuesEnum<I, AV>,
         map: Rc<LongValuesEnum<I>>,
     ) -> Self {
         debug_assert!(values.doc_id() == -1);
@@ -730,9 +757,10 @@ where
     }
 }
 
-impl<I> SubBase for SortedDocValuesSub<I>
+impl<I, AV> SubBase for SortedDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()
@@ -744,23 +772,25 @@ where
 }
 // 5. SortedSetDocValues
 /// Tracks state of one sorted set sub-reader that we are merging.
-struct SortedSetDocValuesSub<I>
+struct SortedSetDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    values: SortedSetDocValuesEnum<I>,
+    values: SortedSetDocValuesEnum<I, AV>,
     map: Rc<LongValuesEnum<I>>,
     doc_map: Rc<DocMapEnum>,
 }
 
 #[allow(unused)]
-impl<I> SortedSetDocValuesSub<I>
+impl<I, AV> SortedSetDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn new(
         doc_map: Rc<DocMapEnum>,
-        values: SortedSetDocValuesEnum<I>,
+        values: SortedSetDocValuesEnum<I, AV>,
         map: Rc<LongValuesEnum<I>>,
     ) -> Self {
         debug_assert!(values.doc_id() == -1);
@@ -772,9 +802,10 @@ where
     }
 }
 
-impl<I> SubBase for SortedSetDocValuesSub<I>
+impl<I, AV> SubBase for SortedSetDocValuesSub<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()

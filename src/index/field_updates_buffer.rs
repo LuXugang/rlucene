@@ -389,9 +389,9 @@ impl FieldUpdatesBuffer {
 /// An iterator that iterates over all updates in insertion order.
 #[allow(unused)]
 pub struct BufferedUpdateIterator<'a> {
-    term_values_iterator: IndexedBytesRefIteratorImpl<'a, CounterEnumLock>,
-    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
-    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
+    term_values_iterator: IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>,
+    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>>,
+    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>>,
     buffered_update: BufferedUpdate,
     updates_with_value: Option<BitsEnum<'a>>,
     fields_length: i32,

@@ -40,7 +40,9 @@ pub mod doc_values {
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::search::sorted_set_selector::SortedDocValuesEnum1;
     use crate::store::IndexInput;
+    use crate::util::access::AccessVec;
     use crate::util::error::lucene_error::Result;
+    use std::borrow::Cow;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -51,27 +53,30 @@ pub mod doc_values {
         Impl(DocValuesSkipperImpl<I>),
     }
 
-    pub enum SortedDocValuesEnum<I>
+    pub enum SortedDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
-        Base(Box<BaseSortedDocValues<I>>),
-        Impl(SortedDocValuesEnum1<I>),
-        Empty(EmptySorted<I>),
+        Base(Box<BaseSortedDocValues<I, AV>>),
+        Impl(SortedDocValuesEnum1<I, AV>),
+        Empty(EmptySorted<I, AV>),
     }
 
-    impl<I> DocValuesIterator for SortedDocValuesEnum<I>
+    impl<I, AV> DocValuesIterator for SortedDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn advance_exact(&mut self, _target: i32) -> Result<bool> {
             todo!()
         }
     }
 
-    impl<I> DocIdSetIterator for SortedDocValuesEnum<I>
+    impl<I, AV> DocIdSetIterator for SortedDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn doc_id(&self) -> i32 {
             todo!()
@@ -94,15 +99,16 @@ pub mod doc_values {
         }
     }
 
-    impl<I> SortedDocValues<I> for SortedDocValuesEnum<I>
+    impl<I, AV> SortedDocValues<I, AV> for SortedDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn ord_value(&mut self) -> Result<i32> {
             todo!()
         }
 
-        fn lookup_ord(&mut self, _ord: i32) -> Result<BytesRef<Vec<u8>>> {
+        fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<AV>>> {
             todo!()
         }
 
@@ -110,11 +116,11 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i32> {
+        fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
             todo!()
         }
 
-        fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+        fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
             todo!()
         }
     }
@@ -206,29 +212,32 @@ pub mod doc_values {
         }
     }
 
-    pub enum NumericDocValuesEnum<I>
+    pub enum NumericDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         Dense(DenseNumericDocValues<I>),
         Sparse(SparseNumericDocValues<I>),
         Empty(EmptyNumeric),
-        Impl(NumericDocValuesImpl<I>),
-        Merge(NumericDocValuesMerge<I>),
+        Impl(NumericDocValuesImpl<I, AV>),
+        Merge(NumericDocValuesMerge<I, AV>),
     }
 
-    impl<I> DocValuesIterator for NumericDocValuesEnum<I>
+    impl<I, AV> DocValuesIterator for NumericDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn advance_exact(&mut self, _target: i32) -> Result<bool> {
             todo!()
         }
     }
 
-    impl<I> DocIdSetIterator for NumericDocValuesEnum<I>
+    impl<I, AV> DocIdSetIterator for NumericDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn doc_id(&self) -> i32 {
             todo!()
@@ -251,36 +260,40 @@ pub mod doc_values {
         }
     }
 
-    impl<I> NumericDocValues for NumericDocValuesEnum<I>
+    impl<I, AV> NumericDocValues for NumericDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn long_value(&mut self) -> Result<i64> {
             todo!()
         }
     }
-    pub enum SortedNumericDocValuesEnum<I>
+    pub enum SortedNumericDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         Dense(DenseSortedNumericDocValues<I>),
         Sparse(SpareSortedNumericDocValues<I>),
-        Singleton(SingletonSortedNumericDocValues<I>),
-        Impl(SortedNumericDocValuesImpl<I>),
-        Merge(SortedNumericDocValuesMerge<I>),
+        Singleton(SingletonSortedNumericDocValues<I, AV>),
+        Impl(SortedNumericDocValuesImpl<I, AV>),
+        Merge(SortedNumericDocValuesMerge<I, AV>),
     }
-    impl<I> DocValuesIterator for SortedNumericDocValuesEnum<I>
+    impl<I, AV> DocValuesIterator for SortedNumericDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn advance_exact(&mut self, _target: i32) -> Result<bool> {
             todo!()
         }
     }
 
-    impl<I> DocIdSetIterator for SortedNumericDocValuesEnum<I>
+    impl<I, AV> DocIdSetIterator for SortedNumericDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn doc_id(&self) -> i32 {
             todo!()
@@ -303,9 +316,10 @@ pub mod doc_values {
         }
     }
 
-    impl<I> SortedNumericDocValues for SortedNumericDocValuesEnum<I>
+    impl<I, AV> SortedNumericDocValues for SortedNumericDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn next_value(&mut self) -> Result<i64> {
             todo!()
@@ -316,22 +330,29 @@ pub mod doc_values {
         }
     }
 
-    pub enum SortedSetDocValuesEnum<I>
+    pub enum SortedSetDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         // SingletonSortedSetDocValues wraps a SortedDocValuesEnum.
         // To prevent mutual inclusion between variants of SortedSetDocValuesEnum and SortedDocValuesEnum,
         // the other variants are encapsulated using SortedSetDocValuesWrapper.
-        Singleton(SingletonSortedSetDocValues<I>),
-        Other(Box<SortedSetDocValuesWrapper<I>>),
+        Singleton(SingletonSortedSetDocValues<I, AV>),
+        Other(Box<SortedSetDocValuesWrapper<I, AV>>),
     }
 
-    impl<I> DocValuesIterator for SortedSetDocValuesEnum<I> where I: IndexInput {}
-
-    impl<I> DocIdSetIterator for SortedSetDocValuesEnum<I>
+    impl<I, AV> DocValuesIterator for SortedSetDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
+    {
+    }
+
+    impl<I, AV> DocIdSetIterator for SortedSetDocValuesEnum<I, AV>
+    where
+        I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn doc_id(&self) -> i32 {
             todo!()
@@ -342,9 +363,10 @@ pub mod doc_values {
         }
     }
 
-    impl<I> SortedSetDocValues<I> for SortedSetDocValuesEnum<I>
+    impl<I, AV> SortedSetDocValues<I, AV> for SortedSetDocValuesEnum<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn next_ord(&mut self) -> Result<i64> {
             todo!()
@@ -354,7 +376,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef<Vec<u8>>> {
+        fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<AV>>> {
             todo!()
         }
 
@@ -362,15 +384,15 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+        fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i64> {
             todo!()
         }
 
-        fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+        fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
             todo!()
         }
 
-        fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>> {
+        fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I, AV>>>>> {
             match self {
                 SortedSetDocValuesEnum::Singleton(singleton) => singleton.unwrap_singleton(),
                 SortedSetDocValuesEnum::Other(other) => other.unwrap_singleton(),
@@ -378,25 +400,28 @@ pub mod doc_values {
         }
     }
 
-    pub enum SortedSetDocValuesWrapper<I>
+    pub enum SortedSetDocValuesWrapper<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
-        Base(BaseSortedSetDocValues<I>),
+        Base(BaseSortedSetDocValues<I, AV>),
     }
 
-    impl<I> DocValuesIterator for SortedSetDocValuesWrapper<I>
+    impl<I, AV> DocValuesIterator for SortedSetDocValuesWrapper<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn advance_exact(&mut self, _target: i32) -> Result<bool> {
             todo!()
         }
     }
 
-    impl<I> DocIdSetIterator for SortedSetDocValuesWrapper<I>
+    impl<I, AV> DocIdSetIterator for SortedSetDocValuesWrapper<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn doc_id(&self) -> i32 {
             todo!()
@@ -419,9 +444,10 @@ pub mod doc_values {
         }
     }
 
-    impl<I> SortedSetDocValues<I> for SortedSetDocValuesWrapper<I>
+    impl<I, AV> SortedSetDocValues<I, AV> for SortedSetDocValuesWrapper<I, AV>
     where
         I: IndexInput,
+        AV: AccessVec<u8>,
     {
         fn next_ord(&mut self) -> Result<i64> {
             todo!()
@@ -431,7 +457,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_ord(&mut self, _ord: i64) -> Result<BytesRef<Vec<u8>>> {
+        fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<AV>>> {
             todo!()
         }
 
@@ -439,15 +465,15 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i64> {
+        fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i64> {
             todo!()
         }
 
-        fn terms_enum(&mut self) -> Result<TermsEnums<I>> {
+        fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
             todo!()
         }
 
-        fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I>>>>> {
+        fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I, AV>>>>> {
             todo!()
         }
     }

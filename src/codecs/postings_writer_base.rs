@@ -23,6 +23,7 @@ use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
 use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexOutput};
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::borrow::Cow;
@@ -36,7 +37,7 @@ use std::rc::Rc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == FieldsProducer/Consumer
-pub trait PostingsWriterBase<T: TermsEnum, N: NormsProducer> {
+pub trait PostingsWriterBase<T: TermsEnum<AV>, N: NormsProducer, AV: AccessVec<u8>> {
     /// Called once after startup, before any terms have been added. Implementations typically write a
     /// header to the provided `termsOut`.
     fn init<D: Directory>(

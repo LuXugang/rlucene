@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 use crate::store::data_input::DataInput;
+use crate::util::access::AccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
+use crate::util::SliceCopyOps;
 use std::any::type_name;
 use std::fmt::{Display, Formatter};
 
@@ -28,33 +30,39 @@ use std::fmt::{Display, Formatter};
 ///
 /// # Note
 /// This is an experimental API.
-pub struct ByteArrayDataInput {
-    pub(crate) bytes: Vec<u8>,
+pub struct ByteArrayDataInput<AV>
+where
+    AV: AccessVec<u8>,
+{
+    pub(crate) bytes: AV,
     pos: i32,
     limit: i32,
 }
-impl ByteArrayDataInput {
+impl<AV> ByteArrayDataInput<AV>
+where
+    AV: AccessVec<u8>,
+{
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_bytes(bytes: Vec<u8>) -> Self {
+    pub fn with_bytes(bytes: AV) -> Self {
         let len = bytes.len();
         debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
         Self::with_range(bytes, 0, len as i32)
     }
-    pub fn with_range(bytes: Vec<u8>, offset: i32, length: i32) -> Self {
+    pub fn with_range(bytes: AV, offset: i32, length: i32) -> Self {
         let mut data_input = Self::new();
         data_input.reset_with_range(bytes, offset, length);
         data_input
     }
 
-    pub fn reset(&mut self, bytes: Vec<u8>) {
+    pub fn reset(&mut self, bytes: AV) {
         let len = bytes.len();
         debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
         self.reset_with_range(bytes, 0, len as i32);
     }
-    pub fn reset_with_range(&mut self, bytes: Vec<u8>, offset: i32, length: i32) {
+    pub fn reset_with_range(&mut self, bytes: AV, offset: i32, length: i32) {
         self.bytes = bytes;
         self.pos = offset;
         self.limit = offset + length;
@@ -82,54 +90,61 @@ impl ByteArrayDataInput {
     }
 }
 
-impl Display for ByteArrayDataInput {
+impl<AV> Display for ByteArrayDataInput<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let address = self as *const Self as usize;
         write!(f, "{}@{:x}", self.type_name(), address)
     }
 }
 
-impl DataInput for ByteArrayDataInput {
+impl<AV> DataInput for ByteArrayDataInput<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn read_byte(&mut self) -> Result<u8> {
-        let value = self.bytes[self.pos as usize];
-        self.pos += 1;
-        Ok(value)
+        self.bytes.access(|bytes| {
+            let value = bytes[self.pos as usize];
+            self.pos += 1;
+            Ok(value)
+        })
     }
 
     fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        debug_assert!(
-            (offset + len) as usize <= b.len(),
-            "Offset and length exceed the destination buffer size"
-        );
-        debug_assert!(
-            (self.pos + len) as usize <= self.bytes.len(),
-            "Read range exceeds the source buffer size"
-        );
-        unsafe {
-            let src = self.bytes.as_ptr().add(self.pos as usize);
-            let dst = b.as_mut_ptr().add(offset as usize);
-            std::ptr::copy_nonoverlapping(src, dst, len as usize);
-        }
+        self.bytes.access(|bytes| {
+            b.copy_from(
+                &bytes[self.pos as usize..(self.pos + len) as usize],
+                offset as usize,
+            );
+        });
         self.pos += len;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16> {
-        let result = BitUtil::get_i16_le(&self.bytes, self.pos as usize);
-        self.pos += 2;
-        Ok(result)
+        self.bytes.access(|bytes| {
+            let result = BitUtil::get_i16_le(bytes, self.pos as usize);
+            self.pos += 2;
+            Ok(result)
+        })
     }
 
     fn read_int(&mut self) -> Result<i32> {
-        let value = BitUtil::get_i32_le(&self.bytes, self.pos as usize);
-        self.pos += 4;
-        Ok(value)
+        self.bytes.access(|bytes| {
+            let value = BitUtil::get_i32_le(bytes, self.pos as usize);
+            self.pos += 4;
+            Ok(value)
+        })
     }
 
     fn read_long(&mut self) -> Result<i64> {
-        let value = BitUtil::get_i64_le(&self.bytes, self.pos as usize);
-        self.pos += 8;
-        Ok(value)
+        self.bytes.access(|bytes| {
+            let value = BitUtil::get_i64_le(bytes, self.pos as usize);
+            self.pos += 8;
+            Ok(value)
+        })
     }
 
     fn skip_bytes(&mut self, count: i64) -> Result<()> {

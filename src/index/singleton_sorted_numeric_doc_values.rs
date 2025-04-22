@@ -20,26 +20,30 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
+
 /// Exposes a multi-valued view over a single-valued instance.
 ///
 /// This can be used if you want to have one multi-valued implementation that works for both
 /// single-valued and multi-valued types.
-pub struct SingletonSortedNumericDocValues<I>
+pub struct SingletonSortedNumericDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    inner: Rc<RefCell<NumericDocValuesEnum<I>>>,
+    inner: Rc<RefCell<NumericDocValuesEnum<I, AV>>>,
 }
 
-impl<I> SingletonSortedNumericDocValues<I>
+impl<I, AV> SingletonSortedNumericDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
-    pub fn new(inner: NumericDocValuesEnum<I>) -> Result<Self> {
+    pub fn new(inner: NumericDocValuesEnum<I, AV>) -> Result<Self> {
         if inner.doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
@@ -51,7 +55,7 @@ where
         })
     }
 
-    pub fn get_numeric_doc_values(&self) -> Result<Rc<RefCell<NumericDocValuesEnum<I>>>> {
+    pub fn get_numeric_doc_values(&self) -> Result<Rc<RefCell<NumericDocValuesEnum<I, AV>>>> {
         if self.inner.borrow().doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
@@ -62,9 +66,10 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for SingletonSortedNumericDocValues<I>
+impl<I, AV> DocIdSetIterator for SingletonSortedNumericDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         self.inner.borrow().doc_id()
@@ -83,18 +88,20 @@ where
     }
 }
 
-impl<I> DocValuesIterator for SingletonSortedNumericDocValues<I>
+impl<I, AV> DocValuesIterator for SingletonSortedNumericDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.inner.borrow_mut().advance_exact(target)
     }
 }
 
-impl<I> SortedNumericDocValues for SingletonSortedNumericDocValues<I>
+impl<I, AV> SortedNumericDocValues for SingletonSortedNumericDocValues<I, AV>
 where
     I: IndexInput,
+    AV: AccessVec<u8>,
 {
     fn next_value(&mut self) -> Result<i64> {
         self.inner.borrow_mut().long_value()

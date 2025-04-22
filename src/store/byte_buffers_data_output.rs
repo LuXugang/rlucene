@@ -491,14 +491,14 @@ mod tests {
         let mut random1 = random_from_seed(gen_seed);
         let mut random2 = random_from_seed(gen_seed);
         let add_count = random.random_range(1000..=5000);
-        add_random_data::<ByteArrayDataInput>(&mut o, &mut random1, add_count);
+        add_random_data::<ByteArrayDataInput<Vec<u8>>>(&mut o, &mut random1, add_count);
         let dta = match random.random_bool(0.5) {
             true => o.get_array_copy(),
             false => o.try_get_array_ownership(),
         };
 
         o.reset();
-        add_random_data::<ByteArrayDataInput>(&mut o, &mut random2, add_count);
+        add_random_data::<ByteArrayDataInput<Vec<u8>>>(&mut o, &mut random2, add_count);
         match random.random_bool(0.5) {
             true => {
                 assert_eq!(dta, o.get_array_copy());
@@ -543,7 +543,7 @@ mod tests {
         let mut test = TestByteBuffersDataOutput;
         let mut random = random();
         // here could use any DataInput impl because this test does not test ByteArrayDataInput
-        test.test_randomized_writes::<ByteArrayDataInput>(&mut random)
+        test.test_randomized_writes::<ByteArrayDataInput<Vec<u8>>>(&mut random)
     }
 
     #[test]

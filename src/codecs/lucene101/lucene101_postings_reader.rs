@@ -1533,7 +1533,7 @@ pub mod lucene101_pr_util {
         }
     }
     pub(crate) fn read_impacts<'a>(
-        input: &mut ByteArrayDataInput,
+        input: &mut ByteArrayDataInput<Vec<u8>>,
         reuse: &'a mut MutableImpactList,
     ) -> Result<&'a [Impact]> {
         let mut freq = 0;
