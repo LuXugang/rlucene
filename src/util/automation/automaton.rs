@@ -14,7 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod automaton;
-pub mod byte_runnable;
-pub mod transition;
-mod transition_accessor;
+pub struct Automaton;
