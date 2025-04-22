@@ -74,7 +74,11 @@ where
         ))
     }
 
-    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<AV>,
+        state: &TermStateEnum,
+    ) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

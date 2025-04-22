@@ -64,7 +64,9 @@ impl Document {
     /// In order to achieve this, a document has to be deleted from an index and a new changed version
     /// of that document has to be added.
     pub fn remove_field(&mut self, name: &str) {
-        if let Some(index) = self.fields.iter().position(|field| field.name() == name) {
+        if let Some(index) =
+            self.fields.iter().position(|field| field.name() == name)
+        {
             self.fields.remove(index);
         }
     }
@@ -87,7 +89,10 @@ impl Document {
     ///
     /// # Returns
     /// A `Vec<Arc<BytesRef>>` of binary field values.
-    pub fn get_binary_values(&self, name: &str) -> Result<Vec<Arc<BytesRef<Vec<u8>>>>> {
+    pub fn get_binary_values(
+        &self,
+        name: &str,
+    ) -> Result<Vec<Arc<BytesRef<Vec<u8>>>>> {
         let mut result = Vec::new();
 
         for field in &self.fields {
@@ -110,7 +115,10 @@ impl Document {
     ///
     /// # Returns
     /// A `Option<Arc<BytesRef>>` containing the binary field value, or `None` if no matching field is found.
-    pub fn get_binary_value(&self, name: &str) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    pub fn get_binary_value(
+        &self,
+        name: &str,
+    ) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
         for field in &self.fields {
             if field.name() == name {
                 return match field.binary_value() {
@@ -257,8 +265,10 @@ mod tests {
     /// - Returns an error if an exception occurs during execution.
     #[test]
     fn test_binary_field() -> Result<()> {
-        let binary_val = "this text will be stored as a byte array in the index";
-        let binary_val2 = "this text will be also stored as a byte array in the index";
+        let binary_val =
+            "this text will be stored as a byte array in the index";
+        let binary_val2 =
+            "this text will be also stored as a byte array in the index";
 
         let mut doc = Document::new();
 
@@ -266,14 +276,24 @@ mod tests {
         ft.set_stored(true)?;
         let ft_arc = Arc::new(ft);
 
-        let string_fld =
-            Field::with_string("string", Arc::new(binary_val.to_string()), ft_arc.clone())?;
-        let binary_fld = StoredField::with_binary("binary", binary_val.as_bytes().to_vec())?;
-        let binary_fld2 = StoredField::with_binary("binary", binary_val2.as_bytes().to_vec())?;
+        let string_fld = Field::with_string(
+            "string",
+            Arc::new(binary_val.to_string()),
+            ft_arc.clone(),
+        )?;
+        let binary_fld =
+            StoredField::with_binary("binary", binary_val.as_bytes().to_vec())?;
+        let binary_fld2 = StoredField::with_binary(
+            "binary",
+            binary_val2.as_bytes().to_vec(),
+        )?;
 
         assert!(binary_fld.binary_value()?.is_some());
         assert!(string_fld.field_type().stored());
-        assert_eq!(binary_fld.field_type().index_options(), &IndexOptions::None);
+        assert_eq!(
+            binary_fld.field_type().index_options(),
+            &IndexOptions::None
+        );
         doc.add(binary_fld);
         doc.add(string_fld);
 
@@ -283,18 +303,18 @@ mod tests {
             Some(bf) => {
                 let bf_value = bf.utf8_to_string()?;
                 assert_eq!(bf_value, binary_val);
-            }
+            },
             None => {
                 unreachable!()
-            }
+            },
         }
         match doc.get("string")? {
             Some(sf) => {
                 assert_eq!(sf, binary_val.to_string().into());
-            }
+            },
             None => {
                 unreachable!()
-            }
+            },
         }
 
         doc.add(binary_fld2);
@@ -391,15 +411,18 @@ mod tests {
         let doc = make_document_with_fields()?;
 
         let keyword_values = doc.get_values("keyword")?;
-        let keyword_str: Vec<&str> = keyword_values.iter().map(|s| s.as_str()).collect();
+        let keyword_str: Vec<&str> =
+            keyword_values.iter().map(|s| s.as_str()).collect();
         assert_eq!(keyword_str, vec!["test1", "test2"]);
 
         let text_values = doc.get_values("text")?;
-        let text_str: Vec<&str> = text_values.iter().map(|s| s.as_str()).collect();
+        let text_str: Vec<&str> =
+            text_values.iter().map(|s| s.as_str()).collect();
         assert_eq!(text_str, vec!["test1", "test2"]);
 
         let unindexed_values = doc.get_values("unindexed")?;
-        let unindexed_str: Vec<&str> = unindexed_values.iter().map(|s| s.as_str()).collect();
+        let unindexed_str: Vec<&str> =
+            unindexed_values.iter().map(|s| s.as_str()).collect();
         assert_eq!(unindexed_str, vec!["test1", "test2"]);
 
         let nope_values = doc.get_values("nope")?;
@@ -419,7 +442,8 @@ mod tests {
         stored.set_stored(true)?;
         let stored = Arc::new(stored);
         let mut indexed_not_tokenized = FieldType::new();
-        indexed_not_tokenized.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
+        indexed_not_tokenized
+            .set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
         indexed_not_tokenized.set_tokenized(false)?;
         let indexed_not_tokenized = Arc::new(indexed_not_tokenized);
         doc.add(StringField::with_string("keyword", "test1", Store::Yes)?);

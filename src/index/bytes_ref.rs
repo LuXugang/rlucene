@@ -96,17 +96,21 @@ where
     /// * `other` - Another BytesRef
     pub fn bytes_equals(&self, other: &BytesRef<AV>) -> bool {
         with_other!(self.bytes, other.bytes, |ints_bytes, other_bytes| {
-            let self_slice = &ints_bytes[self.offset..(self.offset + self.length)];
-            let other_slice = &other_bytes[other.offset..(other.offset + other.length)];
+            let self_slice =
+                &ints_bytes[self.offset..(self.offset + self.length)];
+            let other_slice =
+                &other_bytes[other.offset..(other.offset + other.length)];
             self_slice == other_slice
         })
     }
     /// Interprets the stored bytes as UTF-8, returning the resulting string.
     pub fn utf8_to_string(&self) -> Result<String> {
         self.bytes.access(|bytes| {
-            std::str::from_utf8(&bytes[self.offset..(self.offset + self.length)])
-                .map(|s| s.to_owned())
-                .map_err(LuceneError::Utf8Error)
+            std::str::from_utf8(
+                &bytes[self.offset..(self.offset + self.length)],
+            )
+            .map(|s| s.to_owned())
+            .map_err(LuceneError::Utf8Error)
         })
     }
     pub fn deep_copy_of(other: &BytesRef<AV>) -> Self {
@@ -262,7 +266,8 @@ mod tests {
                 .take(length)
                 .map(char::from)
                 .collect::<String>();
-            let s2: String = BytesRef::<Vec<u8>>::from_string(&s).utf8_to_string()?;
+            let s2: String =
+                BytesRef::<Vec<u8>>::from_string(&s).utf8_to_string()?;
             assert_eq!(s, s2);
         }
         let s = TestUtil::random_unicode_string(&mut random);

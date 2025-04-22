@@ -48,7 +48,10 @@ where
 
     pub fn with_bytes(bytes: AV) -> Self {
         let len = bytes.len();
-        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
+        debug_assert!(
+            len <= i32::MAX as usize,
+            "bytes length exceeds u32 range"
+        );
         Self::with_range(bytes, 0, len as i32)
     }
     pub fn with_range(bytes: AV, offset: i32, length: i32) -> Self {
@@ -59,7 +62,10 @@ where
 
     pub fn reset(&mut self, bytes: AV) {
         let len = bytes.len();
-        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
+        debug_assert!(
+            len <= i32::MAX as usize,
+            "bytes length exceeds u32 range"
+        );
         self.reset_with_range(bytes, 0, len as i32);
     }
     pub fn reset_with_range(&mut self, bytes: AV, offset: i32, length: i32) {
@@ -112,7 +118,12 @@ where
         })
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         self.bytes.access(|bytes| {
             b.copy_from(
                 &bytes[self.pos as usize..(self.pos + len) as usize],

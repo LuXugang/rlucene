@@ -56,7 +56,11 @@ pub trait StoredFields {
     // TODO: we need a separate StoredField, so that the
     // Document returned here contains that struct not
     // IndexableField
-    fn document(&mut self, doc_id: i32, writer: &mut impl StoredFieldsWriter) -> Result<Document> {
+    fn document(
+        &mut self,
+        doc_id: i32,
+        writer: &mut impl StoredFieldsWriter,
+    ) -> Result<Document> {
         let mut visitor = DocumentStoredFieldVisitor::new();
         self.document_with_visitor(doc_id, &mut visitor, writer)?;
         Ok(visitor.get_document_owner())
@@ -80,7 +84,8 @@ pub trait StoredFields {
         fields_to_load: &HashSet<String>,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<Document> {
-        let mut visitor = DocumentStoredFieldVisitor::with_fields(fields_to_load);
+        let mut visitor =
+            DocumentStoredFieldVisitor::with_fields(fields_to_load);
         self.document_with_visitor(doc_id, &mut visitor, writer)?;
         Ok(visitor.get_document_owner())
     }

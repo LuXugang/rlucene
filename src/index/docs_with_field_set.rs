@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator};
+use crate::search::doc_id_set_iterator::{
+    AllDocIdSetIterator, DocIdSetIterator,
+};
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
@@ -130,7 +132,8 @@ impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
         if self.set.length() != 0 {
             debug_assert!(self.cardinality > 0);
             Some(DocsWithFieldSetEnum::Sparse(
-                BitSetIterator::new(&self.set, self.cardinality as i64).unwrap(),
+                BitSetIterator::new(&self.set, self.cardinality as i64)
+                    .unwrap(),
             ))
         } else {
             Some(DocsWithFieldSetEnum::Dense(AllDocIdSetIterator::new(

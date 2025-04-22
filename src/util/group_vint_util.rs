@@ -102,10 +102,14 @@ impl GroupVIntUtil {
             let n3_minus1 = (flag >> 2) & 0x03;
             let n4_minus1 = flag & 0x03;
 
-            dst[offset] = Self::read_int_in_group(data_input, n1_minus1)? as u32 as i64;
-            dst[offset + 1] = Self::read_int_in_group(data_input, n2_minus1)? as u32 as i64;
-            dst[offset + 2] = Self::read_int_in_group(data_input, n3_minus1)? as u32 as i64;
-            dst[offset + 3] = Self::read_int_in_group(data_input, n4_minus1)? as u32 as i64;
+            dst[offset] =
+                Self::read_int_in_group(data_input, n1_minus1)? as u32 as i64;
+            dst[offset + 1] =
+                Self::read_int_in_group(data_input, n2_minus1)? as u32 as i64;
+            dst[offset + 2] =
+                Self::read_int_in_group(data_input, n3_minus1)? as u32 as i64;
+            dst[offset + 3] =
+                Self::read_int_in_group(data_input, n4_minus1)? as u32 as i64;
 
             Ok(())
         }
@@ -130,15 +134,22 @@ impl GroupVIntUtil {
             let n3_minus1 = (flag >> 2) & 0x03;
             let n4_minus1 = flag & 0x03;
 
-            dst[offset as usize] = Self::read_int_in_group(data_input, n1_minus1)?;
-            dst[offset as usize + 1] = Self::read_int_in_group(data_input, n2_minus1)?;
-            dst[offset as usize + 2] = Self::read_int_in_group(data_input, n3_minus1)?;
-            dst[offset as usize + 3] = Self::read_int_in_group(data_input, n4_minus1)?;
+            dst[offset as usize] =
+                Self::read_int_in_group(data_input, n1_minus1)?;
+            dst[offset as usize + 1] =
+                Self::read_int_in_group(data_input, n2_minus1)?;
+            dst[offset as usize + 2] =
+                Self::read_int_in_group(data_input, n3_minus1)?;
+            dst[offset as usize + 3] =
+                Self::read_int_in_group(data_input, n4_minus1)?;
 
             Ok(())
         }
     }
-    fn read_int_in_group(data_input: &mut impl DataInput, num_bytes_minus1: usize) -> Result<i32> {
+    fn read_int_in_group(
+        data_input: &mut impl DataInput,
+        num_bytes_minus1: usize,
+    ) -> Result<i32> {
         match num_bytes_minus1 {
             0 => Ok(data_input.read_byte()? as i32),
             1 => Ok(data_input.read_short()? as u16 as i32),
@@ -146,7 +157,7 @@ impl GroupVIntUtil {
                 let short_part = data_input.read_short()? as u16 as u32;
                 let byte_part = (data_input.read_byte()? as u32) << 16;
                 Ok((short_part | byte_part) as i32)
-            }
+            },
             _ => data_input.read_int(),
         }
     }
@@ -185,20 +196,24 @@ impl GroupVIntUtil {
         let n4_minus1 = flag & 0x03;
         // This code path has fewer conditionals and tends to be significantly faster in benchmarks
 
-        dst[offset as usize] = (RandomAccessInput::read_int(data_input, pos)? as u64
-            & Self::LONG_MASKS[n1_minus1]) as i64;
+        dst[offset as usize] =
+            (RandomAccessInput::read_int(data_input, pos)? as u64
+                & Self::LONG_MASKS[n1_minus1]) as i64;
         pos += 1 + n1_minus1 as i64;
 
-        dst[offset as usize + 1] = (RandomAccessInput::read_int(data_input, pos)? as u64
-            & Self::LONG_MASKS[n2_minus1]) as i64;
+        dst[offset as usize + 1] =
+            (RandomAccessInput::read_int(data_input, pos)? as u64
+                & Self::LONG_MASKS[n2_minus1]) as i64;
         pos += 1 + n2_minus1 as i64;
 
-        dst[offset as usize + 2] = (RandomAccessInput::read_int(data_input, pos)? as u64
-            & Self::LONG_MASKS[n3_minus1]) as i64;
+        dst[offset as usize + 2] =
+            (RandomAccessInput::read_int(data_input, pos)? as u64
+                & Self::LONG_MASKS[n3_minus1]) as i64;
         pos += 1 + n3_minus1 as i64;
 
-        dst[offset as usize + 3] = (RandomAccessInput::read_int(data_input, pos)? as u64
-            & Self::LONG_MASKS[n4_minus1]) as i64;
+        dst[offset as usize + 3] =
+            (RandomAccessInput::read_int(data_input, pos)? as u64
+                & Self::LONG_MASKS[n4_minus1]) as i64;
         pos += 1 + n4_minus1 as i64;
         let result = pos - pos_start;
         debug_assert!(
@@ -242,20 +257,24 @@ impl GroupVIntUtil {
         let n4_minus1 = flag & 0x03;
         // This code path has fewer conditionals and tends to be significantly faster in benchmarks
 
-        dst[offset as usize] = (RandomAccessInput::read_int(data_input, pos)? as u32
+        dst[offset as usize] = (RandomAccessInput::read_int(data_input, pos)?
+            as u32
             & Self::INT_MASKS[n1_minus1]) as i32;
         pos += 1 + n1_minus1 as i64;
 
-        dst[offset as usize + 1] = (RandomAccessInput::read_int(data_input, pos)? as u32
-            & Self::INT_MASKS[n2_minus1]) as i32;
+        dst[offset as usize + 1] =
+            (RandomAccessInput::read_int(data_input, pos)? as u32
+                & Self::INT_MASKS[n2_minus1]) as i32;
         pos += 1 + n2_minus1 as i64;
 
-        dst[offset as usize + 2] = (RandomAccessInput::read_int(data_input, pos)? as u32
-            & Self::INT_MASKS[n3_minus1]) as i32;
+        dst[offset as usize + 2] =
+            (RandomAccessInput::read_int(data_input, pos)? as u32
+                & Self::INT_MASKS[n3_minus1]) as i32;
         pos += 1 + n3_minus1 as i64;
 
-        dst[offset as usize + 3] = (RandomAccessInput::read_int(data_input, pos)? as u32
-            & Self::INT_MASKS[n4_minus1]) as i32;
+        dst[offset as usize + 3] =
+            (RandomAccessInput::read_int(data_input, pos)? as u32
+                & Self::INT_MASKS[n4_minus1]) as i32;
         pos += 1 + n4_minus1 as i64;
         let result = pos - pos_start;
         debug_assert!(
@@ -294,9 +313,12 @@ impl GroupVIntUtil {
         while (limit as usize - read_pos) >= 4 {
             let mut write_pos: usize = 0;
             let n1_minus1 = Self::num_bytes(Self::get_int(values[read_pos])?);
-            let n2_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 1])?);
-            let n3_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 2])?);
-            let n4_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 3])?);
+            let n2_minus1 =
+                Self::num_bytes(Self::get_int(values[read_pos + 1])?);
+            let n3_minus1 =
+                Self::num_bytes(Self::get_int(values[read_pos + 2])?);
+            let n4_minus1 =
+                Self::num_bytes(Self::get_int(values[read_pos + 3])?);
 
             let flag = ((n1_minus1 - 1) << 6)
                 | ((n2_minus1 - 1) << 4)
@@ -337,7 +359,10 @@ impl GroupVIntUtil {
             );
             write_pos += (n4_minus1) as usize;
 
-            debug_assert!(write_pos <= i32::MAX as usize, "write_pos exceeds u32::MAX");
+            debug_assert!(
+                write_pos <= i32::MAX as usize,
+                "write_pos exceeds u32::MAX"
+            );
             data_output.write_bytes_with_len(scratch, write_pos as i32)?;
             read_pos += 4;
         }
@@ -406,7 +431,10 @@ impl GroupVIntUtil {
             );
             write_pos += (n4_minus1) as usize;
 
-            debug_assert!(write_pos <= i32::MAX as usize, "write_pos exceeds u32::MAX");
+            debug_assert!(
+                write_pos <= i32::MAX as usize,
+                "write_pos exceeds u32::MAX"
+            );
             data_output.write_bytes_with_len(scratch, write_pos as i32)?;
             read_pos += 4;
         }

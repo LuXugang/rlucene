@@ -14,48 +14,59 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::doc_values::{
-    BinaryDocValuesEnum, DocValuesSkipperEnum, NumericDocValuesEnum, SortedDocValuesEnum,
-    SortedNumericDocValuesEnum, SortedSetDocValuesEnum,
+use crate::codecs::lucene90::lucene90_doc_values_enums::Lucene90NumericDocValuesEnums;
+use crate::codecs::lucene90_doc_values_enums::{
+    Lucene90BinaryDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
+    Lucene90SortedSetDocValuesEnum,
 };
-use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
+use crate::codecs::lucene90_doc_values_producer::{
+    BaseSortedDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
+};
+use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::doc_values_skipper::DocValuesSkipper;
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::store::IndexInput;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
 use std::rc::Rc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted numeric doc values.
-pub trait DocValuesProducer<I, AV>
+pub trait DocValuesProducer<AV>
 where
-    I: IndexInput,
     AV: AccessVec<u8>,
 {
     type NumericDocValues: NumericDocValues;
     /// Returns [`NumericDocValues`] for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::NUMERIC`](crate::index::doc_values_type::DocValuesType::Numeric).
-    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::NumericDocValues> {
         Err(LuceneError::need_implemented(""))
     }
+    type BinaryDocValues: BinaryDocValues;
     /// Returns [`BinaryDocValues`](crate::index::binary_doc_values::BinaryDocValues) for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::BINARY`](crate::index::doc_values_type::DocValuesType::Binary). The return value is never `null`.
-    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
+    fn get_binary(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::BinaryDocValues> {
         Err(LuceneError::need_implemented(""))
     }
-    // TODO: 这里可以都改成泛型 这样DocValuesProducer就不需要使用泛型I
-
+    type SortedDocValues: SortedDocValues<AV>;
     /// Returns [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues) for this field. The returned instance need not be thread-safe:
     /// it will only be used by a single thread. The behavior is undefined if the doc values type of
     /// the given field is not [`DocValuesType::SORTED`](crate::index::doc_values_type::DocValuesType::Sorted). The return value is never `null`.
     fn get_sorted(
         &mut self,
         _field: &Rc<FieldInfo>,
-    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I, AV>>>> {
+    ) -> Result<Self::SortedDocValues> {
         Err(LuceneError::need_implemented(""))
     }
     type SortedNumericDocValues: SortedNumericDocValues;
@@ -70,18 +81,26 @@ where
         Err(LuceneError::need_implemented(""))
     }
 
+    type SortedSetDocValues: SortedSetDocValues<AV>;
     /// Returns [`SortedSetDocValues`](crate::index::sorted_set_doc_values::SortedSetDocValues) for this field. The returned instance need not be
     /// thread-safe: it will only be used by a single thread. The behavior is undefined if the doc
     /// values type of the given field is not [`DocValuesType::SORTED_SET`](crate::index::doc_values_type::DocValuesType::SortedSet). The return value is
     /// never `null`.
-    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I, AV>> {
+    fn get_sorted_set(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::SortedSetDocValues> {
         Err(LuceneError::need_implemented(""))
     }
+    type DocValuesSkipper: DocValuesSkipper;
     /// Returns a [`DocValuesSkipper`](crate::index::doc_values_skipper::DocValuesSkipper) for this field. The returned instance need not be
     /// thread-safe: it will only be used by a single thread. The return value is undefined if
     /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
     /// [`DocValuesSkipIndexType::NONE`](crate::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
-    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
+    fn get_skipper(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::DocValuesSkipper> {
         Err(LuceneError::need_implemented(""))
     }
     /// Checks consistency of this producer.
@@ -91,84 +110,113 @@ where
     fn check_integrity(&mut self) -> Result<()> {
         Err(LuceneError::need_implemented(""))
     }
-
-    /// Returns an instance optimized for merging. This instance may only be consumed in the thread
-    /// that called [`get_merge_instance()`](DocValuesProducer::get_merge_instance).
-    ///
-    /// The default implementation returns `self`.
-    /// # Note
-    /// Returning None means returning itself.
-    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I, AV>>> {
-        Ok(None)
-    }
 }
-pub enum DocValuesProducerEnum<I, AV>
+
+// pub trait DocValuesProducerBase<I> where I: IndexInput {
+//     type DocValuesProducer = DocValuesProducer<>
+//     /// Returns an instance optimized for merging. This instance may only be consumed in the thread
+//     /// that called [`get_merge_instance()`](DocValuesProducer::get_merge_instance).
+//     ///
+//     /// The default implementation returns `self`.
+//     /// # Note
+//     /// Returning None means returning itself.
+//     fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I>>> {
+//         Ok(None)
+//     }
+// }
+pub enum DocValuesProducerEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
-    Lucene90(Lucene90DocValuesProducer<I, AV>),
+    Lucene90(Lucene90DocValuesProducer<I>),
 }
-impl<I, AV> DocValuesProducer<I, AV> for DocValuesProducerEnum<I, AV>
+impl<I> DocValuesProducer<Vec<u8>> for DocValuesProducerEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
-    type NumericDocValues = NumericDocValuesEnum<I, AV>;
+    type NumericDocValues = Lucene90NumericDocValuesEnums<I>;
 
-    fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<NumericDocValuesEnum<I, AV>> {
+    fn get_numeric(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::NumericDocValues> {
         match self {
-            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_numeric(field),
+            DocValuesProducerEnum::Lucene90(lucene90) => {
+                lucene90.get_numeric(_field)
+            },
         }
     }
 
-    fn get_binary(&mut self, field: &Rc<FieldInfo>) -> Result<BinaryDocValuesEnum<I>> {
+    type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
+
+    fn get_binary(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::BinaryDocValues> {
         match self {
-            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_binary(field),
+            DocValuesProducerEnum::Lucene90(lucene90) => {
+                lucene90.get_binary(_field)
+            },
         }
     }
+
+    type SortedDocValues = BaseSortedDocValues<I>;
 
     fn get_sorted(
         &mut self,
-        field: &Rc<FieldInfo>,
-    ) -> Result<Rc<RefCell<SortedDocValuesEnum<I, AV>>>> {
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::SortedDocValues> {
         match self {
-            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted(field),
+            DocValuesProducerEnum::Lucene90(lucene90) => {
+                lucene90.get_sorted(_field)
+            },
         }
     }
 
-    type SortedNumericDocValues = SortedNumericDocValuesEnum<I, AV>;
+    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnums<I>;
 
     fn get_sorted_numeric(
         &mut self,
-        field: &Rc<FieldInfo>,
-    ) -> Result<SortedNumericDocValuesEnum<I, AV>> {
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::SortedNumericDocValues> {
         match self {
-            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted_numeric(field),
+            DocValuesProducerEnum::Lucene90(lucene90) => {
+                lucene90.get_sorted_numeric(_field)
+            },
         }
     }
 
-    fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<SortedSetDocValuesEnum<I, AV>> {
+    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<I>;
+
+    fn get_sorted_set(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::SortedSetDocValues> {
         match self {
-            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_sorted_set(field),
+            DocValuesProducerEnum::Lucene90(lucene90) => {
+                lucene90.get_sorted_set(_field)
+            },
         }
     }
 
-    fn get_skipper(&mut self, field: &Rc<FieldInfo>) -> Result<DocValuesSkipperEnum<I>> {
+    type DocValuesSkipper = DocValuesSkipperImpl<I>;
+
+    fn get_skipper(
+        &mut self,
+        _field: &Rc<FieldInfo>,
+    ) -> Result<Self::DocValuesSkipper> {
         match self {
-            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_skipper(field),
+            DocValuesProducerEnum::Lucene90(lucene90) => {
+                lucene90.get_skipper(_field)
+            },
         }
     }
 
     fn check_integrity(&mut self) -> Result<()> {
         match self {
-            DocValuesProducerEnum::Lucene90(lucene) => lucene.check_integrity(),
-        }
-    }
-
-    fn get_merge_instance(&mut self) -> Result<Option<DocValuesProducerEnum<I, AV>>> {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene) => lucene.get_merge_instance(),
+            DocValuesProducerEnum::Lucene90(lucene90) => {
+                lucene90.check_integrity()
+            },
         }
     }
 }

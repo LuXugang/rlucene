@@ -44,8 +44,16 @@ impl<T> AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase<PagedMutableBase = T>,
 {
-    pub fn new(size: i64, page_size: i32, sub_reader: T) -> Result<AbstractPagedMutable<T>> {
-        let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
+    pub fn new(
+        size: i64,
+        page_size: i32,
+        sub_reader: T,
+    ) -> Result<AbstractPagedMutable<T>> {
+        let page_shift = PackedInts::check_block_size(
+            page_size,
+            MIN_BLOCK_SIZE,
+            MAX_BLOCK_SIZE,
+        )?;
         let page_mask = page_size - 1;
         let num_pages = PackedInts::num_blocks(size, page_size)?;
         let mut sub_mutables = Vec::with_capacity(num_pages as usize);
@@ -122,7 +130,8 @@ where
         let mut copy = self
             .sub_reader
             .new_unfilled_copy(new_size, self.page_size())?;
-        let num_common_pages = std::cmp::min(copy.sub_mutables.len(), self.sub_mutables.len());
+        let num_common_pages =
+            std::cmp::min(copy.sub_mutables.len(), self.sub_mutables.len());
         let mut copy_buffer = vec![0i64; 1024];
         for i in 0..copy.sub_mutables.len() {
             // Determine the number of values in the current page
@@ -136,10 +145,12 @@ where
             } else {
                 self.sub_reader.bits_per_value()
             };
-            copy.sub_mutables[i] = self.sub_reader.new_mutable(value_count, bpv)?;
+            copy.sub_mutables[i] =
+                self.sub_reader.new_mutable(value_count, bpv)?;
 
             if i < num_common_pages {
-                let copy_length = std::cmp::min(value_count, self.sub_mutables[i].size());
+                let copy_length =
+                    std::cmp::min(value_count, self.sub_mutables[i].size());
                 PackedInts::copy_with_buffer(
                     &mut self.sub_mutables[i],
                     0,
@@ -152,7 +163,10 @@ where
         }
         Ok(copy)
     }
-    pub fn grow_with_size(&mut self, min_size: i64) -> Result<Option<AbstractPagedMutable<T>>> {
+    pub fn grow_with_size(
+        &mut self,
+        min_size: i64,
+    ) -> Result<Option<AbstractPagedMutable<T>>> {
         if min_size <= self.size {
             return Ok(None);
         }
@@ -206,7 +220,11 @@ where
     }
 }
 pub(crate) trait AbstractPagedMutableBase: Default {
-    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum>;
+    fn new_mutable(
+        &self,
+        value_count: i32,
+        bits_per_value: i32,
+    ) -> Result<MutableEnum>;
     type PagedMutableBase: AbstractPagedMutableBase;
     fn new_unfilled_copy(
         &self,

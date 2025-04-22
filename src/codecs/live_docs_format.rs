@@ -56,7 +56,11 @@ pub trait LiveDocsFormat {
         D: Directory;
 
     /// Records all files in use by this [`SegmentCommitInfo`] into the files argument.
-    fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
+    fn files<D>(
+        &self,
+        info: &SegmentCommitInfo<D>,
+        files: &mut HashSet<String>,
+    ) -> Result<()>
     where
         D: Directory;
 }

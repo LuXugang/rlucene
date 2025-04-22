@@ -74,7 +74,11 @@ impl TextField {
     /// - `reader`: `ReaderEnum` value.
     pub fn with_reader(name: &str, reader: ReaderEnum) -> Result<Self> {
         let name_arc = Arc::new(name.to_string());
-        let parent_field = Field::with_reader(name, reader, Arc::clone(&text::TYPE_NOT_STORED))?;
+        let parent_field = Field::with_reader(
+            name,
+            reader,
+            Arc::clone(&text::TYPE_NOT_STORED),
+        )?;
         Ok(Self {
             parent_field,
             stored_value: None,
@@ -94,7 +98,8 @@ impl TextField {
         } else {
             Arc::clone(&text::TYPE_NOT_STORED)
         };
-        let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
+        let parent_field =
+            Field::with_string(name, value_str.clone(), field_type.clone())?;
         let stored_value = if store {
             Some(StoredValue::new_string(value_str))
         } else {
@@ -110,9 +115,15 @@ impl TextField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `stream`: `TokenStream` value.
-    pub fn with_token_stream(name: &str, stream: TokenStreamEnum) -> Result<Self> {
-        let parent_field =
-            Field::with_token_stream(name, stream, Arc::clone(&text::TYPE_NOT_STORED))?;
+    pub fn with_token_stream(
+        name: &str,
+        stream: TokenStreamEnum,
+    ) -> Result<Self> {
+        let parent_field = Field::with_token_stream(
+            name,
+            stream,
+            Arc::clone(&text::TYPE_NOT_STORED),
+        )?;
         Ok(Self {
             parent_field,
             stored_value: None,

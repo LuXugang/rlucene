@@ -21,7 +21,9 @@ use crate::util::longs_ref::LongsRef;
 use crate::util::packed::abstract_block_packed_writer::{
     BPV_SHIFT, MAX_BLOCK_SIZE, MIN_BLOCK_SIZE, MIN_VALUE_EQUALS_0,
 };
-use crate::util::packed::{Decoder, Format, FormatBehavior, PackedImpl, PackedInts};
+use crate::util::packed::{
+    Decoder, Format, FormatBehavior, PackedImpl, PackedInts,
+};
 
 /// Reader for sequences of longs written with [`BlockPackedWriter`](crate::util::packed::block_packed_writer::BlockPackedWriter).
 ///
@@ -74,7 +76,11 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         block_size: i32,
         value_count: i64,
     ) -> Result<Self> {
-        PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
+        PackedInts::check_block_size(
+            block_size,
+            MIN_BLOCK_SIZE,
+            MAX_BLOCK_SIZE,
+        )?;
         let values = vec![0; block_size as usize];
         let long_ref = LongsRef::from_slice(values, 0, 0);
         Ok(Self {
@@ -119,7 +125,8 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         }
 
         // 1. Skip buffered values
-        let skip_buffer = std::cmp::min(count, (self.block_size - self.off) as i64);
+        let skip_buffer =
+            std::cmp::min(count, (self.block_size - self.off) as i64);
         self.off += skip_buffer as i32;
         self.ord += skip_buffer;
         count -= skip_buffer;
@@ -134,7 +141,9 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
             let bits_per_value = token >> BPV_SHIFT;
 
             if bits_per_value > 64 {
-                return Err(LuceneError::corrupt_index("Corrupted: bits_per_value > 64"));
+                return Err(LuceneError::corrupt_index(
+                    "Corrupted: bits_per_value > 64",
+                ));
             }
 
             if (token & MIN_VALUE_EQUALS_0) == 0 {
@@ -164,7 +173,8 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     }
     fn skip_bytes(&mut self, count: i64) -> Result<()> {
         if self.data_input.is_index_input() {
-            let new_position = self.data_input.get_file_pointer_in_data_input() + count;
+            let new_position =
+                self.data_input.get_file_pointer_in_data_input() + count;
             self.data_input.seek_in_data_input(new_position)?;
         } else {
             // Use a temporary buffer to skip bytes
@@ -174,10 +184,14 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
 
             let mut skipped = 0;
             while skipped < count {
-                let to_skip = std::cmp::min(self.blocks.len() as i64, count - skipped);
+                let to_skip =
+                    std::cmp::min(self.blocks.len() as i64, count - skipped);
                 debug_assert!(to_skip <= i32::MAX as i64);
-                self.data_input
-                    .read_bytes(&mut self.blocks, 0, to_skip as i32)?;
+                self.data_input.read_bytes(
+                    &mut self.blocks,
+                    0,
+                    to_skip as i32,
+                )?;
                 skipped += to_skip;
             }
         }
@@ -244,12 +258,16 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         let bits_per_value = token >> BPV_SHIFT;
 
         if bits_per_value > 64 {
-            return Err(LuceneError::corrupt_index("Corrupted: bits_per_value > 64"));
+            return Err(LuceneError::corrupt_index(
+                "Corrupted: bits_per_value > 64",
+            ));
         }
         let min_value = if min_equals_0 {
             0
         } else {
-            BitUtil::zig_zag_decode_i64((1 + Self::read_vlong(self.data_input)?) as u64)
+            BitUtil::zig_zag_decode_i64(
+                (1 + Self::read_vlong(self.data_input)?) as u64,
+            )
         };
         debug_assert!(min_equals_0 || min_value != 0);
 
@@ -262,15 +280,18 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
                 bits_per_value,
             )?;
 
-            let iterations = self.block_size / Decoder::byte_value_count(decoder);
+            let iterations =
+                self.block_size / Decoder::byte_value_count(decoder);
             let blocks_size = iterations * Decoder::byte_block_count(decoder);
 
             if self.blocks.len() < blocks_size as usize {
                 self.blocks = vec![0; blocks_size as usize];
             }
 
-            let value_count =
-                std::cmp::min(self.value_count - self.ord, self.block_size as i64) as i32;
+            let value_count = std::cmp::min(
+                self.value_count - self.ord,
+                self.block_size as i64,
+            ) as i32;
 
             let blocks_count = Format::Packed(PackedImpl::new(0)).byte_count(
                 self.packed_ints_version,
@@ -278,10 +299,19 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
                 bits_per_value,
             );
             debug_assert!(blocks_count <= i32::MAX as i64);
-            self.data_input
-                .read_bytes(&mut self.blocks, 0, blocks_count as i32)?;
+            self.data_input.read_bytes(
+                &mut self.blocks,
+                0,
+                blocks_count as i32,
+            )?;
 
-            decoder.decode_u8_to_i64(&self.blocks, 0, &mut self.values_ref.longs, 0, iterations);
+            decoder.decode_u8_to_i64(
+                &self.blocks,
+                0,
+                &mut self.values_ref.longs,
+                0,
+                iterations,
+            );
             if min_value != 0 {
                 for i in 0..value_count as usize {
                     self.values_ref.longs[i] += min_value;

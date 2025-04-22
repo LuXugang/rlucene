@@ -49,7 +49,11 @@ impl Directory for DummyDirectory {
         ))
     }
     #[allow(refining_impl_trait)]
-    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {
+    fn create_output(
+        &mut self,
+        _name: &str,
+        _context: &IOContext,
+    ) -> Result<DummyIndexOutput> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -87,7 +91,11 @@ impl Directory for DummyDirectory {
 
     type IndexInputType = DummyIndexInput;
 
-    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(
+        &self,
+        _name: &str,
+        _context: &IOContext,
+    ) -> Result<Self::IndexInputType> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

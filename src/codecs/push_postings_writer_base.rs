@@ -43,7 +43,11 @@ use std::rc::Rc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub struct PushPostingsWriterBase<T: TermsEnum<AV>, N: NormsProducer, AV: AccessVec<u8>> {
+pub struct PushPostingsWriterBase<
+    T: TermsEnum<AV>,
+    N: NormsProducer,
+    AV: AccessVec<u8>,
+> {
     /// Reused in `write_term`
     postings_enum: Option<T::PostingsEnum>,
     enum_flags: i32,
@@ -127,7 +131,10 @@ where
         sub.start_term(norm_values)?;
 
         self.postings_enum =
-            Some(terms_enum.postings_with_flags(self.postings_enum.take(), self.enum_flags)?);
+            Some(terms_enum.postings_with_flags(
+                self.postings_enum.take(),
+                self.enum_flags,
+            )?);
 
         let mut doc_freq = 0;
         let mut total_term_freq = 0i64;
@@ -159,7 +166,10 @@ where
                         None
                     };
                     let (start_offset, end_offset) = if self.write_offsets {
-                        (postings_enum.start_offset()?, postings_enum.end_offset()?)
+                        (
+                            postings_enum.start_offset()?,
+                            postings_enum.end_offset()?,
+                        )
                     } else {
                         (-1, -1)
                     };
@@ -204,8 +214,10 @@ where
         self.index_options = *self.field_info.get_index_options();
 
         self.write_freqs = self.index_options >= IndexOptions::DocsAndFreqs;
-        self.write_positions = self.index_options >= IndexOptions::DocsAndFreqsAndPositions;
-        self.write_offsets = self.index_options >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
+        self.write_positions =
+            self.index_options >= IndexOptions::DocsAndFreqsAndPositions;
+        self.write_offsets = self.index_options
+            >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
         self.write_payloads = self.field_info.has_payloads();
 
         self.enum_flags = if !self.write_freqs {

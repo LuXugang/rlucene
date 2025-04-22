@@ -118,7 +118,9 @@ mod tests {
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(
+                self, random, num_bits, ds1, ds2,
+            )
         }
     }
 

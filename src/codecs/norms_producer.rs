@@ -31,7 +31,10 @@ pub trait NormsProducer {
     /// it will only be used by a single thread.
     ///
     /// Behavior is undefined if the given field does not have norms enabled.
-    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Self::NumericDocValues>;
+    fn get_norms(
+        &mut self,
+        field: &Rc<FieldInfo>,
+    ) -> Result<Self::NumericDocValues>;
 
     /// Checks consistency of this producer.
     ///
@@ -72,7 +75,10 @@ where
 {
     type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
 
-    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
+    fn get_norms(
+        &mut self,
+        field: &Rc<FieldInfo>,
+    ) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
         match self {
             NormsProducerEnum::Lucene90(producer) => producer.get_norms(field),
         }

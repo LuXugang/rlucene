@@ -29,7 +29,10 @@ pub struct ByteBuffersIndexInput<'a> {
     resource_description: String,
 }
 impl<'a> ByteBuffersIndexInput<'a> {
-    pub fn new(data_input: ByteBuffersDataInput<'a>, resource_description: &str) -> Self {
+    pub fn new(
+        data_input: ByteBuffersDataInput<'a>,
+        resource_description: &str,
+    ) -> Self {
         Self {
             data_input,
             resource_description: resource_description.to_string(),
@@ -42,7 +45,12 @@ impl DataInput for ByteBuffersIndexInput<'_> {
         DataInput::read_byte(&mut self.data_input)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         DataInput::read_bytes(&mut self.data_input, b, offset, len)
     }
 
@@ -81,11 +89,21 @@ impl DataInput for ByteBuffersIndexInput<'_> {
         DataInput::read_long(&mut self.data_input)
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
+    fn read_longs(
+        &mut self,
+        dst: &mut [i64],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         self.data_input.read_longs(dst, offset, len)
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
+    fn read_floats(
+        &mut self,
+        dst: &mut [f32],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         self.data_input.read_floats(dst, offset, len)
     }
 
@@ -187,7 +205,12 @@ impl<'a> IndexInput for ByteBuffersIndexInput<'a> {
 
     type Slice = ByteBuffersIndexInput<'a>;
 
-    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: i64,
+        length: i64,
+    ) -> Result<Self::Slice> {
         Ok(ByteBuffersIndexInput::new(
             self.data_input.slice(offset, length)?,
             slice_description,
@@ -196,7 +219,11 @@ impl<'a> IndexInput for ByteBuffersIndexInput<'a> {
 
     type RandomAccessSlice = Self::Slice;
 
-    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice> {
+    fn random_access_slice(
+        &self,
+        offset: i64,
+        length: i64,
+    ) -> Result<Self::Slice> {
         self.slice("", offset, length)
     }
 }

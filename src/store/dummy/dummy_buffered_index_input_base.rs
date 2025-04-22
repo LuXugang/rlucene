@@ -49,7 +49,12 @@ impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
 
     type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
 
-    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
+    fn slice(
+        &self,
+        _slice_description: &str,
+        _offset: i64,
+        _length: i64,
+    ) -> Result<Self::Slice> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

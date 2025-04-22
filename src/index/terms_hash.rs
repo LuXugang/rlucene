@@ -44,14 +44,17 @@ impl TermsHash {
             int_pool: Rc::new(RefCell::new(IntBlockPool::with_allocator(
                 int_block_allocator,
             ))),
-            byte_pool: Rc::new(RefCell::new(ByteBlockPool::new(byte_block_allocator))),
+            byte_pool: Rc::new(RefCell::new(ByteBlockPool::new(
+                byte_block_allocator,
+            ))),
             term_byte_pool,
             bytes_used,
         };
 
         if let Some(next) = &mut terms_hash.next_terms_hash {
             // If we are the primary, share the byte pool
-            terms_hash.term_byte_pool = Option::from(terms_hash.byte_pool.clone());
+            terms_hash.term_byte_pool =
+                Option::from(terms_hash.byte_pool.clone());
             next.set_term_byte_pool(terms_hash.term_byte_pool.clone());
         }
 
@@ -61,7 +64,10 @@ impl TermsHash {
 #[allow(unused)]
 pub(crate) trait TermsHashBase {
     fn get_term_byte_pool(&self) -> Option<ByteBlockPoolBorrow>;
-    fn set_term_byte_pool(&mut self, term_byte_pool: Option<ByteBlockPoolBorrow>);
+    fn set_term_byte_pool(
+        &mut self,
+        term_byte_pool: Option<ByteBlockPoolBorrow>,
+    );
 }
 #[allow(unused)]
 pub(crate) enum TermsHashEnum {
@@ -72,15 +78,26 @@ impl TermsHashEnum {}
 impl TermsHashBase for TermsHashEnum {
     fn get_term_byte_pool(&self) -> Option<ByteBlockPoolBorrow> {
         match self {
-            TermsHashEnum::FreqProx(writer) => writer.get_term_byte_pool().clone(),
-            TermsHashEnum::TermVectors(consumer) => consumer.get_term_byte_pool().clone(),
+            TermsHashEnum::FreqProx(writer) => {
+                writer.get_term_byte_pool().clone()
+            },
+            TermsHashEnum::TermVectors(consumer) => {
+                consumer.get_term_byte_pool().clone()
+            },
         }
     }
 
-    fn set_term_byte_pool(&mut self, term_byte_pool: Option<ByteBlockPoolBorrow>) {
+    fn set_term_byte_pool(
+        &mut self,
+        term_byte_pool: Option<ByteBlockPoolBorrow>,
+    ) {
         match self {
-            TermsHashEnum::FreqProx(writer) => writer.set_term_byte_pool(term_byte_pool),
-            TermsHashEnum::TermVectors(consumer) => consumer.set_term_byte_pool(term_byte_pool),
+            TermsHashEnum::FreqProx(writer) => {
+                writer.set_term_byte_pool(term_byte_pool)
+            },
+            TermsHashEnum::TermVectors(consumer) => {
+                consumer.set_term_byte_pool(term_byte_pool)
+            },
         }
     }
 }

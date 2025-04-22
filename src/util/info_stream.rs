@@ -74,7 +74,9 @@ pub enum InfoStreamEnum {
 impl InfoStream for InfoStreamEnum {
     fn message(&mut self, component: &str, message: &str) {
         match self {
-            InfoStreamEnum::NoOutput(output) => output.message(component, message),
+            InfoStreamEnum::NoOutput(output) => {
+                output.message(component, message)
+            },
         }
     }
 

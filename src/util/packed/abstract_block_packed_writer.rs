@@ -23,7 +23,11 @@ pub(crate) const MIN_BLOCK_SIZE: i32 = 64;
 pub(crate) const MAX_BLOCK_SIZE: i32 = 1 << (30 - 3);
 pub(crate) const MIN_VALUE_EQUALS_0: i32 = 1 << 0;
 pub(crate) const BPV_SHIFT: i32 = 1;
-pub(crate) struct AbstractBlockPackedWriter<'a, T: DataOutput, D: AbstractBlockPackedWriterBase> {
+pub(crate) struct AbstractBlockPackedWriter<
+    'a,
+    T: DataOutput,
+    D: AbstractBlockPackedWriterBase,
+> {
     out: &'a mut T,
     values: Vec<i64>,
     blocks: Vec<u8>,
@@ -34,7 +38,9 @@ pub(crate) struct AbstractBlockPackedWriter<'a, T: DataOutput, D: AbstractBlockP
 }
 
 #[allow(unused)]
-impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<'a, T, D> {
+impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput>
+    AbstractBlockPackedWriter<'a, T, D>
+{
     /// Constructs a new `AbstractBlockPackedWriter`.
     ///
     /// # Arguments
@@ -46,7 +52,11 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     ///
     /// Returns an error if `block_size` is not valid.
     pub fn new(block_size: i32, sub_writer: D, out: &'a mut T) -> Result<Self> {
-        PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
+        PackedInts::check_block_size(
+            block_size,
+            MIN_BLOCK_SIZE,
+            MAX_BLOCK_SIZE,
+        )?;
 
         Ok(Self {
             out,
@@ -90,8 +100,12 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
         self.sub_writer.add(value);
         self.check_not_finished()?;
         if self.off as usize == self.values.len() {
-            self.sub_writer
-                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
+            self.sub_writer.flush(
+                self.out,
+                &mut self.off,
+                &mut self.values,
+                &mut self.blocks,
+            )?;
         }
         self.values[self.off as usize] = value;
         self.off += 1;
@@ -110,8 +124,12 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
             return Err(LuceneError::illegal_state(format!("{}", self.off)));
         }
         if self.off as usize == self.values.len() {
-            self.sub_writer
-                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
+            self.sub_writer.flush(
+                self.out,
+                &mut self.off,
+                &mut self.values,
+                &mut self.blocks,
+            )?;
         }
         self.values.fill(0);
         debug_assert!(self.values.len() <= i32::MAX as usize);
@@ -128,8 +146,12 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     pub fn finish(&mut self) -> Result<()> {
         self.check_not_finished()?;
         if self.off > 0 {
-            self.sub_writer
-                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
+            self.sub_writer.flush(
+                self.out,
+                &mut self.off,
+                &mut self.values,
+                &mut self.blocks,
+            )?;
         }
         self.finished = true;
         Ok(())
@@ -159,8 +181,10 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
             PackedInts::VERSION_CURRENT,
             bits_required,
         )?;
-        let iterations = values.len() / Encoder::byte_value_count(encoder) as usize;
-        let block_size = Encoder::byte_value_count(encoder) as usize * iterations;
+        let iterations =
+            values.len() / Encoder::byte_value_count(encoder) as usize;
+        let block_size =
+            Encoder::byte_value_count(encoder) as usize * iterations;
         if blocks.len() < block_size {
             *blocks = vec![0u8; block_size];
         }
@@ -171,8 +195,11 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
         }
         debug_assert!(iterations <= i32::MAX as usize);
         encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
-        let block_count =
-            Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
+        let block_count = Packed(PackedImpl::new(0)).byte_count(
+            PackedInts::VERSION_CURRENT,
+            off,
+            bits_required,
+        );
         debug_assert!(block_count <= i32::MAX as i64);
         out.write_bytes_with_len(blocks, block_count as i32)?;
         Ok(())
@@ -211,8 +238,11 @@ pub(crate) fn write_values(
     }
     debug_assert!(iterations <= i32::MAX as usize);
     encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
-    let block_count =
-        Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
+    let block_count = Packed(PackedImpl::new(0)).byte_count(
+        PackedInts::VERSION_CURRENT,
+        off,
+        bits_required,
+    );
     debug_assert!(block_count <= i32::MAX as i64);
     out.write_bytes_with_len(blocks, block_count as i32)?;
     Ok(())

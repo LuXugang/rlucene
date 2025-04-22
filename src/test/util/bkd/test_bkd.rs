@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
+use crate::codecs::mutable_point_tree::{
+    MutablePointTree, MutablePointTreeEnum,
+};
 use crate::index::merge_state::{DocMap, DocMapEnum};
 use crate::index::point_values::{
-    point_values_util, IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
+    point_values_util, IntersectVisitor, PointTree, PointValues,
+    PointValuesBase, Relation,
 };
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -44,7 +47,9 @@ use std::rc::Rc;
 #[allow(dead_code)] // for quick search
 struct TestBKD;
 
-fn get_point_values<I: IndexInput>(index_input: Rc<RefCell<I>>) -> Result<BKDReader<I>> {
+fn get_point_values<I: IndexInput>(
+    index_input: Rc<RefCell<I>>,
+) -> Result<BKDReader<I>> {
     BKDReader::new(index_input.clone(), index_input.clone(), index_input)
 }
 #[test]
@@ -54,7 +59,8 @@ fn test_basic_ints_1d() -> Result<()> {
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
 
     {
-        let mut writer = BKDWriter::new(100, dir.clone(), "tmp", config.clone(), 1.0, 100)?;
+        let mut writer =
+            BKDWriter::new(100, dir.clone(), "tmp", config.clone(), 1.0, 100)?;
         let mut scratch = [0u8; 4];
 
         for doc_id in 0..100 {
@@ -80,7 +86,8 @@ fn test_basic_ints_1d() -> Result<()> {
                 .borrow_mut()
                 .open_input("bkd", &IOContext::default_io_context()?)?;
             input.seek(index_fp)?;
-            let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+            let sub_point_values =
+                get_point_values(Rc::new(RefCell::new(input)))?;
 
             // Simple 1D range query:
             let mut query_min = vec![vec![0u8; 4]];
@@ -188,13 +195,19 @@ fn test_random_ints_n_dims() -> Result<()> {
         for dim in 0..num_index_dims as usize {
             assert_eq!(
                 min_value[dim],
-                NumericUtils::sortable_bytes_to_int(&min_packed_value, dim * BitUtil::INT_BYTES),
+                NumericUtils::sortable_bytes_to_int(
+                    &min_packed_value,
+                    dim * BitUtil::INT_BYTES
+                ),
                 "Mismatch in min value for dim {}",
                 dim
             );
             assert_eq!(
                 max_value[dim],
-                NumericUtils::sortable_bytes_to_int(&max_packed_value, dim * BitUtil::INT_BYTES),
+                NumericUtils::sortable_bytes_to_int(
+                    &max_packed_value,
+                    dim * BitUtil::INT_BYTES
+                ),
                 "Mismatch in max value for dim {}",
                 dim
             );
@@ -216,8 +229,16 @@ fn test_random_ints_n_dims() -> Result<()> {
                 if query_min[dim] > query_max[dim] {
                     std::mem::swap(&mut query_min[dim], &mut query_max[dim]);
                 }
-                NumericUtils::int_to_sortable_bytes(query_min[dim], &mut query_min_bytes[dim], 0);
-                NumericUtils::int_to_sortable_bytes(query_max[dim], &mut query_max_bytes[dim], 0);
+                NumericUtils::int_to_sortable_bytes(
+                    query_min[dim],
+                    &mut query_min_bytes[dim],
+                    0,
+                );
+                NumericUtils::int_to_sortable_bytes(
+                    query_max[dim],
+                    &mut query_max_bytes[dim],
+                    0,
+                );
             }
 
             let mut hits = BitSet::new();
@@ -328,9 +349,11 @@ fn test_big_int_n_dims() -> Result<()> {
                 println!("TEST: iter={}", iter);
             }
             let mut query_min = vec![BigInt::zero(); num_dims];
-            let mut query_min_bytes = vec![vec![0u8; num_bytes_per_dim]; num_dims];
+            let mut query_min_bytes =
+                vec![vec![0u8; num_bytes_per_dim]; num_dims];
             let mut query_max = vec![BigInt::zero(); num_dims];
-            let mut query_max_bytes = vec![vec![0u8; num_bytes_per_dim]; num_dims];
+            let mut query_max_bytes =
+                vec![vec![0u8; num_bytes_per_dim]; num_dims];
 
             for dim in 0..num_dims {
                 query_min[dim] = random_big_int(num_bytes_per_dim, &mut random);
@@ -417,7 +440,9 @@ fn test_too_little_heap() -> Result<()> {
     assert!(err.is_err());
     if let Err(err) = err {
         let err_msg = format!("{:?}", err);
-        assert!(err_msg.contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"));
+        assert!(err_msg.contains(
+            "either increase maxMBSortInHeap or decrease maxPointsInLeafNode"
+        ));
     }
     Ok(())
 }
@@ -425,16 +450,18 @@ fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<()> {
     let num_docs = TestUtil::next_int(random, count, count * 2);
     let num_bytes_per_dim = TestUtil::next_int(random, 2, 30);
 
-    let num_data_dims = TestUtil::next_int(random, 1, point_values_util::MAX_DIMENSIONS);
+    let num_data_dims =
+        TestUtil::next_int(random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(random, 1, num_data_dims),
         point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
-    let mut doc_values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        num_docs as usize
-    ];
+    let mut doc_values =
+        vec![
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            num_docs as usize
+        ];
 
     for doc_value in doc_values.iter_mut().take(num_docs as usize) {
         for val in doc_value.iter_mut().take(num_data_dims as usize) {
@@ -457,17 +484,19 @@ fn test_all_equal() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
+    let num_data_dims =
+        TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
         point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 1000);
-    let mut doc_values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        num_docs as usize
-    ];
+    let mut doc_values =
+        vec![
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            num_docs as usize
+        ];
 
     for doc_id in 0..num_docs as usize {
         if doc_id == 0 {
@@ -494,19 +523,22 @@ fn test_index_dim_equal_data_dim_different() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 2, point_values_util::MAX_DIMENSIONS);
+    let num_data_dims =
+        TestUtil::next_int(&mut random, 2, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims - 1),
         point_values_util::MAX_INDEX_DIMENSIONS,
     );
 
     let num_docs = at_least(&mut random, 1000);
-    let mut doc_values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        num_docs as usize
-    ];
+    let mut doc_values =
+        vec![
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            num_docs as usize
+        ];
 
-    let mut index_dimensions = vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+    let mut index_dimensions =
+        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
     for dim_value in index_dimensions.iter_mut().take(num_index_dims as usize) {
         random.fill_bytes(dim_value);
     }
@@ -543,7 +575,8 @@ fn test_one_dim_equal() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
+    let num_data_dims =
+        TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
         point_values_util::MAX_INDEX_DIMENSIONS,
@@ -551,10 +584,11 @@ fn test_one_dim_equal() -> Result<()> {
 
     let num_docs = at_least(&mut random, 1000);
     let the_equal_dim = random.random_range(0..num_data_dims);
-    let mut doc_values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        num_docs as usize
-    ];
+    let mut doc_values =
+        vec![
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            num_docs as usize
+        ];
 
     for doc_id in 0..num_docs as usize {
         for dim in 0..num_data_dims as usize {
@@ -584,7 +618,8 @@ fn test_one_dim_low_card() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 2, point_values_util::MAX_DIMENSIONS);
+    let num_data_dims =
+        TestUtil::next_int(&mut random, 2, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 2, num_data_dims),
         point_values_util::MAX_INDEX_DIMENSIONS,
@@ -604,10 +639,11 @@ fn test_one_dim_low_card() -> Result<()> {
         *last = last.wrapping_sub(1);
     }
 
-    let mut doc_values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        num_docs as usize
-    ];
+    let mut doc_values =
+        vec![
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            num_docs as usize
+        ];
 
     for doc_value in doc_values.iter_mut().take(num_docs as usize) {
         for (dim, val) in doc_value
@@ -644,7 +680,8 @@ fn test_one_dim_two_values() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
+    let num_data_dims =
+        TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
         point_values_util::MAX_INDEX_DIMENSIONS,
@@ -658,10 +695,11 @@ fn test_one_dim_two_values() -> Result<()> {
     let mut value2 = vec![0u8; num_bytes_per_dim as usize];
     random.fill_bytes(&mut value2);
 
-    let mut doc_values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        num_docs as usize
-    ];
+    let mut doc_values =
+        vec![
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            num_docs as usize
+        ];
 
     for doc_value in doc_values.iter_mut().take(num_docs as usize) {
         for (dim, val) in doc_value
@@ -696,7 +734,8 @@ fn test_random_few_different_values() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
+    let num_data_dims =
+        TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
         point_values_util::MAX_INDEX_DIMENSIONS,
@@ -705,20 +744,22 @@ fn test_random_few_different_values() -> Result<()> {
     let num_docs = at_least(&mut random, 10000);
     let cardinality = TestUtil::next_int(&mut random, 2, 100);
 
-    let mut values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        cardinality as usize
-    ];
+    let mut values =
+        vec![
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            cardinality as usize
+        ];
     for value_set in values.iter_mut().take(cardinality as usize) {
         for value in value_set.iter_mut().take(num_data_dims as usize) {
             random.fill_bytes(value);
         }
     }
 
-    let mut doc_values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        num_docs as usize
-    ];
+    let mut doc_values =
+        vec![
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            num_docs as usize
+        ];
     for (doc_value, _) in doc_values.iter_mut().zip(0..num_docs as usize) {
         let v = random.random_range(0..cardinality);
         *doc_value = values[v as usize].clone();
@@ -748,7 +789,8 @@ fn test_multi_valued() -> Result<()> {
     let mut random = random();
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
+    let num_data_dims =
+        TestUtil::next_int(&mut random, 1, point_values_util::MAX_DIMENSIONS);
     let num_index_dims = std::cmp::min(
         TestUtil::next_int(&mut random, 1, num_data_dims),
         point_values_util::MAX_INDEX_DIMENSIONS,
@@ -762,7 +804,10 @@ fn test_multi_valued() -> Result<()> {
         let num_values_in_doc = TestUtil::next_int(&mut random, 1, 5);
         for _ in 0..num_values_in_doc {
             doc_ids.push(doc_id);
-            let mut values = vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+            let mut values = vec![
+                vec![0u8; num_bytes_per_dim as usize];
+                num_data_dims as usize
+            ];
             for value in values.iter_mut().take(num_data_dims as usize) {
                 random.fill_bytes(value);
             }
@@ -885,9 +930,11 @@ fn verify_with_max_mb<D: Directory>(
 
     let mut scratch = vec![0u8; (num_bytes_per_dim * num_data_dims) as usize];
     let mut last_doc_id_base = 0;
-    let use_merge = num_data_dims == 1 && num_values >= 10 && random.random_bool(0.5);
+    let use_merge =
+        num_data_dims == 1 && num_values >= 10 && random.random_bool(0.5);
     let mut values_in_this_seg = if use_merge {
-        TestUtil::next_int(random, num_values as i32 / 10, num_values as i32) as usize
+        TestUtil::next_int(random, num_values as i32 / 10, num_values as i32)
+            as usize
     } else {
         0
     };
@@ -909,7 +956,9 @@ fn verify_with_max_mb<D: Directory>(
                 println!(
                     "  {} -> {}",
                     dim,
-                    BytesRef::from_bytes(doc_values[ord][dim as usize].to_vec())
+                    BytesRef::from_bytes(
+                        doc_values[ord][dim as usize].to_vec()
+                    )
                 );
             }
             scratch.copy_from(
@@ -929,10 +978,9 @@ fn verify_with_max_mb<D: Directory>(
             }
 
             let cur_doc_id_base = last_doc_id_base;
-            doc_maps
-                .as_mut()
-                .unwrap()
-                .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
+            doc_maps.as_mut().unwrap().push(Rc::new(DocMapEnum::Mock(
+                DocMapMock { cur_doc_id_base },
+            )));
 
             let finalizer = writer.finish(out.clone())?.unwrap();
             to_merge
@@ -940,8 +988,11 @@ fn verify_with_max_mb<D: Directory>(
                 .unwrap()
                 .push(out.borrow().get_file_pointer());
             writer.write_index(out.clone(), out.clone(), &finalizer)?;
-            values_in_this_seg =
-                TestUtil::next_int(random, num_values as i32 / 10, num_values as i32 / 2) as usize;
+            values_in_this_seg = TestUtil::next_int(
+                random,
+                num_values as i32 / 10,
+                num_values as i32 / 2,
+            ) as usize;
             seg_count = 0;
 
             seg += 1;
@@ -974,10 +1025,9 @@ fn verify_with_max_mb<D: Directory>(
             to_merge.push(out.borrow().get_file_pointer());
             writer.write_index(out.clone(), out.clone(), &finalizer)?;
             let cur_doc_id_base = last_doc_id_base;
-            doc_maps
-                .as_mut()
-                .unwrap()
-                .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
+            doc_maps.as_mut().unwrap().push(Rc::new(DocMapEnum::Mock(
+                DocMapMock { cur_doc_id_base },
+            )));
         }
         drop(out);
         input = Rc::new(RefCell::new(
@@ -1011,7 +1061,13 @@ fn verify_with_max_mb<D: Directory>(
                     .create_output("bkd2", &IOContext::default_io_context()?)?,
             ));
             let finalizer = writer
-                .merge(out.clone(), out.clone(), out.clone(), doc_maps, readers)?
+                .merge(
+                    out.clone(),
+                    out.clone(),
+                    out.clone(),
+                    doc_maps,
+                    readers,
+                )?
                 .unwrap();
             index_fp = out.borrow().get_file_pointer();
             writer.write_index(out.clone(), out.clone(), &finalizer)?;
@@ -1038,8 +1094,10 @@ fn verify_with_max_mb<D: Directory>(
 
     let iters = at_least(random, 100);
     for _ in 0..iters {
-        let mut query_min = vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        let mut query_max = vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+        let mut query_min =
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+        let mut query_max =
+            vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
 
         for dim in 0..num_data_dims as usize {
             random.fill_bytes(&mut query_min[dim]);
@@ -1069,7 +1127,8 @@ fn verify_with_max_mb<D: Directory>(
                 }
             }
             if matches {
-                let doc_id = doc_ids.as_ref().map_or(ord as i32, |ids| ids[ord]);
+                let doc_id =
+                    doc_ids.as_ref().map_or(ord as i32, |ids| ids[ord]);
                 expected.insert(doc_id as usize);
             }
         }
@@ -1159,16 +1218,27 @@ impl IntersectVisitor for IntersectVisitorMock1<'_> {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        _doc_id: i32,
+        _packed_value: &[u8],
+    ) -> Result<()> {
         self.visit_doc_values_size[0] += 1;
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        _min_packed_value: &[u8],
+        _max_packed_value: &[u8],
+    ) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
-fn random_point_tree_navigation(tree: &mut impl PointTree, random: &mut StdRng) -> Result<()> {
+fn random_point_tree_navigation(
+    tree: &mut impl PointTree,
+    random: &mut StdRng,
+) -> Result<()> {
     let min_packed_value = tree.get_min_packed_value()?.to_vec();
     let max_packed_value = tree.get_max_packed_value()?.to_vec();
     let size = tree.size()?;
@@ -1236,7 +1306,11 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
         self.hits.insert(doc_id as usize);
         Ok(())
     }
-    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        doc_id: i32,
+        packed_value: &[u8],
+    ) -> Result<()> {
         let num_index_dims = self.config.num_index_dims as usize;
         let bytes_per_dim = self.config.bytes_per_dim as usize;
 
@@ -1295,7 +1369,11 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
         Ok(())
     }
 
-    fn compare(&mut self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        min_packed: &[u8],
+        max_packed: &[u8],
+    ) -> Result<Relation> {
         let num_index_dims = self.config.num_index_dims as usize;
         let bytes_per_dim = self.config.bytes_per_dim as usize;
         let mut crosses = false;
@@ -1363,11 +1441,19 @@ impl IntersectVisitor for IntersectVisitorMock2 {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, doc_id: i32, _packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        doc_id: i32,
+        _packed_value: &[u8],
+    ) -> Result<()> {
         self.visit(doc_id)
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        _min_packed_value: &[u8],
+        _max_packed_value: &[u8],
+    ) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
@@ -1431,7 +1517,11 @@ impl IntersectVisitor for IntersectVisitorMock3 {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn visit_with_packed_value(&mut self, _doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        _doc_id: i32,
+        packed_value: &[u8],
+    ) -> Result<()> {
         let len = (self.num_data_dims * self.num_bytes_per_dim) as usize;
         if self.previous.is_none() {
             let mut value = vec![0u8; len];
@@ -1453,7 +1543,11 @@ impl IntersectVisitor for IntersectVisitorMock3 {
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        _min_packed_value: &[u8],
+        _max_packed_value: &[u8],
+    ) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
@@ -1468,8 +1562,10 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
     let num_index_dims = TestUtil::next_int(&mut random, 1, 8);
     let num_data_dims = TestUtil::next_int(&mut random, num_index_dims, 8);
 
-    let mut point_value1 = vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
-    let mut point_value2 = vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
+    let mut point_value1 =
+        vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
+    let mut point_value2 =
+        vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
     random.fill_bytes(&mut point_value1);
     random.fill_bytes(&mut point_value2);
 
@@ -1544,11 +1640,19 @@ impl IntersectVisitor for IntersectVisitorMock4<'_> {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, doc_id: i32, _packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        doc_id: i32,
+        _packed_value: &[u8],
+    ) -> Result<()> {
         self.visit(doc_id)
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        _min_packed_value: &[u8],
+        _max_packed_value: &[u8],
+    ) -> Result<Relation> {
         if self.random.random_range(0..7) == 1 {
             Ok(Relation::CellCrossesQuery)
         } else {
@@ -1619,7 +1723,11 @@ impl IntersectVisitor for IntersectVisitorMock5<'_> {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        doc_id: i32,
+        packed_value: &[u8],
+    ) -> Result<()> {
         assert_eq!(
             packed_value.len(),
             (self.num_dims * self.bytes_per_dim) as usize
@@ -1627,7 +1735,11 @@ impl IntersectVisitor for IntersectVisitorMock5<'_> {
         self.visit(doc_id)
     }
 
-    fn compare(&mut self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        min_packed: &[u8],
+        max_packed: &[u8],
+    ) -> Result<Relation> {
         assert_eq!(
             min_packed.len(),
             (self.num_index_dims * self.bytes_per_dim) as usize
@@ -1646,14 +1758,19 @@ impl IntersectVisitor for IntersectVisitorMock5<'_> {
 #[test]
 fn test_wasted_leading_bytes() -> Result<()> {
     let mut random = random();
-    let num_dims = TestUtil::next_int(&mut random, 1, point_values_util::MAX_INDEX_DIMENSIONS);
+    let num_dims = TestUtil::next_int(
+        &mut random,
+        1,
+        point_values_util::MAX_INDEX_DIMENSIONS,
+    );
     let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
     let bytes_per_dim = point_values_util::MAX_NUM_BYTES;
     let bytes_used = TestUtil::next_int(&mut random, 1, 3);
 
     let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
     let num_docs = at_least(&mut random, 10000);
-    let config = Rc::new(BKDConfig::new(num_dims, num_index_dims, bytes_per_dim, 32)?);
+    let config =
+        Rc::new(BKDConfig::new(num_dims, num_index_dims, bytes_per_dim, 32)?);
 
     let mut writer = BKDWriter::new(
         num_docs + 1,
@@ -1670,7 +1787,8 @@ fn test_wasted_leading_bytes() -> Result<()> {
     for doc_id in 0..num_docs {
         for dim in 0..num_dims {
             random.fill_bytes(&mut tmp);
-            let offset = (dim * bytes_per_dim + (bytes_per_dim - bytes_used)) as usize;
+            let offset =
+                (dim * bytes_per_dim + (bytes_per_dim - bytes_used)) as usize;
             buffer.copy_from(&tmp, offset);
         }
         writer.add(&buffer, doc_id)?;
@@ -1712,11 +1830,19 @@ impl IntersectVisitor for IntersectVisitorMock6 {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        _doc_id: i32,
+        _packed_value: &[u8],
+    ) -> Result<()> {
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        _min_packed_value: &[u8],
+        _max_packed_value: &[u8],
+    ) -> Result<Relation> {
         Ok(Relation::CellInsideQuery)
     }
 }
@@ -1726,11 +1852,19 @@ impl IntersectVisitor for IntersectVisitorMock7 {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        _doc_id: i32,
+        _packed_value: &[u8],
+    ) -> Result<()> {
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        _min_packed_value: &[u8],
+        _max_packed_value: &[u8],
+    ) -> Result<Relation> {
         Ok(Relation::CellOutsideQuery)
     }
 }
@@ -1743,11 +1877,19 @@ impl IntersectVisitor for IntersectVisitorMock8<'_> {
         Ok(())
     }
 
-    fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(
+        &mut self,
+        _doc_id: i32,
+        _packed_value: &[u8],
+    ) -> Result<()> {
         Ok(())
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(
+        &mut self,
+        min_packed_value: &[u8],
+        max_packed_value: &[u8],
+    ) -> Result<Relation> {
         if self.unique_point_value[..self.num_bytes_per_dim as usize]
             .cmp(&max_packed_value[..self.num_bytes_per_dim as usize])
             .to_int()
@@ -1819,7 +1961,8 @@ fn test_estimate_point_count() -> Result<()> {
         .borrow_mut()
         .open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(index_fp)?;
-    let point_values = PointValues::new(get_point_values(Rc::new(RefCell::new(input)))?);
+    let point_values =
+        PointValues::new(get_point_values(Rc::new(RefCell::new(input)))?);
 
     // If all points match, then the point count is numValues
     assert_eq!(
@@ -1833,10 +1976,11 @@ fn test_estimate_point_count() -> Result<()> {
     );
     // If only one point matches, then the point count is (actualMaxPointsInLeafNode + 1) / 2
     // in general, or maybe 2x that if the point is a split value
-    let point_count = point_values.estimate_point_count(&mut IntersectVisitorMock8 {
-        unique_point_value: &unique_point_value,
-        num_bytes_per_dim,
-    })?;
+    let point_count =
+        point_values.estimate_point_count(&mut IntersectVisitorMock8 {
+            unique_point_value: &unique_point_value,
+            num_bytes_per_dim,
+        })?;
     let last_node_point_count = num_values % max_points_in_leaf_node;
     let mid = ((max_points_in_leaf_node + 1) / 2) as i64;
     let mid_last = ((last_node_point_count + 1) / 2) as i64;
@@ -1865,7 +2009,10 @@ impl PointTree for MutablePointTreeMock1 {
         Ok(self.num_points_added as i64)
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+    fn visit_doc_values(
+        &mut self,
+        visitor: &mut impl IntersectVisitor,
+    ) -> Result<()> {
         for _ in 0..self.num_points_added {
             visitor.visit_with_packed_value(0, self.point_values.as_slice())?;
         }
@@ -1954,9 +2101,15 @@ impl PointTree for MutablePointTreeMock2 {
         Ok(11)
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+    fn visit_doc_values(
+        &mut self,
+        visitor: &mut impl IntersectVisitor,
+    ) -> Result<()> {
         for i in 0..self.size()? as usize {
-            visitor.visit_with_packed_value(self.doc_id[i], &self.point_values[i])?
+            visitor.visit_with_packed_value(
+                self.doc_id[i],
+                &self.point_values[i],
+            )?
         }
         Ok(())
     }

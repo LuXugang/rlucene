@@ -16,11 +16,13 @@
  */
 use crate::util::error::parse::Parse;
 use crate::util::error::{
-    AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CorruptIndexError, Eof,
-    IllegalArgumentError, IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError,
-    IndexNotFound, LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
-    MergeAbortedError, MergeError, NeedImplementedError, NotFoundError, NotImplementedError,
-    NumberFormatError, NumberOverflow, UnreachableError, UnsupportedOperationError,
+    AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError,
+    CorruptIndexError, Eof, IllegalArgumentError, IllegalStateError,
+    IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound,
+    LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
+    MergeAbortedError, MergeError, NeedImplementedError, NotFoundError,
+    NotImplementedError, NumberFormatError, NumberOverflow, UnreachableError,
+    UnsupportedOperationError,
 };
 use crate::util::VersionError;
 use std::fmt;

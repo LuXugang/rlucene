@@ -133,10 +133,11 @@ where
         heap.resize_with(heap_size, Default::default);
         if let Some(sentinel) = sentinel_object_supplier() {
             heap[1] = sentinel;
-            for (i, value) in repeat_with(|| sentinel_object_supplier().unwrap())
-                .take(heap_size)
-                .enumerate()
-                .skip(2)
+            for (i, value) in
+                repeat_with(|| sentinel_object_supplier().unwrap())
+                    .take(heap_size)
+                    .enumerate()
+                    .skip(2)
             {
                 heap[i] = value;
             }
@@ -210,7 +211,9 @@ where
         if self.size < self.max_size {
             self.add(element);
             None
-        } else if self.size > 0 && self.compare.less_than(&self.heap[1], &element) {
+        } else if self.size > 0
+            && self.compare.less_than(&self.heap[1], &element)
+        {
             let ret = mem::replace(&mut self.heap[1], element);
             self.update_top();
             Some(ret)
@@ -301,7 +304,8 @@ where
             let mut j = i * 2;
             let k = j + 1;
 
-            if k <= size && self.compare.less_than(&self.heap[k], &self.heap[j]) {
+            if k <= size && self.compare.less_than(&self.heap[k], &self.heap[j])
+            {
                 j = k;
             }
 
@@ -596,7 +600,9 @@ mod tests {
                 }
             }
             let new_least = pq.top();
-            if last_least.is_some() && *new_least != new_entry && *new_least != last_least.unwrap()
+            if last_least.is_some()
+                && *new_least != new_entry
+                && *new_least != last_least.unwrap()
             {
                 // If there has been a change of least entry and it wasn't our new
                 // addition we expect the scores to increase
@@ -608,7 +614,8 @@ mod tests {
         // Try many random additions to existing entries - we should always see
         // increasing scores in the lowest entry in the PQ
         for _i in 0..500000 {
-            let element = (random.random::<f32>() * ((sds.len() - 1) as f32)) as i32;
+            let element =
+                (random.random::<f32>() * ((sds.len() - 1) as f32)) as i32;
             let object_to_remove = sds[element as usize];
             assert_eq!(sds.remove(element as usize), object_to_remove);
             assert!(pq.remove(&object_to_remove));
@@ -661,7 +668,8 @@ mod tests {
     fn test_iterator_random() {
         let mut random = random();
         let max_size: usize = TestUtil::next_int(&mut random, 1, 20) as usize;
-        let mut queue = PriorityQueue::new(max_size as i32, I32Compare).unwrap();
+        let mut queue =
+            PriorityQueue::new(max_size as i32, I32Compare).unwrap();
         let iters: usize = at_least(&mut random, 100) as usize;
         let mut expected: Vec<i32> = Vec::new();
         for _i in 0..iters {
@@ -671,7 +679,8 @@ mod tests {
                 queue.add(value);
                 expected.push(value);
             } else {
-                let pos = expected.iter().position(|&x| x == queue.pop().unwrap());
+                let pos =
+                    expected.iter().position(|&x| x == queue.pop().unwrap());
                 assert_ne!(pos, None);
                 expected.remove(pos.unwrap());
             }
@@ -717,7 +726,9 @@ mod tests {
         let heap = pq.heap();
         for i in 1..=size {
             let parent = i >> 1;
-            if parent > 1 && !pq.get_compare().less_than(&heap[parent], &heap[i]) {
+            if parent > 1
+                && !pq.get_compare().less_than(&heap[parent], &heap[i])
+            {
                 assert_eq!(&heap[parent], &heap[i]);
             }
         }

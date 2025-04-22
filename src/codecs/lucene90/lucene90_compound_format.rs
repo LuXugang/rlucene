@@ -101,10 +101,15 @@ impl Lucene90CompoundFormat {
             let sized_file = pq.pop();
             debug_assert!(sized_file.is_some());
             let file = &sized_file.unwrap().name;
-            let start_offset = data.align_file_pointer(BitUtil::LONG_BYTES as i32)?;
+            let start_offset =
+                data.align_file_pointer(BitUtil::LONG_BYTES as i32)?;
             let mut file_input = directory.open_checksum_input(file)?;
             // just copies the index header, verifying that its id matches what we expect
-            CodecUtil::verify_and_copy_index_header(&mut file_input, data, &si.get_id())?;
+            CodecUtil::verify_and_copy_index_header(
+                &mut file_input,
+                data,
+                &si.get_id(),
+            )?;
             // copy all bytes except the footer
             let num_bytes_to_copy = file_input.length()
                 - CodecUtil::footer_length() as i64
@@ -149,8 +154,11 @@ impl CompoundFormat for Lucene90CompoundFormat {
         si: &SegmentInfo<D>,
         context: &IOContext,
     ) -> Result<()> {
-        let data_file =
-            IndexFileNames::segment_file_name(&si.name, "", Lucene90CompoundFormat::DATA_EXTENSION);
+        let data_file = IndexFileNames::segment_file_name(
+            &si.name,
+            "",
+            Lucene90CompoundFormat::DATA_EXTENSION,
+        );
         let entries_file = IndexFileNames::segment_file_name(
             &si.name,
             "",
@@ -177,7 +185,12 @@ impl CompoundFormat for Lucene90CompoundFormat {
             &si.get_id(),
             "",
         )?;
-        self.write_compound_file(&mut entries_output, &mut data_output, dir, si)?;
+        self.write_compound_file(
+            &mut entries_output,
+            &mut data_output,
+            dir,
+            si,
+        )?;
         CodecUtil::write_footer(&mut data_output)?;
         CodecUtil::write_footer(&mut entries_output)?;
 
@@ -206,7 +219,9 @@ impl Compare<SizedFile> for SizedFileQueueCmp {
 
 #[cfg(test)]
 mod tests {
-    use crate::codecs::{Codec, CodecUtil, CompoundFormat, Lucene90CompoundFormat, LATEST_CODEC};
+    use crate::codecs::{
+        Codec, CodecUtil, CompoundFormat, Lucene90CompoundFormat, LATEST_CODEC,
+    };
     use crate::index::IndexFileNames;
     use crate::store::directory::Directory;
     use crate::store::{DataInput, IO_CONTEXT_DEFAULT};
@@ -391,9 +406,11 @@ mod tests {
 
         {
             let mut directory = dir.lock();
-            LATEST_CODEC
-                .compound_format()
-                .write(&mut *directory, &si, &IO_CONTEXT_DEFAULT)?;
+            LATEST_CODEC.compound_format().write(
+                &mut *directory,
+                &si,
+                &IO_CONTEXT_DEFAULT,
+            )?;
         }
 
         // Entries file should contain files ordered by their size
@@ -402,7 +419,8 @@ mod tests {
             "",
             Lucene90CompoundFormat::ENTRIES_EXTENSION,
         );
-        let mut entries_stream = dir.lock().open_checksum_input(&entries_file_name)?;
+        let mut entries_stream =
+            dir.lock().open_checksum_input(&entries_file_name)?;
 
         let mut prior_e = None;
         let result: Result<()> = (|| {
@@ -420,7 +438,10 @@ mod tests {
             let mut last_length = 0;
             for i in 0..num_entries {
                 let id = entries_stream.read_string()?;
-                assert_eq!(ordered_files[i as usize], format!("{}{}", segment, id));
+                assert_eq!(
+                    ordered_files[i as usize],
+                    format!("{}{}", segment, id)
+                );
                 let offset = entries_stream.read_long()?;
                 assert!(offset > last_offset);
                 last_offset = offset;

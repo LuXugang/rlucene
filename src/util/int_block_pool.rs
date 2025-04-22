@@ -46,9 +46,9 @@ impl IntBlockPool {
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
     pub fn new() -> Self {
-        let allocator = Rc::new(RefCell::new(
-            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
-        ));
+        let allocator = Rc::new(RefCell::new(AllocatorIntEnum::DA(
+            DirectAllocatorI32::new(),
+        )));
         Self::with_allocator(allocator)
     }
     /// Creates a new `IntBlockPool` with the given `Allocator`.
@@ -117,7 +117,7 @@ impl IntBlockPool {
             Some(val) => {
                 self.int_offset = val;
                 Ok(())
-            }
+            },
             None => Err(LuceneError::number_overflow(
                 "Overflow when calculating byte offset.".to_string(),
             )),
@@ -130,7 +130,12 @@ impl IntBlockPool {
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorI32 {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<i32>], start: i32, end: i32);
+    fn recycle_byte_blocks(
+        &mut self,
+        blocks: &[Vec<i32>],
+        start: i32,
+        end: i32,
+    );
     fn get_byte_block(&mut self) -> Vec<i32>;
     fn get_block_size(&self) -> i32;
 }
@@ -155,7 +160,13 @@ impl DirectAllocatorI32 {
 }
 
 impl AllocatorI32 for DirectAllocatorI32 {
-    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<i32>], _start: i32, _end: i32) {}
+    fn recycle_byte_blocks(
+        &mut self,
+        _blocks: &[Vec<i32>],
+        _start: i32,
+        _end: i32,
+    ) {
+    }
 
     fn get_byte_block(&mut self) -> Vec<i32> {
         vec![0; self.block_size as usize]
@@ -169,9 +180,16 @@ pub enum AllocatorIntEnum {
     DA(DirectAllocatorI32),
 }
 impl AllocatorI32 for AllocatorIntEnum {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<i32>], start: i32, end: i32) {
+    fn recycle_byte_blocks(
+        &mut self,
+        blocks: &[Vec<i32>],
+        start: i32,
+        end: i32,
+    ) {
         match self {
-            AllocatorIntEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
+            AllocatorIntEnum::DA(da) => {
+                da.recycle_byte_blocks(blocks, start, end)
+            },
         }
     }
 
@@ -192,7 +210,9 @@ impl AllocatorI32 for AllocatorIntEnum {
 mod tests {
     use crate::test::util::lucene_test_case::random;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::int_block_pool::{AllocatorIntEnum, DirectAllocatorI32, IntBlockPool};
+    use crate::util::int_block_pool::{
+        AllocatorIntEnum, DirectAllocatorI32, IntBlockPool,
+    };
     use rand::Rng;
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -200,9 +220,9 @@ mod tests {
     #[test]
     fn test_write_read_reset() -> Result<()> {
         let mut random = random();
-        let allocator = Rc::new(RefCell::new(
-            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
-        ));
+        let allocator = Rc::new(RefCell::new(AllocatorIntEnum::DA(
+            DirectAllocatorI32::new(),
+        )));
         let mut pool = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
@@ -244,9 +264,9 @@ mod tests {
     }
     #[test]
     fn test_too_many_allocs() -> Result<()> {
-        let allocator = Rc::new(RefCell::new(
-            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
-        ));
+        let allocator = Rc::new(RefCell::new(AllocatorIntEnum::DA(
+            DirectAllocatorI32::new(),
+        )));
         let mut pool = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
@@ -258,7 +278,9 @@ mod tests {
         })();
 
         assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
-        assert!(pool.int_offset + IntBlockPool::INT_BLOCK_SIZE < pool.int_offset);
+        assert!(
+            pool.int_offset + IntBlockPool::INT_BLOCK_SIZE < pool.int_offset
+        );
 
         Ok(())
     }

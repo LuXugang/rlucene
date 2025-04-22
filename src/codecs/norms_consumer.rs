@@ -21,7 +21,9 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::{doc_id_merger_util, DocIDMerger, DocIDMergerEnum, Sub, SubBase};
+use crate::index::{
+    doc_id_merger_util, DocIDMerger, DocIDMergerEnum, Sub, SubBase,
+};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::{IndexInput, IndexOutput};
@@ -62,10 +64,9 @@ pub trait NormsConsumer {
     /// filling segments with missing norms for the field with zeros.
     ///
     /// Implementations can override this method for more sophisticated merging (e.g. bulk-byte copying).
-    fn merge<I, AV>(&mut self, merge_state: &mut MergeState<I, AV>) -> Result<()>
+    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<()>
     where
         I: IndexInput,
-        AV: AccessVec<u8>,
     {
         for producer in merge_state.norms_producers.iter_mut().flatten() {
             producer.check_integrity()?;
@@ -83,14 +84,13 @@ pub trait NormsConsumer {
     ///
     /// The default implementation calls [`add_norms_field`](NormsConsumer::add_norms_field), passing an iterator
     /// that merges and filters deleted documents on the fly.
-    fn merge_norms_field<I, AV>(
+    fn merge_norms_field<I>(
         &mut self,
         merge_field_info: &Rc<FieldInfo>,
-        merge_state: &mut MergeState<I, AV>,
+        merge_state: &mut MergeState<I>,
     ) -> Result<()>
     where
         I: IndexInput,
-        AV: AccessVec<u8>,
     {
         let mut norms_producer = NormsProducerMerge {
             merge_field_info: merge_field_info.clone(),
@@ -102,52 +102,56 @@ pub trait NormsConsumer {
     }
 }
 
-struct NormsProducerMerge<'a, I, AV>
+struct NormsProducerMerge<'a, I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     merge_field_info: Rc<FieldInfo>,
-    merge_state: &'a mut MergeState<I, AV>,
+    merge_state: &'a mut MergeState<I>,
 }
-impl<I, AV> NormsProducer for NormsProducerMerge<'_, I, AV>
+impl<I> NormsProducer for NormsProducerMerge<'_, I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     type NumericDocValues = NumericDocValuesMerge<I>;
 
-    fn get_norms(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_norms(
+        &mut self,
+        field_info: &Rc<FieldInfo>,
+    ) -> Result<Self::NumericDocValues> {
         if Rc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
 
         let mut subs = vec![];
         debug_assert!(
-            self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len()
+            self.merge_state.doc_maps.len()
+                == self.merge_state.doc_values_producers.len()
         );
         for i in 0..self.merge_state.doc_values_producers.len() {
             let mut norms: Option<Lucene90NormNumericDocValuesEnum<I>> = None;
             let norms_producer_opt = &mut self.merge_state.norms_producers[i];
             if let Some(norms_producer) = norms_producer_opt {
-                let reader_field_info =
-                    self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
+                let reader_field_info = self.merge_state.field_infos[i]
+                    .field_info_by_name(&self.merge_field_info.name);
                 if let Some(reader_field_info) = &reader_field_info {
                     if reader_field_info.has_norms() {
-                        norms = Some(norms_producer.get_norms(reader_field_info)?);
+                        norms =
+                            Some(norms_producer.get_norms(reader_field_info)?);
                     }
                 }
             }
 
             if let Some(norms) = norms {
                 let doc_map = self.merge_state.doc_maps[i].clone();
-                subs.push(Rc::new(RefCell::new(Sub::new(NumericDocValuesSub::new(
-                    doc_map, norms,
-                )))));
+                subs.push(Rc::new(RefCell::new(Sub::new(
+                    NumericDocValuesSub::new(doc_map, norms),
+                ))));
             }
         }
 
-        let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
+        let doc_id_merger =
+            doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
         Ok(NumericDocValuesMerge {
             doc_id: -1,
             current: None,
@@ -199,11 +203,11 @@ where
             Some(current) => {
                 self.doc_id = current.borrow_mut().mapped_doc_id;
                 Ok(self.doc_id)
-            }
+            },
             None => {
                 self.doc_id = NO_MORE_DOCS;
                 Ok(NO_MORE_DOCS)
-            }
+            },
         }
     }
 
@@ -225,7 +229,7 @@ where
             Some(ref current) => {
                 let mut current = current.borrow_mut();
                 current.sub.values.long_value()
-            }
+            },
             None => Err(LuceneError::unreachable("should not be here")),
         }
     }
@@ -243,7 +247,10 @@ impl<I> NumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: Lucene90NormNumericDocValuesEnum<I>) -> Self {
+    fn new(
+        doc_map: Rc<DocMapEnum>,
+        values: Lucene90NormNumericDocValuesEnum<I>,
+    ) -> Self {
         debug_assert!(values.doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }
@@ -291,7 +298,7 @@ where
         match self {
             NormsConsumerEnum::Lucene90(consumer) => {
                 consumer.add_norms_field(field, norms_producer)
-            }
+            },
         }
     }
 }

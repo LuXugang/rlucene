@@ -274,7 +274,9 @@ impl Field {
     pub fn token_stream_value(&self) -> Result<Option<TokenStreamEnum>> {
         if let Some(token_stream) = &self.fields_data {
             match token_stream {
-                FieldDataEnum::TokenStream(token_stream) => Ok(Option::from(token_stream.clone())),
+                FieldDataEnum::TokenStream(token_stream) => {
+                    Ok(Option::from(token_stream.clone()))
+                },
                 _ => Ok(None),
             }
         } else {
@@ -291,13 +293,13 @@ impl Field {
     /// See [ImproveIndexingSpeed](http://wiki.apache.org/lucene-java/ImproveIndexingSpeed) for details.
     pub fn set_string_value(&mut self, value: Arc<String>) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::String(_)) => {}
+            Some(FieldDataEnum::String(_)) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to String",
                     self.fields_data
                 )));
-            }
+            },
         }
 
         self.fields_data = Some(FieldDataEnum::String(value));
@@ -306,13 +308,13 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     pub fn set_reader_value(&mut self, value: ReaderEnum) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::Reader(_)) => {}
+            Some(FieldDataEnum::Reader(_)) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to Reader",
                     self.fields_data
                 )));
-            }
+            },
         }
 
         self.fields_data = Some(FieldDataEnum::Reader(value));
@@ -324,15 +326,18 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     ///
     /// NOTE: the provided [`BytesRef`] is not copied, so be sure not to change it until you're done with this field.
-    pub fn set_bytes_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
+    pub fn set_bytes_value(
+        &mut self,
+        value: Arc<BytesRef<Vec<u8>>>,
+    ) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::Binary(_)) => {}
+            Some(FieldDataEnum::Binary(_)) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to BytesRef",
                     self.fields_data
                 )));
-            }
+            },
         }
         self.fields_data = Some(FieldDataEnum::Binary(value));
         Ok(())
@@ -340,13 +345,13 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     pub fn set_byte_value(&mut self, value: u8) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::Number(Number::U8(_))) => {}
+            Some(FieldDataEnum::Number(Number::U8(_))) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to Byte",
                     self.fields_data
                 )));
-            }
+            },
         }
         self.fields_data = Some(FieldDataEnum::Number(Number::U8(value)));
         Ok(())
@@ -354,13 +359,13 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     pub fn set_short_value(&mut self, value: i16) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::Number(Number::I16(_))) => {}
+            Some(FieldDataEnum::Number(Number::I16(_))) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to Short",
                     self.fields_data
                 )));
-            }
+            },
         }
         self.fields_data = Some(FieldDataEnum::Number(Number::I16(value)));
         Ok(())
@@ -368,13 +373,13 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     pub fn set_int_value(&mut self, value: i32) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::Number(Number::I32(_))) => {}
+            Some(FieldDataEnum::Number(Number::I32(_))) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to Integer",
                     self.fields_data
                 )));
-            }
+            },
         }
 
         self.fields_data = Some(FieldDataEnum::Number(Number::I32(value)));
@@ -383,13 +388,13 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     pub fn set_long_value(&mut self, value: i64) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::Number(Number::I64(_))) => {}
+            Some(FieldDataEnum::Number(Number::I64(_))) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to Long",
                     self.fields_data
                 )));
-            }
+            },
         }
 
         self.fields_data = Some(FieldDataEnum::Number(Number::I64(value)));
@@ -398,13 +403,13 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     pub fn set_float_value(&mut self, value: f32) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::Number(Number::F32(_))) => {}
+            Some(FieldDataEnum::Number(Number::F32(_))) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to Float",
                     self.fields_data
                 )));
-            }
+            },
         }
 
         self.fields_data = Some(FieldDataEnum::Number(Number::F32(value)));
@@ -413,28 +418,31 @@ impl Field {
     /// Expert: changes the value of this field. See [`set_string_value`](Field::set_string_value).
     pub fn set_double_value(&mut self, value: f64) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::Number(Number::F64(_))) => {}
+            Some(FieldDataEnum::Number(Number::F64(_))) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to Double",
                     self.fields_data
                 )));
-            }
+            },
         }
 
         self.fields_data = Some(FieldDataEnum::Number(Number::F64(value)));
         Ok(())
     }
     /// Expert: sets the token stream to be used for indexing.
-    pub fn set_token_stream(&mut self, token_stream: TokenStreamEnum) -> Result<()> {
+    pub fn set_token_stream(
+        &mut self,
+        token_stream: TokenStreamEnum,
+    ) -> Result<()> {
         match &self.fields_data {
-            Some(FieldDataEnum::TokenStream(_)) => {}
+            Some(FieldDataEnum::TokenStream(_)) => {},
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot change value type from {:?} to TokenStream",
                     self.fields_data
                 )));
-            }
+            },
         }
 
         self.fields_data = Some(FieldDataEnum::TokenStream(token_stream));
@@ -517,16 +525,20 @@ impl IndexableField for Field {
         }
         match &self.fields_data {
             Some(FieldDataEnum::Number(val)) => match val {
-                Number::U8(_) | Number::I16(_) => {
-                    Err(LuceneError::illegal_state("Cannot store value of type"))
-                }
+                Number::U8(_) | Number::I16(_) => Err(
+                    LuceneError::illegal_state("Cannot store value of type"),
+                ),
                 Number::I32(val) => Ok(Some(StoredValue::Integer(*val))),
                 Number::I64(val) => Ok(Some(StoredValue::Long(*val))),
                 Number::F32(val) => Ok(Some(StoredValue::Float(*val))),
                 Number::F64(val) => Ok(Some(StoredValue::Double(*val))),
             },
-            Some(FieldDataEnum::Binary(val)) => Ok(Some(StoredValue::Binary(val.clone()))),
-            Some(FieldDataEnum::String(val)) => Ok(Some(StoredValue::String(val.clone()))),
+            Some(FieldDataEnum::Binary(val)) => {
+                Ok(Some(StoredValue::Binary(val.clone())))
+            },
+            Some(FieldDataEnum::String(val)) => {
+                Ok(Some(StoredValue::String(val.clone())))
+            },
             _ => Err(LuceneError::illegal_state("Cannot store value of type ")),
         }
     }
@@ -549,7 +561,10 @@ impl Display for Field {
 }
 
 pub trait FieldBase {
-    fn set_bytes_value(&mut self, _value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
+    fn set_bytes_value(
+        &mut self,
+        _value: Arc<BytesRef<Vec<u8>>>,
+    ) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_bytes_value is not implemented",
         ))
@@ -584,7 +599,10 @@ pub trait FieldBase {
             "set_double_value is not implemented",
         ))
     }
-    fn set_token_stream(&mut self, _token_stream: Arc<TokenStreamEnum>) -> Result<()> {
+    fn set_token_stream(
+        &mut self,
+        _token_stream: Arc<TokenStreamEnum>,
+    ) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_token_stream is not implemented",
         ))
@@ -926,7 +944,8 @@ mod tests {
     #[test]
     fn test_disabled_field() -> Result<()> {
         let ft = FieldType::new();
-        let result = Field::with_string("foo", Arc::new("".to_string()), Arc::new(ft));
+        let result =
+            Field::with_string("foo", Arc::new("".to_string()), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -935,7 +954,11 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(true)?;
         ft.set_index_options(IndexOptions::DOCS)?;
-        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref(
+            "foo",
+            Arc::new(BytesRef::new()),
+            Arc::new(ft),
+        );
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -944,7 +967,11 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(false)?;
         ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
-        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref(
+            "foo",
+            Arc::new(BytesRef::new()),
+            Arc::new(ft),
+        );
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -955,7 +982,11 @@ mod tests {
         ft.set_store_term_vectors(true)?;
         ft.set_store_term_vector_offsets(true)?;
         ft.set_store_term_vector_offsets(true)?;
-        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref(
+            "foo",
+            Arc::new(BytesRef::new()),
+            Arc::new(ft),
+        );
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }

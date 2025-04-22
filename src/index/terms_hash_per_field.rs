@@ -17,7 +17,9 @@
 use crate::document::fields::Fields;
 use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::index::byte_slice_reader::ByteSliceReader;
-use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
+use crate::index::freq_prox_terms_writer_per_field::{
+    FreqProx, FreqProxPostingsArray,
+};
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
@@ -28,7 +30,9 @@ use crate::util::bytes_ref_hash::{
 };
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, SliceCopyOps};
+use crate::util::{
+    ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, SliceCopyOps,
+};
 use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -134,7 +138,12 @@ impl TermsHashPerField {
             postings_array_wrapper,
         }
     }
-    pub(crate) fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
+    pub(crate) fn init_reader(
+        &self,
+        reader: &mut ByteSliceReader,
+        term_id: i32,
+        stream: i32,
+    ) {
         debug_assert!(stream < self.stream_count);
         let term_id = term_id as usize;
         let postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
@@ -144,12 +153,14 @@ impl TermsHashPerField {
             .unwrap()
             .get_address_offset()[term_id];
         let buffer_index = stream_start_offset >> IntBlockPool::INT_BLOCK_SHIFT;
-        let offset_in_address_buffer = stream_start_offset & IntBlockPool::INT_BLOCK_MASK;
+        let offset_in_address_buffer =
+            stream_start_offset & IntBlockPool::INT_BLOCK_MASK;
         let addr;
         {
             let mut int_pool = self.int_pool.borrow_mut();
             let stream_address_buffer = int_pool.get_buffer(buffer_index);
-            addr = stream_address_buffer[(offset_in_address_buffer + stream) as usize];
+            addr = stream_address_buffer
+                [(offset_in_address_buffer + stream) as usize];
         }
         let init_offset = postings_array_wrapper
             .postings_array
@@ -161,14 +172,20 @@ impl TermsHashPerField {
     }
     /// Collapse the hash table and sort in-place; also sets this.sortedTermIDs to the results.
     /// This method must not be called twice unless [`reset()`](TermsHashPerFieldBase::reset) or [`reinit_hash()`](TermsHashPerFieldBase::reinit_hash) was called.
-    pub(crate) fn sort_terms(&mut self, bytes_hash: &mut STBytesRefHash) -> Result<()> {
+    pub(crate) fn sort_terms(
+        &mut self,
+        bytes_hash: &mut STBytesRefHash,
+    ) -> Result<()> {
         debug_assert!(!self.sorted_term_ids);
         bytes_hash.sort()?;
         self.sorted_term_ids = true;
         Ok(())
     }
     /// Returns the sorted term IDs. [`sort_terms()`](TermsHashPerField::sort_terms) must be called before.
-    pub(crate) fn get_sorted_term_ids<'a>(&self, bytes_hash: &'a STBytesRefHash) -> &'a [i32] {
+    pub(crate) fn get_sorted_term_ids<'a>(
+        &self,
+        bytes_hash: &'a STBytesRefHash,
+    ) -> &'a [i32] {
         debug_assert!(!self.sorted_term_ids);
         bytes_hash.ids.as_slice()
     }
@@ -185,7 +202,8 @@ impl TermsHashPerField {
     pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<()> {
         let stream_address = (self.stream_address_offset + stream) as usize;
         let mut int_pool = self.int_pool.borrow_mut();
-        let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
+        let term_stream_address_buffer =
+            int_pool.get_buffer(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         let mut byte_pool = self.byte_pool.borrow_mut();
         let block_index = upto >> ByteBlockPool::BYTE_BLOCK_SHIFT;
@@ -197,9 +215,11 @@ impl TermsHashPerField {
         let mut byte_pool;
         let new_offset = if value != 0 {
             // End of slice; allocate a new one
-            let allocated_offset = self.slice_pool.alloc_slice(block_index, offset)?;
+            let allocated_offset =
+                self.slice_pool.alloc_slice(block_index, offset)?;
             byte_pool = self.byte_pool.borrow_mut();
-            term_stream_address_buffer[stream_address] = allocated_offset + byte_pool.byte_offset;
+            term_stream_address_buffer[stream_address] =
+                allocated_offset + byte_pool.byte_offset;
             allocated_offset
         } else {
             byte_pool = self.byte_pool.borrow_mut();
@@ -222,14 +242,16 @@ impl TermsHashPerField {
         let stream_address = (self.stream_address_offset + stream) as usize;
 
         let mut int_pool = self.int_pool.borrow_mut();
-        let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
+        let term_stream_address_buffer =
+            int_pool.get_buffer(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         {
             let mut byte_pool = self.byte_pool.borrow_mut();
             let mut block_index = upto >> ByteBlockPool::BYTE_BLOCK_SHIFT;
             debug_assert!(block_index <= byte_pool.buffer_upto);
             let slice = byte_pool.get_buffer(block_index);
-            let mut slice_offset = (upto & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
+            let mut slice_offset =
+                (upto & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
 
             while offset < end && slice[slice_offset] == 0 {
                 slice[slice_offset] = b[offset];
@@ -250,8 +272,10 @@ impl TermsHashPerField {
                 let buffer_upto = byte_pool.buffer_upto;
                 block_index = buffer_upto;
                 let slice = byte_pool.get_buffer(buffer_upto);
-                let write_length = std::cmp::min(slice_length as usize - 1, end - offset);
-                slice.copy_from(&b[offset..offset + write_length], slice_offset);
+                let write_length =
+                    std::cmp::min(slice_length as usize - 1, end - offset);
+                slice
+                    .copy_from(&b[offset..offset + write_length], slice_offset);
                 slice_offset += write_length;
                 offset += write_length;
                 debug_assert!(slice_offset <= i32::MAX as usize);
@@ -270,7 +294,9 @@ impl TermsHashPerField {
         self.write_byte(stream, i as u8)
     }
 
-    pub(crate) fn get_next_per_field(&self) -> Rc<RefCell<TermsHashPerFieldEnum>> {
+    pub(crate) fn get_next_per_field(
+        &self,
+    ) -> Rc<RefCell<TermsHashPerFieldEnum>> {
         debug_assert!(self.next_per_field.is_some());
         self.next_per_field.as_ref().unwrap().clone()
     }
@@ -290,7 +316,8 @@ impl TermsHashPerField {
         self.bytes_hash.clear();
         self.sorted_term_ids = false;
         if self.next_per_field.is_some() {
-            let mut next_per_field = self.next_per_field.as_ref().unwrap().borrow_mut();
+            let mut next_per_field =
+                self.next_per_field.as_ref().unwrap().borrow_mut();
             next_per_field.reset();
         }
     }
@@ -302,7 +329,11 @@ impl TermsHashPerField {
     /// Called when we first encounter a new term. We must allocate slices to store the postings
     /// (vInt compressed doc/freq/prox), and also the int pointers to where (in our [`ByteBlockPool`]
     /// storage) the postings for this term begin.
-    pub(crate) fn init_stream_slices(&mut self, term_id: i32, _doc_id: i32) -> Result<()> {
+    pub(crate) fn init_stream_slices(
+        &mut self,
+        term_id: i32,
+        _doc_id: i32,
+    ) -> Result<()> {
         let byte_offset;
         {
             let mut byte_pool = self.byte_pool.borrow_mut();
@@ -316,13 +347,16 @@ impl TermsHashPerField {
         }
         {
             let mut int_pool = self.int_pool.borrow_mut();
-            if self.stream_count + int_pool.int_upto > IntBlockPool::INT_BLOCK_SIZE {
+            if self.stream_count + int_pool.int_upto
+                > IntBlockPool::INT_BLOCK_SIZE
+            {
                 int_pool.next_buffer()?;
             }
             self.term_stream_address_buffer_index = int_pool.buffer_upto;
             self.stream_address_offset = int_pool.int_upto;
             int_pool.int_upto += self.stream_count;
-            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+            let mut postings_array_wrapper =
+                self.postings_array_wrapper.borrow_mut();
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             postings_array_wrapper
                 .postings_array
@@ -336,8 +370,11 @@ impl TermsHashPerField {
             let term_stream_address_buffer =
                 int_pool.get_buffer(self.term_stream_address_buffer_index);
             for i in 0..self.stream_count as usize {
-                let upto = self.slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE)?;
-                term_stream_address_buffer[self.stream_address_offset as usize + i] =
+                let upto = self
+                    .slice_pool
+                    .new_slice(ByteSlicePool::FIRST_LEVEL_SIZE)?;
+                term_stream_address_buffer
+                    [self.stream_address_offset as usize + i] =
                     upto + byte_offset;
             }
             postings_array_wrapper
@@ -346,13 +383,18 @@ impl TermsHashPerField {
                 .unwrap()
                 .set_byte_starts(
                     term_id as usize,
-                    term_stream_address_buffer[self.stream_address_offset as usize],
+                    term_stream_address_buffer
+                        [self.stream_address_offset as usize],
                 );
         }
         Ok(())
     }
 
-    pub(crate) fn position_stream_slice(&mut self, term_id: i32, _doc_id: i32) -> i32 {
+    pub(crate) fn position_stream_slice(
+        &mut self,
+        term_id: i32,
+        _doc_id: i32,
+    ) -> i32 {
         let term_id = (-term_id) - 1;
         let postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
         debug_assert!(postings_array_wrapper.postings_array.is_some());
@@ -361,7 +403,8 @@ impl TermsHashPerField {
             .as_ref()
             .unwrap()
             .get_address_offset()[term_id as usize];
-        self.term_stream_address_buffer_index = int_start >> IntBlockPool::INT_BLOCK_SHIFT;
+        self.term_stream_address_buffer_index =
+            int_start >> IntBlockPool::INT_BLOCK_SHIFT;
         self.stream_address_offset = int_start & IntBlockPool::INT_BLOCK_MASK;
         term_id
     }
@@ -370,7 +413,7 @@ impl TermsHashPerField {
             Some(ref next_per_field) => {
                 let mut next_per_field = next_per_field.borrow_mut();
                 next_per_field.start(field, first)
-            }
+            },
             None => Ok(true),
         }
     }
@@ -381,7 +424,11 @@ pub(crate) trait TermsHashPerFieldBase {
     /// compressed doc/freq/prox), and also the int pointers to where (in our {@link ByteBlockPool}
     ///storage) the postings for this term begin.
     fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
-    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32>;
+    fn position_stream_slice(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+    ) -> Result<i32>;
     ///Start adding a new field instance; first is true if this is the first time this field name was
     ///seen in the document.
     fn start(&mut self, field: &Fields, first: bool) -> Result<bool>;
@@ -446,11 +493,14 @@ where
                         .terms_hash_per_field_type
                         .new_per_field(2),
                 );
-                if let Some(ref mut postings_array) = postings_array_wrapper.postings_array {
-                    let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                    let _ = self
-                        .bytes_used
-                        .access_mut(|bytes_used| bytes_used.add_and_get(byte_used as i64));
+                if let Some(ref mut postings_array) =
+                    postings_array_wrapper.postings_array
+                {
+                    let byte_used = postings_array.bytes_per_posting()
+                        + postings_array.get_size();
+                    let _ = self.bytes_used.access_mut(|bytes_used| {
+                        bytes_used.add_and_get(byte_used as i64)
+                    });
                 }
             }
         })
@@ -459,12 +509,14 @@ where
     fn grow(&mut self) -> Result<()> {
         self.per_field.access_mut(|postings_array_wrapper| {
             debug_assert!(postings_array_wrapper.postings_array.is_some());
-            let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
+            let postings_array =
+                postings_array_wrapper.postings_array.as_mut().unwrap();
             let old_size = postings_array.get_size();
             postings_array.grow()?;
             self.bytes_used.access_mut(|bytes_used| {
                 bytes_used.add_and_get(
-                    (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
+                    (postings_array.bytes_per_posting()
+                        * (postings_array.get_size() - old_size))
                         as i64,
                 )
             });
@@ -475,11 +527,13 @@ where
     fn clear(&mut self) {
         self.per_field.access_mut(|postings_array_wrapper| {
             if postings_array_wrapper.postings_array.is_some() {
-                let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
-                let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                let _ = self
-                    .bytes_used
-                    .access_mut(|bytes_used| bytes_used.add_and_get(-byte_used as i64));
+                let postings_array =
+                    postings_array_wrapper.postings_array.as_ref().unwrap();
+                let byte_used = postings_array.bytes_per_posting()
+                    + postings_array.get_size();
+                let _ = self.bytes_used.access_mut(|bytes_used| {
+                    bytes_used.add_and_get(-byte_used as i64)
+                });
                 postings_array_wrapper.postings_array = None;
             }
         })
@@ -536,24 +590,27 @@ impl TermsHashPerFieldType {
     pub(crate) fn new_per_field(&self, size: i32) -> PostingsArrayEnum {
         match self {
             TermsHashPerFieldType::TermVectors => {
-                PostingsArrayEnum::TermVectors(TermVectorsPostingsArray::new(size))
-            }
+                PostingsArrayEnum::TermVectors(TermVectorsPostingsArray::new(
+                    size,
+                ))
+            },
             TermsHashPerFieldType::FreqProx(f) => {
                 let has_freq = f.index_options >= IndexOptions::DocsAndFreqs;
-                let has_prox = f.index_options >= IndexOptions::DocsAndFreqsAndPositions;
-                let has_offsets =
-                    f.index_options >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
+                let has_prox =
+                    f.index_options >= IndexOptions::DocsAndFreqsAndPositions;
+                let has_offsets = f.index_options
+                    >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
                 PostingsArrayEnum::FreqProx(FreqProxPostingsArray::new(
                     size,
                     has_freq,
                     has_prox,
                     has_offsets,
                 ))
-            }
+            },
             #[cfg(test)]
-            TermsHashPerFieldType::Mock => {
-                PostingsArrayEnum::FreqProx(FreqProxPostingsArray::new(size, true, false, false))
-            }
+            TermsHashPerFieldType::Mock => PostingsArrayEnum::FreqProx(
+                FreqProxPostingsArray::new(size, true, false, false),
+            ),
         }
     }
 }
@@ -568,12 +625,15 @@ pub(crate) mod tests {
     use crate::index::index_options::IndexOptions;
     use crate::index::parallel_postings_array::PostingsArrayEnum;
     use crate::index::terms_hash_per_field::{
-        PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
+        PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase,
+        TermsHashPerFieldType,
     };
     use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
     use crate::index::BytesRef;
     use crate::store::DataInput;
-    use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
+    use crate::test::util::lucene_test_case::{
+        new_bytes_ref_from_string, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::{LuceneError, Result};
@@ -608,12 +668,13 @@ pub(crate) mod tests {
         assert!(term_id >= 0);
         let term_id = term_id as usize;
         let mut postings_array_enum = parent.borrow_mut();
-        let postings_array_enum = postings_array_enum.postings_array.as_mut().unwrap();
+        let postings_array_enum =
+            postings_array_enum.postings_array.as_mut().unwrap();
         let postings_array = match postings_array_enum {
             PostingsArrayEnum::FreqProx(freq_prox) => freq_prox,
             _ => {
                 unreachable!()
-            }
+            },
         };
         let mut doc_id = prev_doc;
         let freq: i32;
@@ -623,12 +684,12 @@ pub(crate) mod tests {
             match &mut postings_array.term_freqs {
                 Some(term_freqs) => {
                     freq = term_freqs[term_id];
-                }
+                },
                 _ => {
                     return Err(LuceneError::illegal_state(
                         "term_freqs is None.".to_string(),
                     ));
-                }
+                },
             }
         } else {
             let code = reader.read_vint()?;
@@ -657,15 +718,39 @@ pub(crate) mod tests {
         hash.start(&dummy_filed, true)?;
         // Pass `None` for the field as in the Java version (null)
 
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "start")?, 0)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foo")?, 0)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 0)?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "start")?,
+            0,
+        )?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "foo")?,
+            0,
+        )?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "bar")?,
+            0,
+        )?;
         hash.finish();
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foobar")?, 1)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foobar")?, 1)?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "bar")?,
+            1,
+        )?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "foobar")?,
+            1,
+        )?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "bar")?,
+            1,
+        )?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "bar")?,
+            1,
+        )?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "foobar")?,
+            1,
+        )?;
         hash.add_with_bytes_ref(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             1,
@@ -675,31 +760,39 @@ pub(crate) mod tests {
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             2,
         )?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "boom")?, 2)?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "boom")?,
+            2,
+        )?;
         hash.finish();
         hash.add_with_bytes_ref(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             3,
         )?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "end")?, 3)?;
+        hash.add_with_bytes_ref(
+            &new_bytes_ref_from_string(&mut random, "end")?,
+            3,
+        )?;
         hash.finish();
 
         match &hash {
             TermsHashPerFieldEnum::Mock(hash) => {
                 assert_eq!(7, hash.new_called.load(Ordering::SeqCst));
                 assert_eq!(6, hash.add_called.load(Ordering::SeqCst));
-            }
+            },
             _ => {
                 unreachable!();
-            }
+            },
         }
 
         let mut reader = ByteSliceReader::new();
         let parent = match &hash {
-            TermsHashPerFieldEnum::Mock(inner) => &mut inner.postings_array_wrapper.clone(),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                &mut inner.postings_array_wrapper.clone()
+            },
             _ => {
                 unreachable!();
-            }
+            },
         };
         hash.init_reader(&mut reader, 0, 0);
 
@@ -818,7 +911,8 @@ pub(crate) mod tests {
             }
         }
 
-        let mut posting_map: HashMap<BytesRef<Vec<u8>>, Posting> = HashMap::new();
+        let mut posting_map: HashMap<BytesRef<Vec<u8>>, Posting> =
+            HashMap::new();
         let num_strings = 1 + random.random_range(0..200);
 
         let random_length = random.random_range(1..100);
@@ -842,7 +936,8 @@ pub(crate) mod tests {
         for doc in 0..num_docs {
             let num_terms = 1 + random.random_range(0..200);
             for _ in 0..num_terms {
-                let ref_ = bytes_refs.get(random.random_range(0..vec_len)).unwrap();
+                let ref_ =
+                    bytes_refs.get(random.random_range(0..vec_len)).unwrap();
                 let posting = posting_map.get_mut(ref_).unwrap();
 
                 if posting.term_id == -1 {
@@ -868,10 +963,12 @@ pub(crate) mod tests {
         values.shuffle(&mut random);
         let mut reader = ByteSliceReader::new();
         let parent = match &hash {
-            TermsHashPerFieldEnum::Mock(inner) => &mut inner.postings_array_wrapper.clone(),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                &mut inner.postings_array_wrapper.clone()
+            },
             _ => {
                 unreachable!();
-            }
+            },
         };
         for posting in values {
             hash.init_reader(&mut reader, posting.term_id, 0);
@@ -913,7 +1010,10 @@ pub(crate) mod tests {
                 dummy_value.as_bytes().to_vec(),
             )?);
             hash.start(&dummy_filed, true)?;
-            hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "start")?, 0)?;
+            hash.add_with_bytes_ref(
+                &new_bytes_ref_from_string(&mut random, "start")?,
+                0,
+            )?;
 
             let size = random.random_range(50_000..=100_000);
             let mut random_data = vec![0u8; size];
@@ -927,7 +1027,12 @@ pub(crate) mod tests {
                 );
                 debug_assert!(offset <= i32::MAX as usize);
                 debug_assert!(write_length <= i32::MAX as usize);
-                hash.write_bytes(0, &random_data, offset as i32, write_length as i32)?;
+                hash.write_bytes(
+                    0,
+                    &random_data,
+                    offset as i32,
+                    write_length as i32,
+                )?;
                 offset += write_length;
             }
 
@@ -966,14 +1071,17 @@ pub(crate) mod tests {
             let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
 
             let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            let byte_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
+            let byte_block_pool =
+                Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
             let allocator1 = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            let term_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
-            let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+            let term_block_pool =
+                Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
+            let bytes_used =
+                Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
-            let postings_array_wrapper = Rc::new(RefCell::new(PostingsArrayWrapper::new(
-                TermsHashPerFieldType::Mock,
-            )));
+            let postings_array_wrapper = Rc::new(RefCell::new(
+                PostingsArrayWrapper::new(TermsHashPerFieldType::Mock),
+            ));
 
             let parent_per_filed = TermsHashPerField::new(
                 1,
@@ -995,13 +1103,22 @@ pub(crate) mod tests {
         }
     }
     impl TermsHashPerFieldBase for TermsHashPerFieldMock {
-        fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
+        fn init_stream_slices(
+            &mut self,
+            term_id: i32,
+            doc_id: i32,
+        ) -> Result<()> {
             self.parent_per_field.init_stream_slices(term_id, doc_id)?;
             self.new_term(term_id, doc_id)
         }
 
-        fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
-            let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
+        fn position_stream_slice(
+            &mut self,
+            term_id: i32,
+            doc_id: i32,
+        ) -> Result<i32> {
+            let term_id =
+                self.parent_per_field.position_stream_slice(term_id, doc_id);
             self.add_term(term_id, doc_id)?;
             Ok(term_id)
         }
@@ -1014,7 +1131,8 @@ pub(crate) mod tests {
             self.new_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let term_id = term_id as usize;
-            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+            let mut postings_array_wrapper =
+                self.postings_array_wrapper.borrow_mut();
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             match &mut postings_array_wrapper.postings_array {
                 Some(postings_array) => match postings_array {
@@ -1024,16 +1142,16 @@ pub(crate) mod tests {
                         match &mut f.term_freqs {
                             Some(term_freqs) => {
                                 term_freqs[term_id] = 1;
-                            }
+                            },
                             None => unreachable!(),
                         }
                         Ok(())
-                    }
+                    },
                     _ => unreachable!(),
                 },
                 None => {
                     unreachable!()
-                }
+                },
             }
         }
 
@@ -1041,7 +1159,8 @@ pub(crate) mod tests {
             self.add_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let term_id = term_id as usize;
-            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+            let mut postings_array_wrapper =
+                self.postings_array_wrapper.borrow_mut();
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             match &mut postings_array_wrapper.postings_array {
                 Some(postings_array) => match postings_array {
@@ -1050,15 +1169,23 @@ pub(crate) mod tests {
                             match &mut postings.term_freqs {
                                 Some(term_freqs) => {
                                     if 1 == term_freqs[term_id] {
-                                        self.parent_per_field
-                                            .write_vint(0, postings.last_doc_codes[term_id] | 1)?;
+                                        self.parent_per_field.write_vint(
+                                            0,
+                                            postings.last_doc_codes[term_id]
+                                                | 1,
+                                        )?;
                                     } else {
-                                        self.parent_per_field
-                                            .write_vint(0, postings.last_doc_codes[term_id])?;
-                                        self.parent_per_field.write_vint(0, term_freqs[term_id])?;
+                                        self.parent_per_field.write_vint(
+                                            0,
+                                            postings.last_doc_codes[term_id],
+                                        )?;
+                                        self.parent_per_field.write_vint(
+                                            0,
+                                            term_freqs[term_id],
+                                        )?;
                                     }
                                     term_freqs[term_id] = 1;
-                                }
+                                },
                                 None => unreachable!(),
                             }
                             postings.last_doc_codes[term_id] =
@@ -1070,22 +1197,24 @@ pub(crate) mod tests {
                                 Some(term_freqs) => {
                                     let value = term_freqs[term_id] as i64 + 1;
                                     if value > i32::MAX as i64 {
-                                        return Err(LuceneError::number_overflow(
-                                            "term_freqs".to_string(),
-                                        ));
+                                        return Err(
+                                            LuceneError::number_overflow(
+                                                "term_freqs".to_string(),
+                                            ),
+                                        );
                                     }
                                     term_freqs[term_id] += 1;
                                     Ok(())
-                                }
+                                },
                                 None => unreachable!(),
                             }
                         }
-                    }
+                    },
                     _ => unreachable!(),
                 },
                 None => {
                     unreachable!()
-                }
+                },
             }
         }
 

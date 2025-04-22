@@ -46,7 +46,12 @@ impl DataInput for DummyBytesReader {
         ))
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> lucene_error::Result<()> {
+    fn read_bytes(
+        &mut self,
+        _b: &mut [u8],
+        _offset: i32,
+        _len: i32,
+    ) -> lucene_error::Result<()> {
         Err(LuceneError::unsupported_operation(
             "DummyBytesReader does not support reading bytes".to_string(),
         ))

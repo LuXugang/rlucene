@@ -34,6 +34,8 @@ pub trait DocValuesIterator: DocIdSetIterator {
     /// After this method returns, [`doc_id()`](DocIdSetIterator::doc_id)
     /// will return the value of `target`.
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        unimplemented!("advance_exact needs to be implemented if you need to use it")
+        unimplemented!(
+            "advance_exact needs to be implemented if you need to use it"
+        )
     }
 }

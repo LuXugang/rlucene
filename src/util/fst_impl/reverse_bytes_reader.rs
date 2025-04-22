@@ -38,7 +38,12 @@ impl DataInput for ReverseBytesReader {
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         let offset = offset as usize;
         for i in 0..len as usize {
             b[offset + i] = self.bytes[self.pos as usize];

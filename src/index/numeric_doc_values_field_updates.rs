@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 use crate::index::doc_values_field_updates::{
-    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
-    DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
+    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner,
+    DocValuesFieldIterator, DocValuesFieldUpdatesBase,
+    SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::BytesRef;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
-use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
+use crate::util::packed::abstract_paged_mutable::{
+    AbstractPagedMutable, AbstractPagedMutableBase,
+};
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::paged_mutable::PagedMutable;
 use crate::util::packed::PackedInts;
@@ -41,7 +44,8 @@ where
 #[allow(unused)]
 impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
     pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>> {
-        let sub_reader = PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT);
+        let sub_reader =
+            PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT);
         let values = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
@@ -60,9 +64,13 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
             impl AbstractPagedMutableBase<PagedMutableBase = PagedMutable>,
         >,
     > {
-        let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
-        let sub_reader =
-            PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
+        let bits_per_value =
+            PackedInts::unsigned_bits_required(max_value - min_value);
+        let sub_reader = PagedMutable::with_overhead_ratio(
+            PAGE_SIZE,
+            bits_per_value,
+            PackedInts::DEFAULT,
+        );
         let values = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
@@ -90,7 +98,12 @@ where
         self.values.set(index as i64, value - self.min_value)
     }
 
-    fn add_byte_ref(&mut self, _doc: i32, _value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
+    fn add_byte_ref(
+        &mut self,
+        _doc: i32,
+        _value: &BytesRef<Vec<u8>>,
+        _index: i32,
+    ) -> Result<()> {
         Err(LuceneError::unreachable(
             "umericDocValuesFieldUpdates does not support add_byte_ref",
         ))
@@ -109,7 +122,11 @@ where
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator> {
-        let base = AbstractIteratorBaseImpl::new(Some(&mut self.values), 0, self.min_value);
+        let base = AbstractIteratorBaseImpl::new(
+            Some(&mut self.values),
+            0,
+            self.min_value,
+        );
         Ok(AbstractIterator::new(inner, del_gen, base))
     }
 
@@ -192,7 +209,9 @@ impl SingleValueNumericDocValuesFieldUpdates {
         SingleValueNumericDocValuesFieldUpdates { value }
     }
 }
-impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUpdates {
+impl SingleValueDocValuesFieldUpdatesBase
+    for SingleValueNumericDocValuesFieldUpdates
+{
     fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
         Err(LuceneError::unreachable(
             "SingleValueNumericDocValuesFieldUpdates does not support binary_value",

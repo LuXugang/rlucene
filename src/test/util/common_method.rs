@@ -17,7 +17,10 @@
 
 #[allow(dead_code)]
 pub struct CommonMethod;
-pub fn assert_vecs_equal<T: PartialEq + std::fmt::Debug>(expected: &[T], actual: &[T]) {
+pub fn assert_vecs_equal<T: PartialEq + std::fmt::Debug>(
+    expected: &[T],
+    actual: &[T],
+) {
     if expected.len() != actual.len() {
         assert_eq!(expected.len(), actual.len(),);
     }

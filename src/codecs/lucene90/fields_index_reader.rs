@@ -71,12 +71,18 @@ where
         let block_shift = meta_in.read_int()?;
         let num_chunks = meta_in.read_int()?;
         let docs_start_pointer = meta_in.read_long()?;
-        let docs_meta =
-            direct_monotonic_reader_util::load_meta(meta_in, num_chunks as i64, block_shift)?;
+        let docs_meta = direct_monotonic_reader_util::load_meta(
+            meta_in,
+            num_chunks as i64,
+            block_shift,
+        )?;
         let docs_end_pointer = meta_in.read_long()?;
         let start_pointers_start_pointer = meta_in.read_long()?;
-        let start_pointers_meta =
-            direct_monotonic_reader_util::load_meta(meta_in, num_chunks as i64, block_shift)?;
+        let start_pointers_meta = direct_monotonic_reader_util::load_meta(
+            meta_in,
+            num_chunks as i64,
+            block_shift,
+        )?;
         let start_pointers_end_pointer = meta_in.read_long()?;
         let max_pointer = meta_in.read_long()?;
 
@@ -95,14 +101,18 @@ where
         )?;
         CodecUtil::retrieve_checksum(&mut index_input)?;
 
-        let docs_slice = index_input
-            .random_access_slice(docs_start_pointer, docs_end_pointer - docs_start_pointer)?;
+        let docs_slice = index_input.random_access_slice(
+            docs_start_pointer,
+            docs_end_pointer - docs_start_pointer,
+        )?;
         let start_pointers_slice = index_input.random_access_slice(
             start_pointers_start_pointer,
             start_pointers_end_pointer - start_pointers_start_pointer,
         )?;
-        let docs =
-            DirectMonotonicReader::get_instance(&docs_meta, Rc::new(RefCell::new(docs_slice)))?;
+        let docs = DirectMonotonicReader::get_instance(
+            &docs_meta,
+            Rc::new(RefCell::new(docs_slice)),
+        )?;
         let start_pointers = DirectMonotonicReader::get_instance(
             &start_pointers_meta,
             Rc::new(RefCell::new(start_pointers_slice)),
@@ -127,17 +137,22 @@ where
     fn new_with_other(other: &FieldsIndexReader<I>) -> Result<Self> {
         let docs_meta = other.docs_meta.clone();
         let start_pointers_meta = other.start_pointers_meta.clone();
-        let docs_slice = Rc::new(RefCell::new(other.index_input.random_access_slice(
-            other.docs_start_pointer,
-            other.docs_end_pointer - other.docs_start_pointer,
-        )?));
-        let start_pointers_slice = Rc::new(RefCell::new(other.index_input.random_access_slice(
-            other.start_pointers_start_pointer,
-            other.start_pointers_end_pointer - other.start_pointers_start_pointer,
-        )?));
+        let docs_slice =
+            Rc::new(RefCell::new(other.index_input.random_access_slice(
+                other.docs_start_pointer,
+                other.docs_end_pointer - other.docs_start_pointer,
+            )?));
+        let start_pointers_slice =
+            Rc::new(RefCell::new(other.index_input.random_access_slice(
+                other.start_pointers_start_pointer,
+                other.start_pointers_end_pointer
+                    - other.start_pointers_start_pointer,
+            )?));
         let docs = DirectMonotonicReader::get_instance(&docs_meta, docs_slice)?;
-        let start_pointers =
-            DirectMonotonicReader::get_instance(&start_pointers_meta, start_pointers_slice)?;
+        let start_pointers = DirectMonotonicReader::get_instance(
+            &start_pointers_meta,
+            start_pointers_slice,
+        )?;
         Ok(FieldsIndexReader {
             max_doc: other.max_doc,
             block_shift: other.block_shift,
@@ -177,9 +192,11 @@ where
 {
     fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
         assert!(doc_id >= 0 && doc_id < self.max_doc);
-        let block_index = self
-            .docs
-            .binary_search(0, self.num_chunks as i64, doc_id as i64)?;
+        let block_index = self.docs.binary_search(
+            0,
+            self.num_chunks as i64,
+            doc_id as i64,
+        )?;
         let block_index = if block_index < 0 {
             -(2 + block_index)
         } else {

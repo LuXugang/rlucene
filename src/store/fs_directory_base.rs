@@ -22,5 +22,10 @@ use std::path::Path;
 
 pub trait FSDirectoryBase: Display {
     type Output: IndexInput;
-    fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output>;
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+        path: &Path,
+    ) -> Result<Self::Output>;
 }

@@ -61,7 +61,7 @@ impl TermState for BlockTermState {
                 self.block_file_pointer = other.block_file_pointer;
                 self.ord = other.ord.clone();
                 Ok(())
-            }
+            },
             _ => Err(LuceneError::illegal_state(
                 "enum other should be BlockTermState",
             )),

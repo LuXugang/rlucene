@@ -60,10 +60,15 @@ impl IOContext {
         merge_info: Option<MergeInfo>,
         flush_info: Option<FlushInfo>,
     ) -> Result<IOContext> {
-        let context = context
-            .ok_or_else(|| LuceneError::illegal_argument("context must not be None".to_string()))?;
+        let context = context.ok_or_else(|| {
+            LuceneError::illegal_argument(
+                "context must not be None".to_string(),
+            )
+        })?;
         let read_advice = read_advice.ok_or_else(|| {
-            LuceneError::illegal_argument("read_advice must not be None".to_string())
+            LuceneError::illegal_argument(
+                "read_advice must not be None".to_string(),
+            )
         })?;
         if matches!(context, Context::Merge) && merge_info.is_none() {
             return Err(LuceneError::illegal_argument(
@@ -75,7 +80,8 @@ impl IOContext {
                 "flush_info must not be None if context is FLUSH".to_string(),
             ));
         }
-        if (matches!(context, Context::Flush) || matches!(context, Context::Merge))
+        if (matches!(context, Context::Flush)
+            || matches!(context, Context::Merge))
             && !matches!(read_advice, ReadAdvice::Sequential)
         {
             return Err(LuceneError::illegal_argument(
@@ -114,7 +120,10 @@ impl IOContext {
         )
     }
 
-    pub fn with_read_advice(&self, read_advice: ReadAdvice) -> Result<IOContext> {
+    pub fn with_read_advice(
+        &self,
+        read_advice: ReadAdvice,
+    ) -> Result<IOContext> {
         if matches!(self.context, Context::Default) {
             // TODO: maybe should statically define all types of context
             Self::new_with_read_advice(read_advice)

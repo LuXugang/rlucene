@@ -157,7 +157,10 @@ pub mod indexed_disi_util {
     /// # Errors
     /// Returns an error if writing to the output fails.
     #[allow(unused)]
-    pub(crate) fn write_bitset<O>(it: &mut impl DocIdSetIterator, out: &mut O) -> Result<i16>
+    pub(crate) fn write_bitset<O>(
+        it: &mut impl DocIdSetIterator,
+        out: &mut O,
+    ) -> Result<i16>
     where
         O: IndexOutput,
     {
@@ -336,9 +339,13 @@ pub mod indexed_disi_util {
         if jump_table_entry_count <= 0 {
             Ok(None)
         } else {
-            let jump_table_bytes = (jump_table_entry_count as i64) * BitUtil::INT_BYTES as i64 * 2;
+            let jump_table_bytes =
+                (jump_table_entry_count as i64) * BitUtil::INT_BYTES as i64 * 2;
             slice
-                .random_access_slice(offset + length - jump_table_bytes, jump_table_bytes)
+                .random_access_slice(
+                    offset + length - jump_table_bytes,
+                    jump_table_bytes,
+                )
                 .map(Some)
         }
     }
@@ -479,16 +486,19 @@ pub mod indexed_disi_util {
         let mut rank = 0;
         match &disi.dense_rank_table {
             None => {
-                Err::<(), LuceneError>(LuceneError::unreachable("should not be here"))?;
-            }
+                Err::<(), LuceneError>(LuceneError::unreachable(
+                    "should not be here",
+                ))?;
+            },
             Some(rank_table) => {
                 let high = rank_table[byte_index] as u16;
                 let low = rank_table[byte_index + 1] as u16;
                 rank = ((high << 8) | low) as i32;
-            }
+            },
         }
         // Position the counting logic just after the rank point
-        let rank_aligned_word_index = (rank_index << disi.dense_rank_power) >> 6;
+        let rank_aligned_word_index =
+            (rank_index << disi.dense_rank_power) >> 6;
         let offset = disi.dense_bitmap_offset
             + (rank_aligned_word_index as i64) * BitUtil::LONG_BYTES as i64;
         let mut slice = disi.slice.borrow_mut();
@@ -504,7 +514,9 @@ pub mod indexed_disi_util {
     }
     ///  Returns an iterator that delegates to the IndexedDISI. Advancing this iterator will advance the
     /// underlying IndexedDISI, and vice-versa.
-    pub fn get_doc_index_iterator<D, I>(disi: &mut IndexedDISI<I>) -> DocIndexIteratorImpl<I>
+    pub fn get_doc_index_iterator<D, I>(
+        disi: &mut IndexedDISI<I>,
+    ) -> DocIndexIteratorImpl<I>
     where
         D: DocIdSetIterator + DocIndexIteratorBase,
         I: IndexInput,
@@ -553,8 +565,8 @@ where
             length,
             jump_table_entry_count,
         )?;
-        let jump_table =
-            jump_table_option.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
+        let jump_table = jump_table_option
+            .map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
 
         Self::from_components(
             Rc::new(RefCell::new(block_slice)),
@@ -650,19 +662,22 @@ where
             if block_index >= (self.block >> 16) + 2 {
                 // If the jumpTableEntryCount is exceeded, there are no further bits. Last entry is always
                 // NO_MORE_DOCS
-                let in_range_block_index = if block_index < self.jump_table_entry_count {
-                    block_index
-                } else {
-                    self.jump_table_entry_count - 1
-                };
+                let in_range_block_index =
+                    if block_index < self.jump_table_entry_count {
+                        block_index
+                    } else {
+                        self.jump_table_entry_count - 1
+                    };
 
-                let jump_pos = in_range_block_index as i64 * BitUtil::INT_BYTES as i64 * 2;
+                let jump_pos =
+                    in_range_block_index as i64 * BitUtil::INT_BYTES as i64 * 2;
                 let index;
                 let offset;
                 {
                     let mut jump_table = jump_table_rc.borrow_mut();
                     index = jump_table.read_int(jump_pos)?;
-                    offset = jump_table.read_int(jump_pos + BitUtil::INT_BYTES as i64)?;
+                    offset = jump_table
+                        .read_int(jump_pos + BitUtil::INT_BYTES as i64)?;
                 }
                 // -1 to compensate for the always-added 1 in readBlockHeader
                 self.next_block_index = index - 1;
@@ -691,7 +706,8 @@ where
 
         if num_values <= indexed_disi_util::MAX_ARRAY_LENGTH {
             self.method = Method::Sparse;
-            self.block_end = slice.get_file_pointer() + (num_values << 1) as i64;
+            self.block_end =
+                slice.get_file_pointer() + (num_values << 1) as i64;
             self.next_exist_doc_in_block = -1;
         } else if num_values == indexed_disi_util::BLOCK_SIZE {
             self.method = Method::ALL;
@@ -700,7 +716,8 @@ where
         } else {
             self.method = Method::Dense;
             self.dense_bitmap_offset = slice.get_file_pointer()
-                + self.dense_rank_table.as_ref().map(|v| v.len()).unwrap_or(0) as i64;
+                + self.dense_rank_table.as_ref().map(|v| v.len()).unwrap_or(0)
+                    as i64;
             self.block_end = self.dense_bitmap_offset + (1 << 13);
             // Performance consideration: All rank (default 128 * 16 bits) are loaded up front. This
             // should be fast with the
@@ -715,7 +732,8 @@ where
             // already slice-heavy.
             if self.dense_rank_power != -1 {
                 debug_assert!(self.dense_rank_table.is_some());
-                let rank_table_len = self.dense_rank_table.as_ref().unwrap().len();
+                let rank_table_len =
+                    self.dense_rank_table.as_ref().unwrap().len();
                 debug_assert!(rank_table_len <= i32::MAX as usize);
                 if let Some(rank_table) = self.dense_rank_table.as_mut() {
                     slice.read_bytes(rank_table, 0, rank_table_len as i32)?;
@@ -738,8 +756,12 @@ where
 
         let found = self.block == target_block && {
             match self.method {
-                Method::Sparse => SparseMethod.advance_exact_within_block(self, target)?,
-                Method::Dense => DenseMethod.advance_exact_within_block(self, target)?,
+                Method::Sparse => {
+                    SparseMethod.advance_exact_within_block(self, target)?
+                },
+                Method::Dense => {
+                    DenseMethod.advance_exact_within_block(self, target)?
+                },
                 Method::ALL => All.advance_exact_within_block(self, target)?,
             }
         };
@@ -814,8 +836,12 @@ where
 
         if self.block == target_block {
             let advanced = match self.method {
-                Method::Sparse => SparseMethod.advance_within_block(self, target)?,
-                Method::Dense => DenseMethod.advance_within_block(self, target)?,
+                Method::Sparse => {
+                    SparseMethod.advance_within_block(self, target)?
+                },
+                Method::Dense => {
+                    DenseMethod.advance_within_block(self, target)?
+                },
                 Method::ALL => All.advance_within_block(self, target)?,
             };
             if advanced {
@@ -825,8 +851,12 @@ where
         }
 
         let found = match self.method {
-            Method::Sparse => SparseMethod.advance_within_block(self, self.block)?,
-            Method::Dense => DenseMethod.advance_within_block(self, self.block)?,
+            Method::Sparse => {
+                SparseMethod.advance_within_block(self, self.block)?
+            },
+            Method::Dense => {
+                DenseMethod.advance_within_block(self, self.block)?
+            },
             Method::ALL => All.advance_within_block(self, self.block)?,
         };
         debug_assert!(found);
@@ -870,8 +900,12 @@ impl MethodBehavior for Method {
         target: i32,
     ) -> Result<bool> {
         match self {
-            Method::Sparse => SparseMethod.advance_exact_within_block(disi, target),
-            Method::Dense => DenseMethod.advance_exact_within_block(disi, target),
+            Method::Sparse => {
+                SparseMethod.advance_exact_within_block(disi, target)
+            },
+            Method::Dense => {
+                DenseMethod.advance_exact_within_block(disi, target)
+            },
             Method::ALL => All.advance_exact_within_block(disi, target),
         }
     }
@@ -964,7 +998,8 @@ impl MethodBehavior for DenseMethod {
         // If the distance between the current position and the target is < rank-longs
         // there is no sense in using rank
         if disi.dense_rank_power != -1
-            && target_word_index - disi.word_index >= (1 << (disi.dense_rank_power - 6))
+            && target_word_index - disi.word_index
+                >= (1 << (disi.dense_rank_power - 6))
         {
             indexed_disi_util::rank_skip(disi, target_in_block)?;
         }
@@ -991,8 +1026,9 @@ impl MethodBehavior for DenseMethod {
             if disi.word != 0 {
                 disi.index = disi.number_of_ones;
                 disi.number_of_ones += disi.word.count_ones() as i32;
-                disi.doc =
-                    disi.block | ((disi.word_index << 6) | disi.word.trailing_zeros() as i32);
+                disi.doc = disi.block
+                    | ((disi.word_index << 6)
+                        | disi.word.trailing_zeros() as i32);
                 return Ok(true);
             }
         }
@@ -1011,7 +1047,8 @@ impl MethodBehavior for DenseMethod {
         // If the distance between the current position and the target is < rank-longs
         // there is no sense in using rank
         if disi.dense_rank_power != -1
-            && target_word_index - disi.word_index >= (1 << (disi.dense_rank_power - 6))
+            && target_word_index - disi.word_index
+                >= (1 << (disi.dense_rank_power - 6))
         {
             indexed_disi_util::rank_skip(disi, target_in_block)?;
         }
@@ -1060,7 +1097,9 @@ mod tests {
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::directory::Directory;
     use crate::store::{IOContext, IndexInput, IndexOutput};
-    use crate::test::util::lucene_test_case::{at_least, new_directory, random, rarely};
+    use crate::test::util::lucene_test_case::{
+        at_least, new_directory, random, rarely,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_set::BitSet;
     use crate::util::bit_set_iterator::BitSetIterator;
@@ -1131,10 +1170,14 @@ mod tests {
         assert_advance_beyond_end(&set, &mut dir)
     }
 
-    fn assert_advance_beyond_end(set: &impl BitSet, dir: &mut impl Directory) -> Result<()> {
+    fn assert_advance_beyond_end(
+        set: &impl BitSet,
+        dir: &mut impl Directory,
+    ) -> Result<()> {
         let cardinality = set.cardinality();
         let dense_rank_power = 9;
-        let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
+        let mut out =
+            dir.create_output("bar", &IOContext::default_io_context()?)?;
         let jump_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(set, cardinality as i64)?,
             &mut out,
@@ -1151,7 +1194,8 @@ mod tests {
             index += 1;
         }
 
-        let mut input = dir.open_input("bar", &IOContext::default_io_context()?)?;
+        let mut input =
+            dir.open_input("bar", &IOContext::default_io_context()?)?;
         let mut disi = IndexedDISI::new(
             &mut input,
             0,
@@ -1194,16 +1238,19 @@ mod tests {
         };
         let set = create_set_with_random_blocks(&mut random, BLOCKS)?;
         let cardinality = set.cardinality();
-        let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(&set, cardinality as i64)?,
-            &mut out,
-            dense_rank_power,
-        )? as i32;
+        let mut out =
+            dir.create_output("foo", &IOContext::default_io_context()?)?;
+        let jump_table_entry_count =
+            indexed_disi_util::write_bitset_with_dense_rank_power(
+                &mut BitSetIterator::new(&set, cardinality as i64)?,
+                &mut out,
+                dense_rank_power,
+            )? as i32;
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut full_input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let mut full_input =
+            dir.open_input("foo", &IOContext::default_io_context()?)?;
         test_position_not_zero_extra(
             &mut random,
             &mut full_input,
@@ -1231,9 +1278,14 @@ mod tests {
             jump_table_entry_count,
         )?;
         block_data.seek(random.random_range(0..block_data.length()))?;
-        let jump_table =
-            indexed_disi_util::create_jump_table(full_input, 0, length, jump_table_entry_count)?;
-        let jump_table = jump_table.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
+        let jump_table = indexed_disi_util::create_jump_table(
+            full_input,
+            0,
+            length,
+            jump_table_entry_count,
+        )?;
+        let jump_table = jump_table
+            .map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
         let mut disi: IndexedDISI<I> = IndexedDISI::from_components(
             Rc::new(RefCell::new(block_data)),
             jump_table,
@@ -1253,22 +1305,22 @@ mod tests {
         let mut set = SparseFixedBitSet::new(block_count * B)?;
         for block in 0..block_count {
             match random.random_range(0..4) {
-                0 => {}
+                0 => {},
                 1 => {
                     for doc_id in (block * B)..((block + 1) * B) {
                         set.set(doc_id);
                     }
-                }
+                },
                 2 => {
                     for doc_id in (block * B..(block + 1) * B).step_by(101) {
                         set.set(doc_id);
                     }
-                }
+                },
                 3 => {
                     for doc_id in (block * B..(block + 1) * B).step_by(3) {
                         set.set(doc_id);
                     }
-                }
+                },
                 _ => unreachable!(),
             }
         }
@@ -1286,16 +1338,19 @@ mod tests {
         } else {
             (random.random_range(0..7) + 7) as i8
         };
-        let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(set, cardinality as i64)?,
-            &mut out,
-            dense_rank_power,
-        )? as i32;
+        let mut out =
+            dir.create_output("foo", &IOContext::default_io_context()?)?;
+        let jump_table_entry_count =
+            indexed_disi_util::write_bitset_with_dense_rank_power(
+                &mut BitSetIterator::new(set, cardinality as i64)?,
+                &mut out,
+                dense_rank_power,
+            )? as i32;
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let mut input =
+            dir.open_input("foo", &IOContext::default_io_context()?)?;
         for i in 0..set.length() {
             let mut disi = IndexedDISI::new(
                 &mut input,
@@ -1400,17 +1455,23 @@ mod tests {
         };
 
         set.set_with_range(start, start + indexed_disi_util::MAX_ARRAY_LENGTH);
-        let mut out = dir.create_output("sparse", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(&set, indexed_disi_util::MAX_ARRAY_LENGTH as i64)?,
-            &mut out,
-            dense_rank_power,
-        )? as i32;
+        let mut out =
+            dir.create_output("sparse", &IOContext::default_io_context()?)?;
+        let jump_table_entry_count =
+            indexed_disi_util::write_bitset_with_dense_rank_power(
+                &mut BitSetIterator::new(
+                    &set,
+                    indexed_disi_util::MAX_ARRAY_LENGTH as i64,
+                )?,
+                &mut out,
+                dense_rank_power,
+            )? as i32;
         let length = out.get_file_pointer();
         drop(out);
 
         {
-            let mut input = dir.open_input("sparse", &IOContext::default_io_context()?)?;
+            let mut input =
+                dir.open_input("sparse", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
                 &mut input,
                 0,
@@ -1425,10 +1486,18 @@ mod tests {
 
         do_test(&set, &mut dir, &mut random)?;
 
-        set.set(start + indexed_disi_util::MAX_ARRAY_LENGTH + random.random_range(0..100));
-        let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
+        set.set(
+            start
+                + indexed_disi_util::MAX_ARRAY_LENGTH
+                + random.random_range(0..100),
+        );
+        let mut out =
+            dir.create_output("bar", &IOContext::default_io_context()?)?;
         indexed_disi_util::write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(&set, (indexed_disi_util::MAX_ARRAY_LENGTH + 1) as i64)?,
+            &mut BitSetIterator::new(
+                &set,
+                (indexed_disi_util::MAX_ARRAY_LENGTH + 1) as i64,
+            )?,
             &mut out,
             dense_rank_power,
         )?;
@@ -1436,7 +1505,8 @@ mod tests {
         drop(out);
 
         {
-            let mut input = dir.open_input("bar", &IOContext::default_io_context()?)?;
+            let mut input =
+                dir.open_input("bar", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
                 &mut input,
                 0,
@@ -1521,7 +1591,8 @@ mod tests {
         set.set(9);
         let mut random = random();
         let mut dir = new_directory(&mut random)?;
-        let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+        let mut out =
+            dir.create_output("foo", &IOContext::default_io_context()?)?;
         let jump_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(&set, set.cardinality() as i64)?,
             &mut out,
@@ -1530,7 +1601,8 @@ mod tests {
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let mut input =
+            dir.open_input("foo", &IOContext::default_io_context()?)?;
         let _ = IndexedDISI::new(
             &mut input,
             0,
@@ -1558,17 +1630,20 @@ mod tests {
         let cardinality = set.cardinality() as i64;
 
         let mut dir = new_directory(&mut random)?;
-        let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(&set, cardinality)?,
-            &mut out,
-            dense_rank_power,
-        )? as i32;
+        let mut out =
+            dir.create_output("foo", &IOContext::default_io_context()?)?;
+        let jump_table_entry_count =
+            indexed_disi_util::write_bitset_with_dense_rank_power(
+                &mut BitSetIterator::new(&set, cardinality)?,
+                &mut out,
+                dense_rank_power,
+            )? as i32;
         let length = out.get_file_pointer();
         drop(out);
 
         let mut disi2 = BitSetIterator::new(&set, cardinality)?;
-        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let mut input =
+            dir.open_input("foo", &IOContext::default_io_context()?)?;
         let mut disi = IndexedDISI::new(
             &mut input,
             0,
@@ -1593,11 +1668,17 @@ mod tests {
         Ok(())
     }
 
-    fn do_test_random(dir: &mut impl Directory, random: &mut StdRng) -> Result<()> {
+    fn do_test_random(
+        dir: &mut impl Directory,
+        random: &mut StdRng,
+    ) -> Result<()> {
         let end = TestUtil::next_int(random, 2, 20);
         let max_step = TestUtil::next_int(random, 1, 1 << end);
-        let num_docs =
-            TestUtil::next_int(random, 1, std::cmp::min(100_000, (i32::MAX - 1) / max_step));
+        let num_docs = TestUtil::next_int(
+            random,
+            1,
+            std::cmp::min(100_000, (i32::MAX - 1) / max_step),
+        );
 
         let mut docs = SparseFixedBitSet::new(num_docs * max_step + 1)?;
         let mut last_doc = -1;
@@ -1617,7 +1698,11 @@ mod tests {
         do_test(&set, dir, random)
     }
 
-    fn do_test(set: &impl BitSet, dir: &mut impl Directory, random: &mut StdRng) -> Result<()> {
+    fn do_test(
+        set: &impl BitSet,
+        dir: &mut impl Directory,
+        random: &mut StdRng,
+    ) -> Result<()> {
         let cardinality = set.cardinality() as i64;
         let dense_rank_power = if rarely(random) {
             -1
@@ -1629,17 +1714,20 @@ mod tests {
         let jump_table_entry_count;
 
         {
-            let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-            jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
-                &mut BitSetIterator::new(set, cardinality)?,
-                &mut out,
-                dense_rank_power,
-            )? as i32;
+            let mut out =
+                dir.create_output("foo", &IOContext::default_io_context()?)?;
+            jump_table_entry_count =
+                indexed_disi_util::write_bitset_with_dense_rank_power(
+                    &mut BitSetIterator::new(set, cardinality)?,
+                    &mut out,
+                    dense_rank_power,
+                )? as i32;
             length = out.get_file_pointer();
         }
 
         {
-            let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+            let mut input =
+                dir.open_input("foo", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
                 &mut input,
                 0,
@@ -1653,7 +1741,8 @@ mod tests {
         }
 
         for &step in &[1, 10, 100, 1000, 10000, 100000] {
-            let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+            let mut input =
+                dir.open_input("foo", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
                 &mut input,
                 0,
@@ -1667,7 +1756,8 @@ mod tests {
         }
 
         for &step in &[10, 100, 1000, 10000, 100000] {
-            let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+            let mut input =
+                dir.open_input("foo", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
                 &mut input,
                 0,
@@ -1678,7 +1768,13 @@ mod tests {
             )?;
             let disi2_length = set.length();
             let mut disi2 = BitSetIterator::new(set, cardinality)?;
-            assert_advance_exact_randomized(random, &mut disi, &mut disi2, disi2_length, step)?;
+            assert_advance_exact_randomized(
+                random,
+                &mut disi,
+                &mut disi2,
+                disi2_length,
+                step,
+            )?;
         }
 
         dir.delete_file("foo")?;

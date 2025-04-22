@@ -62,7 +62,8 @@ pub mod direct_monotonic_reader_util {
             meta.offsets[i] = meta_in.read_long()?;
             let bpv = meta_in.read_byte()?;
             meta.bpvs[i] = bpv;
-            all_values_zero = all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
+            all_values_zero =
+                all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
         }
         if all_values_zero {
             Ok(Meta::single_zero_block())
@@ -84,7 +85,10 @@ where
         bpvs: Vec<u8>,
     ) -> Result<Self> {
         let readers_len = readers.len();
-        if readers_len != mins.len() || readers_len != avgs.len() || readers_len != bpvs.len() {
+        if readers_len != mins.len()
+            || readers_len != avgs.len()
+            || readers_len != bpvs.len()
+        {
             return Err(LuceneError::illegal_argument(String::from(
                 "Mismatched array lengths",
             )));
@@ -102,11 +106,14 @@ where
 
     /// Get lower/upper bounds for the value at a given index without hitting the direct reader.
     fn get_bounds(&self, index: i64) -> Result<[i64; 2]> {
-        let block: i32 = (((index as u64) >> self.block_shift) as i64).try_into()?;
+        let block: i32 =
+            (((index as u64) >> self.block_shift) as i64).try_into()?;
         let block = block as usize;
         let block_index = index & self.block_mask;
-        let lower_bound = self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64);
-        let upper_bound = lower_bound + ((1i64 << (self.bpvs[block] as u32)) - 1);
+        let lower_bound = self.mins[block]
+            + ((self.avgs[block] * (block_index as f32)) as i64);
+        let upper_bound =
+            lower_bound + ((1i64 << (self.bpvs[block] as u32)) - 1);
         if self.bpvs[block] == 64 || upper_bound < lower_bound {
             Ok([i64::MIN, i64::MAX])
         } else {
@@ -114,7 +121,12 @@ where
         }
     }
 
-    pub fn binary_search(&mut self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
+    pub fn binary_search(
+        &mut self,
+        from_index: i64,
+        to_index: i64,
+        key: i64,
+    ) -> Result<i64> {
         if from_index < 0 || from_index > to_index {
             return Err(LuceneError::illegal_argument(format!(
                 "fromIndex={}, toIndex={}",
@@ -163,12 +175,14 @@ where
                 && i < meta.num_blocks - 1// we only know the number of values for the last block
                 && meta.block_shift >= DirectReader::MERGE_BUFFER_SHIFT
             {
-                readers.push(DirectReader::get_merge_instance_with_base_offset(
-                    data.clone(),
-                    bpv as i32,
-                    meta.offsets[i],
-                    1i64 << meta.block_shift,
-                ));
+                readers.push(
+                    DirectReader::get_merge_instance_with_base_offset(
+                        data.clone(),
+                        bpv as i32,
+                        meta.offsets[i],
+                        1i64 << meta.block_shift,
+                    ),
+                );
             } else {
                 readers.push(DirectReader::get_instance_with_offset(
                     data.clone(),
@@ -194,7 +208,9 @@ where
         let block = ((index as u64) >> self.block_shift) as usize;
         let block_index = index & self.block_mask;
         let delta = self.readers[block].get(block_index)?;
-        Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)
+        Ok(self.mins[block]
+            + ((self.avgs[block] * (block_index as f32)) as i64)
+            + delta)
     }
 }
 pub mod direct_monotonic {

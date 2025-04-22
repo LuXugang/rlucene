@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::index::terms_hash_per_field::{
-    MTPostingsArrayWrapper, PostingsArrayWrapper, PostingsBytesStartArray, STPostingsArrayWrapper,
+    MTPostingsArrayWrapper, PostingsArrayWrapper, PostingsBytesStartArray,
+    STPostingsArrayWrapper,
 };
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::{Access, AccessVec};
@@ -26,9 +27,10 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, BytesRefComparator, Comparator, Counter,
-    CounterEnum, CounterEnumBorrow, CounterEnumLock, MSBRadixSorter, MSBRadixSorterBase, Natural,
-    Sorter, StringHelper, StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
+    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, BytesRefComparator,
+    Comparator, Counter, CounterEnum, CounterEnumBorrow, CounterEnumLock,
+    MSBRadixSorter, MSBRadixSorterBase, Natural, Sorter, StringHelper,
+    StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
     LEVEL_THRESHOLD,
 };
 use parking_lot::Mutex;
@@ -74,9 +76,10 @@ impl MTBytesRefHash {
         BytesRefHash::from_pool_sync(pool)
     }
     pub fn from_pool_sync(pool: ByteBlockPoolLock) -> Self {
-        let bytes_start_array = Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
-            DirectBytesStartArray::new_sync(BytesRefHash::DEFAULT_CAPACITY),
-        )));
+        let bytes_start_array =
+            Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
+                DirectBytesStartArray::new_sync(BytesRefHash::DEFAULT_CAPACITY),
+            )));
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
 }
@@ -88,13 +91,19 @@ impl STBytesRefHash {
         BytesRefHash::from_pool(pool)
     }
     pub fn from_pool(pool: ByteBlockPoolBorrow) -> Self {
-        let bytes_start_array = Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
-            DirectBytesStartArray::new(BytesRefHash::DEFAULT_CAPACITY),
-        )));
+        let bytes_start_array =
+            Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
+                DirectBytesStartArray::new(BytesRefHash::DEFAULT_CAPACITY),
+            )));
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
     pub fn do_hash(bytes: &[u8], offset: usize, length: usize) -> i32 {
-        StringHelper::murmurhash3_x86_32_with_byte(bytes, offset, length, *GOOD_FAST_HASH_SEED)
+        StringHelper::murmurhash3_x86_32_with_byte(
+            bytes,
+            offset,
+            length,
+            *GOOD_FAST_HASH_SEED,
+        )
     }
 }
 
@@ -105,7 +114,11 @@ where
     A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
-    pub fn from_bytes_start_array(pool: B, capacity: i32, bytes_start_array: A) -> Self {
+    pub fn from_bytes_start_array(
+        pool: B,
+        capacity: i32,
+        bytes_start_array: A,
+    ) -> Self {
         let bytes_used = bytes_start_array.access_mut(|bytes_start_array| {
             bytes_start_array.init();
             bytes_start_array.bytes_used()
@@ -335,7 +348,8 @@ where
                 "bytesStart is null - not initialized"
             );
 
-            let mut code = BytesRefHash::do_hash(&bytes.bytes, bytes.offset, bytes.length);
+            let mut code =
+                BytesRefHash::do_hash(&bytes.bytes, bytes.offset, bytes.length);
 
             // final position
             let mut hash_pos = code & self.hash_mask;
@@ -353,9 +367,10 @@ where
                     hash_pos = code & self.hash_mask;
                     e = self.ids[hash_pos as usize];
                     if e == -1
-                        || self
-                            .pool
-                            .equals(bytes_start_array.get_value(e as usize), bytes)
+                        || self.pool.equals(
+                            bytes_start_array.get_value(e as usize),
+                            bytes,
+                        )
                     {
                         break;
                     }
@@ -610,7 +625,8 @@ where
             let limit = end_offsets[i];
             while start_offsets[i] < limit {
                 let h1 = start_offsets[i];
-                let b = self.compact[(self.tmp_offset + from + h1) as usize] as usize;
+                let b = self.compact[(self.tmp_offset + from + h1) as usize]
+                    as usize;
                 let h2 = start_offsets[b];
                 start_offsets[b] += 1;
                 self.swap_bucket_cache(from + h1, from + h2)?;
@@ -643,7 +659,8 @@ where
 
     fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
         // We lower the fallback threshold because the bucket cache speeds up the reorder
-        to - from <= ((LEVEL_THRESHOLD as i32) / 2) || l >= LEVEL_THRESHOLD as i32
+        to - from <= ((LEVEL_THRESHOLD as i32) / 2)
+            || l >= LEVEL_THRESHOLD as i32
     }
 }
 impl<C, B, A, P> Sorter for StringSorterImpl<'_, C, B, A, P>
@@ -672,7 +689,8 @@ where
         i: i32,
     ) -> Result<()> {
         self.bytes_start_array.access(|bytes_start_array| {
-            let start = bytes_start_array.get_value(self.compact[i as usize] as usize);
+            let start =
+                bytes_start_array.get_value(self.compact[i as usize] as usize);
             self.pool.fill_bytes_ref(result, start);
         });
         Ok(())
@@ -766,8 +784,13 @@ where
     C: Access<CounterEnum>,
 {
     fn init(&mut self) {
-        self.bytes_start =
-            vec![0; ArrayUtil::oversize(self.init_size as usize, BitUtil::INT_BYTES)];
+        self.bytes_start = vec![
+            0;
+            ArrayUtil::oversize(
+                self.init_size as usize,
+                BitUtil::INT_BYTES
+            )
+        ];
     }
 
     fn grow(&mut self) -> Result<()> {
@@ -885,7 +908,10 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
-    pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
+    pub fn new(
+        cmp: &'a mut C,
+        delegate_sorter: &'a mut T,
+    ) -> MSBStringHashRadixSorter<'a, T, C> {
         MSBStringHashRadixSorter {
             cmp,
             delegate_sorter,
@@ -961,7 +987,8 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::bytes_ref_hash::{
-        BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesRefHash,
+        BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray,
+        MTBytesRefHash,
     };
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{ByteBlockPool, ByteBlockPoolLock};
@@ -981,7 +1008,10 @@ mod tests {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)))
     }
-    fn new_hash(random: &mut StdRng, block_pool: ByteBlockPoolLock) -> MTBytesRefHash {
+    fn new_hash(
+        random: &mut StdRng,
+        block_pool: ByteBlockPoolLock,
+    ) -> MTBytesRefHash {
         let init_size = 2 << (1 + random.random_range(0..5));
         if random.random_bool(0.5) {
             BytesRefHash::from_pool_sync(block_pool)
@@ -1008,7 +1038,10 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_length(
+                            &mut random,
+                            1000,
+                        );
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1048,7 +1081,10 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_length(
+                            &mut random,
+                            1000,
+                        );
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1097,7 +1133,10 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_length(
+                            &mut random,
+                            1000,
+                        );
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1147,7 +1186,10 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_length(
+                            &mut random,
+                            1000,
+                        );
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1200,7 +1242,10 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_length(
+                            &mut random,
+                            1000,
+                        );
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1247,7 +1292,10 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_length(
+                            &mut random,
+                            1000,
+                        );
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1293,7 +1341,11 @@ mod tests {
                 let mut hash_guard = hash.lock();
                 for _ in 0..num_strings {
                     let str_value =
-                        TestUtil::random_realistic_unicode_string_impl(&mut random, 1, 1000);
+                        TestUtil::random_realistic_unicode_string_impl(
+                            &mut random,
+                            1,
+                            1000,
+                        );
                     hash_guard.add(&BytesRef::from_string(&str_value))?;
                     strings.lock().push(str_value);
                 }
@@ -1324,8 +1376,9 @@ mod tests {
 
                     for k in 0..loops {
                         let strings_guard = strings_clone.lock();
-                        let find =
-                            BytesRef::from_string(&strings_guard[k as usize % strings_guard.len()]);
+                        let find = BytesRef::from_string(
+                            &strings_guard[k as usize % strings_guard.len()],
+                        );
                         drop(strings_guard);
 
                         let hash_guard = hash_clone.lock();
@@ -1368,7 +1421,11 @@ mod tests {
             );
 
             hash.lock().clear();
-            assert_eq!(hash.lock().size(), 0, "Hash should be empty after clear.");
+            assert_eq!(
+                hash.lock().size(),
+                0,
+                "Hash should be empty after clear."
+            );
             hash.lock().reinit();
         }
 
@@ -1393,14 +1450,24 @@ mod tests {
 
             match hash.add(&ref_bytes) {
                 Ok(key) => {
-                    assert_eq!(i as i32, key, "Expected index {} but got {}", i, key);
-                }
+                    assert_eq!(
+                        i as i32, key,
+                        "Expected index {} but got {}",
+                        i, key
+                    );
+                },
                 Err(e) => {
                     if i < sizes.len() - 1 {
-                        unreachable!("Unexpected exception at size: {}: {:?}", size, e);
+                        unreachable!(
+                            "Unexpected exception at size: {}: {:?}",
+                            size, e
+                        );
                     }
-                    assert!(matches!(e, LuceneError::MaxBytesLengthExceeded(_)));
-                }
+                    assert!(matches!(
+                        e,
+                        LuceneError::MaxBytesLengthExceeded(_)
+                    ));
+                },
             }
         }
 
@@ -1424,7 +1491,10 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_length(
+                            &mut random,
+                            1000,
+                        );
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1439,7 +1509,8 @@ mod tests {
                     assert_eq!(unique_count, key);
                     assert_eq!(hash.size(), count + 1);
 
-                    let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(key))?;
+                    let offset_key =
+                        offset_hash.add_by_pool_offset(hash.byte_start(key))?;
                     assert_eq!(unique_count, offset_key);
                     assert_eq!(offset_hash.size(), count + 1);
 
@@ -1450,7 +1521,8 @@ mod tests {
                     hash.get(-key - 1, &mut scratch);
                     assert_eq!(str_value, scratch.utf8_to_string()?);
                     assert_eq!(count, hash.size());
-                    let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1))?;
+                    let offset_key = offset_hash
+                        .add_by_pool_offset(hash.byte_start(-key - 1))?;
                     assert!((-offset_key - 1) < count);
                     hash.get(-offset_key - 1, &mut scratch);
                     assert_eq!(str_value, scratch.utf8_to_string()?);
@@ -1487,7 +1559,10 @@ mod tests {
         Ok(())
     }
 
-    fn assert_all_in(strings: &HashSet<String>, hash: &mut MTBytesRefHash) -> Result<()> {
+    fn assert_all_in(
+        strings: &HashSet<String>,
+        hash: &mut MTBytesRefHash,
+    ) -> Result<()> {
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();
         let count = hash.size();

@@ -64,13 +64,19 @@ impl Lucene90LiveDocsFormat {
     pub fn new() -> Lucene90LiveDocsFormat {
         Lucene90LiveDocsFormat {}
     }
-    fn read_fixed_bit_set(input: &mut impl IndexInput, length: i32) -> Result<FixedBitSet> {
+    fn read_fixed_bit_set(
+        input: &mut impl IndexInput,
+        length: i32,
+    ) -> Result<FixedBitSet> {
         let num_words = FixedBitSet::bits2words(length);
         let mut data = vec![0i64; num_words as usize];
         input.read_longs(&mut data, 0, num_words)?;
         FixedBitSet::with_capacity(data, length)
     }
-    fn write_bits(output: &mut impl IndexOutput, bits: &impl Bits) -> Result<i32> {
+    fn write_bits(
+        output: &mut impl IndexOutput,
+        bits: &impl Bits,
+    ) -> Result<i32> {
         let mut del_count = 0;
         let long_count = FixedBitSet::bits2words(bits.length());
         for i in 0..long_count {
@@ -137,8 +143,10 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
             Ok(_) => {
                 CodecUtil::check_footer(&mut input)?;
                 result
-            }
-            Err(mut e) => Err(CodecUtil::check_footer_with_error(&mut input, &mut e)),
+            },
+            Err(mut e) => {
+                Err(CodecUtil::check_footer_with_error(&mut input, &mut e))
+            },
         }
     }
 
@@ -162,7 +170,8 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         debug_assert!(name.is_some());
         let del_count: i32;
         {
-            let mut output = directory.create_output(name.as_ref().unwrap().as_str(), context)?;
+            let mut output = directory
+                .create_output(name.as_ref().unwrap().as_str(), context)?;
             CodecUtil::write_index_header(
                 &mut output,
                 Lucene90LiveDocsFormat::CODEC_NAME,
@@ -188,7 +197,11 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         Ok(())
     }
 
-    fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
+    fn files<D>(
+        &self,
+        info: &SegmentCommitInfo<D>,
+        files: &mut HashSet<String>,
+    ) -> Result<()>
     where
         D: Directory,
     {

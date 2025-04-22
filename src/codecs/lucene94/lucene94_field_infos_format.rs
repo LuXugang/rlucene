@@ -125,14 +125,19 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn doc_values_skip_index_byte(skip_index_type: &DocValuesSkipIndexType) -> u8 {
+    fn doc_values_skip_index_byte(
+        skip_index_type: &DocValuesSkipIndexType,
+    ) -> u8 {
         match skip_index_type {
             DocValuesSkipIndexType::None => 0,
             DocValuesSkipIndexType::Range => 1,
         }
     }
 
-    fn get_doc_values_type<I: IndexInput>(input: &I, b: u8) -> Result<DocValuesType> {
+    fn get_doc_values_type<I: IndexInput>(
+        input: &I,
+        b: u8,
+    ) -> Result<DocValuesType> {
         match DocValuesType::from_repr(b) {
             Some(dv) => Ok(dv),
             None => Err(LuceneError::corrupt_index(format!(
@@ -155,7 +160,10 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn get_vector_encoding<I: IndexInput>(input: &I, b: u8) -> Result<VectorEncoding> {
+    fn get_vector_encoding<I: IndexInput>(
+        input: &I,
+        b: u8,
+    ) -> Result<VectorEncoding> {
         match VectorEncoding::from_repr(b) {
             Some(ve) => Ok(ve),
             None => Err(LuceneError::corrupt_index(format!(
@@ -165,7 +173,10 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn get_dist_func<I: IndexInput>(input: &I, b: u8) -> Result<VectorSimilarityFunction> {
+    fn get_dist_func<I: IndexInput>(
+        input: &I,
+        b: u8,
+    ) -> Result<VectorSimilarityFunction> {
         match VectorSimilarityFunction::from_repr(b) {
             Some(func) => Ok(func),
             None => Err(LuceneError::corrupt_index(format!(
@@ -193,7 +204,10 @@ impl Lucene94FieldInfosFormat {
         }
     }
 
-    fn get_index_options<I: IndexInput>(input: &I, b: u8) -> Result<IndexOptions> {
+    fn get_index_options<I: IndexInput>(
+        input: &I,
+        b: u8,
+    ) -> Result<IndexOptions> {
         match IndexOptions::from_repr(b) {
             Some(opt) => Ok(opt),
             None => Err(LuceneError::corrupt_index(format!(
@@ -220,8 +234,11 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
     where
         D: Directory,
     {
-        let file_name =
-            IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
+        let file_name = IndexFileNames::segment_file_name(
+            &segment_info.name,
+            segment_suffix,
+            Self::EXTENSION,
+        );
         let mut input = directory.open_checksum_input(&file_name)?;
 
         // Wrap the main logic in a closure so we can capture errors for footer checking.
@@ -255,7 +272,8 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 let store_term_vector = (bits & Self::STORE_TERMVECTOR) != 0;
                 let omit_norms = (bits & Self::OMIT_NORMS) != 0;
                 let store_payloads = (bits & Self::STORE_PAYLOADS) != 0;
-                let is_soft_deletes_field = (bits & Self::SOFT_DELETES_FIELD) != 0;
+                let is_soft_deletes_field =
+                    (bits & Self::SOFT_DELETES_FIELD) != 0;
                 let is_parent_field = if format >= Self::FORMAT_PARENT_FIELD {
                     (bits & Self::PARENT_FIELD_FIELD) != 0
                 } else {
@@ -274,7 +292,9 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                         bits
                     )));
                 }
-                if format < Self::FORMAT_DOCVALUE_SKIPPER && (bits & Self::DOCVALUES_SKIPPER) != 0 {
+                if format < Self::FORMAT_DOCVALUE_SKIPPER
+                    && (bits & Self::DOCVALUES_SKIPPER) != 0
+                {
                     return Err(LuceneError::corrupt_index(format!(
                         "doc values skipper bit is set but shouldn't \"{:b}\"",
                         bits
@@ -283,16 +303,24 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 
                 let index_options_ord = input.read_byte()?;
                 let doc_values_type_ord = input.read_byte()?;
-                let index_options = Self::get_index_options(&input, index_options_ord)?;
-                let doc_values_type = Self::get_doc_values_type(&input, doc_values_type_ord)?;
-                let doc_values_skip_index = if format >= Self::FORMAT_DOCVALUE_SKIPPER {
+                let index_options =
+                    Self::get_index_options(&input, index_options_ord)?;
+                let doc_values_type =
+                    Self::get_doc_values_type(&input, doc_values_type_ord)?;
+                let doc_values_skip_index = if format
+                    >= Self::FORMAT_DOCVALUE_SKIPPER
+                {
                     let doc_values_skip_index_type_ord = input.read_byte()?;
-                    Self::get_doc_values_skip_index_type(&input, doc_values_skip_index_type_ord)?
+                    Self::get_doc_values_skip_index_type(
+                        &input,
+                        doc_values_skip_index_type_ord,
+                    )?
                 } else {
                     DocValuesSkipIndexType::None
                 };
                 let dv_gen = input.read_long()?;
-                let mut attributes = Rc::new(RefCell::new(input.read_map_of_strings()?));
+                let mut attributes =
+                    Rc::new(RefCell::new(input.read_map_of_strings()?));
                 // just use the last field's map if it's the same:
                 if *attributes.borrow_mut() == *last_attributes.borrow() {
                     attributes = last_attributes.clone();
@@ -308,8 +336,10 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 let vector_dimension = input.read_vint()?;
                 let vector_encoding_ord = input.read_byte()?;
                 let vector_dist_func_ord = input.read_byte()?;
-                let vector_encoding = Self::get_vector_encoding(&input, vector_encoding_ord)?;
-                let vector_dist_func = Self::get_dist_func(&input, vector_dist_func_ord)?;
+                let vector_encoding =
+                    Self::get_vector_encoding(&input, vector_encoding_ord)?;
+                let vector_dist_func =
+                    Self::get_dist_func(&input, vector_dist_func_ord)?;
                 let field_info = FieldInfo::new(
                     name,
                     field_number,
@@ -339,8 +369,10 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             Ok(infos) => {
                 CodecUtil::check_footer(&mut input)?;
                 Ok(FieldInfos::new(infos)?)
-            }
-            Err(mut e) => Err(CodecUtil::check_footer_with_error(&mut input, &mut e)),
+            },
+            Err(mut e) => {
+                Err(CodecUtil::check_footer_with_error(&mut input, &mut e))
+            },
         }
     }
 
@@ -355,8 +387,11 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
     where
         D: Directory,
     {
-        let file_name =
-            IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
+        let file_name = IndexFileNames::segment_file_name(
+            &segment_info.name,
+            segment_suffix,
+            Self::EXTENSION,
+        );
         let mut output = directory.create_output(&file_name, io_context)?;
 
         CodecUtil::write_index_header(
@@ -393,9 +428,11 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             }
             output.write_byte(bits)?;
 
-            output.write_byte(Self::index_options_byte(fi.get_index_options()))?;
+            output
+                .write_byte(Self::index_options_byte(fi.get_index_options()))?;
 
-            output.write_byte(Self::doc_values_byte(fi.get_doc_values_type()))?;
+            output
+                .write_byte(Self::doc_values_byte(fi.get_doc_values_type()))?;
             output.write_byte(Self::doc_values_skip_index_byte(
                 fi.doc_values_skip_index_type(),
             ))?;
@@ -409,8 +446,12 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 output.write_vint(fi.get_point_num_bytes())?;
             }
             output.write_vint(fi.get_vector_dimension())?;
-            output.write_byte(Self::vector_encoding_byte(fi.get_vector_encoding()))?;
-            output.write_byte(Self::dist_func_to_ord(fi.get_vector_similarity_function()))?;
+            output.write_byte(Self::vector_encoding_byte(
+                fi.get_vector_encoding(),
+            ))?;
+            output.write_byte(Self::dist_func_to_ord(
+                fi.get_vector_similarity_function(),
+            ))?;
         }
 
         CodecUtil::write_footer(&mut output)?;

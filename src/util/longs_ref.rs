@@ -70,7 +70,9 @@ impl LongsRef {
     /// * `offset` - The offset where valid longs start.
     /// * `length` - The number of valid longs.
     pub fn from_slice(mut longs: Vec<i64>, offset: i32, length: i32) -> Self {
-        debug_assert!(Self::is_valid(longs.as_mut_slice(), offset, length).unwrap());
+        debug_assert!(
+            Self::is_valid(longs.as_mut_slice(), offset, length).unwrap()
+        );
         Self {
             longs,
             offset,
@@ -94,8 +96,9 @@ impl LongsRef {
                 "Offset and length exceed vector bounds",
             ));
         }
-        let copied_longs =
-            other.longs[other.offset as usize..(other.offset + other.length) as usize].to_vec();
+        let copied_longs = other.longs
+            [other.offset as usize..(other.offset + other.length) as usize]
+            .to_vec();
 
         Ok(LongsRef {
             longs: copied_longs,
@@ -158,7 +161,8 @@ impl LongsRef {
                 && (other.offset + other.length) as usize <= other.longs.len()
         );
         self.longs[self.offset as usize..(self.offset + self.length) as usize]
-            == other.longs[other.offset as usize..(other.offset + other.length) as usize]
+            == other.longs
+                [other.offset as usize..(other.offset + other.length) as usize]
     }
 }
 
@@ -221,8 +225,10 @@ impl Comparator<LongsRef> for LongsRefComparator {
     /// * Zero if `a == b`.
     /// * A positive integer if `a > b`.
     fn compare(&self, a: &LongsRef, b: &LongsRef) -> Result<i32> {
-        let a_slice = &a.longs[a.offset as usize..(a.offset + a.length) as usize];
-        let b_slice = &b.longs[b.offset as usize..(b.offset + b.length) as usize];
+        let a_slice =
+            &a.longs[a.offset as usize..(a.offset + a.length) as usize];
+        let b_slice =
+            &b.longs[b.offset as usize..(b.offset + b.length) as usize];
         Ok(a_slice.cmp(b_slice).to_int())
     }
 }

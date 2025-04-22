@@ -59,7 +59,8 @@ impl PostingsUtil {
     ) -> Result<()> {
         if write_freqs {
             for i in 0..num as usize {
-                doc_buffer[i] = (doc_buffer[i] << 1) | if freq_buffer[i] == 1 { 1 } else { 0 };
+                doc_buffer[i] = (doc_buffer[i] << 1)
+                    | if freq_buffer[i] == 1 { 1 } else { 0 };
             }
         }
         doc_out.write_group_vints_i32(doc_buffer, num)?;
@@ -99,7 +100,10 @@ mod tests {
         do_test_integer_overflow(&mut random, random_size2)?;
         Ok(())
     }
-    fn do_test_integer_overflow(random: &mut StdRng, size: usize) -> Result<()> {
+    fn do_test_integer_overflow(
+        random: &mut StdRng,
+        size: usize,
+    ) -> Result<()> {
         let mut doc_delta_buffer = vec![0i32; size];
         let freq_buffer = vec![0i32; size];
 
@@ -109,7 +113,8 @@ mod tests {
         // TODO: ByteBuffersDirectory not Implemented
         let mut dir = new_directory(random)?;
         {
-            let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;
+            let mut out =
+                dir.create_output("test", &IOContext::default_io_context()?)?;
             PostingsUtil::write_vint_block(
                 &mut out,
                 &mut doc_delta_buffer,
@@ -123,7 +128,8 @@ mod tests {
         let mut restored_freqs = vec![0i32; size];
 
         {
-            let mut input = dir.open_input("test", &IOContext::default_io_context()?)?;
+            let mut input =
+                dir.open_input("test", &IOContext::default_io_context()?)?;
             PostingsUtil::read_vint_block(
                 &mut input,
                 &mut restored_docs,

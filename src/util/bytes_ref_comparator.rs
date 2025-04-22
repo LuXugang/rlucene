@@ -29,7 +29,12 @@ pub trait BytesRefComparator {
     fn byte_at(&self, _bytes_ref: &BytesRef<Vec<u8>>, _i: i32) -> i32 {
         unimplemented!("byte_at must be implemented if it need to be used")
     }
-    fn compare_with_offset(&self, o1: &BytesRef<Vec<u8>>, o2: &BytesRef<Vec<u8>>, k: i32) -> i32 {
+    fn compare_with_offset(
+        &self,
+        o1: &BytesRef<Vec<u8>>,
+        o2: &BytesRef<Vec<u8>>,
+        k: i32,
+    ) -> i32 {
         for i in k..self.compared_bytes_count() {
             let b1 = self.byte_at(o1, i);
             let b2 = self.byte_at(o2, i);
@@ -42,7 +47,9 @@ pub trait BytesRefComparator {
         0
     }
     fn compared_bytes_count(&self) -> i32 {
-        unimplemented!("compared_bytes_count must be implemented if it need to be used")
+        unimplemented!(
+            "compared_bytes_count must be implemented if it need to be used"
+        )
     }
 }
 
@@ -60,7 +67,11 @@ impl Default for Natural {
 impl Comparator<BytesRef<Vec<u8>>> for Natural {
     const TYPE: &'static str = BYTES_REF_COMPARATOR_TYPE;
 
-    fn compare(&self, a: &BytesRef<Vec<u8>>, b: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn compare(
+        &self,
+        a: &BytesRef<Vec<u8>>,
+        b: &BytesRef<Vec<u8>>,
+    ) -> Result<i32> {
         Ok(self.compare_with_offset(a, b, 0))
     }
 }
@@ -74,7 +85,12 @@ impl BytesRefComparator for Natural {
         }
     }
 
-    fn compare_with_offset(&self, o1: &BytesRef<Vec<u8>>, o2: &BytesRef<Vec<u8>>, k: i32) -> i32 {
+    fn compare_with_offset(
+        &self,
+        o1: &BytesRef<Vec<u8>>,
+        o2: &BytesRef<Vec<u8>>,
+        k: i32,
+    ) -> i32 {
         let start1 = o1.offset + k as usize;
         let start2 = o2.offset + k as usize;
 

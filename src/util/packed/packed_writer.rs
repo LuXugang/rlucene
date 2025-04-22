@@ -52,8 +52,10 @@ where
         let encoder = bulk_operation_util::of(format, bits_per_value);
         debug_assert!(value_count >= 0);
         let iterations = encoder.compute_iterations(value_count, mem);
-        let next_blocks = vec![0; (iterations * Encoder::byte_block_count(encoder)) as usize];
-        let next_values = vec![0; (iterations * Encoder::byte_value_count(encoder)) as usize];
+        let next_blocks =
+            vec![0; (iterations * Encoder::byte_block_count(encoder)) as usize];
+        let next_values =
+            vec![0; (iterations * Encoder::byte_value_count(encoder)) as usize];
 
         Self {
             finished: false,
@@ -77,9 +79,11 @@ where
             0,
             self.iterations,
         );
-        let block_count =
-            self.format
-                .byte_count(PackedInts::VERSION_CURRENT, self.off, self.bits_per_value);
+        let block_count = self.format.byte_count(
+            PackedInts::VERSION_CURRENT,
+            self.off,
+            self.bits_per_value,
+        );
 
         debug_assert!(block_count <= i32::MAX as i64);
         self.data_output.write_bytes_with_len(
@@ -104,9 +108,14 @@ where
             PackedInts::unsigned_bits_required(v) <= self.bits_per_value,
             "Value exceeds allowed bits per value"
         );
-        debug_assert!(!self.finished, "Cannot add values after finishing writing");
+        debug_assert!(
+            !self.finished,
+            "Cannot add values after finishing writing"
+        );
         if self.value_count != -1 && self.written >= self.value_count {
-            return Err(LuceneError::eof("Writing past end of stream".to_string()));
+            return Err(LuceneError::eof(
+                "Writing past end of stream".to_string(),
+            ));
         }
         self.next_values[self.off as usize] = v;
         self.off += 1;

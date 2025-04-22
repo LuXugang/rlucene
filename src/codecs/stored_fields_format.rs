@@ -65,9 +65,8 @@ impl StoredFieldsFormat for StoredFieldsFormatEnum {
         D: Directory,
     {
         match self {
-            StoredFieldsFormatEnum::Lucene90Compressing(format) => {
-                format.fields_reader(directory, segment_info, field_infos, context)
-            }
+            StoredFieldsFormatEnum::Lucene90Compressing(format) => format
+                .fields_reader(directory, segment_info, field_infos, context),
         }
     }
 
@@ -83,7 +82,7 @@ impl StoredFieldsFormat for StoredFieldsFormatEnum {
         match self {
             StoredFieldsFormatEnum::Lucene90Compressing(format) => {
                 format.fields_writer(directory, segment_info, context)
-            }
+            },
         }
     }
 }

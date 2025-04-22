@@ -52,19 +52,29 @@ impl Display for NIOFSDirectory {
 /// this method should only be called in [`FSDirectory::open_input`](crate::store::fs_directory::FSDirectory), which will first check whether file could be read
 impl FSDirectoryBase for NIOFSDirectory {
     type Output = BufferedIndexInput<NIOFSIndexInput>;
-    fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+        path: &Path,
+    ) -> Result<Self::Output> {
         let file_path = path.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         let file = match File::open(file_path) {
             Ok(file) => file,
             Err(err) => {
                 return Err(LuceneError::io_with_path(file_name, err));
-            }
+            },
         };
-        let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());
+        let resource_desc =
+            format!("NIOFSIndexInput(path=\"{}\")", path.display());
         // let resource_desc_string = resource_desc.to_string();
         let index_input = NIOFSIndexInput::new(file, &resource_desc);
-        BufferedIndexInput::with_io_context(index_input, &resource_desc, context)
+        BufferedIndexInput::with_io_context(
+            index_input,
+            &resource_desc,
+            context,
+        )
     }
 }
 

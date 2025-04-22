@@ -65,9 +65,15 @@ where
         }
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(
+        &mut self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexOutputType> {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => reader.create_output(name, context),
+            CompoundDirectoryEnum::Lucene90(reader) => {
+                reader.create_output(name, context)
+            },
         }
     }
 
@@ -82,7 +88,7 @@ where
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => {
                 reader.create_temp_output(prefix, suffix, context)
-            }
+            },
         }
     }
 
@@ -100,15 +106,23 @@ where
 
     fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => reader.rename(source, dest),
+            CompoundDirectoryEnum::Lucene90(reader) => {
+                reader.rename(source, dest)
+            },
         }
     }
 
     type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType> {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => reader.open_input(name, context),
+            CompoundDirectoryEnum::Lucene90(reader) => {
+                reader.open_input(name, context)
+            },
         }
     }
 
@@ -120,7 +134,9 @@ where
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => reader.get_pending_deletions(),
+            CompoundDirectoryEnum::Lucene90(reader) => {
+                reader.get_pending_deletions()
+            },
         }
     }
 }

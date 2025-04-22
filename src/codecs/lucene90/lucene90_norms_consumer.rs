@@ -124,7 +124,9 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
                 2 => out.write_short(value as i16)?,
                 4 => out.write_int(value as i32)?,
                 8 => out.write_long(value)?,
-                _ => return Err(LuceneError::unreachable("invalid byte width")),
+                _ => {
+                    return Err(LuceneError::unreachable("invalid byte width"))
+                },
             }
         }
         Ok(())
@@ -138,7 +140,9 @@ where
         let result = self.close();
         match result {
             Ok(_) => (),
-            Err(e) => eprintln!("Failed to close Lucene90NormsConsumer: {:?}", e),
+            Err(e) => {
+                eprintln!("Failed to close Lucene90NormsConsumer: {:?}", e)
+            },
         }
     }
 }
@@ -186,17 +190,19 @@ where
             let jump_table_entry_count;
             {
                 let mut values = norms_producer.get_norms(field)?;
-                jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
-                    &mut values,
-                    &mut self.data,
-                    indexed_disi_util::DEFAULT_DENSE_RANK_POWER,
-                )?;
+                jump_table_entry_count =
+                    indexed_disi_util::write_bitset_with_dense_rank_power(
+                        &mut values,
+                        &mut self.data,
+                        indexed_disi_util::DEFAULT_DENSE_RANK_POWER,
+                    )?;
             }
             self.meta
                 .write_long(self.data.get_file_pointer() - offset)?; // docsWithFieldLength
             self.meta.write_short(jump_table_entry_count)?;
-            self.meta
-                .write_byte(indexed_disi_util::DEFAULT_DENSE_RANK_POWER as u8)?;
+            self.meta.write_byte(
+                indexed_disi_util::DEFAULT_DENSE_RANK_POWER as u8,
+            )?;
         }
 
         self.meta.write_int(num_docs_with_value)?;
@@ -208,7 +214,11 @@ where
         } else {
             self.meta.write_long(self.data.get_file_pointer())?;
             let mut values = norms_producer.get_norms(field)?;
-            Self::write_values(&mut values, num_bytes_per_value, &mut self.data)?;
+            Self::write_values(
+                &mut values,
+                num_bytes_per_value,
+                &mut self.data,
+            )?;
         }
 
         Ok(())

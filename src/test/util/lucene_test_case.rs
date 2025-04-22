@@ -20,9 +20,12 @@ use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::nio_fs_directory::NIOFSDirectory;
 use crate::store::{
-    FSDirectory, IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE,
+    FSDirectory, IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT,
+    IO_CONTEXT_READ_ONCE,
 };
-use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
+use crate::test::util::lucene_test_case::EnvConfig::{
+    Multiplier, NightMode, TestSeed,
+};
 
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
@@ -147,7 +150,10 @@ pub(crate) fn new_io_context_with_default(
         }
     }
 }
-pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
+pub(crate) fn slow_file_exists(
+    dir: &impl Directory,
+    name: &str,
+) -> Result<bool> {
     let result = dir.open_input(name, &IOContext::default_io_context()?);
     match result {
         Ok(_) => Ok(true),
@@ -157,7 +163,10 @@ pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool>
 /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
 /// that sometimes uses a non-zero offset and non-zero end-padding to
 /// tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRef<Vec<u8>>> {
+pub(crate) fn new_bytes_ref_from_string(
+    random: &mut StdRng,
+    s: &str,
+) -> Result<BytesRef<Vec<u8>>> {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
 }
@@ -186,7 +195,9 @@ pub(crate) fn new_bytes_ref_from_bytes(
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and non-zero
 /// end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef<Vec<u8>>> {
+pub(crate) fn new_bytes_ref_empty(
+    random: &mut StdRng,
+) -> Result<BytesRef<Vec<u8>>> {
     new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref` function
 }
 
@@ -246,7 +257,12 @@ pub(crate) fn new_bytes_ref(
     assert!(it.is_valid()?);
 
     if random.random_range(1..=17) == 7 {
-        return new_bytes_ref(random, &it.bytes, it.offset as i32, it.length as i32);
+        return new_bytes_ref(
+            random,
+            &it.bytes,
+            it.offset as i32,
+            it.length as i32,
+        );
     };
     Ok(it)
 }
@@ -263,7 +279,10 @@ pub(crate) fn get_seed_from_env() -> u64 {
             println!("Using Global Seed from environment: '{}'", seed);
             return seed;
         } else {
-            println!("Environment variable tests.seed is invalid: '{}'", seed_str);
+            println!(
+                "Environment variable tests.seed is invalid: '{}'",
+                seed_str
+            );
         }
     }
 

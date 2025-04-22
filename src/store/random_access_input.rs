@@ -24,7 +24,13 @@ pub trait RandomAccessInput {
     /// Reads a byte at the given position in the file
     fn read_byte(&mut self, pos: i64) -> Result<u8>;
     /// Reads a specified number of bytes starting at a given position into an array at the specified offset.
-    fn read_bytes(&mut self, pos: i64, buf: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        pos: i64,
+        buf: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         for i in 0..len {
             buf[(offset + i) as usize] = self.read_byte(pos + i as i64)?;
         }

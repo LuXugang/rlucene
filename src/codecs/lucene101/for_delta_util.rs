@@ -23,7 +23,8 @@ use crate::util::packed::PackedInts;
 use crate::util::SliceCopyOps;
 use once_cell::sync::Lazy;
 
-static IDENTITY_PLUS_ONE: Lazy<Vec<i32>> = Lazy::new(|| (1..=ForUtil::BLOCK_SIZE as i32).collect());
+static IDENTITY_PLUS_ONE: Lazy<Vec<i32>> =
+    Lazy::new(|| (1..=ForUtil::BLOCK_SIZE as i32).collect());
 
 /// Inspired from <https://fulmicoton.com/posts/bitpacking/>
 /// Encodes multiple integers in a long to get SIMD-like speedups.
@@ -200,7 +201,11 @@ impl ForDeltaUtil {
     }
     /// Encode deltas of a strictly monotonically increasing sequence of integers. The provided
     /// ints are expected to be deltas between consecutive values.
-    pub fn encode_deltas(&mut self, ints: &mut [i32], out: &mut impl DataOutput) -> Result<()> {
+    pub fn encode_deltas(
+        &mut self,
+        ints: &mut [i32],
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         if ints[0] == 1 && PForUtil::all_equal(ints) {
             out.write_byte(0)?;
         } else {
@@ -223,7 +228,13 @@ impl ForDeltaUtil {
                 32
             };
 
-            ForUtil::encode_with_tmp(ints, bits_per_value, primitive_size, out, &mut self.tmp)?;
+            ForUtil::encode_with_tmp(
+                ints,
+                bits_per_value,
+                primitive_size,
+                out,
+                &mut self.tmp,
+            )?;
         }
 
         Ok(())
@@ -239,7 +250,12 @@ impl ForDeltaUtil {
         if bits_per_value == 0 {
             Self::prefix_sum_of_ones(ints, base);
         } else {
-            self.decode_and_prefix_sum_with_bits(bits_per_value, pdu, base, ints)?;
+            self.decode_and_prefix_sum_with_bits(
+                bits_per_value,
+                pdu,
+                base,
+                ints,
+            )?;
         }
         Ok(())
     }
@@ -255,71 +271,71 @@ impl ForDeltaUtil {
             1 => {
                 ForUtil::decode1(pdu, ints)?;
                 ForDeltaUtil::prefix_sum8(ints, base);
-            }
+            },
             2 => {
                 ForUtil::decode2(pdu, ints)?;
                 ForDeltaUtil::prefix_sum8(ints, base);
-            }
+            },
             3 => {
                 ForUtil::decode3(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum8(ints, base);
-            }
+            },
             4 => {
                 ForDeltaUtil::decode_4_to_16(pdu, ints)?;
                 ForDeltaUtil::prefix_sum16(ints, base);
-            }
+            },
             5 => {
                 ForDeltaUtil::decode_5_to_16(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum16(ints, base);
-            }
+            },
             6 => {
                 ForDeltaUtil::decode_6_to_16(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum16(ints, base);
-            }
+            },
             7 => {
                 ForDeltaUtil::decode_7_to_16(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum16(ints, base);
-            }
+            },
             8 => {
                 ForDeltaUtil::decode_8_to_16(pdu, ints)?;
                 ForDeltaUtil::prefix_sum16(ints, base);
-            }
+            },
             9 => {
                 ForUtil::decode9(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum16(ints, base);
-            }
+            },
             10 => {
                 ForUtil::decode10(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum16(ints, base);
-            }
+            },
             11 => {
                 ForDeltaUtil::decode_11_to_32(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum32(ints, base);
-            }
+            },
             12 => {
                 ForDeltaUtil::decode_12_to_32(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum32(ints, base);
-            }
+            },
             13 => {
                 ForDeltaUtil::decode_13_to_32(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum32(ints, base);
-            }
+            },
             14 => {
                 ForDeltaUtil::decode_14_to_32(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum32(ints, base);
-            }
+            },
             15 => {
                 ForDeltaUtil::decode_15_to_32(pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum32(ints, base);
-            }
+            },
             16 => {
                 ForDeltaUtil::decode_16_to_32(pdu, ints)?;
                 ForDeltaUtil::prefix_sum32(ints, base);
-            }
+            },
             _ => {
                 ForUtil::decode_slow(bits_per_value, pdu, &mut self.tmp, ints)?;
                 ForDeltaUtil::prefix_sum32(ints, base);
-            }
+            },
         }
         Ok(())
     }
@@ -327,7 +343,15 @@ impl ForDeltaUtil {
         pdu: &mut PostingDecodingUtil<I>,
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_same(16, ints, 12, 4, ForUtil::MASK16_4, 48, ForUtil::MASK16_4)
+        pdu.split_ints_same(
+            16,
+            ints,
+            12,
+            4,
+            ForUtil::MASK16_4,
+            48,
+            ForUtil::MASK16_4,
+        )
     }
     fn decode_5_to_16<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
@@ -395,7 +419,16 @@ impl ForDeltaUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(28, ints, 9, 7, ForUtil::MASK16_7, tmp, 0, ForUtil::MASK16_2)?;
+        pdu.split_ints_diff(
+            28,
+            ints,
+            9,
+            7,
+            ForUtil::MASK16_7,
+            tmp,
+            0,
+            ForUtil::MASK16_2,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 56;
         for _ in 0..4 {
@@ -420,7 +453,15 @@ impl ForDeltaUtil {
         pdu: &mut PostingDecodingUtil<I>,
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_same(32, ints, 8, 8, ForUtil::MASK16_8, 32, ForUtil::MASK16_8)
+        pdu.split_ints_same(
+            32,
+            ints,
+            8,
+            8,
+            ForUtil::MASK16_8,
+            32,
+            ForUtil::MASK16_8,
+        )
     }
     fn decode_11_to_32<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
@@ -653,7 +694,15 @@ impl ForDeltaUtil {
         pdu: &mut PostingDecodingUtil<I>,
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_same(64, ints, 16, 16, ForUtil::MASK32_16, 64, ForUtil::MASK32_16)
+        pdu.split_ints_same(
+            64,
+            ints,
+            16,
+            16,
+            ForUtil::MASK32_16,
+            64,
+            ForUtil::MASK32_16,
+        )
     }
 }
 #[cfg(test)]
@@ -692,7 +741,8 @@ mod tests {
 
         // encode
         {
-            let mut out = d.create_output("test.bin", &IOContext::default_io_context()?)?;
+            let mut out =
+                d.create_output("test.bin", &IOContext::default_io_context()?)?;
             let mut for_delta_util = ForDeltaUtil::new();
 
             for i in 0..iterations {
@@ -707,9 +757,10 @@ mod tests {
 
         // decode
         {
-            let input = Rc::new(RefCell::new(
-                d.open_input("test.bin", &IOContext::read_once_io_context()?)?,
-            ));
+            let input = Rc::new(RefCell::new(d.open_input(
+                "test.bin",
+                &IOContext::read_once_io_context()?,
+            )?));
             // TODO: VECTORIZATION_PROVIDER not Implemented
             let mut pdu = PostingDecodingUtil::new(input.clone());
             let mut for_delta_util = ForDeltaUtil::new();
@@ -717,7 +768,11 @@ mod tests {
             for i in 0..iterations {
                 let base = 0i32;
                 let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
-                for_delta_util.decode_and_prefix_sum(&mut pdu, base, &mut restored)?;
+                for_delta_util.decode_and_prefix_sum(
+                    &mut pdu,
+                    base,
+                    &mut restored,
+                )?;
 
                 let mut expected = vec![0i32; ForUtil::BLOCK_SIZE];
                 for j in 0..ForUtil::BLOCK_SIZE {

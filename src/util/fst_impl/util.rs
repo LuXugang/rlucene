@@ -28,7 +28,10 @@ use std::hash::Hash;
 pub struct Util;
 impl Util {
     /// Looks up the output for this input, or null if the input is not accepted.
-    pub fn get<T, O, F>(fst: &mut FST<T, O, F>, input: &IntsRef<Vec<i32>>) -> Result<Option<T>>
+    pub fn get<T, O, F>(
+        fst: &mut FST<T, O, F>,
+        input: &IntsRef<Vec<i32>>,
+    ) -> Result<Option<T>>
     where
         T: OutputsBound,
         O: Outputs<T>,
@@ -41,7 +44,12 @@ impl Util {
 
         for i in 0..input.length as usize {
             let label = input.ints[input.offset as usize + i];
-            let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
+            let found = fst.find_target_arc(
+                label,
+                &arc.clone(),
+                &mut arc,
+                &mut fst_reader,
+            )?;
             if found.is_none() {
                 return Ok(None);
             }
@@ -49,7 +57,8 @@ impl Util {
         }
 
         if arc.is_final() {
-            let final_output = fst.outputs.add(&output, &arc.next_final_output());
+            let final_output =
+                fst.outputs.add(&output, &arc.next_final_output());
             Ok(Some(final_output))
         } else {
             Ok(None)
@@ -74,7 +83,12 @@ impl Util {
 
         for i in 0..input.length {
             let label = input.bytes[input.offset + i] as i32;
-            let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
+            let found = fst.find_target_arc(
+                label,
+                &arc.clone(),
+                &mut arc,
+                &mut fst_reader,
+            )?;
             if found.is_none() {
                 return Ok(None);
             }
@@ -82,7 +96,8 @@ impl Util {
         }
 
         if arc.is_final() {
-            let final_output = fst.outputs.add(&output, &arc.next_final_output());
+            let final_output =
+                fst.outputs.add(&output, &arc.next_final_output());
             Ok(Some(final_output))
         } else {
             Ok(None)

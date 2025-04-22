@@ -23,10 +23,17 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub trait SortFieldProvider {
-    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum>;
+    fn read_sort_field(
+        &self,
+        data_input: &mut impl DataInput,
+    ) -> Result<SortFieldEnum>;
     /// Writes a SortField to a DataOutput
     /// This is used to record index sort information in segment headers
-    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()>;
+    fn write_sort_field(
+        &self,
+        sf: &SortFieldEnum,
+        output: &mut impl DataOutput,
+    ) -> Result<()>;
 }
 pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
     if let Some(index_sort) = sf.get_index_sorter() {
@@ -42,8 +49,12 @@ pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
 }
 pub fn for_name(name: &str) -> SortFieldProviderEnum {
     match name {
-        NumericProvider::NAME => SortFieldProviderEnum::SortedNumericProvider(NumericProvider),
-        SetProvider::NAME => SortFieldProviderEnum::SortedSetProvider(SetProvider),
+        NumericProvider::NAME => {
+            SortFieldProviderEnum::SortedNumericProvider(NumericProvider)
+        },
+        SetProvider::NAME => {
+            SortFieldProviderEnum::SortedSetProvider(SetProvider)
+        },
         _ => SortFieldProviderEnum::SortProvider(Provider),
     }
 }
@@ -53,27 +64,38 @@ pub enum SortFieldProviderEnum {
     SortProvider(Provider),
 }
 impl SortFieldProvider for SortFieldProviderEnum {
-    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
+    fn read_sort_field(
+        &self,
+        data_input: &mut impl DataInput,
+    ) -> Result<SortFieldEnum> {
         match self {
             SortFieldProviderEnum::SortedNumericProvider(provider) => {
                 provider.read_sort_field(data_input)
-            }
+            },
             SortFieldProviderEnum::SortedSetProvider(provider) => {
                 provider.read_sort_field(data_input)
-            }
-            SortFieldProviderEnum::SortProvider(provider) => provider.read_sort_field(data_input),
+            },
+            SortFieldProviderEnum::SortProvider(provider) => {
+                provider.read_sort_field(data_input)
+            },
         }
     }
 
-    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+    fn write_sort_field(
+        &self,
+        sf: &SortFieldEnum,
+        output: &mut impl DataOutput,
+    ) -> Result<()> {
         match self {
             SortFieldProviderEnum::SortedNumericProvider(provider) => {
                 provider.write_sort_field(sf, output)
-            }
+            },
             SortFieldProviderEnum::SortedSetProvider(provider) => {
                 provider.write_sort_field(sf, output)
-            }
-            SortFieldProviderEnum::SortProvider(provider) => provider.write_sort_field(sf, output),
+            },
+            SortFieldProviderEnum::SortProvider(provider) => {
+                provider.write_sort_field(sf, output)
+            },
         }
     }
 }

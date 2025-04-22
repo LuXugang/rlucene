@@ -32,10 +32,9 @@ pub struct MatchingReaders {
 }
 
 impl MatchingReaders {
-    pub fn new<I, AV>(merge_state: &MergeState<I, AV>) -> Result<Self>
+    pub fn new<I>(merge_state: &MergeState<I>) -> Result<Self>
     where
         I: IndexInput,
-        AV: AccessVec<u8>,
     {
         // If the i'th reader is a SegmentReader and has
         // identical fieldName -> number mapping, then this
@@ -44,7 +43,9 @@ impl MatchingReaders {
         let mut matching_readers = vec![false; num_readers];
         let mut matched_count: i32 = 0;
 
-        'next_reader: for (i, field_infos) in merge_state.field_infos.iter().enumerate() {
+        'next_reader: for (i, field_infos) in
+            merge_state.field_infos.iter().enumerate()
+        {
             for fi in &**field_infos {
                 match merge_state
                     .merge_field_infos
@@ -70,7 +71,10 @@ impl MatchingReaders {
         if matched_count as usize != num_readers {
             info_stream.message(
                 "SM",
-                &format!("{} non-bulk merges", num_readers as i32 - matched_count),
+                &format!(
+                    "{} non-bulk merges",
+                    num_readers as i32 - matched_count
+                ),
             );
         }
 

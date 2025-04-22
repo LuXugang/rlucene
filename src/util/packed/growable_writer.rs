@@ -41,8 +41,11 @@ impl GrowableWriter {
         value_count: i32,
         acceptable_overhead_ratio: f32,
     ) -> Result<GrowableWriter> {
-        let current =
-            PackedInts::get_mutable(value_count, start_bits_per_value, acceptable_overhead_ratio)?;
+        let current = PackedInts::get_mutable(
+            value_count,
+            start_bits_per_value,
+            acceptable_overhead_ratio,
+        )?;
         let current_mask = Self::mask(current.get_bits_per_value());
         Ok(GrowableWriter {
             current_mask,
@@ -68,8 +71,11 @@ impl GrowableWriter {
         let bits_required = PackedInts::unsigned_bits_required(value);
         debug_assert!(bits_required > self.current.get_bits_per_value());
         let value_count = self.size();
-        let mut next =
-            PackedInts::get_mutable(value_count, bits_required, self.acceptable_overhead_ratio)?;
+        let mut next = PackedInts::get_mutable(
+            value_count,
+            bits_required,
+            self.acceptable_overhead_ratio,
+        )?;
 
         PackedInts::copy(
             &mut self.current,
@@ -109,7 +115,13 @@ impl Reader for GrowableWriter {
         self.current.get(index)
     }
 
-    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn get_bulk(
+        &mut self,
+        index: i32,
+        arr: &mut [i64],
+        off: i32,
+        len: i32,
+    ) -> Result<i32> {
         self.current.get_bulk(index, arr, off, len)
     }
 
@@ -141,7 +153,13 @@ impl Mutable for GrowableWriter {
         Ok(())
     }
 
-    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+    fn set_bulk(
+        &mut self,
+        index: i32,
+        arr: &[i64],
+        off: i32,
+        len: i32,
+    ) -> Result<i32> {
         let mut max = 0i64;
         max |= arr
             .iter()

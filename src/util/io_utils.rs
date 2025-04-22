@@ -26,14 +26,20 @@ impl IOUtils {
     /// Deletes all given files, suppressing all thrown errors.
     ///
     /// Note: The `files` collection should not be empty or contain `None`.
-    pub fn delete_files_ignoring_exceptions(dir: &mut impl Directory, files: &[String]) {
+    pub fn delete_files_ignoring_exceptions(
+        dir: &mut impl Directory,
+        files: &[String],
+    ) {
         for name in files {
             if dir.delete_file(name).is_err() {
                 // Ignore the error and continue with the next file.
             }
         }
     }
-    pub fn delete_files(dir: &mut impl Directory, names: Vec<String>) -> Result<()> {
+    pub fn delete_files(
+        dir: &mut impl Directory,
+        names: Vec<String>,
+    ) -> Result<()> {
         for name in names {
             dir.delete_file(&name)?;
         }
@@ -59,19 +65,19 @@ impl IOUtils {
                 return Ok(());
             }
 
-            let dir_file =
-                File::options()
-                    .read(true)
-                    .open(file_to_sync)
-                    .map_err(|e| match e.kind() {
-                        io::ErrorKind::NotFound => LuceneError::not_found(format!(
-                            "Directory not found: {}",
-                            file_to_sync.display()
-                        )),
-                        _ => {
-                            LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
-                        }
-                    })?;
+            let dir_file = File::options()
+                .read(true)
+                .open(file_to_sync)
+                .map_err(|e| match e.kind() {
+                    io::ErrorKind::NotFound => LuceneError::not_found(format!(
+                        "Directory not found: {}",
+                        file_to_sync.display()
+                    )),
+                    _ => LuceneError::io_with_path(
+                        file_to_sync.to_string_lossy().to_string(),
+                        e,
+                    ),
+                })?;
 
             if let Err(_e) = dir_file.sync_all() {
                 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -83,17 +89,22 @@ impl IOUtils {
                 return Ok(());
             }
         } else {
-            let file = File::options()
-                .write(true)
-                .open(file_to_sync)
-                .map_err(|e| {
-                    LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e)
-                })?;
+            let file = File::options().write(true).open(file_to_sync).map_err(
+                |e| {
+                    LuceneError::io_with_path(
+                        file_to_sync.to_string_lossy().to_string(),
+                        e,
+                    )
+                },
+            )?;
 
             file.sync_all().map_err(|e| {
                 LuceneError::io_with_path(
                     file_to_sync.to_string_lossy().to_string(),
-                    io::Error::new(e.kind(), format!("Failed to sync file: {}", e)),
+                    io::Error::new(
+                        e.kind(),
+                        format!("Failed to sync file: {}", e),
+                    ),
                 )
             })?;
         }

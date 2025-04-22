@@ -67,7 +67,10 @@ impl ForUtil {
     }
     pub(crate) fn collapse8(arr: &mut [i32]) {
         for i in 0..32 {
-            arr[i] = (arr[i] << 24) | (arr[32 + i] << 16) | (arr[64 + i] << 8) | arr[96 + i];
+            arr[i] = (arr[i] << 24)
+                | (arr[32 + i] << 16)
+                | (arr[64 + i] << 8)
+                | arr[96 + i];
         }
     }
 
@@ -101,7 +104,13 @@ impl ForUtil {
         } else {
             32
         };
-        Self::encode_with_tmp(ints, bits_per_value, next_primitive, out, &mut self.tmp)
+        Self::encode_with_tmp(
+            ints,
+            bits_per_value,
+            next_primitive,
+            out,
+            &mut self.tmp,
+        )
     }
 
     pub(crate) fn encode_with_tmp(
@@ -111,19 +120,23 @@ impl ForUtil {
         out: &mut impl DataOutput,
         tmp: &mut [i32],
     ) -> Result<()> {
-        let num_ints = Self::BLOCK_SIZE * (primitive_size as usize) / i32::BITS as usize;
+        let num_ints =
+            Self::BLOCK_SIZE * (primitive_size as usize) / i32::BITS as usize;
         let num_ints_per_shift = (bits_per_value * 4) as usize;
 
         let mut idx = 0;
         let mut shift = primitive_size - bits_per_value;
-        for (t, l) in tmp.iter_mut().take(num_ints_per_shift).zip(&ints[idx..]) {
+        for (t, l) in tmp.iter_mut().take(num_ints_per_shift).zip(&ints[idx..])
+        {
             *t = *l << shift;
         }
         idx += num_ints_per_shift;
 
         shift -= bits_per_value;
         while shift >= 0 {
-            for (t, l) in tmp.iter_mut().take(num_ints_per_shift).zip(&ints[idx..]) {
+            for (t, l) in
+                tmp.iter_mut().take(num_ints_per_shift).zip(&ints[idx..])
+            {
                 *t |= *l << shift;
             }
             idx += num_ints_per_shift;
@@ -142,7 +155,8 @@ impl ForUtil {
         while idx < num_ints {
             if remaining_bits_per_value >= remaining_bits_per_int {
                 remaining_bits_per_value -= remaining_bits_per_int;
-                tmp[tmp_idx] |= (ints[idx] as u32 >> remaining_bits_per_value) as i32
+                tmp[tmp_idx] |= (ints[idx] as u32 >> remaining_bits_per_value)
+                    as i32
                     & mask_remaining_bits_per_int;
                 if remaining_bits_per_value == 0 {
                     idx += 1;
@@ -150,30 +164,36 @@ impl ForUtil {
                 }
                 tmp_idx += 1;
             } else {
-                let remaining_bits_per_value_index = remaining_bits_per_value as usize;
-                let remaining_bits_per_int_index = remaining_bits_per_int as usize;
+                let remaining_bits_per_value_index =
+                    remaining_bits_per_value as usize;
+                let remaining_bits_per_int_index =
+                    remaining_bits_per_int as usize;
                 let (mask1, mask2) = match primitive_size {
                     8 => (
                         Self::MASKS8[remaining_bits_per_value_index],
-                        Self::MASKS8[remaining_bits_per_int_index - remaining_bits_per_value_index],
+                        Self::MASKS8[remaining_bits_per_int_index
+                            - remaining_bits_per_value_index],
                     ),
                     16 => (
                         Self::MASKS16[remaining_bits_per_value_index],
-                        Self::MASKS16
-                            [remaining_bits_per_int_index - remaining_bits_per_value_index],
+                        Self::MASKS16[remaining_bits_per_int_index
+                            - remaining_bits_per_value_index],
                     ),
                     _ => (
                         Self::MASKS32[remaining_bits_per_value_index],
-                        Self::MASKS32
-                            [remaining_bits_per_int_index - remaining_bits_per_value_index],
+                        Self::MASKS32[remaining_bits_per_int_index
+                            - remaining_bits_per_value_index],
                     ),
                 };
 
-                tmp[tmp_idx] |=
-                    (ints[idx] & mask1) << (remaining_bits_per_int - remaining_bits_per_value);
+                tmp[tmp_idx] |= (ints[idx] & mask1)
+                    << (remaining_bits_per_int - remaining_bits_per_value);
                 idx += 1;
-                remaining_bits_per_value += bits_per_value - remaining_bits_per_int;
-                tmp[tmp_idx] |= (ints[idx] as u32 >> remaining_bits_per_value) as i32 & mask2;
+                remaining_bits_per_value +=
+                    bits_per_value - remaining_bits_per_int;
+                tmp[tmp_idx] |= (ints[idx] as u32 >> remaining_bits_per_value)
+                    as i32
+                    & mask2;
                 tmp_idx += 1;
             }
         }
@@ -196,10 +216,20 @@ impl ForUtil {
     ) -> Result<()> {
         let num_ints = bits_per_value << 2;
         let mask = Self::MASKS32[bits_per_value as usize];
-        pdu.split_ints_diff(num_ints, ints, 32 - bits_per_value, 32, mask, tmp, 0, -1)?;
+        pdu.split_ints_diff(
+            num_ints,
+            ints,
+            32 - bits_per_value,
+            32,
+            mask,
+            tmp,
+            0,
+            -1,
+        )?;
 
         let remaining_bits_per_int = (32 - bits_per_value) as usize;
-        let mask32_remaining_bits_per_int = Self::MASKS32[remaining_bits_per_int];
+        let mask32_remaining_bits_per_int =
+            Self::MASKS32[remaining_bits_per_int];
 
         let mut tmp_idx = 0;
         let mut remaining_bits = remaining_bits_per_int;
@@ -216,7 +246,8 @@ impl ForUtil {
             }
 
             if b > 0 {
-                l |= (tmp[tmp_idx] >> (remaining_bits_per_int - b)) & Self::MASKS32[b];
+                l |= (tmp[tmp_idx] >> (remaining_bits_per_int - b))
+                    & Self::MASKS32[b];
                 remaining_bits = remaining_bits_per_int - b;
             } else {
                 remaining_bits = remaining_bits_per_int;
@@ -309,70 +340,70 @@ impl ForUtil {
             1 => {
                 Self::decode1(pdu, ints)?;
                 Self::expand8(ints);
-            }
+            },
             2 => {
                 Self::decode2(pdu, ints)?;
                 Self::expand8(ints);
-            }
+            },
             3 => {
                 Self::decode3(pdu, &mut self.tmp, ints)?;
                 Self::expand8(ints);
-            }
+            },
             4 => {
                 Self::decode4(pdu, ints)?;
                 Self::expand8(ints);
-            }
+            },
             5 => {
                 Self::decode5(pdu, &mut self.tmp, ints)?;
                 Self::expand8(ints);
-            }
+            },
             6 => {
                 Self::decode6(pdu, &mut self.tmp, ints)?;
                 Self::expand8(ints);
-            }
+            },
             7 => {
                 Self::decode7(pdu, &mut self.tmp, ints)?;
                 Self::expand8(ints);
-            }
+            },
             8 => {
                 Self::decode8(pdu, ints)?;
                 Self::expand8(ints);
-            }
+            },
             9 => {
                 Self::decode9(pdu, &mut self.tmp, ints)?;
                 Self::expand16(ints);
-            }
+            },
             10 => {
                 Self::decode10(pdu, &mut self.tmp, ints)?;
                 Self::expand16(ints);
-            }
+            },
             11 => {
                 Self::decode11(pdu, &mut self.tmp, ints)?;
                 Self::expand16(ints);
-            }
+            },
             12 => {
                 Self::decode12(pdu, &mut self.tmp, ints)?;
                 Self::expand16(ints);
-            }
+            },
             13 => {
                 Self::decode13(pdu, &mut self.tmp, ints)?;
                 Self::expand16(ints);
-            }
+            },
             14 => {
                 Self::decode14(pdu, &mut self.tmp, ints)?;
                 Self::expand16(ints);
-            }
+            },
             15 => {
                 Self::decode15(pdu, &mut self.tmp, ints)?;
                 Self::expand16(ints);
-            }
+            },
             16 => {
                 Self::decode16(pdu, ints)?;
                 Self::expand16(ints);
-            }
+            },
             _ => {
                 Self::decode_slow(bits_per_value, pdu, &mut self.tmp, ints)?;
-            }
+            },
         }
         Ok(())
     }
@@ -395,7 +426,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(12, ints, 5, 3, Self::MASK8_3, tmp, 0, Self::MASK8_2)?;
+        pdu.split_ints_diff(
+            12,
+            ints,
+            5,
+            3,
+            Self::MASK8_3,
+            tmp,
+            0,
+            Self::MASK8_2,
+        )?;
 
         let mut iter = 0;
         let mut tmp_idx = 0;
@@ -425,7 +465,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(20, ints, 3, 5, Self::MASK8_5, tmp, 0, Self::MASK8_3)?;
+        pdu.split_ints_diff(
+            20,
+            ints,
+            3,
+            5,
+            Self::MASK8_5,
+            tmp,
+            0,
+            Self::MASK8_3,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 20;
         for _ in 0..4 {
@@ -452,7 +501,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(24, ints, 2, 6, Self::MASK8_6, tmp, 0, Self::MASK8_2)?;
+        pdu.split_ints_diff(
+            24,
+            ints,
+            2,
+            6,
+            Self::MASK8_6,
+            tmp,
+            0,
+            Self::MASK8_2,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 24;
         for _ in 0..8 {
@@ -472,7 +530,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(28, ints, 1, 7, Self::MASK8_7, tmp, 0, Self::MASK8_1)?;
+        pdu.split_ints_diff(
+            28,
+            ints,
+            1,
+            7,
+            Self::MASK8_7,
+            tmp,
+            0,
+            Self::MASK8_1,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 28;
         for _ in 0..4 {
@@ -490,7 +557,10 @@ impl ForUtil {
         }
         Ok(())
     }
-    fn decode8<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()> {
+    fn decode8<I: IndexInput>(
+        pdu: &mut PostingDecodingUtil<I>,
+        ints: &mut [i32],
+    ) -> Result<()> {
         pdu.input.borrow_mut().read_ints(ints, 0, 32)
     }
 
@@ -499,7 +569,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(36, ints, 7, 9, Self::MASK16_9, tmp, 0, Self::MASK16_7)?;
+        pdu.split_ints_diff(
+            36,
+            ints,
+            7,
+            9,
+            Self::MASK16_9,
+            tmp,
+            0,
+            Self::MASK16_7,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 36;
         for _ in 0..4 {
@@ -543,7 +622,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(40, ints, 6, 10, Self::MASK16_10, tmp, 0, Self::MASK16_6)?;
+        pdu.split_ints_diff(
+            40,
+            ints,
+            6,
+            10,
+            Self::MASK16_10,
+            tmp,
+            0,
+            Self::MASK16_6,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 40;
         for _ in 0..8 {
@@ -571,7 +659,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(44, ints, 5, 11, Self::MASK16_11, tmp, 0, Self::MASK16_5)?;
+        pdu.split_ints_diff(
+            44,
+            ints,
+            5,
+            11,
+            Self::MASK16_11,
+            tmp,
+            0,
+            Self::MASK16_5,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 44;
         for _ in 0..4 {
@@ -610,11 +707,22 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(48, ints, 4, 12, Self::MASK16_12, tmp, 0, Self::MASK16_4)?;
+        pdu.split_ints_diff(
+            48,
+            ints,
+            4,
+            12,
+            Self::MASK16_12,
+            tmp,
+            0,
+            Self::MASK16_4,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 48;
         for _ in 0..16 {
-            let l0 = (tmp[tmp_idx] << 8) | (tmp[tmp_idx + 1] << 4) | tmp[tmp_idx + 2];
+            let l0 = (tmp[tmp_idx] << 8)
+                | (tmp[tmp_idx + 1] << 4)
+                | tmp[tmp_idx + 2];
             ints[ints_idx] = l0;
             tmp_idx += 3;
             ints_idx += 1;
@@ -627,7 +735,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(52, ints, 3, 13, Self::MASK16_13, tmp, 0, Self::MASK16_3)?;
+        pdu.split_ints_diff(
+            52,
+            ints,
+            3,
+            13,
+            Self::MASK16_13,
+            tmp,
+            0,
+            Self::MASK16_3,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 52;
         for _ in 0..4 {
@@ -663,7 +780,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(56, ints, 2, 14, Self::MASK16_14, tmp, 0, Self::MASK16_2)?;
+        pdu.split_ints_diff(
+            56,
+            ints,
+            2,
+            14,
+            Self::MASK16_14,
+            tmp,
+            0,
+            Self::MASK16_2,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 56;
         for _ in 0..8 {
@@ -686,7 +812,16 @@ impl ForUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(60, ints, 1, 15, Self::MASK16_15, tmp, 0, Self::MASK16_1)?;
+        pdu.split_ints_diff(
+            60,
+            ints,
+            1,
+            15,
+            Self::MASK16_15,
+            tmp,
+            0,
+            Self::MASK16_1,
+        )?;
         let mut tmp_idx = 0;
         let mut ints_idx = 60;
         for _ in 0..4 {
@@ -712,7 +847,10 @@ impl ForUtil {
         Ok(())
     }
 
-    fn decode16<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()> {
+    fn decode16<I: IndexInput>(
+        pdu: &mut PostingDecodingUtil<I>,
+        ints: &mut [i32],
+    ) -> Result<()> {
         pdu.input.borrow_mut().read_ints(ints, 0, 64)
     }
 }
@@ -721,7 +859,9 @@ mod tests {
     use crate::codecs::lucene101::for_util::ForUtil;
     use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
     use crate::store::directory::Directory;
-    use crate::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
+    use crate::store::{
+        DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
+    };
     use crate::test::util::lucene_test_case::{new_directory, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
@@ -741,7 +881,8 @@ mod tests {
             let bpv = TestUtil::next_int(&mut random, 1, 31);
             for j in 0..ForUtil::BLOCK_SIZE {
                 let max_val = PackedInts::max_value(bpv) as i32;
-                values[i * ForUtil::BLOCK_SIZE + j] = random.random_range(0..=max_val);
+                values[i * ForUtil::BLOCK_SIZE + j] =
+                    random.random_range(0..=max_val);
             }
         }
 
@@ -751,7 +892,8 @@ mod tests {
 
         {
             // encode
-            let mut out = dir.create_output("test.bin", &IOContext::default_io_context()?)?;
+            let mut out = dir
+                .create_output("test.bin", &IOContext::default_io_context()?)?;
             let mut for_util = ForUtil::new();
 
             for i in 0..iterations {
@@ -774,9 +916,10 @@ mod tests {
 
         {
             // decode
-            let input = Rc::new(RefCell::new(
-                dir.open_input("test.bin", &IOContext::read_once_io_context()?)?,
-            ));
+            let input = Rc::new(RefCell::new(dir.open_input(
+                "test.bin",
+                &IOContext::read_once_io_context()?,
+            )?));
             let mut pdu = PostingDecodingUtil::new(input.clone());
             let mut for_util = ForUtil::new();
 
@@ -788,7 +931,8 @@ mod tests {
                 for_util.decode(bits_per_value, &mut pdu, &mut restored)?;
                 let restored_ints: Vec<i32> = restored.to_vec();
 
-                let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
+                let expected = &values
+                    [i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
                 assert_eq!(
                     restored_ints,
                     expected.to_vec(),
@@ -797,7 +941,8 @@ mod tests {
                 );
 
                 let expected_bytes = ForUtil::num_bytes(bits_per_value) as i64;
-                let actual_bytes = input.borrow().get_file_pointer() - current_fp;
+                let actual_bytes =
+                    input.borrow().get_file_pointer() - current_fp;
                 assert_eq!(
                     expected_bytes, actual_bytes,
                     "Unexpected byte count at iteration {}",

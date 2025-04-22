@@ -100,7 +100,8 @@ impl FieldType {
             tokenized: ref_field.tokenized(),
             store_term_vectors: ref_field.store_term_vectors(),
             store_term_vector_offsets: ref_field.store_term_vector_offsets(),
-            store_term_vector_positions: ref_field.store_term_vector_positions(),
+            store_term_vector_positions: ref_field
+                .store_term_vector_positions(),
             store_term_vector_payloads: ref_field.store_term_vector_payloads(),
             omit_norms: ref_field.omit_norms(),
             index_options: *ref_field.index_options(),
@@ -181,7 +182,10 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_store_term_vector_positions(&mut self, value: bool) -> Result<()> {
+    pub fn set_store_term_vector_positions(
+        &mut self,
+        value: bool,
+    ) -> Result<()> {
         self.check_if_frozen()?;
         self.store_term_vector_positions = value;
         Ok(())
@@ -191,7 +195,10 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_store_term_vector_payloads(&mut self, value: bool) -> Result<()> {
+    pub fn set_store_term_vector_payloads(
+        &mut self,
+        value: bool,
+    ) -> Result<()> {
         self.check_if_frozen()?;
         self.store_term_vector_payloads = value;
         Ok(())
@@ -218,8 +225,16 @@ impl FieldType {
     }
 
     /// Enables points indexing.
-    pub fn set_dimensions(&mut self, dimension_count: i32, dimension_num_bytes: i32) -> Result<()> {
-        self.set_dimensions_all(dimension_count, dimension_count, dimension_num_bytes)
+    pub fn set_dimensions(
+        &mut self,
+        dimension_count: i32,
+        dimension_num_bytes: i32,
+    ) -> Result<()> {
+        self.set_dimensions_all(
+            dimension_count,
+            dimension_count,
+            dimension_num_bytes,
+        )
     }
 
     /// Enables points indexing with selectable dimension indexing.
@@ -331,7 +346,11 @@ impl FieldType {
     /// This is a key-value mapping for the field that the codec can use to store additional metadata.
     ///
     /// If a value already exists for the field, it will be replaced with the new value.
-    pub fn put_attribute(&mut self, key: String, value: String) -> Result<Option<String>> {
+    pub fn put_attribute(
+        &mut self,
+        key: String,
+        value: String,
+    ) -> Result<Option<String>> {
         self.check_if_frozen()?;
         let mut attrs = self.attributes.lock();
         Ok(attrs.insert(key, value))
@@ -342,7 +361,10 @@ impl FieldType {
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications or if the provided type is invalid.
-    pub fn set_doc_values_type(&mut self, doc_values_type: DocValuesType) -> Result<()> {
+    pub fn set_doc_values_type(
+        &mut self,
+        doc_values_type: DocValuesType,
+    ) -> Result<()> {
         self.check_if_frozen()?;
         self.doc_values_type = doc_values_type;
         Ok(())
@@ -455,8 +477,10 @@ impl PartialEq for FieldType {
             && self.index_options == other.index_options
             && self.omit_norms == other.omit_norms
             && self.store_term_vector_offsets == other.store_term_vector_offsets
-            && self.store_term_vector_payloads == other.store_term_vector_payloads
-            && self.store_term_vector_positions == other.store_term_vector_positions
+            && self.store_term_vector_payloads
+                == other.store_term_vector_payloads
+            && self.store_term_vector_positions
+                == other.store_term_vector_positions
             && self.store_term_vectors == other.store_term_vectors
             && self.stored == other.stored
             && self.tokenized == other.tokenized

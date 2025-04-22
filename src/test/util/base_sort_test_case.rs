@@ -26,7 +26,11 @@ use rand::Rng;
 use std::cmp::Ordering;
 
 pub trait BaseSortTestCase {
-    fn new_sorter(&self, random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter;
+    fn new_sorter(
+        &self,
+        random: &mut StdRng,
+        arr: &mut Vec<Entry>,
+    ) -> impl Sorter;
     fn get_stable(&self) -> bool {
         false
     }
@@ -114,38 +118,46 @@ impl Strategy {
         match self {
             Random() => {
                 arr[i as usize] = Entry::new(random.random(), i);
-            }
+            },
             RandomLowCardinality() => {
                 arr[i as usize] = Entry::new(random.random_range(0..6), i);
-            }
+            },
             RandomMediumCardinality() => {
                 let length = arr.len() >> 1;
-                arr[i as usize] = Entry::new(random.random_range(0..length) as i32, i);
-            }
+                arr[i as usize] =
+                    Entry::new(random.random_range(0..length) as i32, i);
+            },
             Strategy::Ascending() => {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.random_range(0..6), 0)
                 } else {
-                    Entry::new(arr[(i - 1) as usize].value + random.random_range(0..6), i)
+                    Entry::new(
+                        arr[(i - 1) as usize].value + random.random_range(0..6),
+                        i,
+                    )
                 }
-            }
+            },
             Strategy::Descending() => {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.random_range(0..6), 0)
                 } else {
-                    Entry::new(arr[(i - 1) as usize].value - random.random_range(0..6), i)
+                    Entry::new(
+                        arr[(i - 1) as usize].value - random.random_range(0..6),
+                        i,
+                    )
                 }
-            }
+            },
             Strategy::StrictlyDescending() => {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.random_range(0..6), 0)
                 } else {
                     Entry::new(
-                        arr[(i - 1) as usize].value - TestUtil::next_int(random, 1, 5),
+                        arr[(i - 1) as usize].value
+                            - TestUtil::next_int(random, 1, 5),
                         i,
                     )
                 }
-            }
+            },
             Strategy::AscendingSequences() => {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.random_range(0..6), 0)
@@ -157,17 +169,18 @@ impl Strategy {
                     };
                     Entry::new(value, i)
                 }
-            }
+            },
             Strategy::MostlyAscending() => {
                 arr[i as usize] = if i == 0 {
                     Entry::new(random.random_range(0..6), 0)
                 } else {
                     Entry::new(
-                        arr[(i - 1) as usize].value + TestUtil::next_int(random, -8, 10),
+                        arr[(i - 1) as usize].value
+                            + TestUtil::next_int(random, -8, 10),
                         i,
                     )
                 }
-            }
+            },
         }
     }
 }

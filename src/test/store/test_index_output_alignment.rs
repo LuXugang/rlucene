@@ -79,7 +79,8 @@ fn test_output_alignment() -> Result<()> {
 pub fn run_test_output_alignment(alignment: i32) -> Result<()> {
     let mut random = random();
     let mut buffer = Vec::new();
-    let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;
+    let mut out =
+        OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;
 
     for _ in 0..(10 * random_multiplier()) {
         let length = random.random_range(0..32);

@@ -42,7 +42,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block1 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block0 & 255) << 6) | (block1 >> 58)) as i64;
+            values[values_offset] =
+                (((block0 & 255) << 6) | (block1 >> 58)) as i64;
             values_offset += 1;
             values[values_offset] = ((block1 >> 44) & 16383) as i64;
             values_offset += 1;
@@ -55,7 +56,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block2 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block1 & 3) << 12) | (block2 >> 52)) as i64;
+            values[values_offset] =
+                (((block1 & 3) << 12) | (block2 >> 52)) as i64;
             values_offset += 1;
             values[values_offset] = ((block2 >> 38) & 16383) as i64;
             values_offset += 1;
@@ -66,7 +68,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block3 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block2 & 1023) << 4) | (block3 >> 60)) as i64;
+            values[values_offset] =
+                (((block2 & 1023) << 4) | (block3 >> 60)) as i64;
             values_offset += 1;
             values[values_offset] = ((block3 >> 46) & 16383) as i64;
             values_offset += 1;
@@ -79,7 +82,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block4 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block3 & 15) << 10) | (block4 >> 54)) as i64;
+            values[values_offset] =
+                (((block3 & 15) << 10) | (block4 >> 54)) as i64;
             values_offset += 1;
             values[values_offset] = ((block4 >> 40) & 16383) as i64;
             values_offset += 1;
@@ -90,7 +94,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block5 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block4 & 4095) << 2) | (block5 >> 62)) as i64;
+            values[values_offset] =
+                (((block4 & 4095) << 2) | (block5 >> 62)) as i64;
             values_offset += 1;
             values[values_offset] = ((block5 >> 48) & 16383) as i64;
             values_offset += 1;
@@ -103,7 +108,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block6 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block5 & 63) << 8) | (block6 >> 56)) as i64;
+            values[values_offset] =
+                (((block5 & 63) << 8) | (block6 >> 56)) as i64;
             values_offset += 1;
             values[values_offset] = ((block6 >> 42) & 16383) as i64;
             values_offset += 1;
@@ -135,14 +141,16 @@ impl Decoder for BulkOperationPacked14 {
             blocks_offset += 1;
             let byte3 = blocks[blocks_offset] as i64;
             blocks_offset += 1;
-            values[values_offset] = ((byte1 & 3) << 12) | (byte2 << 4) | (byte3 >> 4);
+            values[values_offset] =
+                ((byte1 & 3) << 12) | (byte2 << 4) | (byte3 >> 4);
             values_offset += 1;
 
             let byte4 = blocks[blocks_offset] as i64;
             blocks_offset += 1;
             let byte5 = blocks[blocks_offset] as i64;
             blocks_offset += 1;
-            values[values_offset] = ((byte3 & 15) << 10) | (byte4 << 2) | (byte5 >> 6);
+            values[values_offset] =
+                ((byte3 & 15) << 10) | (byte4 << 2) | (byte5 >> 6);
             values_offset += 1;
 
             let byte6 = blocks[blocks_offset] as i64;
@@ -173,7 +181,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block1 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block0 & 255) << 6) | (block1 >> 58)) as i32;
+            values[values_offset] =
+                (((block0 & 255) << 6) | (block1 >> 58)) as i32;
             values_offset += 1;
             values[values_offset] = ((block1 >> 44) & 16383) as i32;
             values_offset += 1;
@@ -186,7 +195,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block2 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block1 & 3) << 12) | (block2 >> 52)) as i32;
+            values[values_offset] =
+                (((block1 & 3) << 12) | (block2 >> 52)) as i32;
             values_offset += 1;
             values[values_offset] = ((block2 >> 38) & 16383) as i32;
             values_offset += 1;
@@ -197,7 +207,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block3 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block2 & 1023) << 4) | (block3 >> 60)) as i32;
+            values[values_offset] =
+                (((block2 & 1023) << 4) | (block3 >> 60)) as i32;
             values_offset += 1;
             values[values_offset] = ((block3 >> 46) & 16383) as i32;
             values_offset += 1;
@@ -210,7 +221,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block4 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block3 & 15) << 10) | (block4 >> 54)) as i32;
+            values[values_offset] =
+                (((block3 & 15) << 10) | (block4 >> 54)) as i32;
             values_offset += 1;
             values[values_offset] = ((block4 >> 40) & 16383) as i32;
             values_offset += 1;
@@ -221,7 +233,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block5 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block4 & 4095) << 2) | (block5 >> 62)) as i32;
+            values[values_offset] =
+                (((block4 & 4095) << 2) | (block5 >> 62)) as i32;
             values_offset += 1;
             values[values_offset] = ((block5 >> 48) & 16383) as i32;
             values_offset += 1;
@@ -234,7 +247,8 @@ impl Decoder for BulkOperationPacked14 {
 
             let block6 = blocks[blocks_offset];
             blocks_offset += 1;
-            values[values_offset] = (((block5 & 63) << 8) | (block6 >> 56)) as i32;
+            values[values_offset] =
+                (((block5 & 63) << 8) | (block6 >> 56)) as i32;
             values_offset += 1;
             values[values_offset] = ((block6 >> 42) & 16383) as i32;
             values_offset += 1;
@@ -266,14 +280,16 @@ impl Decoder for BulkOperationPacked14 {
             blocks_offset += 1;
             let byte3 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
-            values[values_offset] = ((byte1 & 3) << 12) | (byte2 << 4) | (byte3 >> 4);
+            values[values_offset] =
+                ((byte1 & 3) << 12) | (byte2 << 4) | (byte3 >> 4);
             values_offset += 1;
 
             let byte4 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
             let byte5 = blocks[blocks_offset] as i32;
             blocks_offset += 1;
-            values[values_offset] = ((byte3 & 15) << 10) | (byte4 << 2) | (byte5 >> 6);
+            values[values_offset] =
+                ((byte3 & 15) << 10) | (byte4 << 2) | (byte5 >> 6);
             values_offset += 1;
 
             let byte6 = blocks[blocks_offset] as i32;

@@ -48,7 +48,12 @@ where
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         let offset = offset as usize;
         let len = len as usize;
         let mut i = offset;

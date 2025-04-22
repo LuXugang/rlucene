@@ -120,7 +120,9 @@ impl CompetitiveImpactAccumulator {
         let mut prev_freq = 0;
         let mut prev_norm = 0u64;
         for imp in &self.other_freq_norm_pairs {
-            debug_assert!(imp.norm < i8::MIN as i64 || imp.norm > i8::MAX as i64);
+            debug_assert!(
+                imp.norm < i8::MIN as i64 || imp.norm > i8::MAX as i64
+            );
             debug_assert!(prev_freq < imp.freq);
             debug_assert!(prev_norm < imp.norm as u64);
             prev_freq = imp.freq;

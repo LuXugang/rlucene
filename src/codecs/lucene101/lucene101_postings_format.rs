@@ -47,7 +47,8 @@ impl Lucene101PostingsFormat {
     pub const LEVEL1_FACTOR: i32 = 32;
 
     /// Total number of docs covered by level 1 skip data: 32 * 128 = 4,096
-    pub const LEVEL1_NUM_DOCS: i32 = Self::LEVEL1_FACTOR * Self::BLOCK_SIZE as i32;
+    pub const LEVEL1_NUM_DOCS: i32 =
+        Self::LEVEL1_FACTOR * Self::BLOCK_SIZE as i32;
 
     pub const LEVEL1_MASK: i32 = Self::LEVEL1_NUM_DOCS - 1;
 
@@ -122,7 +123,7 @@ impl TermState for IntBlockTermState {
                 self.singleton_doc_id = other.singleton_doc_id;
                 self.base = other.base.clone();
                 Ok(())
-            }
+            },
             _ => Err(LuceneError::illegal_state(
                 "enum other should be IntBlockTermState",
             )),
@@ -140,7 +141,10 @@ mod tests {
     use crate::index::impact::Impact;
 
     use crate::store::directory::Directory;
-    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput};
+    use crate::store::{
+        ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext,
+        IndexInput,
+    };
     use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
     use crate::test::util::lucene_test_case::{new_directory, random};
     use crate::util::error::lucene_error::Result;
@@ -168,7 +172,9 @@ mod tests {
     fn test_vlong15() -> Result<()> {
         // buffer size should accommodate the largest encoded value
         let mut out = ByteArrayDataOutput::with_bytes(vec![0u8; 9]);
-        for &i in &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX] {
+        for &i in
+            &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX]
+        {
             out.reset()?;
             lucene101_pw_util::write_vlong15(&mut out, i)?;
             let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
@@ -235,18 +241,27 @@ mod tests {
         }
         let mut dir = new_directory(&mut random)?;
         {
-            let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-            lucene101_pw_util::write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
+            let mut out =
+                dir.create_output("foo", &IOContext::default_io_context()?)?;
+            lucene101_pw_util::write_impacts(
+                &acc.get_competitive_freq_norm_pairs(),
+                &mut out,
+            )?;
         }
-        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let mut input =
+            dir.open_input("foo", &IOContext::default_io_context()?)?;
         let len = input.length();
         let mut buffer = vec![0u8; len as usize];
         input.read_bytes(&mut buffer, 0, len as i32)?;
 
         let mut data_in = ByteArrayDataInput::with_bytes(buffer);
-        let mut mutable_impacts_list =
-            MutableImpactList::with_capacity(impacts.len() + random.random_range(0..3));
-        let impacts2 = lucene101_pr_util::read_impacts(&mut data_in, &mut mutable_impacts_list)?;
+        let mut mutable_impacts_list = MutableImpactList::with_capacity(
+            impacts.len() + random.random_range(0..3),
+        );
+        let impacts2 = lucene101_pr_util::read_impacts(
+            &mut data_in,
+            &mut mutable_impacts_list,
+        )?;
 
         assert_eq!(impacts2, impacts);
         Ok(())

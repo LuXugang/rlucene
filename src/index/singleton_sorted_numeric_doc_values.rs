@@ -14,97 +14,85 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::doc_values::NumericDocValuesEnum;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::IndexInput;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// Exposes a multi-valued view over a single-valued instance.
 ///
 /// This can be used if you want to have one multi-valued implementation that works for both
 /// single-valued and multi-valued types.
-pub struct SingletonSortedNumericDocValues<I, AV>
+pub struct SingletonSortedNumericDocValues<N>
 where
-    I: IndexInput,
-    AV: AccessVec<u8>,
+    N: NumericDocValues,
 {
-    inner: Rc<RefCell<NumericDocValuesEnum<I, AV>>>,
+    inner: Option<N>,
 }
 
-impl<I, AV> SingletonSortedNumericDocValues<I, AV>
+impl<N> SingletonSortedNumericDocValues<N>
 where
-    I: IndexInput,
-    AV: AccessVec<u8>,
+    N: NumericDocValues,
 {
-    pub fn new(inner: NumericDocValuesEnum<I, AV>) -> Result<Self> {
+    pub fn new(inner: N) -> Result<Self> {
         if inner.doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
                 inner.doc_id()
             )));
         }
-        Ok(Self {
-            inner: Rc::new(RefCell::new(inner)),
-        })
+        Ok(Self { inner: Some(inner) })
     }
 
-    pub fn get_numeric_doc_values(&self) -> Result<Rc<RefCell<NumericDocValuesEnum<I, AV>>>> {
-        if self.inner.borrow().doc_id() != -1 {
+    pub fn get_numeric_doc_values(&mut self) -> Result<N> {
+        if self.inner.as_ref().unwrap().doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
-                self.inner.borrow().doc_id()
+                self.inner.as_ref().unwrap().doc_id()
             )));
         }
-        Ok(self.inner.clone())
+        Ok(self.inner.take().unwrap())
     }
 }
 
-impl<I, AV> DocIdSetIterator for SingletonSortedNumericDocValues<I, AV>
+impl<N> DocIdSetIterator for SingletonSortedNumericDocValues<N>
 where
-    I: IndexInput,
-    AV: AccessVec<u8>,
+    N: NumericDocValues,
 {
     fn doc_id(&self) -> i32 {
-        self.inner.borrow().doc_id()
+        self.inner.as_ref().unwrap().doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        self.inner.borrow_mut().next_doc()
+        self.inner.as_mut().unwrap().next_doc()
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        self.inner.borrow_mut().advance(target)
+        self.inner.as_mut().unwrap().advance(target)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.inner.borrow().cost()
+        self.inner.as_ref().unwrap().cost()
     }
 }
 
-impl<I, AV> DocValuesIterator for SingletonSortedNumericDocValues<I, AV>
+impl<N> DocValuesIterator for SingletonSortedNumericDocValues<N>
 where
-    I: IndexInput,
-    AV: AccessVec<u8>,
+    N: NumericDocValues,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.inner.borrow_mut().advance_exact(target)
+        self.inner.as_mut().unwrap().advance_exact(target)
     }
 }
 
-impl<I, AV> SortedNumericDocValues for SingletonSortedNumericDocValues<I, AV>
+impl<N> SortedNumericDocValues for SingletonSortedNumericDocValues<N>
 where
-    I: IndexInput,
-    AV: AccessVec<u8>,
+    N: NumericDocValues,
 {
     fn next_value(&mut self) -> Result<i64> {
-        self.inner.borrow_mut().long_value()
+        self.inner.as_mut().unwrap().long_value()
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {

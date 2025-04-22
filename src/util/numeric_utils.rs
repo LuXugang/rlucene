@@ -126,7 +126,13 @@ impl NumericUtils {
         Ok(())
     }
     /// Result = a + b, where a and b are unsigned. If there is an overflow, `LuceneError` is returned.
-    pub fn add(bytes_per_dim: u32, dim: u32, a: &[u8], b: &[u8], result: &mut [u8]) -> Result<()> {
+    pub fn add(
+        bytes_per_dim: u32,
+        dim: u32,
+        a: &[u8],
+        b: &[u8],
+        result: &mut [u8],
+    ) -> Result<()> {
         let start = (dim * bytes_per_dim) as usize;
         let end = start + bytes_per_dim as usize;
         let mut carry = 0;
@@ -160,7 +166,11 @@ impl NumericUtils {
     /// as the original `i32` values.
     /// # See Also
     /// - [`sortable_bytes_to_int`](NumericUtils::sortable_bytes_to_int)
-    pub fn int_to_sortable_bytes(mut value: i32, result: &mut [u8], offset: usize) {
+    pub fn int_to_sortable_bytes(
+        mut value: i32,
+        result: &mut [u8],
+        offset: usize,
+    ) {
         debug_assert!(
             offset + BitUtil::INT_BYTES <= result.len(),
             "Index out of bounds: offset={} result.len()={}",
@@ -194,7 +204,11 @@ impl NumericUtils {
     ///
     /// # See Also
     /// - [`sortable_bytes_to_long`](NumericUtils::sortable_bytes_to_long)
-    pub fn long_to_sortable_bytes(mut value: i64, result: &mut [u8], offset: usize) {
+    pub fn long_to_sortable_bytes(
+        mut value: i64,
+        result: &mut [u8],
+        offset: usize,
+    ) {
         debug_assert!(
             offset + BitUtil::LONG_BYTES <= result.len(),
             "Index out of bounds: offset={} result.len()={}",
@@ -256,8 +270,12 @@ impl NumericUtils {
 
         debug_assert!(
             {
-                let converted = Self::sortable_bytes_to_big_int(result, offset, big_int_size)
-                    .expect("Error decoding BigInt");
+                let converted = Self::sortable_bytes_to_big_int(
+                    result,
+                    offset,
+                    big_int_size,
+                )
+                .expect("Error decoding BigInt");
                 converted == *big_int
             },
             "BigInt={} converted={}",
@@ -326,7 +344,8 @@ mod tests {
                     "Current value's encoded bytes are not larger than previous"
                 );
             } else {
-                previous = Some(BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]));
+                previous =
+                    Some(BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]));
             }
             let decoded_value = NumericUtils::sortable_bytes_to_long(
                 current.bytes.as_slice(),
@@ -347,7 +366,11 @@ mod tests {
         let mut current = BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]);
 
         for value in -100_000..100_000 {
-            NumericUtils::int_to_sortable_bytes(value, current.bytes.as_mut_slice(), 0);
+            NumericUtils::int_to_sortable_bytes(
+                value,
+                current.bytes.as_mut_slice(),
+                0,
+            );
 
             if let Some(ref prev) = previous {
                 assert!(
@@ -439,11 +462,17 @@ mod tests {
 
         for (i, &value) in values.iter().enumerate() {
             let offset = encoded[i].offset as usize;
-            NumericUtils::long_to_sortable_bytes(value, encoded[i].bytes.as_mut_slice(), offset);
+            NumericUtils::long_to_sortable_bytes(
+                value,
+                encoded[i].bytes.as_mut_slice(),
+                offset,
+            );
 
             // Check that the value can be decoded back correctly
-            let decoded_value =
-                NumericUtils::sortable_bytes_to_long(encoded[i].bytes.as_slice(), offset);
+            let decoded_value = NumericUtils::sortable_bytes_to_long(
+                encoded[i].bytes.as_slice(),
+                offset,
+            );
             assert_eq!(
                 decoded_value, value,
                 "Forward and backward conversion failed for value: {}",
@@ -494,9 +523,15 @@ mod tests {
 
         for (i, &value) in values.iter().enumerate() {
             let offset = encoded[i].offset as usize;
-            NumericUtils::int_to_sortable_bytes(value, encoded[i].bytes.as_mut_slice(), offset);
-            let decoded_value =
-                NumericUtils::sortable_bytes_to_int(encoded[i].bytes.as_slice(), offset);
+            NumericUtils::int_to_sortable_bytes(
+                value,
+                encoded[i].bytes.as_mut_slice(),
+                offset,
+            );
+            let decoded_value = NumericUtils::sortable_bytes_to_int(
+                encoded[i].bytes.as_slice(),
+                offset,
+            );
             assert_eq!(
                 decoded_value, value,
                 "Forward and backward conversion failed for value: {}",
@@ -732,8 +767,12 @@ mod tests {
         let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
 
         for _ in 0..iters {
-            let v1 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
-            let v2 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+            let v1 = BigInt::from(
+                random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)),
+            );
+            let v2 = BigInt::from(
+                random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)),
+            );
 
             let mut v1_bytes = vec![0u8; num_bytes];
             let v1_raw_bytes = v1.to_signed_bytes_be();
@@ -750,7 +789,13 @@ mod tests {
             let mut result = vec![0u8; num_bytes];
 
             assert!(num_bytes <= u32::MAX as usize);
-            NumericUtils::add(num_bytes as u32, 0, &v1_bytes, &v2_bytes, &mut result)?;
+            NumericUtils::add(
+                num_bytes as u32,
+                0,
+                &v1_bytes,
+                &v2_bytes,
+                &mut result,
+            )?;
 
             let v1_clone = v1.clone();
             let v2_clone = v2.clone();
@@ -793,8 +838,12 @@ mod tests {
         let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
 
         for _ in 0..iters {
-            let mut v1 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
-            let mut v2 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+            let mut v1 = BigInt::from(
+                random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)),
+            );
+            let mut v2 = BigInt::from(
+                random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)),
+            );
 
             if v1 < v2 {
                 std::mem::swap(&mut v1, &mut v2);
@@ -812,7 +861,13 @@ mod tests {
 
             let mut result = vec![0u8; num_bytes];
 
-            NumericUtils::subtract(num_bytes as i32, 0, &v1_bytes, &v2_bytes, &mut result)?;
+            NumericUtils::subtract(
+                num_bytes as i32,
+                0,
+                &v1_bytes,
+                &v2_bytes,
+                &mut result,
+            )?;
 
             let v1_clone = v1.clone();
             let v2_clone = v2.clone();
@@ -892,8 +947,10 @@ mod tests {
             let value = f32::from_bits(random.random::<i32>() as u32);
             let sortable_int = NumericUtils::float_to_sortable_int(value);
             NumericUtils::int_to_sortable_bytes(sortable_int, &mut encoded, 0);
-            let decoded_sortable_int = NumericUtils::sortable_bytes_to_int(&encoded, 0);
-            let actual = NumericUtils::sortable_int_to_float(decoded_sortable_int);
+            let decoded_sortable_int =
+                NumericUtils::sortable_bytes_to_int(&encoded, 0);
+            let actual =
+                NumericUtils::sortable_int_to_float(decoded_sortable_int);
             let expected_vale = if value.is_nan() {
                 BitUtil::FLOAT_NAN_BITS
             } else {
@@ -920,11 +977,21 @@ mod tests {
         let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
 
         for _ in 0..10_000 {
-            let value = f64::from_bits(TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64);
+            let value = f64::from_bits(TestUtil::next_long(
+                &mut random,
+                i64::MIN,
+                i64::MAX,
+            ) as u64);
             let sortable_long = NumericUtils::double_to_sortable_long(value);
-            NumericUtils::long_to_sortable_bytes(sortable_long, &mut encoded, 0);
-            let decoded_sortable_long = NumericUtils::sortable_bytes_to_long(&encoded, 0);
-            let actual = NumericUtils::sortable_long_to_double(decoded_sortable_long);
+            NumericUtils::long_to_sortable_bytes(
+                sortable_long,
+                &mut encoded,
+                0,
+            );
+            let decoded_sortable_long =
+                NumericUtils::sortable_bytes_to_long(&encoded, 0);
+            let actual =
+                NumericUtils::sortable_long_to_double(decoded_sortable_long);
             let expected_value = if value.is_nan() {
                 BitUtil::DOUBLE_NAN_BITS
             } else {
@@ -951,11 +1018,21 @@ mod tests {
         for _ in 0..10_000 {
             let value = TestUtil::next_big_integer(&mut random, 16);
             let length = value.to_signed_bytes_be().len();
-            let max_length =
-                TestUtil::next_int(&mut random, length as i32, length as i32 + 3) as usize;
+            let max_length = TestUtil::next_int(
+                &mut random,
+                length as i32,
+                length as i32 + 3,
+            ) as usize;
             let mut encoded = vec![0u8; max_length];
-            NumericUtils::big_int_to_sortable_bytes(&value, max_length, &mut encoded, 0)?;
-            let decoded = NumericUtils::sortable_bytes_to_big_int(&encoded, 0, max_length)?;
+            NumericUtils::big_int_to_sortable_bytes(
+                &value,
+                max_length,
+                &mut encoded,
+                0,
+            )?;
+            let decoded = NumericUtils::sortable_bytes_to_big_int(
+                &encoded, 0, max_length,
+            )?;
             assert_eq!(
                 decoded, value,
                 "Round-trip encoding failed for value: {}, decoded: {}",
@@ -1004,8 +1081,10 @@ mod tests {
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]);
 
         for _ in 0..10_000 {
-            let left_value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
-            let right_value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
+            let left_value =
+                TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
+            let right_value =
+                TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
             NumericUtils::long_to_sortable_bytes(
                 left_value,
                 left.bytes.as_mut_slice(),
@@ -1038,8 +1117,10 @@ mod tests {
         let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
         for _ in 0..10_000 {
-            let left_value = to_positive_nan::<f32>(f32::from_bits(random.random::<u32>()));
-            let right_value = to_positive_nan::<f32>(f32::from_bits(random.random::<u32>()));
+            let left_value =
+                to_positive_nan::<f32>(f32::from_bits(random.random::<u32>()));
+            let right_value =
+                to_positive_nan::<f32>(f32::from_bits(random.random::<u32>()));
             NumericUtils::int_to_sortable_bytes(
                 NumericUtils::float_to_sortable_int(left_value),
                 left.bytes.as_mut_slice(),
@@ -1073,16 +1154,12 @@ mod tests {
         let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
 
         for _ in 0..10_000 {
-            let left_value = to_positive_nan::<f64>(f64::from_bits(TestUtil::next_long(
-                &mut random,
-                i64::MIN,
-                i64::MAX,
-            ) as u64));
-            let right_value = to_positive_nan::<f64>(f64::from_bits(TestUtil::next_long(
-                &mut random,
-                i64::MIN,
-                i64::MAX,
-            ) as u64));
+            let left_value = to_positive_nan::<f64>(f64::from_bits(
+                TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64,
+            ));
+            let right_value = to_positive_nan::<f64>(f64::from_bits(
+                TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64,
+            ));
             NumericUtils::long_to_sortable_bytes(
                 NumericUtils::double_to_sortable_long(left_value),
                 &mut left.bytes,
@@ -1113,12 +1190,24 @@ mod tests {
         let mut random = random();
         for _ in 0..10_000 {
             let max_length = TestUtil::next_int(&mut random, 1, 16) as usize;
-            let left_value = TestUtil::next_big_integer(&mut random, max_length as i32);
-            let right_value = TestUtil::next_big_integer(&mut random, max_length as i32);
+            let left_value =
+                TestUtil::next_big_integer(&mut random, max_length as i32);
+            let right_value =
+                TestUtil::next_big_integer(&mut random, max_length as i32);
             let mut left = BytesRef::from_bytes(vec![0u8; max_length]);
-            NumericUtils::big_int_to_sortable_bytes(&left_value, max_length, &mut left.bytes, 0)?;
+            NumericUtils::big_int_to_sortable_bytes(
+                &left_value,
+                max_length,
+                &mut left.bytes,
+                0,
+            )?;
             let mut right = BytesRef::from_bytes(vec![0u8; max_length]);
-            NumericUtils::big_int_to_sortable_bytes(&right_value, max_length, &mut right.bytes, 0)?;
+            NumericUtils::big_int_to_sortable_bytes(
+                &right_value,
+                max_length,
+                &mut right.bytes,
+                0,
+            )?;
             let expected_sign = left_value.cmp(&right_value) as i32;
             let actual_sign = left.cmp(&right) as i32;
             assert_eq!(

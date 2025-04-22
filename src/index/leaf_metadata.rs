@@ -54,7 +54,8 @@ impl LeafMetaData {
         }
         if created_version_major >= 7 && min_version.is_none() {
             return Err(LuceneError::illegal_argument(
-                "min_version must be set when created_version_major is >= 7".to_string(),
+                "min_version must be set when created_version_major is >= 7"
+                    .to_string(),
             ));
         }
 

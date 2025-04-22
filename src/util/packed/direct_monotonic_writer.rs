@@ -112,7 +112,8 @@ where
         debug_assert!(self.buffer_size != 0);
 
         let avg_inc = {
-            let numerator = self.buffer[(self.buffer_size - 1) as usize] - self.buffer[0];
+            let numerator =
+                self.buffer[(self.buffer_size - 1) as usize] - self.buffer[0];
             let denominator = std::cmp::max(1, self.buffer_size - 1) as f64;
             (numerator as f64 / denominator) as f32
         };
@@ -135,14 +136,19 @@ where
 
         self.meta.write_long(min)?;
         self.meta.write_int(avg_inc.to_bits() as i32)?;
-        self.meta
-            .write_long(self.data.get_file_pointer() - self.base_data_pointer)?;
+        self.meta.write_long(
+            self.data.get_file_pointer() - self.base_data_pointer,
+        )?;
         if max_delta == 0 {
             self.meta.write_byte(0)?;
         } else {
-            let bits_required = direct_writer_util::unsigned_bits_required(max_delta);
-            let mut writer =
-                DirectWriter::get_instance(self.data, self.buffer_size as i64, bits_required)?;
+            let bits_required =
+                direct_writer_util::unsigned_bits_required(max_delta);
+            let mut writer = DirectWriter::get_instance(
+                self.data,
+                self.buffer_size as i64,
+                bits_required,
+            )?;
             for i in 0..(self.buffer_size as usize) {
                 writer.add(self.buffer[i])?;
             }

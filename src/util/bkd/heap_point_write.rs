@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
-use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
+use crate::util::array_util::{
+    ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum,
+};
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::heap_point_reader::HeapPointReader;
@@ -53,9 +55,11 @@ where
     D: Directory,
 {
     pub fn new(config: Rc<BKDConfig>, size: i32) -> Self {
-        let data_dims_and_doc_length = config.bytes_per_doc() - config.packed_index_bytes_length();
+        let data_dims_and_doc_length =
+            config.bytes_per_doc() - config.packed_index_bytes_length();
         let bytes_per_doc = config.bytes_per_doc() as usize;
-        let block = Rc::new(RefCell::new(vec![0u8; bytes_per_doc * (size as usize)]));
+        let block =
+            Rc::new(RefCell::new(vec![0u8; bytes_per_doc * (size as usize)]));
         let point_value = if size > 0 {
             Some(Rc::new(RefCell::new(PointValueEnum::Heap(
                 HeapPointValue::new(&config, block.clone()),
@@ -77,7 +81,10 @@ where
             _phantom: Default::default(),
         }
     }
-    pub fn get_packed_value_slice(&mut self, index: i32) -> Rc<RefCell<PointValueEnum>> {
+    pub fn get_packed_value_slice(
+        &mut self,
+        index: i32,
+    ) -> Rc<RefCell<PointValueEnum>> {
         debug_assert!(
             index < self.next_write,
             "next_write={} vs index={}",
@@ -105,7 +112,8 @@ where
 
     /// Return the byte at position `k` of the point at position `i`
     pub fn byte_at(&self, i: i32, k: i32) -> i32 {
-        self.block.borrow()[(i * self.config.bytes_per_doc() + k) as usize] as i32
+        self.block.borrow()[(i * self.config.bytes_per_doc() + k) as usize]
+            as i32
     }
 
     /// Copy the dimension `dim` of the point at position `i` in the provided `bytes`
@@ -118,9 +126,15 @@ where
 
     /// Copy the data dimensions and doc value of the point at position `i` in the provided
     /// `bytes` at the given offset
-    pub fn copy_data_dims_and_doc(&self, i: i32, bytes: &mut [u8], offset: usize) {
-        let start =
-            (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
+    pub fn copy_data_dims_and_doc(
+        &self,
+        i: i32,
+        bytes: &mut [u8],
+        offset: usize,
+    ) {
+        let start = (i * self.config.bytes_per_doc()
+            + self.config.packed_index_bytes_length())
+            as usize;
         let len = self.data_dims_and_doc_length as usize;
         bytes.copy_from(&self.block.borrow()[start..start + len], offset);
     }
@@ -148,7 +162,12 @@ where
         dim: i32,
     ) -> i32 {
         let j_offset = (j * self.config.bytes_per_doc() + dim) as usize;
-        self.compare_dim_slice(dim_value, offset, &self.block.borrow(), j_offset)
+        self.compare_dim_slice(
+            dim_value,
+            offset,
+            &self.block.borrow(),
+            j_offset,
+        )
     }
 
     fn compare_dim_slice(
@@ -165,10 +184,12 @@ where
     /// Compares the data dimensions and doc values of the point at position `i` with the point
     /// at position `j`
     pub fn compare_data_dims_and_doc(&self, i: i32, j: i32) -> i32 {
-        let i_offset =
-            (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
-        let j_offset =
-            (j * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
+        let i_offset = (i * self.config.bytes_per_doc()
+            + self.config.packed_index_bytes_length())
+            as usize;
+        let j_offset = (j * self.config.bytes_per_doc()
+            + self.config.packed_index_bytes_length())
+            as usize;
         self.compare_data_dims_and_doc_slice(
             &self.block.borrow(),
             i_offset,
@@ -185,8 +206,9 @@ where
         data_dims_and_docs: &[u8],
         offset: usize,
     ) -> i32 {
-        let j_offset =
-            (j * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
+        let j_offset = (j * self.config.bytes_per_doc()
+            + self.config.packed_index_bytes_length())
+            as usize;
         self.compare_data_dims_and_doc_slice(
             data_dims_and_docs,
             offset,
@@ -209,18 +231,29 @@ where
     }
 
     /// Computes the cardinality of the points between `from` tp `to`
-    pub fn compute_cardinality(&self, from: i32, to: i32, common_prefix_lengths: &[i32]) -> i32 {
+    pub fn compute_cardinality(
+        &self,
+        from: i32,
+        to: i32,
+        common_prefix_lengths: &[i32],
+    ) -> i32 {
         let mut leaf_cardinality = 1;
         for i in (from + 1)..to {
             let point_offset = ((i - 1) * self.config.bytes_per_doc()) as usize;
-            let next_point_offset = point_offset + self.config.bytes_per_doc() as usize;
+            let next_point_offset =
+                point_offset + self.config.bytes_per_doc() as usize;
             for dim in 0..self.config.num_dims {
-                let start = (dim * self.config.bytes_per_dim + common_prefix_lengths[dim as usize])
+                let start = (dim * self.config.bytes_per_dim
+                    + common_prefix_lengths[dim as usize])
                     as usize;
-                let end = (dim * self.config.bytes_per_dim + self.config.bytes_per_dim) as usize;
+                let end = (dim * self.config.bytes_per_dim
+                    + self.config.bytes_per_dim)
+                    as usize;
                 if CoreHelper::miss_match(
-                    &self.block.borrow()[next_point_offset + start..next_point_offset + end],
-                    &self.block.borrow()[point_offset + start..point_offset + end],
+                    &self.block.borrow()
+                        [next_point_offset + start..next_point_offset + end],
+                    &self.block.borrow()
+                        [point_offset + start..point_offset + end],
                 ) != -1
                 {
                     leaf_cardinality += 1;
@@ -264,7 +297,10 @@ where
         Ok(())
     }
 
-    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
+    fn append_point_value(
+        &mut self,
+        point_value: &PointValueEnum,
+    ) -> Result<()> {
         debug_assert!(!self.closed, "point writer is already closed");
         debug_assert!(
             self.next_write < self.size,
@@ -272,7 +308,8 @@ where
             self.next_write + 1,
             self.size
         );
-        let (packed_value, offset, length) = point_value.packed_value_doc_id_bytes();
+        let (packed_value, offset, length) =
+            point_value.packed_value_doc_id_bytes();
         assert_eq!(
             length,
             self.config.bytes_per_doc(),
@@ -282,8 +319,8 @@ where
         );
         let position = self.next_write * self.config.bytes_per_doc();
         self.block.borrow_mut().copy_from(
-            &packed_value.borrow()
-                [offset as usize..(offset + self.config.bytes_per_doc()) as usize],
+            &packed_value.borrow()[offset as usize
+                ..(offset + self.config.bytes_per_doc()) as usize],
             position as usize,
         );
         self.next_write += 1;
@@ -292,7 +329,11 @@ where
 
     type Dir = D;
 
-    fn get_reader(&self, start: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>> {
+    fn get_reader(
+        &self,
+        start: i64,
+        length: i64,
+    ) -> Result<PointReaderEnum<Self::Dir>> {
         debug_assert!(
             self.closed,
             "point writer is still open and trying to get a reader"

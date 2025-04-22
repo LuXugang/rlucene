@@ -1,0 +1,5 @@
+max_width = 80
+hard_tabs = false
+reorder_imports = true
+match_block_trailing_comma = true
+edition = "2021"

@@ -65,7 +65,9 @@ impl PointValue for PointValueEnum {
     fn packed_value_doc_id_bytes(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32) {
         match self {
             PointValueEnum::Heap(heap) => heap.packed_value_doc_id_bytes(),
-            PointValueEnum::Offline(offline) => offline.packed_value_doc_id_bytes(),
+            PointValueEnum::Offline(offline) => {
+                offline.packed_value_doc_id_bytes()
+            },
         }
     }
 }

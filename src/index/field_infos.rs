@@ -82,7 +82,9 @@ impl FieldInfos {
             } else {
                 field_number_strictly_ascending = false;
             }
-            if let Some(previous) = by_name.insert(info.name.clone(), info.clone()) {
+            if let Some(previous) =
+                by_name.insert(info.name.clone(), info.clone())
+            {
                 return Err(LuceneError::illegal_argument(format!(
                     "duplicate field names: {} and {} have: {}",
                     previous.number, info.number, info.name
@@ -91,12 +93,14 @@ impl FieldInfos {
 
             has_term_vectors |= info.has_term_vectors();
             has_postings |= info.get_index_options() != &IndexOptions::None;
-            has_prox |= info.get_index_options() >= &IndexOptions::DocsAndFreqsAndPositions;
+            has_prox |= info.get_index_options()
+                >= &IndexOptions::DocsAndFreqsAndPositions;
             has_freq |= info.get_index_options() != &IndexOptions::DOCS;
-            has_offsets |=
-                info.get_index_options() >= &IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
+            has_offsets |= info.get_index_options()
+                >= &IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
             has_norms |= info.has_norms();
-            has_doc_values |= info.get_doc_values_type() != &DocValuesType::None;
+            has_doc_values |=
+                info.get_doc_values_type() != &DocValuesType::None;
             has_payloads |= info.has_payloads();
             has_point_values |= info.get_point_dimension_count() != 0;
             has_vector_values |= info.get_vector_dimension() != 0;
@@ -126,7 +130,9 @@ impl FieldInfos {
             }
         }
 
-        if field_number_strictly_ascending && (max_field_number as usize == infos.len() - 1) {
+        if field_number_strictly_ascending
+            && (max_field_number as usize == infos.len() - 1)
+        {
             // The input FieldInfo[] contains all fields numbered from 0 to infos.length - 1, and they are
             // sorted, use it directly. This is an optimization when reading a segment with all fields
             // since the FieldInfo[] is sorted.
@@ -237,7 +243,10 @@ impl FieldInfos {
     /// Return the FieldInfo object referenced by the field name.
     ///
     /// Returns None if the given field name doesn't exist.
-    pub fn field_info_by_name(&self, field_name: &str) -> Option<Rc<FieldInfo>> {
+    pub fn field_info_by_name(
+        &self,
+        field_name: &str,
+    ) -> Option<Rc<FieldInfo>> {
         self.by_name.get(field_name).cloned()
     }
 
@@ -248,7 +257,10 @@ impl FieldInfos {
     /// # Panics
     ///
     /// Panics if field_number is negative.
-    pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<Rc<FieldInfo>>> {
+    pub fn field_info_by_number(
+        &self,
+        field_number: i32,
+    ) -> Result<Option<Rc<FieldInfo>>> {
         if field_number < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "Illegal field number: {}",
@@ -388,7 +400,9 @@ impl FieldNumbers {
         soft_deletes_field_name: Option<String>,
         parent_field_name: Option<String>,
     ) -> Result<Self> {
-        if let (Some(ref soft), Some(ref parent)) = (&soft_deletes_field_name, &parent_field_name) {
+        if let (Some(ref soft), Some(ref parent)) =
+            (&soft_deletes_field_name, &parent_field_name)
+        {
             if soft == parent {
                 return Err(LuceneError::illegal_argument(format!(
                     "parent document and soft-deletes field can't be the same field \"{}\"",
@@ -410,7 +424,10 @@ impl FieldNumbers {
     pub fn verify_field_info(&self, fi: &FieldInfo) -> Result<()> {
         let field_properties_guard = self.field_properties.borrow();
         let field_name = fi.get_name();
-        self.verify_soft_deleted_field_name(field_name, fi.is_soft_deletes_field())?;
+        self.verify_soft_deleted_field_name(
+            field_name,
+            fi.is_soft_deletes_field(),
+        )?;
         self.verify_parent_field_name(field_name, fi.is_parent_field())?;
         if field_properties_guard.properties.contains_key(field_name) {
             self.verify_same_schema(fi, &field_properties_guard.properties)?;
@@ -431,13 +448,16 @@ impl FieldNumbers {
         field_properties: &mut Property,
     ) -> Result<i32> {
         let field_name = fi.get_name();
-        self.verify_soft_deleted_field_name(field_name, fi.is_soft_deletes_field())?;
+        self.verify_soft_deleted_field_name(
+            field_name,
+            fi.is_soft_deletes_field(),
+        )?;
         self.verify_parent_field_name(field_name, fi.is_parent_field())?;
         match field_properties.properties.get(field_name) {
             Some(fp) => {
                 self.verify_same_schema(&fi, &field_properties.properties)?;
                 Ok(fp.number)
-            }
+            },
             None => {
                 // first time we see this field in this index
                 let field_number = if fi.number != -1
@@ -447,11 +467,11 @@ impl FieldNumbers {
                 } else {
                     loop {
                         field_properties.lowest_unassigned_field_number += 1;
-                        if !field_properties
-                            .number_to_name
-                            .contains_key(&field_properties.lowest_unassigned_field_number)
-                        {
-                            break field_properties.lowest_unassigned_field_number;
+                        if !field_properties.number_to_name.contains_key(
+                            &field_properties.lowest_unassigned_field_number,
+                        ) {
+                            break field_properties
+                                .lowest_unassigned_field_number;
                         }
                     }
                 };
@@ -459,14 +479,15 @@ impl FieldNumbers {
                 field_properties
                     .number_to_name
                     .insert(field_number, field_name.to_string());
-                let index_options_props = if fi.get_index_options() != &IndexOptions::None {
-                    Some(IndexOptionsProperties {
-                        store_term_vectors: fi.has_term_vectors(),
-                        omit_norms: fi.omits_norms(),
-                    })
-                } else {
-                    None
-                };
+                let index_options_props =
+                    if fi.get_index_options() != &IndexOptions::None {
+                        Some(IndexOptionsProperties {
+                            store_term_vectors: fi.has_term_vectors(),
+                            omit_norms: fi.omits_norms(),
+                        })
+                    } else {
+                        None
+                    };
                 let new_props = FieldProperties {
                     number: field_number,
                     index_options: *fi.get_index_options(),
@@ -475,13 +496,15 @@ impl FieldNumbers {
                     doc_values_skip_index: *fi.doc_values_skip_index_type(),
                     field_dimensions: FieldDimensions {
                         dimension_count: fi.get_point_dimension_count(),
-                        index_dimension_count: fi.get_point_index_dimension_count(),
+                        index_dimension_count: fi
+                            .get_point_index_dimension_count(),
                         dimension_num_bytes: fi.get_point_num_bytes(),
                     },
                     field_vector_properties: FieldVectorProperties {
                         num_dimensions: fi.get_vector_dimension(),
                         vector_encoding: *fi.get_vector_encoding(),
-                        similarity_function: *fi.get_vector_similarity_function(),
+                        similarity_function: *fi
+                            .get_vector_similarity_function(),
                     },
                 };
                 let number = new_props.number;
@@ -489,7 +512,7 @@ impl FieldNumbers {
                     .properties
                     .insert(field_name.to_string(), new_props);
                 Ok(number)
-            }
+            },
         }
     }
 
@@ -504,7 +527,9 @@ impl FieldNumbers {
                     "this index has [{}] as soft-deletes already but soft-deletes field is not configured in IWC",
                     field_name
                 )));
-            } else if self.soft_deletes_field_name.as_ref().unwrap() != field_name {
+            } else if self.soft_deletes_field_name.as_ref().unwrap()
+                != field_name
+            {
                 return Err(LuceneError::illegal_argument(format!(
                     "cannot configure [{}] as soft-deletes; this index uses [{}] as soft-deletes already",
                     self.soft_deletes_field_name.as_ref().unwrap(),
@@ -522,7 +547,11 @@ impl FieldNumbers {
         Ok(())
     }
 
-    fn verify_parent_field_name(&self, field_name: &str, is_parent_field: bool) -> Result<()> {
+    fn verify_parent_field_name(
+        &self,
+        field_name: &str,
+        is_parent_field: bool,
+    ) -> Result<()> {
         if is_parent_field {
             if self.parent_field_name.is_none() {
                 return Err(LuceneError::illegal_argument(format!(
@@ -579,7 +608,11 @@ impl FieldNumbers {
                 .as_ref()
                 .unwrap()
                 .omit_norms;
-            FieldInfo::verify_same_omit_norms(field_name, current_omit_norms, fi.omits_norms())?;
+            FieldInfo::verify_same_omit_norms(
+                field_name,
+                current_omit_norms,
+                fi.omits_norms(),
+            )?;
         }
         FieldInfo::verify_same_doc_values_type(
             field_name,
@@ -667,14 +700,16 @@ impl FieldNumbers {
             }
         } else {
             // verify that field is doc values only field with the give doc values type
-            let field_props = field_properties_guard.properties.get(field_name).unwrap();
+            let field_props =
+                field_properties_guard.properties.get(field_name).unwrap();
             if dv_type != field_props.doc_values_type {
                 return Err(LuceneError::illegal_argument(format!(
                     "Can't update [{:?}] doc values; the field [{}] has inconsistent doc values' type of [{:?}].",
                     dv_type, field_name, field_props.doc_values_type
                 )));
             }
-            if field_props.doc_values_skip_index != DocValuesSkipIndexType::None {
+            if field_props.doc_values_skip_index != DocValuesSkipIndexType::None
+            {
                 return Err(LuceneError::illegal_argument(format!(
                     "Can't update [{:?}] doc values; the field [{}] must be doc values only field, but it has doc values skip index",
                     dv_type, field_name
@@ -807,7 +842,11 @@ pub mod build {
             self.add_with_dv_gen(fi, -1)
         }
 
-        pub fn add_with_dv_gen(&mut self, fi: Rc<FieldInfo>, dv_gen: i64) -> Result<Rc<FieldInfo>> {
+        pub fn add_with_dv_gen(
+            &mut self,
+            fi: Rc<FieldInfo>,
+            dv_gen: i64,
+        ) -> Result<Rc<FieldInfo>> {
             if let Some(cur_fi) = self.field_info(&fi.name) {
                 cur_fi.verify_same_schema(&fi)?;
 
@@ -824,7 +863,8 @@ pub mod build {
 
             self.assert_not_finished();
 
-            let field_number = self.global_field_numbers.add_or_get(fi.clone())?;
+            let field_number =
+                self.global_field_numbers.add_or_get(fi.clone())?;
             let attributes = fi.properties.borrow().attributes.clone();
             let fi_new = Rc::new(FieldInfo::new(
                 fi.name.clone(),

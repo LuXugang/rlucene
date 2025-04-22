@@ -25,7 +25,12 @@ impl DataOutput for DummyIndexOutput {
         unreachable!(" this method should never be called")
     }
 
-    fn write_bytes_range(&mut self, _b: &[u8], _offset: i32, _length: i32) -> Result<()> {
+    fn write_bytes_range(
+        &mut self,
+        _b: &[u8],
+        _offset: i32,
+        _length: i32,
+    ) -> Result<()> {
         unreachable!(" this method should never be called")
     }
 }

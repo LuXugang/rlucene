@@ -28,7 +28,8 @@ pub trait ReadableCursorExt {
     fn remain_between(&self, position: u64, limit: u64) -> u64;
 
     /// Reads data from the cursor's buffer to the destination slice, starting at the current position.
-    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32) -> Result<()>;
+    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32)
+        -> Result<()>;
 
     /// Reads data from a specific position in the cursor into the destination buffer.
     fn read_to_buffer(
@@ -52,7 +53,10 @@ where
     T: AsRef<[u8]>,
 {
     fn remain(&self) -> u64 {
-        self.remain_between(self.position(), self.get_ref().as_ref().len() as u64)
+        self.remain_between(
+            self.position(),
+            self.get_ref().as_ref().len() as u64,
+        )
     }
 
     fn remain_between(&self, position: u64, limit: u64) -> u64 {
@@ -68,7 +72,12 @@ where
         limit.saturating_sub(position)
     }
 
-    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_to(
+        &mut self,
+        dest: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         let position = self.position();
         perform_read(
             self.get_ref().as_ref(),

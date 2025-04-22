@@ -40,7 +40,10 @@ impl LongBitSet {
             let num_words = Self::bits2words(num_bits)?;
             let length = bits.bits.len();
             if num_words as usize >= length {
-                ArrayUtil::grow_with_len(&mut bits.bits, (num_words + 1) as usize);
+                ArrayUtil::grow_with_len(
+                    &mut bits.bits,
+                    (num_words + 1) as usize,
+                );
             }
             debug_assert!(bits.bits.len() <= i32::MAX as usize);
             bits.num_bits = (bits.bits.len() as i64) << 6;
@@ -255,7 +258,8 @@ impl LongBitSet {
         let mut word = self.bits[i as usize] << (63 - sub_index);
 
         if word != 0 {
-            return (i << 6) as i64 + sub_index as i64 - word.leading_zeros() as i64;
+            return (i << 6) as i64 + sub_index as i64
+                - word.leading_zeros() as i64;
         }
 
         i -= 1;
@@ -515,8 +519,12 @@ impl Hash for LongBitSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random, random_multiplier};
+    use crate::test::util::id_set_common::{
+        clear_range, flip_bit, flip_bit_range, set_range,
+    };
+    use crate::test::util::lucene_test_case::{
+        at_least, is_night_mode, random, random_multiplier,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::long_bit_set::LongBitSet;
@@ -588,7 +596,12 @@ mod tests {
             }
         }
     }
-    fn do_random_sets(max_size: i32, iter: i32, _mode: i32, random: &mut StdRng) -> Result<()> {
+    fn do_random_sets(
+        max_size: i32,
+        iter: i32,
+        _mode: i32,
+        random: &mut StdRng,
+    ) -> Result<()> {
         let mut a0: Option<BitSet> = None;
         let mut b0: Option<LongBitSet> = None;
 
@@ -633,7 +646,8 @@ mod tests {
 
             // Flip range
             let from_index = random.random_range(0..(sz / 2 + 1));
-            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
+            let to_index =
+                from_index + random.random_range(0..(sz - from_index + 1));
             let mut aa = a.clone();
             flip_bit_range(&mut aa, from_index, to_index);
             let mut bb = b.clone();
@@ -641,7 +655,8 @@ mod tests {
 
             // Clear range
             let from_index = random.random_range(0..(sz / 2 + 1));
-            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
+            let to_index =
+                from_index + random.random_range(0..(sz - from_index + 1));
             let mut aa = a.clone();
             clear_range(&mut aa, from_index, to_index);
             let mut bb = b.clone();
@@ -652,7 +667,8 @@ mod tests {
 
             // Set range
             let from_index = random.random_range(0..(sz / 2 + 1));
-            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
+            let to_index =
+                from_index + random.random_range(0..(sz - from_index + 1));
             let mut aa = a.clone();
             set_range(&mut aa, from_index, to_index);
             let mut bb = b.clone();
@@ -799,7 +815,11 @@ mod tests {
         }
         Ok(())
     }
-    fn make_long_bitset(random: &mut StdRng, a: &Vec<i32>, num_bits: i32) -> Result<LongBitSet> {
+    fn make_long_bitset(
+        random: &mut StdRng,
+        a: &Vec<i32>,
+        num_bits: i32,
+    ) -> Result<LongBitSet> {
         let mut bs: LongBitSet;
         if random.random_bool(0.5) {
             let bits_2_words = LongBitSet::bits2words(num_bits as i64)?;
@@ -823,7 +843,11 @@ mod tests {
         bs
     }
 
-    fn check_prev_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) -> Result<()> {
+    fn check_prev_set_bit_array(
+        random: &mut StdRng,
+        a: Vec<i32>,
+        num_bits: i32,
+    ) -> Result<()> {
         let obs = make_long_bitset(random, &a, num_bits)?;
         let bs = make_bitset(&a);
         do_prev_set_bit(random, &bs, &obs);
@@ -840,7 +864,11 @@ mod tests {
         Ok(())
     }
 
-    fn check_next_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) -> Result<()> {
+    fn check_next_set_bit_array(
+        random: &mut StdRng,
+        a: Vec<i32>,
+        num_bits: i32,
+    ) -> Result<()> {
         let obs = make_long_bitset(random, &a, num_bits)?;
         let bs = make_bitset(&a);
         do_next_set_bit(&bs, &obs);

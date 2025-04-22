@@ -69,8 +69,11 @@ pub(crate) struct DocValuesFieldInner {
 #[allow(unused)]
 impl DocValuesFieldInner {
     pub(crate) fn new(bits_per_value: i32) -> Result<Self> {
-        let sub_mutable =
-            PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
+        let sub_mutable = PagedMutable::with_overhead_ratio(
+            PAGE_SIZE,
+            bits_per_value,
+            PackedInts::DEFAULT,
+        );
         let writer = AbstractPagedMutable::new(1, PAGE_SIZE, sub_mutable)?;
         Ok(Self {
             finished: false,
@@ -109,7 +112,8 @@ where
         doc_values_type: DocValuesType,
         sub_update: D,
     ) -> Result<Self> {
-        let bits_per_value = PackedInts::bits_required(max_doc as i64 - 1)? + SHIFT;
+        let bits_per_value =
+            PackedInts::bits_required(max_doc as i64 - 1)? + SHIFT;
         let inner = DocValuesFieldInner::new(bits_per_value)?;
         Ok(Self {
             field,
@@ -138,12 +142,18 @@ where
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical section.However, from a logical perspective, this is not necessary.
     #[allow(unused)]
-    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+    fn add_byte_ref(
+        &mut self,
+        doc: i32,
+        value: &BytesRef<Vec<u8>>,
+    ) -> Result<()> {
         let index = self.add(doc)?;
         self.sub_update.add_byte_ref(doc, value, index)
     }
     /// Returns an iterator for updated documents and their values.
-    pub(crate) fn iterator(&mut self) -> Result<impl DocValuesFieldIterator + use<'_, D>> {
+    pub(crate) fn iterator(
+        &mut self,
+    ) -> Result<impl DocValuesFieldIterator + use<'_, D>> {
         self.ensure_finished()?;
         self.sub_update.iterator(self.inner.clone(), self.del_gen)
     }
@@ -233,7 +243,8 @@ where
         // TODO: if the Sorter interface changes to take long indexes, we can remove that limitation
         if size == i32::MAX {
             return Err(LuceneError::illegal_state(
-                "cannot support more than Integer.MAX_VALUE doc/value entries".to_string(),
+                "cannot support more than Integer.MAX_VALUE doc/value entries"
+                    .to_string(),
             ));
         }
         // grow the structures to have room for more elements
@@ -267,13 +278,17 @@ where
     pub(crate) fn ensure_finished(&self) -> Result<()> {
         let inner = self.inner.lock();
         if !inner.finished {
-            return Err(LuceneError::illegal_state("call finish first".to_string()));
+            return Err(LuceneError::illegal_state(
+                "call finish first".to_string(),
+            ));
         }
         Ok(())
     }
 }
 #[allow(unused)]
-pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<PriorityQueueIterator<T>>>
+pub fn merged_iterator<T>(
+    subs: Vec<T>,
+) -> Result<Option<PriorityQueueIterator<T>>>
 where
     T: DocValuesFieldIterator,
 {
@@ -284,7 +299,8 @@ where
     // }
 
     // Priority queue to sort iterators by doc_id and del_gen
-    let mut queue = PriorityQueue::new(subs.len() as i32, IteratorPQCmp::new())?;
+    let mut queue =
+        PriorityQueue::new(subs.len() as i32, IteratorPQCmp::new())?;
 
     for mut sub in subs {
         if sub.next_doc()? != NO_MORE_DOCS {
@@ -309,8 +325,17 @@ where
 #[allow(unused)]
 pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<()>;
-    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()>;
-    fn add_iterator<T: DocValuesFieldIterator>(&mut self, doc_id: i32, iterator: T) -> Result<()>;
+    fn add_byte_ref(
+        &mut self,
+        doc: i32,
+        value: &BytesRef<Vec<u8>>,
+        index: i32,
+    ) -> Result<()>;
+    fn add_iterator<T: DocValuesFieldIterator>(
+        &mut self,
+        doc_id: i32,
+        iterator: T,
+    ) -> Result<()>;
     /// Returns an iterator for updated documents and their values.
     fn iterator(
         &mut self,
@@ -372,7 +397,8 @@ where
         // NOTE: we can have ties here, when the same docID was updated in the same segment, in
         // which case we rely on sort being
         // stable and preserving the original order so the last update to that docID wins
-        let cmp = (self.inner.docs.get(i as i64)? >> 1).cmp(&(self.inner.docs.get(j as i64)? >> 1));
+        let cmp = (self.inner.docs.get(i as i64)? >> 1)
+            .cmp(&(self.inner.docs.get(j as i64)? >> 1));
 
         if cmp == std::cmp::Ordering::Equal {
             Ok((self.ords.get(i)? - self.ords.get(j)?) as i32)
@@ -398,7 +424,8 @@ where
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        let mut cmp = (self.pivot_doc).cmp(&((self.inner.docs.get(j as i64)? as u64 >> 1) as i64));
+        let mut cmp = (self.pivot_doc)
+            .cmp(&((self.inner.docs.get(j as i64)? as u64 >> 1) as i64));
         if cmp == std::cmp::Ordering::Equal {
             // If docIDs are the same, compare pivot_ord with ords[j]
             cmp = (self.pivot_ord - self.ords.get(j)?).cmp(&0);
@@ -412,7 +439,8 @@ where
     }
 }
 
-impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBase {}
+impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBase
+{}
 
 /// An iterator over documents and their updated values.
 ///
@@ -607,7 +635,10 @@ where
     }
 }
 
-impl<T> DocValuesIterator for PriorityQueueIterator<T> where T: DocValuesFieldIterator {}
+impl<T> DocValuesIterator for PriorityQueueIterator<T> where
+    T: DocValuesFieldIterator
+{
+}
 
 impl<T> DocValuesFieldIterator for PriorityQueueIterator<T>
 where
@@ -647,7 +678,12 @@ where
 
             if new_doc != self.doc {
                 // Ensure the new document ID is greater than the current document ID
-                debug_assert!(new_doc > self.doc, "doc={} new_doc={}", self.doc, new_doc);
+                debug_assert!(
+                    new_doc > self.doc,
+                    "doc={} new_doc={}",
+                    self.doc,
+                    new_doc
+                );
                 self.doc = new_doc;
                 break;
             }
@@ -690,7 +726,11 @@ impl<A> AbstractIterator<A>
 where
     A: AbstractIteratorBase + Default,
 {
-    pub fn new(inner: Arc<Mutex<DocValuesFieldInner>>, del_gen: i64, sub: A) -> Self {
+    pub fn new(
+        inner: Arc<Mutex<DocValuesFieldInner>>,
+        del_gen: i64,
+        sub: A,
+    ) -> Self {
         AbstractIterator {
             inner,
             idx: 0,
@@ -702,7 +742,10 @@ where
     }
 }
 
-impl<A> DocValuesIterator for AbstractIterator<A> where A: AbstractIteratorBase + Default {}
+impl<A> DocValuesIterator for AbstractIterator<A> where
+    A: AbstractIteratorBase + Default
+{
+}
 
 impl<A> DocIdSetIterator for AbstractIterator<A>
 where
@@ -791,7 +834,12 @@ impl<S> SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
 {
-    pub fn new(sub: S, max_doc: i32, del_gen: i64, dov_values_type: DocValuesType) -> Result<Self> {
+    pub fn new(
+        sub: S,
+        max_doc: i32,
+        del_gen: i64,
+        dov_values_type: DocValuesType,
+    ) -> Result<Self> {
         Ok(Self {
             sub_update: sub,
             bit_set: SparseFixedBitSet::new(max_doc)?,
@@ -834,7 +882,12 @@ where
         Ok(())
     }
 
-    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
+    fn add_byte_ref(
+        &mut self,
+        doc: i32,
+        value: &BytesRef<Vec<u8>>,
+        _index: i32,
+    ) -> Result<()> {
         debug_assert!(self.sub_update.binary_value()? == value);
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
@@ -961,7 +1014,8 @@ where
     }
 }
 
-impl<S> DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator<'_, S>
+impl<S> DocValuesFieldIterator
+    for SingleValueDocValuesFieldUpdatesIterator<'_, S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
 {
@@ -1015,8 +1069,9 @@ where
 #[cfg(test)]
 mod tests {
     use crate::index::doc_values_field_updates::{
-        merged_iterator, DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
-        SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,
+        merged_iterator, DocValuesFieldIterator, DocValuesFieldUpdates,
+        DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdates,
+        SingleValueDocValuesFieldUpdatesBase,
     };
     use crate::index::numeric_doc_values_field_updates::{
         NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
@@ -1238,10 +1293,19 @@ mod tests {
 
         let sub_update1 = SingleValueNumericDocValuesFieldUpdates::new(value);
         let sub_type = sub_update1.sub_type();
-        let sub_update2 =
-            SingleValueDocValuesFieldUpdates::new(sub_update1, max_doc, del_gen, sub_type)?;
-        let mut update =
-            DocValuesFieldUpdates::new(max_doc, del_gen, "foo".to_string(), sub_type, sub_update2)?;
+        let sub_update2 = SingleValueDocValuesFieldUpdates::new(
+            sub_update1,
+            max_doc,
+            del_gen,
+            sub_type,
+        )?;
+        let mut update = DocValuesFieldUpdates::new(
+            max_doc,
+            del_gen,
+            "foo".to_string(),
+            sub_type,
+            sub_update2,
+        )?;
 
         assert_eq!(value, update.sub_update.long_value()?);
 

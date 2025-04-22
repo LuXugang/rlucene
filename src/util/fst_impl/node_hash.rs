@@ -20,7 +20,9 @@ use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
 use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, BytesReader};
-use crate::util::fst_impl::fst_compiler::{FSTCompilerInner, NodeEnum, UnCompiledNode};
+use crate::util::fst_impl::fst_compiler::{
+    FSTCompilerInner, NodeEnum, UnCompiledNode,
+};
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
@@ -88,12 +90,13 @@ where
             )));
         }
 
-        let ram_limit_bytes = if ram_limit_mb >= (i64::MAX as f64) / 1024.0 / 1024.0 {
-            // quietly truncate to Long.MAX_VALUE in bytes too
-            i64::MAX
-        } else {
-            (ram_limit_mb * 1024.0 * 1024.0) as i64
-        };
+        let ram_limit_bytes =
+            if ram_limit_mb >= (i64::MAX as f64) / 1024.0 / 1024.0 {
+                // quietly truncate to Long.MAX_VALUE in bytes too
+                i64::MAX
+            } else {
+                (ram_limit_mb * 1024.0 * 1024.0) as i64
+            };
 
         Ok(Self {
             primary_table: PagedGrowableHash::new(fst_compiler.clone())?,
@@ -106,7 +109,11 @@ where
             phantom: PhantomData,
         })
     }
-    fn get_fallback(&mut self, node_in: &UnCompiledNode<T, O, D>, hash: i64) -> Result<i64> {
+    fn get_fallback(
+        &mut self,
+        node_in: &UnCompiledNode<T, O, D>,
+        hash: i64,
+    ) -> Result<i64> {
         self.last_fallback_node_length = -1;
         self.last_fallback_hash_slot = -1;
 
@@ -116,13 +123,17 @@ where
                 let mut c = 0;
 
                 loop {
-                    let node_address = fallback_table.get_node_address(hash_slot)?;
+                    let node_address =
+                        fallback_table.get_node_address(hash_slot)?;
                     if node_address == 0 {
                         // not found
                         return Ok(0);
                     } else {
-                        let length =
-                            fallback_table.nodes_equal(node_in, node_address, hash_slot)?;
+                        let length = fallback_table.nodes_equal(
+                            node_in,
+                            node_address,
+                            hash_slot,
+                        )?;
                         if length != -1 {
                             // store the node length for further use
                             self.last_fallback_node_length = length;
@@ -136,11 +147,11 @@ where
                     c += 1;
                     hash_slot = (hash_slot + c) & fallback_table.mask;
                 }
-            }
+            },
             None => {
                 // no fallback yet (primary table is not yet large enough to swap)
                 Ok(0)
-            }
+            },
         }
     }
     pub fn add(&mut self, node_in: &UnCompiledNode<T, O, D>) -> Result<i64> {
@@ -149,13 +160,15 @@ where
         let mut c = 0;
 
         loop {
-            let mut node_address = self.primary_table.get_node_address(hash_slot)?;
+            let mut node_address =
+                self.primary_table.get_node_address(hash_slot)?;
             if node_address == 0 {
                 // not in primary, check fallback
                 node_address = self.get_fallback(node_in, hash)?;
                 if node_address != 0 {
                     debug_assert!(
-                        self.last_fallback_hash_slot != -1 && self.last_fallback_node_length != -1
+                        self.last_fallback_hash_slot != -1
+                            && self.last_fallback_node_length != -1
                     );
                     // it was already in fallback -- promote to primary
                     self.primary_table
@@ -170,7 +183,8 @@ where
                     // not in fallback either -- freeze & add the incoming node
 
                     // freeze & add
-                    node_address = self.fst_compiler.borrow_mut().add_node(node_in)?;
+                    node_address =
+                        self.fst_compiler.borrow_mut().add_node(node_in)?;
                     // we use 0 as empty marker in hash table, so it better be impossible to get a frozen node
                     // at 0:
                     debug_assert!(
@@ -203,15 +217,17 @@ where
                 // each account for approximate hash table overhead halfway between 33.3% and 66.6%
                 // note that some of the copiedNodes are shared between fallback and primary tables so this
                 // computation is pessimistic
-                let copied_bytes = self.primary_table.copied_nodes.borrow_mut().get_position();
-                let ram_bytes_used =
-                    self.primary_table.count * 2 * PackedInts::bits_required(node_address)? as i64
+                let copied_bytes =
+                    self.primary_table.copied_nodes.borrow_mut().get_position();
+                let ram_bytes_used = self.primary_table.count
+                    * 2
+                    * PackedInts::bits_required(node_address)? as i64
+                    / 8
+                    + self.primary_table.count
+                        * 2
+                        * PackedInts::bits_required(copied_bytes)? as i64
                         / 8
-                        + self.primary_table.count
-                            * 2
-                            * PackedInts::bits_required(copied_bytes)? as i64
-                            / 8
-                        + copied_bytes;
+                    + copied_bytes;
                 // NOTE: we could instead use the more precise RAM used, but this leads to unpredictable
                 // quantized behavior due to 2X rehashing where for large ranges of the RAM limit, the
                 // size of the FST does not change, and then suddenly when you cross a secret threshold,
@@ -224,25 +240,28 @@ where
                     // time to fallback -- fallback is now used read-only to promote a node (suffix) to
                     // primary if we encounter it again
                     let size = self.primary_table.inner.fst_node_address.size();
-                    self.fallback_table = Some(std::mem::replace(&mut self.primary_table, {
-                        PagedGrowableHash::with_size(
-                            self.fst_compiler.clone(),
-                            node_address,
-                            size.max(16),
-                        )?
-                    }));
+                    self.fallback_table =
+                        Some(std::mem::replace(&mut self.primary_table, {
+                            PagedGrowableHash::with_size(
+                                self.fst_compiler.clone(),
+                                node_address,
+                                size.max(16),
+                            )?
+                        }));
                 } else if self.primary_table.count
-                    > self.primary_table.inner.fst_node_address.size() * (2f32 / 3f32) as i64
+                    > self.primary_table.inner.fst_node_address.size()
+                        * (2f32 / 3f32) as i64
                 {
                     // rehash at 2/3 occupancy
                     self.primary_table.rehash(node_address)?;
                 }
 
                 return Ok(node_address);
-            } else if self
-                .primary_table
-                .nodes_equal(node_in, node_address, hash_slot)?
-                != -1
+            } else if self.primary_table.nodes_equal(
+                node_in,
+                node_address,
+                hash_slot,
+            )? != -1
             {
                 // same node (in frozen form) is already in primary table
                 return Ok(node_address);
@@ -262,7 +281,11 @@ where
 
             let n = match &arc.target {
                 NodeEnum::CompiledNode(compiled_node) => compiled_node.node,
-                _ => return Err(LuceneError::illegal_state("Node should be compiled")),
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "Node should be compiled",
+                    ))
+                },
             };
             h = PRIME.wrapping_mul(h).wrapping_add(n ^ (n >> 32));
 
@@ -330,7 +353,9 @@ where
     // 256K blocks, but note that the final block is sized only as needed so it won't use the full
     // block size when just a few elements were written to it
     const BLOCK_SIZE_BYTES: i32 = 1 << 18;
-    pub(crate) fn new(fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>) -> Result<Self> {
+    pub(crate) fn new(
+        fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
+    ) -> Result<Self> {
         Self::build(fst_compiler, 8, 8, 16, 15)
     }
 
@@ -339,7 +364,8 @@ where
         last_node_address: i64,
         size: i64,
     ) -> Result<Self> {
-        let fst_node_address_bits_per_value = PackedInts::bits_required(last_node_address)?;
+        let fst_node_address_bits_per_value =
+            PackedInts::bits_required(last_node_address)?;
         let mask = size - 1;
         debug_assert!(
             mask & size == 0,
@@ -347,7 +373,13 @@ where
             size,
             mask
         );
-        Self::build(fst_compiler, fst_node_address_bits_per_value, 8, size, mask)
+        Self::build(
+            fst_compiler,
+            fst_node_address_bits_per_value,
+            8,
+            size,
+            mask,
+        )
     }
     fn build(
         fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
@@ -360,17 +392,25 @@ where
             fst_node_address_bits_per_value,
             PackedInts::COMPACT,
         );
-        let fst_node_address = AbstractPagedMutable::new(size, Self::BLOCK_SIZE_BYTES, sub_reader)?;
+        let fst_node_address = AbstractPagedMutable::new(
+            size,
+            Self::BLOCK_SIZE_BYTES,
+            sub_reader,
+        )?;
         let sub_reader = PagedGrowableWriter::with_fill_page(
             copied_node_address_bits_per_value,
             PackedInts::COMPACT,
         );
-        let copied_node_address =
-            AbstractPagedMutable::new(size, Self::BLOCK_SIZE_BYTES, sub_reader)?;
+        let copied_node_address = AbstractPagedMutable::new(
+            size,
+            Self::BLOCK_SIZE_BYTES,
+            sub_reader,
+        )?;
 
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let copied_nodes = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-        let bytes_reader = ByteBlockPoolReverseBytesReader::new(copied_nodes.clone());
+        let bytes_reader =
+            ByteBlockPoolReverseBytesReader::new(copied_nodes.clone());
         let inner = Inner {
             bytes_reader,
             fst_node_address,
@@ -394,13 +434,22 @@ where
     /// # Returns
     ///
     /// The copied byte array
-    pub fn get_bytes(&mut self, hash_slot: i64, length: i32) -> Result<Vec<u8>> {
+    pub fn get_bytes(
+        &mut self,
+        hash_slot: i64,
+        length: i32,
+    ) -> Result<Vec<u8>> {
         let address = self.inner.copied_node_address.get(hash_slot)?;
         debug_assert!(address - length as i64 + 1 >= 0);
 
         let mut buf = vec![0u8; length as usize];
         self.copied_nodes.access_mut(|copied_nodes| {
-            copied_nodes.read_bytes(address - length as i64 + 1, &mut buf, 0, length)?;
+            copied_nodes.read_bytes(
+                address - length as i64 + 1,
+                &mut buf,
+                0,
+                length,
+            )?;
             // Help the compiler infer types
             Ok::<(), LuceneError>(())
         })?;
@@ -411,7 +460,11 @@ where
         self.inner.fst_node_address.get(hash_slot)
     }
     /// Set the node address for the given hash slot.
-    pub fn set_node_address(&mut self, hash_slot: i64, node_address: i64) -> Result<()> {
+    pub fn set_node_address(
+        &mut self,
+        hash_slot: i64,
+        node_address: i64,
+    ) -> Result<()> {
         debug_assert_eq!(self.inner.fst_node_address.get(hash_slot)?, 0);
         self.inner.fst_node_address.set(hash_slot, node_address)?;
         self.count += 1;
@@ -480,18 +533,26 @@ where
         let new_size = self.inner.fst_node_address.size() * 2;
 
         let sub_reader = PagedGrowableWriter::with_fill_page(
-            PackedInts::bits_required(self.copied_nodes.borrow_mut().get_position())?,
+            PackedInts::bits_required(
+                self.copied_nodes.borrow_mut().get_position(),
+            )?,
             PackedInts::COMPACT,
         );
-        let mut new_copied_node_address =
-            AbstractPagedMutable::new(new_size, Self::BLOCK_SIZE_BYTES, sub_reader)?;
+        let mut new_copied_node_address = AbstractPagedMutable::new(
+            new_size,
+            Self::BLOCK_SIZE_BYTES,
+            sub_reader,
+        )?;
 
         let sub_reader = PagedGrowableWriter::with_fill_page(
             PackedInts::bits_required(last_node_address)?,
             PackedInts::COMPACT,
         );
-        let mut new_fst_node_address =
-            AbstractPagedMutable::new(new_size, Self::BLOCK_SIZE_BYTES, sub_reader)?;
+        let mut new_fst_node_address = AbstractPagedMutable::new(
+            new_size,
+            Self::BLOCK_SIZE_BYTES,
+            sub_reader,
+        )?;
 
         let new_mask = new_fst_node_address.size() - 1;
 
@@ -503,8 +564,10 @@ where
                 loop {
                     if new_fst_node_address.get(hash_slot)? == 0 {
                         new_fst_node_address.set(hash_slot, address)?;
-                        new_copied_node_address
-                            .set(hash_slot, self.inner.copied_node_address.get(idx)?)?;
+                        new_copied_node_address.set(
+                            hash_slot,
+                            self.inner.copied_node_address.get(idx)?,
+                        )?;
                         break;
                     }
                     // quadratic probe
@@ -528,16 +591,19 @@ where
         let prime: i64 = 31;
         let mut h: i64 = 0;
 
-        compiler
-            .fst
-            .read_first_real_target_arc(node_address, &mut scratch_arc, reader)?;
+        compiler.fst.read_first_real_target_arc(
+            node_address,
+            &mut scratch_arc,
+            reader,
+        )?;
         // TODO: 这里要改成wrapping_mul跟wrapping_add
         loop {
             h = prime * h + scratch_arc.label() as i64;
             let target = scratch_arc.target();
             h = prime * h + (target ^ (target >> 32));
             h = prime * h + CoreHelper::compute_hash(&scratch_arc.output());
-            h = prime * h + CoreHelper::compute_hash(&scratch_arc.next_final_output());
+            h = prime * h
+                + CoreHelper::compute_hash(&scratch_arc.next_final_output());
             if scratch_arc.is_final() {
                 h += 17;
             }
@@ -579,31 +645,35 @@ where
                         // sparse
                         return Ok(-1);
                     }
-                }
+                },
                 fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
                     // dense -- compare both the number of labels allocated in the array (some of which may
                     // not actually be arcs), and the number of arcs
                     let first_label = node.arcs[0].label;
-                    let last_label = node.arcs[node.num_arcs as usize - 1].label;
+                    let last_label =
+                        node.arcs[node.num_arcs as usize - 1].label;
                     if (last_label - first_label + 1) != scratch_arc.num_arcs()
-                        || node.num_arcs != BitTable::count_bits(&scratch_arc, in_reader)?
+                        || node.num_arcs
+                            != BitTable::count_bits(&scratch_arc, in_reader)?
                     {
                         return Ok(-1);
                     }
-                }
+                },
                 fst_util::ARCS_FOR_CONTINUOUS => {
                     let first_label = node.arcs[0].label;
-                    let last_label = node.arcs[node.num_arcs as usize - 1].label;
-                    if (last_label - first_label + 1) != scratch_arc.num_arcs() {
+                    let last_label =
+                        node.arcs[node.num_arcs as usize - 1].label;
+                    if (last_label - first_label + 1) != scratch_arc.num_arcs()
+                    {
                         return Ok(-1);
                     }
-                }
+                },
                 _ => {
                     return Err(LuceneError::illegal_state(format!(
                         "unhandled scratchArc.nodeFlag() {}",
                         scratch_arc.node_flags()
                     )));
-                }
+                },
             }
         }
         // compare arc by arc to see if there is a difference
@@ -614,8 +684,14 @@ where
                 || arc.output != scratch_arc.output()
                 || {
                     match &arc.target {
-                        NodeEnum::CompiledNode(compiled) => compiled.node != scratch_arc.target(),
-                        _ => return Err(LuceneError::illegal_state("Node should be compiled")),
+                        NodeEnum::CompiledNode(compiled) => {
+                            compiled.node != scratch_arc.target()
+                        },
+                        _ => {
+                            return Err(LuceneError::illegal_state(
+                                "Node should be compiled",
+                            ))
+                        },
                     }
                 }
                 || arc.next_final_output != scratch_arc.next_final_output()
@@ -629,7 +705,7 @@ where
                     if compiled.node != scratch_arc.target() {
                         return Ok(-1);
                     }
-                }
+                },
                 _ => return Ok(-1),
             }
 
@@ -660,7 +736,9 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::fst::InputType;
-    use crate::util::fst_impl::fst_compiler::{DataOutputEnum, FSTCompilerInner};
+    use crate::util::fst_impl::fst_compiler::{
+        DataOutputEnum, FSTCompilerInner,
+    };
     use crate::util::fst_impl::node_hash::PagedGrowableHash;
     use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
     use rand::Rng;
@@ -686,19 +764,31 @@ mod tests {
             10,
         )?));
         // Create primary and fallback hash tables
-        let mut primary_hash_table = PagedGrowableHash::new(fst_compiler_inner.clone())?;
-        let mut fallback_hash_table = PagedGrowableHash::new(fst_compiler_inner)?;
+        let mut primary_hash_table =
+            PagedGrowableHash::new(fst_compiler_inner.clone())?;
+        let mut fallback_hash_table =
+            PagedGrowableHash::new(fst_compiler_inner)?;
 
         let node_length = at_least(&mut random, 500);
         let fallback_hash_slot = 1;
-        let fallback_bytes: Vec<u8> = (0..node_length).map(|_| random.random()).collect();
+        let fallback_bytes: Vec<u8> =
+            (0..node_length).map(|_| random.random()).collect();
 
-        fallback_hash_table.copy_node_bytes(fallback_hash_slot, &fallback_bytes, node_length)?;
+        fallback_hash_table.copy_node_bytes(
+            fallback_hash_slot,
+            &fallback_bytes,
+            node_length,
+        )?;
 
         // Check that fallback bytes stored correctly
-        let stored_bytes = fallback_hash_table.get_bytes(fallback_hash_slot, node_length as i32)?;
+        let stored_bytes = fallback_hash_table
+            .get_bytes(fallback_hash_slot, node_length as i32)?;
         for i in 0..node_length as usize {
-            assert_eq!(fallback_bytes[i], stored_bytes[i], "byte @ index={}", i);
+            assert_eq!(
+                fallback_bytes[i], stored_bytes[i],
+                "byte @ index={}",
+                i
+            );
         }
 
         let primary_hash_slot = 2;
@@ -710,9 +800,14 @@ mod tests {
         )?;
 
         // Check that primary copied bytes match original
-        let copied_bytes = primary_hash_table.get_bytes(primary_hash_slot, node_length as i32)?;
+        let copied_bytes = primary_hash_table
+            .get_bytes(primary_hash_slot, node_length as i32)?;
         for i in 0..node_length as usize {
-            assert_eq!(fallback_bytes[i], copied_bytes[i], "byte @ index={}", i);
+            assert_eq!(
+                fallback_bytes[i], copied_bytes[i],
+                "byte @ index={}",
+                i
+            );
         }
         Ok(())
     }

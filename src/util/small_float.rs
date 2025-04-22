@@ -141,7 +141,9 @@ impl SmallFloat {
         if i < *NUM_FREE_VALUES {
             Ok(i as u8)
         } else {
-            Ok((*NUM_FREE_VALUES + Self::long_to_int4((i - *NUM_FREE_VALUES) as i64)?) as u8)
+            Ok((*NUM_FREE_VALUES
+                + Self::long_to_int4((i - *NUM_FREE_VALUES) as i64)?)
+                as u8)
         }
     }
 
@@ -151,14 +153,16 @@ impl SmallFloat {
         if i < *NUM_FREE_VALUES {
             Ok(i)
         } else {
-            let v =
-                (*NUM_FREE_VALUES as i64 + Self::int4_to_long(i - *NUM_FREE_VALUES)).try_into()?;
+            let v = (*NUM_FREE_VALUES as i64
+                + Self::int4_to_long(i - *NUM_FREE_VALUES))
+            .try_into()?;
             Ok(v)
         }
     }
 }
 
-static MAX_INT4: Lazy<i32> = Lazy::new(|| SmallFloat::long_to_int4(i32::MAX as i64).unwrap());
+static MAX_INT4: Lazy<i32> =
+    Lazy::new(|| SmallFloat::long_to_int4(i32::MAX as i64).unwrap());
 static NUM_FREE_VALUES: Lazy<i32> = Lazy::new(|| 255 - *MAX_INT4);
 
 #[cfg(test)]
@@ -319,7 +323,8 @@ mod tests {
             } else {
                 l
             };
-            let round_trip = SmallFloat::int4_to_long(SmallFloat::long_to_int4(l)?);
+            let round_trip =
+                SmallFloat::int4_to_long(SmallFloat::long_to_int4(l)?);
             assert_eq!(
                 expected, round_trip,
                 "expected={}, got={}, input={}",

@@ -61,12 +61,21 @@ impl GrowableByteArrayDataOutput {
         )
     }
     /// Writes all of our bytes to the target `Write`.
-    pub(crate) fn write_to_data_output(&self, out: &mut impl DataOutput) -> Result<()> {
+    pub(crate) fn write_to_data_output(
+        &self,
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         out.write_bytes_range(&self.bytes, 0, self.next_write)
     }
 
     /// Copies bytes from this store to a target buffer.
-    pub(crate) fn write_to(&self, src_offset: i32, dest: &mut [u8], dest_offset: i32, len: i32) {
+    pub(crate) fn write_to(
+        &self,
+        src_offset: i32,
+        dest: &mut [u8],
+        dest_offset: i32,
+        len: i32,
+    ) {
         debug_assert!(src_offset + len <= self.next_write);
         dest.copy_from(
             &self.bytes[src_offset as usize..(src_offset + len) as usize],
@@ -83,7 +92,12 @@ impl DataOutput for GrowableByteArrayDataOutput {
         Ok(())
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, len: i32) -> Result<()> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         if len == 0 {
             return Ok(());
         }
@@ -106,7 +120,9 @@ mod tests {
     use crate::store::directory::Directory;
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
     use crate::store::{ByteArrayDataInput, DataOutput, IOContext};
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode, new_directory, random};
+    use crate::test::util::lucene_test_case::{
+        at_least, is_night_mode, new_directory, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
@@ -144,7 +160,7 @@ mod tests {
                         expected[pos as usize] = b;
                         bytes.write_byte(b)?;
                         pos += 1;
-                    }
+                    },
                     1 => {
                         // write byte array
                         let max_len = std::cmp::min(num_bytes - pos, 100);
@@ -152,12 +168,15 @@ mod tests {
                         let mut temp = vec![0u8; len as usize];
                         random.fill_bytes(&mut temp);
                         if cfg!(feature = "test_log_verbose") {
-                            println!("    write_bytes len={}, bytes={:?}", len, temp);
+                            println!(
+                                "    write_bytes len={}, bytes={:?}",
+                                len, temp
+                            );
                         }
                         expected.copy_from(&temp[0..temp.len()], pos as usize);
                         bytes.write_bytes_range(&temp, 0, len)?;
                         pos += len;
-                    }
+                    },
                     _ => unreachable!(),
                 }
 
@@ -165,7 +184,11 @@ mod tests {
 
                 // maybe truncate
                 if pos > 0 && random.random_range(0..50) == 17 {
-                    let len = TestUtil::next_int(&mut random, 1, std::cmp::min(pos, 100));
+                    let len = TestUtil::next_int(
+                        &mut random,
+                        1,
+                        std::cmp::min(pos, 100),
+                    );
                     pos -= len;
                     bytes.set_position(pos);
                     for i in pos..pos + len {
@@ -188,11 +211,15 @@ mod tests {
                 }
                 let mut dir = new_directory(&mut random)?;
                 {
-                    let mut out = dir.create_output("bytes", &IOContext::default_io_context()?)?;
+                    let mut out = dir.create_output(
+                        "bytes",
+                        &IOContext::default_io_context()?,
+                    )?;
                     bytes.write_to_data_output(&mut out)?;
                 }
 
-                let mut in_ = dir.open_input("bytes", &IOContext::default_io_context()?)?;
+                let mut in_ =
+                    dir.open_input("bytes", &IOContext::default_io_context()?)?;
                 let mut bytes_to_verify = GrowableByteArrayDataOutput::new();
                 bytes_to_verify.copy_bytes(&mut in_, num_bytes as i64)?;
                 bytes_to_verify

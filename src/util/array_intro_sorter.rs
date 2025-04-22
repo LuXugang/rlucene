@@ -33,7 +33,10 @@ impl<'a, T, C> ArrayIntroSorter<'a, T, C>
 where
     C: Comparator<T>,
 {
-    pub fn new(arr: &'a mut Vec<T>, comparator: C) -> ArrayIntroSorter<'a, T, C> {
+    pub fn new(
+        arr: &'a mut Vec<T>,
+        comparator: C,
+    ) -> ArrayIntroSorter<'a, T, C> {
         ArrayIntroSorter {
             arr,
             comparator,
@@ -80,7 +83,8 @@ where
     }
 }
 
-impl<T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'_, T, C> where T: Ord {}
+impl<T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'_, T, C> where T: Ord
+{}
 
 #[cfg(test)]
 mod tests {
@@ -109,7 +113,11 @@ mod tests {
     where
         T: Ord,
     {
-        fn new_sorter(&self, _random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter {
+        fn new_sorter(
+            &self,
+            _random: &mut StdRng,
+            arr: &mut Vec<Entry>,
+        ) -> impl Sorter {
             ArrayIntroSorter::new(arr, NaturalOrder::new())
         }
 

@@ -41,7 +41,8 @@ impl DoublePoint {
         let value = Arc::new(BytesRef::from_slice(packed, 0, len));
         debug_assert!(len <= i32::MAX as usize);
         let field_type = Arc::new(Self::get_type(point.len() as i32)?);
-        let parent_field = Field::with_bytes_ref(name, value, field_type.clone())?;
+        let parent_field =
+            Field::with_bytes_ref(name, value, field_type.clone())?;
         Ok(DoublePoint { parent_field })
     }
 
@@ -53,7 +54,9 @@ impl DoublePoint {
     }
     /// Change the values of this field
     pub fn set_double_values(&mut self, point: &[f64]) -> Result<()> {
-        if self.parent_field.field_type().point_dimension_count() as usize != point.len() {
+        if self.parent_field.field_type().point_dimension_count() as usize
+            != point.len()
+        {
             return Err(LuceneError::illegal_argument( format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
                 self.parent_field.name(),
@@ -65,7 +68,8 @@ impl DoublePoint {
         let len = packed.len();
         let value = Arc::new(BytesRef::from_slice(packed, 0, len));
         debug_assert!(len <= i32::MAX as usize);
-        self.parent_field.fields_data = Option::from(FieldDataEnum::Binary(value));
+        self.parent_field.fields_data =
+            Option::from(FieldDataEnum::Binary(value));
         Ok(())
     }
     fn pack(point: &[f64]) -> Result<Vec<u8>> {
@@ -91,7 +95,9 @@ impl DoublePoint {
 
     /// Decode a single double dimension from byte array
     pub fn decode_dimension(value: &[u8], offset: usize) -> f64 {
-        NumericUtils::sortable_long_to_double(NumericUtils::sortable_bytes_to_long(value, offset))
+        NumericUtils::sortable_long_to_double(
+            NumericUtils::sortable_bytes_to_long(value, offset),
+        )
     }
 }
 impl FieldBase for DoublePoint {
@@ -143,11 +149,11 @@ impl IndexableField for DoublePoint {
                 debug_assert!(bytes.length == BitUtil::DOUBLE_BYTES);
                 let value = Self::decode_dimension(&bytes.bytes, bytes.offset);
                 Ok(Some(Number::F64(value)))
-            }
+            },
             _ => {
                 debug_assert!(false, "no possible here");
                 Ok(None)
-            }
+            },
         }
     }
 
@@ -165,7 +171,8 @@ impl fmt::Display for DoublePoint {
 
         match &self.parent_field.fields_data {
             Some(FieldDataEnum::Binary(bytes)) => {
-                let dim_count = self.parent_field.field_type().point_dimension_count();
+                let dim_count =
+                    self.parent_field.field_type().point_dimension_count();
                 for dim in 0..dim_count {
                     if dim > 0 {
                         write!(f, ",")?;
@@ -176,11 +183,11 @@ impl fmt::Display for DoublePoint {
                     );
                     write!(f, "{}", value)?;
                 }
-            }
+            },
             _ => {
                 debug_assert!(false, "no possible here");
                 write!(f, "Unsupported FieldDataEnum variant")?;
-            }
+            },
         }
 
         write!(f, ">")

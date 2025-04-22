@@ -42,16 +42,24 @@ impl<'a, D> DirectWriter<'a, D>
 where
     D: DataOutput,
 {
-    pub fn new(output: &'a mut D, num_values: i64, bits_per_value: i32) -> Result<Self> {
-        let memory_budget_in_bits = i8::BITS as i32 * PackedInts::DEFAULT_BUFFER_SIZE;
+    pub fn new(
+        output: &'a mut D,
+        num_values: i64,
+        bits_per_value: i32,
+    ) -> Result<Self> {
+        let memory_budget_in_bits =
+            i8::BITS as i32 * PackedInts::DEFAULT_BUFFER_SIZE;
         // For every value we need 64 bits for the value and bitsPerValue for the encoded value
-        let mut buffer_size = memory_budget_in_bits / (u64::BITS as i32 + bits_per_value);
+        let mut buffer_size =
+            memory_budget_in_bits / (u64::BITS as i32 + bits_per_value);
         debug_assert!(buffer_size > 0);
         // Round to the next multiple of 64
         buffer_size = ((buffer_size + 63) as u32 & 0xFFFFFFC0) as i32;
         let next_values = vec![0i64; buffer_size as usize];
-        let next_blocks_size =
-            (buffer_size * bits_per_value) as usize / i8::BITS as usize + BitUtil::LONG_BYTES - 1;
+        let next_blocks_size = (buffer_size * bits_per_value) as usize
+            / i8::BITS as usize
+            + BitUtil::LONG_BYTES
+            - 1;
         let next_blocks = vec![0u8; next_blocks_size];
 
         Ok(DirectWriter {
@@ -75,7 +83,9 @@ where
         );
         debug_assert!(!self.finished);
         if self.count >= self.num_values {
-            return Err(LuceneError::eof("Writing past end of stream".to_string()));
+            return Err(LuceneError::eof(
+                "Writing past end of stream".to_string(),
+            ));
         }
         self.next_values[self.off as usize] = l;
         self.off += 1;
@@ -109,7 +119,12 @@ where
         self.off = 0;
         Ok(())
     }
-    fn encode(next_values: &[i64], up_to: usize, next_blocks: &mut [u8], bits_per_value: i32) {
+    fn encode(
+        next_values: &[i64],
+        up_to: usize,
+        next_blocks: &mut [u8],
+        bits_per_value: i32,
+    ) {
         if bits_per_value & 7 == 0 {
             // bitsPerValue is a multiple of 8: 8, 16, 24, 32, 30, 48, 56, 64
             let bytes_per_value = bits_per_value / i8::BITS as i32;
@@ -134,7 +149,8 @@ where
             while i < up_to {
                 let mut v = 0;
                 for j in 0..values_per_long {
-                    v |= next_values[i + j] << (bits_per_value as i64 * j as i64);
+                    v |= next_values[i + j]
+                        << (bits_per_value as i64 * j as i64);
                 }
                 BitUtil::set_i64_le(next_blocks, o, v);
                 o += BitUtil::LONG_BYTES;
@@ -143,7 +159,8 @@ where
         } else {
             // bitsPerValue is 12, 20 or 28
             // Write values 2 by 2
-            let num_bytes_for_2_values = ((bits_per_value * 2) as u32 / i8::BITS) as usize;
+            let num_bytes_for_2_values =
+                ((bits_per_value * 2) as u32 / i8::BITS) as usize;
             let mut i = 0;
             let mut o = 0;
             while i < up_to {
@@ -186,7 +203,8 @@ where
         };
 
         debug_assert!(padding_bits_needed >= 0);
-        let padding_bytes_needed = (padding_bits_needed + i8::BITS as i32 - 1) / i8::BITS as i32;
+        let padding_bytes_needed =
+            (padding_bits_needed + i8::BITS as i32 - 1) / i8::BITS as i32;
         debug_assert!(padding_bytes_needed <= 3);
 
         for _ in 0..padding_bytes_needed {
@@ -196,15 +214,21 @@ where
         Ok(())
     }
     /// Returns an instance suitable for encoding `numValues` using `bitsPerValue`.
-    pub fn get_instance(output: &'a mut D, num_values: i64, bits_per_value: i32) -> Result<Self> {
-        match direct_writer_util::SUPPORTED_BITS_PER_VALUE.binary_search(&bits_per_value) {
+    pub fn get_instance(
+        output: &'a mut D,
+        num_values: i64,
+        bits_per_value: i32,
+    ) -> Result<Self> {
+        match direct_writer_util::SUPPORTED_BITS_PER_VALUE
+            .binary_search(&bits_per_value)
+        {
             Ok(_) => (),
             Err(_) => {
                 return Err(LuceneError::illegal_argument(format!(
                     "Unsupported bitsPerValue {}. Did you use bits_required?",
                     bits_per_value
                 )))
-            }
+            },
         }
         DirectWriter::new(output, num_values, bits_per_value)
     }
@@ -237,7 +261,9 @@ pub mod direct_writer_util {
     ///
     /// # See also
     /// `PackedInts::bits_required(long)`
-    pub fn bits_required(max_value: i64) -> crate::util::error::lucene_error::Result<i32> {
+    pub fn bits_required(
+        max_value: i64,
+    ) -> crate::util::error::lucene_error::Result<i32> {
         Ok(round_bits(PackedInts::bits_required(max_value)?))
     }
     pub fn unsigned_bits_required(max_value: i64) -> i32 {

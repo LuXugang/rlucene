@@ -100,7 +100,6 @@ pub(crate) mod term_vectors_consumer;
 pub(crate) mod term_vectors_consumer_per_field;
 pub mod terms;
 pub mod terms_enum;
-pub mod terms_enums;
 mod terms_hash;
 pub(crate) mod terms_hash_per_field;
 pub(crate) mod terms_hash_per_field_enum;

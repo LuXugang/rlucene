@@ -21,7 +21,11 @@ use std::num::Wrapping;
 
 pub struct CoreHelper;
 impl CoreHelper {
-    pub fn check_from_index_size(from_index: i32, size: i32, length: i32) -> Result<i32> {
+    pub fn check_from_index_size(
+        from_index: i32,
+        size: i32,
+        length: i32,
+    ) -> Result<i32> {
         if from_index < 0 || size < 0 || length < 0 {
             Err(LuceneError::array_index_out_of_bounds(format!(
                 "from_index: {}, size: {}, and length {} must be non-negative",
@@ -37,13 +41,14 @@ impl CoreHelper {
         }
     }
     pub fn miss_match(prior: &[u8], current: &[u8]) -> i32 {
-        let miss_match = prior.iter().zip(current.iter()).position(|(a, b)| a != b);
+        let miss_match =
+            prior.iter().zip(current.iter()).position(|(a, b)| a != b);
 
         match miss_match {
             Some(miss_match) => {
                 debug_assert!(miss_match <= i32::MAX as usize);
                 miss_match as i32
-            }
+            },
             None => match prior.len().cmp(&current.len()) {
                 Ordering::Greater => current.len() as i32,
                 Ordering::Less => prior.len() as i32,
@@ -107,7 +112,10 @@ pub trait OptionTakeExt<T> {
     ///
     /// Returns `Err(LuceneError::illegal_state)` if the `Option` is empty,
     /// or propagates any `Err` returned by the closure.
-    fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R>;
+    fn take_do_return<R>(
+        &mut self,
+        f: impl FnOnce(&mut T) -> Result<R>,
+    ) -> Result<R>;
 }
 
 impl<T> OptionTakeExt<T> for Option<T> {
@@ -117,10 +125,13 @@ impl<T> OptionTakeExt<T> for Option<T> {
     /// 2. Runs the user-provided closure on a mutable reference to the value.
     /// 3. Restores the value back into `self` regardless of success or failure.
     /// 4. Returns the `Result<R>` produced by the closure.
-    fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
-        let mut val = self
-            .take()
-            .ok_or_else(|| LuceneError::illegal_state("Option was None".to_string()))?;
+    fn take_do_return<R>(
+        &mut self,
+        f: impl FnOnce(&mut T) -> Result<R>,
+    ) -> Result<R> {
+        let mut val = self.take().ok_or_else(|| {
+            LuceneError::illegal_state("Option was None".to_string())
+        })?;
         let res = f(&mut val);
         *self = Some(val);
         res

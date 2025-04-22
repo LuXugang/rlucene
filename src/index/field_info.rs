@@ -98,12 +98,12 @@ impl FieldInfo {
     ) -> Self {
         let doc_values_type = doc_values;
 
-        let (store_term_vector, store_payloads, omit_norms) = if index_options != IndexOptions::None
-        {
-            (store_term_vector, store_payloads, omit_norms)
-        } else {
-            (false, false, false)
-        };
+        let (store_term_vector, store_payloads, omit_norms) =
+            if index_options != IndexOptions::None {
+                (store_term_vector, store_payloads, omit_norms)
+            } else {
+                (false, false, false)
+            };
         let properties = Rc::new(RefCell::new(Properties {
             attributes,
             store_payloads,
@@ -214,7 +214,9 @@ impl FieldInfo {
                 self.point_dimension_count, self.name
             )));
         }
-        if self.point_index_dimension_count != 0 && self.point_dimension_count == 0 {
+        if self.point_index_dimension_count != 0
+            && self.point_dimension_count == 0
+        {
             return Err(LuceneError::illegal_argument(format!(
                 "pointIndexDimensionCount must be 0 when pointDimensionCount=0 (field: '{}')",
                 self.name
@@ -251,10 +253,18 @@ impl FieldInfo {
     pub fn verify_same_schema(&self, other: &FieldInfo) -> Result<()> {
         let field_name = &self.name;
 
-        Self::verify_same_index_options(field_name, &self.index_options, &other.index_options)?;
+        Self::verify_same_index_options(
+            field_name,
+            &self.index_options,
+            &other.index_options,
+        )?;
 
         if self.index_options != IndexOptions::None {
-            Self::verify_same_omit_norms(field_name, self.omit_norms, other.omit_norms)?;
+            Self::verify_same_omit_norms(
+                field_name,
+                self.omit_norms,
+                other.omit_norms,
+            )?;
             Self::verify_same_store_term_vectors(
                 field_name,
                 self.store_term_vector,
@@ -447,7 +457,9 @@ impl FieldInfo {
                 point_values_util::MAX_NUM_BYTES , num_bytes, self.name
             )));
         }
-        if self.point_dimension_count != 0 && self.point_dimension_count != dimension_count {
+        if self.point_dimension_count != 0
+            && self.point_dimension_count != dimension_count
+        {
             return Err(LuceneError::illegal_argument(format!(
                 "cannot change point dimension count from {} to {} for field=\"{}\"",
                 self.point_dimension_count, dimension_count, self.name
@@ -505,7 +517,10 @@ impl FieldInfo {
     }
 
     /// Record that this field is indexed with docvalues, with the specified type
-    pub fn set_doc_values_type(&mut self, doc_values_type: DocValuesType) -> Result<()> {
+    pub fn set_doc_values_type(
+        &mut self,
+        doc_values_type: DocValuesType,
+    ) -> Result<()> {
         if self.doc_values_type != DocValuesType::None
             && doc_values_type != DocValuesType::None
             && self.doc_values_type != doc_values_type

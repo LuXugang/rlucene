@@ -32,25 +32,40 @@ pub enum SortFieldEnum {
 }
 
 impl SortFiledBase for SortFieldEnum {
-    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
+    fn set_missing_value(
+        &mut self,
+        missing_value: Option<MissingValueEnum>,
+    ) -> Result<()> {
         match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.set_missing_value(missing_value),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.set_missing_value(missing_value),
-            SortFieldEnum::Sorter(sort_field) => sort_field.set_missing_value(missing_value),
+            SortFieldEnum::SortedNumeric(sort_field) => {
+                sort_field.set_missing_value(missing_value)
+            },
+            SortFieldEnum::SortedSet(sort_field) => {
+                sort_field.set_missing_value(missing_value)
+            },
+            SortFieldEnum::Sorter(sort_field) => {
+                sort_field.set_missing_value(missing_value)
+            },
         }
     }
 
     fn get_index_sorter(&self) -> Option<IndexSortEnum> {
         match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.get_index_sorter(),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.get_index_sorter(),
+            SortFieldEnum::SortedNumeric(sort_field) => {
+                sort_field.get_index_sorter()
+            },
+            SortFieldEnum::SortedSet(sort_field) => {
+                sort_field.get_index_sorter()
+            },
             SortFieldEnum::Sorter(sort_field) => sort_field.get_index_sorter(),
         }
     }
 
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
         match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.serialize(out),
+            SortFieldEnum::SortedNumeric(sort_field) => {
+                sort_field.serialize(out)
+            },
             SortFieldEnum::SortedSet(sort_field) => sort_field.serialize(out),
             SortFieldEnum::Sorter(sort_field) => sort_field.serialize(out),
         }
@@ -60,7 +75,9 @@ impl SortFiledBase for SortFieldEnum {
 impl Display for SortFieldEnum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SortFieldEnum::SortedNumeric(sort_field) => write!(f, "{}", sort_field),
+            SortFieldEnum::SortedNumeric(sort_field) => {
+                write!(f, "{}", sort_field)
+            },
             SortFieldEnum::SortedSet(sort_field) => write!(f, "{}", sort_field),
             SortFieldEnum::Sorter(sort_field) => write!(f, "{}", sort_field),
         }

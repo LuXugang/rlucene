@@ -47,7 +47,11 @@ impl IndexFileNames {
     /// * `base` - Main part of the file name.
     /// * `ext` - Extension of the filename.
     /// * `gen` - Generation.
-    pub fn file_name_from_generation(base: &str, ext: &str, gen: i64) -> Option<String> {
+    pub fn file_name_from_generation(
+        base: &str,
+        ext: &str,
+        gen: i64,
+    ) -> Option<String> {
         if gen == -1 {
             return None;
         }
@@ -81,11 +85,19 @@ impl IndexFileNames {
     /// * `segment_name` - The segment name.
     /// * `name` - The custom name.
     /// * `ext` - The file extension.
-    pub fn segment_file_name(segment_name: &str, segment_suffix: &str, ext: &str) -> String {
+    pub fn segment_file_name(
+        segment_name: &str,
+        segment_suffix: &str,
+        ext: &str,
+    ) -> String {
         if !ext.is_empty() || !segment_suffix.is_empty() {
-            debug_assert!(!ext.starts_with('.'), "Extension should not start with '.'");
-            let mut sb =
-                String::with_capacity(segment_name.len() + 2 + segment_suffix.len() + ext.len());
+            debug_assert!(
+                !ext.starts_with('.'),
+                "Extension should not start with '.'"
+            );
+            let mut sb = String::with_capacity(
+                segment_name.len() + 2 + segment_suffix.len() + ext.len(),
+            );
             sb.push_str(segment_name);
             if !segment_suffix.is_empty() {
                 sb.push('_');
@@ -138,7 +150,10 @@ impl IndexFileNames {
 
     /// Returns the generation from this file name, or 0 if there is no generation.
     pub fn parse_generation(filename: &str) -> u64 {
-        debug_assert!(filename.starts_with('_'), "Filename must start with '_'");
+        debug_assert!(
+            filename.starts_with('_'),
+            "Filename must start with '_'"
+        );
 
         let stripped = IndexFileNames::strip_extension(filename);
         let parts: Vec<&str> = stripped[1..].split('_').collect();

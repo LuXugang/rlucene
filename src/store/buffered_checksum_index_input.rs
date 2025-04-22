@@ -66,7 +66,12 @@ where
     }
 
     type Slice = DummyIndexInput;
-    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
+    fn slice(
+        &self,
+        _slice_description: &str,
+        _offset: i64,
+        _length: i64,
+    ) -> Result<Self::Slice> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support slicing",
         ))
@@ -74,7 +79,11 @@ where
 
     type RandomAccessSlice = DummyIndexInput;
 
-    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
+    fn random_access_slice(
+        &self,
+        _offset: i64,
+        _length: i64,
+    ) -> Result<DummyIndexInput> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",
         ))
@@ -92,7 +101,12 @@ where
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         self.main.read_bytes(b, offset, len)?;
         self.digest.update_bytes(b, offset, len);
         Ok(())

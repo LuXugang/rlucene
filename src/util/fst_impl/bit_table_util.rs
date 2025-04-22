@@ -32,7 +32,10 @@ impl BitTableUtil {
     ///   strictly less than `number of bit-table bytes * Byte::SIZE`.
     /// - `reader`: The [`FST::BytesReader`](BytesReader) used for reading. It must be positioned at the beginning
     ///   of the bit-table.
-    pub fn is_bit_set(bit_index: i32, reader: &mut impl BytesReader) -> Result<bool> {
+    pub fn is_bit_set(
+        bit_index: i32,
+        reader: &mut impl BytesReader,
+    ) -> Result<bool> {
         debug_assert!(bit_index >= 0, "bitIndex={}", bit_index);
         reader.skip_bytes((bit_index >> 3) as i64)?;
         let b = Self::read_byte(reader)?;
@@ -45,16 +48,25 @@ impl BitTableUtil {
     /// - `bit_table_bytes`: The number of bytes in the bit-table.
     /// - `reader`: The [`FST::BytesReader`](BytesReader) used for reading. It must be positioned at the beginning
     ///   of the bit-table.
-    pub fn count_bits(bit_table_bytes: i32, reader: &mut impl BytesReader) -> Result<i32> {
-        debug_assert!(bit_table_bytes >= 0, "bitTableBytes={}", bit_table_bytes);
+    pub fn count_bits(
+        bit_table_bytes: i32,
+        reader: &mut impl BytesReader,
+    ) -> Result<i32> {
+        debug_assert!(
+            bit_table_bytes >= 0,
+            "bitTableBytes={}",
+            bit_table_bytes
+        );
         let mut bit_count = 0;
         let num_long_blocks = bit_table_bytes >> 3;
         for _ in 0..num_long_blocks {
             bit_count += Self::bit_count_8_bytes(reader)?;
         }
-        let num_remaining_bytes = bit_table_bytes & (BitUtil::LONG_BYTES - 1) as i32;
+        let num_remaining_bytes =
+            bit_table_bytes & (BitUtil::LONG_BYTES - 1) as i32;
         if num_remaining_bytes != 0 {
-            bit_count += Self::read_up_to_8_bytes(num_remaining_bytes, reader)?.count_ones() as i32;
+            bit_count += Self::read_up_to_8_bytes(num_remaining_bytes, reader)?
+                .count_ones() as i32;
         }
         Ok(bit_count)
     }
@@ -70,7 +82,10 @@ impl BitTableUtil {
     ///   less than or equal to `number of bit-table bytes * Byte::SIZE`.
     /// - `reader`: The [`FST::BytesReader`](BytesReader) used for reading. It must be positioned at the beginning
     ///   of the bit-table.
-    pub fn count_bits_up_to(bit_index: i32, reader: &mut impl BytesReader) -> Result<i32> {
+    pub fn count_bits_up_to(
+        bit_index: i32,
+        reader: &mut impl BytesReader,
+    ) -> Result<i32> {
         debug_assert!(bit_index >= 0, "bitIndex={}", bit_index);
         let mut bit_count = 0;
         let num_long_blocks = bit_index >> 6;
@@ -80,7 +95,8 @@ impl BitTableUtil {
         }
         let remaining_bits = bit_index & (i64::BITS - 1) as i32;
         if remaining_bits != 0 {
-            let num_remaining_bytes = (remaining_bits + (i8::BITS - 1) as i32) >> 3;
+            let num_remaining_bytes =
+                (remaining_bits + (i8::BITS - 1) as i32) >> 3;
             // Prepare a mask with 1s on the right up to bitIndex exclusive.
             let mask = (1u64 << bit_index) - 1; // Shifts are mod 64.
                                                 // Count the bits set only within the mask part, so up to bitIndex exclusive.
@@ -154,7 +170,10 @@ impl BitTableUtil {
     ///
     /// # Returns
     /// The zero-based index of the previous set bit before `bit_index`, or `-1` if none exist.
-    pub fn previous_bit_set(bit_index: i32, reader: &mut impl BytesReader) -> Result<i32> {
+    pub fn previous_bit_set(
+        bit_index: i32,
+        reader: &mut impl BytesReader,
+    ) -> Result<i32> {
         debug_assert!(bit_index >= 0, "bitIndex={}", bit_index);
         let mut byte_index = bit_index >> 3;
         reader.skip_bytes(byte_index as i64)?;
@@ -169,7 +188,8 @@ impl BitTableUtil {
             reader.skip_bytes(-2)?;
             i = reader.read_byte()? as i32 & 0xFF;
         }
-        Ok(((i32::BITS - 1) as i32 - i.leading_zeros() as i32) + (byte_index << 3))
+        Ok(((i32::BITS - 1) as i32 - i.leading_zeros() as i32)
+            + (byte_index << 3))
     }
 
     fn read_byte(reader: &mut impl BytesReader) -> Result<u64> {
@@ -177,8 +197,15 @@ impl BitTableUtil {
         Ok((b as u64) & 0xFF)
     }
 
-    fn read_up_to_8_bytes(num_bytes: i32, reader: &mut impl BytesReader) -> Result<u64> {
-        debug_assert!(num_bytes > 0 && num_bytes <= 8, "numBytes={}", num_bytes);
+    fn read_up_to_8_bytes(
+        num_bytes: i32,
+        reader: &mut impl BytesReader,
+    ) -> Result<u64> {
+        debug_assert!(
+            num_bytes > 0 && num_bytes <= 8,
+            "numBytes={}",
+            num_bytes
+        );
         let mut l = Self::read_byte(reader)?;
         let mut shift = 0;
         let mut remaining = num_bytes - 1;
@@ -221,8 +248,11 @@ mod tests {
 
             // Verify next_bit_set with count_bits_up_to for all bit indexes.
             for bit_index in -1..num_bits {
-                let next_index =
-                    BitTableUtil::next_bit_set(bit_index, num_bytes, &mut reader(&bits))?;
+                let next_index = BitTableUtil::next_bit_set(
+                    bit_index,
+                    num_bytes,
+                    &mut reader(&bits),
+                )?;
 
                 if next_index == -1 {
                     assert_eq!(
@@ -266,7 +296,10 @@ mod tests {
 
             // Verify previous_bit_set with count_bits_up_to for all bit indexes.
             for bit_index in 0..=num_bits {
-                let previous_index = BitTableUtil::previous_bit_set(bit_index, &mut reader(&bits))?;
+                let previous_index = BitTableUtil::previous_bit_set(
+                    bit_index,
+                    &mut reader(&bits),
+                )?;
 
                 if previous_index == -1 {
                     assert_eq!(
@@ -290,8 +323,10 @@ mod tests {
                         &mut reader(&bits),
                     )?;
                     let expected_previous_bit_count = if bit_index < num_bits
-                        && BitTableUtil::is_bit_set(bit_index, &mut reader(&bits))?
-                    {
+                        && BitTableUtil::is_bit_set(
+                            bit_index,
+                            &mut reader(&bits),
+                        )? {
                         bit_count - 1
                     } else {
                         bit_count
@@ -348,7 +383,12 @@ mod tests {
             Ok(v)
         }
 
-        fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
+        fn read_bytes(
+            &mut self,
+            _b: &mut [u8],
+            _offset: i32,
+            _len: i32,
+        ) -> Result<()> {
             Err(LuceneError::unsupported_operation(
                 "Not implemented".to_string(),
             ))

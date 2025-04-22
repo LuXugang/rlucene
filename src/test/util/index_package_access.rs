@@ -58,7 +58,8 @@ impl FieldInfosBuilderImpl {
         soft_deletes_field_name: Option<String>,
         parent_field_name: Option<String>,
     ) -> Result<Self> {
-        let field_number = FieldNumbers::new(soft_deletes_field_name, parent_field_name)?;
+        let field_number =
+            FieldNumbers::new(soft_deletes_field_name, parent_field_name)?;
         Ok(FieldInfosBuilderImpl {
             builder: Builder::new(Rc::new(field_number)),
         })

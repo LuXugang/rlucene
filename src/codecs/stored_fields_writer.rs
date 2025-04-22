@@ -50,16 +50,32 @@ pub trait StoredFieldsWriter {
     }
 
     /// Writes a stored int value.
-    fn write_field_i32(&mut self, field_info: &FieldInfo, value: i32) -> Result<()>;
+    fn write_field_i32(
+        &mut self,
+        field_info: &FieldInfo,
+        value: i32,
+    ) -> Result<()>;
 
     /// Writes a stored long value.
-    fn write_field_i64(&mut self, field_info: &FieldInfo, value: i64) -> Result<()>;
+    fn write_field_i64(
+        &mut self,
+        field_info: &FieldInfo,
+        value: i64,
+    ) -> Result<()>;
 
     /// Writes a stored float value.
-    fn write_field_f32(&mut self, field_info: &FieldInfo, value: f32) -> Result<()>;
+    fn write_field_f32(
+        &mut self,
+        field_info: &FieldInfo,
+        value: f32,
+    ) -> Result<()>;
 
     /// Writes a stored double value.
-    fn write_field_f64(&mut self, field_info: &FieldInfo, value: f64) -> Result<()>;
+    fn write_field_f64(
+        &mut self,
+        field_info: &FieldInfo,
+        value: f64,
+    ) -> Result<()>;
 
     /// Writes a stored binary value from a [`DataInput`] and a `length`.
     fn write_field_with_input(
@@ -70,7 +86,10 @@ pub trait StoredFieldsWriter {
     ) -> Result<()> {
         let mut buf = vec![0u8; length as usize];
         input.read_bytes(&mut buf, 0, length)?;
-        self.write_field_bytes(field_info, &BytesRef::from_slice(buf, 0, length as usize))
+        self.write_field_bytes(
+            field_info,
+            &BytesRef::from_slice(buf, 0, length as usize),
+        )
     }
 
     /// Writes a stored binary value.
@@ -81,7 +100,11 @@ pub trait StoredFieldsWriter {
     ) -> Result<()>;
 
     /// Writes a stored string value.
-    fn write_field_str(&mut self, field_info: &FieldInfo, value: &str) -> Result<()>;
+    fn write_field_str(
+        &mut self,
+        field_info: &FieldInfo,
+        value: &str,
+    ) -> Result<()>;
 
     /**
      * Called before `Drop`, passing in the number of documents that were written. Note that
@@ -94,13 +117,13 @@ pub trait StoredFieldsWriter {
     /// and [`finish(int)`](StoredFieldsWriter::finish), returning the number of documents that were written.
     /// Implementations can override this method for more sophisticated merging (bulk-byte copying,
     /// etc).
-    fn merge<I, AV>(&mut self, merge_state: &mut MergeState<I, AV>) -> Result<i32>
+    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<i32>
     where
         I: IndexInput,
-        AV: AccessVec<u8>,
         Self: Sized,
     {
-        let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
+        let mut subs =
+            Vec::with_capacity(merge_state.stored_fields_readers.len());
 
         for i in 0..merge_state.stored_fields_readers.len() {
             {
@@ -109,24 +132,32 @@ pub trait StoredFieldsWriter {
             }
             let visitor = MergeVisitor::new(merge_state, i)?;
 
-            subs.push(Rc::new(RefCell::new(Sub::new(StoredFieldsMergeSub::new(
-                visitor,
-                Rc::clone(&merge_state.doc_maps[i]),
-                i,
-                merge_state.max_docs[i],
-            )))));
+            subs.push(Rc::new(RefCell::new(Sub::new(
+                StoredFieldsMergeSub::new(
+                    visitor,
+                    Rc::clone(&merge_state.doc_maps[i]),
+                    i,
+                    merge_state.max_docs[i],
+                ),
+            ))));
         }
 
         let mut doc_count = 0;
-        let mut doc_id_merger = doc_id_merger_util::of(subs, merge_state.needs_index_sort)?;
+        let mut doc_id_merger =
+            doc_id_merger_util::of(subs, merge_state.needs_index_sort)?;
 
         while let Some(sub_rc) = doc_id_merger.next()? {
             let mut sub = sub_rc.borrow_mut();
             debug_assert_eq!(sub.mapped_doc_id, doc_count);
 
             self.start_document()?;
-            let reader = &mut merge_state.stored_fields_readers[sub.sub.reader_index];
-            reader.document_with_visitor(sub.sub.doc_id, &mut sub.sub.visitor, self)?;
+            let reader =
+                &mut merge_state.stored_fields_readers[sub.sub.reader_index];
+            reader.document_with_visitor(
+                sub.sub.doc_id,
+                &mut sub.sub.visitor,
+                self,
+            )?;
             self.finish_document()?;
             doc_count += 1;
         }
@@ -194,10 +225,12 @@ pub(crate) struct MergeVisitor {
     remapper: Option<Rc<FieldInfos>>,
 }
 impl MergeVisitor {
-    pub(crate) fn new<I, AV>(merge_state: &MergeState<I, AV>, reader_index: usize) -> Result<Self>
+    pub(crate) fn new<I>(
+        merge_state: &MergeState<I>,
+        reader_index: usize,
+    ) -> Result<Self>
     where
         I: IndexInput,
-        AV: AccessVec<u8>,
     {
         for fi in &*merge_state.field_infos[reader_index] {
             if let Some(other) = merge_state
@@ -206,7 +239,9 @@ impl MergeVisitor {
             {
                 if other.name != fi.name {
                     return Ok(Self {
-                        remapper: Some(Rc::clone(&merge_state.merge_field_infos)),
+                        remapper: Some(Rc::clone(
+                            &merge_state.merge_field_infos,
+                        )),
                     });
                 }
             } else {
@@ -249,7 +284,10 @@ impl StoredFieldVisitor for MergeVisitor {
         value: Vec<u8>,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        writer.write_field_bytes(&*self.remap(field_info)?, &BytesRef::from_bytes(value))
+        writer.write_field_bytes(
+            &*self.remap(field_info)?,
+            &BytesRef::from_bytes(value),
+        )
     }
 
     fn string_field(

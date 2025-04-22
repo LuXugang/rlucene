@@ -24,16 +24,18 @@ use crate::index::BytesRef;
 use crate::search::query::Query;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
-use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
+use crate::util::allocator_byte::{
+    AllocatorByteEnum, DirectTrackingAllocatorByte,
+};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bytes_ref_hash::{
-    BytesRefHash, BytesStartArrayEnum, BytesStartArrayEnumBorrow, BytesStartArrayEnumLock,
-    DirectBytesStartArray,
+    BytesRefHash, BytesStartArrayEnum, BytesStartArrayEnumBorrow,
+    BytesStartArrayEnumLock, DirectBytesStartArray,
 };
 use crate::util::error::lucene_error::Result;
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumBorrow,
-    CounterEnumLock,
+    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter,
+    CounterEnum, CounterEnumBorrow, CounterEnumLock,
 };
 use parking_lot::Mutex;
 use std::cell::RefCell;
@@ -98,7 +100,9 @@ where
             delete_queries: HashMap::new(),
             field_updates: HashMap::new(),
             bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
-            field_updates_bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
+            field_updates_bytes_used: Arc::new(Mutex::new(
+                CounterEnum::new_counter(true),
+            )),
             verbose_deletes: false,
             gen: 0,
             segment_name,
@@ -118,7 +122,7 @@ where
                     doc_id_upto,
                 )?;
                 entry.insert(new_buffer)
-            }
+            },
         };
 
         if update.has_value {
@@ -151,7 +155,7 @@ where
                     doc_id_upto,
                 )?;
                 entry.insert(new_buffer)
-            }
+            },
         };
 
         if update.has_value {
@@ -170,7 +174,11 @@ where
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
-    pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<()> {
+    pub(crate) fn add_term(
+        &mut self,
+        term: &Term,
+        doc_id_upto: i32,
+    ) -> Result<()> {
         let current = self.delete_terms.get(term);
         if current != -1 && doc_id_upto < current {
             // Only record the new number if it's greater than the
@@ -200,7 +208,9 @@ where
             delete_queries: HashMap::new(),
             field_updates: HashMap::new(),
             bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
-            field_updates_bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
+            field_updates_bytes_used: Rc::new(RefCell::new(
+                CounterEnum::new_counter(true),
+            )),
             verbose_deletes: false,
             gen: 0,
             segment_name,
@@ -223,9 +233,10 @@ where
             .insert(query.clone(), doc_id_upto)
             .is_none()
         {
-            let mut bytes_used_guard = self
-                .bytes_used
-                .access_mut(|bytes_used| bytes_used.add_and_get(BYTES_PER_DEL_QUERY));
+            let mut bytes_used_guard =
+                self.bytes_used.access_mut(|bytes_used| {
+                    bytes_used.add_and_get(BYTES_PER_DEL_QUERY)
+                });
         }
     }
     pub(crate) fn clear_delete_terms(&mut self) {
@@ -301,7 +312,10 @@ where
                 ));
             }
             if !self.delete_queries.is_empty() {
-                s.push_str(&format!(" {} deleted queries", self.delete_queries.len()));
+                s.push_str(&format!(
+                    " {} deleted queries",
+                    self.delete_queries.len()
+                ));
             }
             if self
                 .num_field_updates
@@ -367,22 +381,29 @@ macro_rules! impl_deleted_terms {
         impl $Type {
             pub(crate) fn $new_fn() -> Self {
                 let bytes_used = $bytes_wrap(CounterEnum::new_counter(false));
-                let allocator =
-                    AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
+                let allocator = AllocatorByteEnum::DTA(
+                    DirectTrackingAllocatorByte::new(bytes_used.clone()),
+                );
                 let pool = $pool_wrap(ByteBlockPool::$pool_ctor(allocator));
                 Self::new_impl(pool, bytes_used)
             }
-            pub(crate) fn $put_fn(&mut self, term: &Term, value: i32) -> Result<()> {
+            pub(crate) fn $put_fn(
+                &mut self,
+                term: &Term,
+                value: i32,
+            ) -> Result<()> {
                 let hash = match self.delete_terms.entry(term.field.clone()) {
                     Vacant(vacant) => {
                         // TODO: memory calculation not implemented
                         self.bytes_used.access_mut(|bytes_used| {
                             let _ = bytes_used.add_and_get(0);
                         });
-                        let new_map =
-                            BytesRefIntMap::$map_ctor(self.pool.clone(), self.bytes_used.clone());
+                        let new_map = BytesRefIntMap::$map_ctor(
+                            self.pool.clone(),
+                            self.bytes_used.clone(),
+                        );
                         vacant.insert(new_map)
-                    }
+                    },
                     Occupied(occupied) => occupied.into_mut(),
                 };
                 if hash.put(&term.bytes, value)? {
@@ -704,7 +725,8 @@ mod tests {
                 random.random_range(0..100000)
             };
             let value = format!("{}", random.random_range(0..100));
-            let term = Term::new("id".to_string(), BytesRef::from_string(&value));
+            let term =
+                Term::new("id".to_string(), BytesRef::from_string(&value));
             bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto);
         }
 
@@ -716,7 +738,8 @@ mod tests {
                 random.random_range(0..100000)
             };
             let value = format!("{}", random.random_range(0..100));
-            let term = Term::new("id".to_string(), BytesRef::from_string(&value));
+            let term =
+                Term::new("id".to_string(), BytesRef::from_string(&value));
             bu.add_term(&term, doc_id_upto)?;
         }
 
@@ -767,7 +790,8 @@ mod tests {
                 random.fill_bytes(&mut bytes);
 
                 let field = &fields[random.random_range(0..fields.len())];
-                let term = Term::new(field.clone(), BytesRef::from_bytes(bytes));
+                let term =
+                    Term::new(field.clone(), BytesRef::from_bytes(bytes));
                 let value = random.random_range(0..10_000_000);
 
                 expected.insert(term.clone(), value);
@@ -782,7 +806,9 @@ mod tests {
 
             let mut expected_sorted: Vec<(Term, i32)> = expected
                 .iter()
-                .map(|(term, doc_id)| (Term::new(term.field.clone(), term.bytes.clone()), *doc_id))
+                .map(|(term, doc_id)| {
+                    (Term::new(term.field.clone(), term.bytes.clone()), *doc_id)
+                })
                 .collect();
             expected_sorted.sort_by_key(|entry| entry.0.clone());
 

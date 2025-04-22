@@ -59,7 +59,7 @@ where
             FieldsIndexEnum::Lucene90(reader) => {
                 let cloned_reader = reader.try_clone()?;
                 Ok(FieldsIndexEnum::Lucene90(cloned_reader))
-            }
+            },
         }
     }
 }
@@ -76,19 +76,25 @@ where
 
     fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64> {
         match self {
-            FieldsIndexEnum::Lucene90(reader) => reader.get_block_start_pointer(block_id),
+            FieldsIndexEnum::Lucene90(reader) => {
+                reader.get_block_start_pointer(block_id)
+            },
         }
     }
 
     fn get_block_length(&mut self, block_id: i64) -> Result<i64> {
         match self {
-            FieldsIndexEnum::Lucene90(reader) => reader.get_block_length(block_id),
+            FieldsIndexEnum::Lucene90(reader) => {
+                reader.get_block_length(block_id)
+            },
         }
     }
 
     fn get_start_pointer(&mut self, doc_id: i32) -> Result<i64> {
         match self {
-            FieldsIndexEnum::Lucene90(reader) => reader.get_start_pointer(doc_id),
+            FieldsIndexEnum::Lucene90(reader) => {
+                reader.get_start_pointer(doc_id)
+            },
         }
     }
 

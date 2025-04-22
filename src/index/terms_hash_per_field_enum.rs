@@ -36,36 +36,49 @@ pub(crate) enum TermsHashPerFieldEnum {
 impl TermsHashPerFieldEnum {
     pub(crate) fn reset(&mut self) {
         match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(inner) => inner.parent_per_field.reset(),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => inner.parent_per_field.reset(),
+            TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
+                inner.parent_per_field.reset()
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
+                inner.parent_per_field.reset()
+            },
             #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(inner) => inner.parent_per_field.reset(),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                inner.parent_per_field.reset()
+            },
         }
     }
-    pub fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
+    pub fn init_reader(
+        &self,
+        reader: &mut ByteSliceReader,
+        term_id: i32,
+        stream: i32,
+    ) {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.init_reader(reader, term_id, stream)
-            }
+            },
             TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
                 inner.parent_per_field.init_reader(reader, term_id, stream)
-            }
+            },
             #[cfg(test)]
             TermsHashPerFieldEnum::Mock(inner) => {
                 inner.parent_per_field.init_reader(reader, term_id, stream)
-            }
+            },
         }
     }
     fn reinit_hash(&mut self) {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.reinit_hash()
-            }
+            },
             TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
                 inner.parent_per_field.reinit_hash()
-            }
+            },
             #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(inner) => inner.parent_per_field.reinit_hash(),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                inner.parent_per_field.reinit_hash()
+            },
         }
     }
 
@@ -73,12 +86,14 @@ impl TermsHashPerFieldEnum {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.write_byte(stream, b)
-            }
+            },
             TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
                 inner.parent_per_field.write_byte(stream, b)
-            }
+            },
             #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(inner) => inner.parent_per_field.write_byte(stream, b),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                inner.parent_per_field.write_byte(stream, b)
+            },
         }
     }
 
@@ -92,14 +107,14 @@ impl TermsHashPerFieldEnum {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.write_bytes(stream, b, offset, len)
-            }
+            },
             TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
                 inner.parent_per_field.write_bytes(stream, b, offset, len)
-            }
+            },
             #[cfg(test)]
             TermsHashPerFieldEnum::Mock(inner) => {
                 inner.parent_per_field.write_bytes(stream, b, offset, len)
-            }
+            },
         }
     }
 
@@ -107,26 +122,42 @@ impl TermsHashPerFieldEnum {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
                 inner.parent_per_field.write_vint(stream, i)
-            }
+            },
             TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
                 inner.parent_per_field.write_vint(stream, i)
-            }
+            },
             #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(inner) => inner.parent_per_field.write_vint(stream, i),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                inner.parent_per_field.write_vint(stream, i)
+            },
         }
     }
     pub(crate) fn get_byte_block_pool(&self) -> ByteBlockPoolBorrow {
         match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.parent_per_field.byte_pool.clone(),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.parent_per_field.byte_pool.clone(),
+            TermsHashPerFieldEnum::TermVectorsConsumer(t) => {
+                t.parent_per_field.byte_pool.clone()
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => {
+                t.parent_per_field.byte_pool.clone()
+            },
             #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(t) => t.parent_per_field.byte_pool.clone(),
+            TermsHashPerFieldEnum::Mock(t) => {
+                t.parent_per_field.byte_pool.clone()
+            },
         }
     }
-    fn add_with_text_start(&mut self, text_start: i32, doc_id: i32) -> Result<()> {
+    fn add_with_text_start(
+        &mut self,
+        text_start: i32,
+        doc_id: i32,
+    ) -> Result<()> {
         let parent = match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(inner) => &mut inner.parent_per_field,
-            TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => &mut inner.parent_per_field,
+            TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
+                &mut inner.parent_per_field
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
+                &mut inner.parent_per_field
+            },
             #[cfg(test)]
             TermsHashPerFieldEnum::Mock(inner) => &mut inner.parent_per_field,
         };
@@ -148,10 +179,16 @@ impl TermsHashPerFieldEnum {
         let mut term_id;
         {
             let parent = match self {
-                TermsHashPerFieldEnum::TermVectorsConsumer(inner) => &mut inner.parent_per_field,
-                TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => &mut inner.parent_per_field,
+                TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
+                    &mut inner.parent_per_field
+                },
+                TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
+                    &mut inner.parent_per_field
+                },
                 #[cfg(test)]
-                TermsHashPerFieldEnum::Mock(inner) => &mut inner.parent_per_field,
+                TermsHashPerFieldEnum::Mock(inner) => {
+                    &mut inner.parent_per_field
+                },
             };
             debug_assert!(parent.assert_doc_id(doc_id));
             // We are first in the chain so we must "intern" the
@@ -165,8 +202,12 @@ impl TermsHashPerFieldEnum {
             term_id = self.position_stream_slice(term_id, doc_id)?;
         }
         let parent = match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(inner) => &mut inner.parent_per_field,
-            TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => &mut inner.parent_per_field,
+            TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
+                &mut inner.parent_per_field
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
+                &mut inner.parent_per_field
+            },
             #[cfg(test)]
             TermsHashPerFieldEnum::Mock(inner) => &mut inner.parent_per_field,
         };
@@ -174,7 +215,8 @@ impl TermsHashPerFieldEnum {
             debug_assert!(parent.next_per_field.is_some());
             if let Some(ref next_per_field) = parent.next_per_field {
                 let mut next_per_field = next_per_field.borrow_mut();
-                let postings_array_wrapper = parent.postings_array_wrapper.borrow_mut();
+                let postings_array_wrapper =
+                    parent.postings_array_wrapper.borrow_mut();
                 debug_assert!(postings_array_wrapper.postings_array.is_some());
                 let text_start = postings_array_wrapper
                     .postings_array
@@ -191,30 +233,46 @@ impl TermsHashPerFieldEnum {
 impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
     fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.init_stream_slices(term_id, doc_id),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.init_stream_slices(term_id, doc_id),
+            TermsHashPerFieldEnum::TermVectorsConsumer(t) => {
+                t.init_stream_slices(term_id, doc_id)
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => {
+                t.init_stream_slices(term_id, doc_id)
+            },
             #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(t) => t.init_stream_slices(term_id, doc_id),
+            TermsHashPerFieldEnum::Mock(t) => {
+                t.init_stream_slices(term_id, doc_id)
+            },
         }
     }
 
-    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
+    fn position_stream_slice(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+    ) -> Result<i32> {
         match self {
             TermsHashPerFieldEnum::TermVectorsConsumer(t) => {
                 t.position_stream_slice(term_id, doc_id)
-            }
+            },
             TermsHashPerFieldEnum::FreqProxTermsWriter(t) => {
                 t.position_stream_slice(term_id, doc_id)
-            }
+            },
             #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(t) => t.position_stream_slice(term_id, doc_id),
+            TermsHashPerFieldEnum::Mock(t) => {
+                t.position_stream_slice(term_id, doc_id)
+            },
         }
     }
 
     fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
         match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.start(field, first),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.start(field, first),
+            TermsHashPerFieldEnum::TermVectorsConsumer(t) => {
+                t.start(field, first)
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => {
+                t.start(field, first)
+            },
             #[cfg(test)]
             TermsHashPerFieldEnum::Mock(t) => t.start(field, first),
         }
@@ -222,8 +280,12 @@ impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
 
     fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.new_term(term_id, doc_id),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.new_term(term_id, doc_id),
+            TermsHashPerFieldEnum::TermVectorsConsumer(t) => {
+                t.new_term(term_id, doc_id)
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => {
+                t.new_term(term_id, doc_id)
+            },
             #[cfg(test)]
             TermsHashPerFieldEnum::Mock(t) => t.new_term(term_id, doc_id),
         }
@@ -231,8 +293,12 @@ impl TermsHashPerFieldBase for TermsHashPerFieldEnum {
 
     fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(t) => t.add_term(term_id, doc_id),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => t.add_term(term_id, doc_id),
+            TermsHashPerFieldEnum::TermVectorsConsumer(t) => {
+                t.add_term(term_id, doc_id)
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(t) => {
+                t.add_term(term_id, doc_id)
+            },
             #[cfg(test)]
             TermsHashPerFieldEnum::Mock(t) => t.add_term(term_id, doc_id),
         }

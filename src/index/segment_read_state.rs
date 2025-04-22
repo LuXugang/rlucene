@@ -77,7 +77,10 @@ where
     }
 
     /// Creates a copy of an existing SegmentReadState with a different segment suffix.
-    pub fn copy_with_suffix(other: &SegmentReadState<D>, segment_suffix: &str) -> Self {
+    pub fn copy_with_suffix(
+        other: &SegmentReadState<D>,
+        segment_suffix: &str,
+    ) -> Self {
         Self {
             directory: Arc::clone(&other.directory),
             segment_info: other.segment_info.clone(),

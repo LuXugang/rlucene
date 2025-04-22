@@ -18,7 +18,8 @@ use crate::store::DataOutput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::abstract_block_packed_writer::{
-    write_values, write_vlong, AbstractBlockPackedWriterBase, BPV_SHIFT, MIN_VALUE_EQUALS_0,
+    write_values, write_vlong, AbstractBlockPackedWriterBase, BPV_SHIFT,
+    MIN_VALUE_EQUALS_0,
 };
 use crate::util::packed::PackedInts;
 

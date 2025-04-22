@@ -30,13 +30,22 @@ pub trait BufferedIndexInputBase: crate::util::clone::TryClone {
     ///
     /// # Arguments
     /// * `b` - The buffer to read bytes into.
-    fn read_internal(&mut self, b: &mut Cursor<Vec<u8>>, len: i64, file_pointer: i64)
-        -> Result<()>;
+    fn read_internal(
+        &mut self,
+        b: &mut Cursor<Vec<u8>>,
+        len: i64,
+        file_pointer: i64,
+    ) -> Result<()>;
 
     /// Creates a slice of this index input, with the given description, offset, and length.
     /// The slice is positioned at the beginning.
     type Slice: IndexInput + RandomAccessInput;
-    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice>;
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: i64,
+        length: i64,
+    ) -> Result<Self::Slice>;
 
     /// The number of bytes in the file.
     fn length(&self) -> i64;

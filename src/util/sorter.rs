@@ -69,7 +69,12 @@ pub trait Sorter {
         ))
     }
 
-    fn merge_in_place(&mut self, mut from: i32, mid: i32, mut to: i32) -> Result<()> {
+    fn merge_in_place(
+        &mut self,
+        mut from: i32,
+        mid: i32,
+        mut to: i32,
+    ) -> Result<()> {
         if from == mid || mid == to || self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
         } else if to - from == 2 {
@@ -212,7 +217,12 @@ pub trait Sorter {
         self.binary_sort_with_start(from, to, from + 1)
     }
 
-    fn binary_sort_with_start(&mut self, from: i32, to: i32, mut i: i32) -> Result<()> {
+    fn binary_sort_with_start(
+        &mut self,
+        from: i32,
+        to: i32,
+        mut i: i32,
+    ) -> Result<()> {
         while i < to {
             self.set_pivot(i)?;
             let mut l = from;
@@ -290,7 +300,9 @@ pub trait Sorter {
         while left_child < to {
             let right_child = left_child + 1;
             if self.compare(i, left_child)? < 0 {
-                if right_child < to && self.compare(left_child, right_child)? < 0 {
+                if right_child < to
+                    && self.compare(left_child, right_child)? < 0
+                {
                     self.swap(i, right_child)?;
                     i = right_child;
                 } else {

@@ -16,7 +16,9 @@
  */
 
 use crate::util::error::lucene_error::Result;
-use crate::util::{check_range, MSBRadixSorterBase, SliceCopyOps, Sorter, HISTOGRAM_SIZE};
+use crate::util::{
+    check_range, MSBRadixSorterBase, SliceCopyOps, Sorter, HISTOGRAM_SIZE,
+};
 
 pub struct StableMSBRadixSorter<T>
 where
@@ -51,7 +53,8 @@ where
     }
 
     fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
-        let delegate_sorter = MergeSorterImpl::new(k, self.max_length, &mut self.delegate_sorter);
+        let delegate_sorter =
+            MergeSorterImpl::new(k, self.max_length, &mut self.delegate_sorter);
         MergeSorter {
             delegate_sorter,
             pivot_index: 0,
@@ -215,7 +218,11 @@ impl<'a, T> MergeSorterImpl<'a, T>
 where
     T: Sorter + MSBRadixSorterBase + StableMSBRadixSorterBase,
 {
-    pub fn new(k: i32, max_length: i32, delegate_sorter: &'a mut T) -> MergeSorterImpl<'a, T>
+    pub fn new(
+        k: i32,
+        max_length: i32,
+        delegate_sorter: &'a mut T,
+    ) -> MergeSorterImpl<'a, T>
     where
         T: Sorter + StableMSBRadixSorterBase,
     {
@@ -276,14 +283,22 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
-    use crate::util::stable_msb_radix_sorter::{StableMSBRadixSorter, StableMSBRadixSorterBase};
-    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
+    use crate::util::stable_msb_radix_sorter::{
+        StableMSBRadixSorter, StableMSBRadixSorterBase,
+    };
+    use crate::util::{
+        MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter,
+    };
     use std::collections::HashSet;
 
     #[allow(dead_code)] // for quick search
     struct TestStableMSBRadixSorter;
 
-    fn test(refs: &[BytesRef<Vec<u8>>], len: usize, random: &mut StdRng) -> Result<()> {
+    fn test(
+        refs: &[BytesRef<Vec<u8>>],
+        len: usize,
+        random: &mut StdRng,
+    ) -> Result<()> {
         let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
         expected.sort();
 
@@ -295,14 +310,17 @@ mod tests {
         match random.random_range(0..3) {
             0 => max_length += TestUtil::next_int(random, 1, 5),
             1 => max_length = i32::MAX,
-            _ => {}
+            _ => {},
         }
 
         let final_max_length = max_length;
         let mut actual = refs[..len].to_vec();
-        let delegate_sorter = StableMSBRadixSorterTestImpl::new(final_max_length, &mut actual);
-        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter, final_max_length);
-        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
+        let delegate_sorter =
+            StableMSBRadixSorterTestImpl::new(final_max_length, &mut actual);
+        let stable_msb_radix_sorter =
+            StableMSBRadixSorter::new(delegate_sorter, final_max_length);
+        let mut msb_radix_sorter =
+            MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
         msb_radix_sorter.sort(0, len as i32)?;
 
         assert_vecs_equal(&expected, &actual);
@@ -311,13 +329,15 @@ mod tests {
     #[test]
     fn test_empty() -> Result<()> {
         let mut random = random();
-        let refs: Vec<BytesRef<Vec<u8>>> = vec![BytesRef::default(); random.random_range(0..5)];
+        let refs: Vec<BytesRef<Vec<u8>>> =
+            vec![BytesRef::default(); random.random_range(0..5)];
         test(&refs, 0, &mut random)
     }
     #[test]
     fn test_one_value() -> Result<()> {
         let mut random = random();
-        let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes =
+            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         let refs = vec![bytes];
         test(&refs, 1, &mut random)
     }
@@ -325,8 +345,10 @@ mod tests {
     #[test]
     fn test_two_values() -> Result<()> {
         let mut random = random();
-        let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
-        let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes1 =
+            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes2 =
+            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         let refs = vec![bytes1, bytes2];
         test(&refs, 2, &mut random)
     }
@@ -342,7 +364,8 @@ mod tests {
         let mut bytes: Vec<BytesRef<Vec<u8>>> =
             Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
-            let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
+            let mut b =
+                vec![0u8; common_prefix_len + random.random_range(0..max_len)];
             random.fill_bytes(&mut b[common_prefix_len..]);
             b.copy_from(&common_prefix, 0);
             bytes.push(BytesRef::from_bytes(b));
@@ -411,7 +434,8 @@ mod tests {
             substrings_set.insert(BytesRef::from_bytes(bytes));
         }
 
-        let substrings: Vec<BytesRef<Vec<u8>>> = substrings_set.into_iter().collect();
+        let substrings: Vec<BytesRef<Vec<u8>>> =
+            substrings_set.into_iter().collect();
         let mut chance: Vec<f64> = Vec::with_capacity(substrings.len());
         let mut sum = 0.0;
 
@@ -453,7 +477,8 @@ mod tests {
             iters += 1;
         }
 
-        let strings_vec: Vec<BytesRef<Vec<u8>>> = strings_set.into_iter().collect();
+        let strings_vec: Vec<BytesRef<Vec<u8>>> =
+            strings_set.into_iter().collect();
         test(&strings_vec, strings_vec.len(), &mut random)
     }
 
@@ -463,7 +488,10 @@ mod tests {
         refs: &'a mut [BytesRef<Vec<u8>>],
     }
     impl<'a> StableMSBRadixSorterTestImpl<'a> {
-        fn new(final_max_length: i32, refs: &'a mut Vec<BytesRef<Vec<u8>>>) -> Self {
+        fn new(
+            final_max_length: i32,
+            refs: &'a mut Vec<BytesRef<Vec<u8>>>,
+        ) -> Self {
             StableMSBRadixSorterTestImpl {
                 temp: vec![BytesRef::default(); refs.len()],
                 final_max_length,

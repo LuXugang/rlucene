@@ -34,7 +34,11 @@ pub struct DocBaseBitSetIterator {
 }
 
 impl DocBaseBitSetIterator {
-    pub fn new(bits: FixedBitSet, cost: i64, doc_base: i32) -> Result<DocBaseBitSetIterator> {
+    pub fn new(
+        bits: FixedBitSet,
+        cost: i64,
+        doc_base: i32,
+    ) -> Result<DocBaseBitSetIterator> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {}",

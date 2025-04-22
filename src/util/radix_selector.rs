@@ -52,7 +52,14 @@ where
         }
     }
 
-    fn select(&mut self, from: i32, to: i32, k: i32, d: i32, l: i32) -> Result<()> {
+    fn select(
+        &mut self,
+        from: i32,
+        to: i32,
+        k: i32,
+        d: i32,
+        l: i32,
+    ) -> Result<()> {
         if to - from <= Self::LENGTH_THRESHOLD || l > Self::LEVEL_THRESHOLD {
             self.sub_selector
                 .get_fallback_selector(d, self.max_length)
@@ -66,7 +73,14 @@ where
     /// `d` the character number to compare
     ///
     /// `l` the level of recursion
-    pub fn radix_select(&mut self, from: i32, to: i32, k: i32, d: i32, l: i32) -> Result<()> {
+    pub fn radix_select(
+        &mut self,
+        from: i32,
+        to: i32,
+        k: i32,
+        d: i32,
+        l: i32,
+    ) -> Result<()> {
         self.histogram.fill(0);
 
         let common_prefix_length =
@@ -75,12 +89,16 @@ where
             // if there are no more chars to compare or if all entries fell into the
             // first bucket (which means strings are shorter than d) then we are done
             // otherwise recurse
-            if d + common_prefix_length < self.max_length && self.histogram[0] < to - from {
+            if d + common_prefix_length < self.max_length
+                && self.histogram[0] < to - from
+            {
                 self.radix_select(from, to, k, d + common_prefix_length, l)?;
             }
             return Ok(());
         }
-        debug_assert!(self.assert_histogram(common_prefix_length, &self.histogram));
+        debug_assert!(
+            self.assert_histogram(common_prefix_length, &self.histogram)
+        );
 
         let mut bucket_from = from;
         for bucket in 0..Self::HISTOGRAM_SIZE as i32 {
@@ -99,7 +117,11 @@ where
     }
 
     // only used from assert
-    fn assert_histogram(&self, common_prefix_length: i32, histogram: &[i32]) -> bool {
+    fn assert_histogram(
+        &self,
+        common_prefix_length: i32,
+        histogram: &[i32],
+    ) -> bool {
         let mut number_of_unique_bytes = 0;
         for &freq in histogram.iter() {
             if freq > 0 {
@@ -127,7 +149,8 @@ where
         to: i32,
         k: i32,
     ) -> i32 {
-        let common_prefix_length = self.compute_initial_common_prefix_length(from, k);
+        let common_prefix_length =
+            self.compute_initial_common_prefix_length(from, k);
         self.compute_common_prefix_length_and_build_histogram_part1(
             from,
             to,
@@ -136,7 +159,11 @@ where
         )
     }
 
-    fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> i32 {
+    fn compute_initial_common_prefix_length(
+        &mut self,
+        from: i32,
+        k: i32,
+    ) -> i32 {
         let common_prefix = &mut self.common_prefix;
         let mut common_prefix_length =
             std::cmp::min(common_prefix.len() as i32, self.max_length - k);
@@ -171,7 +198,8 @@ where
                 if b != common_prefix[j as usize] {
                     common_prefix_length = j;
                     if common_prefix_length == 0 {
-                        self.histogram[(common_prefix[0] + 1) as usize] = i - from;
+                        self.histogram[(common_prefix[0] + 1) as usize] =
+                            i - from;
                         self.histogram[(b + 1) as usize] = 1;
                         break 'outer;
                     }
@@ -287,7 +315,11 @@ pub trait RadixSelectorBase: Selector {
     /// Get a fall-back selector which may assume that the first `d` bytes of all compared
     /// strings are equal. This fallback selector is used when the range becomes narrow or when the
     /// maximum level of recursion has been exceeded.
-    fn get_fallback_selector(&mut self, d: i32, max_length: i32) -> impl Selector
+    fn get_fallback_selector(
+        &mut self,
+        d: i32,
+        max_length: i32,
+    ) -> impl Selector
     where
         Self: Sized,
     {
@@ -431,7 +463,8 @@ mod tests {
         let shared_prefix_length =
             min(arr[0].length as i32, TestUtil::next_int(random, 1, max_len));
         for i in 1..arr.len() {
-            let copy_len = min(shared_prefix_length, arr[i].length as i32) as usize;
+            let copy_len =
+                min(shared_prefix_length, arr[i].length as i32) as usize;
             let offset_1 = arr[i].offset;
             let offset_2 = arr[0].offset;
             arr[i]

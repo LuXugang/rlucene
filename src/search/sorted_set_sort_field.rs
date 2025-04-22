@@ -16,7 +16,9 @@
  */
 use crate::index::index_sorter::{IndexSortEnum, StringSorter};
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
+use crate::search::sort_field::{
+    MissingValueEnum, SortField, SortFieldType, SortFiledBase,
+};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_set_selector::SortedSetSelectorType;
 use crate::store::{DataInput, DataOutput};
@@ -54,13 +56,19 @@ impl SortedSetSortField {
         reverse: bool,
         selector: SortedSetSelectorType,
     ) -> Result<Self> {
-        let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
+        let sort_field = SortField::with_reverse(
+            Some(field),
+            SortFieldType::Custom,
+            reverse,
+        )?;
         Ok(SortedSetSortField {
             selector,
             parent_sort: sort_field,
         })
     }
-    fn read_selector_type(data_input: &mut impl DataInput) -> Result<SortedSetSelectorType> {
+    fn read_selector_type(
+        data_input: &mut impl DataInput,
+    ) -> Result<SortedSetSelectorType> {
         let selector_type = data_input.read_int()?;
 
         match selector_type {
@@ -94,7 +102,10 @@ impl Display for SortedSetSortField {
     }
 }
 impl SortFiledBase for SortedSetSortField {
-    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
+    fn set_missing_value(
+        &mut self,
+        missing_value: Option<MissingValueEnum>,
+    ) -> Result<()> {
         match missing_value {
             Some(MissingValueEnum::StringFirst) | Some(MissingValueEnum::StringLast) => {
                 self.parent_sort.missing_value = missing_value;
@@ -139,7 +150,10 @@ impl SetProvider {
     pub const NAME: &'static str = "SortedSetSortField";
 }
 impl SortFieldProvider for SetProvider {
-    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
+    fn read_sort_field(
+        &self,
+        data_input: &mut impl DataInput,
+    ) -> Result<SortFieldEnum> {
         let field_name = data_input.read_string()?;
         let reverse = data_input.read_int()? == 1;
         let selector = SortedSetSortField::read_selector_type(data_input)?;
@@ -148,16 +162,22 @@ impl SortFieldProvider for SetProvider {
 
         let value = data_input.read_int()?;
         match value {
-            1 => sorted_set_sort_field.set_missing_value(Some(MissingValueEnum::StringFirst))?,
-            2 => sorted_set_sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?,
+            1 => sorted_set_sort_field
+                .set_missing_value(Some(MissingValueEnum::StringFirst))?,
+            2 => sorted_set_sort_field
+                .set_missing_value(Some(MissingValueEnum::StringLast))?,
             _ => {
                 debug_assert!(value == 0);
-            }
+            },
         }
         Ok(SortFieldEnum::SortedSet(sorted_set_sort_field))
     }
 
-    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+    fn write_sort_field(
+        &self,
+        sf: &SortFieldEnum,
+        output: &mut impl DataOutput,
+    ) -> Result<()> {
         sf.serialize(output)
     }
 }

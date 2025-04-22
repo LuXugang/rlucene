@@ -165,7 +165,10 @@ impl StoredValue {
     }
 
     /// Set a binary value.
-    pub fn set_binary_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
+    pub fn set_binary_value(
+        &mut self,
+        value: Arc<BytesRef<Vec<u8>>>,
+    ) -> Result<()> {
         if let StoredValue::Binary(ref mut v) = self {
             *v = value;
             Ok(())

@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 use crate::index::impacts_enum::ImpactsEnumEnum;
-use crate::index::postings_enum::{PostingsEnum, PostingsEnums};
+use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::terms_enums::TermsEnums;
+
+use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::BytesRef;
-use crate::store::IndexInput;
 use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 /// A base `TermsEnum` that provides default implementations for:
@@ -37,40 +36,27 @@ use std::fmt::{Debug, Display, Formatter};
 ///
 /// In some cases, the default implementation may be slow and consume large amounts of memory,
 /// so subclasses SHOULD provide their own implementation if possible.
-pub struct BaseTermsEnum<I, AV>
-where
-    I: IndexInput,
-    AV: AccessVec<u8>,
-{
+pub struct BaseTermsEnum {
     atts: AttributeSource,
-    sub_terms_enum: TermsEnums<I, AV>,
 }
-impl<I, AV> BaseTermsEnum<I, AV>
-where
-    I: IndexInput,
-    AV: AccessVec<u8>,
-{
-    pub fn new(sub_terms_enum: TermsEnums<I, AV>) -> Self {
+impl Default for BaseTermsEnum {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BaseTermsEnum {
+    pub fn new() -> Self {
         Self {
             atts: AttributeSource::new(),
-            sub_terms_enum,
         }
     }
 }
 
-impl<I, AV> BytesRefIterator<AV> for BaseTermsEnum<I, AV>
-where
-    I: IndexInput,
-    AV: AccessVec<u8>,
-{
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
-        self.sub_terms_enum.next()
-    }
-}
+impl<AV> BytesRefIterator<AV> for BaseTermsEnum where AV: AccessVec<u8> {}
 
-impl<I, AV> TermsEnum<AV> for BaseTermsEnum<I, AV>
+impl<AV> TermsEnum<AV> for BaseTermsEnum
 where
-    I: IndexInput,
     AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
@@ -79,15 +65,19 @@ where
     }
 
     fn seek_ceil(&mut self, term: &BytesRef<AV>) -> Result<SeekStatus> {
-        self.sub_terms_enum.seek_ceil(term)
+        Err(LuceneError::need_implemented(""))
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        self.sub_terms_enum.seek_exact_with_ord(ord)
+        Err(LuceneError::need_implemented(""))
     }
 
-    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
-        if self.seek_exact(term)? {
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<AV>,
+        state: &TermStateEnum,
+    ) -> Result<()> {
+        if !self.seek_exact(term)? {
             return Err(LuceneError::illegal_argument(format!(
                 "term= {} does not exist",
                 term
@@ -96,52 +86,38 @@ where
         Ok(())
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
-        self.sub_terms_enum.term()
-    }
-
     fn ord(&self) -> Result<i64> {
-        self.sub_terms_enum.ord()
+        Err(LuceneError::need_implemented(""))
     }
 
     fn doc_freq(&self) -> Result<i32> {
-        self.sub_terms_enum.doc_freq()
+        Err(LuceneError::need_implemented(""))
     }
 
     fn total_term_freq(&self) -> Result<i64> {
-        self.sub_terms_enum.total_term_freq()
+        Err(LuceneError::need_implemented(""))
     }
 
-    type PostingsEnum = PostingsEnums<I>;
+    type PostingsEnum = DummyPostingsEnum;
 
     fn postings_with_flags(
         &mut self,
-        reuse: Option<impl PostingsEnum>,
-        flags: i32,
+        _reuse: Option<impl PostingsEnum>,
+        _flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        self.sub_terms_enum.postings_with_flags(reuse, flags)
+        Err(LuceneError::need_implemented(""))
     }
 
     type ImpactsEnum = ImpactsEnumEnum;
 
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        self.sub_terms_enum.impacts(flags)
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
+        Err(LuceneError::need_implemented(""))
     }
 
-    type TermState = TermStateEnum;
+    type TermState = TermStateImpl1;
 
     fn term_state(&self) -> Result<Self::TermState> {
-        let sub = self.sub_terms_enum.term_state();
-        match sub {
-            Ok(s) => Ok(s),
-            Err(e) => match e {
-                // sub_terms_enum's invalid error,
-                // it means sub_terms_enum uses the return value of BaseTermsEnum's term_state
-                LuceneError::NotImplemented(_) => Ok(TermStateEnum::Impl1(TermStateImpl1)),
-                // sub_terms_enum's valid error
-                _ => Err(e),
-            },
-        }
+        Ok(TermStateImpl1)
     }
 }
 #[derive(Debug, Clone)]

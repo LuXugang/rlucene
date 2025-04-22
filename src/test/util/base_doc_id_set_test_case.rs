@@ -157,8 +157,11 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                     } else {
                         std::cmp::max(num_bits / 8, 1)
                     };
-                    let target = docs[index] + 1 + random.random_range(0..=skip_length) as usize;
-                    if let Some(i) = docs.iter().position(|&doc| doc == target) {
+                    let target = docs[index]
+                        + 1
+                        + random.random_range(0..=skip_length) as usize;
+                    if let Some(i) = docs.iter().position(|&doc| doc == target)
+                    {
                         index = i + 1;
                         _doc = target
                     } else {

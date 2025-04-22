@@ -95,7 +95,10 @@ where
         })
     }
 
-    fn list_all(dir: &Path, skip_names: Option<&HashSet<String>>) -> Result<Vec<String>> {
+    fn list_all(
+        dir: &Path,
+        skip_names: Option<&HashSet<String>>,
+    ) -> Result<Vec<String>> {
         let mut entries = Vec::new();
 
         for entry in dir.read_dir()? {
@@ -154,10 +157,16 @@ where
             // closed?
 
             // Clone the set since we mutate it in privateDeleteFile:
-            let files_to_delete: Vec<String> = pending_deletes.clone().into_iter().collect();
+            let files_to_delete: Vec<String> =
+                pending_deletes.clone().into_iter().collect();
 
             for name in files_to_delete {
-                Self::private_delete_file(directory, &name, true, pending_deletes)?;
+                Self::private_delete_file(
+                    directory,
+                    &name,
+                    true,
+                    pending_deletes,
+                )?;
             }
         }
         Ok(())
@@ -175,7 +184,7 @@ where
             Ok(_) => {
                 pending_deletes.remove(name);
                 Ok(())
-            }
+            },
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
                 pending_deletes.remove(name);
 
@@ -191,7 +200,7 @@ where
                 } else {
                     Err(LuceneError::io_with_path(file_name, e))
                 }
-            }
+            },
             Err(e) => {
                 // On windows, a file delete can fail because there's still an open
                 // file handle against it.  We record this in pendingDeletes and
@@ -209,7 +218,7 @@ where
                 } else {
                     Err(LuceneError::io_with_path(file_name, e))
                 }
-            }
+            },
         }
     }
     fn ensure_can_read(&self, name: &str) -> Result<()> {
@@ -231,7 +240,11 @@ where
         directory: PathBuf,
         sub_fs_directory: T,
     ) -> Result<FSDirectory<NativeFSLockFactory, T>> {
-        Self::with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
+        Self::with_lock_factory(
+            directory,
+            NativeFSLockFactory::new(),
+            sub_fs_directory,
+        )
     }
 }
 
@@ -255,7 +268,12 @@ where
             )));
         }
 
-        Self::private_delete_file(&self.directory, name, false, &mut pending_deletes)?;
+        Self::private_delete_file(
+            &self.directory,
+            name,
+            false,
+            &mut pending_deletes,
+        )?;
 
         Self::maybe_delete_pending_files(
             &self.directory,
@@ -276,13 +294,17 @@ where
 
         let file_path = self.directory.join(name);
         let file_name = file_path.to_string_lossy().to_string();
-        let metadata =
-            fs::metadata(file_path).map_err(|e| LuceneError::io_with_path(file_name, e))?;
+        let metadata = fs::metadata(file_path)
+            .map_err(|e| LuceneError::io_with_path(file_name, e))?;
         let length = metadata.len();
         debug_assert!(length <= i64::MAX as u64);
         Ok(length as i64)
     }
-    fn create_output(&mut self, name: &str, _context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(
+        &mut self,
+        name: &str,
+        _context: &IOContext,
+    ) -> Result<Self::IndexOutputType> {
         let mut pending_deletes = self.pending_deletes.lock();
         Self::maybe_delete_pending_files(
             &self.directory,
@@ -291,7 +313,12 @@ where
         )?;
 
         if pending_deletes.remove(name) {
-            Self::private_delete_file(&self.directory, name, true, &mut pending_deletes)?;
+            Self::private_delete_file(
+                &self.directory,
+                name,
+                true,
+                &mut pending_deletes,
+            )?;
             pending_deletes.remove(name);
         }
 
@@ -301,7 +328,10 @@ where
             .create_new(true)
             .open(&file_path)
             .map_err(|err| {
-                LuceneError::io_with_path(file_path.to_string_lossy().to_string(), err)
+                LuceneError::io_with_path(
+                    file_path.to_string_lossy().to_string(),
+                    err,
+                )
             })?;
 
         OutputStreamIndexOutput::new(
@@ -342,21 +372,25 @@ where
             {
                 Ok(file) => {
                     return OutputStreamIndexOutput::new(
-                        format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),
+                        format!(
+                            "FSIndexOutput(path=\"{}\")",
+                            file_path.display()
+                        )
+                        .as_str(),
                         &name,
                         file,
                         CHUNK_SIZE,
                     );
-                }
+                },
                 Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
                     continue;
-                }
+                },
                 Err(e) => {
                     return Err(LuceneError::io_with_path(
                         file_path.to_string_lossy().to_string(),
                         e,
                     ));
-                }
+                },
             }
         }
     }
@@ -399,7 +433,12 @@ where
         )?;
 
         if pending_deletes.remove(dest) {
-            Self::private_delete_file(&self.directory, dest, true, &mut pending_deletes)?; // try again to delete it - this is the best effort
+            Self::private_delete_file(
+                &self.directory,
+                dest,
+                true,
+                &mut pending_deletes,
+            )?; // try again to delete it - this is the best effort
             pending_deletes.remove(dest); // watch out if the delete fails, it's back in here
         }
 
@@ -412,7 +451,11 @@ where
     }
 
     type IndexInputType = T::Output;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType> {
         self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)

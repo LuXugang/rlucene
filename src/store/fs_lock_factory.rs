@@ -28,7 +28,11 @@ pub trait FSLockFactory: LockFactory {
     /// Returns the default locking implementation for this platform.
     ///
     /// This method always returns [`native_fs_lock_factory`](NativeFSLockFactory).
-    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum> {
+    fn obtain_lock(
+        &self,
+        directory: &Path,
+        lock_name: &str,
+    ) -> Result<FSLockEnum> {
         self.obtain_fs_lock(directory, lock_name)
     }
 
@@ -39,7 +43,11 @@ pub trait FSLockFactory: LockFactory {
     ///
     /// # Note
     /// Implement this method to define how the lock should be acquired.
-    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum>;
+    fn obtain_fs_lock(
+        &self,
+        directory: &Path,
+        lock_name: &str,
+    ) -> Result<FSLockEnum>;
 }
 #[allow(unused)]
 pub(crate) fn get_default() -> impl FSLockFactory {

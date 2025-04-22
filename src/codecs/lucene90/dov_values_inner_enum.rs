@@ -16,58 +16,59 @@
  */
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90::lucene90_doc_values_producer::{
-    BaseSortedDocValuesImpl, DenseBaseSortedDocValues, DenseBinaryDocValuesBase,
-    DenseBinaryDocValuesBaseImpl, DenseBinaryDocValuesBaseImpl1, DenseNumericDocValuesBase,
-    DenseNumericDocValuesBaseImpl, DenseNumericDocValuesBaseImpl1, DenseNumericDocValuesBaseImpl2,
-    DenseNumericDocValuesBaseImpl3, DenseNumericDocValuesBaseImpl4, LongValuesImpl,
-    LongValuesImpl1, LongValuesImpl2, LongValuesImpl3, LongValuesImpl4, SparseBaseSortedDocValues,
-    SparseBinaryDocValuesBaseImpl, SparseBinaryDocValuesBaseImpl1, SparseNumericDocValuesBase,
+    BaseSortedDocValuesImpl, DenseBaseSortedDocValues,
+    DenseBinaryDocValuesBase, DenseBinaryDocValuesBaseImpl,
+    DenseBinaryDocValuesBaseImpl1, DenseNumericDocValuesBase,
+    DenseNumericDocValuesBaseImpl, DenseNumericDocValuesBaseImpl1,
+    DenseNumericDocValuesBaseImpl2, DenseNumericDocValuesBaseImpl3,
+    DenseNumericDocValuesBaseImpl4, LongValuesImpl, LongValuesImpl1,
+    LongValuesImpl2, LongValuesImpl3, LongValuesImpl4,
+    SparseBaseSortedDocValues, SparseBinaryDocValuesBaseImpl,
+    SparseBinaryDocValuesBaseImpl1, SparseNumericDocValuesBase,
     SparseNumericDocValuesBaseImpl, SparseNumericDocValuesBaseImpl1,
     SparseNumericDocValuesBaseImpl2, SparseNumericDocValuesBaseImpl3,
     SparseNumericDocValuesBaseImpl4,
 };
 use crate::codecs::lucene90_doc_values_producer::{
-    BaseSortedSetDocValuesImpl, DenseBaseSortedSetDocValues, SparseBaseSortedSetDocValues,
-    SparseBinaryDocValuesBase,
+    BaseSortedSetDocValuesImpl, DenseBaseSortedSetDocValues,
+    SparseBaseSortedSetDocValues, SparseBinaryDocValuesBase,
 };
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
+use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 
-pub enum BaseSortedDocValuesEnum<I, AV>
+pub enum BaseSortedDocValuesEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     Dense(DenseBaseSortedDocValues<I>),
     Sparse(SparseBaseSortedDocValues<I>),
-    Impl(BaseSortedDocValuesImpl<I, AV>),
+    Impl(BaseSortedDocValuesImpl<I>),
 }
 
-impl<I, AV> DocValuesIterator for BaseSortedDocValuesEnum<I, AV>
+impl<I> DocValuesIterator for BaseSortedDocValuesEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
-            BaseSortedDocValuesEnum::Dense(sub) => sub.advance_exact(_target),
-            BaseSortedDocValuesEnum::Sparse(sub) => sub.advance_exact(_target),
-            BaseSortedDocValuesEnum::Impl(sub) => sub.advance_exact(_target),
+            BaseSortedDocValuesEnum::Dense(sub) => sub.advance_exact(target),
+            BaseSortedDocValuesEnum::Sparse(sub) => sub.advance_exact(target),
+            BaseSortedDocValuesEnum::Impl(sub) => sub.advance_exact(target),
         }
     }
 }
 
-impl<I, AV> DocIdSetIterator for BaseSortedDocValuesEnum<I, AV>
+impl<I> DocIdSetIterator for BaseSortedDocValuesEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         match self {
@@ -85,11 +86,11 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            BaseSortedDocValuesEnum::Dense(sub) => sub.advance(_target),
-            BaseSortedDocValuesEnum::Sparse(sub) => sub.advance(_target),
-            BaseSortedDocValuesEnum::Impl(sub) => sub.advance(_target),
+            BaseSortedDocValuesEnum::Dense(sub) => sub.advance(target),
+            BaseSortedDocValuesEnum::Sparse(sub) => sub.advance(target),
+            BaseSortedDocValuesEnum::Impl(sub) => sub.advance(target),
         }
     }
 
@@ -110,44 +111,48 @@ where
     }
 }
 
-impl<I, AV> SortedDocValues<I, AV> for BaseSortedDocValuesEnum<I, AV>
+impl<I> SortedDocValues<Vec<u8>> for BaseSortedDocValuesEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        todo!()
+        match self {
+            BaseSortedDocValuesEnum::Dense(sub) => sub.ord_value(),
+            BaseSortedDocValuesEnum::Sparse(sub) => sub.ord_value(),
+            BaseSortedDocValuesEnum::Impl(sub) => sub.ord_value(),
+        }
     }
+
+    type TermsEnum = DummyTermsEnum;
 }
 
-pub enum BaseSortedSetDocValuesEnum<I, AV>
+pub enum BaseSortedSetDocValuesEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     Dense(DenseBaseSortedSetDocValues<I>),
     Sparse(SparseBaseSortedSetDocValues<I>),
-    Impl(BaseSortedSetDocValuesImpl<I, AV>),
+    Impl(BaseSortedSetDocValuesImpl<I>),
 }
 
-impl<I, AV> DocValuesIterator for BaseSortedSetDocValuesEnum<I, AV>
+impl<I> DocValuesIterator for BaseSortedSetDocValuesEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
             BaseSortedSetDocValuesEnum::Dense(sub) => sub.advance_exact(target),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.advance_exact(target),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => {
+                sub.advance_exact(target)
+            },
             BaseSortedSetDocValuesEnum::Impl(sub) => sub.advance_exact(target),
         }
     }
 }
 
-impl<I, AV> DocIdSetIterator for BaseSortedSetDocValuesEnum<I, AV>
+impl<I> DocIdSetIterator for BaseSortedSetDocValuesEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     fn doc_id(&self) -> i32 {
         match self {
@@ -173,14 +178,6 @@ where
         }
     }
 
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            BaseSortedSetDocValuesEnum::Dense(sub) => sub.advance(target),
-            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.advance(target),
-            BaseSortedSetDocValuesEnum::Impl(sub) => sub.advance(target),
-        }
-    }
-
     fn cost(&self) -> Result<i64> {
         match self {
             BaseSortedSetDocValuesEnum::Dense(sub) => sub.cost(),
@@ -190,18 +187,27 @@ where
     }
 }
 
-impl<I, AV> SortedSetDocValues<I, AV> for BaseSortedSetDocValuesEnum<I, AV>
+impl<I> SortedSetDocValues<Vec<u8>> for BaseSortedSetDocValuesEnum<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     fn next_ord(&mut self) -> Result<i64> {
-        todo!()
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.next_ord(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.next_ord(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.next_ord(),
+        }
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {
-        todo!()
+        match self {
+            BaseSortedSetDocValuesEnum::Dense(sub) => sub.doc_value_count(),
+            BaseSortedSetDocValuesEnum::Sparse(sub) => sub.doc_value_count(),
+            BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
+        }
     }
+
+    type TermsEnum = DummyTermsEnum;
 }
 
 pub enum SparseBinaryDocValuesBaseEnum<I>
@@ -216,10 +222,17 @@ impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<&BytesRef<Vec<u8>>> {
+    fn binary_value(
+        &mut self,
+        disi: &mut IndexedDISI<I>,
+    ) -> Result<&BytesRef<Vec<u8>>> {
         match self {
-            SparseBinaryDocValuesBaseEnum::Sparse(sub) => sub.binary_value(disi),
-            SparseBinaryDocValuesBaseEnum::Sparse1(sub) => sub.binary_value(disi),
+            SparseBinaryDocValuesBaseEnum::Sparse(sub) => {
+                sub.binary_value(disi)
+            },
+            SparseBinaryDocValuesBaseEnum::Sparse1(sub) => {
+                sub.binary_value(disi)
+            },
         }
     }
 }

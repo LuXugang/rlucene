@@ -15,9 +15,13 @@
  * limitations under the License.
  */
 use crate::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
-use crate::codecs::compression::compression_mode::{CompressionModeEnum, DeflateCompressionMode};
+use crate::codecs::compression::compression_mode::{
+    CompressionModeEnum, DeflateCompressionMode,
+};
 use crate::codecs::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
-use crate::codecs::stored_fields_format::{StoredFieldsFormat, StoredFieldsFormatEnum};
+use crate::codecs::stored_fields_format::{
+    StoredFieldsFormat, StoredFieldsFormatEnum,
+};
 use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 use crate::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::index::field_infos::FieldInfos;
@@ -112,7 +116,10 @@ impl Lucene90StoredFieldsFormat {
         Self { mode }
     }
 
-    fn stored_fields_format_impl(&self, mode: &Mode) -> Result<StoredFieldsFormatEnum> {
+    fn stored_fields_format_impl(
+        &self,
+        mode: &Mode,
+    ) -> Result<StoredFieldsFormatEnum> {
         match mode {
             Mode::BestSpeed => Ok(StoredFieldsFormatEnum::Lucene90Compressing(
                 Lucene90CompressingStoredFieldsFormat::new(
@@ -123,15 +130,17 @@ impl Lucene90StoredFieldsFormat {
                     10,
                 )?,
             )),
-            Mode::BestCompression => Ok(StoredFieldsFormatEnum::Lucene90Compressing(
-                Lucene90CompressingStoredFieldsFormat::new(
-                    "Lucene90StoredFieldsHighData",
-                    BEST_COMPRESSION_MODE.clone(),
-                    Self::BEST_COMPRESSION_BLOCK_LENGTH as i32,
-                    4096,
-                    10,
-                )?,
-            )),
+            Mode::BestCompression => {
+                Ok(StoredFieldsFormatEnum::Lucene90Compressing(
+                    Lucene90CompressingStoredFieldsFormat::new(
+                        "Lucene90StoredFieldsHighData",
+                        BEST_COMPRESSION_MODE.clone(),
+                        Self::BEST_COMPRESSION_BLOCK_LENGTH as i32,
+                        4096,
+                        10,
+                    )?,
+                ))
+            },
         }
     }
 }
@@ -170,8 +179,10 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
     where
         D: Directory,
     {
-        let previous =
-            segment_info.put_attribute(Self::MODE_KEY.to_string(), self.mode.name().to_string());
+        let previous = segment_info.put_attribute(
+            Self::MODE_KEY.to_string(),
+            self.mode.name().to_string(),
+        );
 
         if let Some(prev) = previous {
             if prev != *self.mode.name() {

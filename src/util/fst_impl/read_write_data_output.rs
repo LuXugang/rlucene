@@ -74,7 +74,8 @@ impl FstReader for ReadWriteDataOutput {
             ));
         }
         let byte_buffers = self.byte_buffers.take().unwrap();
-        let mut data: Vec<Vec<u8>> = byte_buffers.into_iter().map(|b| b.into_inner()).collect();
+        let mut data: Vec<Vec<u8>> =
+            byte_buffers.into_iter().map(|b| b.into_inner()).collect();
         if data.len() == 1 {
             Ok(BytesReaderEnum::ReverseBytes(ReverseBytesReader::new(
                 std::mem::take(&mut data[0]),
@@ -99,7 +100,12 @@ impl DataOutput for ReadWriteDataOutput {
         DataOutput::write_byte(&mut self.data_output, b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: i32,
+        length: i32,
+    ) -> Result<()> {
         debug_assert!(!self.frozen);
         self.data_output.write_bytes_range(b, offset, length)
     }
@@ -140,12 +146,18 @@ impl DataInput for BytesReaderImpl {
             self.next_buffer -= 1;
             self.next_read = self.block_size - 1;
         }
-        let byte = &self.byte_buffers[self.current as usize][self.next_read as usize];
+        let byte =
+            &self.byte_buffers[self.current as usize][self.next_read as usize];
         self.next_read -= 1;
         Ok(*byte)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         for i in 0..len {
             b[(offset + i) as usize] = self.read_byte()?;
         }
@@ -203,17 +215,26 @@ impl DataInput for BytesReaderEnum {
         }
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         match self {
             BytesReaderEnum::Impl(reader) => reader.read_bytes(b, offset, len),
-            BytesReaderEnum::ReverseBytes(reader) => reader.read_bytes(b, offset, len),
+            BytesReaderEnum::ReverseBytes(reader) => {
+                reader.read_bytes(b, offset, len)
+            },
         }
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         match self {
             BytesReaderEnum::Impl(reader) => reader.skip_bytes(num_bytes),
-            BytesReaderEnum::ReverseBytes(reader) => reader.skip_bytes(num_bytes),
+            BytesReaderEnum::ReverseBytes(reader) => {
+                reader.skip_bytes(num_bytes)
+            },
         }
     }
 }

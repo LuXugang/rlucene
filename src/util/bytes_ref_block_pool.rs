@@ -17,13 +17,15 @@
 use crate::index::BytesRef;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
-use crate::util::allocator_byte::{DirectAllocatorByte, MTAllocatorByteEnum, STAllocatorByteEnum};
+use crate::util::allocator_byte::{
+    DirectAllocatorByte, MTAllocatorByteEnum, STAllocatorByteEnum,
+};
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum, CounterEnumBorrow,
-    CounterEnumLock, SliceCopyOps,
+    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum,
+    CounterEnumBorrow, CounterEnumLock, SliceCopyOps,
 };
 use parking_lot::Mutex;
 use std::cell::RefCell;
@@ -94,7 +96,8 @@ where
     pub fn fill_bytes_ref(&self, term: &mut BytesRef<Vec<u8>>, start: i32) {
         self.byte_block_pool.access_mut(|pool| {
             {
-                let block = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
+                let block =
+                    pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
                 let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
 
                 let (length, offset) = if (block[pos] & 0x80) == 0 {
@@ -109,8 +112,10 @@ where
                 };
 
                 term.bytes = vec![0; length as usize];
-                term.bytes
-                    .copy_from(&block[offset as usize..(offset + length) as usize], 0);
+                term.bytes.copy_from(
+                    &block[offset as usize..(offset + length) as usize],
+                    0,
+                );
                 term.offset = 0;
                 term.length = length as usize;
                 debug_assert!(term.length >= 0);
@@ -128,11 +133,13 @@ where
         self.byte_block_pool.access_mut(|pool| {
             if len2 + pool.byte_upto > ByteBlockPool::BYTE_BLOCK_SIZE {
                 if len2 > ByteBlockPool::BYTE_BLOCK_SIZE {
-                    return Err(LuceneError::max_bytes_length_exceeded(format!(
-                        "bytes can be at most {} in length; got {}",
-                        ByteBlockPool::BYTE_BLOCK_SIZE,
-                        bytes.length
-                    )));
+                    return Err(LuceneError::max_bytes_length_exceeded(
+                        format!(
+                            "bytes can be at most {} in length; got {}",
+                            ByteBlockPool::BYTE_BLOCK_SIZE,
+                            bytes.length
+                        ),
+                    ));
                 }
                 pool.next_buffer()?;
             }
@@ -147,7 +154,11 @@ where
             let new_length = if length < 128 {
                 // 1 byte to store length
                 buffer[buffer_upto as usize] = length as u8;
-                debug_assert!(length >= 0, "Length must be positive: {}", length);
+                debug_assert!(
+                    length >= 0,
+                    "Length must be positive: {}",
+                    length
+                );
                 buffer.copy_from(
                     &bytes.bytes[bytes.offset..bytes.offset + length as usize],
                     buffer_upto as usize + 1,
@@ -155,7 +166,11 @@ where
                 length + 1
             } else {
                 // 2 byte to store length
-                BitUtil::set_i16_be(buffer, buffer_upto as usize, (length | 0x8000) as i16);
+                BitUtil::set_i16_be(
+                    buffer,
+                    buffer_upto as usize,
+                    (length | 0x8000) as i16,
+                );
                 buffer.copy_from(
                     &bytes.bytes[bytes.offset..bytes.offset + length as usize],
                     buffer_upto as usize + 2,
@@ -170,7 +185,8 @@ where
     pub fn hash(&mut self, start: i32) -> i32 {
         let offset = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.access_mut(|pool| {
-            let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
+            let bytes =
+                pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
 
             let (len, pos) = if (bytes[offset] & 0x80) == 0 {
                 // length is 1 byte
@@ -188,7 +204,8 @@ where
     pub fn equals(&self, start: i32, b: &BytesRef<Vec<u8>>) -> bool {
         let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.access_mut(|pool| {
-            let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
+            let bytes =
+                pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
 
             let (length, offset) = if (bytes[pos] & 0x80) == 0 {
                 // length is 1 byte
@@ -200,7 +217,8 @@ where
             };
 
             // Compare slices of bytes
-            bytes[offset..offset + length] == b.bytes[b.offset..(b.offset + b.length)]
+            bytes[offset..offset + length]
+                == b.bytes[b.offset..(b.offset + b.length)]
         })
     }
 }
@@ -223,4 +241,5 @@ where
 pub type BytesRefBlockPoolBorrow =
     Rc<RefCell<BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>>>;
 // for multi thread
-pub type BytesRefBlockPoolLock = Arc<Mutex<BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>>>;
+pub type BytesRefBlockPoolLock =
+    Arc<Mutex<BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>>>;

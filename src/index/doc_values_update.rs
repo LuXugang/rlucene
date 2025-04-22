@@ -65,7 +65,10 @@ impl DocValuesUpdate {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     #[cfg(feature = "test_only")]
-    pub fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
+    pub fn prepare_for_apply(
+        &mut self,
+        doc_id_upto: i32,
+    ) -> Option<DocValuesUpdate> {
         if doc_id_upto == self.doc_id_up_to {
             return None;
         }
@@ -97,7 +100,10 @@ pub trait DocValuesUpdateBase {
     }
     fn value_to_string(&self) -> String;
 
-    fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef<Vec<u8>>) -> Result<()> {
+    fn write_to<D: DataOutput>(
+        &self,
+        _bytes: &mut BytesRef<Vec<u8>>,
+    ) -> Result<()> {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     fn has_value(&self) -> bool;
@@ -134,7 +140,9 @@ impl DocValuesUpdateBase for BinaryDocValuesUpdate {
 
     #[cfg(feature = "test_only")]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
-        DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(self.value.clone()))
+        DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(
+            self.value.clone(),
+        ))
     }
 }
 #[derive(Clone)]

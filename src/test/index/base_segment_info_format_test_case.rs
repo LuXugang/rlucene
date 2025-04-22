@@ -20,7 +20,9 @@ use crate::index::index_writer::IndexWriter;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sort::Sort;
 use crate::index::IndexFileNames;
-use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
+use crate::search::sort_field::{
+    MissingValueEnum, SortField, SortFieldType, SortFiledBase,
+};
 use crate::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::search::sorted_set_sort_field::SortedSetSortField;
 use crate::store::directory::Directory;
@@ -59,9 +61,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -91,9 +95,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -123,11 +129,14 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             HashMap::new(),
             None,
         )?;
-        let original_files: HashSet<String> = ["_123.a".to_string()].iter().cloned().collect();
+        let original_files: HashSet<String> =
+            ["_123.a".to_string()].iter().cloned().collect();
         info.set_files(original_files.clone());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock(),
+            &mut info,
+            &io_context,
+        )?;
         let files = info.files()?;
         let modified_files = files.borrow();
         assert!(modified_files.is_superset(&original_files));
@@ -175,9 +184,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -217,9 +228,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -261,9 +274,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         info.set_files(HashSet::new());
-        LATEST_CODEC
-            .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+        LATEST_CODEC.segment_info_format().write(
+            &mut *dir.lock(),
+            &mut info,
+            &io_context,
+        )?;
         let info2 = LATEST_CODEC.segment_info_format().read(
             dir.clone(),
             "_123",
@@ -313,7 +328,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     if min_version.is_none() {
                         assert_eq!(info2.get_min_version(), None);
                     } else {
-                        assert_eq!(*info2.get_min_version().unwrap(), min_version.unwrap());
+                        assert_eq!(
+                            *info2.get_min_version().unwrap(),
+                            min_version.unwrap()
+                        );
                     }
                 } else {
                     assert_eq!(info2.get_min_version(), None);
@@ -324,7 +342,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
 
-    fn random_index_sort_field(random: &mut StdRng) -> Result<Option<SortFieldEnum>> {
+    fn random_index_sort_field(
+        random: &mut StdRng,
+    ) -> Result<Option<SortFieldEnum>> {
         let reversed = random.random_bool(0.5);
         let case = random.random_range(0..10);
         match case {
@@ -335,10 +355,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.random())))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::Int(random.random()),
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
-            }
+            },
             1 => {
                 let mut sort_field = SortedNumericSortField::with_reverse(
                     TestUtil::random_simple_string(random),
@@ -346,10 +368,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.random())))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::Int(random.random()),
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
-            }
+            },
             2 => {
                 let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
@@ -357,10 +381,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.random())))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::Long(random.random()),
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
-            }
+            },
             3 => {
                 let mut sort_field = SortedNumericSortField::with_reverse(
                     TestUtil::random_simple_string(random),
@@ -368,10 +394,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.random())))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::Long(random.random()),
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
-            }
+            },
             4 => {
                 let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
@@ -379,10 +407,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.random())))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::Float(random.random()),
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
-            }
+            },
             5 => {
                 let mut sort_field = SortedNumericSortField::with_reverse(
                     TestUtil::random_simple_string(random),
@@ -390,10 +420,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.random())))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::Float(random.random()),
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
-            }
+            },
             6 => {
                 let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
@@ -401,11 +433,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field
-                        .set_missing_value(Some(MissingValueEnum::Double(random.random())))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::Double(random.random()),
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
-            }
+            },
             7 => {
                 let mut sort_field = SortedNumericSortField::with_reverse(
                     TestUtil::random_simple_string(random),
@@ -413,11 +446,12 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field
-                        .set_missing_value(Some(MissingValueEnum::Double(random.random())))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::Double(random.random()),
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
-            }
+            },
             8 => {
                 let mut sort_field = SortField::with_reverse(
                     Some(TestUtil::random_simple_string(random)),
@@ -425,18 +459,24 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::StringLast,
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
-            }
+            },
             9 => {
-                let mut sort_field =
-                    SortedSetSortField::new(TestUtil::random_simple_string(random), reversed)?;
+                let mut sort_field = SortedSetSortField::new(
+                    TestUtil::random_simple_string(random),
+                    reversed,
+                )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
+                    sort_field.set_missing_value(Some(
+                        MissingValueEnum::StringLast,
+                    ))?;
                 }
                 Ok(Some(SortFieldEnum::SortedSet(sort_field)))
-            }
+            },
             _ => Ok(None),
         }
     }
@@ -456,7 +496,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 let num_sort_fields = TestUtil::next_int(random, 1, 3);
                 let mut sort_fields = Vec::new();
                 for _ in 0..num_sort_fields {
-                    if let Some(sort_field) = Self::random_index_sort_field(random)? {
+                    if let Some(sort_field) =
+                        Self::random_index_sort_field(random)?
+                    {
                         sort_fields.push(sort_field);
                     }
                 }
@@ -479,9 +521,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 sort,
             )?;
             info.set_files(HashSet::new());
-            LATEST_CODEC
-                .segment_info_format()
-                .write(&mut *dir.lock(), &mut info, &io_context)?;
+            LATEST_CODEC.segment_info_format().write(
+                &mut *dir.lock(),
+                &mut info,
+                &io_context,
+            )?;
             let info2 = LATEST_CODEC.segment_info_format().read(
                 dir.clone(),
                 "_123",
@@ -490,7 +534,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             )?;
             if info2.get_index_sort().is_some() {
                 assert!(info2.get_index_sort().is_some());
-                assert!(sort_clone.unwrap() == *info2.get_index_sort().unwrap());
+                assert!(
+                    sort_clone.unwrap() == *info2.get_index_sort().unwrap()
+                );
             } else {
                 assert!(sort_clone.is_none())
             }
@@ -521,7 +567,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
         for _ in 0..10 {
             let dir = Arc::new(Mutex::new(new_directory(random)?));
-            let version = versions[random.random_range(0..versions.len())].clone();
+            let version =
+                versions[random.random_range(0..versions.len())].clone();
             let random_segment_index = random.random::<i64>().abs();
             let big_int = if random_segment_index != i64::MIN {
                 BigInt::from(random_segment_index)
@@ -529,12 +576,17 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 BigInt::from(random.random_range(0..i32::MAX) as i64)
             };
             let name = format!("_{}", big_int.to_str_radix(36));
-            let doc_count = TestUtil::next_int(random, 1, IndexWriter::MAX_DOCS);
+            let doc_count =
+                TestUtil::next_int(random, 1, IndexWriter::MAX_DOCS);
             let is_compound_file = random.random_bool(0.5);
             let mut files = HashSet::new();
             let num_files = random.random_range(0..10);
             for j in 0..num_files {
-                let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
+                let file = IndexFileNames::segment_file_name(
+                    &name,
+                    "",
+                    &j.to_string(),
+                );
                 files.insert(file.clone());
                 let mut directory = dir.lock();
                 directory.create_output(&file, &io_context)?;
@@ -571,9 +623,11 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 None,
             )?;
             info.set_files(files.clone());
-            LATEST_CODEC
-                .segment_info_format()
-                .write(&mut *dir.lock(), &mut info, &io_context)?;
+            LATEST_CODEC.segment_info_format().write(
+                &mut *dir.lock(),
+                &mut info,
+                &io_context,
+            )?;
             let info2 = LATEST_CODEC.segment_info_format().read(
                 dir.clone(),
                 &name,

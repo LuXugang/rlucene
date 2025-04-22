@@ -72,7 +72,12 @@ pub trait IndexInput: DataInput + crate::util::clone::TryClone {
     /// Creates a slice of this index input, with the given description, offset, and length.
     /// The slice is positioned at the beginning.
     type Slice: IndexInput;
-    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice>;
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: i64,
+        length: i64,
+    ) -> Result<Self::Slice>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used by
     /// [`CompoundFormat`](crate::codecs::compound_format) implementations to honor
     /// the [`ReadAdvice`] of each file within the compound file.
@@ -91,7 +96,12 @@ pub trait IndexInput: DataInput + crate::util::clone::TryClone {
         length: i64,
         read_advice: &ReadAdvice,
     ) -> Result<Self::Slice> {
-        self.default_slice_with_read_advice(description, offset, length, read_advice)
+        self.default_slice_with_read_advice(
+            description,
+            offset,
+            length,
+            read_advice,
+        )
     }
     fn default_slice_with_read_advice(
         &self,
@@ -108,7 +118,11 @@ pub trait IndexInput: DataInput + crate::util::clone::TryClone {
     /// # Note
     /// The default implementation calls [`slice`](IndexInput::slice), and it doesn't support random access.
     /// It implements absolute reads as seek+read.
-    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::RandomAccessSlice>;
+    fn random_access_slice(
+        &self,
+        offset: i64,
+        length: i64,
+    ) -> Result<Self::RandomAccessSlice>;
 
     /// Optional method: Gives a hint to this input that some bytes will be read soon.
     /// `IndexInput` implementations may take advantage of this hint to start fetching pages of data

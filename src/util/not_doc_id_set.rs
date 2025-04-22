@@ -194,7 +194,9 @@ mod tests {
             for i in 0..num_bits {
                 assert_eq!(ds1.contains(i as usize), bits.get(i));
             }
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(
+                self, random, num_bits, ds1, ds2,
+            )
         }
     }
 
@@ -233,11 +235,12 @@ mod tests {
     #[test]
     fn test_bits() {
         assert!(NotDocIdSet::new(3, EmptyDocIdSet).bits().is_none());
-        assert!(
-            NotDocIdSet::new(3, BitDocIdSet::new(Some(FixedBitSet::new(3))).unwrap())
-                .bits()
-                .is_some()
-        );
+        assert!(NotDocIdSet::new(
+            3,
+            BitDocIdSet::new(Some(FixedBitSet::new(3))).unwrap()
+        )
+        .bits()
+        .is_some());
     }
     struct Buffer {
         array: Vec<i32>,

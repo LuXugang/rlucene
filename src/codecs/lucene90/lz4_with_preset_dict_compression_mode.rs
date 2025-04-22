@@ -25,7 +25,9 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::clone::TryClone;
-use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
+use crate::util::compress::lz4::{
+    FastCompressionHashTable, HashTableEnum, LZ4,
+};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::SliceCopyOps;
 use std::fmt::{Display, Formatter};
@@ -132,19 +134,26 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
         let dict_length = input.read_vint()?; // Read dictionary length
         let block_length = input.read_vint()?; // Read block length
 
-        let num_blocks =
-            self.read_compressed_lengths(input, original_length, dict_length, block_length)?;
+        let num_blocks = self.read_compressed_lengths(
+            input,
+            original_length,
+            dict_length,
+            block_length,
+        )?;
 
         // Grow the buffer to fit the dictionary and block length
-        if let Some(new_array) =
-            ArrayUtil::grow_no_copy(&self.buffer, (dict_length + block_length) as usize)
-        {
+        if let Some(new_array) = ArrayUtil::grow_no_copy(
+            &self.buffer,
+            (dict_length + block_length) as usize,
+        ) {
             self.buffer = new_array
         }
         bytes.length = 0;
 
         // Read the dictionary
-        if LZ4::decompress(input, dict_length, &mut self.buffer, 0)? != dict_length {
+        if LZ4::decompress(input, dict_length, &mut self.buffer, 0)?
+            != dict_length
+        {
             return Err(LuceneError::corrupt_index(format!(
                 "Illegal dict length  (resource={})",
                 input
@@ -161,7 +170,8 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
             let mut num_bytes_to_skip = 0;
             for i in 0..num_blocks {
                 if offset_in_block + block_length < offset {
-                    let compressed_block_length = self.compressed_lengths[i as usize];
+                    let compressed_block_length =
+                        self.compressed_lengths[i as usize];
                     num_bytes_to_skip += compressed_block_length;
                     offset_in_block += block_length;
                     offset_in_bytes_ref -= block_length;
@@ -172,7 +182,9 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
             input.skip_bytes(num_bytes_to_skip as i64)?;
         } else {
             // The dictionary contains some bytes we need, copy its content to the BytesRef
-            if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, dict_length as usize) {
+            if let Some(new_array) =
+                ArrayUtil::grow_no_copy(&bytes.bytes, dict_length as usize)
+            {
                 bytes.bytes = new_array
             }
             bytes
@@ -190,10 +202,17 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
         }
 
         while offset_in_block < offset + length {
-            let bytes_to_decompress = (offset + length - offset_in_block).min(block_length);
-            LZ4::decompress(input, bytes_to_decompress, &mut self.buffer, dict_length)?;
+            let bytes_to_decompress =
+                (offset + length - offset_in_block).min(block_length);
+            LZ4::decompress(
+                input,
+                bytes_to_decompress,
+                &mut self.buffer,
+                dict_length,
+            )?;
             bytes.bytes.copy_from(
-                &self.buffer[dict_length as usize..(dict_length + bytes_to_decompress) as usize],
+                &self.buffer[dict_length as usize
+                    ..(dict_length + bytes_to_decompress) as usize],
                 bytes.length,
             );
             bytes.length += bytes_to_decompress as usize;
@@ -238,7 +257,9 @@ impl LZ4WithPresetDictCompressor {
             &mut self.hash_table,
         )?;
         // Write the number of compressed bytes
-        out.write_vint((self.compressed.size() - prev_compressed_size).try_into()?)
+        out.write_vint(
+            (self.compressed.size() - prev_compressed_size).try_into()?,
+        )
     }
 }
 impl Compressor for LZ4WithPresetDictCompressor {
@@ -252,13 +273,15 @@ impl Compressor for LZ4WithPresetDictCompressor {
             / (LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS
                 * LZ4WithPresetDictCompressionMode::DICT_SIZE_FACTOR))
             .min(LZ4::MAX_DISTANCE);
-        let block_length = (len - dict_length + LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS
+        let block_length = (len - dict_length
+            + LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS
             - 1)
             / LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS;
 
-        if let Some(new_array) =
-            ArrayUtil::grow_no_copy(&self.buffer, (dict_length + block_length) as usize)
-        {
+        if let Some(new_array) = ArrayUtil::grow_no_copy(
+            &self.buffer,
+            (dict_length + block_length) as usize,
+        ) {
             self.buffer = new_array
         }
 
@@ -277,7 +300,12 @@ impl Compressor for LZ4WithPresetDictCompressor {
             let l = (len - start).min(block_length);
             debug_assert!(self.buffer.is_empty());
             self.buffer = vec![0; (dict_length + block_length) as usize];
-            DataInput::read_bytes(buffers_input, &mut self.buffer, dict_length, l)?;
+            DataInput::read_bytes(
+                buffers_input,
+                &mut self.buffer,
+                dict_length,
+                l,
+            )?;
             let moved_data = std::mem::take(&mut self.buffer);
             self.do_compress(moved_data, dict_length, l, out)?;
             start += block_length;

@@ -37,7 +37,12 @@ use std::rc::Rc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == FieldsProducer/Consumer
-pub trait PostingsWriterBase<T: TermsEnum<AV>, N: NormsProducer, AV: AccessVec<u8>> {
+pub trait PostingsWriterBase<
+    T: TermsEnum<AV>,
+    N: NormsProducer,
+    AV: AccessVec<u8>,
+>
+{
     /// Called once after startup, before any terms have been added. Implementations typically write a
     /// header to the provided `termsOut`.
     fn init<D: Directory>(

@@ -78,7 +78,12 @@ where
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: i32,
+        length: i32,
+    ) -> Result<()> {
         let end = offset + length;
         self.bytes_written += length as i64;
         self.os.write_bytes(&b[offset as usize..end as usize])
@@ -209,7 +214,8 @@ mod tests {
 
         let mut buffer = Vec::new();
         {
-            let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 12)?;
+            let mut out =
+                OutputStreamIndexOutput::new("test", "test", &mut buffer, 12)?;
             let mut hasher = Hasher::new();
             for i in 0..offset {
                 out.write_byte(i as u8)?;
@@ -252,7 +258,12 @@ mod tests {
         let large_data: Vec<u8> = (0..16).collect();
         let mut buffer = Vec::new();
         {
-            let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, buffer_size)?;
+            let mut out = OutputStreamIndexOutput::new(
+                "test",
+                "test",
+                &mut buffer,
+                buffer_size,
+            )?;
 
             let mut hasher = Hasher::new();
 
@@ -278,7 +289,8 @@ mod tests {
         let mut buffer = Vec::new();
         let combined_data: Vec<u8>;
         {
-            let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8)?;
+            let mut out =
+                OutputStreamIndexOutput::new("test", "test", &mut buffer, 8)?;
 
             let data1 = b"Hello";
             let data2 = b"World";

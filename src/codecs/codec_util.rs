@@ -70,7 +70,11 @@ impl CodecUtil {
     /// # See Also
     /// - [`check_header`](CodecUtil::check_header)
     /// - [`header_length`](CodecUtil::header_length)
-    pub fn write_header(out: &mut impl DataOutput, codec: &str, version: i32) -> Result<()> {
+    pub fn write_header(
+        out: &mut impl DataOutput,
+        codec: &str,
+        version: i32,
+    ) -> Result<()> {
         let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(codec);
         if bytes.length != codec.len() || bytes.length >= 128 {
             return Err(LuceneError::illegal_argument(format!(
@@ -172,7 +176,10 @@ impl CodecUtil {
     /// - [`write_index_header`](CodecUtil::write_index_header)
     pub fn index_header_length(codec: &str, suffix: &str) -> i32 {
         debug_assert!(suffix.len() <= i32::MAX as usize);
-        Self::header_length(codec) + StringHelper::ID_LENGTH + 1 + (suffix.len() as i32)
+        Self::header_length(codec)
+            + StringHelper::ID_LENGTH
+            + 1
+            + (suffix.len() as i32)
     }
     /// Reads and validates a header previously written with [`write_header`](CodecUtil::write_header).
     ///
@@ -279,7 +286,8 @@ impl CodecUtil {
         expected_id: &[u8],
         expected_suffix: &str,
     ) -> Result<i32> {
-        let version = Self::check_header(data_input, codec, min_version, max_version)?;
+        let version =
+            Self::check_header(data_input, codec, min_version, max_version)?;
         Self::check_index_header_id(data_input, expected_id)?;
         Self::check_index_header_suffix(data_input, expected_suffix)?;
         Ok(version)
@@ -307,7 +315,9 @@ impl CodecUtil {
         data_out: &mut impl DataOutput,
         expected_id: &[u8],
     ) -> Result<()> {
-        if data_in.length() < (Self::footer_length() + Self::header_length("")) as i64 {
+        if data_in.length()
+            < (Self::footer_length() + Self::header_length("")) as i64
+        {
             return Err(LuceneError::corrupt_index(format!(
                 "compound sub-files must have a valid codec header and footer: file is too small ({} bytes): (resource={})",
                 data_in.length(),data_in
@@ -339,7 +349,9 @@ impl CodecUtil {
     ///
     /// # Errors
     /// - `CorruptIndexError`: If the file does not appear to be a valid index file.
-    pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>> {
+    pub fn read_index_header(
+        data_input: &mut impl IndexInput,
+    ) -> Result<Vec<u8>> {
         // TODO: 跟Java版本确认下 要不要seek(0)
         // data_input.seek(0)?;
         let actual_header = Self::read_be_int(data_input)?;
@@ -352,10 +364,14 @@ impl CodecUtil {
         }
         let codec = data_input.read_string()?;
         Self::read_be_int(data_input)?;
-        data_input.seek(data_input.get_file_pointer() + StringHelper::ID_LENGTH as i64)?;
+        data_input.seek(
+            data_input.get_file_pointer() + StringHelper::ID_LENGTH as i64,
+        )?;
         let suffix_length = data_input.read_byte()?;
-        let bytes_len =
-            Self::header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length as i32;
+        let bytes_len = Self::header_length(&codec)
+            + StringHelper::ID_LENGTH
+            + 1
+            + suffix_length as i32;
 
         let mut bytes: Vec<u8> = vec![0u8; bytes_len as usize];
         data_input.seek(0)?;
@@ -466,7 +482,9 @@ impl CodecUtil {
     /// # Errors
     /// - `IoError`: If the footer is invalid, the checksum does not match, or the input is not properly
     ///   positioned before the footer at the end of the stream.
-    pub fn check_footer(checksum_in: &mut impl ChecksumIndexInput) -> Result<i64> {
+    pub fn check_footer(
+        checksum_in: &mut impl ChecksumIndexInput,
+    ) -> Result<i64> {
         Self::validate_footer(checksum_in)?;
         let actual_checksum = checksum_in.get_checksum();
         let expected_checksum = Self::read_crc(checksum_in)?;
@@ -515,8 +533,10 @@ impl CodecUtil {
             );
         } else {
             // otherwise, skip any unread bytes.
-            let result =
-                DataInput::skip_bytes(checksum_in, remaining - Self::footer_length() as i64);
+            let result = DataInput::skip_bytes(
+                checksum_in,
+                remaining - Self::footer_length() as i64,
+            );
             if result.is_err() {
                 error_message = format!(
                     "{} cause by: checksum status indeterminate: unexpected exception: {} {}",
@@ -539,7 +559,8 @@ impl CodecUtil {
                     // If the index format is too old and no corruption, do not add a checksum
                     // matching message since this may tend to unnecessarily alarm people who
                     // see "JVM bug" in their logs
-                    if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
+                    if !matches!(prior_error, LuceneError::IndexFormatTooOld(_))
+                    {
                         error_message= format!(
                             "checksum passed ({}). possibly transient resource issue, or a Lucene : {}, cause by: {}",
                             checksum,
@@ -587,7 +608,8 @@ impl CodecUtil {
     ) -> Result<i64> {
         if expected_length < Self::footer_length() as i64 {
             return Err(LuceneError::illegal_argument(
-                "expectedLength cannot be less than the footer length".to_string(),
+                "expectedLength cannot be less than the footer length"
+                    .to_string(),
             ));
         }
         match input.length().cmp(&expected_length) {
@@ -598,7 +620,7 @@ impl CodecUtil {
                     expected_length,
                     input
                 )));
-            }
+            },
             Ordering::Greater => {
                 return Err(LuceneError::corrupt_index(format!(
                     "file too long: length={} but expected_length={} (resource={})",
@@ -606,8 +628,8 @@ impl CodecUtil {
                     expected_length,
                     input
                 )));
-            }
-            Ordering::Equal => {}
+            },
+            Ordering::Equal => {},
         }
         Self::retrieve_checksum(input)
     }
@@ -624,7 +646,7 @@ impl CodecUtil {
                     input.get_file_pointer(),
                     input
                 )));
-            }
+            },
             Ordering::Greater => {
                 return Err(LuceneError::corrupt_index(format!(
                     "misplaced codec footer (file extended?): remaining={}, expected={}, fp={} (resource={})",
@@ -633,8 +655,8 @@ impl CodecUtil {
                     input.get_file_pointer(),
                     input
                 )));
-            }
-            Ordering::Equal => {}
+            },
+            Ordering::Equal => {},
         }
         let magic = Self::read_be_int(input)?;
         if magic != CodecUtil::FOOTER_MAGIC {
@@ -762,8 +784,8 @@ mod tests {
     use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
     use crate::store::index_input::IndexInput;
     use crate::store::{
-        ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput,
-        DataOutput, IndexOutput,
+        ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput,
+        DataInput, DataOutput, IndexOutput,
     };
 
     use crate::util::error::lucene_error::{LuceneError, Result};
@@ -778,12 +800,14 @@ mod tests {
     fn test_header_length() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output =
+                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
         }
 
-        let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
+        let mut input =
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp");
         input.seek(CodecUtil::header_length("FooBar") as i64)?;
         assert_eq!(input.read_string()?, "this is the data");
         Ok(())
@@ -794,7 +818,8 @@ mod tests {
         let too_long: String = "a".repeat(128);
 
         let mut output = ByteBuffersDataOutput::new();
-        let mut output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
+        let mut output =
+            ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
 
         let result = CodecUtil::write_header(&mut output, &too_long, 5);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
@@ -817,7 +842,8 @@ mod tests {
     fn test_read_header_wrong_magic() -> Result<()> {
         let mut output = ByteBuffersDataOutput::new();
         {
-            let mut index_output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
+            let mut index_output =
+                ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
             index_output.write_int(1234)?;
         }
 
@@ -834,13 +860,15 @@ mod tests {
     fn test_checksum_entire_file() -> Result<()> {
         let mut output = ByteBuffersDataOutput::new();
         {
-            let mut index_output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
+            let mut index_output =
+                ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
             CodecUtil::write_header(&mut index_output, "FooBar", 5)?;
             index_output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut index_output)?;
         }
 
-        let mut input_data = ByteBuffersIndexInput::new(output.get_data_input(), "temp");
+        let mut input_data =
+            ByteBuffersIndexInput::new(output.get_data_input(), "temp");
         CodecUtil::checksum_entire_file(&mut input_data)?;
         Ok(())
     }
@@ -849,16 +877,16 @@ mod tests {
     fn test_check_footer_valid() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output =
+                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
         }
 
-        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
-            out.get_data_input(),
-            "temp",
-        ));
+        let mut input = BufferedChecksumIndexInput::new(
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
+        );
         let mut mine = LuceneError::illegal_argument("fake exception");
         let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
         assert!(result.to_string().contains("checksum passed"));
@@ -870,16 +898,16 @@ mod tests {
     fn test_check_footer_valid_at_footer() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output =
+                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
         }
 
-        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
-            out.get_data_input(),
-            "temp",
-        ));
+        let mut input = BufferedChecksumIndexInput::new(
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
+        );
         CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
         let read_data = input.read_string()?;
         assert_eq!(read_data, "this is the data");
@@ -895,16 +923,16 @@ mod tests {
     fn test_check_footer_valid_past_footer() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output =
+                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
         }
 
-        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
-            out.get_data_input(),
-            "temp",
-        ));
+        let mut input = BufferedChecksumIndexInput::new(
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
+        );
 
         CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
         let read_data = input.read_string()?;
@@ -926,17 +954,17 @@ mod tests {
     fn test_check_footer_invalid() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output =
+                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_be_int(&mut output, CodecUtil::FOOTER_MAGIC)?;
             CodecUtil::write_be_int(&mut output, 0)?;
             CodecUtil::write_be_long(&mut output, 1234567)?; // write a bogus checksum
         }
-        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
-            out.get_data_input(),
-            "temp",
-        ));
+        let mut input = BufferedChecksumIndexInput::new(
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
+        );
         CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
         let read_data = input.read_string()?;
         assert_eq!(read_data, "this is the data");
@@ -951,12 +979,20 @@ mod tests {
     fn test_segment_header_length() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output =
+                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             let id = StringHelper::random_id();
-            CodecUtil::write_index_header(&mut output, "FooBar", 5, &id, "xyz")?;
+            CodecUtil::write_index_header(
+                &mut output,
+                "FooBar",
+                5,
+                &id,
+                "xyz",
+            )?;
             output.write_string("this is the data")?;
         }
-        let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
+        let mut input =
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp");
 
         input.seek(CodecUtil::index_header_length("FooBar", "xyz") as i64)?;
 
@@ -987,12 +1023,27 @@ mod tests {
         let mut out = ByteBuffersDataOutput::new();
         let id = StringHelper::random_id();
         {
-            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
-            CodecUtil::write_index_header(&mut output, "foobar", 5, &id, &just_long_enough)?;
+            let mut output =
+                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            CodecUtil::write_index_header(
+                &mut output,
+                "foobar",
+                5,
+                &id,
+                &just_long_enough,
+            )?;
         }
 
-        let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
-        CodecUtil::check_index_header(&mut input, "foobar", 5, 5, &id, &just_long_enough)?;
+        let mut input =
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp");
+        CodecUtil::check_index_header(
+            &mut input,
+            "foobar",
+            5,
+            5,
+            &id,
+            &just_long_enough,
+        )?;
 
         assert_eq!(input.get_file_pointer(), input.length());
         assert_eq!(
@@ -1022,7 +1073,8 @@ mod tests {
     fn test_read_bogus_crc() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output =
+                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
             CodecUtil::write_be_long(&mut output, -1_i64)?; // bad
             CodecUtil::write_be_long(&mut output, 1_i64 << 32)?; // bad
@@ -1030,10 +1082,9 @@ mod tests {
             CodecUtil::write_be_long(&mut output, (1_i64 << 32) - 1)?; // ok
         }
 
-        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
-            out.get_data_input(),
-            "temp",
-        ));
+        let mut input = BufferedChecksumIndexInput::new(
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
+        );
 
         for _ in 0..3 {
             let result = CodecUtil::read_crc(&mut input);
@@ -1068,7 +1119,8 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
-        fake_checksum.store((1 << 32) - 1, std::sync::atomic::Ordering::Relaxed); // ok
+        fake_checksum
+            .store((1 << 32) - 1, std::sync::atomic::Ordering::Relaxed); // ok
         let result = CodecUtil::write_crc(&mut fake_output);
         assert!(result.is_ok());
 
@@ -1080,7 +1132,8 @@ mod tests {
         let mut out = ByteBuffersDataOutput::new();
         let _output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
-        let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
+        let mut input =
+            ByteBuffersIndexInput::new(out.get_data_input(), "temp");
 
         let result = CodecUtil::checksum_entire_file(&mut input);
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
@@ -1106,7 +1159,10 @@ mod tests {
         fake_checksum: &'a AtomicI64,
     }
     impl<'a> FakeOutput<'a> {
-        fn new(output: ByteBuffersIndexOutput<'a>, fake_checksum: &'a AtomicI64) -> Self {
+        fn new(
+            output: ByteBuffersIndexOutput<'a>,
+            fake_checksum: &'a AtomicI64,
+        ) -> Self {
             FakeOutput {
                 output,
                 fake_checksum,
@@ -1119,7 +1175,12 @@ mod tests {
             self.output.write_byte(b)
         }
 
-        fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+        fn write_bytes_range(
+            &mut self,
+            b: &[u8],
+            offset: i32,
+            length: i32,
+        ) -> Result<()> {
             self.output.write_bytes_range(b, offset, length)
         }
     }

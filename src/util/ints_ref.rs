@@ -139,10 +139,10 @@ where
     }
     pub fn ints_equals(&self, other: &IntsRef<AV>) -> Result<bool> {
         with_other!(self.ints, other.ints, |ints_bytes, other_bytes| {
-            let self_slice =
-                &ints_bytes[self.offset as usize..(self.offset + self.length) as usize];
-            let other_slice =
-                &other_bytes[other.offset as usize..(other.offset + other.length) as usize];
+            let self_slice = &ints_bytes
+                [self.offset as usize..(self.offset + self.length) as usize];
+            let other_slice = &other_bytes
+                [other.offset as usize..(other.offset + other.length) as usize];
             Ok(self_slice == other_slice)
         })
     }
@@ -188,10 +188,10 @@ where
 {
     fn cmp(&self, other: &Self) -> Ordering {
         with_other!(self.ints, other.ints, |ints_bytes, other_bytes| {
-            let self_slice =
-                &ints_bytes[self.offset as usize..(self.offset + self.length) as usize];
-            let other_slice =
-                &other_bytes[other.offset as usize..(other.offset + other.length) as usize];
+            let self_slice = &ints_bytes
+                [self.offset as usize..(self.offset + self.length) as usize];
+            let other_slice = &other_bytes
+                [other.offset as usize..(other.offset + other.length) as usize];
             self_slice.cmp(other_slice)
         })
     }
@@ -212,7 +212,8 @@ where
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.ints.access(|ints| {
-            let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
+            let slice = &ints
+                [self.offset as usize..(self.offset + self.length) as usize];
             slice.hash(state);
         });
     }
@@ -225,8 +226,10 @@ where
 
     fn compare(&self, a: &IntsRef<AV>, b: &IntsRef<AV>) -> Result<i32> {
         with_other!(a.ints, b.ints, |a_bytes, b_bytes| {
-            let a_slice = &a_bytes[a.offset as usize..(a.offset + a.length) as usize];
-            let b_slice = &b_bytes[a.offset as usize..(a.offset + a.length) as usize];
+            let a_slice =
+                &a_bytes[a.offset as usize..(a.offset + a.length) as usize];
+            let b_slice =
+                &b_bytes[a.offset as usize..(a.offset + a.length) as usize];
             Ok(a_slice.cmp(b_slice).to_int())
         })
     }
@@ -237,7 +240,8 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.ints.access(|ints| {
-            let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
+            let slice = &ints
+                [self.offset as usize..(self.offset + self.length) as usize];
             write!(f, "[")?;
             for (i, v) in slice.iter().enumerate() {
                 if i > 0 {

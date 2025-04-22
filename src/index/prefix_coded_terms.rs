@@ -45,7 +45,11 @@ pub struct PrefixCodedTerms {
 }
 
 impl PrefixCodedTerms {
-    pub fn new(content: Vec<Cursor<Vec<u8>>>, content_len: i64, size: i64) -> Self {
+    pub fn new(
+        content: Vec<Cursor<Vec<u8>>>,
+        content_len: i64,
+        size: i64,
+    ) -> Self {
         debug_assert!(!content.is_empty());
         PrefixCodedTerms {
             content,
@@ -144,7 +148,11 @@ impl PrefixCodedTermsBuilder {
         self.add(term.field.to_string(), &term.bytes)
     }
     /// Add a term. This fully consumes the incoming [`BytesRef`].
-    pub fn add(&mut self, field: String, bytes: &BytesRef<Vec<u8>>) -> Result<()> {
+    pub fn add(
+        &mut self,
+        field: String,
+        bytes: &BytesRef<Vec<u8>>,
+    ) -> Result<()> {
         debug_assert!(
             self.last_term == Term::from_empty("".to_string())
                 || Term::new(field.clone(), bytes.clone()).cmp(&self.last_term)
@@ -154,7 +162,8 @@ impl PrefixCodedTermsBuilder {
         let prefix: i32;
         if self.size > 0 && field == self.last_term.field {
             // Same field as the last term
-            prefix = StringHelper::bytes_difference(&self.last_term.bytes, bytes)?;
+            prefix =
+                StringHelper::bytes_difference(&self.last_term.bytes, bytes)?;
             self.output.write_vint(prefix << 1)?;
         } else {
             // Field change
@@ -167,7 +176,8 @@ impl PrefixCodedTermsBuilder {
         let prefix = prefix as usize;
         self.output.write_vint(suffix)?;
         self.output.write_bytes_range(
-            &bytes.bytes[(bytes.offset + prefix)..(bytes.offset + prefix + suffix as usize)],
+            &bytes.bytes[(bytes.offset + prefix)
+                ..(bytes.offset + prefix + suffix as usize)],
             0,
             suffix,
         )?;
@@ -271,7 +281,9 @@ where
 #[cfg(test)]
 mod tests {
     use crate::index::field_term_iterator::FieldTermIterator;
-    use crate::index::prefix_coded_terms::{PrefixCodedTermsBuilder, TermIterator};
+    use crate::index::prefix_coded_terms::{
+        PrefixCodedTermsBuilder, TermIterator,
+    };
     use crate::index::term::Term;
     use crate::test::util::lucene_test_case::{at_least, random};
 
@@ -313,8 +325,10 @@ mod tests {
         let nterms = at_least(&mut random, 10_000);
 
         for _ in 0..nterms {
-            let field = TestUtil::random_unicode_string_with_length(&mut random, 2);
-            let text = TestUtil::random_unicode_string_with_length(&mut random, 0);
+            let field =
+                TestUtil::random_unicode_string_with_length(&mut random, 2);
+            let text =
+                TestUtil::random_unicode_string_with_length(&mut random, 0);
             let term = Term::from_text(field, &text);
             terms.insert(term);
         }

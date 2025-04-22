@@ -92,7 +92,10 @@ pub struct IntArrayDocIdSetIterator<'a> {
     doc: i32,
 }
 impl<'a> IntArrayDocIdSetIterator<'a> {
-    pub fn new(docs: &'a Vec<i32>, length: i32) -> IntArrayDocIdSetIterator<'a> {
+    pub fn new(
+        docs: &'a Vec<i32>,
+        length: i32,
+    ) -> IntArrayDocIdSetIterator<'a> {
         IntArrayDocIdSetIterator {
             docs,
             length,
@@ -172,7 +175,9 @@ mod tests {
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(
+                self, random, num_bits, ds1, ds2,
+            )
         }
     }
     #[test]

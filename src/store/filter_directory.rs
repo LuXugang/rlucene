@@ -74,7 +74,11 @@ where
         self.delegate.file_length(name)
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(
+        &mut self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexOutputType> {
         self.delegate.create_output(name, context)
     }
 
@@ -103,7 +107,11 @@ where
 
     type IndexInputType = D::IndexInputType;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType> {
         self.delegate.open_input(name, context)
     }
 

@@ -46,7 +46,13 @@ where
             sub_selector,
         }
     }
-    pub fn select(&mut self, mut from: i32, mut to: i32, k: i32, mut max_depth: i32) -> Result<()> {
+    pub fn select(
+        &mut self,
+        mut from: i32,
+        mut to: i32,
+        k: i32,
+        mut max_depth: i32,
+    ) -> Result<()> {
         // This code is inspired from IntroSorter#sort, adapted to loop on a single partition.
 
         // For efficiency, we must enter the loop with at least 4 entries to be able to skip
@@ -81,16 +87,19 @@ where
                 // is inspired from the interpolation search).
                 let range = size >> 3;
                 let double_range = range << 1;
-                let median_first = self.median(from, from + range, from + double_range);
+                let median_first =
+                    self.median(from, from + range, from + double_range);
                 let median_middle = self.median(mid - range, mid, mid + range);
-                let median_last = self.median(last - double_range, last - range, last);
+                let median_last =
+                    self.median(last - double_range, last - range, last);
                 if k - from < range {
                     // k is close to 'from': select the lowest median.
                     pivot = self.min(median_first, median_middle, median_last);
                 } else if to - k <= range {
                     pivot = self.max(median_first, median_middle, median_last);
                 } else {
-                    pivot = self.median(median_first, median_middle, median_last);
+                    pivot =
+                        self.median(median_first, median_middle, median_last);
                 }
             }
             // Bentley-McIlroy 3-way partitioning
@@ -157,14 +166,19 @@ where
         // Sort the final tiny range (3 entries or less) with a very specialized sort.
         match size {
             2 => {
-                if IntroSelectorBase::compare(&mut self.sub_selector, from, from + 1) > 0 {
+                if IntroSelectorBase::compare(
+                    &mut self.sub_selector,
+                    from,
+                    from + 1,
+                ) > 0
+                {
                     self.sub_selector.swap(from, from + 1)?;
                 }
-            }
+            },
             3 => {
                 self.sort3(from)?;
-            }
-            _ => {}
+            },
+            _ => {},
         }
         Ok(())
     }
@@ -177,7 +191,8 @@ where
             } else {
                 k
             }
-        } else if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0 {
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0
+        {
             j
         } else {
             k
@@ -204,7 +219,9 @@ where
             if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0 {
                 return j;
             }
-            return if IntroSelectorBase::compare(&mut self.sub_selector, i, k) < 0 {
+            return if IntroSelectorBase::compare(&mut self.sub_selector, i, k)
+                < 0
+            {
                 k
             } else {
                 i
@@ -226,17 +243,23 @@ where
         let last = from + 2;
 
         if IntroSelectorBase::compare(&mut self.sub_selector, from, mid) <= 0 {
-            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0
+            {
                 self.sub_selector.swap(mid, last)?;
-                if IntroSelectorBase::compare(&mut self.sub_selector, from, mid) > 0 {
+                if IntroSelectorBase::compare(&mut self.sub_selector, from, mid)
+                    > 0
+                {
                     self.sub_selector.swap(from, mid)?;
                 }
             }
-        } else if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) >= 0 {
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, mid, last)
+            >= 0
+        {
             self.sub_selector.swap(from, last)?;
         } else {
             self.sub_selector.swap(from, mid)?;
-            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0
+            {
                 self.sub_selector.swap(mid, last)?;
             }
         }
@@ -292,7 +315,9 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::selector::Selector;
-    use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt};
+    use crate::util::{
+        IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt,
+    };
     use rand::rngs::StdRng;
     use rand::Rng;
 
@@ -334,7 +359,13 @@ mod tests {
         if random.random_bool(0.5) {
             Selector::select(&mut selector, from, to, k)?;
         } else {
-            IntroSelector::select(&mut selector, from, to, k, random.random_range(0..3))?;
+            IntroSelector::select(
+                &mut selector,
+                from,
+                to,
+                k,
+                random.random_range(0..3),
+            )?;
         }
         assert_eq!(expected[k as usize], actual[k as usize]);
         for i in 0..actual.len() {

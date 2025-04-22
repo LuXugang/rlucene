@@ -30,7 +30,10 @@ pub trait BaseDataOutputTestCase {
     fn new_instance(&self) -> Result<Self::DO>;
     fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8>;
 
-    fn test_randomized_writes<DI: DataInput>(&mut self, random: &mut StdRng) -> Result<()> {
+    fn test_randomized_writes<DI: DataInput>(
+        &mut self,
+        random: &mut StdRng,
+    ) -> Result<()> {
         let seed: u64 = random.random();
         let mut instance = self.new_instance()?;
         let mut buffer = Vec::new();
@@ -63,14 +66,19 @@ pub fn add_random_data<DI: DataInput>(
 }
 type Generator<DO, DI, R> = fn(&mut DO, &mut R) -> Box<dyn FnMut(&mut DI)>;
 
-fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generator<DO, DI, R>> {
+fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>(
+) -> Vec<Generator<DO, DI, R>> {
     vec![
         //0 writeByte / readByte
         |dst, rnd| {
             let value: u8 = rnd.random();
             let _ = dst.write_byte(value);
             Box::new(move |src: &mut DI| {
-                assert_eq!(src.read_byte().unwrap(), value, "Condition failed for DI")
+                assert_eq!(
+                    src.read_byte().unwrap(),
+                    value,
+                    "Condition failed for DI"
+                )
             })
         },
         //1 writeBytes / readBytes (array and buffer version).

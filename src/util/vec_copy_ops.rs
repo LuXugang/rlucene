@@ -53,7 +53,11 @@ impl<T> SliceCopyOps<T> for [T] {
         );
 
         unsafe {
-            std::ptr::copy_nonoverlapping(src.as_ptr(), self.as_mut_ptr().add(offset), src.len());
+            std::ptr::copy_nonoverlapping(
+                src.as_ptr(),
+                self.as_mut_ptr().add(offset),
+                src.len(),
+            );
         }
     }
 }

@@ -17,7 +17,18 @@
 use strum_macros::{EnumCount, FromRepr};
 
 /// Describes how an [`IndexableField`](crate::index::indexable_field::IndexableField) should be inverted for indexing terms and postings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, Hash, EnumCount)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    FromRepr,
+    Hash,
+    EnumCount,
+)]
 #[repr(u8)]
 pub enum InvertableType {
     /// The field should be treated as a single value whose binary content is returned by [`IndexableField::binary_value()`](crate::index::indexable_field::IndexableField::binary_value).

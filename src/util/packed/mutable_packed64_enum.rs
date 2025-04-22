@@ -18,9 +18,10 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::packed64::Packed64;
 use crate::util::packed::packed64_single_block::{
-    Packed64SingleBlock, Packed64SingleBlock1, Packed64SingleBlock10, Packed64SingleBlock12,
-    Packed64SingleBlock16, Packed64SingleBlock2, Packed64SingleBlock21, Packed64SingleBlock3,
-    Packed64SingleBlock32, Packed64SingleBlock4, Packed64SingleBlock5, Packed64SingleBlock6,
+    Packed64SingleBlock, Packed64SingleBlock1, Packed64SingleBlock10,
+    Packed64SingleBlock12, Packed64SingleBlock16, Packed64SingleBlock2,
+    Packed64SingleBlock21, Packed64SingleBlock3, Packed64SingleBlock32,
+    Packed64SingleBlock4, Packed64SingleBlock5, Packed64SingleBlock6,
     Packed64SingleBlock7, Packed64SingleBlock8, Packed64SingleBlock9,
 };
 use crate::util::packed::{Mutable, MutableImpl, Reader};
@@ -90,69 +91,105 @@ impl Accountable for MutablePacked64Enum {
 impl Reader for MutablePacked64Enum {
     fn get(&mut self, index: i32) -> Result<i64> {
         match self {
-            MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock3(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock4(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock5(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock6(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock7(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock8(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock9(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock10(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock12(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock16(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock21(op) => op.sub_reader.get(index),
-            MutablePacked64Enum::P64SingleBlock32(op) => op.sub_reader.get(index),
+            MutablePacked64Enum::P64SingleBlock1(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock2(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock3(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock4(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock5(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock6(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock7(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock8(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock9(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock10(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock12(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock16(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock21(op) => {
+                op.sub_reader.get(index)
+            },
+            MutablePacked64Enum::P64SingleBlock32(op) => {
+                op.sub_reader.get(index)
+            },
             MutablePacked64Enum::P64(op) => op.sub_reader.get(index),
         }
     }
 
-    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn get_bulk(
+        &mut self,
+        index: i32,
+        arr: &mut [i64],
+        off: i32,
+        len: i32,
+    ) -> Result<i32> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock2(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock3(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock4(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock5(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock6(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock7(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock8(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock9(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock10(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock12(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock16(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock21(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock32(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)
-            }
-            MutablePacked64Enum::P64(op) => op.sub_reader.get_bulk(index, arr, off, len),
+            },
+            MutablePacked64Enum::P64(op) => {
+                op.sub_reader.get_bulk(index, arr, off, len)
+            },
         }
     }
 
@@ -189,80 +226,126 @@ impl Mutable for MutablePacked64Enum {
             MutablePacked64Enum::P64SingleBlock7(op) => op.get_bits_per_value(),
             MutablePacked64Enum::P64SingleBlock8(op) => op.get_bits_per_value(),
             MutablePacked64Enum::P64SingleBlock9(op) => op.get_bits_per_value(),
-            MutablePacked64Enum::P64SingleBlock10(op) => op.get_bits_per_value(),
-            MutablePacked64Enum::P64SingleBlock12(op) => op.get_bits_per_value(),
-            MutablePacked64Enum::P64SingleBlock16(op) => op.get_bits_per_value(),
-            MutablePacked64Enum::P64SingleBlock21(op) => op.get_bits_per_value(),
-            MutablePacked64Enum::P64SingleBlock32(op) => op.get_bits_per_value(),
+            MutablePacked64Enum::P64SingleBlock10(op) => {
+                op.get_bits_per_value()
+            },
+            MutablePacked64Enum::P64SingleBlock12(op) => {
+                op.get_bits_per_value()
+            },
+            MutablePacked64Enum::P64SingleBlock16(op) => {
+                op.get_bits_per_value()
+            },
+            MutablePacked64Enum::P64SingleBlock21(op) => {
+                op.get_bits_per_value()
+            },
+            MutablePacked64Enum::P64SingleBlock32(op) => {
+                op.get_bits_per_value()
+            },
             MutablePacked64Enum::P64(op) => op.get_bits_per_value(),
         }
     }
 
     fn set(&mut self, index: i32, value: i64) -> Result<()> {
         match self {
-            MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock3(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock4(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock5(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock6(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock7(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock8(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock9(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock10(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock12(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock16(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock21(op) => op.sub_reader.set(index, value),
-            MutablePacked64Enum::P64SingleBlock32(op) => op.sub_reader.set(index, value),
+            MutablePacked64Enum::P64SingleBlock1(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock2(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock3(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock4(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock5(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock6(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock7(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock8(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock9(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock10(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock12(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock16(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock21(op) => {
+                op.sub_reader.set(index, value)
+            },
+            MutablePacked64Enum::P64SingleBlock32(op) => {
+                op.sub_reader.set(index, value)
+            },
             MutablePacked64Enum::P64(op) => op.sub_reader.set(index, value),
         }
     }
 
-    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+    fn set_bulk(
+        &mut self,
+        index: i32,
+        arr: &[i64],
+        off: i32,
+        len: i32,
+    ) -> Result<i32> {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock2(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock3(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock4(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock5(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock6(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock7(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock8(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock9(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock10(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock12(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock16(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock21(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock32(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
-            }
-            MutablePacked64Enum::P64(op) => op.sub_reader.set_bulk(index, arr, off, len),
+            },
+            MutablePacked64Enum::P64(op) => {
+                op.sub_reader.set_bulk(index, arr, off, len)
+            },
         }
     }
 
@@ -270,47 +353,49 @@ impl Mutable for MutablePacked64Enum {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock2(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock3(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock4(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock5(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock6(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock7(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock8(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock9(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock10(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock12(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock16(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock21(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
+            },
             MutablePacked64Enum::P64SingleBlock32(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
-            }
-            MutablePacked64Enum::P64(op) => op.sub_reader.fill(from_index, to_index, val),
+            },
+            MutablePacked64Enum::P64(op) => {
+                op.sub_reader.fill(from_index, to_index, val)
+            },
         }
     }
 

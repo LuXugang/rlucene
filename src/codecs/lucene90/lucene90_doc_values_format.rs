@@ -139,12 +139,16 @@ impl Lucene90DocValuesFormat {
     pub const NUMERIC_BLOCK_SIZE: i32 = 1 << Self::NUMERIC_BLOCK_SHIFT;
 
     pub const TERMS_DICT_BLOCK_LZ4_SHIFT: i32 = 6;
-    pub const TERMS_DICT_BLOCK_LZ4_SIZE: i32 = 1 << Self::TERMS_DICT_BLOCK_LZ4_SHIFT;
-    pub const TERMS_DICT_BLOCK_LZ4_MASK: i32 = Self::TERMS_DICT_BLOCK_LZ4_SIZE - 1;
+    pub const TERMS_DICT_BLOCK_LZ4_SIZE: i32 =
+        1 << Self::TERMS_DICT_BLOCK_LZ4_SHIFT;
+    pub const TERMS_DICT_BLOCK_LZ4_MASK: i32 =
+        Self::TERMS_DICT_BLOCK_LZ4_SIZE - 1;
 
     pub const TERMS_DICT_REVERSE_INDEX_SHIFT: i32 = 10;
-    pub const TERMS_DICT_REVERSE_INDEX_SIZE: i32 = 1 << Self::TERMS_DICT_REVERSE_INDEX_SHIFT;
-    pub const TERMS_DICT_REVERSE_INDEX_MASK: i32 = Self::TERMS_DICT_REVERSE_INDEX_SIZE - 1;
+    pub const TERMS_DICT_REVERSE_INDEX_SIZE: i32 =
+        1 << Self::TERMS_DICT_REVERSE_INDEX_SHIFT;
+    pub const TERMS_DICT_REVERSE_INDEX_MASK: i32 =
+        Self::TERMS_DICT_REVERSE_INDEX_SIZE - 1;
 
     /// Number of documents in an interval
     pub const DEFAULT_SKIP_INDEX_INTERVAL_SIZE: i32 = 4096;
@@ -165,9 +169,13 @@ impl Lucene90DocValuesFormat {
     pub const SKIP_INDEX_MAX_LEVEL: usize = 4;
 
     pub fn new() -> Result<Self> {
-        Self::new_with_skip_index_interval_size(Self::DEFAULT_SKIP_INDEX_INTERVAL_SIZE)
+        Self::new_with_skip_index_interval_size(
+            Self::DEFAULT_SKIP_INDEX_INTERVAL_SIZE,
+        )
     }
-    pub fn new_with_skip_index_interval_size(skip_index_interval_size: i32) -> Result<Self> {
+    pub fn new_with_skip_index_interval_size(
+        skip_index_interval_size: i32,
+    ) -> Result<Self> {
         if skip_index_interval_size < 2 {
             return Err(LuceneError::illegal_argument(format!(
                 "skip_index_interval_size must be > 1, got [{}]",
@@ -218,7 +226,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
         )
     }
 
-    type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T, Vec<u8>>;
+    type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T>;
 
     fn fields_producer<D>(
         &self,
@@ -248,12 +256,15 @@ pub static SKIP_INDEX_JUMP_LENGTH_PER_LEVEL: Lazy<
         // Jump from previous level
         arr[level] = arr[level - 1];
         // Nodes added by new level
-        arr[level] += (1 << (level as i32 * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT))
+        arr[level] += (1
+            << (level as i32 * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT))
             as i64
             * Lucene90DocValuesFormat::SKIP_INDEX_INTERVAL_BYTES;
         // Remove the byte levels added in the previous level
-        arr[level] -=
-            (1 << ((level as i32 - 1) * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64;
+        arr[level] -= (1
+            << ((level as i32 - 1)
+                * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT))
+            as i64;
     }
     arr
 });

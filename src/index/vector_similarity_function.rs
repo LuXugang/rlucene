@@ -16,7 +16,9 @@
  */
 use strum_macros::{EnumCount, FromRepr};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, EnumCount)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, EnumCount,
+)]
 #[repr(u8)]
 pub enum VectorSimilarityFunction {
     Euclidean,

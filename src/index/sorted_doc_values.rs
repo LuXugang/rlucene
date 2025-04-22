@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::terms_enums::TermsEnums;
+use crate::index::terms_enum::TermsEnum;
+
 use crate::index::BytesRef;
-use crate::store::IndexInput;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
@@ -29,9 +29,8 @@ use std::borrow::Cow;
 /// Per-document values in a `SortedDocValues` are deduplicated, dereferenced, and sorted into a
 /// dictionary of unique values. A pointer to the dictionary value (ordinal) can be retrieved for
 /// each document. Ordinals are dense and in increasing sorted order.
-pub trait SortedDocValues<I, AV>: DocValuesIterator
+pub trait SortedDocValues<AV>: DocValuesIterator
 where
-    I: IndexInput,
     AV: AccessVec<u8>,
 {
     /// Returns the ordinal for the current docID.
@@ -61,7 +60,7 @@ where
     /// Returns the number of unique sorted values in this doc values set.
     ///
     /// This is equivalent to one plus the maximum ordinal.
-    fn get_value_count(&self) -> Result<i32> {
+    fn get_value_count(&mut self) -> Result<i32> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -91,9 +90,10 @@ where
         }
         Ok(-(low + 1)) // key not found
     }
+    type TermsEnum: TermsEnum<AV>;
     /// Returns a [`TermsEnum`](crate::index::terms_enum::TermsEnum) over the values.
     /// The enum supports [`TermsEnum::ord()`](crate::index::terms_enum::TermsEnum::ord) and [`TermsEnum::seek_exact_with_ord()`](crate::index::terms_enum::TermsEnum::seek_exact_with_ord).
-    fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
         Err(LuceneError::not_implemented(""))
     }
     // TODO:

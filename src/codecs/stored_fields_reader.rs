@@ -62,9 +62,15 @@ where
         }
     }
 
-    fn document(&mut self, doc_id: i32, writer: &mut impl StoredFieldsWriter) -> Result<Document> {
+    fn document(
+        &mut self,
+        doc_id: i32,
+        writer: &mut impl StoredFieldsWriter,
+    ) -> Result<Document> {
         match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => reader.document(doc_id, writer),
+            StoredFieldsReaderEnum::Lucene90(reader) => {
+                reader.document(doc_id, writer)
+            },
         }
     }
 
@@ -77,7 +83,7 @@ where
         match self {
             StoredFieldsReaderEnum::Lucene90(reader) => {
                 reader.document_with_visitor(doc_id, visitor, writer)
-            }
+            },
         }
     }
 
@@ -90,7 +96,7 @@ where
         match self {
             StoredFieldsReaderEnum::Lucene90(reader) => {
                 reader.document_with_fields(doc_id, fields_to_load, writer)
-            }
+            },
         }
     }
 }
@@ -106,7 +112,7 @@ where
         match self {
             StoredFieldsReaderEnum::Lucene90(reader) => {
                 Ok(StoredFieldsReaderEnum::Lucene90(reader.try_clone()?))
-            }
+            },
         }
     }
 }
@@ -117,13 +123,17 @@ where
 {
     fn check_integrity(&mut self) -> Result<()> {
         match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => reader.check_integrity(),
+            StoredFieldsReaderEnum::Lucene90(reader) => {
+                reader.check_integrity()
+            },
         }
     }
 
     fn get_merge_instance(&self) -> Result<Option<StoredFieldsReaderEnum<I>>> {
         match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => reader.get_merge_instance(),
+            StoredFieldsReaderEnum::Lucene90(reader) => {
+                reader.get_merge_instance()
+            },
         }
     }
 }

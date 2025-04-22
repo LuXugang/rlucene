@@ -61,7 +61,9 @@ pub struct SparseFixedBitSet {
 impl SparseFixedBitSet {
     pub fn new(length: i32) -> Result<SparseFixedBitSet> {
         if length < 1 {
-            return Err(LuceneError::illegal_argument("length needs to be >= 1"));
+            return Err(LuceneError::illegal_argument(
+                "length needs to be >= 1",
+            ));
         }
         let block_count = block_count(length);
         let indices = vec![0; block_count as usize];
@@ -121,8 +123,10 @@ impl SparseFixedBitSet {
         let index = self.indices[i4096 as usize];
         if index as u64 & (1_u64 << (i64 % 64)) != 0 {
             // offset of the long bits we are interested in in the array
-            let o = (index as u64 & ((1_u64 << (i64 % 64)) - 1)).count_ones() as usize;
-            let bits = self.bits[i4096 as usize].as_ref().unwrap()[o] & mask as u64;
+            let o = (index as u64 & ((1_u64 << (i64 % 64)) - 1)).count_ones()
+                as usize;
+            let bits =
+                self.bits[i4096 as usize].as_ref().unwrap()[o] & mask as u64;
             if bits == 0 {
                 self.remove_long(i4096, i64, index, o as i32);
             } else {
@@ -169,7 +173,8 @@ impl SparseFixedBitSet {
                 let i64 = index.trailing_zeros() as i32;
                 return (i4096 << 12)
                     | (i64 << 6)
-                    | self.bits[i4096 as usize].as_ref().unwrap()[0].trailing_zeros() as i32;
+                    | self.bits[i4096 as usize].as_ref().unwrap()[0]
+                        .trailing_zeros() as i32;
             }
             i4096 += 1;
         }
@@ -182,9 +187,11 @@ impl SparseFixedBitSet {
             index = self.indices[i4096 as usize];
             if index != 0 {
                 let i64 = 63 - index.leading_zeros() as i32;
-                let bits =
-                    self.bits[i4096 as usize].as_ref().unwrap()[index.count_ones() as usize - 1];
-                return (i4096 << 12) | (i64 << 6) | (63 - bits.count_ones() as i32);
+                let bits = self.bits[i4096 as usize].as_ref().unwrap()
+                    [index.count_ones() as usize - 1];
+                return (i4096 << 12)
+                    | (i64 << 6)
+                    | (63 - bits.count_ones() as i32);
             }
             i4096 -= 1;
         }
@@ -246,7 +253,13 @@ impl SparseFixedBitSet {
         }
     }
 
-    fn or_impl(&mut self, i4096: i32, index: i64, bits: &[u64], non_zero_long_count: i32) {
+    fn or_impl(
+        &mut self,
+        i4096: i32,
+        index: i64,
+        bits: &[u64],
+        non_zero_long_count: i32,
+    ) {
         debug_assert_eq!(index.count_ones(), non_zero_long_count as u32);
         let current_index = self.indices[i4096 as usize];
         if current_index == 0 {
@@ -264,7 +277,9 @@ impl SparseFixedBitSet {
         let current_bits = self.bits[i4096 as usize].take();
         let new_index = current_index | index;
         let required_capacity = new_index.count_ones();
-        let mut new_bits = if current_bits.as_ref().unwrap().len() >= required_capacity as usize {
+        let mut new_bits = if current_bits.as_ref().unwrap().len()
+            >= required_capacity as usize
+        {
             current_bits.as_ref().unwrap().clone()
         } else {
             //TODO
@@ -279,13 +294,17 @@ impl SparseFixedBitSet {
             // bitIndex is the index of a bit which is set in newIndex and newO is the number of 1 bits on
             // its right
             let bit_index = 63 - i;
-            debug_assert!(new0 == (new_index as u64 & (1_u64 << (bit_index % 64))).count_ones());
-            new_bits[new0 as usize] = (long_bits(
-                current_index,
-                current_bits.as_ref().unwrap(),
-                bit_index as i32,
-            ) | long_bits(index, bits, bit_index as i32))
-                as u64;
+            debug_assert!(
+                new0 == (new_index as u64 & (1_u64 << (bit_index % 64)))
+                    .count_ones()
+            );
+            new_bits[new0 as usize] =
+                (long_bits(
+                    current_index,
+                    current_bits.as_ref().unwrap(),
+                    bit_index as i32,
+                ) | long_bits(index, bits, bit_index as i32))
+                    as u64;
             i += 1 + (new_index << (i + 1)).count_ones();
             new0 -= 1;
         }
@@ -378,7 +397,8 @@ fn long_bits(index: i64, bits: &[u64], i64: i32) -> i64 {
     if ((index as u64) & (1_u64 << (i64 % 64))) == 0 {
         0
     } else {
-        bits[(index as u64 & ((1_u64 << (i64 % 64)) - 1)).count_ones() as usize] as i64
+        bits[(index as u64 & ((1_u64 << (i64 % 64)) - 1)).count_ones() as usize]
+            as i64
     }
 }
 
@@ -432,7 +452,8 @@ impl BitSet for SparseFixedBitSet {
             // we just need to set a bit in an existing long: the number of ones on
             // the right of i64 gives us the index of the long we need to update
             let o = (index as u64 & (i64bit - 1)).count_ones() as usize;
-            let bit = self.bits[i4096 as usize].as_ref().unwrap()[o] | (1_u64 << (i % 64));
+            let bit = self.bits[i4096 as usize].as_ref().unwrap()[o]
+                | (1_u64 << (i % 64));
             self.bits[i4096 as usize].as_mut().unwrap()[o] = bit;
         } else if index == 0 {
             // if the index is 0, it means that we just found a block of 4096 bits
@@ -458,7 +479,8 @@ impl BitSet for SparseFixedBitSet {
             // the right of i64 gives us the index of the long we need to update
             let location = (index as u64 & (i64bit - 1)).count_ones() as usize;
             let bit = 1_u64 << (i % 64);
-            let v = self.bits[i4096 as usize].as_mut().unwrap()[location] & bit != 0;
+            let v = self.bits[i4096 as usize].as_mut().unwrap()[location] & bit
+                != 0;
             let bits = self.bits[i4096 as usize].as_mut().unwrap()[location];
             self.bits[i4096 as usize].as_mut().unwrap()[location] = bits | bit;
             v
@@ -492,11 +514,16 @@ impl BitSet for SparseFixedBitSet {
         let first_block = from >> 12;
         let last_block = (to - 1) >> 12;
         if first_block == last_block {
-            self.clear_within_block(first_block, from & MASK_4096, (to - 1) & MASK_4096);
+            self.clear_within_block(
+                first_block,
+                from & MASK_4096,
+                (to - 1) & MASK_4096,
+            );
         } else {
             self.clear_within_block(first_block, from & MASK_4096, MASK_4096);
             for i in first_block + 1..last_block {
-                self.non_zero_long_count -= self.indices[i as usize].count_ones() as i32;
+                self.non_zero_long_count -=
+                    self.indices[i as usize].count_ones() as i32;
                 self.indices[i as usize] = 0;
                 self.bits[i as usize].take();
             }
@@ -523,8 +550,9 @@ impl BitSet for SparseFixedBitSet {
         let zero_longs = total_longs - self.non_zero_long_count; // number of longs that are zero
                                                                  // No need to guard against division by zero, it will return +Infinity and things will work as
                                                                  // expected
-        let estimate =
-            (total_longs as f64 * (total_longs as f64 / zero_longs as f64).ln()).round() as i64;
+        let estimate = (total_longs as f64
+            * (total_longs as f64 / zero_longs as f64).ln())
+        .round() as i64;
         std::cmp::min(self.length as i64, estimate) as i32
     }
 
@@ -639,8 +667,14 @@ mod tests {
                 if n != 0 {
                     non_zero_long_count += n;
                     let mut j = n;
-                    while j < sparse_fixed_bit_set.get_bits()[i].as_ref().unwrap().len() as u32 {
-                        let array = sparse_fixed_bit_set.get_bits()[i].as_ref().unwrap();
+                    while j < sparse_fixed_bit_set.get_bits()[i]
+                        .as_ref()
+                        .unwrap()
+                        .len() as u32
+                    {
+                        let array = sparse_fixed_bit_set.get_bits()[i]
+                            .as_ref()
+                            .unwrap();
                         assert_eq!(array[j as usize], 0);
                         j += 1;
                     }
@@ -650,7 +684,9 @@ mod tests {
                 non_zero_long_count,
                 sfbs.as_ref().unwrap().get_non_zero_long_count() as u32
             );
-            BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
+            BaseBitSetTestCaseSupperImpl::assert_equals(
+                self, set1, set2, max_doc, sfbs,
+            );
         }
     }
 

@@ -66,8 +66,8 @@ impl<T: PartialEq> ApproximatePriorityQueue<T> {
         // Look at indexes 0..63 first, which are sparsely populated.
         let mut next_slot = 0;
         while next_slot < i64::BITS as usize {
-            let next_used_slot =
-                next_slot + (self.used_slots >> next_slot).trailing_zeros() as usize;
+            let next_used_slot = next_slot
+                + (self.used_slots >> next_slot).trailing_zeros() as usize;
             if next_used_slot >= i64::BITS as usize {
                 break;
             }

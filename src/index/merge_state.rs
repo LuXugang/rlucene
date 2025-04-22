@@ -27,23 +27,21 @@ use crate::index::tests::DocMapMock2;
 use crate::store::IndexInput;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::DocMapMock;
-use crate::util::access::AccessVec;
 use crate::util::bits::BitsEnum;
 use crate::util::info_stream::InfoStreamEnum;
 use parking_lot::Mutex;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub struct MergeState<I, AV>
+pub struct MergeState<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     pub doc_maps: Vec<Rc<DocMapEnum>>,
     pub merge_field_infos: Rc<FieldInfos>,
     pub stored_fields_readers: Vec<StoredFieldsReaderEnum<I>>,
     pub norms_producers: Vec<Option<NormsProducerEnum<I>>>,
-    pub doc_values_producers: Vec<Option<DocValuesProducerEnum<I, AV>>>,
+    pub doc_values_producers: Vec<Option<DocValuesProducerEnum<I>>>,
     pub field_infos: Vec<Rc<FieldInfos>>,
     pub live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub needs_index_sort: bool,

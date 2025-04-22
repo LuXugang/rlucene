@@ -157,7 +157,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
                 } else {
                     Ok(Status::No)
                 }
-            }
+            },
             None => Ok(Status::Yes),
         }
     }

@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 use crate::index::index_sorter::{
-    DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
+    DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter,
+    StringSorter,
 };
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
+use crate::search::sort_field::{
+    MissingValueEnum, SortField, SortFieldType, SortFiledBase,
+};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_numeric_selector::SortedNumericSelectorType;
 use crate::store::{DataInput, DataOutput};
@@ -77,8 +80,11 @@ impl SortedNumericSortField {
         reverse: bool,
         selector: SortedNumericSelectorType,
     ) -> Result<Self> {
-        let sort_field =
-            SortField::with_reverse(Some(field.clone()), SortFieldType::Custom, reverse)?;
+        let sort_field = SortField::with_reverse(
+            Some(field.clone()),
+            SortFieldType::Custom,
+            reverse,
+        )?;
         Ok(SortedNumericSortField {
             sort_field_type,
             selector,
@@ -102,7 +108,10 @@ impl SortedNumericSortField {
 }
 
 impl SortFiledBase for SortedNumericSortField {
-    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
+    fn set_missing_value(
+        &mut self,
+        missing_value: Option<MissingValueEnum>,
+    ) -> Result<()> {
         self.parent_sort.missing_value = missing_value;
         Ok(())
     }
@@ -112,18 +121,26 @@ impl SortFiledBase for SortedNumericSortField {
             SortFieldType::Int => Some(IndexSortEnum::IntSorter(IntSorter {
                 provider_name: NumericProvider::NAME.to_string(),
             })),
-            SortFieldType::Float => Some(IndexSortEnum::FloatSorter(FloatSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
-            SortFieldType::Long => Some(IndexSortEnum::LongSorter(LongSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
-            SortFieldType::Double => Some(IndexSortEnum::DoubleSorter(DoubleSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
-            SortFieldType::String => Some(IndexSortEnum::StringSorter(StringSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
+            SortFieldType::Float => {
+                Some(IndexSortEnum::FloatSorter(FloatSorter {
+                    provider_name: NumericProvider::NAME.to_string(),
+                }))
+            },
+            SortFieldType::Long => {
+                Some(IndexSortEnum::LongSorter(LongSorter {
+                    provider_name: NumericProvider::NAME.to_string(),
+                }))
+            },
+            SortFieldType::Double => {
+                Some(IndexSortEnum::DoubleSorter(DoubleSorter {
+                    provider_name: NumericProvider::NAME.to_string(),
+                }))
+            },
+            SortFieldType::String => {
+                Some(IndexSortEnum::StringSorter(StringSorter {
+                    provider_name: NumericProvider::NAME.to_string(),
+                }))
+            },
             _ => None,
         }
     }
@@ -145,7 +162,7 @@ impl SortFiledBase for SortedNumericSortField {
                             "Missing value type mismatch for INT.".to_string(),
                         ));
                     }
-                }
+                },
                 SortFieldType::Long => {
                     if let MissingValueEnum::Long(value) = missing_value {
                         out.write_long(*value)?;
@@ -154,25 +171,31 @@ impl SortFiledBase for SortedNumericSortField {
                             "Missing value type mismatch for LONG.".to_string(),
                         ));
                     }
-                }
+                },
                 SortFieldType::Float => {
                     if let MissingValueEnum::Float(value) = missing_value {
-                        out.write_int(NumericUtils::float_to_sortable_int(*value))?;
+                        out.write_int(NumericUtils::float_to_sortable_int(
+                            *value,
+                        ))?;
                     } else {
                         return Err(LuceneError::illegal_state(
-                            "Missing value type mismatch for FLOAT.".to_string(),
+                            "Missing value type mismatch for FLOAT."
+                                .to_string(),
                         ));
                     }
-                }
+                },
                 SortFieldType::Double => {
                     if let MissingValueEnum::Double(value) = missing_value {
-                        out.write_long(NumericUtils::double_to_sortable_long(*value))?;
+                        out.write_long(NumericUtils::double_to_sortable_long(
+                            *value,
+                        ))?;
                     } else {
                         return Err(LuceneError::illegal_state(
-                            "Missing value type mismatch for DOUBLE.".to_string(),
+                            "Missing value type mismatch for DOUBLE."
+                                .to_string(),
                         ));
                     }
-                }
+                },
                 SortFieldType::Custom
                 | SortFieldType::Doc
                 | SortFieldType::Rewritable
@@ -183,7 +206,7 @@ impl SortFiledBase for SortedNumericSortField {
                         "Cannot serialize field of type {:?}.",
                         self.sort_field_type
                     )));
-                }
+                },
             }
         } else {
             out.write_int(0)?;
@@ -225,37 +248,49 @@ impl NumericProvider {
     pub const NAME: &'static str = "SortedNumericSortField";
 }
 impl SortFieldProvider for NumericProvider {
-    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
+    fn read_sort_field(
+        &self,
+        data_input: &mut impl DataInput,
+    ) -> Result<SortFieldEnum> {
         let field_name = data_input.read_string()?;
         let field_type = SortFieldType::read_type(data_input)?;
         let reverse = data_input.read_int()? == 1;
         let selector = SortedNumericSortField::read_selector_type(data_input)?;
         let mut sorted_numeric_sort_field =
-            SortedNumericSortField::with_selector(field_name, field_type, reverse, selector)?;
+            SortedNumericSortField::with_selector(
+                field_name, field_type, reverse, selector,
+            )?;
         let value = data_input.read_int()?;
         if value == 1 {
             match field_type {
                 SortFieldType::Int => {
                     let missing_value = data_input.read_int()?;
-                    sorted_numeric_sort_field
-                        .set_missing_value(Some(MissingValueEnum::Int(missing_value)))?;
-                }
+                    sorted_numeric_sort_field.set_missing_value(Some(
+                        MissingValueEnum::Int(missing_value),
+                    ))?;
+                },
                 SortFieldType::Long => {
                     let missing_value = data_input.read_long()?;
-                    sorted_numeric_sort_field
-                        .set_missing_value(Some(MissingValueEnum::Long(missing_value)))?;
-                }
+                    sorted_numeric_sort_field.set_missing_value(Some(
+                        MissingValueEnum::Long(missing_value),
+                    ))?;
+                },
                 SortFieldType::Float => {
-                    let missing_value = NumericUtils::sortable_int_to_float(data_input.read_int()?);
-                    sorted_numeric_sort_field
-                        .set_missing_value(Some(MissingValueEnum::Float(missing_value)))?;
-                }
+                    let missing_value = NumericUtils::sortable_int_to_float(
+                        data_input.read_int()?,
+                    );
+                    sorted_numeric_sort_field.set_missing_value(Some(
+                        MissingValueEnum::Float(missing_value),
+                    ))?;
+                },
                 SortFieldType::Double => {
-                    let missing_value =
-                        NumericUtils::sortable_long_to_double(data_input.read_long()?);
-                    sorted_numeric_sort_field
-                        .set_missing_value(Some(MissingValueEnum::Double(missing_value)))?;
-                }
+                    let missing_value = NumericUtils::sortable_long_to_double(
+                        data_input.read_long()?,
+                    );
+                    sorted_numeric_sort_field.set_missing_value(Some(
+                        MissingValueEnum::Double(missing_value),
+                    ))?;
+                },
                 SortFieldType::Custom
                 | SortFieldType::Doc
                 | SortFieldType::Rewritable
@@ -266,7 +301,7 @@ impl SortFieldProvider for NumericProvider {
                         "Cannot deserialize sort of type {:?}",
                         field_type
                     )));
-                }
+                },
             }
         } else {
             debug_assert!(value == 0);
@@ -274,7 +309,11 @@ impl SortFieldProvider for NumericProvider {
         Ok(SortFieldEnum::SortedNumeric(sorted_numeric_sort_field))
     }
 
-    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+    fn write_sort_field(
+        &self,
+        sf: &SortFieldEnum,
+        output: &mut impl DataOutput,
+    ) -> Result<()> {
         sf.serialize(output)
     }
 }
@@ -283,7 +322,8 @@ impl PartialEq for SortedNumericSortField {
         if self.parent_sort != other.parent_sort {
             return false;
         }
-        self.selector == other.selector && self.sort_field_type == other.sort_field_type
+        self.selector == other.selector
+            && self.sort_field_type == other.sort_field_type
     }
 }
 impl Eq for SortedNumericSortField {}

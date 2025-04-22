@@ -49,7 +49,12 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        b: &mut [u8],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         let offset = offset as usize;
         let len = len as usize;
         self.buf.access_mut(|buf| {

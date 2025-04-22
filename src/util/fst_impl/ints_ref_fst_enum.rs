@@ -81,10 +81,12 @@ where
                 base.target_length = self.target.length;
                 base.do_seek_ceil(self)?;
                 self.base = Some(base);
-            }
+            },
             None => {
-                return Err(LuceneError::illegal_state("base is None".to_string()));
-            }
+                return Err(LuceneError::illegal_state(
+                    "base is None".to_string(),
+                ));
+            },
         }
         self.set_result()
     }
@@ -100,10 +102,12 @@ where
                 base.target_length = self.target.length;
                 base.do_seek_floor(self)?;
                 self.base = Some(base);
-            }
+            },
             None => {
-                return Err(LuceneError::illegal_state("base is None".to_string()));
-            }
+                return Err(LuceneError::illegal_state(
+                    "base is None".to_string(),
+                ));
+            },
         }
         self.set_result()
     }
@@ -119,14 +123,17 @@ where
             Some(mut base) => {
                 base.target_length = self.target.length;
                 if base.do_seek_exact(self)? {
-                    debug_assert_eq!(base.upto, 1 + self.target.length as usize);
+                    debug_assert_eq!(
+                        base.upto,
+                        1 + self.target.length as usize
+                    );
                     self.base = Some(base);
                     self.set_result()
                 } else {
                     self.base = Some(base);
                     Ok(None)
                 }
-            }
+            },
             None => Err(LuceneError::illegal_state("base is None".to_string())),
         }
     }
@@ -155,7 +162,8 @@ where
             if base.upto - 1 == self.target.length as usize {
                 Ok(fst_util::END_LABEL)
             } else {
-                Ok(self.target.ints[self.target.offset as usize + base.upto - 1])
+                Ok(self.target.ints
+                    [self.target.offset as usize + base.upto - 1])
             }
         })
     }
@@ -174,7 +182,10 @@ where
 
     fn grow(&mut self) -> Result<()> {
         self.base.take_do_return(|base| {
-            ArrayUtil::grow_with_len(&mut self.current.borrow_mut().ints, base.upto + 1);
+            ArrayUtil::grow_with_len(
+                &mut self.current.borrow_mut().ints,
+                base.upto + 1,
+            );
             Ok(())
         })
     }

@@ -27,8 +27,8 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{
-    BytesRefArray, Counter, CounterEnumLock, IndexedBytesRefIteratorImpl, MTBytesRefArray,
-    NaturalOrder, SortState, SortableBytesRefArray,
+    BytesRefArray, Counter, CounterEnumLock, IndexedBytesRefIteratorImpl,
+    MTBytesRefArray, NaturalOrder, SortState, SortableBytesRefArray,
 };
 use std::cmp::{max, min, Ordering};
 use std::sync::Arc;
@@ -82,9 +82,12 @@ impl FieldUpdatesBuffer {
             None
         };
         bytes_used.access_mut(|bytes_used_guard| {
-            bytes_used_guard.add_and_get(Self::size_of_string(&initial_value.term.field));
+            bytes_used_guard
+                .add_and_get(Self::size_of_string(&initial_value.term.field));
             if !initial_value.has_value {
-                bytes_used_guard.add_and_get(has_values.as_ref().unwrap().ram_bytes_used()?);
+                bytes_used_guard.add_and_get(
+                    has_values.as_ref().unwrap().ram_bytes_used()?,
+                );
             }
             // Help the compiler infer types.
             Ok::<(), LuceneError>(())
@@ -117,10 +120,12 @@ impl FieldUpdatesBuffer {
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
     ) -> Result<Self> {
-        let numeric = initial_value
-            .sub_update
-            .get_numeric()
-            .ok_or_else(|| LuceneError::illegal_argument("Missing numeric value".to_string()))?;
+        let numeric =
+            initial_value.sub_update.get_numeric().ok_or_else(|| {
+                LuceneError::illegal_argument(
+                    "Missing numeric value".to_string(),
+                )
+            })?;
         let has_values = numeric.has_value();
         let (numeric_values, max_numeric, min_numeric) = if has_values {
             let value = numeric.get_value();
@@ -146,17 +151,20 @@ impl FieldUpdatesBuffer {
         initial_value: &DocValuesUpdate,
         doc_up_to: i32,
     ) -> Result<Self> {
-        let binary = initial_value
-            .sub_update
-            .get_binary()
-            .ok_or_else(|| LuceneError::illegal_argument("Missing binary value".to_string()))?;
+        let binary =
+            initial_value.sub_update.get_binary().ok_or_else(|| {
+                LuceneError::illegal_argument(
+                    "Missing binary value".to_string(),
+                )
+            })?;
         let has_values = binary.has_value();
         let value = if has_values {
             binary.get_value()
         } else {
             BytesRef::default()
         };
-        let mut buffer = Self::new(bytes_used, initial_value, doc_up_to, false)?;
+        let mut buffer =
+            Self::new(bytes_used, initial_value, doc_up_to, false)?;
         if has_values {
             debug_assert!(buffer.byte_values.is_some());
             buffer.byte_values.as_mut().unwrap().append(&value)?;
@@ -214,7 +222,10 @@ impl FieldUpdatesBuffer {
         let docs_up_to_len = self.docs_up_to.len();
         if self.docs_up_to[0] != doc_upto || docs_up_to_len != 1 {
             if docs_up_to_len <= ord as usize {
-                ArrayUtil::grow_with_len(&mut self.docs_up_to, (ord + 1) as usize);
+                ArrayUtil::grow_with_len(
+                    &mut self.docs_up_to,
+                    (ord + 1) as usize,
+                );
                 if docs_up_to_len == 1 {
                     for i in 1..ord as usize {
                         self.docs_up_to[i] = self.docs_up_to[0];
@@ -245,7 +256,12 @@ impl FieldUpdatesBuffer {
         }
         Ok(())
     }
-    pub fn add_update_with_long(&mut self, term: &Term, value: i64, doc_up_to: i32) -> Result<()> {
+    pub fn add_update_with_long(
+        &mut self,
+        term: &Term,
+        value: i64,
+        doc_up_to: i32,
+    ) -> Result<()> {
         debug_assert!(self.is_numeric);
         let ord = self.append(term)?;
         let field = term.field.clone();
@@ -270,7 +286,11 @@ impl FieldUpdatesBuffer {
         Ok(())
     }
 
-    pub(crate) fn add_no_value(&mut self, term: &Term, doc_up_to: i32) -> Result<()> {
+    pub(crate) fn add_no_value(
+        &mut self,
+        term: &Term,
+        doc_up_to: i32,
+    ) -> Result<()> {
         let ord = self.append(term)?;
         self.add(term.field.clone(), doc_up_to, ord, false)
     }
@@ -301,10 +321,12 @@ impl FieldUpdatesBuffer {
             ));
         }
         self.finished = true;
-        let sorted_terms =
-            self.has_single_value() && self.has_values.is_none() && self.fields.len() == 1;
+        let sorted_terms = self.has_single_value()
+            && self.has_values.is_none()
+            && self.fields.len() == 1;
         if sorted_terms {
-            self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder::default(), true)?);
+            self.term_sort_state =
+                Arc::new(self.term_values.sort(NaturalOrder::default(), true)?);
             debug_assert!(self.assert_term_and_doc_in_order());
             // TODO: memory calculation not implemented
             self.bytes_used.lock().add_and_get(0);
@@ -325,15 +347,24 @@ impl FieldUpdatesBuffer {
                 let current = current.into_owned();
                 if let Some(last_term) = &last {
                     let cmp = current.cmp(last_term);
-                    debug_assert_ne!(cmp, Ordering::Less, "term in reverse order");
-                    let last_doc_up_to = self.docs_up_to
-                        [Self::get_array_index(self.docs_up_to.len() as i32, last_ord) as usize];
-                    let current_doc_up_to = self.docs_up_to[Self::get_array_index(
+                    debug_assert_ne!(
+                        cmp,
+                        Ordering::Less,
+                        "term in reverse order"
+                    );
+                    let last_doc_up_to = self.docs_up_to[Self::get_array_index(
                         self.docs_up_to.len() as i32,
-                        iterator.ord(),
-                    ) as usize];
+                        last_ord,
+                    )
+                        as usize];
+                    let current_doc_up_to = self.docs_up_to
+                        [Self::get_array_index(
+                            self.docs_up_to.len() as i32,
+                            iterator.ord(),
+                        ) as usize];
                     debug_assert!(
-                        cmp != Ordering::Equal || last_doc_up_to <= current_doc_up_to,
+                        cmp != Ordering::Equal
+                            || last_doc_up_to <= current_doc_up_to,
                         "doc id in reverse order"
                     );
                 }
@@ -374,7 +405,8 @@ impl FieldUpdatesBuffer {
         assert!(self.numeric_values.is_some());
         let length = self.numeric_values.as_ref().unwrap().len();
         debug_assert!(length <= i32::MAX as usize);
-        self.numeric_values.as_ref().unwrap()[Self::get_array_index(length as i32, idx) as usize]
+        self.numeric_values.as_ref().unwrap()
+            [Self::get_array_index(length as i32, idx) as usize]
     }
     fn get_array_index(array_length: i32, index: i32) -> i32 {
         assert!(
@@ -389,9 +421,12 @@ impl FieldUpdatesBuffer {
 /// An iterator that iterates over all updates in insertion order.
 #[allow(unused)]
 pub struct BufferedUpdateIterator<'a> {
-    term_values_iterator: IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>,
-    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>>,
-    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>>,
+    term_values_iterator:
+        IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>,
+    look_ahead_term_iterator:
+        Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>>,
+    byte_values_iterator:
+        Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock, Vec<u8>>>,
     buffered_update: BufferedUpdate,
     updates_with_value: Option<BitsEnum<'a>>,
     fields_length: i32,
@@ -406,15 +441,14 @@ impl<'a> BufferedUpdateIterator<'a> {
         let term_values_iterator = field_updates_buffer
             .term_values
             .iterator_with_state(field_updates_buffer.term_sort_state.clone());
-        let look_ahead_term_iterator = if field_updates_buffer.term_sort_state.indices.is_some() {
-            Some(
-                field_updates_buffer
-                    .term_values
-                    .iterator_with_state(field_updates_buffer.term_sort_state.clone()),
-            )
-        } else {
-            None
-        };
+        let look_ahead_term_iterator =
+            if field_updates_buffer.term_sort_state.indices.is_some() {
+                Some(field_updates_buffer.term_values.iterator_with_state(
+                    field_updates_buffer.term_sort_state.clone(),
+                ))
+            } else {
+                None
+            };
         let byte_values_iterator = if field_updates_buffer.is_numeric {
             None
         } else {
@@ -427,7 +461,9 @@ impl<'a> BufferedUpdateIterator<'a> {
                     .iterator(),
             )
         };
-        let updates_with_value = if let Some(item) = &field_updates_buffer.has_values {
+        let updates_with_value = if let Some(item) =
+            &field_updates_buffer.has_values
+        {
             BitsEnum::Fixed(item)
         } else {
             BitsEnum::All(MatchAllBits::new(field_updates_buffer.num_updates))
@@ -435,7 +471,8 @@ impl<'a> BufferedUpdateIterator<'a> {
         let fields_length = field_updates_buffer.fields.len();
         let docs_upto_length = field_updates_buffer.docs_up_to.len();
         let numeric_values_length = if field_updates_buffer.is_numeric {
-            let length = field_updates_buffer.numeric_values.as_ref().unwrap().len();
+            let length =
+                field_updates_buffer.numeric_values.as_ref().unwrap().len();
             debug_assert!(length <= i32::MAX as usize);
             length as i32
         } else {
@@ -471,34 +508,43 @@ impl<'a> BufferedUpdateIterator<'a> {
             let idx = self.term_values_iterator.ord();
             self.buffered_update.term_value = Some(next.clone());
             buffered_update.term_value = Some(next);
-            buffered_update.has_value = self.updates_with_value.as_ref().unwrap().get(idx);
+            buffered_update.has_value =
+                self.updates_with_value.as_ref().unwrap().get(idx);
             buffered_update.term_field = self.field_updates_buffer.fields
-                [FieldUpdatesBuffer::get_array_index(self.fields_length, idx) as usize]
+                [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)
+                    as usize]
                 .clone();
             buffered_update.doc_up_to = self.field_updates_buffer.docs_up_to
-                [FieldUpdatesBuffer::get_array_index(self.docs_upto_length, idx) as usize];
+                [FieldUpdatesBuffer::get_array_index(self.docs_upto_length, idx)
+                    as usize];
 
             if buffered_update.has_value {
                 if self.field_updates_buffer.is_numeric {
-                    buffered_update.numeric_value =
-                        self.field_updates_buffer.numeric_values.as_ref().unwrap()
-                            [FieldUpdatesBuffer::get_array_index(self.numeric_values_length, idx)
-                                as usize];
+                    buffered_update.numeric_value = self
+                        .field_updates_buffer
+                        .numeric_values
+                        .as_ref()
+                        .unwrap()
+                        [FieldUpdatesBuffer::get_array_index(
+                            self.numeric_values_length,
+                            idx,
+                        ) as usize];
                     buffered_update.binary_value = None;
                 } else {
                     debug_assert!(self.numeric_values_length == 0);
                     match &mut self.byte_values_iterator {
                         Some(iterator) => match iterator.next()? {
                             Some(bytes_ref) => {
-                                buffered_update.binary_value = Some(bytes_ref.into_owned());
-                            }
+                                buffered_update.binary_value =
+                                    Some(bytes_ref.into_owned());
+                            },
                             None => {
                                 buffered_update.binary_value = None;
-                            }
+                            },
                         },
                         None => {
                             buffered_update.binary_value = None;
-                        }
+                        },
                     }
                 }
             } else {
@@ -512,7 +558,9 @@ impl<'a> BufferedUpdateIterator<'a> {
     }
 
     fn next_term(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        if let Some(look_ahead_term_iterator) = &mut self.look_ahead_term_iterator {
+        if let Some(look_ahead_term_iterator) =
+            &mut self.look_ahead_term_iterator
+        {
             if self.buffered_update.term_value.is_none() {
                 look_ahead_term_iterator.next()?;
             }
@@ -523,17 +571,18 @@ impl<'a> BufferedUpdateIterator<'a> {
                 match self.term_values_iterator.next()? {
                     Some(term) => {
                         last_term = Some(term.into_owned());
-                    }
+                    },
                     None => {
                         last_term = None;
-                    }
+                    },
                 }
 
                 if let Some(ahead) = ahead_term {
                     let ahead = ahead.into_owned();
                     // Shortcut to avoid equals, we did a stable sort before, so aheadTerm can only equal
                     // lastTerm when aheadTerm has a lager ord.
-                    if look_ahead_term_iterator.ord() > self.term_values_iterator.ord()
+                    if look_ahead_term_iterator.ord()
+                        > self.term_values_iterator.ord()
                         && ahead == *last_term.as_mut().unwrap()
                     {
                         continue;
@@ -607,7 +656,8 @@ mod tests {
     use crate::index::buffered_updates::buffered_updates_util;
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{
-        BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum, NumericDocValuesUpdate,
+        BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum,
+        NumericDocValuesUpdate,
     };
     use crate::index::field_updates_buffer::FieldUpdatesBuffer;
     use crate::index::term::Term;
@@ -635,12 +685,26 @@ mod tests {
             Term::from_text("id".to_string(), "1"),
             "age".to_string(),
             buffered_updates_util::MAX_INT,
-            DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(6))),
+            DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(
+                Option::from(6),
+            )),
         );
-        let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, 15)?;
-        buffer.add_update_with_long(&Term::from_text("id".to_string(), "10"), 6, 15)?;
+        let mut buffer = FieldUpdatesBuffer::from_numeric_update(
+            counter.clone(),
+            &update,
+            15,
+        )?;
+        buffer.add_update_with_long(
+            &Term::from_text("id".to_string(), "10"),
+            6,
+            15,
+        )?;
         assert!(buffer.has_single_value());
-        buffer.add_update_with_long(&Term::from_text("id".to_string(), "8"), 12, 15)?;
+        buffer.add_update_with_long(
+            &Term::from_text("id".to_string(), "8"),
+            12,
+            15,
+        )?;
         assert!(!buffer.has_single_value());
         buffer.add_update_with_long(
             &Term::from_text("some_other_field".to_string(), "8"),
@@ -648,7 +712,11 @@ mod tests {
             17,
         )?;
         assert!(!buffer.has_single_value());
-        buffer.add_update_with_long(&Term::from_text("id".to_string(), "8"), 12, 16)?;
+        buffer.add_update_with_long(
+            &Term::from_text("id".to_string(), "8"),
+            12,
+            16,
+        )?;
         assert!(!buffer.has_single_value());
         assert!(buffer.is_numeric());
         assert_eq!(buffer.get_max_numeric(), 13);
@@ -660,34 +728,49 @@ mod tests {
             match count {
                 0 => {
                     assert_eq!(value.term_field, "id");
-                    assert_eq!(value.term_value.unwrap().utf8_to_string()?, "1");
+                    assert_eq!(
+                        value.term_value.unwrap().utf8_to_string()?,
+                        "1"
+                    );
                     assert_eq!(value.numeric_value, 6);
                     assert_eq!(value.doc_up_to, 15);
-                }
+                },
                 1 => {
                     assert_eq!(value.term_field, "id");
-                    assert_eq!(value.term_value.unwrap().utf8_to_string()?, "10");
+                    assert_eq!(
+                        value.term_value.unwrap().utf8_to_string()?,
+                        "10"
+                    );
                     assert_eq!(value.numeric_value, 6);
                     assert_eq!(value.doc_up_to, 15);
-                }
+                },
                 2 => {
                     assert_eq!(value.term_field, "id");
-                    assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+                    assert_eq!(
+                        value.term_value.unwrap().utf8_to_string()?,
+                        "8"
+                    );
                     assert_eq!(value.numeric_value, 12);
                     assert_eq!(value.doc_up_to, 15);
-                }
+                },
                 3 => {
                     assert_eq!(value.term_field, "some_other_field");
-                    assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+                    assert_eq!(
+                        value.term_value.unwrap().utf8_to_string()?,
+                        "8"
+                    );
                     assert_eq!(value.numeric_value, 13);
                     assert_eq!(value.doc_up_to, 17);
-                }
+                },
                 4 => {
                     assert_eq!(value.term_field, "id");
-                    assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+                    assert_eq!(
+                        value.term_value.unwrap().utf8_to_string()?,
+                        "8"
+                    );
                     assert_eq!(value.numeric_value, 12);
                     assert_eq!(value.doc_up_to, 16);
-                }
+                },
                 _ => unreachable!(),
             }
             count += 1;
@@ -700,9 +783,9 @@ mod tests {
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let int_value = random.random::<i32>();
         let value_for_three = random.random_bool(0.5);
-        let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(
-            int_value as i64,
-        )));
+        let sub_update = DocValuesUpdateEnum::Numeric(
+            NumericDocValuesUpdate::new(Option::from(int_value as i64)),
+        );
         let update = DocValuesUpdate::new(
             DocValuesType::Numeric,
             Term::from_text("id".to_string(), "0"),
@@ -710,8 +793,11 @@ mod tests {
             buffered_updates_util::MAX_INT,
             sub_update,
         );
-        let mut buffer =
-            FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, i32::MAX)?;
+        let mut buffer = FieldUpdatesBuffer::from_numeric_update(
+            counter.clone(),
+            &update,
+            i32::MAX,
+        )?;
         buffer.add_update_with_long(
             &Term::from_text("id".to_string(), "1"),
             int_value as i64,
@@ -729,7 +815,10 @@ mod tests {
                 i32::MAX,
             )?;
         } else {
-            buffer.add_no_value(&Term::from_text("id".to_string(), "3"), i32::MAX)?;
+            buffer.add_no_value(
+                &Term::from_text("id".to_string(), "3"),
+                i32::MAX,
+            )?;
         }
         buffer.add_update_with_long(
             &Term::from_text("id".to_string(), "4"),
@@ -764,9 +853,9 @@ mod tests {
         let mut random = random();
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let value_for_three = random.random_bool(0.5);
-        let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
-            BytesRef::from_string(""),
-        )));
+        let sub_update = DocValuesUpdateEnum::Binary(
+            BinaryDocValuesUpdate::new(Option::from(BytesRef::from_string(""))),
+        );
         let update = DocValuesUpdate::new(
             DocValuesType::Binary,
             Term::from_text("id".to_string(), "0"),
@@ -774,8 +863,11 @@ mod tests {
             buffered_updates_util::MAX_INT,
             sub_update,
         );
-        let mut buffer =
-            FieldUpdatesBuffer::from_binary_update(counter.clone(), &update, i32::MAX)?;
+        let mut buffer = FieldUpdatesBuffer::from_binary_update(
+            counter.clone(),
+            &update,
+            i32::MAX,
+        )?;
         buffer.add_update_with_bytes_ref(
             &Term::from_text("id".to_string(), "1"),
             &BytesRef::from_string(""),
@@ -793,7 +885,10 @@ mod tests {
                 i32::MAX,
             )?;
         } else {
-            buffer.add_no_value(&Term::from_text("id".to_string(), "3"), i32::MAX)?;
+            buffer.add_no_value(
+                &Term::from_text("id".to_string(), "3"),
+                i32::MAX,
+            )?;
         }
 
         buffer.add_update_with_bytes_ref(
@@ -814,7 +909,10 @@ mod tests {
             assert_eq!(has_value, value.has_value);
 
             if has_value {
-                assert_eq!(BytesRef::from_string(""), value.binary_value.unwrap());
+                assert_eq!(
+                    BytesRef::from_string(""),
+                    value.binary_value.unwrap()
+                );
             } else {
                 assert!(value.binary_value.is_none());
             }
@@ -831,7 +929,10 @@ mod tests {
         let index = rng.random_range(0..items.len());
         items[index].clone()
     }
-    pub fn get_random_binary_update(random: &mut StdRng, doc_id_up_to: i32) -> DocValuesUpdate {
+    pub fn get_random_binary_update(
+        random: &mut StdRng,
+        doc_id_up_to: i32,
+    ) -> DocValuesUpdate {
         let term_field = random_from(vec!["id", "_id", "some_other_field"]);
         let doc_id = random.random_range(0..10).to_string();
 
@@ -843,7 +944,8 @@ mod tests {
             ))
         };
 
-        let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(value));
+        let sub_update =
+            DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(value));
         let mut update = DocValuesUpdate::new(
             DocValuesType::Binary,
             Term::from_text(term_field.to_string(), &doc_id),
@@ -858,7 +960,10 @@ mod tests {
             update
         }
     }
-    pub fn get_random_numeric_update(random: &mut StdRng, doc_id_up_to: i32) -> DocValuesUpdate {
+    pub fn get_random_numeric_update(
+        random: &mut StdRng,
+        doc_id_up_to: i32,
+    ) -> DocValuesUpdate {
         let term_field = random_from(vec!["id", "_id", "some_other_field"]);
         let doc_id = random.random_range(0..10).to_string();
 
@@ -868,7 +973,8 @@ mod tests {
             Some(random.random_range(0..100) as i64)
         };
 
-        let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(value));
+        let sub_update =
+            DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(value));
         let mut update = DocValuesUpdate::new(
             DocValuesType::Numeric,
             Term::from_text(term_field.to_string(), &doc_id),
@@ -896,8 +1002,11 @@ mod tests {
         updates.push(random_update.clone());
 
         let doc_id_up_to = random_update.doc_id_up_to;
-        let mut buffer =
-            FieldUpdatesBuffer::from_binary_update(counter.clone(), &random_update, doc_id_up_to)?;
+        let mut buffer = FieldUpdatesBuffer::from_binary_update(
+            counter.clone(),
+            &random_update,
+            doc_id_up_to,
+        )?;
 
         for i in 0..num_updates {
             random_update = get_random_binary_update(&mut random, i + 1);
@@ -927,7 +1036,11 @@ mod tests {
                 value.term_value.unwrap().utf8_to_string()?
             );
             assert_eq!(random_update.term.field, value.term_field);
-            assert_eq!(random_update.has_value, value.has_value, "count: {}", count);
+            assert_eq!(
+                random_update.has_value, value.has_value,
+                "count: {}",
+                count
+            );
 
             if random_update.has_value {
                 assert_eq!(
@@ -953,8 +1066,11 @@ mod tests {
         updates.push(random_update.clone());
 
         let doc_id_up_to = random_update.doc_id_up_to;
-        let mut buffer =
-            FieldUpdatesBuffer::from_numeric_update(counter.clone(), &random_update, doc_id_up_to)?;
+        let mut buffer = FieldUpdatesBuffer::from_numeric_update(
+            counter.clone(),
+            &random_update,
+            doc_id_up_to,
+        )?;
 
         let mut last_update: Option<DocValuesUpdate> = None;
         for i in 0..num_updates {
@@ -984,7 +1100,11 @@ mod tests {
                 update.field == last_update.field
                     && update.has_value
                     && update.sub_update.get_numeric().unwrap().get_value()
-                        == last_update.sub_update.get_numeric().unwrap().get_value()
+                        == last_update
+                            .sub_update
+                            .get_numeric()
+                            .unwrap()
+                            .get_value()
             });
 
         assert_buffer_updates(&buffer, &mut updates, terms_sorted)?;
@@ -1003,8 +1123,11 @@ mod tests {
 
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let doc_id_up_to = update.doc_id_up_to;
-        let buffer =
-            FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, doc_id_up_to)?;
+        let buffer = FieldUpdatesBuffer::from_numeric_update(
+            counter.clone(),
+            &update,
+            doc_id_up_to,
+        )?;
 
         assert_eq!(buffer.get_min_numeric(), 0);
         assert_eq!(buffer.get_max_numeric(), 0);
@@ -1029,15 +1152,20 @@ mod tests {
             ),
             "numeric".to_string(),
             buffered_updates_util::MAX_INT,
-            DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(doc_value))),
+            DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(
+                doc_value,
+            ))),
         );
         if let Some(v) = random_update.prepare_for_apply(0) {
             random_update = v
         }
         updates.push(random_update.clone());
         let doc_id_up_to = random_update.doc_id_up_to;
-        let mut buffer =
-            FieldUpdatesBuffer::from_numeric_update(counter.clone(), &random_update, doc_id_up_to)?;
+        let mut buffer = FieldUpdatesBuffer::from_numeric_update(
+            counter.clone(),
+            &random_update,
+            doc_id_up_to,
+        )?;
 
         for i in 0..num_updates {
             random_update = DocValuesUpdate::new(
@@ -1048,7 +1176,9 @@ mod tests {
                 ),
                 "numeric".to_string(),
                 buffered_updates_util::MAX_INT,
-                DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(doc_value))),
+                DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(
+                    Some(doc_value),
+                )),
             );
             if let Some(v) = random_update.prepare_for_apply(i + 1) {
                 random_update = v
@@ -1077,7 +1207,8 @@ mod tests {
         let mut updates = updates.to_owned();
         if term_sorted {
             updates.sort_by(|a, b| a.term.bytes.cmp(&b.term.bytes));
-            let mut by_terms: BTreeMap<BytesRef<Vec<u8>>, DocValuesUpdate> = BTreeMap::new();
+            let mut by_terms: BTreeMap<BytesRef<Vec<u8>>, DocValuesUpdate> =
+                BTreeMap::new();
 
             for update in updates.iter() {
                 by_terms

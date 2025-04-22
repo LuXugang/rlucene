@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::store::index_input::get_full_slice_description;
-use crate::store::{buffered_index_input_util, BufferedIndexInput, BufferedIndexInputBase};
+use crate::store::{
+    buffered_index_input_util, BufferedIndexInput, BufferedIndexInputBase,
+};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
@@ -159,7 +161,8 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             let buffer_end = buffer_start + to_read;
             let buffer_slice = &mut buffer.get_mut()[buffer_start..buffer_end];
 
-            let bytes_read = self.file.read(buffer_slice).map_err(LuceneError::io)?;
+            let bytes_read =
+                self.file.read(buffer_slice).map_err(LuceneError::io)?;
 
             if bytes_read == 0 {
                 return Err(LuceneError::eof(format!(
@@ -187,7 +190,12 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
 
     type Slice = BufferedIndexInput<NIOFSIndexInput>;
 
-    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: i64,
+        length: i64,
+    ) -> Result<Self::Slice> {
         if offset < 0 || length < 0 || offset + length > self.length() {
             return Err(LuceneError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",
@@ -208,7 +216,11 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             &resource_desc,
             self.buffer_size,
         );
-        BufferedIndexInput::with_buffer_size(sub_index_input, &resource_desc, self.buffer_size)
+        BufferedIndexInput::with_buffer_size(
+            sub_index_input,
+            &resource_desc,
+            self.buffer_size,
+        )
     }
     fn length(&self) -> i64 {
         self.end - self.off

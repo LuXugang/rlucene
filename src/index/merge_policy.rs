@@ -87,8 +87,12 @@ impl OneMergeProgress {
     /// - `condition`: The pause condition that should return `false` if immediate return from this
     ///   method is needed. Other threads can wake up any sleeping thread by calling [`wakeup()`](OneMergeProgress::wakeup),
     ///   but the thread may sleep for the remainder of the requested time if this condition remains `true`.
-    pub fn pause_nanos<F>(&self, pause_nanos: u64, reason: PauseReason, condition: F)
-    where
+    pub fn pause_nanos<F>(
+        &self,
+        pause_nanos: u64,
+        reason: PauseReason,
+        condition: F,
+    ) where
         F: Fn() -> bool,
     {
         let owner = self.owner.lock().unwrap();
@@ -118,9 +122,15 @@ impl OneMergeProgress {
 
     fn add_pause_time(&self, reason: PauseReason, nanos: u64) {
         match reason {
-            PauseReason::Stopped => self.pause_times.stopped.fetch_add(nanos, Ordering::Relaxed),
-            PauseReason::Paused => self.pause_times.paused.fetch_add(nanos, Ordering::Relaxed),
-            PauseReason::Other => self.pause_times.other.fetch_add(nanos, Ordering::Relaxed),
+            PauseReason::Stopped => {
+                self.pause_times.stopped.fetch_add(nanos, Ordering::Relaxed)
+            },
+            PauseReason::Paused => {
+                self.pause_times.paused.fetch_add(nanos, Ordering::Relaxed)
+            },
+            PauseReason::Other => {
+                self.pause_times.other.fetch_add(nanos, Ordering::Relaxed)
+            },
         };
     }
     /// Request a wakeup for any threads stalled in [`pauseNanos`](OneMergeProgress::pause_nanos).

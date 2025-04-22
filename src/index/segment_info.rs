@@ -234,7 +234,7 @@ where
                     self.name,
                     self.max_doc.unwrap()
                 )))
-            }
+            },
         }
     }
 
@@ -389,7 +389,9 @@ where
         attributes.insert(key, value)
     }
     /// Returns the internal codec attributes map.
-    pub fn get_attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>> {
+    pub fn get_attributes(
+        &self,
+    ) -> Result<Arc<Mutex<HashMap<String, String>>>> {
         Ok(self.attributes.clone())
     }
 

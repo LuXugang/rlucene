@@ -32,7 +32,10 @@ impl DirectReader {
 
     /// Retrieves an instance from the specified slice, decoding `bits_per_value` for each value.
     #[allow(unused)]
-    pub(crate) fn get_instance<R>(slice: Rc<RefCell<R>>, bits_per_value: i32) -> DirectPackedEnum<R>
+    pub(crate) fn get_instance<R>(
+        slice: Rc<RefCell<R>>,
+        bits_per_value: i32,
+    ) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,
     {
@@ -48,20 +51,48 @@ impl DirectReader {
         R: RandomAccessInput,
     {
         match bits_per_value {
-            1 => DirectPackedEnum::DirectPackedReader1(DirectPackedReader1::new(slice, offset)),
-            2 => DirectPackedEnum::DirectPackedReader2(DirectPackedReader2::new(slice, offset)),
-            4 => DirectPackedEnum::DirectPackedReader4(DirectPackedReader4::new(slice, offset)),
-            8 => DirectPackedEnum::DirectPackedReader8(DirectPackedReader8::new(slice, offset)),
-            12 => DirectPackedEnum::DirectPackedReader12(DirectPackedReader12::new(slice, offset)),
-            16 => DirectPackedEnum::DirectPackedReader16(DirectPackedReader16::new(slice, offset)),
-            20 => DirectPackedEnum::DirectPackedReader20(DirectPackedReader20::new(slice, offset)),
-            24 => DirectPackedEnum::DirectPackedReader24(DirectPackedReader24::new(slice, offset)),
-            28 => DirectPackedEnum::DirectPackedReader28(DirectPackedReader28::new(slice, offset)),
-            32 => DirectPackedEnum::DirectPackedReader32(DirectPackedReader32::new(slice, offset)),
-            40 => DirectPackedEnum::DirectPackedReader40(DirectPackedReader40::new(slice, offset)),
-            48 => DirectPackedEnum::DirectPackedReader48(DirectPackedReader48::new(slice, offset)),
-            56 => DirectPackedEnum::DirectPackedReader56(DirectPackedReader56::new(slice, offset)),
-            64 => DirectPackedEnum::DirectPackedReader64(DirectPackedReader64::new(slice, offset)),
+            1 => DirectPackedEnum::DirectPackedReader1(
+                DirectPackedReader1::new(slice, offset),
+            ),
+            2 => DirectPackedEnum::DirectPackedReader2(
+                DirectPackedReader2::new(slice, offset),
+            ),
+            4 => DirectPackedEnum::DirectPackedReader4(
+                DirectPackedReader4::new(slice, offset),
+            ),
+            8 => DirectPackedEnum::DirectPackedReader8(
+                DirectPackedReader8::new(slice, offset),
+            ),
+            12 => DirectPackedEnum::DirectPackedReader12(
+                DirectPackedReader12::new(slice, offset),
+            ),
+            16 => DirectPackedEnum::DirectPackedReader16(
+                DirectPackedReader16::new(slice, offset),
+            ),
+            20 => DirectPackedEnum::DirectPackedReader20(
+                DirectPackedReader20::new(slice, offset),
+            ),
+            24 => DirectPackedEnum::DirectPackedReader24(
+                DirectPackedReader24::new(slice, offset),
+            ),
+            28 => DirectPackedEnum::DirectPackedReader28(
+                DirectPackedReader28::new(slice, offset),
+            ),
+            32 => DirectPackedEnum::DirectPackedReader32(
+                DirectPackedReader32::new(slice, offset),
+            ),
+            40 => DirectPackedEnum::DirectPackedReader40(
+                DirectPackedReader40::new(slice, offset),
+            ),
+            48 => DirectPackedEnum::DirectPackedReader48(
+                DirectPackedReader48::new(slice, offset),
+            ),
+            56 => DirectPackedEnum::DirectPackedReader56(
+                DirectPackedReader56::new(slice, offset),
+            ),
+            64 => DirectPackedEnum::DirectPackedReader64(
+                DirectPackedReader64::new(slice, offset),
+            ),
             _ => unreachable!(),
         }
     }
@@ -75,7 +106,12 @@ impl DirectReader {
     where
         R: RandomAccessInput,
     {
-        Self::get_merge_instance_with_base_offset(slice, bits_per_value, 0, num_values)
+        Self::get_merge_instance_with_base_offset(
+            slice,
+            bits_per_value,
+            0,
+            num_values,
+        )
     }
     /// Retrieves an instance specialized for merges, typically faster for sequential access.
     pub(crate) fn get_merge_instance_with_base_offset<R>(
@@ -151,12 +187,14 @@ where
             } else {
                 (1i64 << self.bits_per_value) - 1
             };
-            let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
+            let mut offset =
+                self.base_offset + (index * self.bits_per_value as i64) / 8;
             for i in 0..DirectReader::MERGE_BUFFER_SIZE as usize {
                 if self.bits_per_value > i32::BITS as i32 {
                     self.buffer[i] = slice.read_long(offset)? & mask;
                 } else if self.bits_per_value > i16::BITS as i32 {
-                    self.buffer[i] = (slice.read_int(offset)? as u32 as i64) & mask;
+                    self.buffer[i] =
+                        (slice.read_int(offset)? as u32 as i64) & mask;
                 } else if self.bits_per_value > i8::BITS as i32 {
                     self.buffer[i] = slice.read_short(offset)? as u16 as i64;
                 } else {
@@ -168,21 +206,26 @@ where
             // bitsPerValue is 1, 2 or 4
             let values_per_long = u64::BITS as i32 / self.bits_per_value;
             let mask = (1i64 << self.bits_per_value) - 1;
-            let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
+            let mut offset =
+                self.base_offset + (index * self.bits_per_value as i64) / 8;
             let mut i = 0;
             for _ in 0..(2 * self.bits_per_value) {
                 let bits = slice.read_long(offset)?;
                 for j in 0..values_per_long {
-                    self.buffer[i] = (bits as u64 >> (j * self.bits_per_value)) as i64 & mask;
+                    self.buffer[i] = (bits as u64 >> (j * self.bits_per_value))
+                        as i64
+                        & mask;
                     i += 1;
                 }
                 offset += BitUtil::LONG_BYTES as i64;
             }
         } else {
             // bitsPerValue is 12, 20 or 28; read values 2 by 2
-            let num_bytes_for_2_values = (self.bits_per_value * 2) / i8::BITS as i32;
+            let num_bytes_for_2_values =
+                (self.bits_per_value * 2) / i8::BITS as i32;
             let mask = (1i64 << self.bits_per_value) - 1;
-            let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
+            let mut offset =
+                self.base_offset + (index * self.bits_per_value as i64) / 8;
             for i in (0..DirectReader::MERGE_BUFFER_SIZE as usize).step_by(2) {
                 let l = if num_bytes_for_2_values > BitUtil::INT_BYTES as i32 {
                     slice.read_long(offset)?
@@ -190,7 +233,8 @@ where
                     slice.read_int(offset)? as i64
                 };
                 self.buffer[i] = l & mask;
-                self.buffer[i + 1] = (l as u64 >> self.bits_per_value) as i64 & mask;
+                self.buffer[i + 1] =
+                    (l as u64 >> self.bits_per_value) as i64 & mask;
                 offset += num_bytes_for_2_values as i64;
             }
         }
@@ -209,7 +253,8 @@ where
             self.fill_buffer(block_index << DirectReader::MERGE_BUFFER_SHIFT)?;
             self.block_index = block_index;
         }
-        Ok(self.buffer[(index & DirectReader::MERGE_BUFFER_MASK as i64) as usize])
+        Ok(self.buffer
+            [(index & DirectReader::MERGE_BUFFER_MASK as i64) as usize])
     }
 }
 
@@ -235,7 +280,8 @@ where
     fn get(&mut self, index: i64) -> Result<i64> {
         let shift = (index & 7) as i32;
         let mut slice = self.input.borrow_mut();
-        let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
+        let result =
+            (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
         Ok(result as i64)
     }
 }

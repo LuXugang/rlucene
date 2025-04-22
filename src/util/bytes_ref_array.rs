@@ -23,9 +23,10 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
-    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, CounterEnumBorrow,
-    CounterEnumLock, MSBRadixSorterBase, SliceCopyOps, Sorter, StableStringSorter,
-    StableStringSorterBase, StringSorter, StringSorterBase,
+    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
+    CounterEnumBorrow, CounterEnumLock, MSBRadixSorterBase, SliceCopyOps,
+    Sorter, StableStringSorter, StableStringSorterBase, StringSorter,
+    StringSorterBase,
 };
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -60,7 +61,8 @@ macro_rules! impl_bytes_ref_array {
         impl BytesRefArray<$enum_ty> {
             #[doc = $doc]
             pub fn $method(byte_used: $enum_ty) -> Result<$ret> {
-                let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+                let allocator =
+                    AllocatorByteEnum::DA(DirectAllocatorByte::new());
                 let pool = ByteBlockPool::$pool_ctor(allocator);
                 BytesRefArray::new_impl(pool, byte_used)
             }
@@ -86,7 +88,10 @@ impl<A> BytesRefArray<A>
 where
     A: Access<CounterEnum>,
 {
-    fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A>> {
+    fn new_impl(
+        mut pool: ByteBlockPool<A>,
+        byte_used: A,
+    ) -> Result<BytesRefArray<A>> {
         pool.next_buffer()?;
         let offsets = Vec::new();
         byte_used.access_mut(|b| b.add_and_get(BitUtil::INT_BYTES as i64));
@@ -195,7 +200,8 @@ where
                 bytes_ref_array: self,
             };
             let stable_string_sorter = StableStringSorter::new(delegate_sorter);
-            let mut string_sorter = StringSorter::new(stable_string_sorter, comp);
+            let mut string_sorter =
+                StringSorter::new(stable_string_sorter, comp);
             string_sorter.sort(0, size)?;
         } else {
             let delegate_sorter = StringSorterImpl {
@@ -352,8 +358,11 @@ where
             } else {
                 self.sort_state.indices.as_ref().unwrap()[self.pos as usize]
             };
-            self.bytes_ref_array
-                .set_bytes_ref(&mut self.spare, &mut result, self.ord)?;
+            self.bytes_ref_array.set_bytes_ref(
+                &mut self.spare,
+                &mut result,
+                self.ord,
+            )?;
             Ok(Some(Cow::Owned(result)))
         } else {
             Ok(None)
@@ -408,8 +417,11 @@ where
         result: &mut BytesRef<Vec<u8>>,
         i: i32,
     ) -> Result<()> {
-        self.bytes_ref_array
-            .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
+        self.bytes_ref_array.set_bytes_ref(
+            builder,
+            result,
+            self.ordered_entries[i as usize],
+        )
     }
 }
 
@@ -425,7 +437,10 @@ where
             .copy_from(&self.tmp[i as usize..j as usize], i as usize);
     }
 }
-impl<A> MSBRadixSorterBase for StableStringSorterImpl<'_, A> where A: Access<CounterEnum> {}
+impl<A> MSBRadixSorterBase for StableStringSorterImpl<'_, A> where
+    A: Access<CounterEnum>
+{
+}
 
 struct StringSorterImpl<'a, A>
 where
@@ -453,8 +468,11 @@ where
         result: &mut BytesRef<Vec<u8>>,
         i: i32,
     ) -> Result<()> {
-        self.bytes_ref_array
-            .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
+        self.bytes_ref_array.set_bytes_ref(
+            builder,
+            result,
+            self.ordered_entries[i as usize],
+        )
     }
 }
 
@@ -465,7 +483,10 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::Result;
-    use crate::util::{BytesRefArray, CounterEnum, Natural, NaturalOrder, SortableBytesRefArray};
+    use crate::util::{
+        BytesRefArray, CounterEnum, Natural, NaturalOrder,
+        SortableBytesRefArray,
+    };
     use rand::Rng;
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -555,9 +576,13 @@ mod tests {
                 string_list.push(random_realistic_unicode_string);
             }
 
-            string_list.sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
+            string_list
+                .sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
             {
-                let mut iter1 = SortableBytesRefArray::iterator(&mut list, Natural::default())?;
+                let mut iter1 = SortableBytesRefArray::iterator(
+                    &mut list,
+                    Natural::default(),
+                )?;
 
                 let mut i = 0;
                 while let Some(next) = iter1.next()? {
@@ -577,7 +602,10 @@ mod tests {
                 );
             }
 
-            let mut iter2 = SortableBytesRefArray::iterator(&mut list, NaturalOrder::default())?;
+            let mut iter2 = SortableBytesRefArray::iterator(
+                &mut list,
+                NaturalOrder::default(),
+            )?;
             let mut i = 0;
             while let Some(next) = iter2.next()? {
                 assert_eq!(
@@ -617,7 +645,9 @@ mod tests {
 
             let mut values = Vec::new();
             for _ in 0..20 {
-                values.push(TestUtil::random_realistic_unicode_string(&mut random));
+                values.push(TestUtil::random_realistic_unicode_string(
+                    &mut random,
+                ));
             }
 
             let mut spare = BytesRefBuilder::new();
@@ -630,7 +660,8 @@ mod tests {
                 string_list.push(random_realistic_unicode_string);
             }
 
-            string_list.sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
+            string_list
+                .sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
 
             let sort_state = if random.random_bool(0.5) {
                 list.sort(NaturalOrder::default(), true)?
@@ -654,7 +685,12 @@ mod tests {
                 if let Some(last_ref) = &last {
                     if next == *last_ref {
                         let ord = iter.ord();
-                        assert!(ord > last_ord, "sort not stable: {} <= {}", ord, last_ord);
+                        assert!(
+                            ord > last_ord,
+                            "sort not stable: {} <= {}",
+                            ord,
+                            last_ord
+                        );
                     }
                 }
 

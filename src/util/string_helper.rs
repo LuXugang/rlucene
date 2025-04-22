@@ -54,9 +54,10 @@ impl StringHelper {
             current_term.bytes,
             |prior_term_bytes, current_term_bytes| {
                 let mismatch = CoreHelper::miss_match(
-                    &prior_term_bytes[prior_term.offset..(prior_term.offset + prior_term.length)],
-                    &current_term_bytes
-                        [current_term.offset..(current_term.offset + current_term.length)],
+                    &prior_term_bytes[prior_term.offset
+                        ..(prior_term.offset + prior_term.length)],
+                    &current_term_bytes[current_term.offset
+                        ..(current_term.offset + current_term.length)],
                 );
 
                 if mismatch < 0 {
@@ -99,13 +100,17 @@ impl StringHelper {
     /// # Returns
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-    pub fn starts_with_byte_array(ref_bytes: &[u8], prefix: &BytesRef<Vec<u8>>) -> bool {
+    pub fn starts_with_byte_array(
+        ref_bytes: &[u8],
+        prefix: &BytesRef<Vec<u8>>,
+    ) -> bool {
         // Not long enough to start with the prefix
         if ref_bytes.len() < prefix.length {
             return false;
         }
         let ref_slice = &ref_bytes[0..prefix.length];
-        let prefix_slice = &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)];
+        let prefix_slice =
+            &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)];
         ref_slice == prefix_slice
     }
     /// Returns `true` if the given `ref` starts with the given `prefix`. Otherwise returns `false`.
@@ -118,7 +123,10 @@ impl StringHelper {
     /// # Returns
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-    pub fn starts_with_byte_ref(ref_bytes: &BytesRef<Vec<u8>>, prefix: &BytesRef<Vec<u8>>) -> bool {
+    pub fn starts_with_byte_ref(
+        ref_bytes: &BytesRef<Vec<u8>>,
+        prefix: &BytesRef<Vec<u8>>,
+    ) -> bool {
         Self::starts_with(
             &ref_bytes.bytes,
             ref_bytes.offset,
@@ -143,7 +151,8 @@ impl StringHelper {
 
         // Check if the prefix matches
         let ref_slice = &ref_bytes[ref_offset..(ref_offset + prefix_length)];
-        let prefix_slice = &prefix[prefix_offset..(prefix_offset + prefix_length)];
+        let prefix_slice =
+            &prefix[prefix_offset..(prefix_offset + prefix_length)];
 
         ref_slice == prefix_slice
     }
@@ -158,22 +167,31 @@ impl StringHelper {
     /// # Returns
     ///
     /// `True` if `ref` ends with the given `suffix`, otherwise `false`.
-    pub fn ends_with(ref_bytes: &BytesRef<Vec<u8>>, suffix: &BytesRef<Vec<u8>>) -> bool {
+    pub fn ends_with(
+        ref_bytes: &BytesRef<Vec<u8>>,
+        suffix: &BytesRef<Vec<u8>>,
+    ) -> bool {
         let start_at = ref_bytes.length - suffix.length;
         // Not long enough to start with the suffix
         if start_at < 0 {
             return false;
         }
 
-        let ref_slice = &ref_bytes.bytes
-            [ref_bytes.offset + start_at..(ref_bytes.offset + start_at + suffix.length)];
-        let suffix_slice = &suffix.bytes[suffix.offset..(suffix.offset + suffix.length)];
+        let ref_slice = &ref_bytes.bytes[ref_bytes.offset + start_at
+            ..(ref_bytes.offset + start_at + suffix.length)];
+        let suffix_slice =
+            &suffix.bytes[suffix.offset..(suffix.offset + suffix.length)];
         ref_slice == suffix_slice
     }
 
     /// Returns the MurmurHash3_x86_32 hash.
     /// Original source/tests at <https://github.com/yonik/java_util>
-    pub fn murmurhash3_x86_32_with_byte(data: &[u8], offset: usize, len: usize, seed: i32) -> i32 {
+    pub fn murmurhash3_x86_32_with_byte(
+        data: &[u8],
+        offset: usize,
+        len: usize,
+        seed: i32,
+    ) -> i32 {
         let c1: i32 = 0xcc9e2d51u32 as i32;
         let c2: i32 = 0x1b873593u32 as i32;
 
@@ -205,7 +223,7 @@ impl StringHelper {
                 k1 = k1.rotate_left(15);
                 k1 = k1.wrapping_mul(c2);
                 h1 ^= k1;
-            }
+            },
             // fallthrough
             2 => {
                 k1 |= (data[rounded_end + 1] as i32) << 8;
@@ -214,7 +232,7 @@ impl StringHelper {
                 k1 = k1.rotate_left(15);
                 k1 = k1.wrapping_mul(c2);
                 h1 ^= k1;
-            }
+            },
             // fallthrough
             1 => {
                 k1 |= data[rounded_end] as i32;
@@ -222,8 +240,8 @@ impl StringHelper {
                 k1 = k1.rotate_left(15);
                 k1 = k1.wrapping_mul(c2);
                 h1 ^= k1;
-            }
-            _ => {}
+            },
+            _ => {},
         }
 
         // Finalization
@@ -243,7 +261,12 @@ impl StringHelper {
         AV: AccessVec<u8>,
     {
         bytes.bytes.access(|bytes_ref| {
-            Self::murmurhash3_x86_32_with_byte(bytes_ref, bytes.offset, bytes.length, seed)
+            Self::murmurhash3_x86_32_with_byte(
+                bytes_ref,
+                bytes.offset,
+                bytes.length,
+                seed,
+            )
         })
     }
 
@@ -400,11 +423,17 @@ mod tests {
         let mut random = random();
         // Hashes computed using murmur3_32 from https://code.google.com/p/pyfasthash
         assert_eq!(
-            StringHelper::murmurhash3_x86_32(&new_bytes_ref_from_string(&mut random, "foo")?, 0),
+            StringHelper::murmurhash3_x86_32(
+                &new_bytes_ref_from_string(&mut random, "foo")?,
+                0
+            ),
             0xf6a5c420u32 as i32
         );
         assert_eq!(
-            StringHelper::murmurhash3_x86_32(&new_bytes_ref_from_string(&mut random, "foo")?, 16),
+            StringHelper::murmurhash3_x86_32(
+                &new_bytes_ref_from_string(&mut random, "foo")?,
+                16
+            ),
             0xcd018ef6u32 as i32
         );
         assert_eq!(

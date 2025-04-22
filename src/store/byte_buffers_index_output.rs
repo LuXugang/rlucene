@@ -67,7 +67,12 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_bytes_with_len(b, len)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: i32,
+        length: i32,
+    ) -> Result<()> {
         self.delegate.write_bytes_range(b, offset, length)
     }
 
@@ -87,11 +92,18 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_string(s)
     }
 
-    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
+    fn copy_bytes(
+        &mut self,
+        input: &mut impl DataInput,
+        num_bytes: i64,
+    ) -> Result<()> {
         self.delegate.copy_bytes(input, num_bytes)
     }
 
-    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
+    fn write_map_of_strings(
+        &mut self,
+        map: &HashMap<String, String>,
+    ) -> Result<()> {
         self.delegate.write_map_of_strings(map)
     }
 }

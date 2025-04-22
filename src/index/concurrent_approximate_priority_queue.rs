@@ -87,9 +87,9 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
             }
         }
         let index = (thread_hash % self.concurrency) as usize;
-        let mut queue = self.queues[index]
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut queue = self.queues[index].lock().map_err(|_| {
+            LuceneError::illegal_state("Failed to acquire lock.".to_string())
+        })?;
         queue.add(entry, weight);
         Ok(())
     }
@@ -158,8 +158,11 @@ mod tests {
     #[test]
     fn test_poll_from_same_thread() -> Result<()> {
         let mut random = random();
-        let concurrency = TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
-        let pq = ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(concurrency)?;
+        let concurrency =
+            TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
+        let pq = ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(
+            concurrency,
+        )?;
 
         pq.add(3, 3)?;
         pq.add(10, 10)?;
@@ -174,10 +177,13 @@ mod tests {
     #[test]
     fn test_poll_from_different_thread() -> Result<()> {
         let mut random = random();
-        let concurrency = TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
-        let pq = Arc::new(ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(
-            concurrency,
-        )?);
+        let concurrency =
+            TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
+        let pq = Arc::new(
+            ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(
+                concurrency,
+            )?,
+        );
 
         pq.add(3, 3)?;
         pq.add(10, 10)?;
@@ -198,9 +204,11 @@ mod tests {
     fn test_current_lock_is_busy() -> Result<()> {
         let mut random = random();
         let concurrency = TestUtil::next_int(&mut random, 2, MAX_CONCURRENCY);
-        let pq = Arc::new(ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(
-            concurrency,
-        )?);
+        let pq = Arc::new(
+            ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(
+                concurrency,
+            )?,
+        );
 
         pq.add(3, 3)?;
 

@@ -195,7 +195,8 @@ impl LZ4 {
         let literal_len = match_off - anchor;
         debug_assert!(match_len >= 4);
         // Encode token
-        let token = (i32::min(literal_len, 0x0F) << 4) | i32::min(match_len - 4, 0x0F);
+        let token =
+            (i32::min(literal_len, 0x0F) << 4) | i32::min(match_len - 4, 0x0F);
         Self::encode_literals(bytes, token, anchor, literal_len, out)?;
 
         // Encode match dec
@@ -234,8 +235,16 @@ impl LZ4 {
         ht: &mut HashTableEnum,
     ) -> Result<()> {
         // Ensure the indices are valid
-        CoreHelper::check_from_index_size(dict_off, dict_len, bytes.len() as i32)?;
-        CoreHelper::check_from_index_size(dict_off + dict_len, len, bytes.len() as i32)?;
+        CoreHelper::check_from_index_size(
+            dict_off,
+            dict_len,
+            bytes.len() as i32,
+        )?;
+        CoreHelper::check_from_index_size(
+            dict_off + dict_len,
+            len,
+            bytes.len() as i32,
+        )?;
 
         if dict_len > LZ4::MAX_DISTANCE {
             return Err(LuceneError::illegal_argument(format!(
@@ -299,7 +308,14 @@ impl LZ4 {
                 }
 
                 // Encode match
-                LZ4::encode_sequence(bytes.as_slice(), anchor, ref_idx, off, match_len, out)?;
+                LZ4::encode_sequence(
+                    bytes.as_slice(),
+                    anchor,
+                    ref_idx,
+                    off,
+                    match_len,
+                    out,
+                )?;
                 off += match_len;
                 anchor = off;
             }
@@ -483,14 +499,16 @@ impl HashTable for FastCompressionHashTable {
             32
         };
 
-        let bits_per_offset_log = 32 - ((bits_per_offset - 1) as i64).leading_zeros() as i32;
+        let bits_per_offset_log =
+            32 - ((bits_per_offset - 1) as i64).leading_zeros() as i32;
         self.hash_log = LZ4::MEMORY_USAGE + 3 - bits_per_offset_log;
 
         let need_new_table = match &self.hash_table {
             None => true,
             Some(table) => {
-                table.size() < (1 << self.hash_log) || table.get_bits_per_value() < bits_per_offset
-            }
+                table.size() < (1 << self.hash_log)
+                    || table.get_bits_per_value() < bits_per_offset
+            },
         };
 
         if need_new_table {
@@ -679,12 +697,14 @@ impl HashTable for HighCompressionHashTable {
 
     fn previous(&mut self, off: i32) -> i32 {
         let v = LZ4::read_int(self.bytes.as_slice(), off);
-        let mut ref_idx = off - ((self.chain_table[(off & Self::MASK) as usize] as i32) & 0xFFFF);
+        let mut ref_idx = off
+            - ((self.chain_table[(off & Self::MASK) as usize] as i32) & 0xFFFF);
         while ref_idx >= self.base && self.attempts < Self::MAX_ATTEMPTS {
             if LZ4::read_int(self.bytes.as_slice(), ref_idx) == v {
                 return ref_idx;
             }
-            ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32 & 0xFFFF;
+            ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32
+                & 0xFFFF;
             self.attempts += 1;
         }
         -1
@@ -745,7 +765,9 @@ mod tests {
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::ArrayUtil;
-    use crate::util::compress::lz4::{FastCompressionHashTable, HighCompressionHashTable, LZ4};
+    use crate::util::compress::lz4::{
+        FastCompressionHashTable, HighCompressionHashTable, LZ4,
+    };
     use crate::util::compress::lz4::{HashTable, HashTableEnum};
     use crate::util::error::lucene_error::Result;
     use crate::util::SliceCopyOps;
@@ -755,7 +777,9 @@ mod tests {
     struct TestFastLZ4;
     impl LZ4TestCase for TestFastLZ4 {
         fn new_hash_table(&self) -> AssertingHashTable {
-            AssertingHashTable::new(HashTableEnum::Fast(FastCompressionHashTable::new()))
+            AssertingHashTable::new(HashTableEnum::Fast(
+                FastCompressionHashTable::new(),
+            ))
         }
     }
     #[test]
@@ -817,7 +841,9 @@ mod tests {
     struct TestHighLZ4;
     impl LZ4TestCase for TestHighLZ4 {
         fn new_hash_table(&self) -> AssertingHashTable {
-            AssertingHashTable::new(HashTableEnum::High(HighCompressionHashTable::new()))
+            AssertingHashTable::new(HashTableEnum::High(
+                HighCompressionHashTable::new(),
+            ))
         }
     }
     #[test]
@@ -890,9 +916,19 @@ mod tests {
                 (1 << 16) - data.len() as i32 / 2
             };
 
-            let mut copy = vec![0; data.len() + offset as usize + random.random_range(0..10)];
+            let mut copy =
+                vec![
+                    0;
+                    data.len() + offset as usize + random.random_range(0..10)
+                ];
             copy.copy_from(&data, offset as usize);
-            Self::do_test_with_offset(random, copy, offset, data.len() as i32, hash_table)
+            Self::do_test_with_offset(
+                random,
+                copy,
+                offset,
+                data.len() as i32,
+                hash_table,
+            )
         }
 
         fn do_test_with_offset(
@@ -903,7 +939,13 @@ mod tests {
             hash_table: &mut AssertingHashTable,
         ) -> Result<()> {
             let mut out = ByteBuffersDataOutput::new();
-            LZ4::compress(data.clone(), offset, length, &mut out, &mut hash_table.ht)?;
+            LZ4::compress(
+                data.clone(),
+                offset,
+                length,
+                &mut out,
+                &mut hash_table.ht,
+            )?;
 
             let compressed = out.try_get_array_ownership();
             let mut off = 0;
@@ -929,11 +971,15 @@ mod tests {
                 // 5 of them
                 if off == compressed.len() {
                     assert_eq!(length, decompressed_off);
-                    assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == length);
+                    assert!(
+                        literal_len >= LZ4::LAST_LITERALS
+                            || literal_len == length
+                    );
                     break;
                 }
 
-                let match_dec = (compressed[off] as i32) | ((compressed[off + 1] as i32) << 8);
+                let match_dec = (compressed[off] as i32)
+                    | ((compressed[off + 1] as i32) << 8);
                 off += 2;
 
                 assert!(match_dec > 0 && match_dec <= decompressed_off);
@@ -951,14 +997,21 @@ mod tests {
                 {
                     // if the match ends prematurely, the next sequence should not have
                     // literals or this means we are wasting space
-                    if decompressed_off + match_len < length - LZ4::LAST_LITERALS {
-                        let more_common_bytes = data
-                            [offset as usize + decompressed_off as usize + match_len as usize]
-                            == data[offset as usize + decompressed_off as usize
+                    if decompressed_off + match_len
+                        < length - LZ4::LAST_LITERALS
+                    {
+                        let more_common_bytes = data[offset as usize
+                            + decompressed_off as usize
+                            + match_len as usize]
+                            == data[offset as usize
+                                + decompressed_off as usize
                                 - match_dec as usize
                                 + match_len as usize];
-                        let next_sequence_has_literals = compressed[off] >> 4 != 0;
-                        assert!(!(more_common_bytes && next_sequence_has_literals));
+                        let next_sequence_has_literals =
+                            compressed[off] >> 4 != 0;
+                        assert!(
+                            !(more_common_bytes && next_sequence_has_literals)
+                        );
                     }
                 }
 
@@ -969,12 +1022,19 @@ mod tests {
 
             // Compress once again with the same hash table to test reuse
             let mut out2 = ByteBuffersDataOutput::new();
-            LZ4::compress(data.clone(), offset, length, &mut out2, &mut hash_table.ht)?;
+            LZ4::compress(
+                data.clone(),
+                offset,
+                length,
+                &mut out2,
+                &mut hash_table.ht,
+            )?;
             assert_eq!(compressed, out2.try_get_array_ownership());
 
             let compressed_clone = compressed.clone();
             // Now restore and compare bytes
-            let mut restored = vec![0; length as usize + random.random_range(0..10)];
+            let mut restored =
+                vec![0; length as usize + random.random_range(0..10)];
             let mut input = ByteArrayDataInput::with_bytes(compressed);
             LZ4::decompress(&mut input, length, &mut restored, 0)?;
 
@@ -984,13 +1044,18 @@ mod tests {
                 offset as usize,
                 (offset + length) as usize,
             );
-            let right = ArrayUtil::copy_of_sub_array(&restored, 0, length as usize);
+            let right =
+                ArrayUtil::copy_of_sub_array(&restored, 0, length as usize);
             assert_eq!(left, right);
 
             // Now restore with an offset
             let restore_offset: i32 = random.random_range(1..10);
-            restored =
-                vec![0; restore_offset as usize + length as usize + random.random_range(0..10)];
+            restored = vec![
+                0;
+                restore_offset as usize
+                    + length as usize
+                    + random.random_range(0..10)
+            ];
             let mut input = ByteArrayDataInput::with_bytes(compressed_clone);
             LZ4::decompress(&mut input, length, &mut restored, restore_offset)?;
 
@@ -1026,7 +1091,8 @@ mod tests {
                     data.len() - i as usize,
                     TestUtil::next_int(random, 1, 32) as usize,
                 );
-                let l = std::cmp::min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
+                let l =
+                    std::cmp::min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
                 debug_assert!(l <= i32::MAX as usize);
                 copy.write_bytes_range(&data, i, l as i32)?;
                 dict_len += l as i32;
@@ -1083,15 +1149,26 @@ mod tests {
 
             // Now restore and compare bytes
             let restore_offset = TestUtil::next_int(random, 1, 10);
-            let mut restored =
-                vec![0; (restore_offset + dict_len + length + random.random_range(0..10)) as usize];
+            let mut restored = vec![
+                0;
+                (restore_offset
+                    + dict_len
+                    + length
+                    + random.random_range(0..10))
+                    as usize
+            ];
             restored.copy_from(
                 &data[dict_off as usize..(dict_off + dict_len) as usize],
                 restore_offset as usize,
             );
 
             let mut input = ByteArrayDataInput::with_bytes(compressed);
-            LZ4::decompress(&mut input, length, &mut restored, dict_len + restore_offset)?;
+            LZ4::decompress(
+                &mut input,
+                length,
+                &mut restored,
+                dict_len + restore_offset,
+            )?;
 
             let left = ArrayUtil::copy_of_sub_array(
                 data.as_slice(),
@@ -1113,11 +1190,19 @@ mod tests {
             Self::do_test(random, data, &mut self.new_hash_table())
         }
 
-        fn test_short_literals_and_matches(&self, random: &mut StdRng) -> Result<()> {
+        fn test_short_literals_and_matches(
+            &self,
+            random: &mut StdRng,
+        ) -> Result<()> {
             // literals and match lengths <= 15
-            let data: Vec<u8> = "1234562345673456745678910123".to_string().into_bytes();
+            let data: Vec<u8> =
+                "1234562345673456745678910123".to_string().into_bytes();
             Self::do_test(random, data.clone(), &mut self.new_hash_table())?;
-            Self::do_test_with_dictionary(random, data.clone(), &mut self.new_hash_table())?;
+            Self::do_test_with_dictionary(
+                random,
+                data.clone(),
+                &mut self.new_hash_table(),
+            )?;
             Ok(())
         }
 
@@ -1144,19 +1229,29 @@ mod tests {
             Ok(())
         }
 
-        fn test_match_right_before_last_literals(&self, random: &mut StdRng) -> Result<()> {
+        fn test_match_right_before_last_literals(
+            &self,
+            random: &mut StdRng,
+        ) -> Result<()> {
             let data = vec![1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5];
             Self::do_test(random, data, &mut self.new_hash_table())?;
             Ok(())
         }
 
-        fn test_incompressible_random(&self, random: &mut StdRng) -> Result<()> {
+        fn test_incompressible_random(
+            &self,
+            random: &mut StdRng,
+        ) -> Result<()> {
             let len = random.random_range(1..1 << 18);
             let mut b = vec![0u8; len];
             random.fill_bytes(&mut b);
             let b_clone = b.clone();
             Self::do_test(random, b, &mut self.new_hash_table())?;
-            Self::do_test_with_dictionary(random, b_clone, &mut self.new_hash_table())?;
+            Self::do_test_with_dictionary(
+                random,
+                b_clone,
+                &mut self.new_hash_table(),
+            )?;
             Ok(())
         }
 
@@ -1170,44 +1265,64 @@ mod tests {
             }
             let b_clone = b.clone();
             Self::do_test(random, b, &mut self.new_hash_table())?;
-            Self::do_test_with_dictionary(random, b_clone, &mut self.new_hash_table())?;
+            Self::do_test_with_dictionary(
+                random,
+                b_clone,
+                &mut self.new_hash_table(),
+            )?;
             Ok(())
         }
         fn test_lucene5201(&self, random: &mut StdRng) -> Result<()> {
             let data: Vec<i8> = vec![
-                14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 72, 14, 72, 14, 85, 3, 72, 14, 72, 14,
-                72, 14, 72, 14, 72, 14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3,
-                72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 50, 64, 0, 46, -1, 0, 0, 0, 29, 3, 85, 8,
-                -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0,
-                2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68,
-                -113, 0, 50, 64, 0, 47, -105, 0, 0, 0, 30, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6,
-                0, 68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, 85, 8, -113, 0, 68,
-                -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6,
-                0, 68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0,
-                2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68,
-                -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6,
-                0, 68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2,
-                3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0,
-                68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 50, 64, 0, 50, 53, 0,
-                0, 0, 34, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3,
-                -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0,
-                2, 3, -97, 6, 0, 68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -113, 0, 2, 3, -97, 6, 0,
-                68, -113, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3,
-                0, 120, 64, 0, 52, -88, 0, 0, 0, 39, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72,
-                13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72,
-                13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72,
-                13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85,
-                5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72,
-                13, 85, 5, 72, 13, 72, 13, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13,
-                85, 5, 72, 13, 85, 5, 72, 13, -19, -24, -101, -35,
+                14, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 72, 14, 72, 14, 85,
+                3, 72, 14, 72, 14, 72, 14, 72, 14, 72, 14, 72, 14, 85, 3, 72,
+                14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14, 85, 3, 72, 14,
+                85, 3, 72, 14, 50, 64, 0, 46, -1, 0, 0, 0, 29, 3, 85, 8, -113,
+                0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6,
+                0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0,
+                68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 50, 64, 0, 47, -105,
+                0, 0, 0, 30, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68,
+                -113, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3, 0, 2, 3, 85, 8,
+                -113, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97,
+                6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, 85, 8,
+                -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3,
+                -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3,
+                -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3,
+                -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, 85,
+                8, -113, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3,
+                85, 8, -113, 0, 68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2,
+                3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3,
+                -97, 6, 0, 50, 64, 0, 50, 53, 0, 0, 0, 34, 3, 85, 8, -113, 0,
+                68, -97, 3, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0,
+                68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, -97, 6, 0, 68,
+                -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, 85, 8, -113, 0,
+                68, -113, 0, 2, 3, -97, 6, 0, 68, -113, 0, 2, 3, 85, 8, -113,
+                0, 68, -97, 3, 0, 2, 3, 85, 8, -113, 0, 68, -97, 3, 0, 120, 64,
+                0, 52, -88, 0, 0, 0, 39, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85,
+                5, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13,
+                85, 5, 72, 13, 85, 5, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72,
+                13, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72,
+                13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13,
+                85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85,
+                5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13, 72, 13, 72,
+                13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5,
+                72, 13, -19, -24, -101, -35,
             ];
             let len = data.len() as i32;
             let data_u8: Vec<u8> = data.iter().map(|&x| x as u8).collect();
-            Self::do_test_with_offset(random, data_u8, 9, len - 9, &mut self.new_hash_table())
+            Self::do_test_with_offset(
+                random,
+                data_u8,
+                9,
+                len - 9,
+                &mut self.new_hash_table(),
+            )
         }
 
         fn test_use_dictionary(&self, random: &mut StdRng) -> Result<()> {
-            let b: Vec<i8> = vec![1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+            let b: Vec<i8> = vec![
+                1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+            ];
             let dict_off = 0;
             let dict_len = 6;
             let len = (b.len() - dict_len) as i32;

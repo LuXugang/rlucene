@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::bytes_ref_comparator::{BytesRefComparator, BYTES_REF_COMPARATOR_TYPE};
+use crate::util::bytes_ref_comparator::{
+    BytesRefComparator, BYTES_REF_COMPARATOR_TYPE,
+};
 
 use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::IntroSorter;
@@ -67,10 +69,16 @@ where
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
-        self.delegate_sorter
-            .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
+        self.delegate_sorter.get(
+            &mut self.scratch1,
+            &mut self.scratch_bytes1,
+            i,
+        )?;
+        self.delegate_sorter.get(
+            &mut self.scratch2,
+            &mut self.scratch_bytes2,
+            j,
+        )?;
         self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
     }
 
@@ -108,7 +116,10 @@ where
     T: Sorter + StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
-    pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringRadixSorter<'a, T, C> {
+    pub fn new(
+        cmp: &'a mut C,
+        delegate_sorter: &'a mut T,
+    ) -> MSBStringRadixSorter<'a, T, C> {
         MSBStringRadixSorter {
             scratch1: BytesRefBuilder::default(),
             scratch_bytes1: BytesRef::default(),
@@ -134,8 +145,11 @@ where
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
+        self.delegate_sorter.get(
+            &mut self.scratch1,
+            &mut self.scratch_bytes1,
+            i,
+        )?;
         Ok(self.cmp.byte_at(&self.scratch_bytes1, k))
     }
 
@@ -189,10 +203,16 @@ where
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
-        self.delegate_sorter
-            .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
+        self.delegate_sorter.get(
+            &mut self.scratch1,
+            &mut self.scratch_bytes1,
+            i,
+        )?;
+        self.delegate_sorter.get(
+            &mut self.scratch2,
+            &mut self.scratch_bytes2,
+            j,
+        )?;
         if self.k.is_some() {
             Ok(self.cmp.compare_with_offset(
                 &self.scratch_bytes1,
@@ -209,18 +229,26 @@ where
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<()> {
-        self.delegate_sorter
-            .get(&mut self.pivot_builder, &mut self.pivot, i)?;
+        self.delegate_sorter.get(
+            &mut self.pivot_builder,
+            &mut self.pivot,
+            i,
+        )?;
         Ok(())
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, j)?;
+        self.delegate_sorter.get(
+            &mut self.scratch1,
+            &mut self.scratch_bytes1,
+            j,
+        )?;
         if self.k.is_some() {
-            Ok(self
-                .cmp
-                .compare_with_offset(&self.pivot, &self.scratch_bytes1, self.k.unwrap()))
+            Ok(self.cmp.compare_with_offset(
+                &self.pivot,
+                &self.scratch_bytes1,
+                self.k.unwrap(),
+            ))
         } else {
             self.cmp.compare(&self.pivot, &self.scratch_bytes1)
         }
@@ -246,7 +274,11 @@ pub trait StringSorterBase {
         result: &mut BytesRef<Vec<u8>>,
         i: i32,
     ) -> Result<()>;
-    fn fall_back_sorter<'a, T, C>(&'a mut self, cmp: &'a mut C, k: Option<i32>) -> impl Sorter + 'a
+    fn fall_back_sorter<'a, T, C>(
+        &'a mut self,
+        cmp: &'a mut C,
+        k: Option<i32>,
+    ) -> impl Sorter + 'a
     where
         T: Sorter + StringSorterBase,
         C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
@@ -260,7 +292,8 @@ pub trait StringSorterBase {
         Self: Sorter + Sized,
     {
         let length = cmp.compared_bytes_count();
-        let msb_radix_sorter_delegate_sorter = MSBStringRadixSorter::new(cmp, self);
+        let msb_radix_sorter_delegate_sorter =
+            MSBStringRadixSorter::new(cmp, self);
         MSBRadixSorter::new(length, msb_radix_sorter_delegate_sorter)
     }
 }

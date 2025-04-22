@@ -56,7 +56,12 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_bytes`].
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()>;
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: i32,
+        length: i32,
+    ) -> Result<()>;
 
     /// Writes an `int` as four bytes (little-endian byte order).
     ///
@@ -157,7 +162,9 @@ pub trait DataOutput: Sized {
     fn write_vlong(&mut self, i: i64) -> Result<()> {
         if i < 0 {
             return Err(LuceneError::illegal_argument(
-                "cannot write negative vLong (got: ".to_string() + &i.to_string() + ")",
+                "cannot write negative vLong (got: ".to_string()
+                    + &i.to_string()
+                    + ")",
             ));
         }
         self.write_signed_vlong(i)?;
@@ -198,7 +205,11 @@ pub trait DataOutput: Sized {
     }
 
     /// Copy numBytes bytes from input to ourselves.
-    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
+    fn copy_bytes(
+        &mut self,
+        input: &mut impl DataInput,
+        num_bytes: i64,
+    ) -> Result<()> {
         let mut buffer = vec![0u8; COPY_BUFFER_SIZE as usize];
         let mut left = num_bytes;
         while left > 0 {
@@ -221,7 +232,10 @@ pub trait DataOutput: Sized {
     ///
     /// # Arguments
     /// * `map` - The input map.
-    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
+    fn write_map_of_strings(
+        &mut self,
+        map: &HashMap<String, String>,
+    ) -> Result<()> {
         self.write_vint(map.len() as i32)?;
         for (key, value) in map.iter() {
             self.write_string(key)?;
@@ -256,9 +270,19 @@ pub trait DataOutput: Sized {
     ///
     /// # Note
     /// This is an experimental API.
-    fn write_group_vints_i64(&mut self, values: &mut [i64], limit: i32) -> Result<()> {
-        let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
-        GroupVIntUtil::write_group_vints_i64(self, &mut group_vint_bytes, values, limit)?;
+    fn write_group_vints_i64(
+        &mut self,
+        values: &mut [i64],
+        limit: i32,
+    ) -> Result<()> {
+        let mut group_vint_bytes: Vec<u8> =
+            vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
+        GroupVIntUtil::write_group_vints_i64(
+            self,
+            &mut group_vint_bytes,
+            values,
+            limit,
+        )?;
         Ok(())
     }
 
@@ -273,9 +297,19 @@ pub trait DataOutput: Sized {
     ///
     /// # Note
     /// This is an experimental API.
-    fn write_group_vints_i32(&mut self, values: &mut [i32], limit: i32) -> Result<()> {
-        let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
-        GroupVIntUtil::write_group_vints_i32(self, &mut group_vint_bytes, values, limit)?;
+    fn write_group_vints_i32(
+        &mut self,
+        values: &mut [i32],
+        limit: i32,
+    ) -> Result<()> {
+        let mut group_vint_bytes: Vec<u8> =
+            vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
+        GroupVIntUtil::write_group_vints_i32(
+            self,
+            &mut group_vint_bytes,
+            values,
+            limit,
+        )?;
         Ok(())
     }
 }

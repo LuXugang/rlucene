@@ -19,8 +19,9 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::{
-    BytesRefComparator, Comparator, MSBRadixSorter, MSBRadixSorterBase, MergeSorter, Sorter,
-    StableMSBRadixSorter, StableMSBRadixSorterBase, StringSorterBase,
+    BytesRefComparator, Comparator, MSBRadixSorter, MSBRadixSorterBase,
+    MergeSorter, Sorter, StableMSBRadixSorter, StableMSBRadixSorterBase,
+    StringSorterBase,
 };
 
 pub(crate) struct StableStringSorter<T>
@@ -38,7 +39,8 @@ where
     }
 }
 
-impl<T> Sorter for StableStringSorter<T> where T: Sorter + StableStringSorterBase {}
+impl<T> Sorter for StableStringSorter<T> where T: Sorter + StableStringSorterBase
+{}
 
 impl<T> StringSorterBase for StableStringSorter<T>
 where
@@ -76,7 +78,8 @@ where
             scratch1: BytesRefBuilder::new(),
             scratch_bytes1: BytesRef::default(),
         };
-        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter, length);
+        let stable_msb_radix_sorter =
+            StableMSBRadixSorter::new(delegate_sorter, length);
         MSBRadixSorter::new(length, stable_msb_radix_sorter)
     }
 }
@@ -106,8 +109,11 @@ where
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
+        self.delegate_sorter.get(
+            &mut self.scratch1,
+            &mut self.scratch_bytes1,
+            i,
+        )?;
         Ok(self.cmp.byte_at(&self.scratch_bytes1, k))
     }
 
@@ -149,10 +155,16 @@ where
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.delegate_sorter
-            .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
-        self.delegate_sorter
-            .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
+        self.delegate_sorter.get(
+            &mut self.scratch1,
+            &mut self.scratch_bytes1,
+            i,
+        )?;
+        self.delegate_sorter.get(
+            &mut self.scratch2,
+            &mut self.scratch_bytes2,
+            j,
+        )?;
         if self.k.is_some() {
             Ok(self.cmp.compare_with_offset(
                 &self.scratch_bytes1,

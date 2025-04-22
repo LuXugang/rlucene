@@ -17,7 +17,9 @@
 use crate::store::data_output::DataOutput;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput};
-use crate::test::util::lucene_test_case::{is_night_mode, new_directory, random};
+use crate::test::util::lucene_test_case::{
+    is_night_mode, new_directory, random,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -39,8 +41,10 @@ fn test_simple() -> Result<()> {
     let mut dir = new_directory(&mut random)?;
     let bits_per_value = direct_writer_util::bits_required(2)?;
     {
-        let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
+        let mut output =
+            dir.create_output("foo", &IOContext::default_io_context()?)?;
+        let mut writer =
+            DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
         writer.add(1)?;
         writer.add(0)?;
         writer.add(2)?;
@@ -50,8 +54,11 @@ fn test_simple() -> Result<()> {
     }
     let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let slice = input.random_access_slice(0, input.length())?;
-    let mut reader =
-        DirectReader::get_instance_with_offset(Rc::new(RefCell::new(slice)), bits_per_value, 0);
+    let mut reader = DirectReader::get_instance_with_offset(
+        Rc::new(RefCell::new(slice)),
+        bits_per_value,
+        0,
+    );
     assert_eq!(1, reader.get(0)?);
     assert_eq!(0, reader.get(1)?);
     assert_eq!(2, reader.get(2)?);
@@ -66,8 +73,10 @@ fn test_not_enough_values() -> Result<()> {
     let mut dir = new_directory(&mut random)?;
     let bits_per_value = direct_writer_util::bits_required(2)?;
     {
-        let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
+        let mut output =
+            dir.create_output("foo", &IOContext::default_io_context()?)?;
+        let mut writer =
+            DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
         writer.add(1)?;
         writer.add(0)?;
         writer.add(2)?;
@@ -137,20 +146,27 @@ fn do_test_bpv(
         };
         let name = format!("bpv{}_{}", bpv, i);
         {
-            let mut output = directory.create_output(&name, &IOContext::default_io_context()?)?;
+            let mut output = directory
+                .create_output(&name, &IOContext::default_io_context()?)?;
             for _ in 0..offset {
                 output.write_byte(random.random())?;
             }
-            let mut writer =
-                DirectWriter::get_instance(&mut output, original.len() as i64, bits_required)?;
+            let mut writer = DirectWriter::get_instance(
+                &mut output,
+                original.len() as i64,
+                bits_required,
+            )?;
             for &val in &original {
                 writer.add(val)?;
             }
             writer.finish()?;
         }
 
-        let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
-        let slice = Rc::new(RefCell::new(input.random_access_slice(0, input.length())?));
+        let input =
+            directory.open_input(&name, &IOContext::default_io_context()?)?;
+        let slice = Rc::new(RefCell::new(
+            input.random_access_slice(0, input.length())?,
+        ));
         let mut reader = if merge {
             DirectReader::get_merge_instance_with_base_offset(
                 slice.clone(),
@@ -159,7 +175,11 @@ fn do_test_bpv(
                 original.len() as i64,
             )
         } else {
-            DirectReader::get_instance_with_offset(slice.clone(), bits_required, offset)
+            DirectReader::get_instance_with_offset(
+                slice.clone(),
+                bits_required,
+                offset,
+            )
         };
         for (j, &expected) in original.iter().enumerate() {
             assert_eq!(expected, reader.get(j as i64)?, "bpv={}", bpv);

@@ -94,7 +94,12 @@ impl DataOutput for ByteArrayDataOutput {
         Ok(())
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        offset: i32,
+        length: i32,
+    ) -> Result<()> {
         debug_assert!(
             self.pos + length <= self.limit,
             "Write exceeds the allowed limit: pos={}, length={}, limit={}",
@@ -119,7 +124,8 @@ impl DataOutput for ByteArrayDataOutput {
 
         debug_assert!(
             {
-                let dst_start = self.bytes.as_mut_ptr() as usize + self.pos as usize;
+                let dst_start =
+                    self.bytes.as_mut_ptr() as usize + self.pos as usize;
                 let dst_end = dst_start + length as usize;
                 let src_start = b.as_ptr() as usize + offset as usize;
                 let src_end = src_start + length as usize;

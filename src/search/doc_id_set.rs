@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, EmptyDISI};
+use crate::search::doc_id_set_iterator::{
+    AllDocIdSetIterator, DocIdSetIterator, EmptyDISI,
+};
 use crate::util::accountable::Accountable;
 use crate::util::bits::{Bits, MatchAllBits, MatchNoBits};
 use crate::util::error::lucene_error::Result;

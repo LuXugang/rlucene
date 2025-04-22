@@ -17,7 +17,9 @@
 use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
-use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
+use crate::index::prefix_coded_terms::{
+    PrefixCodedTerms, PrefixCodedTermsBuilder,
+};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
@@ -98,7 +100,8 @@ where
             value.finish()?
         }
         let field_updates = std::mem::take(&mut updates.field_updates);
-        let field_updates_count = updates.num_field_updates.load(Ordering::Relaxed);
+        let field_updates_count =
+            updates.num_field_updates.load(Ordering::Relaxed);
 
         // TODO: memory calculation not implemented
         let bytes_used = 0;

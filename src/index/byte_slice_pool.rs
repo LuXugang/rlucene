@@ -36,7 +36,8 @@ pub(crate) struct ByteSlicePool {
 impl ByteSlicePool {
     /// An array holding the level sizes for byte slices. The first slice is 5 bytes, the second is 14,
     /// and so on.
-    pub(crate) const LEVEL_SIZE_ARRAY: [i32; 10] = [5, 14, 20, 30, 40, 40, 80, 80, 120, 200];
+    pub(crate) const LEVEL_SIZE_ARRAY: [i32; 10] =
+        [5, 14, 20, 30, 40, 40, 80, 80, 120, 200];
 
     /// An array holding indexes for the LEVEL_SIZE_ARRAY, to quickly navigate to the next
     /// slice level. These are encoded on 4 bits in the slice, so the values in this array should be
@@ -44,7 +45,8 @@ impl ByteSlicePool {
     ///
     /// `NEXT_LEVEL_ARRAY[x] == x + 1`, except for the last element, where `NEXT_LEVEL_ARRAY[x] == x`,
     /// pointing at the maximum slice size.
-    pub(crate) const NEXT_LEVEL_ARRAY: [i32; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 9];
+    pub(crate) const NEXT_LEVEL_ARRAY: [i32; 10] =
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 9];
 
     /// The first level size for new slices.
     pub(crate) const FIRST_LEVEL_SIZE: i32 = Self::LEVEL_SIZE_ARRAY[0];
@@ -98,7 +100,11 @@ impl ByteSlicePool {
     /// # Returns
     /// A value where the lower 8 bits represent the new slice's length, and the other 24 bits represent
     /// the offset into the pool.
-    pub fn alloc_known_size_slice(&mut self, slice_index: i32, upto: i32) -> Result<i32> {
+    pub fn alloc_known_size_slice(
+        &mut self,
+        slice_index: i32,
+        upto: i32,
+    ) -> Result<i32> {
         let mut pool = self.pool.borrow_mut();
         let upto = upto as usize;
         let level;
@@ -158,7 +164,9 @@ mod tests {
     };
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnum, SliceCopyOps};
+    use crate::util::{
+        ByteBlockPool, ByteBlockPoolBorrow, CounterEnum, SliceCopyOps,
+    };
     use rand::rngs::StdRng;
     use rand::Rng;
     use std::cell::RefCell;
@@ -168,7 +176,8 @@ mod tests {
     fn test_alloc_known_size_slice() -> Result<()> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
+        let allocator =
+            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
         pool.borrow_mut().next_buffer()?;
         let mut slice_pool = ByteSlicePool::new(pool.clone());
@@ -183,32 +192,44 @@ mod tests {
             let mut random_data = vec![0u8; size as usize];
             random.fill(&mut random_data[..]);
 
-            let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE)?;
+            let mut upto =
+                slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE)?;
 
             let mut offset = 0;
             while offset < size as usize {
                 let mut block_pool = pool.borrow_mut();
                 let mut buffer_upto = block_pool.buffer_upto;
                 if block_pool.get_buffer(buffer_upto)[upto as usize] & 16 == 0 {
-                    block_pool.get_buffer(buffer_upto)[upto as usize] = random_data[offset];
+                    block_pool.get_buffer(buffer_upto)[upto as usize] =
+                        random_data[offset];
                     offset += 1;
                     upto += 1;
                 } else {
                     drop(block_pool);
-                    let offset_and_length = slice_pool.alloc_known_size_slice(buffer_upto, upto)?;
+                    let offset_and_length =
+                        slice_pool.alloc_known_size_slice(buffer_upto, upto)?;
                     let mut block_pool = pool.borrow_mut();
                     let slice_length = offset_and_length & 0xff;
                     upto = offset_and_length >> 8;
                     buffer_upto = block_pool.buffer_upto;
                     assert_ne!(
                         0,
-                        block_pool.get_buffer(buffer_upto)[(upto + slice_length - 1) as usize]
+                        block_pool.get_buffer(buffer_upto)
+                            [(upto + slice_length - 1) as usize]
                     );
-                    assert_eq!(0, block_pool.get_buffer(buffer_upto)[upto as usize]);
-                    let write_length =
-                        std::cmp::min(slice_length as usize - 1, size as usize - offset);
+                    assert_eq!(
+                        0,
+                        block_pool.get_buffer(buffer_upto)[upto as usize]
+                    );
+                    let write_length = std::cmp::min(
+                        slice_length as usize - 1,
+                        size as usize - offset,
+                    );
                     let buffer = block_pool.get_buffer(buffer_upto);
-                    buffer.copy_from(&random_data[offset..offset + write_length], upto as usize);
+                    buffer.copy_from(
+                        &random_data[offset..offset + write_length],
+                        upto as usize,
+                    );
                     offset += write_length;
                     debug_assert!(write_length <= i32::MAX as usize);
                     upto += write_length as i32;
@@ -256,7 +277,10 @@ mod tests {
 
     impl SliceWriter {
         /// Creates a new `SliceWriter` instance.
-        pub fn new(random: &mut StdRng, slice_pool: Rc<RefCell<ByteSlicePool>>) -> Self {
+        pub fn new(
+            random: &mut StdRng,
+            slice_pool: Rc<RefCell<ByteSlicePool>>,
+        ) -> Self {
             let size: i32 = if random.random_bool(0.5) {
                 // size < ByteBlockPool.BYTE_BLOCK_SIZE
                 random.random_range(100..1000)
@@ -300,11 +324,12 @@ mod tests {
                 self.first_slice = pool.buffer_upto;
                 self.slice = self.first_slice;
 
-                let write_length = std::cmp::min(self.size, self.slice_length - 1);
+                let write_length =
+                    std::cmp::min(self.size, self.slice_length - 1);
                 let buffer = pool.get_buffer(self.first_slice);
                 buffer.copy_from(
-                    &self.random_data
-                        [self.data_offset as usize..(self.data_offset + write_length) as usize],
+                    &self.random_data[self.data_offset as usize
+                        ..(self.data_offset + write_length) as usize],
                     self.slice_offset as usize,
                 );
                 self.data_offset += write_length;
@@ -317,8 +342,10 @@ mod tests {
                 return Ok(false);
             }
 
-            let offset_and_length = slice_pool
-                .alloc_known_size_slice(self.slice, self.slice_offset + self.slice_length - 1)?;
+            let offset_and_length = slice_pool.alloc_known_size_slice(
+                self.slice,
+                self.slice_offset + self.slice_length - 1,
+            )?;
             let mut pool = self.block_pool.borrow_mut();
 
             // No, write more
@@ -327,11 +354,14 @@ mod tests {
             self.slice = pool.buffer_upto;
             self.slice_length = offset_and_length & 0xff;
             self.slice_offset = offset_and_length >> 8;
-            let write_length = std::cmp::min(self.size - self.data_offset, self.slice_length - 1);
+            let write_length = std::cmp::min(
+                self.size - self.data_offset,
+                self.slice_length - 1,
+            );
             current_pool_buffer = pool.get_buffer(self.slice);
             current_pool_buffer.copy_from(
-                &self.random_data
-                    [self.data_offset as usize..(self.data_offset + write_length) as usize],
+                &self.random_data[self.data_offset as usize
+                    ..(self.data_offset + write_length) as usize],
                 self.slice_offset as usize,
             );
             self.data_offset += write_length;
@@ -392,18 +422,20 @@ mod tests {
                 // Index into LEVEL_SIZE_ARRAY, allowing us to find the size of the current slice
                 self.slice_size_idx = 0;
                 // 4 bytes are for the offset to the next slice, we can't use them for data
-                self.slice_length = ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4;
-                let read_length = if self.data_offset + self.slice_length + 3 >= self.size {
-                    // We are reading the last slice, no more offset, just a byte for the level
-                    self.size - self.data_offset
-                } else {
-                    self.slice_length
-                };
+                self.slice_length =
+                    ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4;
+                let read_length =
+                    if self.data_offset + self.slice_length + 3 >= self.size {
+                        // We are reading the last slice, no more offset, just a byte for the level
+                        self.size - self.data_offset
+                    } else {
+                        self.slice_length
+                    };
 
                 let current_buffer = block_pool.get_buffer(self.slice);
                 self.read_data.copy_from(
-                    &current_buffer
-                        [self.slice_offset as usize..(self.slice_offset + read_length) as usize],
+                    &current_buffer[self.slice_offset as usize
+                        ..(self.slice_offset + read_length) as usize],
                     self.data_offset as usize,
                 );
                 self.data_offset += read_length;
@@ -427,19 +459,22 @@ mod tests {
                 (self.slice_offset + self.slice_length) as usize,
             ) & 0xFFFFFF;
             self.slice = global_slice_offset / ByteBlockPool::BYTE_BLOCK_SIZE;
-            self.slice_offset = global_slice_offset % ByteBlockPool::BYTE_BLOCK_SIZE;
-            self.slice_length = ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4;
-            let read_length = if self.data_offset + self.slice_length + 3 >= self.size {
-                // Reading the last slice
-                self.size - self.data_offset
-            } else {
-                self.slice_length
-            };
+            self.slice_offset =
+                global_slice_offset % ByteBlockPool::BYTE_BLOCK_SIZE;
+            self.slice_length =
+                ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4;
+            let read_length =
+                if self.data_offset + self.slice_length + 3 >= self.size {
+                    // Reading the last slice
+                    self.size - self.data_offset
+                } else {
+                    self.slice_length
+                };
 
             slice_buffer = block_pool.get_buffer(self.slice);
             self.read_data.copy_from(
-                &slice_buffer
-                    [self.slice_offset as usize..(self.slice_offset + read_length) as usize],
+                &slice_buffer[self.slice_offset as usize
+                    ..(self.slice_offset + read_length) as usize],
                 self.data_offset as usize,
             );
             self.data_offset += read_length;
@@ -454,9 +489,11 @@ mod tests {
     fn test_random_interleaved_slices() -> Result<()> {
         let mut random = random();
         let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
+        let allocator =
+            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
         let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-        let slice_pool = Rc::new(RefCell::new(ByteSlicePool::new(pool.clone())));
+        let slice_pool =
+            Rc::new(RefCell::new(ByteSlicePool::new(pool.clone())));
 
         let n_iterations = random.random_range(1..=3); // 1-3 iterations with buffer resets
         for _ in 0..n_iterations {
@@ -466,17 +503,17 @@ mod tests {
 
             // Init slice writers
             for _ in 0..n {
-                slice_writers.push(SliceWriter::new(&mut random, slice_pool.clone()));
+                slice_writers
+                    .push(SliceWriter::new(&mut random, slice_pool.clone()));
             }
             // Write slices
             loop {
                 let i = random.random_range(0..n);
                 let succeeded = slice_writers[i].write_slice()?;
                 if !succeeded {
-                    slice_writers
-                        .iter_mut()
-                        .take(n)
-                        .for_each(|writer| while writer.write_slice().unwrap_or(false) {});
+                    slice_writers.iter_mut().take(n).for_each(|writer| {
+                        while writer.write_slice().unwrap_or(false) {}
+                    });
                     break;
                 }
             }
@@ -505,7 +542,10 @@ mod tests {
 
             // Compare written data with read data
             for i in 0..n {
-                assert_eq!(slice_writers[i].random_data, slice_readers[i].read_data);
+                assert_eq!(
+                    slice_writers[i].random_data,
+                    slice_readers[i].read_data
+                );
             }
 
             // We don't rely on the buffers being filled with zeros because the SliceWriter keeps the

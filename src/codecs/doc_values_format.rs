@@ -34,7 +34,7 @@ pub trait DocValuesFormat: Display {
     where
         D: Directory;
 
-    type DocValuesProducer<T: IndexInput>: DocValuesProducer<T, Vec<u8>>;
+    type DocValuesProducer<T: IndexInput>: DocValuesProducer<Vec<u8>>;
     /// Returns a [`DocValuesProducer`] to read docvalues from the index.
     ///
     /// NOTE: By the time this call returns, it must hold open any files it will need to use;

@@ -36,7 +36,7 @@ impl TermState for OrdTermState {
             TermStateEnum::Ord(other_ord_term_state) => {
                 self.ord = other_ord_term_state.ord;
                 Ok(())
-            }
+            },
             _ => Err(LuceneError::illegal_state(
                 "enum other should be OrdTermState",
             )),

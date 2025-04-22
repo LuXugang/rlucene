@@ -129,7 +129,8 @@ mod tests {
     struct TestBKDConfig;
     #[test]
     fn test_invalid_num_dims() {
-        let result = BKDConfig::new(0, 0, 8, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
+        let result =
+            BKDConfig::new(0, 0, 8, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
         assert!(result.is_err());
         if let Err(err) = result {
             let err_msg = format!("{:?}", err);
@@ -142,28 +143,42 @@ mod tests {
     #[test]
     fn test_invalid_num_indexed_dims() {
         {
-            let result = BKDConfig::new(1, 0, 8, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
+            let result = BKDConfig::new(
+                1,
+                0,
+                8,
+                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+            );
             assert!(result.is_err());
             if let Err(err) = result {
                 let err_msg = format!("{:?}", err);
                 assert!(
                     err_msg.contains("num_index_dims must be 1 .. ")
-                        && err_msg.contains(&BKDConfig::MAX_INDEX_DIMS.to_string())
+                        && err_msg
+                            .contains(&BKDConfig::MAX_INDEX_DIMS.to_string())
                 );
             }
         }
         {
-            let result = BKDConfig::new(1, 2, 8, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
+            let result = BKDConfig::new(
+                1,
+                2,
+                8,
+                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+            );
             assert!(result.is_err());
             if let Err(err) = result {
                 let err_msg = format!("{:?}", err);
-                assert!(err_msg.contains("num_index_dims cannot exceed num_dims"));
+                assert!(
+                    err_msg.contains("num_index_dims cannot exceed num_dims")
+                );
             }
         }
     }
     #[test]
     fn test_invalid_bytes_per_dim() {
-        let result = BKDConfig::new(1, 1, 0, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
+        let result =
+            BKDConfig::new(1, 1, 0, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
         assert!(result.is_err());
         if let Err(err) = result {
             let err_msg = format!("{:?}", err);

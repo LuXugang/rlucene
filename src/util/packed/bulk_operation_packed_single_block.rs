@@ -68,22 +68,32 @@ impl BulkOperationPackedSingleBlock {
     }
 
     /// Encodes a slice of `i64` values into a block.
-    pub fn encode_from_i64(&self, values: &[i64], mut values_offset: usize) -> u64 {
+    pub fn encode_from_i64(
+        &self,
+        values: &[i64],
+        mut values_offset: usize,
+    ) -> u64 {
         let mut block = values[values_offset] as u64;
         values_offset += 1;
         for j in 1..self.value_count {
-            block |= (values[values_offset] as u64) << (j * self.bits_per_value);
+            block |=
+                (values[values_offset] as u64) << (j * self.bits_per_value);
             values_offset += 1;
         }
         block
     }
 
     /// Encodes a slice of `i32` values into a block.
-    pub fn encode_from_i32(&self, values: &[i32], mut values_offset: usize) -> u64 {
+    pub fn encode_from_i32(
+        &self,
+        values: &[i32],
+        mut values_offset: usize,
+    ) -> u64 {
         let mut block = (values[values_offset] as u64) & 0xFFFFFFFF;
         values_offset += 1;
         for j in 1..self.value_count {
-            block |= ((values[values_offset] as u64) & 0xFFFFFFFF) << (j * self.bits_per_value);
+            block |= ((values[values_offset] as u64) & 0xFFFFFFFF)
+                << (j * self.bits_per_value);
             values_offset += 1;
         }
         block

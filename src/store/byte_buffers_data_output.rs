@@ -127,7 +127,11 @@ impl ByteBuffersDataOutput {
     /// * `expected_size` - Estimated size of the output file.
     pub fn with_size(expected_size: i64) -> Result<Self> {
         let block_bits = compute_block_size_bits_for(expected_size);
-        Self::new_with_reuse(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
+        Self::new_with_reuse(
+            block_bits,
+            Self::DEFAULT_MAX_BITS_PER_BLOCK,
+            false,
+        )
     }
 
     fn append_block(&mut self) {
@@ -176,9 +180,11 @@ impl ByteBuffersDataOutput {
                     new_block = Cursor::new(vec![0; block_size]);
                     available_space = 1 << self.block_bits;
                 }
-                let bytes_to_copy = available_space.min(old_block.remain()) as usize;
+                let bytes_to_copy =
+                    available_space.min(old_block.remain()) as usize;
                 let old_position = old_block.position() as usize;
-                let old_data = &old_block.get_ref()[old_position..old_position + bytes_to_copy];
+                let old_data = &old_block.get_ref()
+                    [old_position..old_position + bytes_to_copy];
                 debug_assert!(
                     new_block.remain() as usize >= bytes_to_copy,
                     "Insufficient space in new_block: remaining={}, required={}",
@@ -200,7 +206,10 @@ impl ByteBuffersDataOutput {
         self.current_block_index = (self.blocks.len() - 1) as i32;
     }
     /// Copies the current content of this object into another [`DataOutput`].
-    pub(crate) fn copy_to<D: DataOutput>(&mut self, output: &mut D) -> Result<()> {
+    pub(crate) fn copy_to<D: DataOutput>(
+        &mut self,
+        output: &mut D,
+    ) -> Result<()> {
         debug_assert!(!self.blocks.is_empty());
         for (index, block) in self.blocks.iter().enumerate() {
             if index == self.current_block_index as usize {
@@ -300,10 +309,13 @@ impl ByteBuffersDataOutput {
                 let cursor = self.blocks.front_mut().unwrap();
                 let end = cursor.position() as usize;
 
-                let old_vec = std::mem::replace(cursor.get_mut(), vec![0u8; 1 << self.block_bits]);
+                let old_vec = std::mem::replace(
+                    cursor.get_mut(),
+                    vec![0u8; 1 << self.block_bits],
+                );
 
                 old_vec.into_iter().take(end).collect()
-            }
+            },
             _ => {
                 let mut buffer = Vec::with_capacity(self.size() as usize);
                 for block in &self.blocks {
@@ -311,7 +323,7 @@ impl ByteBuffersDataOutput {
                     buffer.extend_from_slice(&block.get_ref()[..end]);
                 }
                 buffer
-            }
+            },
         }
     }
 
@@ -326,7 +338,9 @@ impl ByteBuffersDataOutput {
             .get_mut(self.current_block_index as usize)
             .unwrap();
         if last_block.remain() == 0 {
-            if self.reuse && (self.current_block_index as usize) < self.blocks.len() - 1 {
+            if self.reuse
+                && (self.current_block_index as usize) < self.blocks.len() - 1
+            {
                 self.current_block_index += 1;
                 last_block = self
                     .blocks
@@ -368,7 +382,12 @@ impl DataOutput for ByteBuffersDataOutput {
         self.write_bytes_range(b, 0, len)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], mut offset: i32, mut length: i32) -> Result<()> {
+    fn write_bytes_range(
+        &mut self,
+        b: &[u8],
+        mut offset: i32,
+        mut length: i32,
+    ) -> Result<()> {
         while length > 0 {
             let available_space = self.append_block_if_needed();
             let last_block = self
@@ -407,7 +426,11 @@ impl DataOutput for ByteBuffersDataOutput {
         self.write_bytes_range(bytes, 0, length as i32)
     }
 
-    fn copy_bytes(&mut self, input: &mut impl DataInput, mut num_bytes: i64) -> Result<()> {
+    fn copy_bytes(
+        &mut self,
+        input: &mut impl DataInput,
+        mut num_bytes: i64,
+    ) -> Result<()> {
         while num_bytes > 0 {
             let available_space = self.append_block_if_needed();
             let last_block = self
@@ -420,7 +443,11 @@ impl DataOutput for ByteBuffersDataOutput {
             let current_pos = last_block.position();
             debug_assert!(current_pos <= u32::MAX as u64);
             let current_block_mut = last_block.get_mut();
-            input.read_bytes(current_block_mut, current_pos as i32, bytes_to_copy as i32)?;
+            input.read_bytes(
+                current_block_mut,
+                current_pos as i32,
+                bytes_to_copy as i32,
+            )?;
             last_block.set_position(current_pos + bytes_to_copy as u64);
             num_bytes -= bytes_to_copy;
         }
@@ -435,15 +462,18 @@ impl Accountable for ByteBuffersDataOutput {
 }
 
 fn compute_block_size_bits_for(bytes: i64) -> i32 {
-    let avg_block_size =
-        (bytes / ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as i64) as u64;
+    let avg_block_size = (bytes
+        / ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as i64)
+        as u64;
     let power_of_two = avg_block_size.next_power_of_two();
     if power_of_two == 0 {
         return ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK;
     }
     let mut block_bits = power_of_two.trailing_zeros();
-    block_bits = block_bits.min(ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK as u32);
-    block_bits = block_bits.max(ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK as u32);
+    block_bits = block_bits
+        .min(ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK as u32);
+    block_bits = block_bits
+        .max(ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK as u32);
     debug_assert!(block_bits <= i32::MAX as u32);
     block_bits as i32
 }
@@ -458,7 +488,9 @@ fn write_long_string(_byte_len: usize, _s: String) {
 mod tests {
     use crate::store::data_output::DataOutput;
     use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput};
-    use crate::test::store::base_data_output_test_case::{add_random_data, BaseDataOutputTestCase};
+    use crate::test::store::base_data_output_test_case::{
+        add_random_data, BaseDataOutputTestCase,
+    };
     use crate::test::util::lucene_test_case::is_night_mode;
     use crate::test::util::lucene_test_case::{random, random_from_seed};
 
@@ -491,21 +523,29 @@ mod tests {
         let mut random1 = random_from_seed(gen_seed);
         let mut random2 = random_from_seed(gen_seed);
         let add_count = random.random_range(1000..=5000);
-        add_random_data::<ByteArrayDataInput<Vec<u8>>>(&mut o, &mut random1, add_count);
+        add_random_data::<ByteArrayDataInput<Vec<u8>>>(
+            &mut o,
+            &mut random1,
+            add_count,
+        );
         let dta = match random.random_bool(0.5) {
             true => o.get_array_copy(),
             false => o.try_get_array_ownership(),
         };
 
         o.reset();
-        add_random_data::<ByteArrayDataInput<Vec<u8>>>(&mut o, &mut random2, add_count);
+        add_random_data::<ByteArrayDataInput<Vec<u8>>>(
+            &mut o,
+            &mut random2,
+            add_count,
+        );
         match random.random_bool(0.5) {
             true => {
                 assert_eq!(dta, o.get_array_copy());
-            }
+            },
             false => {
                 assert_eq!(dta, o.try_get_array_ownership());
-            }
+            },
         }
         Ok(())
     }
@@ -528,11 +568,14 @@ mod tests {
         let (_length, mut result) = o.to_buffer_list_ref();
         let cap = result.get_mut(0).unwrap().get_ref().len();
         assert!(
-            ((cap >> 1) * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize)
+            ((cap >> 1)
+                * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION
+                    as usize)
                 < expected_size as usize
         );
         assert!(
-            cap * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize
+            cap * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION
+                as usize
                 >= expected_size as usize
         );
         Ok(())
@@ -592,10 +635,10 @@ mod tests {
         match random.random_bool(0.5) {
             true => {
                 assert_eq!(o.get_array_copy(), vec![1, 2, 3, 4]);
-            }
+            },
             false => {
                 assert_eq!(o.try_get_array_ownership(), vec![1, 2, 3, 4]);
-            }
+            },
         }
         Ok(())
     }
@@ -622,10 +665,10 @@ mod tests {
         match random.random_bool(0.5) {
             true => {
                 assert_eq!(expected, o.get_array_copy());
-            }
+            },
             false => {
                 assert_eq!(expected, o.try_get_array_ownership());
-            }
+            },
         }
         Ok(())
     }
@@ -637,7 +680,8 @@ mod tests {
         let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
         let bytes_clone = bytes.clone();
-        let mut input = ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
+        let mut input =
+            ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
 
         let mut o = ByteBuffersDataOutput::new_with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
@@ -649,10 +693,10 @@ mod tests {
         match random.random_bool(0.5) {
             true => {
                 assert_eq!(o.get_array_copy(), expected);
-            }
+            },
             false => {
                 assert_eq!(o.try_get_array_ownership(), expected);
-            }
+            },
         }
         Ok(())
     }
@@ -664,7 +708,8 @@ mod tests {
         let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
         let bytes_clone = bytes.clone();
-        let mut input = ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
+        let mut input =
+            ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
         let mut o = ByteBuffersDataOutput::new_with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
             ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
@@ -675,10 +720,10 @@ mod tests {
         match random.random_bool(0.5) {
             true => {
                 assert_eq!(o.get_array_copy(), expected);
-            }
+            },
             false => {
                 assert_eq!(o.try_get_array_ownership(), expected);
-            }
+            },
         }
         Ok(())
     }

@@ -80,7 +80,8 @@ impl StringField {
             Arc::clone(&TYPE_NOT_STORED)
         };
         let value_str = Arc::new(value.to_string());
-        let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
+        let parent_field =
+            Field::with_string(name, value_str.clone(), field_type.clone())?;
         let binary_value = Arc::new(BytesRef::from_string(value));
         let stored_value = if store {
             None
@@ -100,14 +101,19 @@ impl StringField {
     /// - `value`: `BytesRef` value. The provided value is **not cloned**, so it must not be modified
     ///   until the document(s) holding it have been indexed.
     /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef<Vec<u8>>>, store: Store) -> Result<Self> {
+    pub fn with_bytes_ref(
+        name: &str,
+        value: Arc<BytesRef<Vec<u8>>>,
+        store: Store,
+    ) -> Result<Self> {
         let store = store.into();
         let field_type = if store {
             Arc::clone(&TYPE_STORED)
         } else {
             Arc::clone(&TYPE_NOT_STORED)
         };
-        let parent_field = Field::with_bytes_ref(name, value.clone(), field_type.clone())?;
+        let parent_field =
+            Field::with_bytes_ref(name, value.clone(), field_type.clone())?;
         let stored_value = if store {
             None
         } else {

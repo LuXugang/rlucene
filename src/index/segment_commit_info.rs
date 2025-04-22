@@ -96,7 +96,9 @@ where
         id: Option<Vec<u8>>,
     ) -> Result<Self> {
         // Validate the ID length
-        if id.is_some() && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH as usize {
+        if id.is_some()
+            && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH as usize
+        {
             return Err(LuceneError::illegal_argument(format!(
                 "Invalid ID: {:?}",
                 id.unwrap()
@@ -129,7 +131,9 @@ where
         })
     }
     /// Returns a reference to the per-field DocValues updates files.
-    pub fn get_doc_values_updates_files(&self) -> &HashMap<i32, HashSet<String>> {
+    pub fn get_doc_values_updates_files(
+        &self,
+    ) -> &HashMap<i32, HashSet<String>> {
         &self.dv_updates_files
     }
 
@@ -153,7 +157,10 @@ where
     }
 
     /// Sets the FieldInfos file names.
-    pub fn set_field_infos_files(&mut self, field_infos_files: HashSet<String>) {
+    pub fn set_field_infos_files(
+        &mut self,
+        field_infos_files: HashSet<String>,
+    ) {
         self.field_infos_files.clear();
         for file in field_infos_files {
             self.field_infos_files
@@ -373,8 +380,14 @@ where
         Ok(())
     }
     /// Returns a description of this segment.
-    pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> String {
-        let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count);
+    pub fn to_string_with_pending_del_count(
+        &self,
+        pending_del_count: i32,
+    ) -> String {
+        let mut s = SegmentInfo::to_string(
+            &self.info,
+            self.del_count + pending_del_count,
+        );
 
         if self.del_gen != -1 {
             s.push_str(&format!(":delGen={}", self.del_gen));
@@ -391,14 +404,19 @@ where
         if self.id.is_some() {
             s.push_str(&format!(
                 " :id={}",
-                StringHelper::id_to_string(Option::from(self.id.as_ref().unwrap().as_slice()))
+                StringHelper::id_to_string(Option::from(
+                    self.id.as_ref().unwrap().as_slice()
+                ))
             ));
         }
         s
     }
     /// Returns the number of deleted documents in the segment.
     /// If `include_soft_deletes` is `true`, it includes soft-deleted documents.
-    pub fn get_del_count_with_soft_deletes(&self, include_soft_deletes: bool) -> i32 {
+    pub fn get_del_count_with_soft_deletes(
+        &self,
+        include_soft_deletes: bool,
+    ) -> i32 {
         if include_soft_deletes {
             self.get_del_count() + self.get_soft_del_count()
         } else {
@@ -458,7 +476,9 @@ where
             next_write_doc_values_gen: self.next_write_doc_values_gen,
             dv_updates_files: cloned_dv_updates_files,
             field_infos_files: self.field_infos_files.clone(),
-            size_in_bytes: AtomicI64::new(self.size_in_bytes.load(Ordering::SeqCst)),
+            size_in_bytes: AtomicI64::new(
+                self.size_in_bytes.load(Ordering::SeqCst),
+            ),
             buffered_deletes_gen: self.buffered_deletes_gen,
         }
     }

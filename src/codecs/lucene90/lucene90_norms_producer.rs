@@ -99,10 +99,10 @@ where
                 Ok(v) => {
                     version = v;
                     norms = Self::read_fields(&mut input, &state.field_infos)?;
-                }
+                },
                 Err(e) => {
                     prior_error = Some(e);
-                }
+                },
             }
             if let Some(e) = prior_error.as_mut() {
                 return Err(CodecUtil::check_footer_with_error(&mut input, e));
@@ -179,7 +179,7 @@ where
                         "invalid field number: {} (resource={})",
                         field_number, meta
                     )));
-                }
+                },
                 Some(info) => {
                     info_number = info.number;
                     if !info.has_norms() {
@@ -188,7 +188,7 @@ where
                             info.name
                         )));
                     }
-                }
+                },
             }
             let docs_with_field_offset = meta.read_long()?;
             let docs_with_field_length = meta.read_long()?;
@@ -198,7 +198,7 @@ where
             let bytes_per_norm = meta.read_byte()? as i8;
 
             match bytes_per_norm {
-                0 | 1 | 2 | 4 | 8 => {}
+                0 | 1 | 2 | 4 | 8 => {},
                 _ => {
                     return Err(LuceneError::corrupt_index(format!(
                         "Invalid bytesPerValue: {}, field: {}(resource={})",
@@ -206,7 +206,7 @@ where
                         info.as_ref().unwrap().name,
                         meta
                     )));
-                }
+                },
             }
 
             let norms_offset = meta.read_long()?;
@@ -236,8 +236,10 @@ where
                 return Ok(Rc::clone(existing));
             }
         }
-        let length = entry.num_docs_with_field as i64 * entry.bytes_per_norm as i64;
-        let mut slice = self.data.random_access_slice(entry.norms_offset, length)?;
+        let length =
+            entry.num_docs_with_field as i64 * entry.bytes_per_norm as i64;
+        let mut slice =
+            self.data.random_access_slice(entry.norms_offset, length)?;
         // Prefetch the first page of data. Following pages are expected to get prefetched through
         // read-ahead.
         if slice.length() > 0 {
@@ -418,13 +420,22 @@ where
 
     type Slice = DummyIndexInput;
 
-    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
+    fn slice(
+        &self,
+        _slice_description: &str,
+        _offset: i64,
+        _length: i64,
+    ) -> Result<Self::Slice> {
         Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
     }
 
     type RandomAccessSlice = DummyRandomAccessInput;
 
-    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<Self::RandomAccessSlice> {
+    fn random_access_slice(
+        &self,
+        _offset: i64,
+        _length: i64,
+    ) -> Result<Self::RandomAccessSlice> {
         Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
     }
 
@@ -440,7 +451,10 @@ where
 {
     type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
 
-    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
+    fn get_norms(
+        &mut self,
+        field: &Rc<FieldInfo>,
+    ) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
         // copy on stack is acceptable, of course we could have a better way
         let entry = self.norms.get(&field.number).unwrap().clone();
         if entry.docs_with_field_offset == -2 {
@@ -453,11 +467,13 @@ where
         if entry.docs_with_field_offset == -1 {
             // dense
             if entry.bytes_per_norm == 0 {
-                let sub_dense_norms =
-                    DenseNormsIteratorBaseEnum::Dense(DenseNormsIteratorBaseImpl {
+                let sub_dense_norms = DenseNormsIteratorBaseEnum::Dense(
+                    DenseNormsIteratorBaseImpl {
                         norms_offset: entry.norms_offset,
-                    });
-                let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
+                    },
+                );
+                let dense_norms_iterator =
+                    DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                 return Ok(Lucene90NormNumericDocValuesEnum::Dense(
                     dense_norms_iterator,
                 ));
@@ -466,41 +482,45 @@ where
 
             return match entry.bytes_per_norm {
                 1 => {
-                    let sub_dense_norms =
-                        DenseNormsIteratorBaseEnum::Dense1(DenseNormsIteratorBaseImpl1 { slice });
+                    let sub_dense_norms = DenseNormsIteratorBaseEnum::Dense1(
+                        DenseNormsIteratorBaseImpl1 { slice },
+                    );
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                     Ok(Lucene90NormNumericDocValuesEnum::Dense(
                         dense_norms_iterator,
                     ))
-                }
+                },
                 2 => {
-                    let sub_dense_norms =
-                        DenseNormsIteratorBaseEnum::Dense2(DenseNormsIteratorBaseImpl2 { slice });
+                    let sub_dense_norms = DenseNormsIteratorBaseEnum::Dense2(
+                        DenseNormsIteratorBaseImpl2 { slice },
+                    );
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                     Ok(Lucene90NormNumericDocValuesEnum::Dense(
                         dense_norms_iterator,
                     ))
-                }
+                },
                 4 => {
-                    let sub_dense_norms =
-                        DenseNormsIteratorBaseEnum::Dense3(DenseNormsIteratorBaseImpl4 { slice });
+                    let sub_dense_norms = DenseNormsIteratorBaseEnum::Dense3(
+                        DenseNormsIteratorBaseImpl4 { slice },
+                    );
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                     Ok(Lucene90NormNumericDocValuesEnum::Dense(
                         dense_norms_iterator,
                     ))
-                }
+                },
                 8 => {
-                    let sub_dense_norms =
-                        DenseNormsIteratorBaseEnum::Dense4(DenseNormsIteratorBaseImpl8 { slice });
+                    let sub_dense_norms = DenseNormsIteratorBaseEnum::Dense4(
+                        DenseNormsIteratorBaseImpl8 { slice },
+                    );
                     let dense_norms_iterator =
                         DenseNormsIterator::new(self.max_doc, sub_dense_norms);
                     Ok(Lucene90NormNumericDocValuesEnum::Dense(
                         dense_norms_iterator,
                     ))
-                }
+                },
                 _ => Err(LuceneError::unreachable("invalid bytes_per_norm")),
             };
         }
@@ -516,12 +536,14 @@ where
         )?;
 
         if entry.bytes_per_norm == 0 {
-            let sub_sparse_norms =
-                SparseNormsIteratorBaseEnum::Sparse(SparseNormsIteratorBaseImpl {
+            let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse(
+                SparseNormsIteratorBaseImpl {
                     norms_offset: entry.norms_offset,
                     _phantom: PhantomData,
-                });
-            let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+                },
+            );
+            let sparse_norms_iterator =
+                SparseNormsIterator::new(sub_sparse_norms, disi);
             return Ok(Lucene90NormNumericDocValuesEnum::Sparse(
                 sparse_norms_iterator,
             ));
@@ -531,37 +553,45 @@ where
 
         match entry.bytes_per_norm {
             1 => {
-                let sub_sparse_norms =
-                    SparseNormsIteratorBaseEnum::Sparse1(SparseNormsIteratorBaseImpl1 { slice });
-                let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+                let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse1(
+                    SparseNormsIteratorBaseImpl1 { slice },
+                );
+                let sparse_norms_iterator =
+                    SparseNormsIterator::new(sub_sparse_norms, disi);
                 Ok(Lucene90NormNumericDocValuesEnum::Sparse(
                     sparse_norms_iterator,
                 ))
-            }
+            },
             2 => {
-                let sub_sparse_norms =
-                    SparseNormsIteratorBaseEnum::Sparse2(SparseNormsIteratorBaseImpl2 { slice });
-                let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+                let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse2(
+                    SparseNormsIteratorBaseImpl2 { slice },
+                );
+                let sparse_norms_iterator =
+                    SparseNormsIterator::new(sub_sparse_norms, disi);
                 Ok(Lucene90NormNumericDocValuesEnum::Sparse(
                     sparse_norms_iterator,
                 ))
-            }
+            },
             4 => {
-                let sub_sparse_norms =
-                    SparseNormsIteratorBaseEnum::Sparse3(SparseNormsIteratorBaseImpl4 { slice });
-                let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+                let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse3(
+                    SparseNormsIteratorBaseImpl4 { slice },
+                );
+                let sparse_norms_iterator =
+                    SparseNormsIterator::new(sub_sparse_norms, disi);
                 Ok(Lucene90NormNumericDocValuesEnum::Sparse(
                     sparse_norms_iterator,
                 ))
-            }
+            },
             8 => {
-                let sub_sparse_norms =
-                    SparseNormsIteratorBaseEnum::Sparse4(SparseNormsIteratorBaseImpl8 { slice });
-                let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+                let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse4(
+                    SparseNormsIteratorBaseImpl8 { slice },
+                );
+                let sparse_norms_iterator =
+                    SparseNormsIterator::new(sub_sparse_norms, disi);
                 Ok(Lucene90NormNumericDocValuesEnum::Sparse(
                     sparse_norms_iterator,
                 ))
-            }
+            },
             _ => Err(LuceneError::unreachable("invalid bytes_per_norm")),
         }
     }
@@ -615,7 +645,10 @@ impl<I> DenseNormsIterator<I>
 where
     I: IndexInput,
 {
-    fn new(max_doc: i32, sub_dense_norms: DenseNormsIteratorBaseEnum<I>) -> Self {
+    fn new(
+        max_doc: i32,
+        sub_dense_norms: DenseNormsIteratorBaseEnum<I>,
+    ) -> Self {
         Self {
             max_doc,
             doc: -1,
@@ -775,7 +808,10 @@ impl<I> SparseNormsIterator<I>
 where
     I: IndexInput,
 {
-    fn new(sub_sparse_norms: SparseNormsIteratorBaseEnum<I>, disi: IndexedDISI<I>) -> Self {
+    fn new(
+        sub_sparse_norms: SparseNormsIteratorBaseEnum<I>,
+        disi: IndexedDISI<I>,
+    ) -> Self {
         Self {
             sub_sparse_norms,
             disi,
@@ -939,11 +975,21 @@ where
 {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64> {
         match self {
-            SparseNormsIteratorBaseEnum::Sparse(inner) => inner.long_value(disi),
-            SparseNormsIteratorBaseEnum::Sparse1(inner) => inner.long_value(disi),
-            SparseNormsIteratorBaseEnum::Sparse2(inner) => inner.long_value(disi),
-            SparseNormsIteratorBaseEnum::Sparse3(inner) => inner.long_value(disi),
-            SparseNormsIteratorBaseEnum::Sparse4(inner) => inner.long_value(disi),
+            SparseNormsIteratorBaseEnum::Sparse(inner) => {
+                inner.long_value(disi)
+            },
+            SparseNormsIteratorBaseEnum::Sparse1(inner) => {
+                inner.long_value(disi)
+            },
+            SparseNormsIteratorBaseEnum::Sparse2(inner) => {
+                inner.long_value(disi)
+            },
+            SparseNormsIteratorBaseEnum::Sparse3(inner) => {
+                inner.long_value(disi)
+            },
+            SparseNormsIteratorBaseEnum::Sparse4(inner) => {
+                inner.long_value(disi)
+            },
         }
     }
 }

@@ -102,13 +102,13 @@ impl Lucene99SegmentInfoFormat {
                 let bug_fix = input.read_int()?;
                 debug_assert!(bug_fix >= 0);
                 Some(Version::from_bits(major, minor, bug_fix)?)
-            }
+            },
             _ => {
                 return Err(LuceneError::corrupt_index(format!(
                     "Illegal boolean value : {} (resource={})",
                     has_min_version, input
                 )))
-            }
+            },
         };
 
         let doc_count = input.read_int()?;
@@ -126,20 +126,21 @@ impl Lucene99SegmentInfoFormat {
         let num_sort_fields = input.read_vint()?;
         let index_sort = match num_sort_fields.cmp(&0) {
             std::cmp::Ordering::Greater => {
-                let mut sort_fields = Vec::with_capacity(num_sort_fields as usize);
+                let mut sort_fields =
+                    Vec::with_capacity(num_sort_fields as usize);
                 for _ in 0..num_sort_fields {
                     let name = input.read_string()?;
                     let sort_field = for_name(&name).read_sort_field(input)?;
                     sort_fields.push(sort_field);
                 }
                 Some(Sort::with_fields(sort_fields)?)
-            }
+            },
             std::cmp::Ordering::Less => {
                 return Err(LuceneError::corrupt_index(format!(
                     "invalid index sort field count: {} (resource={})",
                     num_sort_fields, input
                 )));
-            }
+            },
             std::cmp::Ordering::Equal => None,
         };
 
@@ -159,7 +160,10 @@ impl Lucene99SegmentInfoFormat {
         si.set_files(files);
         Ok(si)
     }
-    fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()>
+    fn write_segment_info<D>(
+        output: &mut impl DataOutput,
+        si: &SegmentInfo<D>,
+    ) -> Result<()>
     where
         D: Directory,
     {
@@ -254,7 +258,8 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     where
         D: Directory,
     {
-        let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
+        let file_name =
+            IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
         let directory = dir.lock();
         let mut input = directory.open_checksum_input(&file_name)?;
 
@@ -272,15 +277,19 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
                 );
                 match check_result {
                     Ok(_) => {
-                        match Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id)
-                        {
+                        match Self::parse_segment_info(
+                            dir.clone(),
+                            &mut input,
+                            segment,
+                            segment_id,
+                        ) {
                             Ok(parsed_info) => {
                                 si = Some(parsed_info);
                                 Ok(())
-                            }
+                            },
                             Err(e) => Err(e),
                         }
-                    }
+                    },
                     Err(e) => Err(e),
                 }
             };
@@ -297,7 +306,10 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         }
 
         si.ok_or_else(|| {
-            LuceneError::corrupt_index(format!("Failed to parse segment info for {}", segment))
+            LuceneError::corrupt_index(format!(
+                "Failed to parse segment info for {}",
+                segment
+            ))
         })
     }
 
@@ -310,7 +322,8 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     where
         D: Directory,
     {
-        let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
+        let file_name =
+            IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
         let mut output = dir.create_output(&file_name, io_context)?;
         si.add_file(file_name.clone())?;
         CodecUtil::write_index_header(

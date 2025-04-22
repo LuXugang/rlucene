@@ -61,7 +61,10 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
         self.doc = doc_id;
     }
     #[allow(unused)]
-    fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
+    fn equal_disi_type<
+        T1: DocIdSetIterator + 'static,
+        T2: DocIdSetIterator + 'static,
+    >(
         _it1: &T1,
         _it2: &T2,
     ) -> bool {

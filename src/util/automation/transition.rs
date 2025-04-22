@@ -61,7 +61,10 @@ impl std::fmt::Display for Transition {
         write!(
             f,
             "{} --> {} {}-{}",
-            self.source, self.dest, self.min as u8 as char, self.max as u8 as char
+            self.source,
+            self.dest,
+            self.min as u8 as char,
+            self.max as u8 as char
         )
     }
 }

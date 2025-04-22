@@ -19,7 +19,18 @@ use strum_macros::{EnumCount, FromRepr};
 /// Controls how much information is stored in the postings lists.
 ///
 /// # Experimental
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, Hash, EnumCount)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    FromRepr,
+    Hash,
+    EnumCount,
+)]
 #[repr(u8)]
 pub enum IndexOptions {
     /// Not indexed

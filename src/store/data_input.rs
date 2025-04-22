@@ -40,7 +40,8 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_bytes_range`](crate::store::data_output::DataOutput::write_bytes_range)
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()>;
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32)
+        -> Result<()>;
     /// Reads a specified number of bytes into an array at the specified offset, with control over
     /// whether the read should be buffered. Callers who have their own buffer should pass `false`
     /// for `use_buffer`. Currently, only `BufferedIndexInput` respects this parameter.
@@ -101,7 +102,11 @@ pub trait DataInput: Sized + Display {
     fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         self.default_read_group_vint(dst, offset)
     }
-    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+    fn default_read_group_vint(
+        &mut self,
+        dst: &mut [i32],
+        offset: i32,
+    ) -> Result<()> {
         GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,
@@ -151,7 +156,12 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Note
     /// This is an experimental API.
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
+    fn read_longs(
+        &mut self,
+        dst: &mut [i64],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
         CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
@@ -167,7 +177,12 @@ pub trait DataInput: Sized + Display {
     /// * `dst` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `int` values.
     /// * `length` - The number of `int` values to read.
-    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
+    fn read_ints(
+        &mut self,
+        dst: &mut [i32],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
         CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
@@ -184,12 +199,18 @@ pub trait DataInput: Sized + Display {
     /// * `floats` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `float` values.
     /// * `len` - The number of `float` values to read.
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
+    fn read_floats(
+        &mut self,
+        dst: &mut [f32],
+        offset: i32,
+        len: i32,
+    ) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
         CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
         while i < len {
-            dst[(i + offset) as usize] = f32::from_bits(self.read_int()? as u32);
+            dst[(i + offset) as usize] =
+                f32::from_bits(self.read_int()? as u32);
             i += 1;
         }
         Ok(())
@@ -266,7 +287,8 @@ pub trait DataInput: Sized + Display {
             map.insert(self.read_string()?, self.read_string()?);
             return Ok(map);
         } else {
-            let mut map: HashMap<String, String> = HashMap::with_capacity(count as usize);
+            let mut map: HashMap<String, String> =
+                HashMap::with_capacity(count as usize);
             for _ in 0..count {
                 map.insert(self.read_string()?, self.read_string()?);
             }

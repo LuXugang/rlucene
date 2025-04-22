@@ -95,7 +95,11 @@ where
     ///
     /// - `term`: the term the [`TermState`] corresponds to
     /// - `state`: the [`TermState`]
-    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()>;
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<AV>,
+        state: &TermStateEnum,
+    ) -> Result<()>;
 
     /// Returns current term. Do not call this when the enum is unpositioned.
     fn term(&self) -> Result<Cow<BytesRef<AV>>> {
@@ -130,7 +134,10 @@ where
     ///
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse
     ///   See also: `postings_with_flags`.
-    fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnum> {
+    fn postings(
+        &mut self,
+        reuse: Option<impl PostingsEnum>,
+    ) -> Result<Self::PostingsEnum> {
         self.postings_with_flags(reuse, postings_enum_util::FREQS as i32)
     }
 

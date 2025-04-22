@@ -79,7 +79,11 @@ pub trait DocValuesSkipper {
 
     /// Advance this skipper so that all levels intersect the range given by `min_value` and `max_value`.
     /// If there are no intersecting levels, the skipper is exhausted.
-    fn advance_by_range(&mut self, min_value: i64, max_value: i64) -> Result<()> {
+    fn advance_by_range(
+        &mut self,
+        min_value: i64,
+        max_value: i64,
+    ) -> Result<()> {
         if self.min_doc_id(0) == -1 {
             // `advance` has not been called yet
             self.advance(0)?;

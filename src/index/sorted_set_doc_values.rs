@@ -14,26 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::doc_values_enum::doc_values::SortedDocValuesEnum;
+
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::terms_enums::TermsEnums;
+use crate::index::terms_enum::TermsEnum;
+
 use crate::index::BytesRef;
-use crate::store::IndexInput;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
 use std::borrow::Cow;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// A multi-valued version of [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues).
 ///
 /// Per-Document values in a `SortedSetDocValues` are deduplicated, dereferenced, and sorted into a
 /// dictionary of unique values. A pointer to the dictionary value (ordinal) can be retrieved for
 /// each document. Ordinals are dense and in increasing sorted order.
-pub trait SortedSetDocValues<I, AV>: DocValuesIterator
+pub trait SortedSetDocValues<AV>: DocValuesIterator
 where
-    I: IndexInput,
     AV: AccessVec<u8>,
 {
     /// Returns the next ordinal for the current document. It is illegal to call this method after
@@ -67,7 +64,7 @@ where
     /// # Returns
     /// Number of unique values in this `SortedDocValues`. This is also equivalent to one plus
     /// the maximum ordinal.
-    fn get_value_count(&self) -> Result<i64> {
+    fn get_value_count(&mut self) -> Result<i64> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -97,15 +94,12 @@ where
         }
         Ok(-(low + 1)) // key not found
     }
+    type TermsEnum: TermsEnum<AV>;
     /// Returns a [`TermsEnum`](crate::index::terms_enum::TermsEnum) over the values.
     /// The enum supports [`TermsEnum::ord()`](crate::index::terms_enum::TermsEnum::ord) and [`TermsEnum::seek_exact_with_ord()`](crate::index::terms_enum::TermsEnum::seek_exact_with_ord).
-    fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
         Err(LuceneError::not_implemented(""))
     }
     // TODO:
     // intersect not Implemented
-
-    fn unwrap_singleton(&self) -> Result<Option<Rc<RefCell<SortedDocValuesEnum<I, AV>>>>> {
-        Ok(None)
-    }
 }

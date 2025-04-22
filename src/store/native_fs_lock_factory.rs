@@ -92,9 +92,14 @@ impl Display for NativeFSLockFactory {
 }
 
 impl FSLockFactory for NativeFSLockFactory {
-    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum> {
-        fs::create_dir_all(dir)
-            .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
+    fn obtain_fs_lock(
+        &self,
+        dir: &Path,
+        lock_name: &str,
+    ) -> Result<FSLockEnum> {
+        fs::create_dir_all(dir).map_err(|e| {
+            LuceneError::io_with_path(dir.to_string_lossy().to_string(), e)
+        })?;
 
         let lock_file = dir.join(lock_name);
 
@@ -116,9 +121,12 @@ impl FSLockFactory for NativeFSLockFactory {
                 }
             })?;
 
-        let real_path = lock_file
-            .canonicalize()
-            .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
+        let real_path = lock_file.canonicalize().map_err(|e| {
+            LuceneError::io_with_path(
+                lock_file.to_string_lossy().to_string(),
+                e,
+            )
+        })?;
         let real_path_str = real_path.to_string_lossy().to_string();
 
         let mut lock_held = self.lock_held.lock();
@@ -138,14 +146,14 @@ impl FSLockFactory for NativeFSLockFactory {
                     metadata,
                 };
                 Ok(FSLockEnum::Native(lock))
-            }
+            },
             Err(_) => {
                 lock_held.remove(&real_path_str);
                 Err(LuceneError::lock_held_by_other(format!(
                     "Lock held by this virtual machine: {}",
                     real_path_str
                 )))
-            }
+            },
         }
     }
 }
@@ -180,9 +188,11 @@ impl NativeFSLock {
             || "unknown".to_string(),
             |time| match time.duration_since(SystemTime::UNIX_EPOCH) {
                 Ok(duration) => {
-                    let datetime = DateTime::<Utc>::from(SystemTime::UNIX_EPOCH + duration);
+                    let datetime = DateTime::<Utc>::from(
+                        SystemTime::UNIX_EPOCH + duration,
+                    );
                     datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-                }
+                },
                 Err(_) => "invalid time".to_string(),
             },
         );
@@ -214,7 +224,8 @@ impl Lock for NativeFSLock {
     ///   - The lock file size is not 0.
     ///   - The lock file has been deleted or is inaccessible.
     fn ensure_valid(&self) -> Result<()> {
-        let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
+        let lock_held =
+            LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
         let lock_held = lock_held.lock();
         if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
             return Err(LuceneError::illegal_state(format!(

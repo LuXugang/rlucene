@@ -39,7 +39,11 @@ impl BytesRc {
             length: 0,
         }
     }
-    pub fn from_vec(bytes: Rc<RefCell<Vec<u8>>>, offset: i32, length: i32) -> BytesRc {
+    pub fn from_vec(
+        bytes: Rc<RefCell<Vec<u8>>>,
+        offset: i32,
+        length: i32,
+    ) -> BytesRc {
         BytesRc {
             bytes,
             offset,
@@ -64,7 +68,8 @@ impl Display for BytesRc {
         write!(f, "[")?;
         let end = self.offset + self.length;
 
-        for (i, &byte) in self.bytes.borrow()[self.offset as usize..end as usize]
+        for (i, &byte) in self.bytes.borrow()
+            [self.offset as usize..end as usize]
             .iter()
             .enumerate()
         {
@@ -87,21 +92,26 @@ impl Eq for BytesRc {}
 
 impl Ord for BytesRc {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize].cmp(
-            &other.bytes.borrow()[other.offset as usize..(other.offset + other.length) as usize],
-        )
+        self.bytes.borrow()
+            [self.offset as usize..(self.offset + self.length) as usize]
+            .cmp(
+                &other.bytes.borrow()[other.offset as usize
+                    ..(other.offset + other.length) as usize],
+            )
     }
 }
 impl PartialEq for BytesRc {
     fn eq(&self, other: &Self) -> bool {
-        self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize]
-            == other.bytes.borrow()[other.offset as usize..(other.offset + other.length) as usize]
+        self.bytes.borrow()
+            [self.offset as usize..(self.offset + self.length) as usize]
+            == other.bytes.borrow()
+                [other.offset as usize..(other.offset + other.length) as usize]
     }
 }
 impl Hash for BytesRc {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let slice =
-            &self.bytes.borrow()[self.offset as usize..(self.offset + self.length) as usize];
+        let slice = &self.bytes.borrow()
+            [self.offset as usize..(self.offset + self.length) as usize];
         slice.hash(state);
         self.offset.hash(state);
         self.length.hash(state);

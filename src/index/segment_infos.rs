@@ -27,7 +27,9 @@ use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexOutput, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::output_enum::OutputEnum;
-use crate::util::{IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR};
+use crate::util::{
+    IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR,
+};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -36,7 +38,8 @@ use std::io::Write;
 use std::rc::Rc;
 use std::sync::Arc;
 
-static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
+static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> =
+    Lazy::new(|| Mutex::new(None));
 
 /// A collection of `SegmentInfo` objects with methods for operating on those segments
 /// in relation to the file system.
@@ -213,7 +216,11 @@ where
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
     ) -> Result<SegmentsFileEnum<D>> {
-        Self::read_commit_with_file_min_version(directory, segment_file_name, *MIN_SUPPORTED_MAJOR)
+        Self::read_commit_with_file_min_version(
+            directory,
+            segment_file_name,
+            *MIN_SUPPORTED_MAJOR,
+        )
     }
 
     /// Reads a particular `segmentFileName`, as long as the commits
@@ -240,7 +247,7 @@ where
                         "Unexpected file read error while opening index: {}",
                         e
                     )));
-                }
+                },
             };
         }
 
@@ -264,7 +271,12 @@ where
         input: &mut impl ChecksumIndexInput,
         generation: i64,
     ) -> Result<Self> {
-        Self::read_commit_impl(directory, input, generation, *MIN_SUPPORTED_MAJOR)
+        Self::read_commit_impl(
+            directory,
+            input,
+            generation,
+            *MIN_SUPPORTED_MAJOR,
+        )
     }
     /// Read the commit from the provided [`ChecksumIndexInput`].
     pub fn read_commit_impl(
@@ -292,10 +304,16 @@ where
         let id_len = id.len();
         debug_assert!(id_len <= i32::MAX as usize);
         input.read_bytes(&mut id, 0, id_len as i32)?;
-        CodecUtil::check_index_header_suffix(input, &format!("{:x}", generation))?;
+        CodecUtil::check_index_header_suffix(
+            input,
+            &format!("{:x}", generation),
+        )?;
 
-        let lucene_version =
-            Version::from_bits(input.read_vint()?, input.read_vint()?, input.read_vint()?)?;
+        let lucene_version = Version::from_bits(
+            input.read_vint()?,
+            input.read_vint()?,
+            input.read_vint()?,
+        )?;
 
         let index_created_version = input.read_vint()?;
         debug_assert!(index_created_version >= 0);
@@ -324,7 +342,9 @@ where
         infos.generation = generation;
         infos.last_generation = generation;
         infos.lucene_version = Some(lucene_version);
-        if let Err(e) = Self::parse_segment_infos(directory, input, &mut infos, format) {
+        if let Err(e) =
+            Self::parse_segment_infos(directory, input, &mut infos, format)
+        {
             prior_error = Some(e);
         }
 
@@ -418,19 +438,20 @@ where
             let sci_id = if format > segment_infos_util::VERSION_74 {
                 match input.read_byte()? {
                     1 => {
-                        let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
+                        let mut id =
+                            vec![0u8; StringHelper::ID_LENGTH as usize];
                         let id_len = id.len();
                         debug_assert!(id_len <= i32::MAX as usize);
                         input.read_bytes(&mut id, 0, id_len as i32)?;
                         Some(id)
-                    }
+                    },
                     0 => None,
                     marker => {
                         return Err(LuceneError::corrupt_index(format!(
                             "Invalid SegmentCommitInfo ID marker: {}",
                             marker
                         )));
-                    }
+                    },
                 }
             } else {
                 None
@@ -454,7 +475,9 @@ where
                 }
             }
             if infos.index_created_version_major >= 7 {
-                if info.get_version().as_ref().unwrap().major < infos.index_created_version_major {
+                if info.get_version().as_ref().unwrap().major
+                    < infos.index_created_version_major
+                {
                     return Err(LuceneError::corrupt_index(format!(
                         "segments file recorded indexCreatedVersionMajor={} but segment={} has older version={} (resource={})",
                         infos.index_created_version_major,
@@ -489,7 +512,10 @@ where
             } else {
                 let mut map = HashMap::new();
                 for _ in 0..num_dv_fields {
-                    map.insert(CodecUtil::read_be_int(input)?, input.read_set_of_strings()?);
+                    map.insert(
+                        CodecUtil::read_be_int(input)?,
+                        input.read_set_of_strings()?,
+                    );
                 }
                 map
             };
@@ -522,8 +548,13 @@ where
         Ok(codec)
     }
     /// Find the latest commit (`segments_N` file) and load all `SegmentCommitInfo`s.
-    pub fn read_latest_commit(directory: Arc<Mutex<D>>) -> Result<SegmentsFileEnum<D>> {
-        Self::read_latest_commit_with_min_version(directory, *MIN_SUPPORTED_MAJOR)
+    pub fn read_latest_commit(
+        directory: Arc<Mutex<D>>,
+    ) -> Result<SegmentsFileEnum<D>> {
+        Self::read_latest_commit_with_min_version(
+            directory,
+            *MIN_SUPPORTED_MAJOR,
+        )
     }
 
     /// Find the latest commit (`segments_N` file) with a minimum supported major version
@@ -539,7 +570,10 @@ where
         find_segments_file.run()
     }
 
-    fn write_with_directory(&mut self, directory: &mut impl Directory) -> Result<()> {
+    fn write_with_directory(
+        &mut self,
+        directory: &mut impl Directory,
+    ) -> Result<()> {
         let next_generation = self.get_next_pending_generation();
         let segment_file_name_wrap = IndexFileNames::file_name_from_generation(
             IndexFileNames::PENDING_SEGMENTS,
@@ -556,8 +590,10 @@ where
         {
             let result = (|| {
                 {
-                    let mut segn_output =
-                        Some(directory.create_output(&segment_file_name, &IO_CONTEXT_DEFAULT)?);
+                    let mut segn_output = Some(directory.create_output(
+                        &segment_file_name,
+                        &IO_CONTEXT_DEFAULT,
+                    )?);
                     if let Some(ref mut output) = segn_output {
                         self.write(output)?;
                     }
@@ -568,7 +604,10 @@ where
             })();
             if let Err(e) = result {
                 // Try not to leave a truncated segments_N file in the index
-                IOUtils::delete_files_ignoring_exceptions(directory, &[segment_file_name]);
+                IOUtils::delete_files_ignoring_exceptions(
+                    directory,
+                    &[segment_file_name],
+                );
                 return Err(e);
             }
         }
@@ -625,7 +664,8 @@ where
         }
         for si_per_commit in &self.segments {
             let si = &si_per_commit.info;
-            if self.index_created_version_major >= 7 && si.min_version.is_none() {
+            if self.index_created_version_major >= 7 && si.min_version.is_none()
+            {
                 return Err(LuceneError::illegal_state(format!(
                     "Segments must record minVersion if they have been created on or after Lucene 7: {}",
                     si.name
@@ -740,7 +780,10 @@ where
     }
 
     /// Carry over generation numbers, and version/counter, from another `SegmentInfos`.
-    pub fn update_generation_version_and_counter(&mut self, other: &SegmentInfos<D>) {
+    pub fn update_generation_version_and_counter(
+        &mut self,
+        other: &SegmentInfos<D>,
+    ) {
         self.update_generation(other);
         self.version = other.version;
         self.counter = other.counter;
@@ -773,7 +816,10 @@ where
                 self.generation,
             ) {
                 // Suppress, so we keep throwing the original exception in our caller
-                IOUtils::delete_files_ignoring_exceptions(directory, &[pending]);
+                IOUtils::delete_files_ignoring_exceptions(
+                    directory,
+                    &[pending],
+                );
             }
         }
     }
@@ -782,7 +828,10 @@ where
     /// to complete the commit or [`rollback_commit`](SegmentInfos::rollback_commit) to abort it.
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
-    pub fn prepare_commit(&mut self, directory: &mut impl Directory) -> Result<()> {
+    pub fn prepare_commit(
+        &mut self,
+        directory: &mut impl Directory,
+    ) -> Result<()> {
         if self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was already called".to_string(),
@@ -794,7 +843,10 @@ where
     }
 
     /// Returns all file names referenced by `SegmentInfo`. The returned collection is recomputed on each invocation.
-    pub fn files(&self, include_segments_file: bool) -> Result<HashSet<String>> {
+    pub fn files(
+        &self,
+        include_segments_file: bool,
+    ) -> Result<HashSet<String>> {
         let mut files = HashSet::new();
         if include_segments_file {
             if let Some(segment_file_name) = self.get_segments_file_name() {
@@ -807,7 +859,10 @@ where
         Ok(files)
     }
     /// Returns the committed `segments_N` filename.
-    pub fn finish_commit(&mut self, directory: &mut impl Directory) -> Result<String> {
+    pub fn finish_commit(
+        &mut self,
+        directory: &mut impl Directory,
+    ) -> Result<String> {
         if !self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was not called".to_string(),
@@ -823,7 +878,9 @@ where
                 self.generation,
             )
             .ok_or_else(|| {
-                LuceneError::illegal_state("Failed to generate source file name.".to_string())
+                LuceneError::illegal_state(
+                    "Failed to generate source file name.".to_string(),
+                )
             })?;
             let dest = IndexFileNames::file_name_from_generation(
                 IndexFileNames::SEGMENTS,
@@ -831,7 +888,9 @@ where
                 self.generation,
             )
             .ok_or_else(|| {
-                LuceneError::illegal_state("Failed to generate destination file name.".to_string())
+                LuceneError::illegal_state(
+                    "Failed to generate destination file name.".to_string(),
+                )
             })?;
             directory.rename(&src, &dest)?;
             directory.sync_metadata()?;
@@ -844,14 +903,14 @@ where
                 self.pending_commit = false;
                 self.last_generation = self.generation;
                 Ok(dest_file)
-            }
+            },
             Err(e) => {
                 if !success_rename_and_sync {
                     // Attempt to roll back the commit if renaming or syncing failed
                     self.rollback_commit(directory);
                 }
                 Err(e)
-            }
+            },
         }
     }
     /// Writes and syncs to the Directory, taking care to remove the segment file on exception.
@@ -960,7 +1019,9 @@ where
     //
     //     Ok(())
     // }
-    pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>> {
+    pub fn create_backup_segment_infos(
+        &self,
+    ) -> Result<Vec<SegmentCommitInfo<D>>> {
         let mut backup_list = Vec::with_capacity(self.segments.len());
         for segment_commit_info in &self.segments {
             // debug_assert!(
@@ -996,7 +1057,9 @@ where
 
     /// Appends the provided `SegmentCommitInfo` to the `segments` list.
     pub fn add(&mut self, si: SegmentCommitInfo<D>) -> Result<()> {
-        if self.index_created_version_major >= 7 && si.info.min_version.is_none() {
+        if self.index_created_version_major >= 7
+            && si.info.min_version.is_none()
+        {
             return Err(LuceneError::illegal_argument(format!(
                 "All segments must record the minVersion for indices created on or after Lucene 7, but minVersion is missing for segment: {}",
                 si
@@ -1007,7 +1070,10 @@ where
     }
 
     /// Appends the provided [`SegmentCommitInfo`]s.
-    pub fn add_all(&mut self, sis: impl IntoIterator<Item = SegmentCommitInfo<D>>) -> Result<()> {
+    pub fn add_all(
+        &mut self,
+        sis: impl IntoIterator<Item = SegmentCommitInfo<D>>,
+    ) -> Result<()> {
         for si in sis {
             self.add(si)?;
         }
@@ -1121,16 +1187,20 @@ where
     pub fn run(&self) -> Result<SegmentsFileEnum<D>> {
         self.run_with_commit(None::<DummyIndexCommit>)
     }
-    pub fn run_with_commit(&self, commit: Option<impl IndexCommit>) -> Result<SegmentsFileEnum<D>> {
+    pub fn run_with_commit(
+        &self,
+        commit: Option<impl IndexCommit>,
+    ) -> Result<SegmentsFileEnum<D>> {
         if let Some(commit) = commit {
             if !Arc::ptr_eq(&self.directory, &commit.get_directory()) {
                 return Err(LuceneError::illegal_state(
                     "The specified commit does not match the specified Directory".to_string(),
                 ));
             }
-            return self
-                .sub
-                .do_body(self.directory.clone(), &commit.get_segments_file_name());
+            return self.sub.do_body(
+                self.directory.clone(),
+                &commit.get_segments_file_name(),
+            );
         }
 
         let mut last_gen: i64;
@@ -1172,20 +1242,30 @@ where
                 )));
             } else if gen > last_gen {
                 let segment_file_name =
-                    IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", gen)
-                        .ok_or_else(|| {
-                            LuceneError::illegal_state(
-                                "Failed to generate segment file name.".to_string(),
-                            )
-                        })?;
-                match self.sub.do_body(self.directory.clone(), &segment_file_name) {
+                    IndexFileNames::file_name_from_generation(
+                        IndexFileNames::SEGMENTS,
+                        "",
+                        gen,
+                    )
+                    .ok_or_else(|| {
+                        LuceneError::illegal_state(
+                            "Failed to generate segment file name.".to_string(),
+                        )
+                    })?;
+                match self
+                    .sub
+                    .do_body(self.directory.clone(), &segment_file_name)
+                {
                     Ok(result) => {
                         if get_info_stream()?.is_some() {
-                            message(&format!("success on {}", segment_file_name))
-                                .unwrap_or_default();
+                            message(&format!(
+                                "success on {}",
+                                segment_file_name
+                            ))
+                            .unwrap_or_default();
                         }
                         return Ok(result);
-                    }
+                    },
                     Err(err) => {
                         if exc.is_none() {
                             exc = Some(err);
@@ -1200,12 +1280,13 @@ where
                             ))
                             .unwrap_or_default();
                         }
-                    }
+                    },
                 }
             } else {
                 return Err(exc.unwrap_or_else(|| {
                     LuceneError::illegal_state(
-                        "Unexpected error during FindSegmentsFile::run".to_string(),
+                        "Unexpected error during FindSegmentsFile::run"
+                            .to_string(),
                     )
                 }));
             }
@@ -1258,8 +1339,9 @@ pub fn message(msg: &str) -> Result<()> {
 
     if let Some(ref stream) = *info_stream {
         let mut stream = stream.lock();
-        writeln!(stream, "SIS: {}", msg)
-            .map_err(|e| LuceneError::io_with_path("Failed to acquire lock".to_string(), e))?;
+        writeln!(stream, "SIS: {}", msg).map_err(|e| {
+            LuceneError::io_with_path("Failed to acquire lock".to_string(), e)
+        })?;
     }
 
     Ok(())
@@ -1305,13 +1387,17 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
 }
 
 /// Get the generation of the most recent commit to the index in this directory.
-pub fn get_last_commit_generation_from_directory<D: Directory>(directory: &D) -> Result<i64> {
+pub fn get_last_commit_generation_from_directory<D: Directory>(
+    directory: &D,
+) -> Result<i64> {
     let files = directory.list_all()?;
     get_last_commit_generation(&files)
 }
 
 /// Get the filename of the segments_N file for the most recent commit in the list of index files.
-pub fn get_last_commit_segments_file_name(files: &[String]) -> Result<Option<String>> {
+pub fn get_last_commit_segments_file_name(
+    files: &[String],
+) -> Result<Option<String>> {
     let last_gen = get_last_commit_generation(files)?;
     Ok(IndexFileNames::file_name_from_generation(
         IndexFileNames::SEGMENTS,
@@ -1413,7 +1499,8 @@ mod tests {
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut sis = SegmentInfos::new(LATEST.major)?;
         sis.commit(&mut *directory.lock())?;
-        let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
+        let result = SegmentInfos::read_latest_commit(directory.clone())?
+            .into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
         assert!(sis.get_min_segment_lucene_version().is_none());
@@ -1445,9 +1532,11 @@ mod tests {
             None,
         )?;
         info.set_files(HashSet::new());
-        codec
-            .segment_info_format()
-            .write(&mut *directory.lock(), &mut info, &io_context)?;
+        codec.segment_info_format().write(
+            &mut *directory.lock(),
+            &mut info,
+            &io_context,
+        )?;
 
         let commit_info = SegmentCommitInfo::new(
             Rc::new(info),
@@ -1462,14 +1551,18 @@ mod tests {
         sis.add(commit_info)?;
         sis.commit(&mut *directory.lock())?;
 
-        let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
+        let result = SegmentInfos::read_latest_commit(directory.clone())?
+            .into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
         assert_eq!(
             *sis.get_min_segment_lucene_version().unwrap(),
             (*LUCENE_11_0_0).clone()
         );
-        assert_eq!(*sis.get_commit_lucene_version().unwrap(), (*LATEST).clone());
+        assert_eq!(
+            *sis.get_commit_lucene_version().unwrap(),
+            (*LATEST).clone()
+        );
 
         Ok(())
     }
@@ -1498,9 +1591,11 @@ mod tests {
             None,
         )?;
         info_0.set_files(HashSet::new());
-        codec
-            .segment_info_format()
-            .write(&mut *directory.lock(), &mut info_0, &io_context)?;
+        codec.segment_info_format().write(
+            &mut *directory.lock(),
+            &mut info_0,
+            &io_context,
+        )?;
 
         let commit_info_0 = SegmentCommitInfo::new(
             Rc::new(info_0),
@@ -1528,9 +1623,11 @@ mod tests {
             None,
         )?;
         info_1.set_files(HashSet::new());
-        codec
-            .segment_info_format()
-            .write(&mut *directory.lock(), &mut info_1, &io_context)?;
+        codec.segment_info_format().write(
+            &mut *directory.lock(),
+            &mut info_1,
+            &io_context,
+        )?;
 
         let commit_info_1 = SegmentCommitInfo::new(
             Rc::new(info_1),
@@ -1548,7 +1645,8 @@ mod tests {
         let commit_info_id_1 = sis.info(1).unwrap().get_id().clone();
 
         // Read back the latest commit
-        let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
+        let result = SegmentInfos::read_latest_commit(directory.clone())?
+            .into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
 
@@ -1557,16 +1655,27 @@ mod tests {
             *sis.get_min_segment_lucene_version().unwrap(),
             (*LUCENE_11_0_0).clone()
         );
-        assert_eq!(*sis.get_commit_lucene_version().unwrap(), (*LATEST).clone());
+        assert_eq!(
+            *sis.get_commit_lucene_version().unwrap(),
+            (*LATEST).clone()
+        );
         let actual1 = sis.info(0).unwrap().get_id();
         let actual2 = sis.info(1).unwrap().get_id();
         assert_eq!(
-            StringHelper::id_to_string(Option::from(commit_info_id_0.as_ref().unwrap().as_slice())),
-            StringHelper::id_to_string(Option::from(actual1.as_ref().unwrap().as_slice()))
+            StringHelper::id_to_string(Option::from(
+                commit_info_id_0.as_ref().unwrap().as_slice()
+            )),
+            StringHelper::id_to_string(Option::from(
+                actual1.as_ref().unwrap().as_slice()
+            ))
         );
         assert_eq!(
-            StringHelper::id_to_string(Option::from(commit_info_id_1.as_ref().unwrap().as_slice())),
-            StringHelper::id_to_string(Option::from(actual2.as_ref().unwrap().as_slice()))
+            StringHelper::id_to_string(Option::from(
+                commit_info_id_1.as_ref().unwrap().as_slice()
+            )),
+            StringHelper::id_to_string(Option::from(
+                actual2.as_ref().unwrap().as_slice()
+            ))
         );
 
         Ok(())
@@ -1699,8 +1808,15 @@ mod tests {
             Some(Sort::get_index_order()?),
         )?;
 
-        let mut commit_info =
-            SegmentCommitInfo::new(Rc::new(info), 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
+        let mut commit_info = SegmentCommitInfo::new(
+            Rc::new(info),
+            0,
+            0,
+            -1,
+            -1,
+            -1,
+            Some(Vec::from(id)),
+        )?;
         assert_eq!(
             StringHelper::id_to_string(Some(id.as_slice())),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
@@ -1772,9 +1888,11 @@ mod tests {
             None,
         )?;
         info_0.set_files(HashSet::new());
-        codec
-            .segment_info_format()
-            .write(&mut *dir.lock(), &mut info_0, &io_context)?;
+        codec.segment_info_format().write(
+            &mut *dir.lock(),
+            &mut info_0,
+            &io_context,
+        )?;
         let commit_info_0 = SegmentCommitInfo::new(
             Rc::new(info_0),
             0,
@@ -1801,9 +1919,11 @@ mod tests {
             None,
         )?;
         info_1.set_files(HashSet::new());
-        codec
-            .segment_info_format()
-            .write(&mut *dir.lock(), &mut info_1, &io_context)?;
+        codec.segment_info_format().write(
+            &mut *dir.lock(),
+            &mut info_1,
+            &io_context,
+        )?;
         let commit_info_1 = SegmentCommitInfo::new(
             Rc::new(info_1),
             0,
@@ -1827,11 +1947,17 @@ mod tests {
             for file in directory.list_all()? {
                 if file.starts_with(IndexFileNames::SEGMENTS) {
                     {
-                        let mut input = directory.open_input(&file, &io_context)?;
-                        let mut output = corrupt_directory.create_output(&file, &io_context)?;
+                        let mut input =
+                            directory.open_input(&file, &io_context)?;
+                        let mut output = corrupt_directory
+                            .create_output(&file, &io_context)?;
 
                         let mut input_length = IndexInput::length(&input);
-                        let corrupt_index = TestUtil::next_long(&mut random, 0, input_length - 1);
+                        let corrupt_index = TestUtil::next_long(
+                            &mut random,
+                            0,
+                            input_length - 1,
+                        );
                         output.copy_bytes(&mut input, corrupt_index)?;
 
                         let byte = DataInput::read_byte(&mut input)?;
@@ -1840,9 +1966,13 @@ mod tests {
                         output.write_byte(corrupt_byte)?;
                         input_length = IndexInput::length(&input);
                         let file_pointer = input.get_file_pointer();
-                        output.copy_bytes(&mut input, input_length - file_pointer)?;
+                        output.copy_bytes(
+                            &mut input,
+                            input_length - file_pointer,
+                        )?;
                     }
-                    let mut input = corrupt_directory.open_input(&file, &io_context)?;
+                    let mut input =
+                        corrupt_directory.open_input(&file, &io_context)?;
                     match CodecUtil::checksum_entire_file(&mut input) {
                         Ok(_) => {
                             if cfg!(feature = "test_log_verbose") {
@@ -1851,15 +1981,20 @@ mod tests {
                                 );
                             }
                             return Ok(());
-                        }
+                        },
                         Err(LuceneError::CorruptIndex(_)) => {
                             // Corruption detected
-                        }
+                        },
                         Err(err) => return Err(err),
                     }
                     corrupt = true;
                 } else if file.eq("extra0") {
-                    corrupt_directory.copy_from(dir.clone(), &file, &file, &io_context)?;
+                    corrupt_directory.copy_from(
+                        dir.clone(),
+                        &file,
+                        &file,
+                        &io_context,
+                    )?;
                 }
             }
         }
@@ -1871,10 +2006,10 @@ mod tests {
         match result {
             Err(LuceneError::CorruptIndex(_))
             | Err(LuceneError::IndexFormatTooOld(_))
-            | Err(LuceneError::IndexFormatTooNew(_)) => {}
+            | Err(LuceneError::IndexFormatTooNew(_)) => {},
             _ => {
                 unreachable!()
-            }
+            },
         }
 
         Ok(())

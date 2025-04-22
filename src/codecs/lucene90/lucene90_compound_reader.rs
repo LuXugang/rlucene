@@ -65,7 +65,8 @@ where
             Lucene90CompoundFormat::ENTRIES_EXTENSION,
         );
 
-        let (version, entries) = Self::read_entries(&si.get_id(), directory, &entries_file_name)?;
+        let (version, entries) =
+            Self::read_entries(&si.get_id(), directory, &entries_file_name)?;
 
         let mut handle = directory.open_input(
             &data_file_name,
@@ -77,7 +78,10 @@ where
             .map(|e| e.offset + e.length)
             .max()
             .unwrap_or_else(|| {
-                CodecUtil::index_header_length(Lucene90CompoundFormat::DATA_CODEC, "") as i64
+                CodecUtil::index_header_length(
+                    Lucene90CompoundFormat::DATA_CODEC,
+                    "",
+                ) as i64
             })
             + CodecUtil::footer_length() as i64;
 
@@ -118,7 +122,8 @@ where
         directory: &mut D,
         entries_file_name: &str,
     ) -> Result<(i32, HashMap<String, FileEntry>)> {
-        let mut entries_stream = directory.open_checksum_input(entries_file_name)?;
+        let mut entries_stream =
+            directory.open_checksum_input(entries_file_name)?;
         let result = (|| {
             let version = CodecUtil::check_index_header(
                 &mut entries_stream,
@@ -136,14 +141,16 @@ where
             Ok((version, mapping)) => {
                 CodecUtil::check_footer(&mut entries_stream)?;
                 Ok((version, mapping))
-            }
+            },
             Err(mut e) => Err(CodecUtil::check_footer_with_error(
                 &mut entries_stream,
                 &mut e,
             )),
         }
     }
-    fn read_mapping(entries_stream: &mut impl IndexInput) -> Result<HashMap<String, FileEntry>> {
+    fn read_mapping(
+        entries_stream: &mut impl IndexInput,
+    ) -> Result<HashMap<String, FileEntry>> {
         let num_entries = entries_stream.read_vint()?;
         let mut mapping = HashMap::with_capacity(num_entries as usize);
         for _ in 0..num_entries {
@@ -185,10 +192,9 @@ where
     /// Returns the length of a file in the directory.
     fn file_length(&self, name: &str) -> Result<i64> {
         let stripped_name = IndexFileNames::strip_segment_name(name);
-        let entry = self
-            .entries
-            .get(stripped_name)
-            .ok_or_else(|| LuceneError::not_found(format!("{} not found", name)))?;
+        let entry = self.entries.get(stripped_name).ok_or_else(|| {
+            LuceneError::not_found(format!("{} not found", name))
+        })?;
         Ok(entry.length)
     }
 
@@ -238,7 +244,11 @@ where
 
     type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType> {
         let id = IndexFileNames::strip_segment_name(name);
         let entry = match self.entries.get(id) {
             Some(entry) => entry,
@@ -252,7 +262,7 @@ where
                     "No sub-file with id {} found in compound file \"{}\" (fileName={} files: {:?})",
                     id, dat_file_name, name, self.entries.keys()
                 )));
-            }
+            },
         };
         let input = self.handle.slice_with_read_advice(
             name,

@@ -17,7 +17,8 @@
 use crate::codecs::compression::compressor::Compressor;
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lz4_with_preset_dict_compression_mode::{
-    LZ4WithPresetDictCompressionMode, LZ4WithPresetDictCompressor, LZ4WithPresetDictDecompressor,
+    LZ4WithPresetDictCompressionMode, LZ4WithPresetDictCompressor,
+    LZ4WithPresetDictDecompressor,
 };
 use crate::index::BytesRef;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
@@ -131,7 +132,9 @@ impl Clone for LZ4HighCompressionMode {
 
 impl CompressionModeBase for LZ4HighCompressionMode {
     fn new_compressor(&self) -> CompressorEnum {
-        CompressorEnum::LZ4High(LZ4HighCompressor::new(HighCompressionHashTable::new()))
+        CompressorEnum::LZ4High(LZ4HighCompressor::new(
+            HighCompressionHashTable::new(),
+        ))
     }
 
     fn new_decompressor(&self) -> DecompressorEnum {
@@ -179,10 +182,18 @@ impl CompressionModeBase for CompressionModeEnum {
 impl Clone for CompressionModeEnum {
     fn clone(&self) -> Self {
         match self {
-            CompressionModeEnum::Fast(mode) => CompressionModeEnum::Fast(mode.clone()),
-            CompressionModeEnum::High(mode) => CompressionModeEnum::High(mode.clone()),
-            CompressionModeEnum::Deflate(mode) => CompressionModeEnum::Deflate(mode.clone()),
-            CompressionModeEnum::LZ4Dict(mode) => CompressionModeEnum::LZ4Dict(mode.clone()),
+            CompressionModeEnum::Fast(mode) => {
+                CompressionModeEnum::Fast(mode.clone())
+            },
+            CompressionModeEnum::High(mode) => {
+                CompressionModeEnum::High(mode.clone())
+            },
+            CompressionModeEnum::Deflate(mode) => {
+                CompressionModeEnum::Deflate(mode.clone())
+            },
+            CompressionModeEnum::LZ4Dict(mode) => {
+                CompressionModeEnum::LZ4Dict(mode.clone())
+            },
         }
     }
 }
@@ -212,7 +223,8 @@ impl Decompressor for LZ4Decompressor {
         if bytes.bytes.len() < (original_length + 7) as usize {
             bytes.bytes = vec![0; (original_length + 7) as usize];
         }
-        let decompressed_length = LZ4::decompress(input, offset + length, &mut bytes.bytes, 0)?;
+        let decompressed_length =
+            LZ4::decompress(input, offset + length, &mut bytes.bytes, 0)?;
         if decompressed_length > original_length {
             return Err(LuceneError::corrupt_index(format!(
                 "Corrupted: lengths mismatch: {} > {} (resource={})",
@@ -237,13 +249,15 @@ impl TryClone for DecompressorEnum {
         Self: Sized,
     {
         Ok(match self {
-            DecompressorEnum::LZ4(decompressor) => DecompressorEnum::LZ4(decompressor.try_clone()?),
+            DecompressorEnum::LZ4(decompressor) => {
+                DecompressorEnum::LZ4(decompressor.try_clone()?)
+            },
             DecompressorEnum::Deflate(decompressor) => {
                 DecompressorEnum::Deflate(decompressor.try_clone()?)
-            }
+            },
             DecompressorEnum::LZ4Dict(decompressor) => {
                 DecompressorEnum::LZ4Dict(decompressor.clone())
-            }
+            },
         })
     }
 }
@@ -258,15 +272,27 @@ impl Decompressor for DecompressorEnum {
         bytes: &mut BytesRef<Vec<u8>>,
     ) -> Result<()> {
         match self {
-            DecompressorEnum::LZ4(decompressor) => {
-                decompressor.decompress(input, original_length, offset, length, bytes)
-            }
-            DecompressorEnum::Deflate(decompressor) => {
-                decompressor.decompress(input, original_length, offset, length, bytes)
-            }
-            DecompressorEnum::LZ4Dict(decompressor) => {
-                decompressor.decompress(input, original_length, offset, length, bytes)
-            }
+            DecompressorEnum::LZ4(decompressor) => decompressor.decompress(
+                input,
+                original_length,
+                offset,
+                length,
+                bytes,
+            ),
+            DecompressorEnum::Deflate(decompressor) => decompressor.decompress(
+                input,
+                original_length,
+                offset,
+                length,
+                bytes,
+            ),
+            DecompressorEnum::LZ4Dict(decompressor) => decompressor.decompress(
+                input,
+                original_length,
+                offset,
+                length,
+                bytes,
+            ),
         }
     }
 }
@@ -384,7 +410,8 @@ impl Compressor for DeflateCompressor {
         let len = buffers_input.length() as i32;
         let mut bytes = vec![0; len as usize];
         DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-        let mut compressor = DeflateEncoder::new(Vec::new(), Compression::new(self.level));
+        let mut compressor =
+            DeflateEncoder::new(Vec::new(), Compression::new(self.level));
         compressor.write_all(&bytes)?;
         let compressed = compressor.finish()?;
         debug_assert!(compressed.len() <= i32::MAX as usize);
@@ -407,10 +434,18 @@ impl Compressor for CompressorEnum {
         out: &mut impl DataOutput,
     ) -> Result<()> {
         match self {
-            CompressorEnum::LZ4Fast(compressor) => compressor.compress(buffers_input, out),
-            CompressorEnum::LZ4High(compressor) => compressor.compress(buffers_input, out),
-            CompressorEnum::Deflate(compressor) => compressor.compress(buffers_input, out),
-            CompressorEnum::LZ4Dict(compressor) => compressor.compress(buffers_input, out),
+            CompressorEnum::LZ4Fast(compressor) => {
+                compressor.compress(buffers_input, out)
+            },
+            CompressorEnum::LZ4High(compressor) => {
+                compressor.compress(buffers_input, out)
+            },
+            CompressorEnum::Deflate(compressor) => {
+                compressor.compress(buffers_input, out)
+            },
+            CompressorEnum::LZ4Dict(compressor) => {
+                compressor.compress(buffers_input, out)
+            },
         }
     }
 }
@@ -425,7 +460,9 @@ mod tests {
     use crate::index::BytesRef;
     use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random};
+    use crate::test::util::lucene_test_case::{
+        at_least, is_night_mode, random,
+    };
 
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::ArrayUtil;
@@ -457,7 +494,11 @@ mod tests {
             };
             (Self::random_array_impl(random, length, max), length)
         }
-        fn random_array_impl(random: &mut StdRng, length: i32, _max: i32) -> Vec<u8> {
+        fn random_array_impl(
+            random: &mut StdRng,
+            length: i32,
+            _max: i32,
+        ) -> Vec<u8> {
             let remainder = length % 1024;
             let new_length = if remainder == 0 {
                 length
@@ -477,9 +518,21 @@ mod tests {
             }
         }
 
-        fn compress(&self, decompressed: &[u8], off: i32, len: i32, limit: i32) -> Result<Vec<u8>> {
+        fn compress(
+            &self,
+            decompressed: &[u8],
+            off: i32,
+            len: i32,
+            limit: i32,
+        ) -> Result<Vec<u8>> {
             let mut compressor = self.get_mode().new_compressor();
-            Self::compress_with_compressor(&mut compressor, decompressed, off, len, limit)
+            Self::compress_with_compressor(
+                &mut compressor,
+                decompressed,
+                off,
+                len,
+                limit,
+            )
         }
 
         fn compress_with_compressor(
@@ -510,13 +563,25 @@ mod tests {
 
             compressor.compress(&mut input, &mut out)?;
             let compressed_len = out.get_position();
-            let result = ArrayUtil::copy_of_sub_array(&out.bytes, 0, compressed_len as usize);
+            let result = ArrayUtil::copy_of_sub_array(
+                &out.bytes,
+                0,
+                compressed_len as usize,
+            );
             Ok(result)
         }
 
-        fn decompress(&self, compressed: Vec<u8>, original_length: i32) -> Result<Vec<u8>> {
+        fn decompress(
+            &self,
+            compressed: Vec<u8>,
+            original_length: i32,
+        ) -> Result<Vec<u8>> {
             let mut decompressor = self.get_mode().new_decompressor();
-            Self::decompress_with_decompressor(&mut decompressor, compressed, original_length)
+            Self::decompress_with_decompressor(
+                &mut decompressor,
+                compressed,
+                original_length,
+            )
         }
 
         fn decompress_with_decompressor(
@@ -526,7 +591,13 @@ mod tests {
         ) -> Result<Vec<u8>> {
             let mut bytes = BytesRef::default();
             let mut input = ByteArrayDataInput::with_bytes(compressed);
-            decompressor.decompress(&mut input, original_length, 0, original_length, &mut bytes)?;
+            decompressor.decompress(
+                &mut input,
+                original_length,
+                0,
+                original_length,
+                &mut bytes,
+            )?;
             Ok(BytesRef::deep_copy_of(&bytes).bytes)
         }
         fn decompress_with_range(
@@ -539,7 +610,13 @@ mod tests {
             let mut decompressor = self.get_mode().new_decompressor();
             let mut bytes = BytesRef::default();
             let mut input = ByteArrayDataInput::with_bytes(compressed);
-            decompressor.decompress(&mut input, original_length, offset, length, &mut bytes)?;
+            decompressor.decompress(
+                &mut input,
+                original_length,
+                offset,
+                length,
+                &mut bytes,
+            )?;
             Ok(BytesRef::deep_copy_of(&bytes).bytes)
         }
 
@@ -560,10 +637,15 @@ mod tests {
                 } else {
                     TestUtil::next_int(random, 0, limit - off)
                 };
-                let compressed = self.compress(decompressed.as_slice(), off, len, limit)?;
+                let compressed =
+                    self.compress(decompressed.as_slice(), off, len, limit)?;
                 let restored = self.decompress(compressed, len)?;
                 assert_eq!(
-                    ArrayUtil::copy_of_sub_array(&decompressed, off as usize, (off + len) as usize),
+                    ArrayUtil::copy_of_sub_array(
+                        &decompressed,
+                        off as usize,
+                        (off + len) as usize
+                    ),
                     restored
                 );
             }
@@ -581,7 +663,8 @@ mod tests {
                     limit,
                 )?;
                 assert!(decompressed.len() <= i32::MAX as usize);
-                let valid_len = std::cmp::min(decompressed.len(), limit as usize) as i32;
+                let valid_len =
+                    std::cmp::min(decompressed.len(), limit as usize) as i32;
                 let (offset, length) = if valid_len == 0 {
                     (0, 0)
                 } else {
@@ -591,7 +674,9 @@ mod tests {
                         random.random_range(0..valid_len - offset_inner),
                     )
                 };
-                let restored = self.decompress_with_range(compressed, valid_len, offset, length)?;
+                let restored = self.decompress_with_range(
+                    compressed, valid_len, offset, length,
+                )?;
                 assert_eq!(
                     ArrayUtil::copy_of_sub_array(
                         &decompressed,
@@ -605,7 +690,12 @@ mod tests {
         }
 
         fn test(&self, decompressed: &[u8], limit: i32) -> Result<Vec<u8>> {
-            self.test_with_range(decompressed, 0, decompressed.len() as i32, limit)
+            self.test_with_range(
+                decompressed,
+                0,
+                decompressed.len() as i32,
+                limit,
+            )
         }
 
         fn test_with_range(
@@ -617,7 +707,12 @@ mod tests {
         ) -> Result<Vec<u8>> {
             assert!(off <= limit);
             assert!(limit <= len);
-            let compressed = self.compress(decompressed, off, std::cmp::min(len, limit), limit)?;
+            let compressed = self.compress(
+                decompressed,
+                off,
+                std::cmp::min(len, limit),
+                limit,
+            )?;
             let compressed_copy = compressed.clone();
             let restored = self.decompress(compressed, limit)?;
             assert_eq!(limit as usize, restored.len());
@@ -721,7 +816,8 @@ mod tests {
         TestFastCompressionMode.test_partial_decompress(&mut random)?;
         TestFastDecompressionMode.test_partial_decompress(&mut random)?;
         TestHighCompressionMode.test_partial_decompress(&mut random)?;
-        TestLZ4WithPresetDictCompressionMode.test_partial_decompress(&mut random)
+        TestLZ4WithPresetDictCompressionMode
+            .test_partial_decompress(&mut random)
     }
     #[test]
     fn test_empty_sequence() -> Result<()> {

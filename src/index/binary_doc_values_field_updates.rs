@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::index::doc_values_field_updates::{
-    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
-    DocValuesFieldUpdatesBase, PAGE_SIZE,
+    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner,
+    DocValuesFieldIterator, DocValuesFieldUpdatesBase, PAGE_SIZE,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -42,9 +42,11 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
 impl BinaryDocValuesFieldUpdates {
     #[allow(unused)]
     fn new() -> Result<BinaryDocValuesFieldUpdates> {
-        let sub_reader1 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
+        let sub_reader1 =
+            PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
         let offsets = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader1)?;
-        let sub_reader2 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
+        let sub_reader2 =
+            PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
         let lengths = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader2)?;
         Ok(BinaryDocValuesFieldUpdates {
             offsets,
@@ -68,7 +70,12 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         ))
     }
 
-    fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()> {
+    fn add_byte_ref(
+        &mut self,
+        _doc: i32,
+        value: &BytesRef<Vec<u8>>,
+        index: i32,
+    ) -> Result<()> {
         let _guard = self.lock.lock();
         self.offsets
             .set(index as i64, self.values.length() as i64)?;
@@ -165,9 +172,13 @@ impl AbstractIteratorBase for AbstractIteratorBaseImpl<'_> {
     fn set(&mut self, idx: i64) -> Result<()> {
         debug_assert!(self.offsets.is_some());
         debug_assert!(self.lengths.is_some());
-        debug_assert!(self.offsets.as_mut().unwrap().get(idx)? <= i32::MAX as i64);
+        debug_assert!(
+            self.offsets.as_mut().unwrap().get(idx)? <= i32::MAX as i64
+        );
         self.offset = self.offsets.as_mut().unwrap().get(idx)? as i32;
-        debug_assert!(self.lengths.as_mut().unwrap().get(idx)? <= i32::MAX as i64);
+        debug_assert!(
+            self.lengths.as_mut().unwrap().get(idx)? <= i32::MAX as i64
+        );
         self.length = self.lengths.as_mut().unwrap().get(idx)? as i32;
         Ok(())
     }

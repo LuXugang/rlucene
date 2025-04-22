@@ -111,7 +111,11 @@ where
 
     type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType> {
         self.sub_compound_dir.open_input(name, context)
     }
 

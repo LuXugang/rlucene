@@ -28,7 +28,12 @@ impl DataInput for DummyIndexInput {
         ))
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
+    fn read_bytes(
+        &mut self,
+        _b: &mut [u8],
+        _offset: i32,
+        _len: i32,
+    ) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -86,7 +91,11 @@ impl IndexInput for DummyIndexInput {
 
     type RandomAccessSlice = DummyIndexInput;
 
-    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
+    fn random_access_slice(
+        &self,
+        _offset: i64,
+        _length: i64,
+    ) -> Result<DummyIndexInput> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

@@ -50,7 +50,11 @@ where
 
     /// Encode a final node output value into a `Write` stream.
     /// By default this just calls [`write`].
-    fn write_final_output(&self, output: &T, out: &mut impl DataOutput) -> Result<()> {
+    fn write_final_output(
+        &self,
+        output: &T,
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
         self.write(output, out)
     }
 

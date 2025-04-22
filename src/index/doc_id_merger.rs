@@ -38,7 +38,9 @@ where
 }
 #[allow(unused)]
 pub mod doc_id_merger_util {
-    use crate::index::{DocIDMergerEnum, SequentialDocIDMerger, SortedDocIDMerger, Sub, SubBase};
+    use crate::index::{
+        DocIDMergerEnum, SequentialDocIDMerger, SortedDocIDMerger, Sub, SubBase,
+    };
     use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -119,7 +121,8 @@ where
                 return Ok(None);
             }
 
-            self.current = Some(Rc::clone(&self.subs[self.next_index as usize]));
+            self.current =
+                Some(Rc::clone(&self.subs[self.next_index as usize]));
             self.next_index += 1;
         }
     }
@@ -215,7 +218,10 @@ where
                 self.current = self.queue.pop();
             }
         } else if self.queue.size() > 0 {
-            debug_assert!(self.queue_min_doc_id == self.queue.top().borrow().mapped_doc_id);
+            debug_assert!(
+                self.queue_min_doc_id
+                    == self.queue.top().borrow().mapped_doc_id
+            );
             debug_assert!(next_doc > self.queue_min_doc_id);
             let new_current = self.queue.top().clone();
             self.queue
@@ -303,7 +309,11 @@ impl<S> Compare<Rc<RefCell<Sub<S>>>> for SubCompare
 where
     S: SubBase + Default,
 {
-    fn less_than(&self, a: &Rc<RefCell<Sub<S>>>, b: &Rc<RefCell<Sub<S>>>) -> bool {
+    fn less_than(
+        &self,
+        a: &Rc<RefCell<Sub<S>>>,
+        b: &Rc<RefCell<Sub<S>>>,
+    ) -> bool {
         debug_assert!(a.borrow().mapped_doc_id != b.borrow().mapped_doc_id);
         a.borrow().mapped_doc_id < b.borrow().mapped_doc_id
     }
@@ -336,7 +346,11 @@ pub mod tests {
     }
 
     impl TestSubUnsorted {
-        pub fn new(doc_map: Rc<DocMapEnum>, max_doc: i32, value_start: i32) -> Self {
+        pub fn new(
+            doc_map: Rc<DocMapEnum>,
+            max_doc: i32,
+            value_start: i32,
+        ) -> Self {
             Self {
                 doc_id: -1,
                 value_start,
@@ -459,7 +473,9 @@ pub mod tests {
     impl DocMap for DocMapMock2 {
         fn get(&self, doc_id: i32) -> i32 {
             let mapped = self.doc_map[doc_id as usize];
-            if self.live_docs.is_none() || self.live_docs.as_ref().unwrap().get(mapped) {
+            if self.live_docs.is_none()
+                || self.live_docs.as_ref().unwrap().get(mapped)
+            {
                 mapped
             } else {
                 -1
@@ -506,7 +522,8 @@ pub mod tests {
         if random.random_bool(0.5) {
             let mut bitset = FixedBitSet::new(tot_doc_count);
             bitset.set_with_range(0, tot_doc_count);
-            let delete_attempts = TestUtil::next_int(&mut random, 1, tot_doc_count);
+            let delete_attempts =
+                TestUtil::next_int(&mut random, 1, tot_doc_count);
             for _ in 0..delete_attempts {
                 bitset.clear_with_index(random.random_range(0..tot_doc_count));
             }
@@ -539,7 +556,11 @@ pub mod tests {
             if let Some(ref live) = live_docs {
                 count = live.next_set_bit(count);
             }
-            assert_eq!(count, sub.mapped_doc_id, "doc mismatch at count {}", count);
+            assert_eq!(
+                count, sub.mapped_doc_id,
+                "doc mismatch at count {}",
+                count
+            );
             count += 1;
         }
 

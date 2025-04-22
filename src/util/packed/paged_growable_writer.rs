@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::Result;
-use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
+use crate::util::packed::abstract_paged_mutable::{
+    AbstractPagedMutable, AbstractPagedMutableBase,
+};
 use crate::util::packed::growable_writer::GrowableWriter;
 use crate::util::packed::mutable_enum::MutableEnum;
 /// A [`PagedGrowableWriter`]. This structure slices data into fixed-size blocks
@@ -35,19 +37,34 @@ pub(crate) struct PagedGrowableWriter {
     fill_page: bool,
 }
 impl PagedGrowableWriter {
-    pub fn new(start_bits_per_value: i32, acceptable_overhead_ratio: f32, fill_page: bool) -> Self {
+    pub fn new(
+        start_bits_per_value: i32,
+        acceptable_overhead_ratio: f32,
+        fill_page: bool,
+    ) -> Self {
         PagedGrowableWriter {
             acceptable_overhead_ratio,
             bits_per_value: start_bits_per_value,
             fill_page,
         }
     }
-    pub fn with_fill_page(start_bits_per_value: i32, acceptable_overhead_ratio: f32) -> Self {
-        PagedGrowableWriter::new(start_bits_per_value, acceptable_overhead_ratio, true)
+    pub fn with_fill_page(
+        start_bits_per_value: i32,
+        acceptable_overhead_ratio: f32,
+    ) -> Self {
+        PagedGrowableWriter::new(
+            start_bits_per_value,
+            acceptable_overhead_ratio,
+            true,
+        )
     }
 }
 impl AbstractPagedMutableBase for PagedGrowableWriter {
-    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum> {
+    fn new_mutable(
+        &self,
+        value_count: i32,
+        bits_per_value: i32,
+    ) -> Result<MutableEnum> {
         Ok(MutableEnum::GrowableW(GrowableWriter::new(
             bits_per_value,
             value_count,
@@ -61,8 +78,11 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
         new_size: i64,
         page_size: i32,
     ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>> {
-        let sub_read =
-            PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false);
+        let sub_read = PagedGrowableWriter::new(
+            self.bits_per_value,
+            self.acceptable_overhead_ratio,
+            false,
+        );
         AbstractPagedMutable::new(new_size, page_size, sub_read)
     }
 

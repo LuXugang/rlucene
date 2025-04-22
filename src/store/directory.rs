@@ -87,7 +87,11 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the file to create.
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType>;
+    fn create_output(
+        &mut self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexOutputType>;
 
     /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance
     /// for appending data to this file.
@@ -143,7 +147,11 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `name` - The name of an existing file.
     type IndexInputType: IndexInput;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType>;
+    fn open_input(
+        &self,
+        name: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexInputType>;
 
     /// Opens a checksum-computing stream for reading an existing file.
     ///
@@ -193,7 +201,8 @@ pub trait Directory: Display + Sized {
 
         let result = (|| -> Result<()> {
             let dir = from.lock();
-            let mut is = dir.open_input(src, &IOContext::read_once_io_context()?)?;
+            let mut is =
+                dir.open_input(src, &IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context)?;
             let length = IndexInput::length(&is);
             os.copy_bytes(&mut is, length)?;
