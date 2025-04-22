@@ -41,7 +41,7 @@ use std::sync::Arc;
 /// use rlucene::util::error::lucene_error::{LuceneError, Result};
 /// struct MyStruct;
 /// impl MyStruct{
-///    fn do_something(&self) {
+///    fn do_something(&mut self) {
 ///     }
 /// }
 ///
@@ -51,7 +51,7 @@ use std::sync::Arc;
 ///        // Help the compiler infer types.
 ///         Ok::<(), LuceneError>(())
 ///     })?;
-///     state.access(|s| {
+///     state.access(|mut s| {
 ///         s.do_something();
 ///        // Help the compiler infer types.
 ///         Ok::<(), LuceneError>(())

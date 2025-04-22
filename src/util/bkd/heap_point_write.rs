@@ -368,6 +368,7 @@ where
 #[derive(Debug, Clone)]
 pub(crate) struct HeapPointValue {
     pub(crate) offset: i32,
+    // TODO: 未完成 should replace with BytesRef<Rc<RefCell<Vec<u8>>>>
     pub(crate) value: Rc<RefCell<Vec<u8>>>,
     pub(crate) packed_value_length: i32,
     pub(crate) packed_value_doc_id_length: i32,
