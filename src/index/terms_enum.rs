@@ -62,12 +62,15 @@ where
     ///
     /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that the
     /// term may not exist without performing any I/O.
-    // fn prepare_seek_exact(
-    //     &mut self,
-    //     text: BytesRef<AV>,
-    // ) -> Result<impl FnMut() -> Result<bool> + '_> {
-    //     Ok(move || self.seek_exact(&text))
-    // }
+    fn prepare_seek_exact<'a>(
+        &'a mut self,
+        text: BytesRef<AV>,
+    ) -> Result<impl FnMut() -> Result<bool> + 'a>
+    where
+        AV: 'a,
+    {
+        Ok(move || self.seek_exact(&text))
+    }
 
     /// Seeks to the specified term, if it exists, or to the next (ceiling) term.
     /// Returns `SeekStatus` to indicate whether the exact term was found,
